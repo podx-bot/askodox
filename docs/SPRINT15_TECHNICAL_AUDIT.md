@@ -3,6 +3,18 @@
 ## Scope and method
 The feature-first Flutter application, routes, providers, repositories, bundled catalog, localization resources, and tests were statically inventoried. The required Flutter commands were attempted; this container has no Flutter SDK, so analyzer, tests, and builds require CI or a Flutter workstation.
 
+## Main-branch integration verification
+The Sprint 15 branch was reconciled with the latest available `main` history after the
+Sprint 13–15 integrations. Conflict resolution retained the complete Sprint 12
+communication surface (buyer requests, followed shops, notification preferences,
+and seller engagement), together with Sprint 13 discovery and analytics, Sprint 14
+offline/security/privacy support, and Sprint 15 beta feedback and release tooling.
+
+The post-merge audit also checked the repository for unresolved conflict markers and
+reviewed the route inventory and module tests for each retained feature area. Flutter
+analysis and tests remain mandatory in CI; locally they could not start because this
+execution image does not include the Flutter executable.
+
 ## Issues found and fixed
 - Unknown environment values produced an opaque enum exception. Configuration now reports the offending key and explicitly exposes safe demo/developer feature gates.
 - Unknown links had no deliberate safe destination. GoRouter now renders a non-sensitive not-found message.
