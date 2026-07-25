@@ -6,6 +6,8 @@ import '../domain/entities/catalog.dart';
 import '../domain/entities/category.dart';
 import 'widgets/product_card.dart';
 import 'widgets/product_request_actions.dart';
+import '../../buyer/application/buyer_providers.dart';
+import '../../buyer/presentation/widgets/location_selector.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -55,6 +57,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     trailing: query.isEmpty ? null : [IconButton(tooltip: 'Clear', onPressed: () { controller.clear(); ref.read(searchQueryProvider.notifier).state = ''; focusNode.requestFocus(); }, icon: const Icon(Icons.close))],
                     onChanged: (value) => ref.read(searchQueryProvider.notifier).state = value,
                   ),
+                  const SizedBox(height: 10),
+                  const LocationSelector(),
+                  if (query.isEmpty && ref.watch(recentSearchesProvider).isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text('Recently searched', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Wrap(spacing: 8, children: ref.watch(recentSearchesProvider).map((value) => ActionChip(label: Text(value), onPressed: () { controller.text = value; ref.read(searchQueryProvider.notifier).state = value; })).toList()),
+                  ],
                   if (focusNode.hasFocus && query.isNotEmpty)
                     catalog.when(
                       loading: () => const LinearProgressIndicator(),

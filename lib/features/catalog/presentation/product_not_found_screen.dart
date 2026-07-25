@@ -22,7 +22,7 @@ class ProductNotFoundScreen extends StatelessWidget {
                   child: const Icon(Icons.manage_search_rounded, size: 68),
                 ),
                 const SizedBox(height: 28),
-                Text('We couldn’t find that product', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                Text('This product is not available in the PODX catalog yet.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 10),
                 Text('Tell us what you’re looking for. A photo helps local sellers identify it faster.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
                 const SizedBox(height: 28),

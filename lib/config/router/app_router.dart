@@ -44,6 +44,12 @@ final appRouter = GoRouter(
         ]),
         StatefulShellBranch(routes: [
           GoRoute(
+            path: '/alerts',
+            builder: (context, state) => const PlaceholderScreen(title: 'Alerts', icon: 'notifications'),
+          ),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
           ),
