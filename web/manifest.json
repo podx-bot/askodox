@@ -1,0 +1,11 @@
+{
+  "name": "PODX",
+  "short_name": "PODX",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F8F8FC",
+  "theme_color": "#5B4BE8",
+  "description": "Discover products and shops near you.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}
