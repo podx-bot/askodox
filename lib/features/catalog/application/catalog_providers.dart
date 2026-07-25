@@ -17,7 +17,9 @@ final filteredProductsProvider = Provider.autoDispose<AsyncValue<List<Product>>>
   final category = ref.watch(selectedCategoryProvider);
   final subcategory = ref.watch(selectedSubcategoryProvider);
   return ref.watch(catalogProvider).whenData((catalog) => catalog.products.where((product) {
-        final searchable = [product.name, product.brand.name, ...product.tags].join(' ').toLowerCase();
+        final categoryName = catalog.categories.where((item) => item.id == product.categoryId).map((item) => item.name).join(' ');
+        final subcategoryName = catalog.categories.expand((item) => item.subcategories).where((item) => item.id == product.subcategoryId).map((item) => item.name).join(' ');
+        final searchable = [product.name, product.brand.name, categoryName, subcategoryName, ...product.tags].join(' ').toLowerCase();
         return (query.isEmpty || searchable.contains(query)) &&
             (category == null || product.categoryId == category) &&
             (subcategory == null || product.subcategoryId == subcategory);

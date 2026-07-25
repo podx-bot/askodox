@@ -186,5 +186,11 @@
   "customerEngagement": "కస్టమర్ ఎంగేజ్‌మెంట్",
   "campaigns": "ప్రచారాలు",
   "followers": "అనుచరులు",
-  "announcements": "ప్రకటనలు"
+  "announcements": "ప్రకటనలు",
+  "smartSearch": "స్మార్ట్ శోధన",
+  "barcodeSearch": "బార్‌కోడ్ శోధన",
+  "ocrProductMatching": "OCR ఉత్పత్తి సరిపోలిక",
+  "imageSearch": "చిత్ర శోధన",
+  "voiceSearch": "వాయిస్ శోధన",
+  "mockDataOnly": "డెమో మాత్రమే • స్థానిక డేటా • బాహ్య APIలు లేవు"
 }

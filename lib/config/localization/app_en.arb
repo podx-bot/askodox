@@ -186,5 +186,11 @@
   "customerEngagement": "Customer engagement",
   "campaigns": "Campaigns",
   "followers": "Followers",
-  "announcements": "Announcements"
+  "announcements": "Announcements",
+  "smartSearch": "Smart search",
+  "barcodeSearch": "Barcode search",
+  "ocrProductMatching": "OCR product matching",
+  "imageSearch": "Image search",
+  "voiceSearch": "Voice search",
+  "mockDataOnly": "Demo only • local data • no external APIs"
 }
