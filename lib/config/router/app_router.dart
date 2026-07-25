@@ -16,7 +16,10 @@ import '../../features/seller/presentation/seller_registration_screen.dart';
 import '../../features/seller/presentation/seller_requests_screen.dart';
 import '../../features/seller/presentation/seller_shell.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../../shared/widgets/placeholder_screen.dart';
+import '../../features/watchlist/presentation/alerts_screen.dart';
+import '../../features/watchlist/presentation/alert_simulator_screen.dart';
+import '../../features/watchlist/presentation/preferences_screen.dart';
+import '../../features/watchlist/presentation/watchlist_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -36,16 +39,13 @@ final appRouter = GoRouter(
         StatefulShellBranch(routes: [
           GoRoute(
             path: '/watchlist',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Watchlist',
-              icon: 'favorite',
-            ),
+            builder: (context, state) => const WatchlistScreen(),
           ),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(
             path: '/alerts',
-            builder: (context, state) => const PlaceholderScreen(title: 'Alerts', icon: 'notifications'),
+            builder: (context, state) => const AlertsScreen(),
           ),
         ]),
         StatefulShellBranch(routes: [
@@ -61,6 +61,8 @@ final appRouter = GoRouter(
       builder: (context, state) => ProductDetailsScreen(productId: state.pathParameters['id']!),
     ),
     GoRoute(path: '/product-not-found', builder: (context, state) => const ProductNotFoundScreen()),
+    GoRoute(path: '/notification-preferences', builder: (context, state) => const NotificationPreferencesScreen()),
+    GoRoute(path: '/alert-simulator', builder: (context, state) => const AlertSimulatorScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
     ShellRoute(
