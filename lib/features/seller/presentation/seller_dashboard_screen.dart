@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../application/seller_providers.dart';
+import '../domain/entities/seller_models.dart';
 
 class SellerDashboardScreen extends ConsumerWidget {
   const SellerDashboardScreen({super.key});
@@ -22,9 +23,9 @@ class SellerDashboardScreen extends ConsumerWidget {
       body: Center(child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1100),
         child: ListView(padding: const EdgeInsets.all(20), children: [
-          Text('Hello, ${seller.profile?.ownerName ?? 'Seller'}!', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text('Hello, ${seller.seller?.ownerName ?? 'Seller'}!', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          Text(seller.profile?.shopName ?? 'Here is how your shop is doing today.', style: Theme.of(context).textTheme.bodyLarge),
+          Text(seller.seller?.shop.name ?? 'Here is how your shop is doing today.', style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: 24),
           LayoutBuilder(builder: (context, size) => GridView.count(
             shrinkWrap: true,
@@ -37,7 +38,10 @@ class SellerDashboardScreen extends ConsumerWidget {
               _Metric(label: 'Total products', value: products.length, icon: Icons.inventory_2_outlined, color: Colors.indigo),
               _Metric(label: 'Active products', value: products.where((item) => item.isActive).length, icon: Icons.check_circle_outline, color: Colors.green),
               _Metric(label: 'Out of stock', value: products.where((item) => !item.isActive).length, icon: Icons.remove_shopping_cart_outlined, color: Colors.orange),
-              _Metric(label: 'Pending requests', value: seller.pendingRequests, icon: Icons.pending_actions_outlined, color: Colors.purple),
+              _Metric(label: 'Price updates', value: products.where((item) => item.needsPriceRefresh).length, icon: Icons.update, color: Colors.blue),
+              _Metric(label: 'New requests', value: seller.requests.where((item) => !item.isSellerSubmitted).length, icon: Icons.pending_actions_outlined, color: Colors.purple),
+              _Metric(label: 'Verification', value: seller.seller?.verificationStatus.index ?? 0, icon: Icons.verified_user_outlined, color: Colors.teal),
+              _Metric(label: 'Trust score', value: seller.seller?.trustScore?.round() ?? 0, icon: Icons.workspace_premium_outlined, color: Colors.amber),
             ],
           )),
           const SizedBox(height: 28),
@@ -45,7 +49,7 @@ class SellerDashboardScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Card(child: Column(children: [
             for (var i = 0; i < products.take(4).length; i++) ...[
-              ListTile(leading: CircleAvatar(child: Text(products[i].icon)), title: Text(products[i].name), subtitle: Text(products[i].stock == 0 ? 'Out of stock' : '${products[i].stock} in stock'), trailing: Text('₹${products[i].price.toStringAsFixed(0)}')),
+              ListTile(leading: CircleAvatar(child: Text(products[i].icon)), title: Text(products[i].name), subtitle: Text(products[i].stockStatus == StockStatus.outOfStock ? 'Out of stock' : '${products[i].quantity} available'), trailing: Text('₹${products[i].price.toStringAsFixed(0)}')),
               if (i != products.take(4).length - 1) const Divider(height: 1),
             ],
           ])),

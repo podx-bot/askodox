@@ -12,5 +12,14 @@
   "watchlist": "వాచ్‌లిస్ట్",
   "profile": "ప్రొఫైల్",
   "notifications": "నోటిఫికేషన్లు",
-  "retry": "మళ్లీ ప్రయత్నించండి"
+  "retry": "మళ్లీ ప్రయత్నించండి",
+  "sellerDashboard": "విక్రేత డ్యాష్‌బోర్డ్",
+  "sellerProducts": "ఉత్పత్తులు",
+  "sellerRequests": "అభ్యర్థనలు",
+  "sellerInsights": "విశ్లేషణలు",
+  "sellerProfile": "విక్రేత ప్రొఫైల్",
+  "inStock": "స్టాక్‌లో ఉంది",
+  "lowStock": "తక్కువ స్టాక్",
+  "outOfStock": "స్టాక్ లేదు",
+  "verificationPending": "ధృవీకరణ పెండింగ్‌లో ఉంది"
 }
