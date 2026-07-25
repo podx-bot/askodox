@@ -45,6 +45,15 @@ class SellerDashboardScreen extends ConsumerWidget {
             ],
           )),
           const SizedBox(height: 28),
+          Text('Business analytics', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            FilledButton.tonalIcon(onPressed:()=>context.push('/seller/analytics'),icon:const Icon(Icons.analytics_outlined),label:const Text('Dashboard')),
+            FilledButton.tonalIcon(onPressed:()=>context.push('/seller/analytics/products'),icon:const Icon(Icons.inventory_outlined),label:const Text('Product performance')),
+            FilledButton.tonalIcon(onPressed:()=>context.push('/seller/analytics/market'),icon:const Icon(Icons.public),label:const Text('Market intelligence')),
+            FilledButton.tonalIcon(onPressed:()=>context.push('/seller/analytics/privacy'),icon:const Icon(Icons.privacy_tip_outlined),label:const Text('Privacy')),
+          ]),
+          const SizedBox(height: 28),
           Row(children: [Expanded(child: Text('Inventory overview', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))), FilledButton.icon(onPressed: () => context.push('/seller/products/add'), icon: const Icon(Icons.add), label: const Text('Add product'))]),
           const SizedBox(height: 12),
           Card(child: Column(children: [
