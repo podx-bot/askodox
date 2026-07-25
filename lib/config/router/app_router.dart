@@ -22,6 +22,10 @@ import '../../features/watchlist/presentation/preferences_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
 import '../../features/admin/application/admin_controller.dart';
 import '../../features/admin/presentation/admin_screens.dart';
+import '../../features/location/presentation/location_setup_screen.dart';
+import '../../features/location/presentation/nearby_shops_screen.dart';
+import '../../features/location/presentation/shop_details_screen.dart';
+import '../../features/location/presentation/seller_location_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -58,6 +62,12 @@ final appRouter = GoRouter(
         ]),
       ],
     ),
+    GoRoute(path: '/location', builder: (context, state) => const LocationSetupScreen()),
+    GoRoute(path: '/nearby', builder: (context, state) => const NearbyShopsScreen()),
+    GoRoute(path: '/shop/:id', builder: (context, state) => ShopDetailsScreen(shopId: state.pathParameters['id']!)),
+    GoRoute(path: '/map/shop/:id', redirect: (context, state) => '/nearby'),
+    GoRoute(path: '/nearby/product/:id', redirect: (context, state) => '/nearby'),
+    GoRoute(path: '/alert/:id/map', redirect: (context, state) => '/nearby'),
     GoRoute(
       path: '/product/:id',
       builder: (context, state) => ProductDetailsScreen(productId: state.pathParameters['id']!),
@@ -82,6 +92,7 @@ final appRouter = GoRouter(
         GoRoute(path: '/seller/requests', builder: (context, state) => const SellerRequestsScreen()),
         GoRoute(path: '/seller/insights', builder: (context, state) => const SellerInsightsScreen()),
         GoRoute(path: '/seller/profile', builder: (context, state) => const SellerProfileScreen()),
+        GoRoute(path: '/seller/location', builder: (context, state) => const SellerLocationScreen()),
       ],
     ),
     GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
