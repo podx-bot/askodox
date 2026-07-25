@@ -1,0 +1,4 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/location/domain/geo_distance_service.dart';
+import 'package:podx/features/location/domain/geo_models.dart';
+void main(){const service=GeoDistanceService();group('GeoDistanceService',(){test('calculates Haversine distance',(){final d=service.distanceKilometres(const GeoPoint(17.3850,78.4867),const GeoPoint(17.4435,78.3772));expect(d,closeTo(13.3,0.5));});test('filters by radius',(){const a=GeoPoint(17.4156,78.4347),b=GeoPoint(17.4170,78.4370);expect(service.isWithinRadius(a,b,500),isTrue);expect(service.isWithinRadius(a,b,100),isFalse);});test('handles invalid coordinates safely',(){expect(service.distanceMetres(const GeoPoint(91,0),const GeoPoint(0,0)),isNull);expect(service.isWithinRadius(const GeoPoint(0,181),const GeoPoint(0,0),100),isFalse);});});}
