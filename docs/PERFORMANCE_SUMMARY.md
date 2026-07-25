@@ -1,0 +1,3 @@
+# Sprint 15 performance summary
+
+The application uses lazy `ListView`/builder patterns on list-heavy screens, repository/provider boundaries for expensive work, pagination utilities, cached/offline services, and an indexed shell to avoid recreating buyer tabs. Existing performance tests cover debouncing, pagination, cache eviction, telemetry, and sync behavior. No production profiling was possible without Flutter/device tooling. Before beta expansion, capture startup and frame timings on a low-end Android device and Chrome, test a catalog at least ten times the demo size, inspect Riverpod rebuilds, and verify analytics/admin tables and charts at narrow widths. Developer performance tools must remain absent from release routing.
