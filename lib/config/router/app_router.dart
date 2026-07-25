@@ -43,6 +43,7 @@ import '../../features/monetization/presentation/admin_monetization_screen.dart'
 import '../../features/communication/domain/communication_models.dart';
 import '../../features/communication/presentation/communication_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
+import '../../features/privacy/presentation/privacy_center_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -116,6 +117,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/alert-simulator', builder: (context, state) => const AlertSimulatorScreen()),
     GoRoute(path: '/analytics/buyer', builder: (context, state) => const BuyerInsightsScreen()),
     GoRoute(path: '/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen()),
+    GoRoute(path: '/privacy', builder: (context, state) => const PrivacyCenterScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
     ShellRoute(
