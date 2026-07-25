@@ -21,5 +21,11 @@
   "inStock": "స్టాక్‌లో ఉంది",
   "lowStock": "తక్కువ స్టాక్",
   "outOfStock": "స్టాక్ లేదు",
-  "verificationPending": "ధృవీకరణ పెండింగ్‌లో ఉంది"
+  "verificationPending": "ధృవీకరణ పెండింగ్‌లో ఉంది",
+  "adminDashboard": "అడ్మిన్ డ్యాష్‌బోర్డ్",
+  "sellerVerification": "విక్రేత ధృవీకరణ",
+  "productRequests": "ఉత్పత్తి అభ్యర్థనలు",
+  "moderation": "మోడరేషన్",
+  "support": "సహాయం",
+  "auditLog": "ఆడిట్ లాగ్"
 }
