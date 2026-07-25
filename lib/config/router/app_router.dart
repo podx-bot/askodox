@@ -33,6 +33,8 @@ import '../../features/location/presentation/seller_location_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
+import '../../features/monetization/presentation/monetization_screens.dart';
+import '../../features/monetization/presentation/admin_monetization_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -109,8 +111,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(path: '/seller/insights', builder: (context, state) => const SellerInsightsScreen()),
         GoRoute(path: '/seller/profile', builder: (context, state) => const SellerProfileScreen()),
         GoRoute(path: '/seller/location', builder: (context, state) => const SellerLocationScreen()),
+        GoRoute(path: '/seller/usage', builder: (context, state) => const UsageScreen()),
+        GoRoute(path: '/seller/plans', builder: (context, state) => const PricingScreen(), routes: [
+          GoRoute(path: 'compare', builder: (context, state) => const PlanComparisonScreen()),
+          GoRoute(path: 'review', builder: (context, state) => const OrderReviewScreen()),
+          GoRoute(path: 'payment', builder: (context, state) => const PaymentScreen()),
+        ]),
+        GoRoute(path: '/seller/subscription', builder: (context, state) => const SubscriptionScreen()),
+        GoRoute(path: '/seller/invoices', builder: (context, state) => const InvoiceHistoryScreen()),
       ],
     ),
+    GoRoute(path: '/admin/subscriptions', builder: (context, state) => const AdminMonetizationScreen()),
     GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
     ShellRoute(
       builder: (context, state, child) => AdminShell(child: child),
