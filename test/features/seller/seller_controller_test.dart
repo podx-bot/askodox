@@ -29,4 +29,38 @@ void main() {
     expect(request.productName, 'Missing item');
     expect(request.isSellerSubmitted, isTrue);
   });
+
+  test('price and stock can be updated before a product is removed', () {
+    final product = controller.state.products.first;
+
+    controller.updateProduct(
+      product.id,
+      price: 299,
+      stockStatus: StockStatus.lowStock,
+      quantity: 2,
+    );
+
+    final updated = controller.state.products.firstWhere((item) => item.id == product.id);
+    expect(updated.price, 299);
+    expect(updated.quantity, 2);
+    expect(updated.stockStatus, StockStatus.lowStock);
+
+    controller.deleteProduct(product.id);
+    expect(controller.state.products.any((item) => item.id == product.id), isFalse);
+  });
+
+  test('seller response replaces an earlier response for the same request', () async {
+    const unavailable = SellerResponse(requestId: 'request-1', isAvailable: false);
+    const available = SellerResponse(
+      requestId: 'request-1',
+      isAvailable: true,
+      price: 160,
+      stock: 12,
+    );
+
+    await controller.respond(unavailable);
+    await controller.respond(available);
+
+    expect(controller.state.responses, [available]);
+  });
 }

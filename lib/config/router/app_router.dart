@@ -61,13 +61,18 @@ final appRouter = GoRouter(
       builder: (context, state, child) => SellerShell(child: child),
       routes: [
         GoRoute(path: '/seller/dashboard', builder: (context, state) => const SellerDashboardScreen()),
-        GoRoute(path: '/seller/products', builder: (context, state) => const SellerProductsScreen()),
+        GoRoute(
+          path: '/seller/products',
+          builder: (context, state) => const SellerProductsScreen(),
+          routes: [
+            GoRoute(path: 'add', builder: (context, state) => const AddSellerProductScreen()),
+            GoRoute(path: 'request', builder: (context, state) => const RequestNewProductScreen()),
+          ],
+        ),
         GoRoute(path: '/seller/requests', builder: (context, state) => const SellerRequestsScreen()),
         GoRoute(path: '/seller/insights', builder: (context, state) => const SellerInsightsScreen()),
         GoRoute(path: '/seller/profile', builder: (context, state) => const SellerProfileScreen()),
       ],
     ),
-    GoRoute(path: '/seller/products/add', builder: (context, state) => const AddSellerProductScreen()),
-    GoRoute(path: '/seller/products/request', builder: (context, state) => const RequestNewProductScreen()),
   ],
 );
