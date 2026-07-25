@@ -15,6 +15,7 @@ class ProfileScreen extends StatelessWidget {
       Card(child: ListTile(leading: const Icon(Icons.insights_outlined), title: const Text('Buyer insights'), subtitle: const Text('Review your private, local activity summaries.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/analytics/buyer'))),
       Card(child: ListTile(leading: const Icon(Icons.privacy_tip_outlined), title: const Text('Analytics privacy'), subtitle: const Text('Control privacy-safe local analytics.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/analytics/privacy'))),
       Card(child: ListTile(leading: const Icon(Icons.shield_outlined), title: Text(l.privacyCenter), subtitle: Text(l.privacyIntro), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/privacy'))),
+      Card(child: ListTile(leading: const Icon(Icons.rate_review_outlined), title: const Text('Beta feedback'), subtitle: const Text('Report a beta issue or share a suggestion locally.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/beta-feedback'))),
       const SizedBox(height: 12),
       Card(child: ListTile(leading: const Icon(Icons.forum_outlined), title: const Text('Communication center'), subtitle: const Text('Notifications, product requests, followed shops and preferences.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/communications'))),
       const SizedBox(height: 12),

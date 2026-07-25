@@ -44,10 +44,12 @@ import '../../features/communication/domain/communication_models.dart';
 import '../../features/communication/presentation/communication_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
+import '../../features/feedback/presentation/beta_feedback_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
   return GoRouter(
+  errorBuilder: (context, state) => AuthMessageScreen(title: 'Page not found', message: 'This link is unavailable or no longer exists. (${state.uri.path})'),
   redirect: (context, state) => const RouteGuard().redirect(session, state.matchedLocation),
   initialLocation: '/',
   routes: [
@@ -55,12 +57,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/auth/session-expired', builder: (context, state) => const AuthMessageScreen(title: 'Session expired', message: 'Your session expired. Sign in again to continue.')),
     GoRoute(path: '/account-status', builder: (context, state) => const AuthMessageScreen(title: 'Account suspended', message: 'This account is suspended. Contact support for help.')),
     GoRoute(path: '/forbidden', builder: (context, state) => const AuthMessageScreen(title: 'Access denied', message: 'Your current role cannot access this area.')),
-    GoRoute(path: '/developer', builder: (context, state) => const DeveloperSettingsScreen()),
-    GoRoute(path: '/sync-status', builder: (context, state) => const SyncStatusScreen()),
-    GoRoute(path: '/conflict/:id', builder: (context, state) => ConflictResolutionScreen(itemId: state.pathParameters['id']!)),
-    GoRoute(path: '/storage-usage', builder: (context, state) => const StorageUsageScreen()),
-    if (kDebugMode)
+    if (kDebugMode) ...[
+      GoRoute(path: '/developer', builder: (context, state) => const DeveloperSettingsScreen()),
+      GoRoute(path: '/sync-status', builder: (context, state) => const SyncStatusScreen()),
+      GoRoute(path: '/conflict/:id', builder: (context, state) => ConflictResolutionScreen(itemId: state.pathParameters['id']!)),
+      GoRoute(path: '/storage-usage', builder: (context, state) => const StorageUsageScreen()),
       GoRoute(path: '/performance-monitor', builder: (context, state) => const PerformanceMonitorScreen()),
+    ],
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
@@ -118,6 +121,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/analytics/buyer', builder: (context, state) => const BuyerInsightsScreen()),
     GoRoute(path: '/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen()),
     GoRoute(path: '/privacy', builder: (context, state) => const PrivacyCenterScreen()),
+    GoRoute(path: '/beta-feedback', builder: (context, state) => const BetaFeedbackScreen()),
+    if (kDebugMode)
+      GoRoute(path: '/developer/feedback', builder: (context, state) => const SubmittedFeedbackScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
     ShellRoute(
