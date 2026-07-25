@@ -174,5 +174,17 @@
         "type": "int"
       }
     }
-  }
+  },
+  "communicationCenter": "Communication center",
+  "productRequestsNew": "Product requests",
+  "followedShops": "Followed shops",
+  "notificationPreferencesNew": "Notification preferences",
+  "markAllRead": "Mark all read",
+  "archive": "Archive",
+  "delete": "Delete",
+  "requestProduct": "Request product",
+  "customerEngagement": "Customer engagement",
+  "campaigns": "Campaigns",
+  "followers": "Followers",
+  "announcements": "Announcements"
 }

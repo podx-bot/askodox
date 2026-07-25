@@ -35,6 +35,8 @@ import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
 import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
+import '../../features/communication/domain/communication_models.dart';
+import '../../features/communication/presentation/communication_screens.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -92,6 +94,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
     GoRoute(path: '/product-not-found', builder: (context, state) => const ProductNotFoundScreen()),
     GoRoute(path: '/notification-preferences', builder: (context, state) => const NotificationPreferencesScreen()),
+    GoRoute(path: '/communications', builder: (context, state) => const CommunicationHubScreen()),
+    GoRoute(path: '/communications/notifications', builder: (context, state) => const NotificationCenterScreen()),
+    GoRoute(path: '/communications/requests', builder: (context, state) => const BuyerRequestsScreen()),
+    GoRoute(path: '/communications/following', builder: (context, state) => const FollowedShopsScreen()),
+    GoRoute(path: '/communications/preferences', builder: (context, state) => const CommunicationPreferencesScreen()),
     GoRoute(path: '/alert-simulator', builder: (context, state) => const AlertSimulatorScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
@@ -119,10 +126,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ]),
         GoRoute(path: '/seller/subscription', builder: (context, state) => const SubscriptionScreen()),
         GoRoute(path: '/seller/invoices', builder: (context, state) => const InvoiceHistoryScreen()),
+        GoRoute(path: '/seller/engagement', builder: (context, state) => const SellerEngagementScreen()),
+        GoRoute(path: '/seller/notifications', builder: (context, state) => const NotificationCenterScreen(audience: Audience.seller)),
       ],
     ),
     GoRoute(path: '/admin/subscriptions', builder: (context, state) => const AdminMonetizationScreen()),
     GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
+    GoRoute(path: '/admin/announcements', builder: (context, state) => const AnnouncementScreen()),
     ShellRoute(
       builder: (context, state, child) => AdminShell(child: child),
       routes: [

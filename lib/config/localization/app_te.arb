@@ -174,5 +174,17 @@
         "type": "int"
       }
     }
-  }
+  },
+  "communicationCenter": "కమ్యూనికేషన్ కేంద్రం",
+  "productRequestsNew": "ఉత్పత్తి అభ్యర్థనలు",
+  "followedShops": "అనుసరిస్తున్న దుకాణాలు",
+  "notificationPreferencesNew": "నోటిఫికేషన్ ప్రాధాన్యతలు",
+  "markAllRead": "అన్నీ చదివినట్లు గుర్తించండి",
+  "archive": "ఆర్కైవ్",
+  "delete": "తొలగించు",
+  "requestProduct": "ఉత్పత్తిని అభ్యర్థించండి",
+  "customerEngagement": "కస్టమర్ ఎంగేజ్‌మెంట్",
+  "campaigns": "ప్రచారాలు",
+  "followers": "అనుచరులు",
+  "announcements": "ప్రకటనలు"
 }
