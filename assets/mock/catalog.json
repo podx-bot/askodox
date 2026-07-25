@@ -1,0 +1,25 @@
+{
+  "brands": [
+    {"id":"freshfields","name":"FreshFields","verified":true},
+    {"id":"soundcore","name":"SoundCore","verified":true},
+    {"id":"loom","name":"Loom & Lane","verified":true},
+    {"id":"nest","name":"Nest Living","verified":false},
+    {"id":"brew","name":"Brew District","verified":true}
+  ],
+  "categories": [
+    {"id":"groceries","name":"Groceries","icon":"🥑","subcategories":[{"id":"fresh","name":"Fresh produce"},{"id":"beverages","name":"Beverages"}]},
+    {"id":"electronics","name":"Electronics","icon":"🎧","subcategories":[{"id":"audio","name":"Audio"},{"id":"accessories","name":"Accessories"}]},
+    {"id":"fashion","name":"Fashion","icon":"👟","subcategories":[{"id":"footwear","name":"Footwear"},{"id":"apparel","name":"Apparel"}]},
+    {"id":"home","name":"Home & living","icon":"🪴","subcategories":[{"id":"decor","name":"Decor"},{"id":"kitchen","name":"Kitchen"}]}
+  ],
+  "products": [
+    {"id":"avocado-box","name":"Farm Fresh Avocado Box","description":"A hand-picked box of six creamy Hass avocados, sourced from nearby farms and packed fresh for your table.","price":349,"originalPrice":449,"icon":"🥑","categoryId":"groceries","subcategoryId":"fresh","brandId":"freshfields","rating":4.8,"reviewCount":124,"inStock":true,"tags":["avocado","fruit","organic","fresh"]},
+    {"id":"cold-brew","name":"Classic Cold Brew","description":"Small-batch cold brew with a smooth chocolate finish. Ready to drink and best served chilled.","price":189,"originalPrice":220,"icon":"🧋","categoryId":"groceries","subcategoryId":"beverages","brandId":"brew","rating":4.6,"reviewCount":88,"inStock":true,"tags":["coffee","drink","cold brew"]},
+    {"id":"wave-headphones","name":"Wave Wireless Headphones","description":"Immersive over-ear audio, soft memory cushions and up to 35 hours of listening on one charge.","price":2499,"originalPrice":3299,"icon":"🎧","categoryId":"electronics","subcategoryId":"audio","brandId":"soundcore","rating":4.7,"reviewCount":356,"inStock":true,"tags":["wireless","headphones","music","bluetooth"]},
+    {"id":"pocket-charger","name":"20W Pocket Charger","description":"Compact fast charger with intelligent temperature protection and a travel-friendly foldable plug.","price":799,"originalPrice":999,"icon":"🔌","categoryId":"electronics","subcategoryId":"accessories","brandId":"soundcore","rating":4.5,"reviewCount":210,"inStock":false,"tags":["charger","phone","usb c","fast"]},
+    {"id":"street-sneakers","name":"Everyday Street Sneakers","description":"Lightweight everyday sneakers made with breathable canvas and a cushioned recycled-rubber sole.","price":1799,"originalPrice":2299,"icon":"👟","categoryId":"fashion","subcategoryId":"footwear","brandId":"loom","rating":4.4,"reviewCount":94,"inStock":true,"tags":["shoes","sneakers","casual"]},
+    {"id":"linen-shirt","name":"Relaxed Linen Shirt","description":"An airy linen-blend shirt in a relaxed silhouette, designed for warm days and easy layering.","price":1299,"originalPrice":1599,"icon":"👕","categoryId":"fashion","subcategoryId":"apparel","brandId":"loom","rating":4.3,"reviewCount":61,"inStock":true,"tags":["shirt","linen","summer"]},
+    {"id":"calm-planter","name":"Calm Ceramic Planter","description":"A softly textured ceramic planter with a drainage tray. Hand-finished, so every piece is unique.","price":649,"originalPrice":799,"icon":"🪴","categoryId":"home","subcategoryId":"decor","brandId":"nest","rating":4.6,"reviewCount":47,"inStock":false,"tags":["plant","pot","decor","ceramic"]},
+    {"id":"pour-over","name":"Glass Pour-over Set","description":"A heat-resistant glass brewer and carafe set for a clean, balanced cup of coffee at home.","price":999,"originalPrice":1299,"icon":"☕","categoryId":"home","subcategoryId":"kitchen","brandId":"brew","rating":4.9,"reviewCount":172,"inStock":true,"tags":["coffee","kitchen","glass","brewer"]}
+  ]
+}

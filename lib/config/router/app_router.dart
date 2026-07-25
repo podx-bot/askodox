@@ -1,6 +1,9 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/catalog/presentation/product_details_screen.dart';
+import '../../features/catalog/presentation/product_not_found_screen.dart';
+import '../../features/catalog/presentation/search_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 
@@ -16,10 +19,7 @@ final appRouter = GoRouter(
         StatefulShellBranch(routes: [
           GoRoute(
             path: '/search',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Search',
-              icon: 'search',
-            ),
+            builder: (context, state) => const SearchScreen(),
           ),
         ]),
         StatefulShellBranch(routes: [
@@ -42,5 +42,10 @@ final appRouter = GoRouter(
         ]),
       ],
     ),
+    GoRoute(
+      path: '/product/:id',
+      builder: (context, state) => ProductDetailsScreen(productId: state.pathParameters['id']!),
+    ),
+    GoRoute(path: '/product-not-found', builder: (context, state) => const ProductNotFoundScreen()),
   ],
 );

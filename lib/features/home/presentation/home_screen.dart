@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../generated/l10n/app_localizations.dart';
-import '../../../models/product.dart';
-import '../application/home_provider.dart';
+import '../../catalog/application/catalog_providers.dart';
+import '../../catalog/domain/entities/product.dart';
+import '../../catalog/presentation/widgets/product_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -58,7 +59,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
-          _Products(products: ref.watch(featuredProductsProvider)),
+          _Products(products: ref.watch(catalogProvider).whenData((catalog) => catalog.products.take(4).toList())),
           const SliverPadding(padding: EdgeInsets.only(bottom: 28)),
         ],
       ),
@@ -79,7 +80,7 @@ class _SectionTitle extends StatelessWidget {
 
 class _Categories extends StatelessWidget {
   const _Categories();
-  static const items = [('Groceries', Icons.local_grocery_store_outlined), ('Fashion', Icons.checkroom), ('Home', Icons.chair_outlined), ('Electronics', Icons.devices_outlined)];
+  static const items = [('Groceries', Icons.local_grocery_store_outlined, 'groceries'), ('Fashion', Icons.checkroom, 'fashion'), ('Home', Icons.chair_outlined, 'home'), ('Electronics', Icons.devices_outlined, 'electronics')];
   @override
   Widget build(BuildContext context) => SizedBox(
         height: 104,
@@ -87,11 +88,15 @@ class _Categories extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           itemCount: items.length,
           separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, index) => Container(
-            width: 112,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(18)),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(items[index].$2, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 8), Text(items[index].$1, maxLines: 1)]),
+          itemBuilder: (context, index) => InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => context.go('/search'),
+            child: Container(
+              width: 112,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(18)),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(items[index].$2, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 8), Text(items[index].$1, maxLines: 1)]),
+            ),
           ),
         ),
       );
@@ -111,33 +116,9 @@ class _Products extends StatelessWidget {
             return SliverGrid.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: count, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .78),
               itemCount: items.length,
-              itemBuilder: (context, index) => _ProductCard(product: items[index]),
+              itemBuilder: (context, index) => ProductCard(product: items[index]),
             );
           }),
-        ),
-      );
-}
-
-class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product});
-  final Product product;
-  @override
-  Widget build(BuildContext context) => Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {},
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Container(width: double.infinity, color: Theme.of(context).colorScheme.primaryContainer, alignment: Alignment.center, child: Text(product.icon, style: const TextStyle(fontSize: 52)))),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(product.shop, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 8),
-                Text('₹${product.price.toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
-              ]),
-            ),
-          ]),
         ),
       );
 }

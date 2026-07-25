@@ -29,5 +29,13 @@ flutter create --platforms=android,ios,web .
 - `services`: integrations such as APIs, storage, and notifications.
 - `shared`: reusable presentation components.
 
-The demo home repository is deliberately replaceable through
-`homeRepositoryProvider`, keeping UI and data sources decoupled.
+The catalog repository is deliberately replaceable through
+`catalogRepositoryProvider`, keeping UI and bundled data sources decoupled.
+
+## Product catalog
+
+The Sprint 2 catalog is backed entirely by `assets/mock/catalog.json`. Its
+repository parses the bundled categories, subcategories, brands, and products;
+Riverpod providers expose search and filters without any network dependency.
+Search results link to responsive product details, while missing or unavailable
+products offer request, image-upload, and notification mock interactions.
