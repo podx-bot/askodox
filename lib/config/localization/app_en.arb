@@ -12,5 +12,14 @@
   "watchlist": "Watchlist",
   "profile": "Profile",
   "notifications": "Notifications",
-  "retry": "Try again"
+  "retry": "Try again",
+  "sellerDashboard": "Seller dashboard",
+  "sellerProducts": "Products",
+  "sellerRequests": "Requests",
+  "sellerInsights": "Insights",
+  "sellerProfile": "Seller profile",
+  "inStock": "In stock",
+  "lowStock": "Low stock",
+  "outOfStock": "Out of stock",
+  "verificationPending": "Verification pending"
 }

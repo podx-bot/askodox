@@ -17,14 +17,15 @@ class _SellerRegistrationScreenState extends ConsumerState<SellerRegistrationScr
   final owner = TextEditingController();
   final mobile = TextEditingController();
   final address = TextEditingController();
+  final latitude = TextEditingController(text: '17.3850');
+  final longitude = TextEditingController(text: '78.4867');
   String category = 'Groceries';
   String photo = '';
-  double latitude = 17.3850;
-  double longitude = 78.4867;
+  String businessId = '';
 
   @override
   void dispose() {
-    for (final controller in [shop, owner, mobile, address]) { controller.dispose(); }
+    for (final controller in [shop, owner, mobile, address, latitude, longitude]) { controller.dispose(); }
     super.dispose();
   }
 
@@ -44,8 +45,9 @@ class _SellerRegistrationScreenState extends ConsumerState<SellerRegistrationScr
             _field(address, 'Shop address', Icons.location_on_outlined, lines: 3),
             DropdownButtonFormField<String>(initialValue: category, decoration: const InputDecoration(labelText: 'Business category', prefixIcon: Icon(Icons.category_outlined)), items: ['Groceries', 'Electronics', 'Fashion', 'Home & living', 'Other'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (value) => setState(() => category = value!)),
             const SizedBox(height: 14),
-            Card(child: ListTile(leading: const Icon(Icons.my_location), title: const Text('GPS location'), subtitle: Text('${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}'), trailing: TextButton(onPressed: () => setState(() { latitude = 17.4401; longitude = 78.3489; }), child: const Text('Use current')))),
+            Row(children: [Expanded(child: _field(latitude, 'Latitude', Icons.my_location, keyboard: const TextInputType.numberWithOptions(decimal: true))), const SizedBox(width: 12), Expanded(child: _field(longitude, 'Longitude', Icons.my_location, keyboard: const TextInputType.numberWithOptions(decimal: true)))]),
             Card(child: ListTile(leading: CircleAvatar(child: Icon(photo.isEmpty ? Icons.add_a_photo_outlined : Icons.check)), title: Text(photo.isEmpty ? 'Add shop photo' : 'Shop photo selected'), subtitle: const Text('Mock image picker'), trailing: TextButton(onPressed: () => setState(() => photo = 'mock/shop-photo.jpg'), child: Text(photo.isEmpty ? 'Choose' : 'Change')))),
+            Card(child: ListTile(leading: CircleAvatar(child: Icon(businessId.isEmpty ? Icons.badge_outlined : Icons.check)), title: Text(businessId.isEmpty ? 'Business registration or ID' : 'Business ID selected'), subtitle: const Text('Mock document upload'), trailing: TextButton(onPressed: () => setState(() => businessId = 'mock/business-id.pdf'), child: Text(businessId.isEmpty ? 'Upload' : 'Change')))),
             const SizedBox(height: 20),
             FilledButton.icon(onPressed: _submit, icon: const Icon(Icons.check), label: const Text('Create seller account')),
           ])),
@@ -59,7 +61,14 @@ class _SellerRegistrationScreenState extends ConsumerState<SellerRegistrationScr
 
   Future<void> _submit() async {
     if (!formKey.currentState!.validate()) return;
-    await ref.read(sellerProvider.notifier).register(ShopProfile(shopName: shop.text.trim(), ownerName: owner.text.trim(), mobile: mobile.text.trim(), address: address.text.trim(), latitude: latitude, longitude: longitude, photoPath: photo, category: category));
+    final lat = double.tryParse(latitude.text); final lng = double.tryParse(longitude.text);
+    if (lat == null || lng == null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter valid latitude and longitude'))); return;
+    }
+    await ref.read(sellerProvider.notifier).register(Seller(
+      id: 'seller-${DateTime.now().microsecondsSinceEpoch}', mobile: mobile.text.trim(), ownerName: owner.text.trim(), verificationStatus: VerificationStatus.pending,
+      shop: Shop(id: 'shop-${DateTime.now().microsecondsSinceEpoch}', name: shop.text.trim(), category: category, address: address.text.trim(), latitude: lat, longitude: lng, photoPath: photo.isEmpty ? null : photo, businessIdPath: businessId.isEmpty ? null : businessId),
+    ));
     if (mounted) context.go('/seller/dashboard');
   }
 }

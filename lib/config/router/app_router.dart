@@ -6,10 +6,15 @@ import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/catalog/presentation/search_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/seller/presentation/add_seller_product_screen.dart';
+import '../../features/seller/presentation/request_new_product_screen.dart';
 import '../../features/seller/presentation/seller_dashboard_screen.dart';
 import '../../features/seller/presentation/seller_login_screen.dart';
+import '../../features/seller/presentation/seller_insights_screen.dart';
+import '../../features/seller/presentation/seller_profile_screen.dart';
 import '../../features/seller/presentation/seller_products_screen.dart';
 import '../../features/seller/presentation/seller_registration_screen.dart';
+import '../../features/seller/presentation/seller_requests_screen.dart';
+import '../../features/seller/presentation/seller_shell.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 
@@ -52,8 +57,17 @@ final appRouter = GoRouter(
     GoRoute(path: '/product-not-found', builder: (context, state) => const ProductNotFoundScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
-    GoRoute(path: '/seller/dashboard', builder: (context, state) => const SellerDashboardScreen()),
-    GoRoute(path: '/seller/products', builder: (context, state) => const SellerProductsScreen()),
+    ShellRoute(
+      builder: (context, state, child) => SellerShell(child: child),
+      routes: [
+        GoRoute(path: '/seller/dashboard', builder: (context, state) => const SellerDashboardScreen()),
+        GoRoute(path: '/seller/products', builder: (context, state) => const SellerProductsScreen()),
+        GoRoute(path: '/seller/requests', builder: (context, state) => const SellerRequestsScreen()),
+        GoRoute(path: '/seller/insights', builder: (context, state) => const SellerInsightsScreen()),
+        GoRoute(path: '/seller/profile', builder: (context, state) => const SellerProfileScreen()),
+      ],
+    ),
     GoRoute(path: '/seller/products/add', builder: (context, state) => const AddSellerProductScreen()),
+    GoRoute(path: '/seller/products/request', builder: (context, state) => const RequestNewProductScreen()),
   ],
 );
