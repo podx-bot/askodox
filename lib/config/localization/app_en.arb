@@ -21,5 +21,11 @@
   "inStock": "In stock",
   "lowStock": "Low stock",
   "outOfStock": "Out of stock",
-  "verificationPending": "Verification pending"
+  "verificationPending": "Verification pending",
+  "adminDashboard": "Admin dashboard",
+  "sellerVerification": "Seller verification",
+  "productRequests": "Product requests",
+  "moderation": "Moderation",
+  "support": "Support",
+  "auditLog": "Audit log"
 }

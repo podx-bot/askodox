@@ -20,6 +20,8 @@ import '../../features/watchlist/presentation/alerts_screen.dart';
 import '../../features/watchlist/presentation/alert_simulator_screen.dart';
 import '../../features/watchlist/presentation/preferences_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
+import '../../features/admin/application/admin_controller.dart';
+import '../../features/admin/presentation/admin_screens.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -80,6 +82,14 @@ final appRouter = GoRouter(
         GoRoute(path: '/seller/requests', builder: (context, state) => const SellerRequestsScreen()),
         GoRoute(path: '/seller/insights', builder: (context, state) => const SellerInsightsScreen()),
         GoRoute(path: '/seller/profile', builder: (context, state) => const SellerProfileScreen()),
+      ],
+    ),
+    GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
+    ShellRoute(
+      builder: (context, state, child) => AdminShell(child: child),
+      routes: [
+        for (final section in AdminSection.values)
+          GoRoute(path: '/admin/${section.name}', builder: (context, state) => AdminSectionScreen(section: section)),
       ],
     ),
   ],
