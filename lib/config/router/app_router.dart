@@ -39,6 +39,7 @@ import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
 import '../../features/communication/domain/communication_models.dart';
 import '../../features/communication/presentation/communication_screens.dart';
+import '../../features/analytics/presentation/analytics_screens.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -106,6 +107,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/communications/following', builder: (context, state) => const FollowedShopsScreen()),
     GoRoute(path: '/communications/preferences', builder: (context, state) => const CommunicationPreferencesScreen()),
     GoRoute(path: '/alert-simulator', builder: (context, state) => const AlertSimulatorScreen()),
+    GoRoute(path: '/analytics/buyer', builder: (context, state) => const BuyerInsightsScreen()),
+    GoRoute(path: '/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
     ShellRoute(
@@ -133,12 +136,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(path: '/seller/subscription', builder: (context, state) => const SubscriptionScreen()),
         GoRoute(path: '/seller/invoices', builder: (context, state) => const InvoiceHistoryScreen()),
         GoRoute(path: '/seller/engagement', builder: (context, state) => const SellerEngagementScreen()),
+        GoRoute(path: '/seller/analytics', builder: (context, state) => const SellerAnalyticsScreen()),
+        GoRoute(path: '/seller/analytics/products', builder: (context, state) => const ProductPerformanceScreen()),
+        GoRoute(path: '/seller/analytics/market', builder: (context, state) => const SellerMarketAnalyticsScreen()),
+        GoRoute(path: '/seller/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen(seller:true)),
         GoRoute(path: '/seller/notifications', builder: (context, state) => const NotificationCenterScreen(audience: Audience.seller)),
       ],
     ),
     GoRoute(path: '/admin/subscriptions', builder: (context, state) => const AdminMonetizationScreen()),
     GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
     GoRoute(path: '/admin/announcements', builder: (context, state) => const AnnouncementScreen()),
+    GoRoute(path: '/admin/analytics', builder: (context, state) => const AdminBusinessIntelligenceScreen()),
+    GoRoute(path: '/admin/reports', builder: (context, state) => const ReportBuilderScreen()),
     ShellRoute(
       builder: (context, state, child) => AdminShell(child: child),
       routes: [
