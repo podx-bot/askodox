@@ -1,0 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/api_client.dart';import '../auth/auth_controller.dart';import '../auth/auth_models.dart';import '../auth/auth_service.dart';import '../auth/session_manager.dart';import '../config/environment.dart';import '../logging/app_logger.dart';import '../persistence/local_store.dart';import '../storage/file_storage.dart';import '../sync/sync_models.dart';
+final appConfigProvider=Provider<AppConfig>((ref)=>AppConfig.development());
+final localStoreProvider=Provider<LocalStore>((ref)=>MemoryLocalStore());
+final authenticationServiceProvider=Provider<AuthenticationService>((ref)=>MockAuthenticationService());
+final sessionManagerProvider=Provider<SessionManager>((ref)=>SessionManager(ref.watch(localStoreProvider),ref.watch(authenticationServiceProvider)));
+final authSessionProvider=StateNotifierProvider<AuthController,AuthSession>((ref)=>AuthController(ref.watch(sessionManagerProvider)));
+final apiClientProvider=Provider<ApiClient>((ref)=>MockApiClient());
+final fileStorageProvider=Provider<FileStorage>((ref)=>MockFileStorage());
+final syncServiceProvider=Provider<SyncService>((ref)=>MockSyncService());
+final loggerProvider=Provider<AppLogger>((ref)=>ConsoleAppLogger());
