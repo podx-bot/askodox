@@ -28,6 +28,17 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: const NavigationBarThemeData(height: 72),
+      appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide.none,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        ),
+      ),
     );
   }
 }
