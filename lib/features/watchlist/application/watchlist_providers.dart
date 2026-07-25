@@ -1,0 +1,17 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/mock_watchlist_repository.dart'; import '../domain/watchlist_models.dart'; import '../domain/watchlist_repository.dart';
+final watchlistRepositoryProvider=Provider<WatchlistRepository>((ref)=>MockWatchlistRepository());
+final watchlistProvider=NotifierProvider<WatchlistController,List<WatchlistItem>>(WatchlistController.new);
+class WatchlistController extends Notifier<List<WatchlistItem>> {
+  WatchlistRepository get _repo=>ref.read(watchlistRepositoryProvider); @override List<WatchlistItem> build()=>_repo.items;
+  void add(WatchlistItem item){_repo.saveItem(item);state=_repo.items;} void remove(String id){_repo.removeItem(id);state=_repo.items;}
+  void update(WatchlistItem item){_repo.saveItem(item);state=_repo.items;}
+}
+final alertsProvider=NotifierProvider<AlertsController,List<ProductAlert>>(AlertsController.new);
+class AlertsController extends Notifier<List<ProductAlert>> {
+  WatchlistRepository get _repo=>ref.read(watchlistRepositoryProvider); @override List<ProductAlert> build()=>_repo.alerts;
+  ProductAlert? match(AlertEvent event,{DateTime? now}) { final items=ref.read(watchlistProvider); WatchlistItem? item; for(final candidate in items){if(candidate.productId==event.productId)item=candidate;} if(item==null||!item.alertsEnabled||!event.inStock||event.distanceKm>item.radiusKm)return null; final time=now??DateTime.now(); final meaningfulPrice=event.previousPrice-event.price>=1; final type=!event.wasInStock?AlertType.backInStock:event.hasOffer?AlertType.newOffer:item.targetPrice!=null&&event.price<=item.targetPrice!?AlertType.targetPriceMatched:meaningfulPrice?AlertType.priceDropped:AlertType.availableNearby; final duplicate=state.any((a)=>a.productId==event.productId&&a.type==type&&time.difference(a.createdAt)<const Duration(hours:24)); if(duplicate||(!meaningfulPrice&&event.wasInStock&&!event.hasOffer))return null; final alert=ProductAlert(id:time.microsecondsSinceEpoch.toString(),type:type,productId:item.productId,productName:item.productName,image:item.image,sellerName:event.sellerName,price:event.price,distanceKm:event.distanceKm,createdAt:time); state=[alert,...state];_repo.saveAlerts(state);return alert; }
+  void read(String id){state=[for(final a in state)if(a.id==id)a.copyWith(isRead:true)else a];_repo.saveAlerts(state);} void delete(String id){state=state.where((a)=>a.id!=id).toList();_repo.saveAlerts(state);}
+}
+final alertPreferenceProvider=NotifierProvider<PreferenceController,AlertPreference>(PreferenceController.new); class PreferenceController extends Notifier<AlertPreference>{WatchlistRepository get _repo=>ref.read(watchlistRepositoryProvider);@override AlertPreference build()=>_repo.preferences;void set(AlertPreference p){state=p;_repo.savePreferences(p);}}
+final demandInsightsProvider=Provider<List<AreaDemandInsight>>((ref)=>[AreaDemandInsight(productId:'wave-headphones',productName:'Wave Wireless Headphones',score:DemandScore.calculate(productId:'wave-headphones',searches:96,watchlists:58,requests:7,targetIntents:31,nearbyBuyers:42,recentActivity:70)),AreaDemandInsight(productId:'pocket-charger',productName:'20W Pocket Charger',score:DemandScore.calculate(productId:'pocket-charger',searches:70,watchlists:44,requests:18,targetIntents:22,nearbyBuyers:35,recentActivity:62)),AreaDemandInsight(productId:'avocado-box',productName:'Farm Fresh Avocado Box',score:DemandScore.calculate(productId:'avocado-box',searches:32,watchlists:18,requests:4,targetIntents:8,nearbyBuyers:20,recentActivity:28))]);
