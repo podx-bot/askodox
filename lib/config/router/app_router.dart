@@ -8,6 +8,8 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/catalog/presentation/search_screen.dart';
+import '../../features/search/domain/search_models.dart';
+import '../../features/search/presentation/product_discovery_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/seller/presentation/add_seller_product_screen.dart';
 import '../../features/seller/presentation/request_new_product_screen.dart';
@@ -93,6 +95,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       builder: (context, state) => ProductDetailsScreen(productId: state.pathParameters['id']!),
     ),
     GoRoute(path: '/product-not-found', builder: (context, state) => const ProductNotFoundScreen()),
+    GoRoute(path: '/discover/barcode', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.barcode)),
+    GoRoute(path: '/discover/ocr', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.ocr)),
+    GoRoute(path: '/discover/image', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.image)),
+    GoRoute(path: '/discover/voice', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.voice)),
     GoRoute(path: '/notification-preferences', builder: (context, state) => const NotificationPreferencesScreen()),
     GoRoute(path: '/communications', builder: (context, state) => const CommunicationHubScreen()),
     GoRoute(path: '/communications/notifications', builder: (context, state) => const NotificationCenterScreen()),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../application/catalog_providers.dart';
 import '../domain/entities/catalog.dart';
@@ -8,6 +9,9 @@ import 'widgets/product_card.dart';
 import 'widgets/product_request_actions.dart';
 import '../../buyer/application/buyer_providers.dart';
 import '../../buyer/presentation/widgets/location_selector.dart';
+import '../../search/application/product_discovery_controller.dart';
+import '../../search/domain/search_models.dart';
+import '../../search/presentation/product_discovery_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -39,7 +43,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final products = ref.watch(filteredProductsProvider);
     final query = ref.watch(searchQueryProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Find your product'), actions: [IconButton(onPressed: () {}, tooltip: 'Scan barcode', icon: const Icon(Icons.qr_code_scanner)), const SizedBox(width: 8)]),
+      appBar: AppBar(title: const Text('Find your product'), actions: [IconButton(onPressed: () => context.push('/discover/barcode'), tooltip: 'Scan barcode', icon: const Icon(Icons.qr_code_scanner)), const SizedBox(width: 8)]),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1120),
@@ -56,13 +60,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     leading: const Icon(Icons.search),
                     trailing: query.isEmpty ? null : [IconButton(tooltip: 'Clear', onPressed: () { controller.clear(); ref.read(searchQueryProvider.notifier).state = ''; focusNode.requestFocus(); }, icon: const Icon(Icons.close))],
                     onChanged: (value) => ref.read(searchQueryProvider.notifier).state = value,
+                    onSubmitted: (value) { final recent = ref.read(recentSearchesProvider); ref.read(recentSearchesProvider.notifier).state = [value, ...recent.where((item) => item != value)].take(8).toList(); ref.read(productDiscoveryControllerProvider.notifier).search(value); },
                   ),
                   const SizedBox(height: 10),
                   const LocationSelector(),
+                  const SizedBox(height: 12),
+                  const DiscoveryTools(),
                   if (query.isEmpty && ref.watch(recentSearchesProvider).isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text('Recently searched', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                     Wrap(spacing: 8, children: ref.watch(recentSearchesProvider).map((value) => ActionChip(label: Text(value), onPressed: () { controller.text = value; ref.read(searchQueryProvider.notifier).state = value; })).toList()),
+                  ],
+                  if (query.isEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text('Smart suggestions', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 8, runSpacing: 8, children: ref.watch(productDiscoveryRepositoryProvider).suggestions(ref.watch(recentSearchesProvider)).map((suggestion) => ActionChip(avatar: Icon(switch (suggestion.source) { SuggestionSource.recent => Icons.history, SuggestionSource.trending => Icons.trending_up, SuggestionSource.watchlist => Icons.favorite_border, SuggestionSource.nearbyDemand => Icons.near_me_outlined, SuggestionSource.popularBrand => Icons.verified_outlined }, size: 17), label: Text(suggestion.label), tooltip: suggestion.source.name, onPressed: () { controller.text = suggestion.label; ref.read(searchQueryProvider.notifier).state = suggestion.label; })).toList()),
                   ],
                   if (focusNode.hasFocus && query.isNotEmpty)
                     catalog.when(

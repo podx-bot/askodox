@@ -4,11 +4,11 @@ import '../data/mock_admin_repository.dart';
 import '../domain/admin_models.dart';
 import '../domain/admin_repository.dart';
 
-enum AdminSection { dashboard, sellers, catalog, productRequests, moderation, support, auditLog, settings }
+enum AdminSection { dashboard, sellers, catalog, productRequests, searchQuality, moderation, support, auditLog, settings }
 
 Set<AdminSection> sectionsFor(AdminRole role) => switch (role) {
   AdminRole.superAdmin => AdminSection.values.toSet(),
-  AdminRole.catalogAdmin => {AdminSection.dashboard, AdminSection.catalog, AdminSection.productRequests, AdminSection.auditLog, AdminSection.settings},
+  AdminRole.catalogAdmin => {AdminSection.dashboard, AdminSection.catalog, AdminSection.productRequests, AdminSection.searchQuality, AdminSection.auditLog, AdminSection.settings},
   AdminRole.sellerVerificationAdmin => {AdminSection.dashboard, AdminSection.sellers, AdminSection.auditLog, AdminSection.settings},
   AdminRole.moderationAdmin => {AdminSection.dashboard, AdminSection.moderation, AdminSection.auditLog, AdminSection.settings},
   AdminRole.supportAdmin => {AdminSection.dashboard, AdminSection.support, AdminSection.auditLog, AdminSection.settings},
