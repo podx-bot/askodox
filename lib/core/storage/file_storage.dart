@@ -1,0 +1,5 @@
+enum UploadStatus { idle, selecting, uploading, completed, failed, cancelled }
+enum UploadPurpose { productImage, shopPhoto, verificationDocument, productRequestImage, complaintEvidence }
+class UploadTask { const UploadTask({required this.id,required this.purpose,this.status=UploadStatus.idle,this.progress=0,this.remoteUri,this.error});final String id;final UploadPurpose purpose;final UploadStatus status;final double progress;final Uri? remoteUri;final String? error;}
+abstract interface class FileStorage { Future<UploadTask> upload({required UploadTask task,required String fileName,required List<int> bytes});Future<void> cancel(String taskId); }
+class MockFileStorage implements FileStorage {@override Future<UploadTask> upload({required UploadTask task,required String fileName,required List<int> bytes})async=>UploadTask(id:task.id,purpose:task.purpose,status:UploadStatus.completed,progress:1,remoteUri:Uri.parse('mock://storage/$fileName'));@override Future<void> cancel(String taskId)async{}}
