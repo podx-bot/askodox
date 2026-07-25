@@ -15,6 +15,7 @@ class SellerShell extends StatelessWidget {
       (strings.sellerProducts, Icons.inventory_2_outlined, '/seller/products'),
       (strings.sellerRequests, Icons.campaign_outlined, '/seller/requests'),
       (strings.sellerInsights, Icons.insights_outlined, '/seller/insights'),
+      ('Engagement', Icons.campaign_outlined, '/seller/engagement'),
       (strings.sellerProfile, Icons.store_outlined, '/seller/profile'),
       (strings.billing, Icons.workspace_premium_outlined, '/seller/usage'),
     ];
