@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -35,6 +36,8 @@ import '../../features/location/presentation/seller_location_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
+import '../../features/developer/presentation/storage_usage_screen.dart';
+import '../../features/developer/presentation/performance_monitor_screen.dart';
 import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
 import '../../features/communication/domain/communication_models.dart';
@@ -53,6 +56,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/forbidden', builder: (context, state) => const AuthMessageScreen(title: 'Access denied', message: 'Your current role cannot access this area.')),
     GoRoute(path: '/developer', builder: (context, state) => const DeveloperSettingsScreen()),
     GoRoute(path: '/sync-status', builder: (context, state) => const SyncStatusScreen()),
+    GoRoute(path: '/conflict/:id', builder: (context, state) => ConflictResolutionScreen(itemId: state.pathParameters['id']!)),
+    GoRoute(path: '/storage-usage', builder: (context, state) => const StorageUsageScreen()),
+    if (kDebugMode)
+      GoRoute(path: '/performance-monitor', builder: (context, state) => const PerformanceMonitorScreen()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
