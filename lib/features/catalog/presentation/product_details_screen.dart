@@ -1,106 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../buyer/application/buyer_providers.dart';
+import '../../buyer/domain/entities/buyer_models.dart';
+import '../../buyer/presentation/widgets/location_selector.dart';
 import '../application/catalog_providers.dart';
 import '../domain/entities/product.dart';
 import 'product_not_found_screen.dart';
 
 class ProductDetailsScreen extends ConsumerWidget {
-  const ProductDetailsScreen({required this.productId, super.key});
-
-  final String productId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => ref.watch(productByIdProvider(productId)).when(
-        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (_, __) => const ProductNotFoundScreen(),
-        data: (product) => product == null ? const ProductNotFoundScreen() : _ProductDetails(product: product),
-      );
+  const ProductDetailsScreen({required this.productId,super.key}); final String productId;
+  @override Widget build(BuildContext context,WidgetRef ref)=>ref.watch(productByIdProvider(productId)).when(loading:()=>const Scaffold(body:Center(child:CircularProgressIndicator())),error:(_,__)=>const ProductNotFoundScreen(),data:(p)=>p==null?const ProductNotFoundScreen():_Comparison(product:p));
 }
 
-class _ProductDetails extends StatefulWidget {
-  const _ProductDetails({required this.product});
-  final Product product;
-
-  @override
-  State<_ProductDetails> createState() => _ProductDetailsState();
-}
-
-class _ProductDetailsState extends State<_ProductDetails> {
-  bool notify = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final product = widget.product;
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(onPressed: () => context.canPop() ? context.pop() : context.go('/search'), icon: const Icon(Icons.arrow_back)),
-        title: const Text('Product details'),
-        actions: [IconButton(onPressed: () {}, tooltip: 'Share', icon: const Icon(Icons.ios_share_outlined)), const SizedBox(width: 8)],
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 980),
-            child: LayoutBuilder(builder: (context, constraints) {
-              final wide = constraints.maxWidth > 720;
-              final image = Container(
-                constraints: BoxConstraints(minHeight: wide ? 520 : 330),
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer.withOpacity(.7), borderRadius: BorderRadius.circular(28)),
-                alignment: Alignment.center,
-                child: Hero(tag: 'product-${product.id}', child: Text(product.icon, style: TextStyle(fontSize: wide ? 150 : 110))),
-              );
-              final info = Padding(
-                padding: EdgeInsets.all(wide ? 32 : 4),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Text(product.brand.name.toUpperCase(), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                    if (product.brand.verified) ...[const SizedBox(width: 5), Icon(Icons.verified, size: 17, color: Theme.of(context).colorScheme.primary)],
-                  ]),
-                  const SizedBox(height: 10),
-                  Text(product.name, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 12),
-                  Row(children: [const Icon(Icons.star_rounded, color: Color(0xFFFFB400), size: 21), Text(' ${product.rating}  ·  ${product.reviewCount} reviews')]),
-                  const SizedBox(height: 22),
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text('₹${product.price.toStringAsFixed(0)}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                    const SizedBox(width: 10),
-                    Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('₹${product.originalPrice.toStringAsFixed(0)}', style: const TextStyle(decoration: TextDecoration.lineThrough))),
-                    const SizedBox(width: 8),
-                    Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('${product.discountPercent}% off', style: TextStyle(color: Theme.of(context).colorScheme.tertiary, fontWeight: FontWeight.w800))),
-                  ]),
-                  const SizedBox(height: 24),
-                  Text('About this product', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 8),
-                  Text(product.description, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5)),
-                  const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: product.inStock
-                        ? FilledButton.icon(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to your watchlist'))), icon: const Icon(Icons.favorite_border), label: const Text('Add to watchlist'))
-                        : FilledButton.icon(
-                            onPressed: () {
-                              setState(() => notify = true);
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('We’ll notify you when it’s back.')));
-                            },
-                            icon: Icon(notify ? Icons.notifications_active : Icons.notifications_outlined),
-                            label: Text(notify ? 'Notification on' : 'Notify me'),
-                          ),
-                  ),
-                  const SizedBox(height: 10),
-                  Center(child: Text(product.inStock ? 'Available from sellers near you' : 'Currently unavailable nearby', style: Theme.of(context).textTheme.bodySmall)),
-                ]),
-              );
-              return Padding(
-                padding: const EdgeInsets.all(20),
-                child: wide ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: image), Expanded(child: info)]) : Column(children: [image, const SizedBox(height: 22), info]),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
+class _Comparison extends ConsumerWidget {
+  const _Comparison({required this.product}); final Product product;
+  @override Widget build(BuildContext context,WidgetRef ref){
+    final listings=ref.watch(priceListingsProvider(product.id)), location=ref.watch(buyerLocationProvider), radius=ref.watch(radiusKmProvider), filter=ref.watch(searchFilterProvider),sort=ref.watch(comparisonSortProvider);
+    return Scaffold(appBar:AppBar(leading:IconButton(onPressed:()=>context.canPop()?context.pop():context.go('/search'),icon:const Icon(Icons.arrow_back)),title:const Text('Compare local prices')),body:listings.when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,__)=>const Center(child:Text('Could not load nearby prices')),data:(all){
+      final results=matchNearby(listings:all,location:location,radiusKm:radius,filter:filter,sort:sort);
+      final prices=results.map((e)=>e.listing.effectivePrice).toList();
+      return Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:900),child:CustomScrollView(slivers:[SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[Container(width:100,height:100,decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer,borderRadius:BorderRadius.circular(20)),alignment:Alignment.center,child:Text(product.icon,style:const TextStyle(fontSize:55))),const SizedBox(width:16),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(product.brand.name.toUpperCase(),style:TextStyle(color:Theme.of(context).colorScheme.primary,fontWeight:FontWeight.bold)),Text(product.name,style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),Text(product.tags.take(2).join(' · '))]))]),
+        const SizedBox(height:12),const LocationSelector(),
+        if(prices.isNotEmpty) Card(child:Padding(padding:const EdgeInsets.all(14),child:Row(mainAxisAlignment:MainAxisAlignment.spaceAround,children:[_Stat('Lowest','₹${prices.reduce((a,b)=>a<b?a:b).toStringAsFixed(0)}'),_Stat('Highest','₹${prices.reduce((a,b)=>a>b?a:b).toStringAsFixed(0)}'),_Stat('Average','₹${(prices.reduce((a,b)=>a+b)/prices.length).toStringAsFixed(0)}'),_Stat('Shops','${prices.length}')]))),
+        Row(children:[Expanded(child:DropdownButtonFormField<SearchSortOption>(value:sort,decoration:const InputDecoration(labelText:'Sort by'),items:SearchSortOption.values.map((e)=>DropdownMenuItem(value:e,child:Text(_sortName(e)))).toList(),onChanged:(v){if(v!=null)ref.read(comparisonSortProvider.notifier).state=v;})),const SizedBox(width:10),OutlinedButton.icon(onPressed:()=>_filters(context,ref),icon:const Icon(Icons.filter_list),label:const Text('Filters'))]),const SizedBox(height:8),Text('${results.length} available shops · nearest ${results.isEmpty?'—':'${results.map((e)=>e.distanceKm).reduce((a,b)=>a<b?a:b).toStringAsFixed(1)} km'}')
+      ]))),results.isEmpty?const SliverFillRemaining(hasScrollBody:false,child:Center(child:Text('No in-stock sellers match this radius and filters.'))):SliverList.builder(itemCount:results.length,itemBuilder:(context,i)=>Padding(padding:const EdgeInsets.symmetric(horizontal:16,vertical:5),child:_SellerCard(result:results[i],all:results,index:i))),const SliverToBoxAdapter(child:SizedBox(height:30))])));
+    }));
   }
+  static String _sortName(SearchSortOption e)=>switch(e){SearchSortOption.lowestPrice=>'Lowest price',SearchSortOption.nearestShop=>'Nearest shop',SearchSortOption.highestTrust=>'Highest trust score',SearchSortOption.bestOffer=>'Best offer',SearchSortOption.recentlyUpdated=>'Recently updated'};
+  Future<void> _filters(BuildContext context,WidgetRef ref)=>showModalBottomSheet<void>(context:context,builder:(context)=>Consumer(builder:(context,ref,_){final f=ref.watch(searchFilterProvider);void set(SearchFilter n)=>ref.read(searchFilterProvider.notifier).state=n;return SafeArea(child:Padding(padding:const EdgeInsets.all(16),child:Column(mainAxisSize:MainAxisSize.min,children:[Text('Filter shops',style:Theme.of(context).textTheme.titleLarge),SwitchListTile(title:const Text('In stock only'),value:f.inStockOnly,onChanged:(v)=>set(f.copyWith(inStockOnly:v))),SwitchListTile(title:const Text('Offers only'),value:f.offersOnly,onChanged:(v)=>set(f.copyWith(offersOnly:v))),SwitchListTile(title:const Text('Verified sellers only'),value:f.verifiedOnly,onChanged:(v)=>set(f.copyWith(verifiedOnly:v))),DropdownButtonFormField<String?>(decoration:const InputDecoration(labelText:'Shop category'),value:f.shopCategory,items:const [DropdownMenuItem(value:null,child:Text('All categories')),DropdownMenuItem(value:'Kirana',child:Text('Kirana')),DropdownMenuItem(value:'Supermarket',child:Text('Supermarket')),DropdownMenuItem(value:'Hypermarket',child:Text('Hypermarket'))],onChanged:(v)=>set(SearchFilter(inStockOnly:f.inStockOnly,offersOnly:f.offersOnly,verifiedOnly:f.verifiedOnly,shopCategory:v))),const SizedBox(height:10),FilledButton(onPressed:()=>Navigator.pop(context),child:const Text('Show results'))])));}));
+}
+class _Stat extends StatelessWidget {const _Stat(this.label,this.value);final String label,value;@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontWeight:FontWeight.w900)),Text(label,style:Theme.of(context).textTheme.bodySmall)]);}
+
+class _SellerCard extends ConsumerWidget {const _SellerCard({required this.result,required this.all,required this.index});final NearbySellerResult result;final List<NearbySellerResult> all;final int index;
+ @override Widget build(BuildContext context,WidgetRef ref){final l=result.listing;final lowest=all.map((e)=>e.listing.effectivePrice).reduce((a,b)=>a<b?a:b),nearest=all.map((e)=>e.distanceKm).reduce((a,b)=>a<b?a:b),trusted=all.map((e)=>e.listing.trustScore).reduce((a,b)=>a>b?a:b);final freshness=switch(l.freshness(DateTime.now())){PriceFreshness.today=>'Updated today',PriceFreshness.withinThreeDays=>'Updated within 3 days',PriceFreshness.withinSevenDays=>'Updated within 7 days',PriceFreshness.old=>'Old price'};
+ return Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text(l.shopName,style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold))),if(l.verified)const Chip(avatar:Icon(Icons.verified,size:16),label:Text('Verified'))]),Wrap(spacing:6,children:[if(l.effectivePrice==lowest)const Chip(label:Text('Lowest Price')),if(result.distanceKm==nearest)const Chip(label:Text('Nearest Shop')),if(l.trustScore==trusted)const Chip(label:Text('Most Trusted')),if(l.offerPrice!=null)const Chip(label:Text('Best Value'))]),Row(children:[Text('₹${l.effectivePrice.toStringAsFixed(0)}',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),if(l.offerPrice!=null)...[const SizedBox(width:8),Text('₹${l.price.toStringAsFixed(0)}',style:const TextStyle(decoration:TextDecoration.lineThrough))],const Spacer(),Text('${result.distanceKm.toStringAsFixed(1)} km')]),Text('${l.inStock?'In stock':'Out of stock'} · $freshness · Trust ${l.trustScore}/5 · ${l.isOpen?'Open':'Closed'}'),Wrap(spacing:4,children:[TextButton.icon(onPressed:()=>_snack(context,'Calling is a placeholder'),icon:const Icon(Icons.call_outlined),label:const Text('Call')),TextButton.icon(onPressed:()=>_snack(context,'Navigation is a placeholder'),icon:const Icon(Icons.directions_outlined),label:const Text('Navigate')),TextButton(onPressed:()=>_snack(context,'Shop details opened'),child:const Text('View Shop')),TextButton(onPressed:()=>_report(context,ref,l),child:const Text('Report Wrong Price'))])])));}
+ void _snack(BuildContext c,String m)=>ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(m)));
+ Future<void> _report(BuildContext context,WidgetRef ref,ProductPriceListing listing) async {final controller=TextEditingController();await showDialog<void>(context:context,builder:(c)=>AlertDialog(title:const Text('Report wrong price'),content:TextField(controller:controller,decoration:const InputDecoration(labelText:'What is wrong?')),actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Cancel')),FilledButton(onPressed:(){ref.read(buyerRepositoryProvider).reportWrongPrice(WrongPriceReport(id:DateTime.now().microsecondsSinceEpoch.toString(),listingId:listing.id,reason:controller.text,createdAt:DateTime.now()));Navigator.pop(c);_snack(context,'Thank you. Report submitted.');},child:const Text('Submit'))]));controller.dispose();}
 }

@@ -15,6 +15,7 @@ class AppShell extends StatelessWidget {
       NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: strings.home),
       NavigationDestination(icon: const Icon(Icons.search), label: strings.search),
       NavigationDestination(icon: const Icon(Icons.favorite_outline), selectedIcon: const Icon(Icons.favorite), label: strings.watchlist),
+      const NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Alerts'),
       NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: strings.profile),
     ];
     return LayoutBuilder(builder: (context, constraints) {
