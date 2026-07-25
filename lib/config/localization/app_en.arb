@@ -27,5 +27,152 @@
   "productRequests": "Product requests",
   "moderation": "Moderation",
   "support": "Support",
-  "auditLog": "Audit log"
+  "auditLog": "Audit log",
+  "billing": "Billing",
+  "sellerPlans": "Seller plans",
+  "comparePlans": "Compare plans",
+  "demoPricing": "Demo pricing only",
+  "noRealBilling": "Mock and local data only. No real billing or buyer charges.",
+  "monthly": "Monthly",
+  "annual": "Annual",
+  "currentPlan": "Current plan",
+  "month": "month",
+  "year": "year",
+  "saveAmount": "Save {amount}",
+  "productLimit": "{count} active product listings",
+  "shopVisibility": "Shop visibility",
+  "upgradePlan": "Upgrade plan",
+  "downgrade": "Downgrade",
+  "reactivate": "Reactivate",
+  "cancelPlan": "Cancel plan",
+  "startFreeTrial": "Start {days}-day free trial",
+  "feature": "Feature",
+  "productListings": "Product listing limit",
+  "buyerRequestAccess": "Buyer request access",
+  "demandAnalytics": "Demand analytics",
+  "days": "days",
+  "priceAlerts": "Price alerts",
+  "basic": "Basic",
+  "included": "Included",
+  "promotionalOffers": "Promotional offers",
+  "featuredPlacement": "Featured placement",
+  "supportLevel": "Support level",
+  "multiShop": "Multi-shop access placeholder",
+  "sellerUsage": "Seller usage",
+  "activeListings": "Active product listings used",
+  "offers": "Offers used",
+  "requestResponses": "Buyer request responses used",
+  "shopCount": "Shop count",
+  "analyticsAccess": "Analytics access level",
+  "historyDays": "{days}-day history",
+  "storageUsage": "Storage usage",
+  "placeholder": "Placeholder only",
+  "limitReached": "Plan limit reached",
+  "limitExplanation": "You are using {used} of {limit}. Upgrade to continue without silently blocking your work.",
+  "currentSubscription": "Current subscription",
+  "billingCycle": "Billing cycle",
+  "subscriptionStatus": "Subscription status",
+  "startDate": "Start date",
+  "renewalDate": "Renewal date",
+  "trialStatus": "Trial status",
+  "autoRenew": "Auto-renew status",
+  "paymentMethod": "Payment method placeholder",
+  "downgradeScheduled": "Downgrade scheduled",
+  "nextRenewal": "Effective at next renewal",
+  "invoiceHistory": "Invoice history",
+  "restorePurchase": "Restore purchase placeholder",
+  "planUnavailable": "Plan unavailable",
+  "reviewOrder": "Review demo order",
+  "promoCode": "Promo code",
+  "promoApplied": "Demo promo applied",
+  "promoInvalid": "Promo code invalid, expired, or usage limit reached",
+  "continueToDemoPayment": "Continue to demo payment",
+  "demoPayment": "Demo payment",
+  "demoPaymentOnly": "Demo payment only",
+  "noPaymentDetails": "Do not enter real card, UPI, wallet, or bank details.",
+  "upi": "UPI placeholder",
+  "card": "Credit or debit card placeholder",
+  "netBanking": "Net banking placeholder",
+  "wallet": "Wallet placeholder",
+  "confirmDemoPayment": "Confirm mock payment",
+  "simulateFailure": "Simulate payment failure",
+  "paymentSuccessful": "Mock payment successful",
+  "entitlementsRefreshed": "Subscription activated and entitlements refreshed. Production confirmation must happen on the backend.",
+  "done": "Done",
+  "paymentFailed": "Payment failed",
+  "paymentFailureHelp": "Retry, change the demo method, contact support, or continue on the free plan.",
+  "retryPayment": "Retry payment",
+  "continueFree": "Continue on free plan",
+  "noInvoices": "No invoices",
+  "gstPlaceholder": "GST fields are placeholders",
+  "notTaxCompliant": "Demo invoice only. GST calculations are not tax compliant.",
+  "taxPlaceholder": "Tax placeholder",
+  "downloadPlaceholder": "Download invoice placeholder",
+  "subscriptionManagement": "Subscription management",
+  "mrr": "Monthly recurring revenue",
+  "arr": "Annual recurring revenue",
+  "activePaidSellers": "Active paid sellers",
+  "trialSellers": "Trial sellers",
+  "conversionRate": "Conversion rate",
+  "failedPayments": "Failed payments",
+  "cancelledSubscriptions": "Cancelled subscriptions",
+  "demoRevenueData": "Demo revenue data",
+  "revenueByPlan": "Revenue by plan",
+  "revenueTrend": "Revenue trend (mock)",
+  "filterStatus": "Filter by subscription status",
+  "allStatuses": "All statuses",
+  "paymentStatus": "Payment status",
+  "noPaymentAttempt": "No payment attempt",
+  "changePlan": "Change plan",
+  "grantTrial": "Grant trial",
+  "extendTrial": "Extend trial",
+  "manualDiscount": "Apply manual discount",
+  "markPaymentReceived": "Mark payment received placeholder",
+  "mockRefund": "Mock refund action",
+  "paymentFailures": "Payment failures",
+  "noPaymentFailures": "No payment failures",
+  "trialUnavailable": "Trial is unavailable",
+  "demoActionRecorded": "Demo admin action recorded",
+  "adminReasonRequired": "Admin reason required",
+  "adminReason": "Internal reason",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "@saveAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@productLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@startFreeTrial": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@historyDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@limitExplanation": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  }
 }

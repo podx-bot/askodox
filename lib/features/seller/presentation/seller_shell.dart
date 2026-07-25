@@ -16,6 +16,7 @@ class SellerShell extends StatelessWidget {
       (strings.sellerRequests, Icons.campaign_outlined, '/seller/requests'),
       (strings.sellerInsights, Icons.insights_outlined, '/seller/insights'),
       (strings.sellerProfile, Icons.store_outlined, '/seller/profile'),
+      (strings.billing, Icons.workspace_premium_outlined, '/seller/usage'),
     ];
     final location = GoRouterState.of(context).uri.path;
     final matchedIndex = destinations.indexWhere((item) => location.startsWith(item.$3));

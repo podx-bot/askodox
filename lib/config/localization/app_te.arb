@@ -27,5 +27,152 @@
   "productRequests": "ఉత్పత్తి అభ్యర్థనలు",
   "moderation": "మోడరేషన్",
   "support": "సహాయం",
-  "auditLog": "ఆడిట్ లాగ్"
+  "auditLog": "ఆడిట్ లాగ్",
+  "billing": "బిల్లింగ్",
+  "sellerPlans": "విక్రేత ప్లాన్‌లు",
+  "comparePlans": "ప్లాన్‌లను పోల్చండి",
+  "demoPricing": "డెమో Demo pricing only",
+  "noRealBilling": "డెమో Mock and local data only. No real billing or buyer charges.",
+  "monthly": "నెలవారీ",
+  "annual": "వార్షిక",
+  "currentPlan": "ప్రస్తుత ప్లాన్",
+  "month": "డెమో month",
+  "year": "డెమో year",
+  "saveAmount": "డెమో Save {amount}",
+  "productLimit": "డెమో {count} active product listings",
+  "shopVisibility": "డెమో Shop visibility",
+  "upgradePlan": "ప్లాన్ అప్‌గ్రేడ్",
+  "downgrade": "డెమో Downgrade",
+  "reactivate": "డెమో Reactivate",
+  "cancelPlan": "డెమో Cancel plan",
+  "startFreeTrial": "డెమో Start {days}-day free trial",
+  "feature": "డెమో Feature",
+  "productListings": "డెమో Product listing limit",
+  "buyerRequestAccess": "డెమో Buyer request access",
+  "demandAnalytics": "డెమో Demand analytics",
+  "days": "డెమో days",
+  "priceAlerts": "డెమో Price alerts",
+  "basic": "డెమో Basic",
+  "included": "డెమో Included",
+  "promotionalOffers": "డెమో Promotional offers",
+  "featuredPlacement": "డెమో Featured placement",
+  "supportLevel": "డెమో Support level",
+  "multiShop": "డెమో Multi-shop access placeholder",
+  "sellerUsage": "విక్రేత వినియోగం",
+  "activeListings": "డెమో Active product listings used",
+  "offers": "డెమో Offers used",
+  "requestResponses": "డెమో Buyer request responses used",
+  "shopCount": "డెమో Shop count",
+  "analyticsAccess": "డెమో Analytics access level",
+  "historyDays": "డెమో {days}-day history",
+  "storageUsage": "డెమో Storage usage",
+  "placeholder": "డెమో Placeholder only",
+  "limitReached": "డెమో Plan limit reached",
+  "limitExplanation": "డెమో You are using {used} of {limit}. Upgrade to continue without silently blocking your work.",
+  "currentSubscription": "ప్రస్తుత సబ్‌స్క్రిప్షన్",
+  "billingCycle": "డెమో Billing cycle",
+  "subscriptionStatus": "డెమో Subscription status",
+  "startDate": "డెమో Start date",
+  "renewalDate": "డెమో Renewal date",
+  "trialStatus": "డెమో Trial status",
+  "autoRenew": "డెమో Auto-renew status",
+  "paymentMethod": "డెమో Payment method placeholder",
+  "downgradeScheduled": "డెమో Downgrade scheduled",
+  "nextRenewal": "డెమో Effective at next renewal",
+  "invoiceHistory": "ఇన్వాయిస్ చరిత్ర",
+  "restorePurchase": "డెమో Restore purchase placeholder",
+  "planUnavailable": "డెమో Plan unavailable",
+  "reviewOrder": "డెమో Review demo order",
+  "promoCode": "డెమో Promo code",
+  "promoApplied": "డెమో Demo promo applied",
+  "promoInvalid": "డెమో Promo code invalid, expired, or usage limit reached",
+  "continueToDemoPayment": "డెమో Continue to demo payment",
+  "demoPayment": "డెమో Demo payment",
+  "demoPaymentOnly": "డెమో Demo payment only",
+  "noPaymentDetails": "డెమో Do not enter real card, UPI, wallet, or bank details.",
+  "upi": "డెమో UPI placeholder",
+  "card": "డెమో Credit or debit card placeholder",
+  "netBanking": "డెమో Net banking placeholder",
+  "wallet": "డెమో Wallet placeholder",
+  "confirmDemoPayment": "డెమో Confirm mock payment",
+  "simulateFailure": "డెమో Simulate payment failure",
+  "paymentSuccessful": "డెమో Mock payment successful",
+  "entitlementsRefreshed": "డెమో Subscription activated and entitlements refreshed. Production confirmation must happen on the backend.",
+  "done": "డెమో Done",
+  "paymentFailed": "డెమో Payment failed",
+  "paymentFailureHelp": "డెమో Retry, change the demo method, contact support, or continue on the free plan.",
+  "retryPayment": "డెమో Retry payment",
+  "continueFree": "డెమో Continue on free plan",
+  "noInvoices": "డెమో No invoices",
+  "gstPlaceholder": "డెమో GST fields are placeholders",
+  "notTaxCompliant": "డెమో Demo invoice only. GST calculations are not tax compliant.",
+  "taxPlaceholder": "డెమో Tax placeholder",
+  "downloadPlaceholder": "డెమో Download invoice placeholder",
+  "subscriptionManagement": "డెమో Subscription management",
+  "mrr": "డెమో Monthly recurring revenue",
+  "arr": "డెమో Annual recurring revenue",
+  "activePaidSellers": "డెమో Active paid sellers",
+  "trialSellers": "డెమో Trial sellers",
+  "conversionRate": "డెమో Conversion rate",
+  "failedPayments": "డెమో Failed payments",
+  "cancelledSubscriptions": "డెమో Cancelled subscriptions",
+  "demoRevenueData": "డెమో Demo revenue data",
+  "revenueByPlan": "డెమో Revenue by plan",
+  "revenueTrend": "డెమో Revenue trend (mock)",
+  "filterStatus": "డెమో Filter by subscription status",
+  "allStatuses": "డెమో All statuses",
+  "paymentStatus": "డెమో Payment status",
+  "noPaymentAttempt": "డెమో No payment attempt",
+  "changePlan": "డెమో Change plan",
+  "grantTrial": "డెమో Grant trial",
+  "extendTrial": "డెమో Extend trial",
+  "manualDiscount": "డెమో Apply manual discount",
+  "markPaymentReceived": "డెమో Mark payment received placeholder",
+  "mockRefund": "డెమో Mock refund action",
+  "paymentFailures": "డెమో Payment failures",
+  "noPaymentFailures": "డెమో No payment failures",
+  "trialUnavailable": "డెమో Trial is unavailable",
+  "demoActionRecorded": "డెమో Demo admin action recorded",
+  "adminReasonRequired": "డెమో Admin reason required",
+  "adminReason": "డెమో Internal reason",
+  "cancel": "రద్దు",
+  "confirm": "నిర్ధారించండి",
+  "@saveAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@productLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@startFreeTrial": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@historyDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@limitExplanation": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  }
 }
