@@ -1,0 +1,16 @@
+{
+  "@@locale": "en",
+  "appName": "PODX",
+  "greeting": "Good morning",
+  "discover": "Discover near you",
+  "searchHint": "Search products, shops and sellers",
+  "categories": "Categories",
+  "seeAll": "See all",
+  "featured": "Featured near you",
+  "home": "Home",
+  "search": "Search",
+  "watchlist": "Watchlist",
+  "profile": "Profile",
+  "notifications": "Notifications",
+  "retry": "Try again"
+}

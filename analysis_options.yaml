@@ -1,0 +1,14 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - lib/generated/**
+  errors:
+    invalid_use_of_protected_member: error
+    missing_required_param: error
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    sort_child_properties_last: true
+    use_super_parameters: true
