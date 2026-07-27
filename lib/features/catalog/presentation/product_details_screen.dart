@@ -9,6 +9,7 @@ import '../domain/entities/product.dart';
 import 'product_not_found_screen.dart';
 import '../../watchlist/application/watchlist_providers.dart';
 import '../../watchlist/domain/watchlist_models.dart';
+import '../../price_benchmark/presentation/price_benchmark_section.dart';
 
 class ProductDetailsScreen extends ConsumerWidget {
   const ProductDetailsScreen({required this.productId,super.key}); final String productId;
@@ -25,6 +26,8 @@ class _Comparison extends ConsumerWidget {
       return Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:900),child:CustomScrollView(slivers:[SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Container(width:100,height:100,decoration:BoxDecoration(color:Theme.of(context).colorScheme.primaryContainer,borderRadius:BorderRadius.circular(20)),alignment:Alignment.center,child:Text(product.icon,style:const TextStyle(fontSize:55))),const SizedBox(width:16),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(product.brand.name.toUpperCase(),style:TextStyle(color:Theme.of(context).colorScheme.primary,fontWeight:FontWeight.bold)),Text(product.name,style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),Text(product.tags.take(2).join(' · '))]))]),
         const SizedBox(height:12),const LocationSelector(),
+        PriceBenchmarkSection(productId:product.id,localShopCount:results.length,nearestShop:results.isEmpty?'—':results.reduce((a,b)=>a.distanceKm<b.distanceKm?a:b).listing.shopName),
+        const SizedBox(height:12),
         if(prices.isNotEmpty) Card(child:Padding(padding:const EdgeInsets.all(14),child:Row(mainAxisAlignment:MainAxisAlignment.spaceAround,children:[_Stat('Lowest','₹${prices.reduce((a,b)=>a<b?a:b).toStringAsFixed(0)}'),_Stat('Highest','₹${prices.reduce((a,b)=>a>b?a:b).toStringAsFixed(0)}'),_Stat('Average','₹${(prices.reduce((a,b)=>a+b)/prices.length).toStringAsFixed(0)}'),_Stat('Shops','${prices.length}')]))),
         Row(children:[Expanded(child:DropdownButtonFormField<SearchSortOption>(value:sort,decoration:const InputDecoration(labelText:'Sort by'),items:SearchSortOption.values.map((e)=>DropdownMenuItem(value:e,child:Text(_sortName(e)))).toList(),onChanged:(v){if(v!=null)ref.read(comparisonSortProvider.notifier).state=v;})),const SizedBox(width:10),OutlinedButton.icon(onPressed:()=>_filters(context,ref),icon:const Icon(Icons.filter_list),label:const Text('Filters'))]),const SizedBox(height:8),Text('${results.length} available shops · nearest ${results.isEmpty?'—':'${results.map((e)=>e.distanceKm).reduce((a,b)=>a<b?a:b).toStringAsFixed(1)} km'}')
       ]))),results.isEmpty?const SliverFillRemaining(hasScrollBody:false,child:Center(child:Text('No in-stock sellers match this radius and filters.'))):SliverList.builder(itemCount:results.length,itemBuilder:(context,i)=>Padding(padding:const EdgeInsets.symmetric(horizontal:16,vertical:5),child:_SellerCard(result:results[i],all:results,index:i))),const SliverToBoxAdapter(child:SizedBox(height:30))])));

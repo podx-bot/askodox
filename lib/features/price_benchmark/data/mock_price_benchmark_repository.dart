@@ -1,0 +1,13 @@
+import '../domain/price_benchmark_models.dart';
+import '../domain/price_benchmark_repositories.dart';
+import '../domain/price_benchmark_services.dart';
+
+class MockPriceBenchmarkRepository implements OnlinePriceRepository,PriceBenchmarkRepository,PriceHistoryRepository {
+  MockPriceBenchmarkRepository({DateTime? now}):now=now??DateTime.now(); final DateTime now;
+  static const _sources=[OnlinePriceSource(id:'online-a',name:'Online Store A',type:OnlineSourceType.mock,reliabilityNote:'Mock source for demonstration'),OnlinePriceSource(id:'online-b',name:'Online Store B',type:OnlineSourceType.mock),OnlinePriceSource(id:'quick-a',name:'Quick Commerce A',type:OnlineSourceType.mock),OnlinePriceSource(id:'grocery-a',name:'Grocery Platform A',type:OnlineSourceType.mock)];
+  @override Future<List<OnlinePriceSource>> sources() async=>_sources;
+  @override Future<List<OnlinePriceListing>> listingsFor(String productId) async { final seed=productId.codeUnits.fold<int>(0,(a,b)=>a+b), base=70+(seed%90).toDouble(); return [for(var i=0;i<4;i++) OnlinePriceListing(id:'mock-$productId-$i',source:_sources[i],productId:productId,listedPrice:base+i*7,offerPrice:i.isEven?base-4+i*7:null,deliveryFee:i==0?12:0,platformFee:i<2?3:5,minimumOrderValue:i==2?199:0,available:i!=3,quantity:1,unit:'unit',variant:'standard',lastCheckedAt:now.subtract(Duration(hours:4+i*9)),otherCharges:i==2?2:0,productUrl:'mock://price-source/${_sources[i].id}/$productId')]; }
+  @override Future<PriceBenchmark?> benchmarkFor(String productId) async { final available=(await listingsFor(productId)).where((e)=>e.available).toList(); if(available.isEmpty)return null; final online=available.map(const EffectivePriceCalculator().online).map((e)=>e.total).toList()..sort(); final base=online.first-13, local=[base,base+8,base+15]; final all=[...local,...online]..sort(); double avg(List<double> v)=>v.reduce((a,b)=>a+b)/v.length; return PriceBenchmark(localLowest:local.first,localAverage:avg(local),localHighest:local.last,onlineLowest:online.first,onlineAverage:avg(online),onlineHighest:online.last,overallAverage:avg(all),median:all.length.isOdd?all[all.length~/2]:(all[all.length~/2-1]+all[all.length~/2])/2,fairRange:FairPriceRange(all[1],all[all.length-2]),observations:all.length,volatility:(all.last-all.first)/avg(all)*100,freshness:DataFreshness.updatedToday); }
+  @override Future<List<PriceHistoryPoint>> historyFor(String productId,{required int days}) async { final b=await benchmarkFor(productId); if(b==null)return []; return [for(var d=days-1;d>=0;d--) PriceHistoryPoint(date:now.subtract(Duration(days:d)),localLowest:b.localLowest+(d%3)-1,localAverage:b.localAverage+(d%4)-2,onlineLowest:b.onlineLowest+(d%5)-2,onlineAverage:b.onlineAverage+(d%4)-1)]; }
+}
+
