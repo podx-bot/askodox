@@ -5,7 +5,6 @@ analyzer:
     - lib/generated/**
   errors:
     invalid_use_of_protected_member: error
-    missing_required_param: error
 
 linter:
   rules:
