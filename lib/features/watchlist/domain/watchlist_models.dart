@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum AlertType { availableNearby, priceDropped, targetPriceMatched, newSellerStock, newOffer, backInStock, requestedProductFound }
+enum AlertType { availableNearby, priceDropped, targetPriceMatched, newSellerStock, newOffer, backInStock, requestedProductFound, localLowerThanOnline, savingAmountReached, savingPercentageReached, onlinePriceChanged, comparisonStale }
 enum AlertFrequency { instant, daily, weekly }
 enum ProductRequestStatus { pending, sentToSellers, sellerResponded, productFound, addedToCatalog, closed }
 

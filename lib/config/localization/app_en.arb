@@ -287,5 +287,58 @@
   "requestDataDownload": "Request data download",
   "placeholderOnly": "Placeholder only—no request leaves this device.",
   "deleteAccount": "Delete account",
-  "accountDeletionWarning": "Mock workflow. Some data may be retained for legal or fraud-prevention duties in production."
+  "accountDeletionWarning": "Mock workflow. Some data may be retained for legal or fraud-prevention duties in production.",
+  "priceBenchmarkTitle": "Local vs online price benchmark",
+  "localPriceSummary": "Local price summary",
+  "onlinePriceSummary": "Online price summary",
+  "lowestPrice": "Lowest",
+  "averagePrice": "Average",
+  "highestPrice": "Highest",
+  "nearbyShops": "Nearby shops",
+  "nearestShop": "Nearest shop",
+  "updatedToday": "Updated today",
+  "lowestEffectivePrice": "Lowest effective price",
+  "sourcesCompared": "Sources compared",
+  "deliveryAndFeesIncluded": "Mock delivery and platform fees included",
+  "comparisonUnavailable": "Price comparison is temporarily unavailable. Try again.",
+  "insufficientObservations": "Insufficient observations",
+  "potentialSavings": "Potential savings",
+  "potentialSavingsDisclaimer": "Potential savings based on recently available prices.",
+  "confidence": "Confidence",
+  "priceStandard": "Price standard and fair range",
+  "observedAverage": "Overall observed average",
+  "medianPrice": "Median price",
+  "observations": "Observations",
+  "fairPriceRange": "Fair price range",
+  "volatility": "Price volatility",
+  "onlineSources": "Mock online price sources",
+  "onlineSourceUnavailable": "Online source unavailable",
+  "minimumOrder": "Minimum order",
+  "mockPriceHistory": "Mock price history",
+  "mockHistoryDisclosure": "Demonstration data only; this is not real price history.",
+  "priceComparisonDisclosure": "Prices, stock and fees may change. PODX helps users compare recently available information but does not guarantee the final selling price. Confirm the price directly with the seller or online provider before purchase.",
+  "localCheaperInsight": "Lowest local price is {amount} lower than the effective online price.",
+  "onlineCheaperInsight": "Online effective price is currently {amount} lower.",
+  "pricesSimilar": "Local and online prices are nearly the same.",
+  "stalePriceWarning": "Price comparison may be outdated. Confirm the final price before purchase.",
+  "noOnlinePrice": "No online price available",
+  "noLocalSeller": "No local seller available",
+  "productMatchFailed": "Product match failed. Compare pack sizes carefully.",
+  "confidenceHigh": "High",
+  "confidenceMedium": "Medium",
+  "confidenceLow": "Low",
+  "@localCheaperInsight": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@onlineCheaperInsight": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  }
 }

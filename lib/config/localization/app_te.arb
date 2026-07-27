@@ -287,5 +287,58 @@
   "requestDataDownload": "డేటా డౌన్‌లోడ్ అభ్యర్థన",
   "placeholderOnly": "నమూనా మాత్రమే—ఈ పరికరం నుండి అభ్యర్థన వెళ్లదు.",
   "deleteAccount": "ఖాతాను తొలగించండి",
-  "accountDeletionWarning": "నమూనా ప్రక్రియ. ఉత్పత్తిలో చట్టపరమైన లేదా మోస నివారణ బాధ్యతల కోసం కొంత డేటాను నిల్వ చేయవచ్చు."
+  "accountDeletionWarning": "నమూనా ప్రక్రియ. ఉత్పత్తిలో చట్టపరమైన లేదా మోస నివారణ బాధ్యతల కోసం కొంత డేటాను నిల్వ చేయవచ్చు.",
+  "priceBenchmarkTitle": "స్థానిక మరియు ఆన్‌లైన్ ధర పోలిక",
+  "localPriceSummary": "స్థానిక ధర సారాంశం",
+  "onlinePriceSummary": "ఆన్‌లైన్ ధర సారాంశం",
+  "lowestPrice": "అత్యల్పం",
+  "averagePrice": "సగటు",
+  "highestPrice": "అత్యధికం",
+  "nearbyShops": "సమీప దుకాణాలు",
+  "nearestShop": "అతి సమీప దుకాణం",
+  "updatedToday": "ఈరోజు నవీకరించబడింది",
+  "lowestEffectivePrice": "అత్యల్ప ప్రభావవంతమైన ధర",
+  "sourcesCompared": "పోల్చిన మూలాలు",
+  "deliveryAndFeesIncluded": "నమూనా డెలివరీ మరియు ప్లాట్‌ఫారమ్ ఫీజులు చేర్చబడ్డాయి",
+  "comparisonUnavailable": "ధర పోలిక తాత్కాలికంగా అందుబాటులో లేదు. మళ్లీ ప్రయత్నించండి.",
+  "insufficientObservations": "తగినంత సమాచారం లేదు",
+  "potentialSavings": "సంభావ్య ఆదా",
+  "potentialSavingsDisclaimer": "ఇటీవల అందుబాటులో ఉన్న ధరల ఆధారంగా సంభావ్య ఆదా.",
+  "confidence": "విశ్వసనీయత",
+  "priceStandard": "ధర ప్రమాణం మరియు సముచిత పరిధి",
+  "observedAverage": "మొత్తం గమనించిన సగటు",
+  "medianPrice": "మధ్యస్థ ధర",
+  "observations": "పరిశీలనలు",
+  "fairPriceRange": "సముచిత ధర పరిధి",
+  "volatility": "ధర అస్థిరత",
+  "onlineSources": "నమూనా ఆన్‌లైన్ ధర మూలాలు",
+  "onlineSourceUnavailable": "ఆన్‌లైన్ మూలం అందుబాటులో లేదు",
+  "minimumOrder": "కనీస ఆర్డర్",
+  "mockPriceHistory": "నమూనా ధర చరిత్ర",
+  "mockHistoryDisclosure": "ప్రదర్శన డేటా మాత్రమే; ఇది నిజమైన ధర చరిత్ర కాదు.",
+  "priceComparisonDisclosure": "ధరలు, స్టాక్ మరియు ఫీజులు మారవచ్చు. ఇటీవల అందుబాటులో ఉన్న సమాచారాన్ని పోల్చడానికి PODX సహాయపడుతుంది, కానీ తుది విక్రయ ధరకు హామీ ఇవ్వదు. కొనుగోలుకు ముందు విక్రేత లేదా ఆన్‌లైన్ ప్రొవైడర్‌తో ధరను నిర్ధారించండి.",
+  "localCheaperInsight": "అత్యల్ప స్థానిక ధర ప్రభావవంతమైన ఆన్‌లైన్ ధర కంటే {amount} తక్కువ.",
+  "onlineCheaperInsight": "ఆన్‌లైన్ ప్రభావవంతమైన ధర ప్రస్తుతం {amount} తక్కువ.",
+  "pricesSimilar": "స్థానిక మరియు ఆన్‌లైన్ ధరలు దాదాపు సమానంగా ఉన్నాయి.",
+  "stalePriceWarning": "ధర పోలిక పాతది కావచ్చు. కొనుగోలుకు ముందు తుది ధరను నిర్ధారించండి.",
+  "noOnlinePrice": "ఆన్‌లైన్ ధర అందుబాటులో లేదు",
+  "noLocalSeller": "స్థానిక విక్రేత అందుబాటులో లేరు",
+  "productMatchFailed": "ఉత్పత్తి సరిపోలిక విఫలమైంది. ప్యాక్ పరిమాణాలను జాగ్రత్తగా పోల్చండి.",
+  "confidenceHigh": "అధికం",
+  "confidenceMedium": "మధ్యస్థం",
+  "confidenceLow": "తక్కువ",
+  "@localCheaperInsight": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@onlineCheaperInsight": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  }
 }
