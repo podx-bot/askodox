@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/brand/brand_config.dart';
 import '../../conversation/presentation/conversation_screen.dart';
+import '../../developer/presentation/developer_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => ConversationScreen(initialQuery: text),
       ),
@@ -65,7 +66,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _startVoice() => context.go('/discover/voice');
-  void _openSettings() => context.go('/developer');
+
+  void _openSettings() {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DeveloperSettingsScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,13 +253,17 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             Positioned(
-              top: 12,
-              right: 16,
-              child: _RoundAction(
-                key: const Key('askodoxSettingsButton'),
-                tooltip: 'Settings',
-                icon: Icons.tune_rounded,
-                onPressed: _openSettings,
+              top: 8,
+              right: 12,
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: _RoundAction(
+                  key: const Key('askodoxSettingsButton'),
+                  tooltip: 'Settings',
+                  icon: Icons.tune_rounded,
+                  onPressed: _openSettings,
+                ),
               ),
             ),
           ],
@@ -388,14 +400,21 @@ class _RoundAction extends StatelessWidget {
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       elevation: emphasized ? 6 : 0,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(
-          icon,
-          color: emphasized ? colors.onPrimary : Colors.white,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Tooltip(
+          message: tooltip,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Icon(
+                icon,
+                color: emphasized ? colors.onPrimary : Colors.white,
+              ),
+            ),
+          ),
         ),
-        padding: const EdgeInsets.all(16),
       ),
     );
   }
