@@ -40,6 +40,32 @@ jobs:
             https://*) ;;
             *) echo "::error::PODX_API_BASE_URL must be an https:// URL"; exit 1 ;;
           esac
+      - name: Verify configured ASKODOX backend is reachable
+        env:
+          PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
+        shell: bash
+        run: |
+          if [ -z "$PODX_API_BASE_URL" ]; then
+            echo "No repository backend URL configured; skipping live backend reachability check."
+            exit 0
+          fi
+
+          base="${PODX_API_BASE_URL%/}"
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --location --max-time 15 "$base/health" >/dev/null; then
+              echo "ASKODOX backend health endpoint is reachable."
+              exit 0
+            fi
+            if curl --fail --silent --show-error --location --max-time 15 "$base" >/dev/null; then
+              echo "ASKODOX backend root endpoint is reachable."
+              exit 0
+            fi
+            echo "Backend reachability attempt $attempt failed; retrying..."
+            sleep 3
+          done
+
+          echo "::error::Configured ASKODOX backend is not reachable at $base"
+          exit 1
       - name: Ensure Android platform scaffold
         shell: bash
         run: |
