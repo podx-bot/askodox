@@ -31,7 +31,18 @@ class MemoryCacheRepository implements CacheRepository {
   final Map<String, CacheEntry<Object?>> _cache = {};
   int _hits = 0, _misses = 0;
   @override int get hits => _hits; @override int get misses => _misses;
-  @override Future<CacheEntry<T>?> read<T>(String key) async { final value = _cache[key]; if (value == null) { _misses++; return null; } _hits++; return value as CacheEntry<T>; }
+  @override Future<CacheEntry<T>?> read<T>(String key) async {
+    final entry = _cache[key];
+    if (entry == null) { _misses++; return null; }
+    if (entry.value is! T) { _misses++; return null; }
+    _hits++;
+    return CacheEntry<T>(
+      value: entry.value as T,
+      updatedAt: entry.updatedAt,
+      expiresAt: entry.expiresAt,
+      version: entry.version,
+    );
+  }
   @override Future<void> write<T>(String key, T value, {required Duration ttl, int version = 1}) async { final now = DateTime.now(); _cache[key] = CacheEntry<Object?>(value: value, updatedAt: now, expiresAt: now.add(ttl), version: version); }
   @override Future<void> remove(String key) async => _cache.remove(key);
   @override Future<void> clear({bool staleOnly = false}) async { if (!staleOnly) { _cache.clear(); return; } final now = DateTime.now(); _cache.removeWhere((_, value) => value.isExpired(now)); }
