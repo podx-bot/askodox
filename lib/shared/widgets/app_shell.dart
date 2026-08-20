@@ -14,11 +14,36 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final destinations = [
-      NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home_rounded), label: strings.home),
-      NavigationDestination(icon: const Icon(Icons.search_rounded), selectedIcon: const Icon(Icons.travel_explore_rounded), label: strings.search),
-      NavigationDestination(icon: const Icon(Icons.favorite_outline_rounded), selectedIcon: const Icon(Icons.favorite_rounded), label: strings.watchlist),
-      const NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications_rounded), label: 'Alerts'),
-      NavigationDestination(icon: const Icon(Icons.person_outline_rounded), selectedIcon: const Icon(Icons.person_rounded), label: strings.profile),
+      NavigationDestination(
+        key: const Key('askodoxNavHome'),
+        icon: const Icon(Icons.home_outlined),
+        selectedIcon: const Icon(Icons.home_rounded),
+        label: strings.home,
+      ),
+      NavigationDestination(
+        key: const Key('askodoxNavSearch'),
+        icon: const Icon(Icons.search_rounded),
+        selectedIcon: const Icon(Icons.travel_explore_rounded),
+        label: strings.search,
+      ),
+      NavigationDestination(
+        key: const Key('askodoxNavWatchlist'),
+        icon: const Icon(Icons.favorite_outline_rounded),
+        selectedIcon: const Icon(Icons.favorite_rounded),
+        label: strings.watchlist,
+      ),
+      const NavigationDestination(
+        key: Key('askodoxNavAlerts'),
+        icon: Icon(Icons.notifications_outlined),
+        selectedIcon: Icon(Icons.notifications_rounded),
+        label: 'Alerts',
+      ),
+      NavigationDestination(
+        key: const Key('askodoxNavProfile'),
+        icon: const Icon(Icons.person_outline_rounded),
+        selectedIcon: const Icon(Icons.person_rounded),
+        label: strings.profile,
+      ),
     ];
 
     return LayoutBuilder(builder: (context, constraints) {
@@ -40,7 +65,13 @@ class AppShell extends StatelessWidget {
                 selectedIndex: shell.currentIndex,
                 onDestinationSelected: _go,
                 destinations: destinations
-                    .map((item) => NavigationRailDestination(icon: item.icon, selectedIcon: item.selectedIcon, label: Text(item.label)))
+                    .map(
+                      (item) => NavigationRailDestination(
+                        icon: item.icon,
+                        selectedIcon: item.selectedIcon,
+                        label: Text(item.label),
+                      ),
+                    )
                     .toList(),
               ),
             ),
