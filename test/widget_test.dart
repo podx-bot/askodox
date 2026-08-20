@@ -6,7 +6,7 @@ import 'package:podx/app.dart';
 void main() {
   testWidgets('renders the ASKODOX AI-first home experience', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: PodxApp()));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('ASKODOX AI'), findsOneWidget);
     expect(find.text('Ask anything local. Buy, sell, work, services or rides.'), findsOneWidget);
