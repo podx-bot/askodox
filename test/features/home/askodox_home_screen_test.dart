@@ -66,22 +66,45 @@ void main() {
     expect(find.text('Voice'), findsOneWidget);
   });
 
-  testWidgets('settings action opens real developer settings directly',
+  testWidgets('settings action opens real developer settings on phone viewport',
       (tester) async {
-    final router = buildRouter();
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    final router = buildRouter();
     await tester.pumpWidget(buildApp(router));
     await tester.pump();
 
     final settings = find.byKey(const Key('askodoxSettingsButton'));
     expect(settings, findsOneWidget);
-    await tester.ensureVisible(settings);
-    await tester.tap(settings);
+    final rect = tester.getRect(settings);
+    expect(rect.right, lessThanOrEqualTo(412));
+    expect(rect.top, greaterThanOrEqualTo(0));
+
+    await tester.tapAt(rect.center);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Developer settings'), findsOneWidget);
     expect(find.byKey(const Key('developerServerUrlField')), findsOneWidget);
     expect(find.byKey(const Key('demoRole-buyer')), findsOneWidget);
+  });
+
+  testWidgets('composer stays available when keyboard is shown', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = buildRouter();
+    await tester.pumpWidget(buildApp(router));
+    await tester.pump();
+
+    final field = find.byKey(const Key('askodoxAskField'));
+    await tester.tap(field);
+    await tester.showKeyboard(field);
+    await tester.pump();
+
+    expect(find.byKey(const Key('askodoxComposerBar')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxSettingsButton')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
