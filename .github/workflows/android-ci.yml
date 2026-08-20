@@ -2,43 +2,47 @@ name: Android CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
-
-concurrency:
-  group: android-ci-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
 
 jobs:
   flutter-quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Flutter version
-        run: flutter --version
       - name: Install dependencies
         run: flutter pub get
-      - name: Analyze (errors are fatal)
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
-      - name: Test
-        run: flutter test --reporter expanded
-      - name: Ensure Android platform scaffold
-        shell: bash
+      - name: Analyze
+        run: flutter analyze
+      - name: Tests
+        run: flutter test
+      - name: Validate Android API configuration
+        env:
+          PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
+        run: |
+          if [ -z "$PODX_API_BASE_URL" ]; then
+            echo "::error::Repository variable PODX_API_BASE_URL is required. Refusing to publish a broken APK."
+            exit 1
+          fi
+          case "$PODX_API_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::PODX_API_BASE_URL must be an https:// URL"; exit 1 ;;
+          esac
+      - name: Ensure Android scaffold
         run: |
           if [ ! -f android/app/build.gradle ] && [ ! -f android/app/build.gradle.kts ]; then
-            flutter create --platforms=android --org com.askodox .
+            flutter create --platforms=android .
           fi
       - name: Build Android debug APK
-        run: flutter build apk --debug --dart-define=PODX_API_BASE_URL="${{ vars.PODX_API_BASE_URL }}"
+        env:
+          PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
+        run: flutter build apk --debug --dart-define=PODX_API_BASE_URL="$PODX_API_BASE_URL"
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v4
         with:
           name: askodox-android-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
