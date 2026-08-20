@@ -68,8 +68,10 @@ class _HomeScreenState extends State<HomeScreen>
   void _startVoice() => context.go('/discover/voice');
 
   void _openSettings() {
+    FocusManager.instance.primaryFocus?.unfocus();
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'askodox-developer-settings'),
         builder: (_) => const DeveloperSettingsScreen(),
       ),
     );
@@ -81,192 +83,201 @@ class _HomeScreenState extends State<HomeScreen>
     final colors = theme.colorScheme;
 
     return Scaffold(
+      key: const Key('askodoxHomeScaffold'),
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            const Positioned.fill(child: _AmbientBackground()),
-            Positioned(
-              top: 72,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxHeight < 680;
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      compact ? 20 : 28,
-                      20,
-                      150,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: math.max(0, constraints.maxHeight - 170),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _AiOrb(animation: _orbController),
-                          SizedBox(height: compact ? 18 : 26),
-                          Text(
-                            BrandConfig.assistantName,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Ask anything local. Buy, sell, work, services or rides.',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: Colors.white60,
-                              height: 1.45,
-                            ),
-                          ),
-                          SizedBox(height: compact ? 18 : 26),
-                          SizedBox(
-                            height: 38,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              shrinkWrap: true,
-                              itemCount: _quickAsks.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 8),
-                              itemBuilder: (context, index) {
-                                final quickAsk = _quickAsks[index];
-                                return ActionChip(
-                                  key: Key('askodoxQuickAsk$index'),
-                                  label: Text(quickAsk),
-                                  onPressed: () => _selectQuickAsk(quickAsk),
-                                  backgroundColor:
-                                      Colors.white.withValues(alpha: 0.06),
-                                  side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.10),
-                                  ),
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  shape: const StadiumBorder(),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 18,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xF21B1B1D),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x66000000),
-                            blurRadius: 24,
-                            offset: Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        key: const Key('askodoxAskField'),
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        minLines: 1,
-                        maxLines: 4,
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _submitAsk(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: BrandConfig.askHint,
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 15),
-                          prefixIcon: IconButton(
-                            tooltip: 'Add',
-                            onPressed: () {},
-                            icon: const Icon(
-                              Icons.add_rounded,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          suffixIcon: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Material(
-                              color: colors.primary,
-                              shape: const CircleBorder(),
-                              child: IconButton(
-                                tooltip: 'Send',
-                                onPressed: _submitAsk,
-                                icon: Icon(
-                                  Icons.arrow_upward_rounded,
-                                  color: colors.onPrimary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _RoundAction(
-                    key: const Key('askodoxMicButton'),
-                    tooltip: BrandConfig.voiceHint,
-                    icon: Icons.mic_rounded,
-                    onPressed: _startVoice,
-                    emphasized: true,
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 12,
-              left: 16,
+      resizeToAvoidBottomInset: true,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        toolbarHeight: 72,
+        leadingWidth: 76,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
+          child: _RoundAction(
+            tooltip: 'Menu',
+            icon: Icons.menu_rounded,
+            onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12, top: 4, bottom: 4),
+            child: SizedBox(
+              width: 64,
+              height: 64,
               child: _RoundAction(
-                tooltip: 'Menu',
-                icon: Icons.menu_rounded,
-                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+                key: const Key('askodoxSettingsButton'),
+                tooltip: 'Settings',
+                icon: Icons.tune_rounded,
+                onPressed: _openSettings,
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 12,
-              child: SizedBox(
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _AmbientBackground()),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+              final compact = constraints.maxHeight < 610 || keyboardOpen;
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  compact ? 12 : 28,
+                  20,
+                  compact ? 24 : 48,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: math.max(0, constraints.maxHeight - 72),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (!keyboardOpen) _AiOrb(animation: _orbController),
+                      if (!keyboardOpen) SizedBox(height: compact ? 14 : 26),
+                      Text(
+                        BrandConfig.assistantName,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ask anything local. Buy, sell, work, services or rides.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: Colors.white60,
+                          height: 1.45,
+                        ),
+                      ),
+                      SizedBox(height: compact ? 14 : 26),
+                      SizedBox(
+                        height: 38,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          shrinkWrap: true,
+                          itemCount: _quickAsks.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final quickAsk = _quickAsks[index];
+                            return ActionChip(
+                              key: Key('askodoxQuickAsk$index'),
+                              label: Text(quickAsk),
+                              onPressed: () => _selectQuickAsk(quickAsk),
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.06),
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.10),
+                              ),
+                              labelStyle: const TextStyle(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              shape: const StadiumBorder(),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          key: const Key('askodoxComposerBar'),
+          color: Colors.black,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xF21B1B1D),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 24,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    key: const Key('askodoxAskField'),
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    minLines: 1,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _submitAsk(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: BrandConfig.askHint,
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      border: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 15),
+                      prefixIcon: IconButton(
+                        tooltip: 'Add',
+                        onPressed: () {},
+                        icon: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      suffixIcon: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Material(
+                          color: colors.primary,
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            tooltip: 'Send',
+                            onPressed: _submitAsk,
+                            icon: Icon(
+                              Icons.arrow_upward_rounded,
+                              color: colors.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
                 width: 64,
                 height: 64,
                 child: _RoundAction(
-                  key: const Key('askodoxSettingsButton'),
-                  tooltip: 'Settings',
-                  icon: Icons.tune_rounded,
-                  onPressed: _openSettings,
+                  key: const Key('askodoxMicButton'),
+                  tooltip: BrandConfig.voiceHint,
+                  icon: Icons.mic_rounded,
+                  onPressed: _startVoice,
+                  emphasized: true,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
