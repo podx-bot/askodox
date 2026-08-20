@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/config/brand/brand_config.dart';
 import 'package:podx/features/home/presentation/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   test('ASKODOX brand is centralized', () {
     expect(BrandConfig.displayName, 'ASKODOX');
     expect(BrandConfig.assistantName, 'ASKODOX AI');
@@ -23,18 +29,18 @@ void main() {
             path: '/discover/voice',
             builder: (_, __) => const Scaffold(body: Text('Voice')),
           ),
-          GoRoute(
-            path: '/developer',
-            builder: (_, __) => const Scaffold(body: Text('Developer settings')),
-          ),
         ],
+      );
+
+  Widget buildApp(GoRouter router) => ProviderScope(
+        child: MaterialApp.router(routerConfig: router),
       );
 
   testWidgets('AI-first home exposes orb, ask field and voice action',
       (tester) async {
     final router = buildRouter();
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(buildApp(router));
     await tester.pump();
 
     expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
@@ -51,7 +57,7 @@ void main() {
   testWidgets('voice action routes to voice discovery', (tester) async {
     final router = buildRouter();
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(buildApp(router));
     await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxMicButton')));
     await tester.pump();
@@ -60,15 +66,22 @@ void main() {
     expect(find.text('Voice'), findsOneWidget);
   });
 
-  testWidgets('settings action opens developer settings', (tester) async {
+  testWidgets('settings action opens real developer settings directly',
+      (tester) async {
     final router = buildRouter();
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(buildApp(router));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('askodoxSettingsButton')));
+
+    final settings = find.byKey(const Key('askodoxSettingsButton'));
+    expect(settings, findsOneWidget);
+    await tester.ensureVisible(settings);
+    await tester.tap(settings);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Developer settings'), findsOneWidget);
+    expect(find.byKey(const Key('developerServerUrlField')), findsOneWidget);
+    expect(find.byKey(const Key('demoRole-buyer')), findsOneWidget);
   });
 }
