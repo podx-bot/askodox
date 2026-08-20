@@ -44,6 +44,11 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       );
 
+  Future<void> finishRouteAnimation(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   testWidgets('AI-first home exposes every critical action', (tester) async {
     final router = buildRouter();
 
@@ -67,13 +72,13 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('askodoxMenuButton')));
-    await tester.pumpAndSettle();
+    await finishRouteAnimation(tester);
 
     expect(find.byKey(const Key('askodoxHomeDrawer')), findsOneWidget);
     expect(find.byKey(const Key('askodoxDrawerSearch')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('askodoxDrawerSearch')));
-    await tester.pumpAndSettle();
+    await finishRouteAnimation(tester);
     expect(find.text('Search'), findsOneWidget);
   });
 
@@ -83,7 +88,7 @@ void main() {
     await tester.pumpWidget(buildApp(router));
     await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxMicButton')));
-    await tester.pumpAndSettle();
+    await finishRouteAnimation(tester);
 
     expect(find.text('Voice'), findsOneWidget);
   });
@@ -98,8 +103,7 @@ void main() {
       'నాకు దగ్గరలో చికెన్ కావాలి',
     );
     await tester.tap(find.byKey(const Key('askodoxHomeSendButton')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await finishRouteAnimation(tester);
 
     expect(find.byKey(const Key('askodoxConversationList')), findsOneWidget);
     expect(find.byKey(const Key('askodoxConversationField')), findsOneWidget);
@@ -121,8 +125,7 @@ void main() {
     expect(rect.top, greaterThanOrEqualTo(0));
 
     await tester.tapAt(rect.center);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
+    await finishRouteAnimation(tester);
 
     expect(find.text('Developer settings'), findsOneWidget);
     expect(find.byKey(const Key('developerServerUrlField')), findsOneWidget);
