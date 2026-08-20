@@ -26,6 +26,14 @@ void main() {
             builder: (_, __) => const Scaffold(body: Text('Search')),
           ),
           GoRoute(
+            path: '/alerts',
+            builder: (_, __) => const Scaffold(body: Text('Alerts')),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (_, __) => const Scaffold(body: Text('Profile')),
+          ),
+          GoRoute(
             path: '/discover/voice',
             builder: (_, __) => const Scaffold(body: Text('Voice')),
           ),
@@ -36,8 +44,7 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       );
 
-  testWidgets('AI-first home exposes orb, ask field and voice action',
-      (tester) async {
+  testWidgets('AI-first home exposes every critical action', (tester) async {
     final router = buildRouter();
 
     await tester.pumpWidget(buildApp(router));
@@ -45,28 +52,60 @@ void main() {
 
     expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxHomeSendButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxMenuButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxSettingsButton')), findsOneWidget);
     expect(find.text('ASKODOX AI'), findsOneWidget);
-    expect(
-      find.text('Ask anything local. Buy, sell, work, services or rides.'),
-      findsOneWidget,
-    );
+    expect(find.text(BrandConfig.localPromise), findsOneWidget);
   });
 
-  testWidgets('voice action routes to voice discovery', (tester) async {
+  testWidgets('menu tap opens a real drawer and drawer navigation works',
+      (tester) async {
+    final router = buildRouter();
+    await tester.pumpWidget(buildApp(router));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('askodoxMenuButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('askodoxHomeDrawer')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxDrawerSearch')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('askodoxDrawerSearch')));
+    await tester.pumpAndSettle();
+    expect(find.text('Search'), findsOneWidget);
+  });
+
+  testWidgets('voice tap routes to voice discovery', (tester) async {
     final router = buildRouter();
 
     await tester.pumpWidget(buildApp(router));
     await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxMicButton')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
 
     expect(find.text('Voice'), findsOneWidget);
   });
 
-  testWidgets('settings action opens real developer settings on phone viewport',
+  testWidgets('send tap opens conversation surface', (tester) async {
+    final router = buildRouter();
+    await tester.pumpWidget(buildApp(router));
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const Key('askodoxAskField')),
+      'నాకు దగ్గరలో చికెన్ కావాలి',
+    );
+    await tester.tap(find.byKey(const Key('askodoxHomeSendButton')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('askodoxConversationList')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxConversationField')), findsOneWidget);
+  });
+
+  testWidgets('settings tap opens real developer settings on phone viewport',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -105,6 +144,7 @@ void main() {
 
     expect(find.byKey(const Key('askodoxComposerBar')), findsOneWidget);
     expect(find.byKey(const Key('askodoxSettingsButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxHomeSendButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
