@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/brand/brand_config.dart';
+import '../../conversation/presentation/conversation_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,11 +51,11 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    final destination = Uri(
-      path: '/ask',
-      queryParameters: {'q': text},
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationScreen(initialQuery: text),
+      ),
     );
-    context.go(destination.toString());
   }
 
   void _selectQuickAsk(String value) {
