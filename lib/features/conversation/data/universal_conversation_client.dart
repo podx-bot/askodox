@@ -51,7 +51,7 @@ class UniversalConversationClient {
             const Duration(seconds: 12),
           );
       request.headers.contentType = ContentType.json;
-      request.headers.accept = 'application/json';
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.write(
         jsonEncode({
           'sender_mobile': senderId,
