@@ -65,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _startVoice() => context.go('/discover/voice');
+  void _openSettings() => context.go('/developer');
 
   @override
   Widget build(BuildContext context) {
@@ -90,9 +91,10 @@ class _HomeScreenState extends State<HomeScreen>
               top: 12,
               right: 16,
               child: _RoundAction(
-                tooltip: 'Preferences',
+                key: const Key('askodoxSettingsButton'),
+                tooltip: 'Settings',
                 icon: Icons.tune_rounded,
-                onPressed: () => context.go('/profile'),
+                onPressed: _openSettings,
               ),
             ),
             Positioned.fill(
@@ -147,7 +149,8 @@ class _HomeScreenState extends State<HomeScreen>
                                   key: Key('askodoxQuickAsk$index'),
                                   label: Text(quickAsk),
                                   onPressed: () => _selectQuickAsk(quickAsk),
-                                  backgroundColor: Colors.white.withValues(alpha: 0.06),
+                                  backgroundColor:
+                                      Colors.white.withValues(alpha: 0.06),
                                   side: BorderSide(
                                     color: Colors.white.withValues(alpha: 0.10),
                                   ),
@@ -207,7 +210,8 @@ class _HomeScreenState extends State<HomeScreen>
                           hintText: BrandConfig.askHint,
                           hintStyle: const TextStyle(color: Colors.white54),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 15),
                           prefixIcon: IconButton(
                             tooltip: 'Add',
                             onPressed: () {},
