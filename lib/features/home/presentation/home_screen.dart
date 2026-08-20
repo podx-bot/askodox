@@ -1,124 +1,210 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../generated/l10n/app_localizations.dart';
-import '../../catalog/application/catalog_providers.dart';
-import '../../catalog/domain/entities/product.dart';
-import '../../catalog/presentation/widgets/product_card.dart';
+import '../../../config/brand/brand_config.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final strings = AppLocalizations.of(context)!;
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _submitAsk() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      _focusNode.requestFocus();
+      return;
+    }
+
+    // Foundation behavior: hand off to the existing discovery surface until the
+    // typed Universal Conversation API client lands in the next slice.
+    context.go('/search');
+  }
+
+  void _startVoice() => context.go('/discover/voice');
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            floating: true,
-            title: Text(strings.appName, style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-            actions: [
-              IconButton(tooltip: strings.notifications, onPressed: () {}, icon: const Badge(child: Icon(Icons.notifications_outlined))),
-              const SizedBox(width: 8),
-            ],
-          ),
-          SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(strings.greeting, style: Theme.of(context).textTheme.bodyLarge),
-                    Text(strings.discover, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned(
+              top: 12,
+              left: 16,
+              child: _RoundAction(
+                tooltip: 'Menu',
+                icon: Icons.menu_rounded,
+                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 16,
+              child: _RoundAction(
+                tooltip: 'Preferences',
+                icon: Icons.tune_rounded,
+                onPressed: () => context.go('/profile'),
+              ),
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 92),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const _AiOrb(),
                     const SizedBox(height: 22),
-                    Semantics(
-                      button: true,
-                      label: strings.searchHint,
-                      child: TextField(
-                        readOnly: true,
-                        onTap: () => context.go('/search'),
-                        decoration: InputDecoration(
-                          hintText: strings.searchHint,
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: const Icon(Icons.tune),
-                        ),
-                      ),
+                    Text(
+                      BrandConfig.assistantName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.6,
+                          ),
                     ),
-                    const SizedBox(height: 28),
-                    _SectionTitle(title: strings.categories, action: strings.seeAll),
-                    const SizedBox(height: 12),
-                    const _Categories(),
-                    const SizedBox(height: 28),
-                    _SectionTitle(title: strings.featured, action: strings.seeAll),
-                    const SizedBox(height: 12),
-                  ]),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ask anything local. Buy, sell, work, services or rides.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white60,
+                          ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          _Products(products: ref.watch(catalogProvider).whenData((catalog) => catalog.products.take(4).toList())),
-          const SliverPadding(padding: EdgeInsets.only(bottom: 28)),
-        ],
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 18,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF202020),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: TextField(
+                        key: const Key('askodoxAskField'),
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _submitAsk(),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: BrandConfig.askHint,
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          border: InputBorder.none,
+                          prefixIcon: IconButton(
+                            tooltip: 'Add',
+                            onPressed: () {},
+                            icon: const Icon(Icons.add_rounded, color: Colors.white),
+                          ),
+                          suffixIcon: IconButton(
+                            tooltip: 'Send',
+                            onPressed: _submitAsk,
+                            icon: Icon(Icons.arrow_upward_rounded, color: colors.primary),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _RoundAction(
+                    key: const Key('askodoxMicButton'),
+                    tooltip: BrandConfig.voiceHint,
+                    icon: Icons.mic_none_rounded,
+                    onPressed: _startVoice,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.action});
-  final String title;
-  final String action;
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))),
-        TextButton(onPressed: () {}, child: Text(action)),
-      ]);
-}
+class _AiOrb extends StatelessWidget {
+  const _AiOrb();
 
-class _Categories extends StatelessWidget {
-  const _Categories();
-  static const items = [('Groceries', Icons.local_grocery_store_outlined, 'groceries'), ('Fashion', Icons.checkroom, 'fashion'), ('Home', Icons.chair_outlined, 'home'), ('Electronics', Icons.devices_outlined, 'electronics')];
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 104,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, index) => InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => context.go('/search'),
-            child: Container(
-              width: 112,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(18)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(items[index].$2, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 8), Text(items[index].$1, maxLines: 1)]),
-            ),
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '${BrandConfig.assistantName} listening orb',
+      child: Container(
+        key: const Key('askodoxOrb'),
+        width: 220,
+        height: 220,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const RadialGradient(
+            center: Alignment(-0.28, -0.20),
+            radius: 0.95,
+            colors: [
+              Color(0xFFF5F6FF),
+              Color(0xFFC9D1FF),
+              Color(0xFF7C8CFF),
+              Color(0xFF4455C7),
+            ],
+            stops: [0.0, 0.38, 0.72, 1.0],
           ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x667C8CFF),
+              blurRadius: 42,
+              spreadRadius: 4,
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
-class _Products extends StatelessWidget {
-  const _Products({required this.products});
-  final AsyncValue<List<Product>> products;
+class _RoundAction extends StatelessWidget {
+  const _RoundAction({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
   @override
-  Widget build(BuildContext context) => products.when(
-        loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-        error: (_, __) => SliverToBoxAdapter(child: Center(child: Text(AppLocalizations.of(context)!.retry))),
-        data: (items) => SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverLayoutBuilder(builder: (context, constraints) {
-            final count = constraints.crossAxisExtent >= 1000 ? 4 : constraints.crossAxisExtent >= 600 ? 3 : 2;
-            return SliverGrid.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: count, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .78),
-              itemCount: items.length,
-              itemBuilder: (context, index) => ProductCard(product: items[index]),
-            );
-          }),
-        ),
-      );
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF202020),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.white),
+        padding: const EdgeInsets.all(16),
+      ),
+    );
+  }
 }
