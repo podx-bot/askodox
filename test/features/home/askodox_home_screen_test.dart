@@ -11,16 +11,28 @@ void main() {
     expect(BrandConfig.askHint, 'Ask ASKODOX');
   });
 
-  testWidgets('AI-first home exposes orb, ask field and voice action', (tester) async {
-    final router = GoRouter(
-      initialLocation: '/',
-      routes: [
-        GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
-        GoRoute(path: '/search', builder: (_, __) => const Scaffold(body: Text('Search'))),
-        GoRoute(path: '/discover/voice', builder: (_, __) => const Scaffold(body: Text('Voice'))),
-        GoRoute(path: '/profile', builder: (_, __) => const Scaffold(body: Text('Profile'))),
-      ],
-    );
+  GoRouter buildRouter() => GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+          GoRoute(
+            path: '/search',
+            builder: (_, __) => const Scaffold(body: Text('Search')),
+          ),
+          GoRoute(
+            path: '/discover/voice',
+            builder: (_, __) => const Scaffold(body: Text('Voice')),
+          ),
+          GoRoute(
+            path: '/developer',
+            builder: (_, __) => const Scaffold(body: Text('Developer settings')),
+          ),
+        ],
+      );
+
+  testWidgets('AI-first home exposes orb, ask field and voice action',
+      (tester) async {
+    final router = buildRouter();
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pump();
@@ -28,20 +40,16 @@ void main() {
     expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxSettingsButton')), findsOneWidget);
     expect(find.text('ASKODOX AI'), findsOneWidget);
-    expect(find.text('Ask anything local. Buy, sell, work, services or rides.'), findsOneWidget);
+    expect(
+      find.text('Ask anything local. Buy, sell, work, services or rides.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('voice action routes to voice discovery', (tester) async {
-    final router = GoRouter(
-      initialLocation: '/',
-      routes: [
-        GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
-        GoRoute(path: '/search', builder: (_, __) => const Scaffold(body: Text('Search'))),
-        GoRoute(path: '/discover/voice', builder: (_, __) => const Scaffold(body: Text('Voice'))),
-        GoRoute(path: '/profile', builder: (_, __) => const Scaffold(body: Text('Profile'))),
-      ],
-    );
+    final router = buildRouter();
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pump();
@@ -50,5 +58,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Voice'), findsOneWidget);
+  });
+
+  testWidgets('settings action opens developer settings', (tester) async {
+    final router = buildRouter();
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('askodoxSettingsButton')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Developer settings'), findsOneWidget);
   });
 }
