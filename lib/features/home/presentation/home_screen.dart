@@ -15,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   AskodoxAiState _state = AskodoxAiState.idle;
@@ -61,8 +62,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startVoice() {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _state = AskodoxAiState.listening);
     context.go('/discover/voice');
+  }
+
+  void _openMenu() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _scaffoldKey.currentState?.openDrawer();
   }
 
   void _openSettings() {
@@ -75,21 +82,81 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _goFromDrawer(String path) {
+    Navigator.of(context).pop();
+    context.go(path);
+  }
+
   @override
   Widget build(BuildContext context) {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
-      key: const Key('askodoxHomeScaffold'),
+      key: _scaffoldKey,
       resizeToAvoidBottomInset: true,
+      drawer: Drawer(
+        key: const Key('askodoxHomeDrawer'),
+        child: SafeArea(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      BrandConfig.displayName,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.4,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(BrandConfig.tagline),
+                  ],
+                ),
+              ),
+              ListTile(
+                key: const Key('askodoxDrawerSearch'),
+                leading: const Icon(Icons.search_rounded),
+                title: const Text('Search'),
+                onTap: () => _goFromDrawer('/search'),
+              ),
+              ListTile(
+                key: const Key('askodoxDrawerAlerts'),
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Alerts'),
+                onTap: () => _goFromDrawer('/alerts'),
+              ),
+              ListTile(
+                key: const Key('askodoxDrawerProfile'),
+                leading: const Icon(Icons.person_outline_rounded),
+                title: const Text('Profile'),
+                onTap: () => _goFromDrawer('/profile'),
+              ),
+              ListTile(
+                key: const Key('askodoxDrawerSettings'),
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Developer settings'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _openSettings();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
       appBar: AppBar(
         toolbarHeight: 72,
         leadingWidth: 76,
         leading: Padding(
           padding: const EdgeInsets.only(left: 12, top: 6, bottom: 6),
           child: AskodoxActionButton(
+            key: const Key('askodoxMenuButton'),
             icon: Icons.menu_rounded,
             tooltip: 'Menu',
-            onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+            onPressed: _openMenu,
             size: 56,
           ),
         ),
@@ -149,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Ask anything local. Buy, sell, work, services or rides.',
+                      BrandConfig.localPromise,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -191,6 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onVoice: _startVoice,
             hintText: BrandConfig.askHint,
             fieldKey: const Key('askodoxAskField'),
+            sendKey: const Key('askodoxHomeSendButton'),
             voiceKey: const Key('askodoxMicButton'),
           ),
         ),
