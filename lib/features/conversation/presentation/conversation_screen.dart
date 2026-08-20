@@ -1,0 +1,254 @@
+import 'package:flutter/material.dart';
+
+import '../../../config/brand/brand_config.dart';
+import '../data/universal_conversation_client.dart';
+
+class ConversationScreen extends StatefulWidget {
+  const ConversationScreen({
+    super.key,
+    this.initialQuery = '',
+    this.client = const UniversalConversationClient(),
+  });
+
+  final String initialQuery;
+  final UniversalConversationClient client;
+
+  @override
+  State<ConversationScreen> createState() => _ConversationScreenState();
+}
+
+class _ConversationScreenState extends State<ConversationScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<_ConversationMessage> _messages = [];
+  late final String _senderId;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
+    final initial = widget.initialQuery.trim();
+    if (initial.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _send(initial));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendFromComposer() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _sending) return;
+    _controller.clear();
+    await _send(text);
+  }
+
+  Future<void> _send(String text) async {
+    if (text.trim().isEmpty || _sending) return;
+
+    setState(() {
+      _messages.add(_ConversationMessage.user(text.trim()));
+      _sending = true;
+    });
+    _scrollToBottom();
+
+    if (!widget.client.isConfigured) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(
+          const _ConversationMessage.assistant(
+            'ASKODOX conversation server is not configured in this APK build. '
+            'Set PODX_API_BASE_URL for the Android build and try again.',
+          ),
+        );
+        _sending = false;
+      });
+      _scrollToBottom();
+      return;
+    }
+
+    try {
+      final reply = await widget.client.send(
+        senderId: _senderId,
+        message: text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages.add(_ConversationMessage.assistant(reply));
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(
+          const _ConversationMessage.assistant(
+            'I could not reach ASKODOX right now. Please try again in a moment.',
+          ),
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          BrandConfig.assistantName,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: _messages.isEmpty
+                  ? const _EmptyConversation()
+                  : ListView.builder(
+                      key: const Key('askodoxConversationList'),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) => _MessageBubble(
+                        message: _messages[index],
+                      ),
+                    ),
+            ),
+            if (_sending)
+              const LinearProgressIndicator(
+                key: Key('askodoxConversationProgress'),
+                minHeight: 2,
+              ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF171719),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('askodoxConversationField'),
+                      controller: _controller,
+                      minLines: 1,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendFromComposer(),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: BrandConfig.askHint,
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: const Color(0xFF26262A),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    key: const Key('askodoxConversationSend'),
+                    onPressed: _sending ? null : _sendFromComposer,
+                    icon: const Icon(Icons.arrow_upward_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyConversation extends StatelessWidget {
+  const _EmptyConversation();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Text(
+          'Tell ASKODOX what you need. Buy, sell, work, services and rides all start here.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white60, fontSize: 16, height: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message});
+
+  final _ConversationMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        key: Key(message.fromUser ? 'askodoxUserMessage' : 'askodoxAssistantMessage'),
+        constraints: const BoxConstraints(maxWidth: 560),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: message.fromUser ? colors.primary : const Color(0xFF252529),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          message.text,
+          style: TextStyle(
+            color: message.fromUser ? colors.onPrimary : Colors.white,
+            fontSize: 16,
+            height: 1.35,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationMessage {
+  const _ConversationMessage._(this.text, this.fromUser);
+
+  const _ConversationMessage.user(String text) : this._(text, true);
+  const _ConversationMessage.assistant(String text) : this._(text, false);
+
+  final String text;
+  final bool fromUser;
+}
