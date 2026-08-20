@@ -54,12 +54,7 @@ class MockProductDiscoveryRepository implements ProductDiscoveryRepository {
         }
       }
       if (kind != null) {
-        result.add(SmartMatch(
-          product: p,
-          kind: kind,
-          confidence: MatchConfidence(score),
-          reason: reason,
-        ));
+        result.add(SmartMatch(product: p, kind: kind, confidence: MatchConfidence(score), reason: reason));
       }
     }
     result.sort((a, b) => b.confidence.score.compareTo(a.confidence.score));
@@ -68,19 +63,11 @@ class MockProductDiscoveryRepository implements ProductDiscoveryRepository {
 
   int _distance(String a, String b) {
     final d = List.generate(a.length + 1, (_) => List<int>.filled(b.length + 1, 0));
-    for (var i = 0; i <= a.length; i++) {
-      d[i][0] = i;
-    }
-    for (var j = 0; j <= b.length; j++) {
-      d[0][j] = j;
-    }
+    for (var i = 0; i <= a.length; i++) { d[i][0] = i; }
+    for (var j = 0; j <= b.length; j++) { d[0][j] = j; }
     for (var i = 1; i <= a.length; i++) {
       for (var j = 1; j <= b.length; j++) {
-        d[i][j] = [
-          d[i - 1][j] + 1,
-          d[i][j - 1] + 1,
-          d[i - 1][j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1),
-        ].reduce((x, y) => x < y ? x : y);
+        d[i][j] = [d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1)].reduce((x, y) => x < y ? x : y);
       }
     }
     return d[a.length][b.length];
@@ -91,33 +78,33 @@ class MockProductDiscoveryRepository implements ProductDiscoveryRepository {
     if (!barcode.isValid) return const BarcodeResult(BarcodeMatchState.invalid, []);
     final key = barcodes[barcode.value];
     final matches = catalog.where((p) => p.id == key || (key == 'coffee' && p.tags.contains('coffee'))).toList();
-    return BarcodeResult(
-      matches.isEmpty
-          ? BarcodeMatchState.notFound
-          : matches.length == 1
-              ? BarcodeMatchState.found
-              : BarcodeMatchState.multipleMatches,
-      matches,
-    );
+    return BarcodeResult(matches.isEmpty ? BarcodeMatchState.notFound : matches.length == 1 ? BarcodeMatchState.found : BarcodeMatchState.multipleMatches, matches);
   }
 
   @override
   OCRResult extractMockText(String source, List<Product> catalog) {
     const text = 'SoundCore Wave Wireless Headphones';
-    return OCRResult(extractedText: text, source: source, matches: matchText(text, catalog));
+    final matches = matchText(text, catalog);
+    final fallback = matches.isEmpty && catalog.isNotEmpty
+        ? [SmartMatch(product: catalog.first, kind: MatchKind.related, confidence: const MatchConfidence(0.62), reason: 'Mock OCR fallback')]
+        : matches;
+    return OCRResult(extractedText: text, source: source, matches: fallback);
   }
 
   @override
-  List<SmartMatch> searchImage(ImageSearchRequest request, List<Product> catalog) =>
-      catalog
-          .where((p) => ['wave-headphones', 'pocket-charger', 'street-sneakers'].contains(p.id))
-          .map((p) => SmartMatch(
-                product: p,
-                kind: MatchKind.related,
-                confidence: MatchConfidence(p.id == 'wave-headphones' ? 0.91 : 0.68),
-                reason: 'Mock visual similarity',
-              ))
-          .toList();
+  List<SmartMatch> searchImage(ImageSearchRequest request, List<Product> catalog) {
+    final preferred = catalog.where((p) => ['wave-headphones', 'pocket-charger', 'street-sneakers'].contains(p.id)).toList();
+    final candidates = preferred.isNotEmpty ? preferred : catalog.take(3).toList();
+    return [
+      for (var i = 0; i < candidates.length; i++)
+        SmartMatch(
+          product: candidates[i],
+          kind: MatchKind.related,
+          confidence: MatchConfidence(i == 0 ? 0.91 : 0.68),
+          reason: 'Mock visual similarity',
+        ),
+    ];
+  }
 
   @override
   List<SearchSuggestion> suggestions(List<String> recent) => [
@@ -133,13 +120,6 @@ class MockProductDiscoveryRepository implements ProductDiscoveryRepository {
       catalog
           .where((p) => p.id != product.id && (p.categoryId == product.categoryId || p.brand.id == product.brand.id))
           .take(4)
-          .map((p) => RelatedProduct(
-                p,
-                p.brand.id == product.brand.id
-                    ? RelatedProductType.alternatePackSize
-                    : p.price < product.price
-                        ? RelatedProductType.betterOffer
-                        : RelatedProductType.alternateBrand,
-              ))
+          .map((p) => RelatedProduct(p, p.brand.id == product.brand.id ? RelatedProductType.alternatePackSize : p.price < product.price ? RelatedProductType.betterOffer : RelatedProductType.alternateBrand))
           .toList();
 }
