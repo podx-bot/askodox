@@ -50,9 +50,11 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    // Foundation behavior: hand off to the existing discovery surface until the
-    // typed Universal Conversation API client lands in the next slice.
-    context.go('/search');
+    final destination = Uri(
+      path: '/ask',
+      queryParameters: {'q': text},
+    );
+    context.go(destination.toString());
   }
 
   void _selectQuickAsk(String value) {
