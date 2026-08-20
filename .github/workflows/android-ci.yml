@@ -34,7 +34,7 @@ jobs:
             flutter create --platforms=android --org com.askodox .
           fi
       - name: Build Android debug APK
-        run: flutter build apk --debug
+        run: flutter build apk --debug --dart-define=PODX_API_BASE_URL="${{ vars.PODX_API_BASE_URL }}"
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v4
         with:
