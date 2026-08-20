@@ -10,6 +10,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  Future<void> finishUiTransition(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   testWidgets('home send opens the ASKODOX conversation surface',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
@@ -20,8 +25,7 @@ void main() {
       'నాకు దగ్గరలో చికెన్ కావాలి',
     );
     await tester.tap(find.byKey(const Key('askodoxHomeSendButton')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await finishUiTransition(tester);
 
     expect(find.byKey(const Key('askodoxConversationList')), findsOneWidget);
     expect(
@@ -46,7 +50,7 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('askodoxServerSettings')));
-    await tester.pumpAndSettle();
+    await finishUiTransition(tester);
 
     expect(find.text('ASKODOX server'), findsOneWidget);
     expect(find.byKey(const Key('askodoxServerUrlField')), findsOneWidget);
