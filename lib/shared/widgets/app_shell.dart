@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../config/brand/brand_config.dart';
 import '../../generated/l10n/app_localizations.dart';
+import 'askodox_brand_mark.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({required this.shell, super.key});
@@ -12,12 +14,13 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final destinations = [
-      NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: strings.home),
-      NavigationDestination(icon: const Icon(Icons.search), label: strings.search),
-      NavigationDestination(icon: const Icon(Icons.favorite_outline), selectedIcon: const Icon(Icons.favorite), label: strings.watchlist),
-      const NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Alerts'),
-      NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: strings.profile),
+      NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home_rounded), label: strings.home),
+      NavigationDestination(icon: const Icon(Icons.search_rounded), selectedIcon: const Icon(Icons.travel_explore_rounded), label: strings.search),
+      NavigationDestination(icon: const Icon(Icons.favorite_outline_rounded), selectedIcon: const Icon(Icons.favorite_rounded), label: strings.watchlist),
+      const NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications_rounded), label: 'Alerts'),
+      NavigationDestination(icon: const Icon(Icons.person_outline_rounded), selectedIcon: const Icon(Icons.person_rounded), label: strings.profile),
     ];
+
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth >= 720;
       if (wide) {
@@ -26,6 +29,14 @@ class AppShell extends StatelessWidget {
             SafeArea(
               child: NavigationRail(
                 extended: constraints.maxWidth >= 1080,
+                leading: const Padding(
+                  padding: EdgeInsets.only(bottom: 18),
+                  child: AskodoxBrandMark(
+                    size: 48,
+                    showWordmark: true,
+                    subtitle: BrandConfig.tagline,
+                  ),
+                ),
                 selectedIndex: shell.currentIndex,
                 onDestinationSelected: _go,
                 destinations: destinations
@@ -38,12 +49,18 @@ class AppShell extends StatelessWidget {
           ]),
         );
       }
+
       return Scaffold(
         body: shell,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: shell.currentIndex,
-          onDestinationSelected: _go,
-          destinations: destinations,
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: NavigationBar(
+            key: const Key('askodoxPrimaryNavigation'),
+            selectedIndex: shell.currentIndex,
+            onDestinationSelected: _go,
+            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+            destinations: destinations,
+          ),
         ),
       );
     });
