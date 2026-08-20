@@ -3,8 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/conversation/data/universal_conversation_client.dart';
 import 'package:podx/features/conversation/presentation/conversation_screen.dart';
 import 'package:podx/features/home/presentation/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('home ask opens the ASKODOX conversation surface', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     await tester.pump();
@@ -15,6 +20,7 @@ void main() {
     );
     await tester.tap(find.byTooltip('Send'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byKey(const Key('askodoxConversationList')), findsOneWidget);
@@ -39,11 +45,13 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('Find work'), findsOneWidget);
     expect(
       find.textContaining('conversation server is not configured'),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('askodoxServerSettings')), findsOneWidget);
   });
 }
