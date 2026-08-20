@@ -46,6 +46,18 @@ jobs:
           if [ ! -f android/app/build.gradle ] && [ ! -f android/app/build.gradle.kts ]; then
             flutter create --platforms=android --org com.askodox .
           fi
+      - name: Apply ASKODOX Android branding
+        shell: bash
+        run: bash tool/apply_android_askodox_branding.sh
+      - name: Verify ASKODOX Android branding
+        shell: bash
+        run: |
+          test -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          test -f android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
+          test -f android/app/src/main/res/drawable/askodox_launcher_foreground.xml
+          test -f android/app/src/main/res/drawable/launch_background.xml
+          grep -q 'askodox_violet' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          grep -q '#603EFF' android/app/src/main/res/values/askodox_colors.xml
       - name: Build Android debug APK
         env:
           PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
