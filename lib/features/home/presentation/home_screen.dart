@@ -79,38 +79,23 @@ class _HomeScreenState extends State<HomeScreen>
           children: [
             const Positioned.fill(child: _AmbientBackground()),
             Positioned(
-              top: 12,
-              left: 16,
-              child: _RoundAction(
-                tooltip: 'Menu',
-                icon: Icons.menu_rounded,
-                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 16,
-              child: _RoundAction(
-                key: const Key('askodoxSettingsButton'),
-                tooltip: 'Settings',
-                icon: Icons.tune_rounded,
-                onPressed: _openSettings,
-              ),
-            ),
-            Positioned.fill(
+              top: 72,
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxHeight < 680;
                   return SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
                       20,
-                      compact ? 72 : 92,
+                      compact ? 20 : 28,
                       20,
                       150,
                     ),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        minHeight: math.max(0, constraints.maxHeight - 242),
+                        minHeight: math.max(0, constraints.maxHeight - 170),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -248,6 +233,25 @@ class _HomeScreenState extends State<HomeScreen>
                     emphasized: true,
                   ),
                 ],
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 16,
+              child: _RoundAction(
+                tooltip: 'Menu',
+                icon: Icons.menu_rounded,
+                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 16,
+              child: _RoundAction(
+                key: const Key('askodoxSettingsButton'),
+                tooltip: 'Settings',
+                icon: Icons.tune_rounded,
+                onPressed: _openSettings,
               ),
             ),
           ],
