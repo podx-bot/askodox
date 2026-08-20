@@ -28,13 +28,13 @@ jobs:
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - name: Tests
         run: flutter test --reporter expanded
-      - name: Validate Android API configuration
+      - name: Check Android API configuration
         env:
           PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
         run: |
           if [ -z "$PODX_API_BASE_URL" ]; then
-            echo "::error::Repository variable PODX_API_BASE_URL is required. Refusing to publish a broken APK."
-            exit 1
+            echo "::warning::PODX_API_BASE_URL is not set. APK will use the persistent in-app ASKODOX server setting until the repository variable is configured."
+            exit 0
           fi
           case "$PODX_API_BASE_URL" in
             https://*) ;;
