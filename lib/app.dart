@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'config/brand/brand_config.dart';
 import 'config/router/app_router.dart';
 import 'config/theme/app_theme.dart';
 import 'core/providers/app_settings_provider.dart';
@@ -18,7 +19,8 @@ class PodxApp extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
+      title: BrandConfig.displayName,
+      onGenerateTitle: (_) => BrandConfig.displayName,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
