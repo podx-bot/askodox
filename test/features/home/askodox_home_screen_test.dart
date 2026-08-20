@@ -23,7 +23,7 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
@@ -44,9 +44,10 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
+    await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxMicButton')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Voice'), findsOneWidget);
   });
