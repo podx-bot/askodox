@@ -14,6 +14,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
   go_router: ^14.8.1
+  shared_preferences: ^2.5.3
   # flutter_localizations pins the compatible intl release for the active
   # Flutter SDK. Keeping this unconstrained avoids dependency-solver failures
   # when the SDK updates that pin.
