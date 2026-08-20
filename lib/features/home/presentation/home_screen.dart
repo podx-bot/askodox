@@ -111,13 +111,13 @@ class _HomeScreenState extends State<HomeScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxHeight < 610 || keyboardOpen;
+            final contentMinHeight =
+                constraints.maxHeight > 36 ? constraints.maxHeight - 36 : 0.0;
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(20, compact ? 8 : 20, 20, 24),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: (constraints.maxHeight - 36).clamp(0, double.infinity),
-                ),
+                constraints: BoxConstraints(minHeight: contentMinHeight),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
