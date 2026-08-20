@@ -18,7 +18,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byKey(const Key('askodoxConversationList')), findsOneWidget);
-    expect(find.text('నాకు దగ్గరలో చికెన్ కావాలి'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('askodoxUserMessage')),
+        matching: find.text('నాకు దగ్గరలో చికెన్ కావాలి'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('askodoxConversationField')), findsOneWidget);
   });
 
