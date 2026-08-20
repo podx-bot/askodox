@@ -1,27 +1,181 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../config/brand/brand_config.dart';
+import '../../../config/theme/askodox_design_tokens.dart';
 import '../../../generated/l10n/app_localizations.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
   @override
-  Widget build(BuildContext context) { final l=AppLocalizations.of(context)!; return Scaffold(
-    appBar: AppBar(title: const Text('Profile')),
-    body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 700), child: ListView(padding: const EdgeInsets.all(20), children: [
-      const CircleAvatar(radius: 42, child: Icon(Icons.person, size: 42)),
-      const SizedBox(height: 24),
-      Card(child: ListTile(contentPadding: const EdgeInsets.all(18), leading: Icon(Icons.storefront, size: 34, color: Theme.of(context).colorScheme.primary), title: const Text('PODX for sellers', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Create your shop and manage products, prices and stock.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/seller/login'))),
-      const SizedBox(height: 12),
-      Card(child: ListTile(leading: const Icon(Icons.insights_outlined), title: const Text('Buyer insights'), subtitle: const Text('Review your private, local activity summaries.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/analytics/buyer'))),
-      Card(child: ListTile(leading: const Icon(Icons.privacy_tip_outlined), title: const Text('Analytics privacy'), subtitle: const Text('Control privacy-safe local analytics.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/analytics/privacy'))),
-      Card(child: ListTile(leading: const Icon(Icons.shield_outlined), title: Text(l.privacyCenter), subtitle: Text(l.privacyIntro), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/privacy'))),
-      Card(child: ListTile(leading: const Icon(Icons.rate_review_outlined), title: const Text('Beta feedback'), subtitle: const Text('Report a beta issue or share a suggestion locally.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/beta-feedback'))),
-      const SizedBox(height: 12),
-      Card(child: ListTile(leading: const Icon(Icons.forum_outlined), title: const Text('Communication center'), subtitle: const Text('Notifications, product requests, followed shops and preferences.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/communications'))),
-      const SizedBox(height: 12),
-      Card(child: ListTile(leading: const Icon(Icons.map_outlined), title: const Text('Location & nearby shops'), subtitle: const Text('Manage saved locations, privacy and search radius.'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/location'))),
-      const SizedBox(height: 12),
-      const Card(child: Column(children: [ListTile(leading: Icon(Icons.settings_outlined), title: Text('Settings')), Divider(height: 1), ListTile(leading: Icon(Icons.help_outline), title: Text('Help & support'))])),
-    ]))),
-  ); }
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      key: const Key('askodoxProfileScreen'),
+      appBar: AppBar(title: const Text('Profile')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Center(
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AskodoxDesignTokens.brandGradient,
+                    boxShadow: [
+                      AskodoxDesignTokens.glow(
+                        AskodoxDesignTokens.violet500,
+                        blur: 34,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.person_rounded,
+                    size: 44,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                BrandConfig.displayName,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.6,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                BrandConfig.tagline,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              _ProfileTile(
+                icon: Icons.storefront_rounded,
+                title: 'ASKODOX for sellers',
+                subtitle: 'Create your shop and manage products, prices and stock.',
+                onTap: () => context.push('/seller/login'),
+                emphasized: true,
+              ),
+              _ProfileTile(
+                icon: Icons.insights_outlined,
+                title: 'Buyer insights',
+                subtitle: 'Review your private, local activity summaries.',
+                onTap: () => context.push('/analytics/buyer'),
+              ),
+              _ProfileTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Analytics privacy',
+                subtitle: 'Control privacy-safe local analytics.',
+                onTap: () => context.push('/analytics/privacy'),
+              ),
+              _ProfileTile(
+                icon: Icons.shield_outlined,
+                title: l.privacyCenter,
+                subtitle: l.privacyIntro,
+                onTap: () => context.push('/privacy'),
+              ),
+              _ProfileTile(
+                icon: Icons.rate_review_outlined,
+                title: 'Beta feedback',
+                subtitle: 'Report a beta issue or share a suggestion locally.',
+                onTap: () => context.push('/beta-feedback'),
+              ),
+              _ProfileTile(
+                icon: Icons.forum_outlined,
+                title: 'Communication center',
+                subtitle: 'Notifications, requests, followed shops and preferences.',
+                onTap: () => context.push('/communications'),
+              ),
+              _ProfileTile(
+                icon: Icons.map_outlined,
+                title: 'Location & nearby shops',
+                subtitle: 'Manage saved locations, privacy and search radius.',
+                onTap: () => context.push('/location'),
+              ),
+              const SizedBox(height: 4),
+              Card(
+                child: Column(
+                  children: const [
+                    ListTile(
+                      leading: Icon(Icons.settings_outlined),
+                      title: Text('Settings'),
+                    ),
+                    Divider(height: 1),
+                    ListTile(
+                      leading: Icon(Icons.help_outline),
+                      title: Text('Help & support'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Card(
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          leading: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: emphasized ? AskodoxDesignTokens.actionGradient : null,
+              color: emphasized ? null : colors.surfaceContainerHighest,
+            ),
+            child: Icon(
+              icon,
+              color: emphasized ? Colors.white : colors.primary,
+            ),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(subtitle),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
 }
