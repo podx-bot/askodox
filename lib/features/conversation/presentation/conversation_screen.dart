@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/brand/brand_config.dart';
+import '../../../shared/widgets/askodox_ai_state.dart';
+import '../../../shared/widgets/askodox_components.dart';
 import '../data/conversation_server_settings.dart';
 import '../data/universal_conversation_client.dart';
 
@@ -27,6 +29,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   late final String _senderId;
   String _runtimeBaseUrl = '';
   bool _sending = false;
+  AskodoxAiState _aiState = AskodoxAiState.idle;
 
   UniversalConversationClient get _activeClient => widget.client.isConfigured
       ? widget.client
@@ -47,8 +50,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
           setState(() => _runtimeBaseUrl = saved);
         }
       } catch (_) {
-        // A build-time URL still works even if platform persistence is not
-        // available, such as in a lightweight widget-test host.
+        // Build-time configuration can still be used when local persistence is
+        // unavailable, including lightweight widget-test hosts.
       }
     }
 
@@ -78,6 +81,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() {
       _messages.add(_ConversationMessage.user(text.trim()));
       _sending = true;
+      _aiState = AskodoxAiState.thinking;
     });
     _scrollToBottom();
 
@@ -93,6 +97,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           ),
         );
         _sending = false;
+        _aiState = AskodoxAiState.error;
       });
       _scrollToBottom();
       return;
@@ -105,7 +110,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
       );
       if (!mounted) return;
       setState(() {
+        _aiState = AskodoxAiState.responding;
         _messages.add(_ConversationMessage.assistant(reply));
+        _aiState = AskodoxAiState.completed;
       });
     } catch (_) {
       if (!mounted) return;
@@ -115,6 +122,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
             'I could not reach ASKODOX right now. Check the server setting or try again in a moment.',
           ),
         );
+        _aiState = AskodoxAiState.error;
       });
     } finally {
       if (mounted) {
@@ -134,17 +142,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF202024),
-          title: const Text(
-            'ASKODOX server',
-            style: TextStyle(color: Colors.white),
-          ),
+          title: const Text('ASKODOX server'),
           content: TextField(
             key: const Key('askodoxServerUrlField'),
             controller: controller,
             keyboardType: TextInputType.url,
             autocorrect: false,
-            style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               labelText: 'Live backend URL',
               hintText: 'https://…',
@@ -162,7 +165,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 try {
                   await _serverSettings.saveBaseUrl(controller.text);
                   if (!mounted) return;
-                  setState(() => _runtimeBaseUrl = controller.text.trim());
+                  setState(() {
+                    _runtimeBaseUrl = controller.text.trim();
+                    _aiState = AskodoxAiState.idle;
+                  });
                   if (dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
                   }
@@ -196,11 +202,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final configured = _activeClient.isConfigured;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         title: Text(
           BrandConfig.assistantName,
           style: const TextStyle(fontWeight: FontWeight.w800),
@@ -212,78 +218,72 @@ class _ConversationScreenState extends State<ConversationScreen> {
             onPressed: _showServerSettings,
             icon: Icon(
               Icons.dns_rounded,
-              color: _activeClient.isConfigured
+              color: configured
                   ? Theme.of(context).colorScheme.primary
-                  : Colors.white70,
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
       ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _sending || _aiState == AskodoxAiState.error
+                  ? Padding(
+                      key: ValueKey(_aiState),
+                      padding: const EdgeInsets.only(top: 10, bottom: 4),
+                      child: AskodoxAiStateVisual(
+                        state: _aiState,
+                        size: 82,
+                        showLabel: true,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             Expanded(
               child: _messages.isEmpty
                   ? const _EmptyConversation()
                   : ListView.builder(
                       key: const Key('askodoxConversationList'),
                       controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                       itemCount: _messages.length,
                       itemBuilder: (context, index) => _MessageBubble(
                         message: _messages[index],
                       ),
                     ),
             ),
-            if (_sending)
-              const LinearProgressIndicator(
-                key: Key('askodoxConversationProgress'),
-                minHeight: 2,
-              ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF171719),
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('askodoxConversationField'),
-                      controller: _controller,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendFromComposer(),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: BrandConfig.askHint,
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: const Color(0xFF26262A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    key: const Key('askodoxConversationSend'),
-                    onPressed: _sending ? null : _sendFromComposer,
-                    icon: const Icon(Icons.arrow_upward_rounded),
-                  ),
-                ],
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.55),
               ),
             ),
-          ],
+          ),
+          child: AskodoxComposer(
+            controller: _controller,
+            onSend: _sendFromComposer,
+            hintText: BrandConfig.askHint,
+            enabled: !_sending,
+            fieldKey: const Key('askodoxConversationField'),
+            sendKey: const Key('askodoxConversationSend'),
+          ),
         ),
       ),
     );
@@ -295,13 +295,23 @@ class _EmptyConversation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
-        child: Text(
-          'Tell ASKODOX what you need. Buy, sell, work, services and rides all start here.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white60, fontSize: 16, height: 1.5),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AskodoxAiStateVisual(
+              state: AskodoxAiState.idle,
+              size: 120,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Tell ASKODOX what you need. Buy, sell, work, services and rides all start here.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+            ),
+          ],
         ),
       ),
     );
@@ -319,18 +329,23 @@ class _MessageBubble extends StatelessWidget {
     return Align(
       alignment: message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        key: Key(message.fromUser ? 'askodoxUserMessage' : 'askodoxAssistantMessage'),
+        key: Key(
+          message.fromUser ? 'askodoxUserMessage' : 'askodoxAssistantMessage',
+        ),
         constraints: const BoxConstraints(maxWidth: 560),
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: message.fromUser ? colors.primary : const Color(0xFF252529),
+          color: message.fromUser ? colors.primary : colors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
+          border: message.fromUser
+              ? null
+              : Border.all(color: colors.outlineVariant.withValues(alpha: 0.45)),
         ),
         child: Text(
           message.text,
           style: TextStyle(
-            color: message.fromUser ? colors.onPrimary : Colors.white,
+            color: message.fromUser ? colors.onPrimary : colors.onSurface,
             fontSize: 16,
             height: 1.35,
           ),
