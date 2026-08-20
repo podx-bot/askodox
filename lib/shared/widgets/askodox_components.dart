@@ -108,6 +108,10 @@ class AskodoxComposer extends StatelessWidget {
     this.hintText = 'Ask ASKODOX',
     this.onAdd,
     this.onVoice,
+    this.enabled = true,
+    this.fieldKey,
+    this.sendKey,
+    this.voiceKey,
   });
 
   final TextEditingController controller;
@@ -116,27 +120,32 @@ class AskodoxComposer extends StatelessWidget {
   final VoidCallback? onAdd;
   final VoidCallback? onVoice;
   final String hintText;
+  final bool enabled;
+  final Key? fieldKey;
+  final Key? sendKey;
+  final Key? voiceKey;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: TextField(
-            key: const Key('askodoxComposerField'),
+            key: fieldKey ?? const Key('askodoxComposerField'),
             controller: controller,
             focusNode: focusNode,
+            enabled: enabled,
             minLines: 1,
             maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.send,
-            onSubmitted: (_) => onSend(),
+            onSubmitted: enabled ? (_) => onSend() : null,
             decoration: InputDecoration(
               hintText: hintText,
               prefixIcon: IconButton(
                 tooltip: 'Add',
-                onPressed: onAdd,
+                onPressed: enabled ? onAdd : null,
                 icon: const Icon(Icons.add_rounded),
               ),
               suffixIcon: Padding(
@@ -147,8 +156,9 @@ class AskodoxComposer extends StatelessWidget {
                     gradient: AskodoxDesignTokens.actionGradient,
                   ),
                   child: IconButton(
+                    key: sendKey,
                     tooltip: 'Send',
-                    onPressed: onSend,
+                    onPressed: enabled ? onSend : null,
                     icon: const Icon(Icons.arrow_upward_rounded),
                     color: Colors.white,
                   ),
@@ -160,9 +170,10 @@ class AskodoxComposer extends StatelessWidget {
         if (onVoice != null) ...[
           const SizedBox(width: 10),
           AskodoxActionButton(
+            key: voiceKey,
             icon: Icons.mic_rounded,
             tooltip: 'Speak to ASKODOX',
-            onPressed: onVoice,
+            onPressed: enabled ? onVoice : null,
             emphasized: true,
             size: 58,
           ),
