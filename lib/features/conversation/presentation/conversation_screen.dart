@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/brand/brand_config.dart';
+import '../data/conversation_server_settings.dart';
 import '../data/universal_conversation_client.dart';
 
 class ConversationScreen extends StatefulWidget {
@@ -21,16 +22,39 @@ class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<_ConversationMessage> _messages = [];
+  final ConversationServerSettings _serverSettings =
+      const ConversationServerSettings();
   late final String _senderId;
+  String _runtimeBaseUrl = '';
   bool _sending = false;
+
+  UniversalConversationClient get _activeClient => widget.client.isConfigured
+      ? widget.client
+      : UniversalConversationClient(baseUrl: _runtimeBaseUrl);
 
   @override
   void initState() {
     super.initState();
     _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+  }
+
+  Future<void> _initialize() async {
+    if (!widget.client.isConfigured) {
+      try {
+        final saved = await _serverSettings.loadBaseUrl();
+        if (mounted && saved.isNotEmpty) {
+          setState(() => _runtimeBaseUrl = saved);
+        }
+      } catch (_) {
+        // A build-time URL still works even if platform persistence is not
+        // available, such as in a lightweight widget-test host.
+      }
+    }
+
     final initial = widget.initialQuery.trim();
-    if (initial.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _send(initial));
+    if (mounted && initial.isNotEmpty) {
+      await _send(initial);
     }
   }
 
@@ -57,13 +81,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
     _scrollToBottom();
 
-    if (!widget.client.isConfigured) {
+    final client = _activeClient;
+    if (!client.isConfigured) {
       if (!mounted) return;
       setState(() {
         _messages.add(
           const _ConversationMessage.assistant(
-            'ASKODOX conversation server is not configured in this APK build. '
-            'Set PODX_API_BASE_URL for the Android build and try again.',
+            'ASKODOX conversation server is not configured. Tap the server icon '
+            'at the top, save the live https:// backend URL once, then send your '
+            'message again. Future app updates keep this setting.',
           ),
         );
         _sending = false;
@@ -73,7 +99,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
 
     try {
-      final reply = await widget.client.send(
+      final reply = await client.send(
         senderId: _senderId,
         message: text.trim(),
       );
@@ -86,7 +112,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       setState(() {
         _messages.add(
           const _ConversationMessage.assistant(
-            'I could not reach ASKODOX right now. Please try again in a moment.',
+            'I could not reach ASKODOX right now. Check the server setting or try again in a moment.',
           ),
         );
       });
@@ -96,6 +122,65 @@ class _ConversationScreenState extends State<ConversationScreen> {
         _scrollToBottom();
       }
     }
+  }
+
+  Future<void> _showServerSettings() async {
+    final controller = TextEditingController(
+      text: _activeClient.resolvedBaseUrl,
+    );
+    String? errorText;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF202024),
+          title: const Text(
+            'ASKODOX server',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            key: const Key('askodoxServerUrlField'),
+            controller: controller,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Live backend URL',
+              hintText: 'https://…',
+              errorText: errorText,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('askodoxServerSave'),
+              onPressed: () async {
+                try {
+                  await _serverSettings.saveBaseUrl(controller.text);
+                  if (!mounted) return;
+                  setState(() => _runtimeBaseUrl = controller.text.trim());
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                } on FormatException catch (error) {
+                  setDialogState(() => errorText = error.message);
+                } catch (_) {
+                  setDialogState(
+                    () => errorText = 'Could not save the server URL.',
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
   }
 
   void _scrollToBottom() {
@@ -111,7 +196,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -121,6 +205,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
           BrandConfig.assistantName,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          IconButton(
+            key: const Key('askodoxServerSettings'),
+            tooltip: 'Conversation server',
+            onPressed: _showServerSettings,
+            icon: Icon(
+              Icons.dns_rounded,
+              color: _activeClient.isConfigured
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.white70,
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
