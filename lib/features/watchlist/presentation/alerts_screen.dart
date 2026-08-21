@@ -19,11 +19,13 @@ class AlertsScreen extends ConsumerWidget {
         title: const Text('ASKODOX Alerts'),
         actions: [
           IconButton(
+            key: const Key('alertsNotificationPreferences'),
             tooltip: 'Notification preferences',
             onPressed: () => context.push('/notification-preferences'),
             icon: const Icon(Icons.tune_rounded),
           ),
           IconButton(
+            key: const Key('alertsDemoAutomation'),
             tooltip: 'Demo automation',
             onPressed: () => context.push('/alert-simulator'),
             icon: const Icon(Icons.science_outlined),
@@ -89,6 +91,7 @@ class AlertsScreen extends ConsumerWidget {
                         ? null
                         : colors.primaryContainer.withValues(alpha: .20),
                     child: ListTile(
+                      key: Key('alertRow-${a.id}'),
                       contentPadding: const EdgeInsets.all(14),
                       leading: Container(
                         width: 48,
@@ -115,6 +118,7 @@ class AlertsScreen extends ConsumerWidget {
                       ),
                       isThreeLine: true,
                       trailing: PopupMenuButton<String>(
+                        key: Key('alertMenu-${a.id}'),
                         onSelected: (v) {
                           if (v == 'read') {
                             ref.read(alertsProvider.notifier).read(a.id);
@@ -134,10 +138,22 @@ class AlertsScreen extends ConsumerWidget {
                             }
                           }
                         },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'read', child: Text('Mark as read')),
-                          PopupMenuItem(value: 'mute', child: Text('Mute product')),
-                          PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            key: Key('alertMarkRead-${a.id}'),
+                            value: 'read',
+                            child: const Text('Mark as read'),
+                          ),
+                          PopupMenuItem(
+                            key: Key('alertMute-${a.id}'),
+                            value: 'mute',
+                            child: const Text('Mute product'),
+                          ),
+                          PopupMenuItem(
+                            key: Key('alertDelete-${a.id}'),
+                            value: 'delete',
+                            child: const Text('Delete'),
+                          ),
                         ],
                       ),
                       onTap: () {
