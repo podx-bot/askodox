@@ -27,6 +27,7 @@ class _SellerLoginScreenState extends ConsumerState<SellerLoginScreen> {
   Widget build(BuildContext context) {
     final sent = ref.watch(sellerProvider.select((value) => value.isOtpSent));
     return Scaffold(
+      key: const Key('sellerLoginScreen'),
       appBar: AppBar(title: const Text('Seller sign in')),
       body: Center(
         child: SingleChildScrollView(
@@ -40,17 +41,43 @@ class _SellerLoginScreenState extends ConsumerState<SellerLoginScreen> {
               const SizedBox(height: 8),
               Text('Manage products, inventory and customer requests from one place.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
               const SizedBox(height: 32),
-              TextField(controller: mobile, keyboardType: TextInputType.phone, enabled: !sent, maxLength: 10, decoration: const InputDecoration(labelText: 'Mobile number', prefixText: '+91  ', prefixIcon: Icon(Icons.phone_outlined))),
+              TextField(
+                key: const Key('sellerLoginMobileField'),
+                controller: mobile,
+                keyboardType: TextInputType.phone,
+                enabled: !sent,
+                maxLength: 10,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!sent && !busy) _send();
+                },
+                decoration: const InputDecoration(labelText: 'Mobile number', prefixText: '+91  ', prefixIcon: Icon(Icons.phone_outlined)),
+              ),
               if (sent) ...[
                 const SizedBox(height: 12),
-                TextField(controller: otp, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: '6-digit OTP', helperText: 'Mock OTP: 123456', prefixIcon: Icon(Icons.password))),
+                TextField(
+                  key: const Key('sellerLoginOtpField'),
+                  controller: otp,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (!busy) _verify();
+                  },
+                  decoration: const InputDecoration(labelText: '6-digit OTP', helperText: 'Mock OTP: 123456', prefixIcon: Icon(Icons.password)),
+                ),
               ],
               const SizedBox(height: 16),
               FilledButton(
+                key: const Key('sellerLoginPrimaryAction'),
                 onPressed: busy ? null : () => sent ? _verify() : _send(),
                 child: Text(busy ? 'Please wait…' : sent ? 'Verify & continue' : 'Send OTP'),
               ),
-              TextButton(onPressed: () => context.push('/seller/register'), child: const Text('New seller? Register your shop')),
+              TextButton(
+                key: const Key('sellerLoginRegister'),
+                onPressed: () => context.push('/seller/register'),
+                child: const Text('New seller? Register your shop'),
+              ),
             ]),
           ),
         ),
@@ -59,6 +86,7 @@ class _SellerLoginScreenState extends ConsumerState<SellerLoginScreen> {
   }
 
   Future<void> _send() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!RegExp(r'^\d{10}$').hasMatch(mobile.text)) return _message('Enter a valid 10-digit mobile number');
     setState(() => busy = true);
     await ref.read(sellerProvider.notifier).sendOtp(mobile.text);
@@ -66,6 +94,7 @@ class _SellerLoginScreenState extends ConsumerState<SellerLoginScreen> {
   }
 
   Future<void> _verify() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => busy = true);
     final valid = await ref.read(sellerProvider.notifier).verifyOtp(otp.text);
     if (!mounted) return;
