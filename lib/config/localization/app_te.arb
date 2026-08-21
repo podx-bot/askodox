@@ -1,6 +1,6 @@
 {
   "@@locale": "te",
-  "appName": "పాడ్‌ఎక్స్",
+  "appName": "ASKODOX",
   "greeting": "శుభోదయం",
   "discover": "మీ సమీపంలో కనుగొనండి",
   "searchHint": "ఉత్పత్తులు, దుకాణాలు, విక్రేతలను వెతకండి",
@@ -137,44 +137,11 @@
   "adminReason": "డెమో Internal reason",
   "cancel": "రద్దు",
   "confirm": "నిర్ధారించండి",
-  "@saveAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "@productLimit": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "@startFreeTrial": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
-  },
-  "@historyDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
-  },
-  "@limitExplanation": {
-    "placeholders": {
-      "used": {
-        "type": "int"
-      },
-      "limit": {
-        "type": "int"
-      }
-    }
-  },
+  "@saveAmount": {"placeholders":{"amount":{"type":"String"}}},
+  "@productLimit": {"placeholders":{"count":{"type":"int"}}},
+  "@startFreeTrial": {"placeholders":{"days":{"type":"int"}}},
+  "@historyDays": {"placeholders":{"days":{"type":"int"}}},
+  "@limitExplanation": {"placeholders":{"used":{"type":"int"},"limit":{"type":"int"}}},
   "communicationCenter": "కమ్యూనికేషన్ కేంద్రం",
   "productRequestsNew": "ఉత్పత్తి అభ్యర్థనలు",
   "followedShops": "అనుసరిస్తున్న దుకాణాలు",
@@ -269,7 +236,7 @@
   "resolution": "పరిష్కారం",
   "applyResolution": "పరిష్కారాన్ని వర్తింపజేయి",
   "privacyCenter": "గోప్యతా కేంద్రం",
-  "privacyIntro": "PODX స్థానిక నమూనా డేటాను ఎలా ఉపయోగిస్తుందో నియంత్రించండి. ఉత్పత్తి విధానాలకు గోప్యత మరియు చట్టపరమైన సమీక్ష అవసరం.",
+  "privacyIntro": "ASKODOX స్థానిక నమూనా డేటాను ఎలా ఉపయోగిస్తుందో నియంత్రించండి. ఉత్పత్తి విధానాలకు గోప్యత మరియు చట్టపరమైన సమీక్ష అవసరం.",
   "privacyDataCollected": "సేకరించే డేటా",
   "privacyDataCollectedBody": "ఫీచర్లకు అవసరమైన ప్రొఫైల్, సమ్మతి, సేవ్ చేసిన అంశాలు మరియు కార్యకలాపం.",
   "privacySharing": "డేటా భాగస్వామ్యం",
@@ -316,7 +283,7 @@
   "minimumOrder": "కనీస ఆర్డర్",
   "mockPriceHistory": "నమూనా ధర చరిత్ర",
   "mockHistoryDisclosure": "ప్రదర్శన డేటా మాత్రమే; ఇది నిజమైన ధర చరిత్ర కాదు.",
-  "priceComparisonDisclosure": "ధరలు, స్టాక్ మరియు ఫీజులు మారవచ్చు. ఇటీవల అందుబాటులో ఉన్న సమాచారాన్ని పోల్చడానికి PODX సహాయపడుతుంది, కానీ తుది విక్రయ ధరకు హామీ ఇవ్వదు. కొనుగోలుకు ముందు విక్రేత లేదా ఆన్‌లైన్ ప్రొవైడర్‌తో ధరను నిర్ధారించండి.",
+  "priceComparisonDisclosure": "ధరలు, స్టాక్ మరియు ఫీజులు మారవచ్చు. ఇటీవల అందుబాటులో ఉన్న సమాచారాన్ని పోల్చడానికి ASKODOX సహాయపడుతుంది, కానీ తుది విక్రయ ధరకు హామీ ఇవ్వదు. కొనుగోలుకు ముందు విక్రేత లేదా ఆన్‌లైన్ ప్రొవైడర్‌తో ధరను నిర్ధారించండి.",
   "localCheaperInsight": "అత్యల్ప స్థానిక ధర ప్రభావవంతమైన ఆన్‌లైన్ ధర కంటే {amount} తక్కువ.",
   "onlineCheaperInsight": "ఆన్‌లైన్ ప్రభావవంతమైన ధర ప్రస్తుతం {amount} తక్కువ.",
   "pricesSimilar": "స్థానిక మరియు ఆన్‌లైన్ ధరలు దాదాపు సమానంగా ఉన్నాయి.",
@@ -327,18 +294,6 @@
   "confidenceHigh": "అధికం",
   "confidenceMedium": "మధ్యస్థం",
   "confidenceLow": "తక్కువ",
-  "@localCheaperInsight": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "@onlineCheaperInsight": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  }
+  "@localCheaperInsight": {"placeholders":{"amount":{"type":"String"}}},
+  "@onlineCheaperInsight": {"placeholders":{"amount":{"type":"String"}}}
 }
