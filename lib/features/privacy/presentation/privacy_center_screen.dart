@@ -1,7 +1,62 @@
 import 'package:flutter/material.dart';
+
+import '../../../config/brand/brand_config.dart';
 import '../../../generated/l10n/app_localizations.dart';
 
 class PrivacyCenterScreen extends StatelessWidget {
   const PrivacyCenterScreen({super.key});
-  @override Widget build(BuildContext context){final l=AppLocalizations.of(context)!;final items=[(Icons.inventory_2_outlined,l.privacyDataCollected,l.privacyDataCollectedBody),(Icons.share_outlined,l.privacySharing,l.privacySharingBody),(Icons.location_on_outlined,l.privacyLocation,l.privacyLocationBody),(Icons.analytics_outlined,l.privacyAnalytics,l.privacyAnalyticsBody),(Icons.visibility_off_outlined,l.privacySellerVisibility,l.privacySellerVisibilityBody),(Icons.schedule_outlined,l.privacyRetention,l.privacyRetentionBody)];return Scaffold(appBar:AppBar(title:Text(l.privacyCenter)),body:ListView(padding:const EdgeInsets.all(16),children:[Text(l.privacyIntro,style:Theme.of(context).textTheme.bodyLarge),const SizedBox(height:12),for(final item in items) Card(child:ListTile(leading:Icon(item.$1),title:Text(item.$2),subtitle:Text(item.$3))),const Divider(),ListTile(leading:const Icon(Icons.history),title:Text(l.consentHistory),subtitle:Text(l.consentHistoryEmpty)),ListTile(leading:const Icon(Icons.download_outlined),title:Text(l.requestDataDownload),subtitle:Text(l.placeholderOnly)),ListTile(leading:const Icon(Icons.delete_forever_outlined),title:Text(l.deleteAccount),subtitle:Text(l.accountDeletionWarning))]));}
+
+  String _brandText(String value) => value
+      .replaceAll('PODX', BrandConfig.displayName)
+      .replaceAll('పాడ్‌ఎక్స్', BrandConfig.displayName);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final items = [
+      (Icons.inventory_2_outlined, l.privacyDataCollected, l.privacyDataCollectedBody),
+      (Icons.share_outlined, l.privacySharing, l.privacySharingBody),
+      (Icons.location_on_outlined, l.privacyLocation, l.privacyLocationBody),
+      (Icons.analytics_outlined, l.privacyAnalytics, l.privacyAnalyticsBody),
+      (Icons.visibility_off_outlined, l.privacySellerVisibility, l.privacySellerVisibilityBody),
+      (Icons.schedule_outlined, l.privacyRetention, l.privacyRetentionBody),
+    ];
+    return Scaffold(
+      appBar: AppBar(title: Text(l.privacyCenter)),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            _brandText(l.privacyIntro),
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 12),
+          for (final item in items)
+            Card(
+              child: ListTile(
+                leading: Icon(item.$1),
+                title: Text(item.$2),
+                subtitle: Text(item.$3),
+              ),
+            ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: Text(l.consentHistory),
+            subtitle: Text(l.consentHistoryEmpty),
+          ),
+          ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: Text(l.requestDataDownload),
+            subtitle: Text(l.placeholderOnly),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever_outlined),
+            title: Text(l.deleteAccount),
+            subtitle: Text(l.accountDeletionWarning),
+          ),
+        ],
+      ),
+    );
+  }
 }
