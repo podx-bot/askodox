@@ -6,6 +6,7 @@ import 'package:podx/features/location/data/mock_geo_repository.dart';
 import 'package:podx/features/location/domain/geo_models.dart';
 import 'package:podx/features/location/presentation/location_setup_screen.dart';
 import 'package:podx/features/location/presentation/nearby_shops_screen.dart';
+import 'package:podx/features/location/presentation/shop_details_screen.dart';
 
 void main() {
   testWidgets('manual location selection is available', (tester) async {
@@ -72,6 +73,39 @@ void main() {
     expect(c.state.mode, MapDisplayMode.map);
     expect(c.state.selectedShopId, shop.id);
     expect(find.byKey(const Key('mockMap')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shop details sorting changes product order on phone size', (tester) async {
+    tester.view.physicalSize = const Size(412, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final shopId = mockNearbyShops.first.id;
+    await tester.pumpWidget(
+      MaterialApp(home: ShopDetailsScreen(shopId: shopId)),
+    );
+    await tester.pumpAndSettle();
+
+    final sort = find.byKey(const Key('shopProductSort'));
+    await tester.ensureVisible(sort);
+    await tester.tap(sort);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Highest price').last);
+    await tester.pumpAndSettle();
+
+    final product4 = find.byKey(const Key('shopProduct-Mock product 4'));
+    final product1 = find.byKey(const Key('shopProduct-Mock product 1'));
+    expect(product4, findsOneWidget);
+    expect(product1, findsOneWidget);
+    expect(tester.getTopLeft(product4).dy, lessThan(tester.getTopLeft(product1).dy));
+
+    final call = find.byKey(const Key('shopDetailsCall'));
+    await tester.ensureVisible(call);
+    await tester.tap(call);
+    await tester.pump();
+    expect(find.text('Shop contact is not published yet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
