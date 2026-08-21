@@ -60,7 +60,7 @@ class ProductRequestActions extends ConsumerWidget {
       key: const Key('productRequestSave'),
       onPressed: () {
         saveRequest();
-        show('Product request saved locally and ready for seller matching.');
+        show('Product request saved locally.');
       },
       icon: const Icon(Icons.add_shopping_cart),
       label: const Text('Request Product'),
