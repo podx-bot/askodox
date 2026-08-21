@@ -31,15 +31,15 @@ class NearbyShopsScreen extends ConsumerWidget {
         title: const Text('Nearby shops'),
         actions: [
           IconButton(
+            key: const Key('nearbyLocationSettings'),
             tooltip: 'Location settings',
             onPressed: () => context.push('/location'),
             icon: const Icon(Icons.location_on_outlined),
           ),
           IconButton(
+            key: const Key('nearbyFilters'),
             tooltip: 'Filters',
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Nearby filters placeholder')),
-            ),
+            onPressed: () => _showFilters(context, ref),
             icon: const Icon(Icons.filter_list),
           ),
         ],
@@ -86,6 +86,7 @@ class NearbyShopsScreen extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: ChoiceChip(
+                      key: Key('nearbyRadius-${radius.round()}'),
                       label: Text(
                         radius == 7500
                             ? 'Custom (${_radius(radius)})'
@@ -113,12 +114,71 @@ class NearbyShopsScreen extends ConsumerWidget {
                 dense: true,
                 title: Text(state.message!),
                 trailing: TextButton(
+                  key: const Key('nearbyRetry'),
                   onPressed: controller.refresh,
                   child: const Text('Retry'),
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  static Future<void> _showFilters(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => Consumer(
+        builder: (context, ref, _) {
+          final state = ref.watch(locationControllerProvider);
+          final controller = ref.read(locationControllerProvider.notifier);
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Nearby filters', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  const Text('Search radius'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final radius in _radiusOptions)
+                        ChoiceChip(
+                          key: Key('nearbyFilterRadius-${radius.round()}'),
+                          label: Text(_radius(radius)),
+                          selected: state.radiusMetres == radius,
+                          onSelected: (_) => controller.setRadius(radius),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SegmentedButton<MapDisplayMode>(
+                    key: const Key('nearbyFilterViewMode'),
+                    segments: const [
+                      ButtonSegment(value: MapDisplayMode.map, label: Text('Map'), icon: Icon(Icons.map_outlined)),
+                      ButtonSegment(value: MapDisplayMode.list, label: Text('List'), icon: Icon(Icons.list)),
+                    ],
+                    selected: {state.mode},
+                    onSelectionChanged: (value) => controller.toggleMode(value.first),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const Key('nearbyApplyFilters'),
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('Show results'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -168,6 +228,7 @@ class _MockMap extends ConsumerWidget {
                       left: 40.0 + ((index * 95) % 260).toDouble(),
                       top: 220.0 + ((index % 2) * 90).toDouble(),
                       child: GestureDetector(
+                        key: Key('nearbyMapMarker-${state.shops[index].id}'),
                         onTap: () => controller.selectShop(state.shops[index].id),
                         child: _Marker(
                           icon: Icons.store,
@@ -184,6 +245,7 @@ class _MockMap extends ConsumerWidget {
           right: 24,
           top: 24,
           child: FloatingActionButton.small(
+            key: const Key('nearbyRecenter'),
             heroTag: 'recenter',
             tooltip: 'Recenter',
             onPressed: () => controller.moveMap(
@@ -209,6 +271,7 @@ class _MockMap extends ConsumerWidget {
           left: 24,
           bottom: selected == null ? 24 : 150,
           child: OutlinedButton.icon(
+            key: const Key('nearbySaveArea'),
             onPressed: controller.saveSelectedArea,
             icon: const Icon(Icons.bookmark_add_outlined),
             label: const Text('Save this area'),
@@ -281,6 +344,7 @@ class _ShopList extends StatelessWidget {
   Widget build(BuildContext context) => shops.isEmpty
       ? const _Empty()
       : ListView.builder(
+          key: const Key('nearbyShopList'),
           padding: const EdgeInsets.all(12),
           itemCount: shops.length,
           itemBuilder: (_, index) => _ShopCard(shop: shops[index]),
@@ -298,6 +362,7 @@ class _ShopCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Card(
+        key: Key('nearbyShopCard-${shop.id}'),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -330,22 +395,39 @@ class _ShopCard extends ConsumerWidget {
               Wrap(
                 children: [
                   TextButton(
+                    key: Key('nearbyViewShop-${shop.id}'),
                     onPressed: () => context.push('/shop/${shop.id}'),
                     child: const Text('View shop'),
                   ),
                   TextButton(
-                    onPressed: () => ref
-                        .read(locationControllerProvider.notifier)
-                        .selectShop(shop.id),
+                    key: Key('nearbyViewOnMap-${shop.id}'),
+                    onPressed: () {
+                      final controller = ref.read(locationControllerProvider.notifier);
+                      controller.selectShop(shop.id);
+                      controller.toggleMode(MapDisplayMode.map);
+                    },
                     child: const Text('View on map'),
                   ),
                   PopupMenuButton<String>(
+                    key: Key('nearbyMore-${shop.id}'),
+                    onSelected: (value) {
+                      final controller = ref.read(locationControllerProvider.notifier);
+                      switch (value) {
+                        case 'call':
+                          _message(context, 'Calling ${shop.name} is not connected yet.');
+                        case 'navigate':
+                          controller.selectShop(shop.id);
+                          controller.toggleMode(MapDisplayMode.map);
+                          _message(context, 'Showing ${shop.name} on the map.');
+                        case 'follow':
+                          _message(context, '${shop.name} follow preference saved for this demo.');
+                        case 'report':
+                          _message(context, 'Report option opened for ${shop.name}.');
+                      }
+                    },
                     itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'call', child: Text('Call (placeholder)')),
-                      PopupMenuItem(
-                        value: 'navigate',
-                        child: Text('Navigate (placeholder)'),
-                      ),
+                      PopupMenuItem(value: 'call', child: Text('Call')),
+                      PopupMenuItem(value: 'navigate', child: Text('Navigate')),
                       PopupMenuItem(value: 'follow', child: Text('Follow shop')),
                       PopupMenuItem(value: 'report', child: Text('Report shop')),
                     ],
@@ -356,6 +438,9 @@ class _ShopCard extends ConsumerWidget {
           ),
         ),
       );
+
+  void _message(BuildContext context, String message) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
 class _Empty extends StatelessWidget {
@@ -370,6 +455,7 @@ class _Empty extends StatelessWidget {
             const Text('No nearby shops'),
             const Text('Try a larger radius or choose another location.'),
             FilledButton(
+              key: const Key('nearbyChooseLocation'),
               onPressed: () => context.push('/location'),
               child: const Text('Choose location'),
             ),
