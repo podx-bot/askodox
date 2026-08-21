@@ -23,20 +23,39 @@ void main() {
     menu.onSelected?.call('edit');
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.byKey(const Key('sellerProductEditSheet')), findsOneWidget);
+    final sheet = find.byKey(const Key('sellerProductEditSheet'));
+    expect(sheet, findsOneWidget);
 
     final price = find.byKey(const Key('sellerProductPriceField'));
+    await tester.scrollUntilVisible(
+      price,
+      180,
+      scrollable: find.descendant(
+        of: sheet,
+        matching: find.byType(Scrollable),
+      ).first,
+    );
+    await tester.ensureVisible(price);
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(price);
     await tester.enterText(price, '399');
     await tester.pump(const Duration(milliseconds: 250));
 
     final save = find.byKey(const Key('sellerProductSaveChanges'));
+    await tester.scrollUntilVisible(
+      save,
+      180,
+      scrollable: find.descendant(
+        of: sheet,
+        matching: find.byType(Scrollable),
+      ).first,
+    );
     await tester.ensureVisible(save);
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(save);
-    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byKey(const Key('sellerProductEditSheet')), findsNothing);
+    expect(sheet, findsNothing);
     expect(find.textContaining('₹399'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
