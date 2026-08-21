@@ -64,17 +64,19 @@ class SellerProductsScreen extends ConsumerWidget {
                           onSelected: (value) => value == 'edit'
                               ? _edit(context, ref, product)
                               : _delete(context, ref, product),
-                          itemBuilder: (_) => const [
+                          itemBuilder: (_) => [
                             PopupMenuItem(
+                              key: Key('sellerProductEdit-${product.id}'),
                               value: 'edit',
-                              child: ListTile(
+                              child: const ListTile(
                                 leading: Icon(Icons.edit_outlined),
                                 title: Text('Edit'),
                               ),
                             ),
                             PopupMenuItem(
+                              key: Key('sellerProductDelete-${product.id}'),
                               value: 'delete',
-                              child: ListTile(
+                              child: const ListTile(
                                 leading: Icon(Icons.delete_outline),
                                 title: Text('Delete'),
                               ),
