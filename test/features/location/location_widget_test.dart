@@ -88,8 +88,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final list = find.byKey(const Key('shopDetailsList'));
     final sort = find.byKey(const Key('shopProductSort'));
-    await tester.ensureVisible(sort);
+    expect(list, findsOneWidget);
+
+    for (var i = 0; i < 4 && sort.evaluate().isEmpty; i++) {
+      await tester.drag(list, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(sort, findsOneWidget);
     await tester.tap(sort);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Highest price').last);
@@ -98,11 +105,20 @@ void main() {
     final product4 = find.byKey(const Key('shopProduct-Mock product 4'));
     final product1 = find.byKey(const Key('shopProduct-Mock product 1'));
     expect(product4, findsOneWidget);
+
+    if (product1.evaluate().isEmpty) {
+      await tester.drag(list, const Offset(0, -180));
+      await tester.pumpAndSettle();
+    }
     expect(product1, findsOneWidget);
     expect(tester.getTopLeft(product4).dy, lessThan(tester.getTopLeft(product1).dy));
 
     final call = find.byKey(const Key('shopDetailsCall'));
-    await tester.ensureVisible(call);
+    for (var i = 0; i < 4 && call.evaluate().isEmpty; i++) {
+      await tester.drag(list, const Offset(0, 300));
+      await tester.pumpAndSettle();
+    }
+    expect(call, findsOneWidget);
     await tester.tap(call);
     await tester.pump();
     expect(find.text('Shop contact is not published yet'), findsOneWidget);
