@@ -18,6 +18,11 @@ void main() {
   });
 
   testWidgets('dashboard primary actions expose stable keys and profile opens profile route', (tester) async {
+    tester.view.physicalSize = const Size(412, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final router = GoRouter(
       initialLocation: '/seller/dashboard',
       routes: [
@@ -72,6 +77,14 @@ void main() {
     expect(find.byKey(const Key('sellerDashboardProductPerformance')), findsOneWidget);
     expect(find.byKey(const Key('sellerDashboardMarketIntelligence')), findsOneWidget);
     expect(find.byKey(const Key('sellerDashboardPrivacy')), findsOneWidget);
+
+    final list = find.byType(ListView);
+    expect(list, findsOneWidget);
+    await tester.drag(list, const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -900));
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('sellerDashboardAddProduct')), findsOneWidget);
     expect(find.byKey(const Key('sellerDashboardManageProducts')), findsOneWidget);
 
