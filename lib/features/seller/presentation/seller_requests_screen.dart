@@ -139,110 +139,152 @@ class SellerRequestsScreen extends ConsumerWidget {
     WidgetRef ref,
     ProductRequest request,
   ) async {
-    final price = TextEditingController();
-    final stock = TextEditingController();
-    final offer = TextEditingController();
-
-    final submit = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<_SellerRequestResponseResult>(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          key: const Key('sellerRequestResponseSheet'),
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+      builder: (sheetContext) => _SellerRequestResponseSheet(request: request),
+    );
+
+    if (result == null) return;
+
+    await ref.read(sellerProvider.notifier).respond(
+          SellerResponse(
+            requestId: request.id,
+            isAvailable: true,
+            price: result.price,
+            stock: result.stock,
+            offerPrice: result.offerPrice,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        );
+  }
+}
+
+class _SellerRequestResponseResult {
+  const _SellerRequestResponseResult({
+    required this.price,
+    required this.stock,
+    this.offerPrice,
+  });
+
+  final double price;
+  final int stock;
+  final double? offerPrice;
+}
+
+class _SellerRequestResponseSheet extends StatefulWidget {
+  const _SellerRequestResponseSheet({required this.request});
+
+  final ProductRequest request;
+
+  @override
+  State<_SellerRequestResponseSheet> createState() =>
+      _SellerRequestResponseSheetState();
+}
+
+class _SellerRequestResponseSheetState
+    extends State<_SellerRequestResponseSheet> {
+  final _priceController = TextEditingController();
+  final _stockController = TextEditingController();
+  final _offerController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    _stockController.dispose();
+    _offerController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    FocusScope.of(context).unfocus();
+
+    final price = double.tryParse(_priceController.text.trim());
+    final stock = int.tryParse(_stockController.text.trim());
+    final offerText = _offerController.text.trim();
+    final offer = offerText.isEmpty ? null : double.tryParse(offerText);
+    final validOffer = offer == null || offer > 0;
+
+    if (price == null || price <= 0 || stock == null || stock < 0 || !validOffer) {
+      setState(() {
+        _errorText = 'Enter a valid price and available stock.';
+      });
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _SellerRequestResponseResult(
+        price: price,
+        stock: stock,
+        offerPrice: offer,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        key: const Key('sellerRequestResponseSheet'),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Respond for ${widget.request.productName}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('sellerRequestPrice'),
+              controller: _priceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Your price (₹)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('sellerRequestStock'),
+              controller: _stockController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Available stock'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('sellerRequestOffer'),
+              controller: _offerController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Optional offer price (₹)',
+              ),
+            ),
+            if (_errorText != null) ...[
+              const SizedBox(height: 12),
               Text(
-                'Respond for ${request.productName}',
-                style: Theme.of(sheetContext).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const Key('sellerRequestPrice'),
-                controller: price,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Your price (₹)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('sellerRequestStock'),
-                controller: stock,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Available stock'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('sellerRequestOffer'),
-                controller: offer,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  FocusScope.of(sheetContext).unfocus();
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Optional offer price (₹)',
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                key: const Key('sellerRequestSubmit'),
-                onPressed: () {
-                  FocusScope.of(sheetContext).unfocus();
-                  Navigator.pop(sheetContext, true);
-                },
-                child: const Text('Submit response'),
+                _errorText!,
+                key: const Key('sellerRequestValidationError'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
-          ),
+            const SizedBox(height: 20),
+            FilledButton(
+              key: const Key('sellerRequestSubmit'),
+              onPressed: _submit,
+              child: const Text('Submit response'),
+            ),
+          ],
         ),
       ),
     );
-
-    if (submit == true) {
-      final amount = double.tryParse(price.text.trim());
-      final quantity = int.tryParse(stock.text.trim());
-      final offerText = offer.text.trim();
-      final offerAmount = offerText.isEmpty ? null : double.tryParse(offerText);
-      final validOffer = offerAmount == null || offerAmount > 0;
-
-      if (amount != null &&
-          amount > 0 &&
-          quantity != null &&
-          quantity >= 0 &&
-          validOffer) {
-        await ref.read(sellerProvider.notifier).respond(
-              SellerResponse(
-                requestId: request.id,
-                isAvailable: true,
-                price: amount,
-                stock: quantity,
-                offerPrice: offerAmount,
-              ),
-            );
-      } else if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Enter a valid price and available stock.'),
-          ),
-        );
-      }
-    }
-
-    price.dispose();
-    stock.dispose();
-    offer.dispose();
   }
 }
