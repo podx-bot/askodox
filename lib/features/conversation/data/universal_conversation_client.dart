@@ -35,7 +35,7 @@ class UniversalConversationClient {
     final root = Uri.tryParse(resolvedBaseUrl);
     if (root == null || !root.hasScheme || root.host.isEmpty) {
       throw StateError(
-        'PODX conversation server is not configured for this build.',
+        'ASKODOX conversation server is not configured for this build.',
       );
     }
 
