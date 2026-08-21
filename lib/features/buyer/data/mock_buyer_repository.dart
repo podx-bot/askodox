@@ -13,7 +13,7 @@ class MockBuyerRepository implements BuyerRepository {
   @override Future<List<ProductPriceListing>> listings(String productId) async {
     final now = DateTime.now();
     final seeds = [
-      ('s1','PODX Fresh Mart','Supermarket',17.4170,78.4370,349.0,329.0,true,true,4.8,true,2),
+      ('s1','ASKODOX Fresh Mart','Supermarket',17.4170,78.4370,349.0,329.0,true,true,4.8,true,2),
       ('s2','Sri Local Stores','Kirana',17.4260,78.4430,315.0,null,true,false,4.1,true,25),
       ('s3','Metro Daily','Supermarket',17.4380,78.4510,365.0,319.0,true,true,4.9,false,74),
       ('s4','Neighbour Basket','Kirana',17.4810,78.4850,305.0,null,false,true,4.5,true,10),
