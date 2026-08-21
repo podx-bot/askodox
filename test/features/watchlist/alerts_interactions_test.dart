@@ -44,9 +44,6 @@ class _FakeWatchlistRepository implements WatchlistRepository {
   void savePreferences(AlertPreference value) {
     _preferences = value;
   }
-
-  @override
-  void saveRequest(dynamic request) {}
 }
 
 void main() {
