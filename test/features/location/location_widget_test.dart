@@ -103,15 +103,15 @@ void main() {
     await tester.pumpAndSettle();
 
     final product4 = find.byKey(const Key('shopProduct-Mock product 4'));
-    final product1 = find.byKey(const Key('shopProduct-Mock product 1'));
+    final product2 = find.byKey(const Key('shopProduct-Mock product 2'));
     expect(product4, findsOneWidget);
 
-    if (product1.evaluate().isEmpty) {
-      await tester.drag(list, const Offset(0, -180));
+    if (product2.evaluate().isEmpty) {
+      await tester.drag(list, const Offset(0, -120));
       await tester.pumpAndSettle();
     }
-    expect(product1, findsOneWidget);
-    expect(tester.getTopLeft(product4).dy, lessThan(tester.getTopLeft(product1).dy));
+    expect(product2, findsOneWidget);
+    expect(tester.getTopLeft(product4).dy, lessThan(tester.getTopLeft(product2).dy));
 
     final call = find.byKey(const Key('shopDetailsCall'));
     for (var i = 0; i < 4 && call.evaluate().isEmpty; i++) {
