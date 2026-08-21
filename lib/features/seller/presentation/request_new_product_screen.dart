@@ -24,38 +24,12 @@ class _RequestNewProductScreenState extends ConsumerState<RequestNewProductScree
   }
 
   Future<void> _chooseImageReference() async {
-    final controller = TextEditingController(text: imagePath ?? '');
     final value = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add product image reference'),
-        content: TextField(
-          key: const Key('sellerNewProductImageReference'),
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.url,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (text) => Navigator.pop(dialogContext, text.trim()),
-          decoration: const InputDecoration(
-            labelText: 'Image URL or local reference',
-            hintText: 'https://… or product-photo.jpg',
-          ),
-        ),
-        actions: [
-          TextButton(
-            key: const Key('sellerNewProductImageCancel'),
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('sellerNewProductImageSave'),
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Use image'),
-          ),
-        ],
+      builder: (dialogContext) => _ImageReferenceDialog(
+        initialValue: imagePath ?? '',
       ),
     );
-    controller.dispose();
 
     if (!mounted || value == null) return;
     if (value.isEmpty) {
@@ -166,5 +140,67 @@ class _RequestNewProductScreenState extends ConsumerState<RequestNewProductScree
             ),
           ),
         ),
+      );
+}
+
+class _ImageReferenceDialog extends StatefulWidget {
+  const _ImageReferenceDialog({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_ImageReferenceDialog> createState() => _ImageReferenceDialogState();
+}
+
+class _ImageReferenceDialogState extends State<_ImageReferenceDialog> {
+  late final TextEditingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    FocusScope.of(context).unfocus();
+    Navigator.pop(context, controller.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Add product image reference'),
+        content: TextField(
+          key: const Key('sellerNewProductImageReference'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(
+            labelText: 'Image URL or local reference',
+            hintText: 'https://… or product-photo.jpg',
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('sellerNewProductImageCancel'),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('sellerNewProductImageSave'),
+            onPressed: _submit,
+            child: const Text('Use image'),
+          ),
+        ],
       );
 }
