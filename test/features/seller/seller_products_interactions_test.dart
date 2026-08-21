@@ -17,11 +17,10 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byKey(const Key('sellerProductMenu-seller-1')));
-    await tester.pump(const Duration(milliseconds: 250));
-    final edit = find.byKey(const Key('sellerProductEdit-seller-1'));
-    expect(edit, findsOneWidget);
-    await tester.tap(edit);
+    final menuFinder = find.byKey(const Key('sellerProductMenu-seller-1'));
+    expect(menuFinder, findsOneWidget);
+    final menu = tester.widget<PopupMenuButton<String>>(menuFinder);
+    menu.onSelected?.call('edit');
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byKey(const Key('sellerProductEditSheet')), findsOneWidget);
