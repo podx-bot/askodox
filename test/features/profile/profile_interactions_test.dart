@@ -35,12 +35,21 @@ void main() {
     );
   }
 
+  Future<void> revealProfileActions(WidgetTester tester) async {
+    final list = find.byType(ListView);
+    expect(list, findsOneWidget);
+    await tester.drag(list, const Offset(0, -900));
+    await tester.pump(const Duration(milliseconds: 450));
+  }
+
   testWidgets('profile settings opens real developer settings', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pump();
+    await revealProfileActions(tester);
 
-    await tester.ensureVisible(find.byKey(const Key('askodoxProfileSettings')));
-    await tester.tap(find.byKey(const Key('askodoxProfileSettings')));
+    final settings = find.byKey(const Key('askodoxProfileSettings'));
+    expect(settings, findsOneWidget);
+    await tester.tap(settings);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -51,9 +60,11 @@ void main() {
   testWidgets('profile help opens feedback destination', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pump();
+    await revealProfileActions(tester);
 
-    await tester.ensureVisible(find.byKey(const Key('askodoxProfileHelp')));
-    await tester.tap(find.byKey(const Key('askodoxProfileHelp')));
+    final help = find.byKey(const Key('askodoxProfileHelp'));
+    expect(help, findsOneWidget);
+    await tester.tap(help);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
