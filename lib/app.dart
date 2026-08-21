@@ -11,8 +11,8 @@ import 'core/providers/offline_providers.dart';
 import 'generated/l10n/app_localizations.dart';
 import 'shared/widgets/connectivity_banner.dart';
 
-class PodxApp extends ConsumerWidget {
-  const PodxApp({super.key});
+class AskodoxApp extends ConsumerWidget {
+  const AskodoxApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
