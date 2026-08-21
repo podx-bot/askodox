@@ -11,6 +11,7 @@ class WatchlistScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(watchlistProvider);
     return Scaffold(
+      key: const Key('askodoxWatchlistScreen'),
       appBar: AppBar(title: const Text('Watchlist')),
       body: items.isEmpty
           ? const Center(
@@ -61,6 +62,7 @@ class _WatchlistCard extends ConsumerWidget {
               ),
               isThreeLine: true,
               trailing: IconButton(
+                key: Key('watchlistRemove-${item.productId}'),
                 tooltip: 'Remove',
                 icon: const Icon(Icons.delete_outline),
                 onPressed: () => ref.read(watchlistProvider.notifier).remove(item.productId),
@@ -68,6 +70,7 @@ class _WatchlistCard extends ConsumerWidget {
               onTap: () => context.push('/product/${item.productId}'),
             ),
             SwitchListTile(
+              key: Key('watchlistAlerts-${item.productId}'),
               contentPadding: EdgeInsets.zero,
               title: const Text('Smart alerts'),
               subtitle: Text(
@@ -81,6 +84,7 @@ class _WatchlistCard extends ConsumerWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
+                key: Key('watchlistAlertSettings-${item.productId}'),
                 icon: const Icon(Icons.tune),
                 label: const Text('Alert settings'),
                 onPressed: () => _settings(context, ref),
@@ -101,66 +105,85 @@ class _WatchlistCard extends ConsumerWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 20,
+        builder: (context, setState) => AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Alert settings', style: Theme.of(context).textTheme.titleLarge),
-              DropdownButtonFormField<double>(
-                initialValue: radius,
-                decoration: const InputDecoration(labelText: 'Preferred radius'),
-                items: [1.0, 2.0, 5.0, 10.0, 25.0]
-                    .map((value) => DropdownMenuItem(
-                          value: value,
-                          child: Text('${value.toInt()} km'),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => radius = value);
-                },
-              ),
-              TextField(
-                controller: input,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Target price (₹)'),
-              ),
-              DropdownButtonFormField<AlertFrequency>(
-                initialValue: frequency,
-                decoration: const InputDecoration(labelText: 'Frequency'),
-                items: AlertFrequency.values
-                    .map((value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.name),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => frequency = value);
-                },
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  target = double.tryParse(input.text);
-                  ref.read(watchlistProvider.notifier).update(
-                        item.copyWith(
-                          radiusKm: radius,
-                          targetPrice: target,
-                          clearTarget: target == null,
-                          frequency: frequency,
-                        ),
-                      );
-                  Navigator.pop(context);
-                },
-                child: const Text('Save preferences'),
-              ),
-            ],
+          child: SingleChildScrollView(
+            key: const Key('watchlistAlertSettingsSheet'),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Alert settings', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<double>(
+                  key: const Key('watchlistRadiusField'),
+                  initialValue: radius,
+                  decoration: const InputDecoration(labelText: 'Preferred radius'),
+                  items: [1.0, 2.0, 5.0, 10.0, 25.0]
+                      .map((value) => DropdownMenuItem(
+                            value: value,
+                            child: Text('${value.toInt()} km'),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => radius = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('watchlistTargetPriceField'),
+                  controller: input,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(labelText: 'Target price (₹)'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<AlertFrequency>(
+                  key: const Key('watchlistFrequencyField'),
+                  initialValue: frequency,
+                  decoration: const InputDecoration(labelText: 'Frequency'),
+                  items: AlertFrequency.values
+                      .map((value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(value.name),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => frequency = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const Key('watchlistSavePreferences'),
+                    onPressed: () {
+                      target = double.tryParse(input.text.trim());
+                      ref.read(watchlistProvider.notifier).update(
+                            item.copyWith(
+                              radiusKm: radius,
+                              targetPrice: target,
+                              clearTarget: target == null,
+                              frequency: frequency,
+                            ),
+                          );
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Save preferences'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
