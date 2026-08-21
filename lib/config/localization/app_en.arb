@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appName": "PODX",
+  "appName": "ASKODOX",
   "greeting": "Good morning",
   "discover": "Discover near you",
   "searchHint": "Search products, shops and sellers",
@@ -137,44 +137,11 @@
   "adminReason": "Internal reason",
   "cancel": "Cancel",
   "confirm": "Confirm",
-  "@saveAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "@productLimit": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "@startFreeTrial": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
-  },
-  "@historyDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
-  },
-  "@limitExplanation": {
-    "placeholders": {
-      "used": {
-        "type": "int"
-      },
-      "limit": {
-        "type": "int"
-      }
-    }
-  },
+  "@saveAmount": {"placeholders":{"amount":{"type":"String"}}},
+  "@productLimit": {"placeholders":{"count":{"type":"int"}}},
+  "@startFreeTrial": {"placeholders":{"days":{"type":"int"}}},
+  "@historyDays": {"placeholders":{"days":{"type":"int"}}},
+  "@limitExplanation": {"placeholders":{"used":{"type":"int"},"limit":{"type":"int"}}},
   "communicationCenter": "Communication center",
   "productRequestsNew": "Product requests",
   "followedShops": "Followed shops",
@@ -269,7 +236,7 @@
   "resolution": "Resolution",
   "applyResolution": "Apply resolution",
   "privacyCenter": "Privacy center",
-  "privacyIntro": "Control how PODX uses local mock data. Production practices require privacy and legal review.",
+  "privacyIntro": "Control how ASKODOX uses local mock data. Production practices require privacy and legal review.",
   "privacyDataCollected": "Data collected",
   "privacyDataCollectedBody": "Profile, consent, saved items and activity needed for features.",
   "privacySharing": "Data sharing",
@@ -316,7 +283,7 @@
   "minimumOrder": "Minimum order",
   "mockPriceHistory": "Mock price history",
   "mockHistoryDisclosure": "Demonstration data only; this is not real price history.",
-  "priceComparisonDisclosure": "Prices, stock and fees may change. PODX helps users compare recently available information but does not guarantee the final selling price. Confirm the price directly with the seller or online provider before purchase.",
+  "priceComparisonDisclosure": "Prices, stock and fees may change. ASKODOX helps users compare recently available information but does not guarantee the final selling price. Confirm the price directly with the seller or online provider before purchase.",
   "localCheaperInsight": "Lowest local price is {amount} lower than the effective online price.",
   "onlineCheaperInsight": "Online effective price is currently {amount} lower.",
   "pricesSimilar": "Local and online prices are nearly the same.",
@@ -327,18 +294,6 @@
   "confidenceHigh": "High",
   "confidenceMedium": "Medium",
   "confidenceLow": "Low",
-  "@localCheaperInsight": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "@onlineCheaperInsight": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  }
+  "@localCheaperInsight": {"placeholders":{"amount":{"type":"String"}}},
+  "@onlineCheaperInsight": {"placeholders":{"amount":{"type":"String"}}}
 }
