@@ -38,30 +38,28 @@ void main() {
     await tester.enterText(find.byKey(const Key('sellerRegisterOwnerName')), 'Demo Seller');
     await tester.enterText(find.byKey(const Key('sellerRegisterMobile')), '9876543210');
     await tester.enterText(find.byKey(const Key('sellerRegisterAddress')), 'Main Road');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
 
-    final scroll = find.byKey(const Key('sellerRegistrationScroll'));
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('sellerRegisterPhoto')),
-      250,
-      scrollable: scroll,
-    );
-    await tester.tap(find.byKey(const Key('sellerRegisterPhoto')));
+    final photo = find.byKey(const Key('sellerRegisterPhoto'));
+    expect(photo, findsOneWidget);
+    await tester.ensureVisible(photo);
+    await tester.pumpAndSettle();
+    await tester.tap(photo);
     await tester.pump();
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('sellerRegisterBusinessId')),
-      250,
-      scrollable: scroll,
-    );
-    await tester.tap(find.byKey(const Key('sellerRegisterBusinessId')));
+    final businessId = find.byKey(const Key('sellerRegisterBusinessId'));
+    expect(businessId, findsOneWidget);
+    await tester.ensureVisible(businessId);
+    await tester.pumpAndSettle();
+    await tester.tap(businessId);
     await tester.pump();
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('sellerRegisterSubmit')),
-      250,
-      scrollable: scroll,
-    );
-    await tester.tap(find.byKey(const Key('sellerRegisterSubmit')));
+    final submit = find.byKey(const Key('sellerRegisterSubmit'));
+    expect(submit, findsOneWidget);
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
     await tester.pumpAndSettle();
 
     expect(find.text('SELLER_DASHBOARD_DESTINATION'), findsOneWidget);
