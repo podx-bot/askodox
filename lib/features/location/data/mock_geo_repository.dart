@@ -55,8 +55,8 @@ class MockGeoRepository implements GeoRepository {
 const mockNearbyShops = [
   NearbyShop(
     id: 'fresh',
-    name: 'PODX Fresh Mart',
-    businessName: 'PODX Retail Pvt Ltd',
+    name: 'ASKODOX Fresh Mart',
+    businessName: 'ASKODOX Retail Pvt Ltd',
     category: 'Supermarket',
     address: 'Road 12, Banjara Hills, Hyderabad',
     point: GeoPoint(17.4170, 78.4370),
