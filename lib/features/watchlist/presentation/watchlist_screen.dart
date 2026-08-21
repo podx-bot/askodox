@@ -100,7 +100,7 @@ class _WatchlistCard extends ConsumerWidget {
     double radius = item.radiusKm;
     double? target = item.targetPrice;
     var frequency = item.frequency;
-    final input = TextEditingController(text: target?.toStringAsFixed(0));
+    var targetInput = target?.toStringAsFixed(0) ?? '';
 
     await showModalBottomSheet<void>(
       context: context,
@@ -138,12 +138,13 @@ class _WatchlistCard extends ConsumerWidget {
                   },
                 ),
                 const SizedBox(height: 10),
-                TextField(
+                TextFormField(
                   key: const Key('watchlistTargetPriceField'),
-                  controller: input,
+                  initialValue: targetInput,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(labelText: 'Target price (₹)'),
+                  onChanged: (value) => targetInput = value,
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<AlertFrequency>(
@@ -168,7 +169,7 @@ class _WatchlistCard extends ConsumerWidget {
                   child: FilledButton(
                     key: const Key('watchlistSavePreferences'),
                     onPressed: () {
-                      target = double.tryParse(input.text.trim());
+                      target = double.tryParse(targetInput.trim());
                       ref.read(watchlistProvider.notifier).update(
                             item.copyWith(
                               radiusKm: radius,
@@ -188,6 +189,5 @@ class _WatchlistCard extends ConsumerWidget {
         ),
       ),
     );
-    input.dispose();
   }
 }
