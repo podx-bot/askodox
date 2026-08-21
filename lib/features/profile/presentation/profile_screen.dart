@@ -4,9 +4,19 @@ import 'package:go_router/go_router.dart';
 import '../../../config/brand/brand_config.dart';
 import '../../../config/theme/askodox_design_tokens.dart';
 import '../../../generated/l10n/app_localizations.dart';
+import '../../developer/presentation/developer_settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  void _openSettings(BuildContext context) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'askodox-profile-settings'),
+        builder: (_) => const DeveloperSettingsScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,15 +117,21 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Card(
                 child: Column(
-                  children: const [
+                  children: [
                     ListTile(
-                      leading: Icon(Icons.settings_outlined),
-                      title: Text('Settings'),
+                      key: const Key('askodoxProfileSettings'),
+                      leading: const Icon(Icons.settings_outlined),
+                      title: const Text('Settings'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _openSettings(context),
                     ),
-                    Divider(height: 1),
+                    const Divider(height: 1),
                     ListTile(
-                      leading: Icon(Icons.help_outline),
-                      title: Text('Help & support'),
+                      key: const Key('askodoxProfileHelp'),
+                      leading: const Icon(Icons.help_outline),
+                      title: const Text('Help & support'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/beta-feedback'),
                     ),
                   ],
                 ),
