@@ -19,7 +19,9 @@ void main() {
 
     await tester.tap(find.byKey(const Key('sellerProductMenu-seller-1')));
     await tester.pump(const Duration(milliseconds: 250));
-    await tester.tap(find.text('Edit'));
+    final edit = find.byKey(const Key('sellerProductEdit-seller-1'));
+    expect(edit, findsOneWidget);
+    await tester.tap(edit);
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byKey(const Key('sellerProductEditSheet')), findsOneWidget);
