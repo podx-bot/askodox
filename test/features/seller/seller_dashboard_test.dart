@@ -71,22 +71,29 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // App-bar actions are always available on the phone viewport.
     expect(find.byKey(const Key('sellerDashboardShopProfile')), findsOneWidget);
     expect(find.byKey(const Key('sellerDashboardMenu')), findsOneWidget);
-    expect(find.byKey(const Key('sellerDashboardAnalytics')), findsOneWidget);
-    expect(find.byKey(const Key('sellerDashboardProductPerformance')), findsOneWidget);
-    expect(find.byKey(const Key('sellerDashboardMarketIntelligence')), findsOneWidget);
-    expect(find.byKey(const Key('sellerDashboardPrivacy')), findsOneWidget);
 
-    final list = find.byType(ListView);
-    expect(list, findsOneWidget);
-    await tester.drag(list, const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.drag(list, const Offset(0, -900));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('sellerDashboardAddProduct')), findsOneWidget);
-    expect(find.byKey(const Key('sellerDashboardManageProducts')), findsOneWidget);
+    // The body is a lazy ListView, so verify each lower action only after
+    // scrolling it into the built/visible region of the phone viewport.
+    final scrollable = find.byType(Scrollable).first;
+    for (final key in <String>[
+      'sellerDashboardAnalytics',
+      'sellerDashboardProductPerformance',
+      'sellerDashboardMarketIntelligence',
+      'sellerDashboardPrivacy',
+      'sellerDashboardAddProduct',
+      'sellerDashboardManageProducts',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        260,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key(key)), findsOneWidget);
+    }
 
     await tester.tap(find.byKey(const Key('sellerDashboardShopProfile')));
     await tester.pumpAndSettle();
