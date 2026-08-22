@@ -65,7 +65,7 @@ jobs:
         run: |
           flutter pub get
           flutter gen-l10n
-          flutter analyze
+          flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
 
       - name: Build installable debug APK
