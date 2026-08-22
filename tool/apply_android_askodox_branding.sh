@@ -4,6 +4,7 @@ set -euo pipefail
 RES="android/app/src/main/res"
 MANIFEST="android/app/src/main/AndroidManifest.xml"
 KOTLIN_DIR="android/app/src/main/kotlin/com/askodox/podx"
+MAPS_KEY="${GOOGLE_MAPS_API_KEY:-}"
 mkdir -p "$RES/drawable" "$RES/drawable-v21" "$RES/mipmap-anydpi" "$RES/mipmap-anydpi-v26" "$RES/values" "$RES/xml" "$KOTLIN_DIR"
 
 cat > "$RES/values/askodox_colors.xml" <<'EOF'
@@ -15,10 +16,11 @@ cat > "$RES/values/askodox_colors.xml" <<'EOF'
 </resources>
 EOF
 
-cat > "$RES/values/strings.xml" <<'EOF'
+cat > "$RES/values/strings.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ASKODOX</string>
+    <string name="google_maps_key">${MAPS_KEY}</string>
 </resources>
 EOF
 
@@ -207,9 +209,21 @@ if count != 1:
     raise SystemExit('Could not locate Android application label')
 text = updated
 
-permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
-if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
-    text = text.replace('<application', f'{permission}\n    <application', 1)
+permissions = [
+    'android.permission.REQUEST_INSTALL_PACKAGES',
+    'android.permission.ACCESS_COARSE_LOCATION',
+    'android.permission.ACCESS_FINE_LOCATION',
+]
+for permission_name in permissions:
+    if permission_name not in text:
+        permission = f'<uses-permission android:name="{permission_name}" />'
+        text = text.replace('<application', f'{permission}\n    <application', 1)
+
+maps_metadata = '''        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />'''
+if 'com.google.android.geo.API_KEY' not in text:
+    text = text.replace('</application>', f'{maps_metadata}\n    </application>', 1)
 
 provider = '''        <provider
             android:name="androidx.core.content.FileProvider"
@@ -226,4 +240,4 @@ if '.askodox.fileprovider' not in text:
 path.write_text(text)
 PY
 
-echo "ASKODOX Android branding and in-app updater bridge applied."
+echo "ASKODOX Android branding, maps/location, and updater bridge applied."
