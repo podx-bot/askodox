@@ -5,7 +5,11 @@ class UniversalConversationClient {
   const UniversalConversationClient({
     this.baseUrl = '',
     this.endpointPath = '/debug/message',
+    this.useProductionFallback = true,
   });
+
+  static const productionBaseUrl =
+      'https://podx-ai-connect-production-3279.up.railway.app';
 
   static const _configuredBaseUrl = String.fromEnvironment(
     'PODX_API_BASE_URL',
@@ -16,6 +20,7 @@ class UniversalConversationClient {
 
   final String baseUrl;
   final String endpointPath;
+  final bool useProductionFallback;
 
   String get resolvedBaseUrl {
     final explicit = baseUrl.trim();
@@ -23,7 +28,10 @@ class UniversalConversationClient {
     if (_configuredBaseUrl.trim().isNotEmpty) {
       return _configuredBaseUrl.trim();
     }
-    return _legacyConfiguredBaseUrl.trim();
+    if (_legacyConfiguredBaseUrl.trim().isNotEmpty) {
+      return _legacyConfiguredBaseUrl.trim();
+    }
+    return useProductionFallback ? productionBaseUrl : '';
   }
 
   bool get isConfigured => resolvedBaseUrl.isNotEmpty;
