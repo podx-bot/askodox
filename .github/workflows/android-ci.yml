@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: read
+
 concurrency:
   group: android-ci-${{ github.ref }}
   cancel-in-progress: true
@@ -75,7 +79,7 @@ jobs:
       - name: Apply ASKODOX Android branding
         shell: bash
         run: bash tool/apply_android_askodox_branding.sh
-      - name: Verify ASKODOX Android branding
+      - name: Verify ASKODOX Android branding and updater bridge
         shell: bash
         run: |
           test -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
@@ -83,9 +87,14 @@ jobs:
           test -f android/app/src/main/res/drawable/askodox_launcher_foreground.xml
           test -f android/app/src/main/res/drawable/launch_background.xml
           test -f android/app/src/main/res/values/strings.xml
+          test -f android/app/src/main/res/xml/askodox_update_paths.xml
+          test -f android/app/src/main/kotlin/com/askodox/podx/MainActivity.kt
           grep -q 'askodox_ink' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
           grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
+          grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q '.askodox.fileprovider' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/podx/MainActivity.kt
           grep -q 'Brain / knowledge half of the ASKODOX mark' android/app/src/main/res/drawable/askodox_launcher_foreground.xml
           if grep -q 'M27,25 L62,25' android/app/src/main/res/drawable/askodox_launcher_foreground.xml; then
             echo "::error::Legacy R launcher path is still present"
@@ -94,7 +103,12 @@ jobs:
       - name: Build Android debug APK
         env:
           PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
-        run: flutter build apk --debug --dart-define=PODX_API_BASE_URL="$PODX_API_BASE_URL"
+        run: |
+          flutter build apk --debug \
+            --build-number="${{ github.run_number }}" \
+            --dart-define=PODX_API_BASE_URL="$PODX_API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${{ github.run_number }}"
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -102,3 +116,27 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Publish stable ASKODOX latest update
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-debug.apk askodox-latest.apk
+          cat > latest.json <<EOF
+          {
+            "version": "1.0.0",
+            "build_number": ${{ github.run_number }},
+            "mandatory": false,
+            "notes": "Latest ASKODOX Android test build",
+            "apk_url": "https://github.com/${{ github.repository }}/releases/download/askodox-latest/askodox-latest.apk"
+          }
+          EOF
+
+          if ! gh release view askodox-latest >/dev/null 2>&1; then
+            gh release create askodox-latest \
+              --prerelease \
+              --title "ASKODOX latest test build" \
+              --notes "Stable development channel for ASKODOX in-app updates."
+          fi
+          gh release upload askodox-latest askodox-latest.apk latest.json --clobber
