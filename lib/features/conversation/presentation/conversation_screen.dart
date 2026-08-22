@@ -33,7 +33,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   UniversalConversationClient get _activeClient => widget.client.isConfigured
       ? widget.client
-      : UniversalConversationClient(baseUrl: _runtimeBaseUrl);
+      : UniversalConversationClient(
+          baseUrl: _runtimeBaseUrl,
+          endpointPath: widget.client.endpointPath,
+          useProductionFallback: widget.client.useProductionFallback,
+        );
 
   @override
   void initState() {
