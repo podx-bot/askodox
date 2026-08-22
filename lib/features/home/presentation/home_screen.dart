@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/brand/brand_config.dart';
+import '../../../core/update/askodox_update_service.dart';
 import '../../../shared/widgets/askodox_ai_state.dart';
 import '../../../shared/widgets/askodox_components.dart';
 import '../../conversation/presentation/conversation_screen.dart';
@@ -18,7 +19,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final AskodoxUpdateService _updateService = const AskodoxUpdateService();
   AskodoxAiState _state = AskodoxAiState.idle;
+  AskodoxUpdateInfo? _updateInfo;
+  bool _installingUpdate = false;
+  double _updateProgress = 0;
+  String? _updateError;
 
   static const _quickAsks = <String>[
     'Buy nearby',
@@ -29,10 +35,48 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (AskodoxUpdateService.enabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkForUpdate() async {
+    final info = await _updateService.checkForUpdate();
+    if (!mounted || info == null) return;
+    setState(() => _updateInfo = info);
+  }
+
+  Future<void> _installUpdate() async {
+    final info = _updateInfo;
+    if (info == null || _installingUpdate) return;
+    setState(() {
+      _installingUpdate = true;
+      _updateProgress = 0;
+      _updateError = null;
+    });
+    try {
+      await _updateService.downloadAndInstall(
+        info,
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() => _updateProgress = progress);
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _updateError = 'Update could not start. Please try again.');
+    } finally {
+      if (mounted) setState(() => _installingUpdate = false);
+    }
   }
 
   void _submitAsk() {
@@ -85,6 +129,52 @@ class _HomeScreenState extends State<HomeScreen> {
   void _goFromDrawer(String path) {
     Navigator.of(context).pop();
     context.go(path);
+  }
+
+  Widget _buildUpdateCard(BuildContext context) {
+    final info = _updateInfo;
+    if (info == null) return const SizedBox.shrink();
+    final progressPercent = (_updateProgress * 100).round();
+    return Card(
+      key: const Key('askodoxUpdateCard'),
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        child: Row(
+          children: [
+            Icon(Icons.system_update_alt_rounded,
+                color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ASKODOX update available',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    _installingUpdate
+                        ? 'Downloading… $progressPercent%'
+                        : (_updateError ?? 'Tap once to download and update.'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              key: const Key('askodoxUpdateButton'),
+              onPressed: _installingUpdate ? null : _installUpdate,
+              child: Text(_installingUpdate ? '$progressPercent%' : 'Update'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -188,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    _buildUpdateCard(context),
                     if (!keyboardOpen)
                       KeyedSubtree(
                         key: const Key('askodoxOrb'),
