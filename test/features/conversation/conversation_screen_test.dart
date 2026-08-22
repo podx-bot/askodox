@@ -15,6 +15,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  test('default conversation client has the live production fallback', () {
+    const client = UniversalConversationClient();
+
+    expect(client.isConfigured, isTrue);
+    expect(
+      client.resolvedBaseUrl,
+      UniversalConversationClient.productionBaseUrl,
+    );
+  });
+
   testWidgets('home send opens the ASKODOX conversation surface',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
@@ -43,7 +53,10 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: ConversationScreen(
-          client: UniversalConversationClient(baseUrl: ''),
+          client: UniversalConversationClient(
+            baseUrl: '',
+            useProductionFallback: false,
+          ),
         ),
       ),
     );
@@ -62,7 +75,10 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: ConversationScreen(
-          client: UniversalConversationClient(baseUrl: ''),
+          client: UniversalConversationClient(
+            baseUrl: '',
+            useProductionFallback: false,
+          ),
         ),
       ),
     );
@@ -95,7 +111,10 @@ void main() {
       const MaterialApp(
         home: ConversationScreen(
           initialQuery: 'Find work',
-          client: UniversalConversationClient(baseUrl: ''),
+          client: UniversalConversationClient(
+            baseUrl: '',
+            useProductionFallback: false,
+          ),
         ),
       ),
     );
