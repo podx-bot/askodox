@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ConversationServerSettings {
   static const _baseUrlKey = 'askodox.conversation.baseUrl';
+  static const _senderIdKey = 'askodox.conversation.senderId';
 
   const ConversationServerSettings();
 
@@ -24,5 +25,15 @@ class ConversationServerSettings {
   Future<void> clearBaseUrl() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_baseUrlKey);
+  }
+
+  Future<String> loadOrCreateSenderId() async {
+    final preferences = await SharedPreferences.getInstance();
+    final existing = (preferences.getString(_senderIdKey) ?? '').trim();
+    if (existing.isNotEmpty) return existing;
+
+    final created = 'app-${DateTime.now().microsecondsSinceEpoch}';
+    await preferences.setString(_senderIdKey, created);
+    return created;
   }
 }
