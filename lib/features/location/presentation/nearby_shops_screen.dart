@@ -102,6 +102,7 @@ class _MapPreview extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(locationControllerProvider.notifier);
     return Padding(
+      key: const Key('mockMap'),
       padding: const EdgeInsets.all(12),
       child: Card(
         child: Column(
