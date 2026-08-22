@@ -26,7 +26,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   final List<_ConversationMessage> _messages = [];
   final ConversationServerSettings _serverSettings =
       const ConversationServerSettings();
-  late final String _senderId;
+  String _senderId = '';
   String _runtimeBaseUrl = '';
   bool _sending = false;
   AskodoxAiState _aiState = AskodoxAiState.idle;
@@ -38,11 +38,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void initState() {
     super.initState();
-    _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
     WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
   }
 
   Future<void> _initialize() async {
+    try {
+      _senderId = await _serverSettings.loadOrCreateSenderId();
+    } catch (_) {
+      _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
+    }
+
     if (!widget.client.isConfigured) {
       try {
         final saved = await _serverSettings.loadBaseUrl();
@@ -78,6 +83,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _send(String text) async {
     if (text.trim().isEmpty || _sending) return;
 
+    if (_senderId.isEmpty) {
+      try {
+        _senderId = await _serverSettings.loadOrCreateSenderId();
+      } catch (_) {
+        _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
       _messages.add(_ConversationMessage.user(text.trim()));
       _sending = true;
