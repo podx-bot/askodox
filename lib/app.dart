@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'config/brand/brand_config.dart';
 import 'config/router/app_router.dart';
 import 'config/theme/app_theme.dart';
 import 'core/providers/app_settings_provider.dart';
@@ -10,15 +11,16 @@ import 'core/providers/offline_providers.dart';
 import 'generated/l10n/app_localizations.dart';
 import 'shared/widgets/connectivity_banner.dart';
 
-class PodxApp extends ConsumerWidget {
-  const PodxApp({super.key});
+class AskodoxApp extends ConsumerWidget {
+  const AskodoxApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
+      title: BrandConfig.displayName,
+      onGenerateTitle: (_) => BrandConfig.displayName,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,

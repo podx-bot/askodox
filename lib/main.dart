@@ -7,7 +7,7 @@ import 'features/analytics/domain/analytics_models.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: _AnalyticsBootstrap(child: PodxApp())));
+  runApp(const ProviderScope(child: _AnalyticsBootstrap(child: AskodoxApp())));
 }
 
 class _AnalyticsBootstrap extends ConsumerStatefulWidget {

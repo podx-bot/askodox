@@ -1,0 +1,156 @@
+name: Android CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Flutter version
+        run: flutter --version
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze (errors are fatal)
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Tests
+        run: flutter test --reporter expanded
+      - name: Check Android API configuration
+        env:
+          PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ vars.GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -z "$PODX_API_BASE_URL" ]; then
+            echo "::warning::PODX_API_BASE_URL is not set. APK will use the built-in ASKODOX production fallback; a saved in-app override can still replace it."
+          else
+            case "$PODX_API_BASE_URL" in
+              https://*) ;;
+              *) echo "::error::PODX_API_BASE_URL must be an https:// URL"; exit 1 ;;
+            esac
+          fi
+          if [ -z "$GOOGLE_MAPS_API_KEY" ]; then
+            echo "::warning::GOOGLE_MAPS_API_KEY is not set. GPS sharing will work, but the Google map canvas will stay disabled in this build."
+          else
+            echo "Google Maps API key is configured for this build."
+          fi
+      - name: Verify configured ASKODOX backend is reachable
+        env:
+          PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
+        shell: bash
+        run: |
+          if [ -z "$PODX_API_BASE_URL" ]; then
+            echo "No repository backend URL configured; runtime uses the built-in ASKODOX production fallback."
+            exit 0
+          fi
+
+          base="${PODX_API_BASE_URL%/}"
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --location --max-time 15 "$base/health" >/dev/null; then
+              echo "ASKODOX backend health endpoint is reachable."
+              exit 0
+            fi
+            if curl --fail --silent --show-error --location --max-time 15 "$base" >/dev/null; then
+              echo "ASKODOX backend root endpoint is reachable."
+              exit 0
+            fi
+            echo "Backend reachability attempt $attempt failed; retrying..."
+            sleep 3
+          done
+
+          echo "::error::Configured ASKODOX backend is not reachable at $base"
+          exit 1
+      - name: Ensure Android platform scaffold
+        shell: bash
+        run: |
+          if [ ! -f android/app/build.gradle ] && [ ! -f android/app/build.gradle.kts ]; then
+            flutter create --platforms=android --org com.askodox .
+          fi
+      - name: Apply ASKODOX Android branding
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ vars.GOOGLE_MAPS_API_KEY }}
+        shell: bash
+        run: bash tool/apply_android_askodox_branding.sh
+      - name: Verify ASKODOX Android branding, maps, location and updater bridge
+        shell: bash
+        run: |
+          test -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          test -f android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
+          test -f android/app/src/main/res/drawable/askodox_launcher_foreground.xml
+          test -f android/app/src/main/res/drawable/launch_background.xml
+          test -f android/app/src/main/res/values/strings.xml
+          test -f android/app/src/main/res/xml/askodox_update_paths.xml
+          test -f android/app/src/main/kotlin/com/askodox/podx/MainActivity.kt
+          grep -q 'askodox_ink' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
+          grep -q 'google_maps_key' android/app/src/main/res/values/strings.xml
+          grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
+          grep -q 'ACCESS_COARSE_LOCATION' android/app/src/main/AndroidManifest.xml
+          grep -q 'ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.google.android.geo.API_KEY' android/app/src/main/AndroidManifest.xml
+          grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q '.askodox.fileprovider' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/podx/MainActivity.kt
+          grep -q 'Brain / knowledge half of the ASKODOX mark' android/app/src/main/res/drawable/askodox_launcher_foreground.xml
+          if grep -q 'M27,25 L62,25' android/app/src/main/res/drawable/askodox_launcher_foreground.xml; then
+            echo "::error::Legacy R launcher path is still present"
+            exit 1
+          fi
+      - name: Build Android debug APK
+        env:
+          PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ vars.GOOGLE_MAPS_API_KEY }}
+        run: |
+          flutter build apk --debug \
+            --build-number="${{ github.run_number }}" \
+            --dart-define=PODX_API_BASE_URL="$PODX_API_BASE_URL" \
+            --dart-define=GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${{ github.run_number }}"
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: askodox-android-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish stable ASKODOX latest update
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-debug.apk askodox-latest.apk
+          cat > latest.json <<EOF
+          {
+            "version": "1.0.0",
+            "build_number": ${{ github.run_number }},
+            "mandatory": false,
+            "notes": "Latest ASKODOX Android test build",
+            "apk_url": "https://github.com/${{ github.repository }}/releases/download/askodox-latest/askodox-latest.apk"
+          }
+          EOF
+
+          if ! gh release view askodox-latest >/dev/null 2>&1; then
+            gh release create askodox-latest \
+              --prerelease \
+              --title "ASKODOX latest test build" \
+              --notes "Stable development channel for ASKODOX in-app updates."
+          fi
+          gh release upload askodox-latest askodox-latest.apk latest.json --clobber

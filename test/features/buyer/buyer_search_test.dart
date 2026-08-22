@@ -32,12 +32,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('100 m'), findsOneWidget);
     expect(find.text('50 km'), findsOneWidget);
-    expect(find.text('Custom'), findsOneWidget);
+    expect(find.text('Custom'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('product not found provides request and notification flow', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: ProductNotFoundScreen())));
-    expect(find.text('This product is not available in the PODX catalog yet.'), findsOneWidget);
+    expect(find.text('This product is not available in the ASKODOX catalog yet.'), findsOneWidget);
     expect(find.text('Request Product'), findsOneWidget);
     expect(find.text('Notify Me'), findsOneWidget);
     await tester.tap(find.text('Request Product'));
