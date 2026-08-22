@@ -3,7 +3,8 @@ set -euo pipefail
 
 RES="android/app/src/main/res"
 MANIFEST="android/app/src/main/AndroidManifest.xml"
-mkdir -p "$RES/drawable" "$RES/drawable-v21" "$RES/mipmap-anydpi" "$RES/mipmap-anydpi-v26" "$RES/values"
+KOTLIN_DIR="android/app/src/main/kotlin/com/askodox/podx"
+mkdir -p "$RES/drawable" "$RES/drawable-v21" "$RES/mipmap-anydpi" "$RES/mipmap-anydpi-v26" "$RES/values" "$RES/xml" "$KOTLIN_DIR"
 
 cat > "$RES/values/askodox_colors.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
@@ -125,13 +126,70 @@ EOF
 
 cp "$RES/drawable/launch_background.xml" "$RES/drawable-v21/launch_background.xml"
 
+cat > "$RES/xml/askodox_update_paths.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="askodox_updates" path="." />
+</paths>
+EOF
+
+cat > "$KOTLIN_DIR/MainActivity.kt" <<'EOF'
+package com.askodox.podx
+
+import android.content.Intent
+import androidx.core.content.FileProvider
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+import java.io.File
+
+class MainActivity : FlutterActivity() {
+    private val updateChannel = "com.askodox.app/update"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, updateChannel)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "installApk") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val path = call.argument<String>("path")
+                if (path.isNullOrBlank()) {
+                    result.error("missing_path", "APK path was not provided", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    val apk = File(path)
+                    if (!apk.exists() || apk.length() <= 0L) {
+                        result.error("missing_apk", "Downloaded APK was not found", null)
+                        return@setMethodCallHandler
+                    }
+                    val uri = FileProvider.getUriForFile(
+                        this,
+                        "$packageName.askodox.fileprovider",
+                        apk,
+                    )
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/vnd.android.package-archive")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(intent)
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("install_failed", error.message, null)
+                }
+            }
+    }
+}
+EOF
+
 if [ ! -f "$MANIFEST" ]; then
   echo "AndroidManifest.xml was not generated before branding." >&2
   exit 1
 fi
 
-# Flutter create derives the Android label from pubspec package name (`podx`).
-# Force the user-facing installer / launcher identity to ASKODOX every build.
 python3 - "$MANIFEST" <<'PY'
 from pathlib import Path
 import re
@@ -147,7 +205,25 @@ updated, count = re.subn(
 )
 if count != 1:
     raise SystemExit('Could not locate Android application label')
-path.write_text(updated)
+text = updated
+
+permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
+if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
+    text = text.replace('<application', f'{permission}\n    <application', 1)
+
+provider = '''        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.askodox.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/askodox_update_paths" />
+        </provider>'''
+if '.askodox.fileprovider' not in text:
+    text = text.replace('</application>', f'{provider}\n    </application>', 1)
+
+path.write_text(text)
 PY
 
-echo "ASKODOX Android branding applied."
+echo "ASKODOX Android branding and in-app updater bridge applied."
