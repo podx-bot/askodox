@@ -42,6 +42,7 @@ import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
 import '../../features/communication/domain/communication_models.dart';
 import '../../features/communication/presentation/communication_screens.dart';
+import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
@@ -71,28 +72,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(
-            path: '/search',
-            builder: (context, state) => const SearchScreen(),
-          ),
+          GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(
-            path: '/watchlist',
-            builder: (context, state) => const WatchlistScreen(),
-          ),
+          GoRoute(path: '/watchlist', builder: (context, state) => const WatchlistScreen()),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(
-            path: '/alerts',
-            builder: (context, state) => const AlertsScreen(),
-          ),
+          GoRoute(path: '/alerts', builder: (context, state) => const AlertsScreen()),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfileScreen(),
-          ),
+          GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         ]),
       ],
     ),
@@ -102,10 +91,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/map/shop/:id', redirect: (context, state) => '/nearby'),
     GoRoute(path: '/nearby/product/:id', redirect: (context, state) => '/nearby'),
     GoRoute(path: '/alert/:id/map', redirect: (context, state) => '/nearby'),
-    GoRoute(
-      path: '/product/:id',
-      builder: (context, state) => ProductDetailsScreen(productId: state.pathParameters['id']!),
-    ),
+    GoRoute(path: '/product/:id', builder: (context, state) => ProductDetailsScreen(productId: state.pathParameters['id']!)),
     GoRoute(path: '/product-not-found', builder: (context, state) => const ProductNotFoundScreen()),
     GoRoute(path: '/discover/barcode', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.barcode)),
     GoRoute(path: '/discover/ocr', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.ocr)),
@@ -117,13 +103,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/communications/requests', builder: (context, state) => const BuyerRequestsScreen()),
     GoRoute(path: '/communications/following', builder: (context, state) => const FollowedShopsScreen()),
     GoRoute(path: '/communications/preferences', builder: (context, state) => const CommunicationPreferencesScreen()),
+    GoRoute(path: '/deals', builder: (context, state) => const DealInboxScreen()),
+    GoRoute(
+      path: '/deal/:requestId',
+      builder: (context, state) => DealThreadScreen(
+        requestId: int.tryParse(state.pathParameters['requestId'] ?? '') ?? 0,
+        userId: state.uri.queryParameters['user'] ?? '',
+        otherUserId: state.uri.queryParameters['other'] ?? '',
+      ),
+    ),
     GoRoute(path: '/alert-simulator', builder: (context, state) => const AlertSimulatorScreen()),
     GoRoute(path: '/analytics/buyer', builder: (context, state) => const BuyerInsightsScreen()),
     GoRoute(path: '/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen()),
     GoRoute(path: '/privacy', builder: (context, state) => const PrivacyCenterScreen()),
     GoRoute(path: '/beta-feedback', builder: (context, state) => const BetaFeedbackScreen()),
-    if (kDebugMode)
-      GoRoute(path: '/developer/feedback', builder: (context, state) => const SubmittedFeedbackScreen()),
+    if (kDebugMode) GoRoute(path: '/developer/feedback', builder: (context, state) => const SubmittedFeedbackScreen()),
     GoRoute(path: '/seller/login', builder: (context, state) => const SellerLoginScreen()),
     GoRoute(path: '/seller/register', builder: (context, state) => const SellerRegistrationScreen()),
     ShellRoute(
