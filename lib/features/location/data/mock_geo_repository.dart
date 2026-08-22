@@ -9,7 +9,14 @@ class MockGeoRepository implements GeoRepository {
   @override Future<List<NearbyShop>> getNearbySellers(GeoSearchQuery query) async => getSellersWithinRadius(query.centre, query.radiusMetres);
   @override Future<List<NearbyShop>> getSellersWithinRadius(GeoPoint centre, double radiusMetres) async => [for(final shop in _shops) if(_distance.isWithinRadius(centre, shop.point, radiusMetres)) shop.withDistance(_distance.distanceMetres(centre, shop.point)!) ]..sort((a,b)=>a.distanceMetres.compareTo(b.distanceMetres));
   @override Future<List<String>> getNearbyProductListings(GeoSearchQuery query) async => (await getNearbySellers(query)).expand((s)=>List.generate(s.productCount.clamp(0,3).toInt(),(i)=>'${s.id}-product-$i')).toList();
-  @override Future<int> getDemandWithinRadius(GeoSearchQuery query) async => (await getNearbySellers(query)).fold(0,(v,s)=>v+s.watchlistMatches);
+  @override Future<int> getDemandWithinRadius(GeoSearchQuery query) async {
+    final shops = await getNearbySellers(query);
+    var total = 0;
+    for (final shop in shops) {
+      total += shop.watchlistMatches;
+    }
+    return total;
+  }
   @override Future<int> getWatchlistMatchesWithinRadius(GeoSearchQuery query) => getDemandWithinRadius(query);
 }
 const mockNearbyShops = [
