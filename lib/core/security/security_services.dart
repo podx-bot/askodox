@@ -3,7 +3,7 @@ import 'security_models.dart';
 
 abstract interface class PermissionService { bool hasPermission(SecurityRole role, Permission permission); }
 class LocalPermissionService implements PermissionService {
-  static final _map=<SecurityRole,Set<Permission>>{SecurityRole.superAdmin:Set.from(Permission.values),SecurityRole.admin:{Permission.viewAuditLog,Permission.viewAggregatedAnalytics},SecurityRole.supportAdmin:{Permission.resolveSupportCases},SecurityRole.catalogAdmin:{Permission.editCatalog},SecurityRole.moderationAdmin:{Permission.suspendSeller,Permission.viewAuditLog},SecurityRole.sellerVerificationAdmin:{Permission.approveSeller}};
+  static final _map=<SecurityRole,Set<Permission>>{SecurityRole.superAdmin:Set.from(Permission.values),SecurityRole.admin:{Permission.viewAuditLog,Permission.viewAggregatedAnalytics,Permission.manageSubscriptions},SecurityRole.supportAdmin:{Permission.resolveSupportCases},SecurityRole.catalogAdmin:{Permission.editCatalog},SecurityRole.moderationAdmin:{Permission.suspendSeller,Permission.viewAuditLog},SecurityRole.sellerVerificationAdmin:{Permission.approveSeller}};
   @override bool hasPermission(SecurityRole role,Permission permission)=>_map[role]?.contains(permission)??false;
 }
 abstract interface class ConsentService { List<ConsentRecord> get history; ConsentRecord record({required ConsentType type,required String version,required bool accepted,required String sourceScreen,required bool required}); ConsentRecord withdraw(ConsentType type); bool permits(ConsentType type,String version); }
