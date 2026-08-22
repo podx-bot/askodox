@@ -5,6 +5,7 @@ class UniversalConversationClient {
   const UniversalConversationClient({
     this.baseUrl = '',
     this.endpointPath = '/debug/message',
+    this.locationEndpointPath = '/debug/location',
     this.useProductionFallback = true,
   });
 
@@ -20,6 +21,7 @@ class UniversalConversationClient {
 
   final String baseUrl;
   final String endpointPath;
+  final String locationEndpointPath;
   final bool useProductionFallback;
 
   String get resolvedBaseUrl {
@@ -40,6 +42,40 @@ class UniversalConversationClient {
     required String senderId,
     required String message,
   }) async {
+    return _postForReply(
+      path: endpointPath,
+      payload: {
+        'sender_mobile': senderId,
+        'message': message,
+      },
+    );
+  }
+
+  Future<String> sendLocation({
+    required String senderId,
+    required double latitude,
+    required double longitude,
+    String? locationName,
+    String? locationAddress,
+  }) async {
+    return _postForReply(
+      path: locationEndpointPath,
+      payload: {
+        'sender_mobile': senderId,
+        'latitude': latitude,
+        'longitude': longitude,
+        if (locationName != null && locationName.trim().isNotEmpty)
+          'location_name': locationName.trim(),
+        if (locationAddress != null && locationAddress.trim().isNotEmpty)
+          'location_address': locationAddress.trim(),
+      },
+    );
+  }
+
+  Future<String> _postForReply({
+    required String path,
+    required Map<String, Object?> payload,
+  }) async {
     final root = Uri.tryParse(resolvedBaseUrl);
     if (root == null || !root.hasScheme || root.host.isEmpty) {
       throw StateError(
@@ -48,7 +84,7 @@ class UniversalConversationClient {
     }
 
     final uri = root.replace(
-      path: _joinPaths(root.path, endpointPath),
+      path: _joinPaths(root.path, path),
       query: null,
       fragment: null,
     );
@@ -60,12 +96,7 @@ class UniversalConversationClient {
           );
       request.headers.contentType = ContentType.json;
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.write(
-        jsonEncode({
-          'sender_mobile': senderId,
-          'message': message,
-        }),
-      );
+      request.write(jsonEncode(payload));
 
       final response = await request.close().timeout(
             const Duration(seconds: 25),
