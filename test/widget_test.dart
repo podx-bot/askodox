@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:podx/app.dart';
 
 void main() {
-  testWidgets('renders the localized PODX home experience', (tester) async {
+  testWidgets('renders the localized ASKODOX home experience', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: PodxApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('PODX'), findsOneWidget);
+    expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('Discover near you'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
   });
@@ -17,7 +17,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Search'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Find your product'), findsOneWidget);
     expect(find.text('Browse categories'), findsOneWidget);
