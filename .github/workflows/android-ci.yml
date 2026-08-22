@@ -33,7 +33,7 @@ jobs:
           PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
         run: |
           if [ -z "$PODX_API_BASE_URL" ]; then
-            echo "::warning::PODX_API_BASE_URL is not set. APK will use the persistent in-app ASKODOX server setting until the repository variable is configured."
+            echo "::warning::PODX_API_BASE_URL is not set. APK will use the built-in ASKODOX production fallback; a saved in-app override can still replace it."
             exit 0
           fi
           case "$PODX_API_BASE_URL" in
@@ -46,7 +46,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "$PODX_API_BASE_URL" ]; then
-            echo "No repository backend URL configured; skipping live backend reachability check."
+            echo "No repository backend URL configured; runtime uses the built-in ASKODOX production fallback."
             exit 0
           fi
 
@@ -82,8 +82,15 @@ jobs:
           test -f android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
           test -f android/app/src/main/res/drawable/askodox_launcher_foreground.xml
           test -f android/app/src/main/res/drawable/launch_background.xml
-          grep -q 'askodox_violet' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          grep -q '#603EFF' android/app/src/main/res/values/askodox_colors.xml
+          test -f android/app/src/main/res/values/strings.xml
+          grep -q 'askodox_ink' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
+          grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
+          grep -q 'Brain / knowledge half of the ASKODOX mark' android/app/src/main/res/drawable/askodox_launcher_foreground.xml
+          if grep -q 'M27,25 L62,25' android/app/src/main/res/drawable/askodox_launcher_foreground.xml; then
+            echo "::error::Legacy R launcher path is still present"
+            exit 1
+          fi
       - name: Build Android debug APK
         env:
           PODX_API_BASE_URL: ${{ vars.PODX_API_BASE_URL }}
