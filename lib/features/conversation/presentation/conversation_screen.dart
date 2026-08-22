@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/brand/brand_config.dart';
+import '../../../core/location/askodox_location_service.dart';
 import '../../../shared/widgets/askodox_ai_state.dart';
 import '../../../shared/widgets/askodox_components.dart';
+import '../../location/presentation/askodox_map_picker_screen.dart';
 import '../data/conversation_server_settings.dart';
 import '../data/universal_conversation_client.dart';
 
@@ -36,6 +38,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       : UniversalConversationClient(
           baseUrl: _runtimeBaseUrl,
           endpointPath: widget.client.endpointPath,
+          locationEndpointPath: widget.client.locationEndpointPath,
           useProductionFallback: widget.client.useProductionFallback,
         );
 
@@ -77,6 +80,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
     super.dispose();
   }
 
+  Future<void> _ensureSenderId() async {
+    if (_senderId.isNotEmpty) return;
+    try {
+      _senderId = await _serverSettings.loadOrCreateSenderId();
+    } catch (_) {
+      _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
+    }
+  }
+
   Future<void> _sendFromComposer() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
@@ -86,14 +98,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Future<void> _send(String text) async {
     if (text.trim().isEmpty || _sending) return;
-
-    if (_senderId.isEmpty) {
-      try {
-        _senderId = await _serverSettings.loadOrCreateSenderId();
-      } catch (_) {
-        _senderId = 'app-${DateTime.now().microsecondsSinceEpoch}';
-      }
-    }
+    await _ensureSenderId();
 
     if (!mounted) return;
     setState(() {
@@ -138,6 +143,59 @@ class _ConversationScreenState extends State<ConversationScreen> {
         _messages.add(
           const _ConversationMessage.assistant(
             'I could not reach ASKODOX right now. Check the server setting or try again in a moment.',
+          ),
+        );
+        _aiState = AskodoxAiState.error;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _chooseLocation() async {
+    if (_sending) return;
+    final point = await Navigator.of(context).push<AskodoxLocationPoint>(
+      MaterialPageRoute(
+        settings: const RouteSettings(name: 'askodox-map-picker'),
+        builder: (_) => const AskodoxMapPickerScreen(),
+      ),
+    );
+    if (point == null || !mounted) return;
+
+    await _ensureSenderId();
+    setState(() {
+      _messages.add(
+        _ConversationMessage.user(
+          '📍 ${point.label ?? 'Shared location'} • '
+          '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+        ),
+      );
+      _sending = true;
+      _aiState = AskodoxAiState.thinking;
+    });
+    _scrollToBottom();
+
+    try {
+      final reply = await _activeClient.sendLocation(
+        senderId: _senderId,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        locationName: point.label,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages.add(_ConversationMessage.assistant(reply));
+        _aiState = AskodoxAiState.completed;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(
+          const _ConversationMessage.assistant(
+            'I could not save that location right now. Please try again.',
           ),
         );
         _aiState = AskodoxAiState.error;
@@ -230,6 +288,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
+          IconButton(
+            key: const Key('askodoxConversationLocation'),
+            tooltip: 'Share location',
+            onPressed: _sending ? null : _chooseLocation,
+            icon: const Icon(Icons.location_on_outlined),
+          ),
           IconButton(
             key: const Key('askodoxServerSettings'),
             tooltip: 'Conversation server',
