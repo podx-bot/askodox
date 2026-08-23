@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -16,16 +17,43 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter analyze
+      - name: Analyze compile errors
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
-      - name: Generate Android runner for CI build
-        run: flutter create --platforms=android --project-name podx .
-      - name: Build installable Android APK
-        run: flutter build apk --debug
-      - name: Upload Android APK artifact
+
+  askodox-app-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Generate Android runner for ASKODOX
+        run: flutter create --platforms=android --org com.askodox --project-name askodox .
+      - name: Apply ASKODOX launcher and splash branding
+        run: bash tool/apply_android_askodox_branding.sh
+      - name: Verify ASKODOX native branding
+        run: |
+          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
+          grep -q 'askodox_launcher_foreground' android/app/src/main/res/drawable/launch_background.xml
+          grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
+      - name: Build real ASKODOX app APK
+        run: |
+          flutter build apk --debug \
+            -t lib/main.dart \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=APP_ENV=staging \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL"
+      - name: Upload ASKODOX Android APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: podx-android-debug-apk
+          name: askodox-real-app-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14

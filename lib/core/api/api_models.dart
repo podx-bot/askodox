@@ -30,6 +30,15 @@ class ApiError<T> extends ApiResult<T> { const ApiError(this.failure); final Api
 
 ApiFailure mapApiError(Object error, {int? statusCode}) {
   if (error is ApiFailure) return error;
-  final type = switch (statusCode) { 400 => ApiFailureType.validation, 401 => ApiFailureType.authentication, 403 => ApiFailureType.permission, 404 => ApiFailureType.notFound, 409 => ApiFailureType.duplicate, 429 => ApiFailureType.rateLimit, >= 500 => ApiFailureType.server, _ => ApiFailureType.unknown };
+  final type = switch (statusCode) {
+    400 => ApiFailureType.validation,
+    401 => ApiFailureType.authentication,
+    403 => ApiFailureType.permission,
+    404 => ApiFailureType.notFound,
+    409 => ApiFailureType.duplicate,
+    429 => ApiFailureType.rateLimit,
+    int code when code >= 500 => ApiFailureType.server,
+    _ => ApiFailureType.unknown,
+  };
   return ApiFailure(type, statusCode: statusCode, cause: error);
 }

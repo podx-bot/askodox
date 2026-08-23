@@ -1,41 +1,67 @@
 import 'package:flutter/material.dart';
 
-abstract final class AppTheme {
-  static const _seed = Color(0xFF5B4BE8);
+import 'askodox_design_tokens.dart';
 
-  static ThemeData get light => _theme(Brightness.light);
+abstract final class AppTheme {
+  static ThemeData get light => _theme(Brightness.dark);
   static ThemeData get dark => _theme(Brightness.dark);
 
   static ThemeData _theme(Brightness brightness) {
-    final colors = ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
+    final colors = ColorScheme.fromSeed(
+      seedColor: AskodoxDesignTokens.violet500,
+      brightness: Brightness.dark,
+      surface: AskodoxDesignTokens.surface,
+    );
     return ThemeData(
       useMaterial3: true,
-      brightness: brightness,
+      brightness: Brightness.dark,
       colorScheme: colors,
-      scaffoldBackgroundColor: brightness == Brightness.light
-          ? const Color(0xFFF8F8FC)
-          : const Color(0xFF111116),
-      cardTheme: CardThemeData(
+      scaffoldBackgroundColor: AskodoxDesignTokens.ink,
+      appBarTheme: const AppBarTheme(
+        centerTitle: false,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+      ),
+      cardTheme: CardThemeData(
+        color: AskodoxDesignTokens.surfaceRaised,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AskodoxDesignTokens.outline),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surfaceContainerHighest,
+        fillColor: AskodoxDesignTokens.surfaceRaised,
+        prefixIconColor: AskodoxDesignTokens.violet100,
+        suffixIconColor: AskodoxDesignTokens.violet100,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: AskodoxDesignTokens.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: AskodoxDesignTokens.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: AskodoxDesignTokens.violet300, width: 1.5),
         ),
       ),
-      navigationBarTheme: const NavigationBarThemeData(height: 72),
-      appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: BorderSide.none,
+        backgroundColor: AskodoxDesignTokens.surfaceRaised,
+        labelStyle: const TextStyle(color: Colors.white),
+        side: const BorderSide(color: AskodoxDesignTokens.outline),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        height: 72,
+        backgroundColor: AskodoxDesignTokens.surface,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
       ),
