@@ -20,13 +20,15 @@ Widget _screen(Widget child) => ProviderScope(
     );
 
 void main() {
-  testWidgets('renders home screen structure', (tester) async {
+  testWidgets('renders ASKODOX AI-first home structure', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
-    expect(find.byType(CustomScrollView), findsOneWidget);
-    expect(find.byType(SliverAppBar), findsOneWidget);
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('ASKODOX AI'), findsOneWidget);
+    expect(find.text('Ask Anything. Get It Done.'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
   });
 
   testWidgets('renders catalog search structure', (tester) async {
