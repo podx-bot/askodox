@@ -80,10 +80,23 @@ jobs:
             echo 'Stable signing secrets are not configured; in-app release publish skipped.'
             exit 0
           fi
-          printf '%s' "$KEYSTORE_B64" \
-            | sed '/-----BEGIN CERTIFICATE-----/d; /-----END CERTIFICATE-----/d' \
-            | tr -d '\r\n\t ' \
-            | base64 --decode > android/app/askodox-release.jks
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          raw = os.environ['KEYSTORE_B64'].replace('\ufeff', '')
+          lines = []
+          for line in raw.splitlines():
+              line = line.strip()
+              if not line or line.startswith('-----BEGIN ') or line.startswith('-----END '):
+                  continue
+              lines.append(line)
+          payload = ''.join(lines)
+          payload = ''.join(ch for ch in payload if ch.isalnum() or ch in '+/=')
+          data = base64.b64decode(payload, validate=False)
+          if not data:
+              raise SystemExit('Decoded keystore is empty')
+          Path('android/app/askodox-release.jks').write_bytes(data)
+          PY
           test -s android/app/askodox-release.jks
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
