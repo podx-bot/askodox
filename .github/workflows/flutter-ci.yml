@@ -35,6 +35,13 @@ jobs:
       - run: flutter pub get
       - name: Generate Android runner for ASKODOX
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
+      - name: Apply ASKODOX launcher and splash branding
+        run: bash tool/apply_android_askodox_branding.sh
+      - name: Verify ASKODOX native branding
+        run: |
+          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
+          grep -q 'askodox_launcher_foreground' android/app/src/main/res/drawable/launch_background.xml
+          grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
       - name: Build real ASKODOX app APK
         run: |
           flutter build apk --debug \
