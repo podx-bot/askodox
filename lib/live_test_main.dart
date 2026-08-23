@@ -1,31 +1,31 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const PodxLiveTestApp());
+  runApp(const AskodoxLiveTestApp());
 }
 
-class PodxLiveTestApp extends StatelessWidget {
-  const PodxLiveTestApp({super.key});
+class AskodoxLiveTestApp extends StatelessWidget {
+  const AskodoxLiveTestApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PODX Live Test',
+      title: 'ASKODOX Live Test',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
-      home: const PodxLiveTestHome(),
+      home: const AskodoxLiveTestHome(),
     );
   }
 }
 
-class PodxLiveTestHome extends StatelessWidget {
-  const PodxLiveTestHome({super.key});
+class AskodoxLiveTestHome extends StatelessWidget {
+  const AskodoxLiveTestHome({super.key});
 
   @override
   Widget build(BuildContext context) {
     const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     return Scaffold(
-      appBar: AppBar(title: const Text('PODX Live Test')),
+      appBar: AppBar(title: const Text('ASKODOX Live Test')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -38,13 +38,13 @@ class PodxLiveTestHome extends StatelessWidget {
                 const Icon(Icons.verified_outlined, size: 72),
                 const SizedBox(height: 20),
                 Text(
-                  'Android build is installed and running.',
+                  'ASKODOX Android build is installed and running.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'This validation build isolates APK generation from the legacy Flutter compile blockers.',
+                  'This validation build confirms Android APK generation and installation before live backend testing.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
