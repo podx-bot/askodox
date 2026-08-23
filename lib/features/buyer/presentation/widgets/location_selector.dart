@@ -32,7 +32,9 @@ class LocationSelector extends ConsumerWidget {
       final lat = (value?['latitude'] as num?)?.toDouble();
       final lng = (value?['longitude'] as num?)?.toDouble();
       final accuracy = (value?['accuracy'] as num?)?.toDouble();
-      if (lat == null || lng == null) throw const PlatformException(code: 'location_unavailable', message: 'Location unavailable');
+      if (lat == null || lng == null) {
+        throw PlatformException(code: 'location_unavailable', message: 'Location unavailable');
+      }
       ref.read(buyerLocationProvider.notifier).state = BuyerLocation(
         id: 'device-current',
         label: 'Current location',
@@ -40,11 +42,17 @@ class LocationSelector extends ConsumerWidget {
         latitude: lat,
         longitude: lng,
       );
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Current location updated')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Current location updated')));
+      }
     } on PlatformException catch (error) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message ?? 'Turn on location and try again')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message ?? 'Turn on location and try again')));
+      }
     } catch (_) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to read current location')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to read current location')));
+      }
     }
   }
 
