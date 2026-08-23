@@ -44,13 +44,18 @@ jobs:
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
       - name: Apply ASKODOX launcher, splash and updater bridge
         run: bash tool/apply_android_askodox_branding.sh
-      - name: Verify ASKODOX native branding and updater
+      - name: Apply ASKODOX live voice and location bridge
+        run: bash tool/apply_android_live_device_bridge.sh
+      - name: Verify ASKODOX native branding, updater and live device bridge
         run: |
           grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
           grep -q 'askodox_launcher_foreground' android/app/src/main/res/drawable/launch_background.xml
           grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
           grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q 'ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
           grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'com.askodox.app/device' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'startVoiceSearch' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
       - name: Build real ASKODOX test APK
         run: |
           flutter build apk --debug \
