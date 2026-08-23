@@ -31,12 +31,13 @@ void main() {
     expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
   });
 
-  testWidgets('renders catalog search structure', (tester) async {
+  testWidgets('renders universal ASKODOX deal workspace', (tester) async {
     await tester.pumpWidget(_screen(const SearchScreen()));
     await tester.pump();
 
     expect(find.byType(AppBar), findsOneWidget);
-    expect(find.byType(SearchBar), findsOneWidget);
-    expect(find.byType(CustomScrollView), findsOneWidget);
+    expect(find.text('ASKODOX'), findsOneWidget);
+    expect(find.text('Tell ASKODOX what you need or what you can offer'), findsOneWidget);
+    expect(find.textContaining('opposite party'), findsOneWidget);
   });
 }
