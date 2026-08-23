@@ -81,23 +81,31 @@ jobs:
             exit 0
           fi
           python3 - <<'PY'
-          import base64, os
+          import base64, os, re
           from pathlib import Path
+
           raw = os.environ['KEYSTORE_B64'].replace('\ufeff', '')
-          lines = []
-          for line in raw.splitlines():
-              line = line.strip()
-              if not line or line.startswith('-----BEGIN ') or line.startswith('-----END '):
-                  continue
-              lines.append(line)
-          payload = ''.join(lines)
-          payload = ''.join(ch for ch in payload if ch.isalnum() or ch in '+/=')
-          data = base64.b64decode(payload, validate=False)
-          if not data:
-              raise SystemExit('Decoded keystore is empty')
+          raw = re.sub(r'-----BEGIN [^-]+-----', '', raw)
+          raw = re.sub(r'-----END [^-]+-----', '', raw)
+          payload = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
+          payload = payload.rstrip('=')
+          payload += '=' * ((4 - len(payload) % 4) % 4)
+          if not payload:
+              raise SystemExit('Keystore Base64 payload is empty')
+          try:
+              data = base64.b64decode(payload, validate=True)
+          except Exception as exc:
+              raise SystemExit(f'Keystore Base64 decode failed: {exc}')
+          if len(data) < 100:
+              raise SystemExit('Decoded keystore is unexpectedly small')
           Path('android/app/askodox-release.jks').write_bytes(data)
+          print(f'Decoded keystore bytes: {len(data)}')
           PY
           test -s android/app/askodox-release.jks
+          keytool -list \
+            -keystore android/app/askodox-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
