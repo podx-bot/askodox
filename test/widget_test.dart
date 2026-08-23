@@ -24,7 +24,7 @@ void main() {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
-    expect(find.text('ASKODOX AI'), findsOneWidget);
+    expect(find.text('ASKODOX AI', findRichText: true), findsOneWidget);
     expect(find.text('Ask Anything. Get It Done.'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
