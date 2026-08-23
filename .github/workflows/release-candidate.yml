@@ -1,0 +1,149 @@
+name: ASKODOX Release Candidate Verify
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  checks: write
+
+env:
+  FLUTTER_VERSION: 3.47.0
+  API_BASE_URL: ${{ secrets.API_BASE_URL }}
+  KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+  KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+  KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+jobs:
+  signed-release-candidate:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'release-visible-candidate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use pinned Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Fail fast if release credentials are missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required release secret: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify release targets PODX AI CONNECT V2
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tool/verify_v2_backend.sh
+          bash tool/verify_v2_backend.sh
+
+      - name: Prepare deterministic ASKODOX source and Android runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tool/apply_home_robot_layout_fix.sh
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter create --platforms=android --org com.askodox --project-name askodox .
+          bash tool/apply_android_askodox_branding.sh
+          bash tool/apply_android_live_device_bridge.sh
+
+      - name: Configure stable release signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, os, re
+          from pathlib import Path
+          raw = os.environ['KEYSTORE_B64'].replace('\ufeff', '')
+          raw = re.sub(r'-----BEGIN [^-]+-----', '', raw)
+          raw = re.sub(r'-----END [^-]+-----', '', raw)
+          payload = re.sub(r'[^A-Za-z0-9+/=]', '', raw).rstrip('=')
+          payload += '=' * ((4 - len(payload) % 4) % 4)
+          data = base64.b64decode(payload, validate=True)
+          if len(data) < 100:
+              raise SystemExit('Decoded keystore is unexpectedly small')
+          Path('android/app/askodox-release.jks').write_bytes(data)
+          PY
+          keytool -list -keystore android/app/askodox-release.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=askodox-release.jks
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text()
+          if 'java.util.Properties' not in s:
+              s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
+          s = s.replace('android {', 'val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nkeystoreProperties.load(FileInputStream(keystorePropertiesFile))\n\nandroid {', 1)
+          s = s.replace('    buildTypes {', '    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n    buildTypes {', 1)
+          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
+          p.write_text(s)
+          PY
+
+      - name: Build and verify signed release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release -t lib/main.dart \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=APP_ENV=production \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          cp "$APK" askodox-candidate.apk
+
+      - name: Upload signed candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: askodox-signed-release-candidate
+          path: askodox-candidate.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish and verify candidate prerelease assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="askodox-candidate-pr-${{ github.event.pull_request.number || github.run_number }}"
+          cat > candidate-latest.json <<EOF
+          {
+            "version": "candidate.${GITHUB_RUN_NUMBER}",
+            "build_number": ${GITHUB_RUN_NUMBER},
+            "mandatory": false,
+            "notes": "ASKODOX release candidate verification",
+            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-candidate.apk"
+          }
+          EOF
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "ASKODOX candidate ${GITHUB_RUN_NUMBER}" --notes "Automated signed release candidate verification"
+          fi
+          gh release upload "$TAG" askodox-candidate.apk candidate-latest.json --clobber
+          gh release view "$TAG" --json tagName,url,assets --jq '.tagName, .url, (.assets[].name)' | tee candidate-release-proof.txt
+          grep -q 'askodox-candidate.apk' candidate-release-proof.txt
+          grep -q 'candidate-latest.json' candidate-release-proof.txt
