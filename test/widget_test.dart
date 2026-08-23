@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:podx/app.dart';
@@ -5,24 +6,10 @@ import 'package:podx/core/offline/offline_models.dart';
 import 'package:podx/core/offline/offline_services.dart';
 import 'package:podx/core/providers/offline_providers.dart';
 
-class _AlwaysOnlineConnectivityService implements ConnectivityService {
-  @override
-  ConnectivityStatus get current => ConnectivityStatus.online;
-
-  @override
-  Stream<ConnectivityStatus> get changes => const Stream.empty();
-
-  @override
-  Future<ConnectivityStatus> check() async => ConnectivityStatus.online;
-
-  @override
-  void dispose() {}
-}
-
 Widget _testApp() => ProviderScope(
       overrides: [
         connectivityServiceProvider.overrideWithValue(
-          _AlwaysOnlineConnectivityService(),
+          MockConnectivityService(ConnectivityStatus.online),
         ),
       ],
       child: const PodxApp(),
