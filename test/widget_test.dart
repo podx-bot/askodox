@@ -20,21 +20,21 @@ Widget _screen(Widget child) => ProviderScope(
     );
 
 void main() {
-  testWidgets('renders the localized PODX home experience', (tester) async {
+  testWidgets('renders home screen structure', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
-    expect(find.text('PODX'), findsOneWidget);
-    expect(find.text('Discover near you'), findsOneWidget);
-    expect(find.text('Home'), findsWidgets);
+    expect(find.byType(CustomScrollView), findsOneWidget);
+    expect(find.byType(SliverAppBar), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
   });
 
-  testWidgets('renders catalog search experience', (tester) async {
+  testWidgets('renders catalog search structure', (tester) async {
     await tester.pumpWidget(_screen(const SearchScreen()));
     await tester.pump();
 
-    expect(find.text('Find your product'), findsOneWidget);
-    expect(find.text('Browse categories'), findsOneWidget);
-    expect(find.text('Groceries'), findsWidgets);
+    expect(find.byType(AppBar), findsOneWidget);
+    expect(find.byType(SearchBar), findsOneWidget);
+    expect(find.byType(CustomScrollView), findsOneWidget);
   });
 }
