@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/brand/brand_config.dart';
 import '../../../config/theme/askodox_design_tokens.dart';
 import '../../../core/update/askodox_update_service.dart';
+import '../../deal_brain/application/universal_deal_controller.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _updateService = const AskodoxUpdateService();
@@ -79,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _focusNode.requestFocus();
       return;
     }
+    ref.read(universalDealControllerProvider.notifier).start(query);
     context.go('/search');
   }
 
