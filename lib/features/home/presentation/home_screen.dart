@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/brand/brand_config.dart';
 import '../../../config/theme/askodox_design_tokens.dart';
+import '../../../core/update/askodox_update_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,6 +15,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  final _updateService = const AskodoxUpdateService();
+  AskodoxUpdateInfo? _updateInfo;
+  bool _updating = false;
+  double _updateProgress = 0;
 
   static const _quickAsks = <String>[
     'Buy nearby',
@@ -22,6 +27,44 @@ class _HomeScreenState extends State<HomeScreen> {
     'Book a service',
     'Find a ride',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (AskodoxUpdateService.enabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    final info = await _updateService.checkForUpdate();
+    if (mounted && info != null) setState(() => _updateInfo = info);
+  }
+
+  Future<void> _installUpdate() async {
+    final info = _updateInfo;
+    if (info == null || _updating) return;
+    setState(() {
+      _updating = true;
+      _updateProgress = 0;
+    });
+    try {
+      await _updateService.downloadAndInstall(
+        info,
+        onProgress: (value) {
+          if (mounted) setState(() => _updateProgress = value);
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Update could not start. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -37,6 +80,45 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     context.go('/search');
+  }
+
+  Widget _updateCard() {
+    final info = _updateInfo;
+    if (info == null) return const SizedBox.shrink();
+    final pct = (_updateProgress * 100).round();
+    return Container(
+      key: const Key('askodoxUpdateCard'),
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AskodoxDesignTokens.navy.withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AskodoxDesignTokens.violet300.withValues(alpha: .65)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.system_update_alt_rounded, color: AskodoxDesignTokens.violet100),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ASKODOX update ready', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                Text(
+                  _updating ? 'Downloading… $pct%' : 'Tap Update — no manual APK download.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          FilledButton(
+            key: const Key('askodoxUpdateButton'),
+            onPressed: _updating ? null : _installUpdate,
+            child: Text(_updating ? '$pct%' : 'Update'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -69,12 +151,13 @@ class _HomeScreenState extends State<HomeScreen> {
           top: false,
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 54),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    _updateCard(),
                     Container(
                       key: const Key('askodoxOrb'),
                       width: 196,

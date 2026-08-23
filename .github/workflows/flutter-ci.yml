@@ -6,6 +6,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -26,6 +29,10 @@ jobs:
     timeout-minutes: 30
     env:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -35,25 +42,93 @@ jobs:
       - run: flutter pub get
       - name: Generate Android runner for ASKODOX
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
-      - name: Apply ASKODOX launcher and splash branding
+      - name: Apply ASKODOX launcher, splash and updater bridge
         run: bash tool/apply_android_askodox_branding.sh
-      - name: Verify ASKODOX native branding
+      - name: Verify ASKODOX native branding and updater
         run: |
           grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
           grep -q 'askodox_launcher_foreground' android/app/src/main/res/drawable/launch_background.xml
           grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
-      - name: Build real ASKODOX app APK
+          grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+      - name: Build real ASKODOX test APK
         run: |
           flutter build apk --debug \
             -t lib/main.dart \
             --build-number="${GITHUB_RUN_NUMBER}" \
             --dart-define=APP_ENV=staging \
             --dart-define=BACKEND_PROVIDER=rest \
-            --dart-define=API_BASE_URL="$API_BASE_URL"
-      - name: Upload ASKODOX Android APK artifact
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+      - name: Upload ASKODOX test APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: askodox-real-app-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Configure stable release signing
+        id: signing
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo 'Stable signing secrets are not configured; in-app release publish skipped.'
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 --decode > android/app/askodox-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=askodox-release.jks
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          if 'java.util.Properties' not in s:
+              s='import java.util.Properties\nimport java.io.FileInputStream\n'+s
+          s=s.replace('android {','''val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nkeystoreProperties.load(FileInputStream(keystorePropertiesFile))\n\nandroid {''',1)
+          s=s.replace('    buildTypes {','''    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n    buildTypes {''',1)
+          s=s.replace('signingConfig = signingConfigs.getByName("debug")','signingConfig = signingConfigs.getByName("release")')
+          p.write_text(s)
+          PY
+          echo 'configured=true' >> "$GITHUB_OUTPUT"
+
+      - name: Build stable signed ASKODOX update APK
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          flutter build apk --release \
+            -t lib/main.dart \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=APP_ENV=production \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+
+      - name: Publish ASKODOX latest in-app update
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk askodox-latest.apk
+          cat > latest.json <<EOF
+          {
+            "version": "1.0.${GITHUB_RUN_NUMBER}",
+            "build_number": ${GITHUB_RUN_NUMBER},
+            "mandatory": false,
+            "notes": "Latest ASKODOX update",
+            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/askodox-latest/askodox-latest.apk"
+          }
+          EOF
+          if ! gh release view askodox-latest >/dev/null 2>&1; then
+            gh release create askodox-latest --prerelease --title "ASKODOX latest" --notes "ASKODOX in-app update channel"
+          fi
+          gh release upload askodox-latest askodox-latest.apk latest.json --clobber
