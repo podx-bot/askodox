@@ -39,6 +39,7 @@ class DiscoveryState {
     ImageSearchRequest? imageRequest,
     VoiceSearchState? voiceState,
     String? voiceResult,
+    bool clearVoiceResult = false,
     List<String>? barcodeHistory,
     SearchAnalytics? analytics,
   }) =>
@@ -48,7 +49,7 @@ class DiscoveryState {
         ocrResult: ocrResult ?? this.ocrResult,
         imageRequest: imageRequest ?? this.imageRequest,
         voiceState: voiceState ?? this.voiceState,
-        voiceResult: voiceResult ?? this.voiceResult,
+        voiceResult: clearVoiceResult ? null : (voiceResult ?? this.voiceResult),
         barcodeHistory: barcodeHistory ?? this.barcodeHistory,
         analytics: analytics ?? this.analytics,
       );
@@ -140,7 +141,7 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
   Future<void> startVoice() async {
     state = state.copyWith(
       voiceState: VoiceSearchState.listening,
-      voiceResult: null,
+      clearVoiceResult: true,
     );
     try {
       final result =
@@ -149,7 +150,7 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
       if (spoken == null || spoken.isEmpty) {
         state = state.copyWith(
           voiceState: VoiceSearchState.idle,
-          voiceResult: null,
+          clearVoiceResult: true,
         );
         return;
       }
@@ -159,12 +160,16 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
         voiceResult: spoken,
       );
 
-      // Voice and text now enter the exact same ASKODOX Party A ↔ Party B brain.
+      // Voice and text enter the same ASKODOX Party A ↔ Party B brain first.
       ref.read(universalDealControllerProvider.notifier).start(spoken);
 
-      // Keep legacy product discovery only as supplemental evidence when a live
-      // catalog is available; it is no longer the primary intent flow.
-      await search(spoken);
+      // Product discovery is supplemental evidence only. A catalog load/search
+      // failure must never discard a valid voice result or universal deal.
+      try {
+        await search(spoken);
+      } catch (_) {
+        // Keep the primary universal-deal flow alive without catalog evidence.
+      }
 
       state = state.copyWith(
         voiceState: VoiceSearchState.result,
