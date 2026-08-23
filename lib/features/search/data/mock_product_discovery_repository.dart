@@ -120,11 +120,16 @@ class MockProductDiscoveryRepository implements ProductDiscoveryRepository {
   @override
   OCRResult extractMockText(String source, List<Product> catalog) {
     const text = 'SoundCore Wave Wireless Headphones';
-    return OCRResult(
-      extractedText: text,
-      source: source,
-      matches: matchText(text, catalog),
-    );
+    final matches = catalog
+        .where((p) => text.toLowerCase().contains(p.name.toLowerCase()))
+        .map((p) => SmartMatch(
+              product: p,
+              kind: MatchKind.exact,
+              confidence: const MatchConfidence(.98),
+              reason: 'Mock OCR catalog match',
+            ))
+        .toList();
+    return OCRResult(extractedText: text, source: source, matches: matches);
   }
 
   @override
