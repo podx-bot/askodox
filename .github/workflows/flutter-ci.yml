@@ -32,13 +32,13 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Generate Android runner for CI build
-        run: flutter create --platforms=android --project-name podx .
-      - name: Build installable Android live-test APK
+        run: flutter create --platforms=android --project-name askodox .
+      - name: Build installable ASKODOX Android live-test APK
         run: flutter build apk --debug -t lib/live_test_main.dart
-      - name: Upload Android APK artifact
+      - name: Upload ASKODOX Android APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: podx-android-live-test-apk
+          name: askodox-android-live-test-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
