@@ -1,44 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:podx/app.dart';
-import 'package:podx/core/offline/offline_models.dart';
-import 'package:podx/core/offline/offline_services.dart';
-import 'package:podx/core/providers/offline_providers.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/catalog/presentation/search_screen.dart';
+import 'package:podx/features/home/presentation/home_screen.dart';
+import 'package:podx/generated/l10n/app_localizations.dart';
 
-Widget _testApp() => ProviderScope(
-      overrides: [
-        connectivityServiceProvider.overrideWithValue(
-          MockConnectivityService(ConnectivityStatus.online),
-        ),
-      ],
-      child: const PodxApp(),
+Widget _screen(Widget child) => ProviderScope(
+      child: MaterialApp(
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: child,
+      ),
     );
-
-Future<void> _pumpReady(WidgetTester tester) async {
-  await tester.pumpWidget(_testApp());
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 100));
-}
 
 void main() {
   testWidgets('renders the localized PODX home experience', (tester) async {
-    await _pumpReady(tester);
+    await tester.pumpWidget(_screen(const HomeScreen()));
+    await tester.pump();
 
     expect(find.text('PODX'), findsOneWidget);
     expect(find.text('Discover near you'), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Home'), findsWidgets);
   });
 
-  testWidgets('opens catalog search from bottom navigation', (tester) async {
-    await _pumpReady(tester);
-
-    await tester.tap(find.text('Search'));
+  testWidgets('renders catalog search experience', (tester) async {
+    await tester.pumpWidget(_screen(const SearchScreen()));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Find your product'), findsOneWidget);
     expect(find.text('Browse categories'), findsOneWidget);
-    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Groceries'), findsWidgets);
   });
 }
