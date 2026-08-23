@@ -80,7 +80,11 @@ jobs:
             echo 'Stable signing secrets are not configured; in-app release publish skipped.'
             exit 0
           fi
-          echo "$KEYSTORE_B64" | base64 --decode > android/app/askodox-release.jks
+          printf '%s' "$KEYSTORE_B64" \
+            | sed '/-----BEGIN CERTIFICATE-----/d; /-----END CERTIFICATE-----/d' \
+            | tr -d '\r\n\t ' \
+            | base64 --decode > android/app/askodox-release.jks
+          test -s android/app/askodox-release.jks
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
