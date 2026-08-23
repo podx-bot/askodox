@@ -44,6 +44,13 @@ jobs:
             fi
           done
 
+      - name: Verify release targets PODX AI CONNECT V2
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tool/verify_v2_backend.sh
+          bash tool/verify_v2_backend.sh
+
       - name: Prepare deterministic ASKODOX source and Android runner
         shell: bash
         run: |
