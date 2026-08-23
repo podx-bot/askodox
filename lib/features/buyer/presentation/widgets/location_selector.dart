@@ -19,7 +19,7 @@ class LocationSelector extends ConsumerWidget {
         const SizedBox(height:12),...ref.watch(buyerLocationsProvider).valueOrNull?.map((l)=>RadioListTile<BuyerLocation>(value:l,groupValue:selected,title:Text(l.label),subtitle:Text(l.address),onChanged:(v){if(v!=null) ref.read(buyerLocationProvider.notifier).state=v;}))??[],
         const Divider(),const Text('Search radius',style:TextStyle(fontWeight:FontWeight.bold)),const SizedBox(height:8),
         Wrap(spacing:8,runSpacing:6,children:SearchRadius.values.map((r)=>ChoiceChip(label:Text(r.label),selected:r==SearchRadius.custom ? !SearchRadius.values.where((e)=>e!=SearchRadius.custom).any((e)=>e.kilometres==radius) : r.kilometres==radius,onSelected:(_){if(r==SearchRadius.custom){ref.read(radiusKmProvider.notifier).state=custom;}else{ref.read(radiusKmProvider.notifier).state=r.kilometres;}})).toList()),
-        const SizedBox(height:8),Row(children:[const Text('Custom'),Expanded(child:Slider(min:.1,max:50,divisions:499,value:radius.clamp(.1,50).toDouble(),label:_label(radius),onChanged:(v){custom=v;ref.read(radiusKmProvider.notifier).state=v;}))]),
+        const SizedBox(height:8),Row(children:[const Text('Radius'),Expanded(child:Slider(min:.1,max:50,divisions:499,value:radius.clamp(.1,50).toDouble(),label:_label(radius),onChanged:(v){custom=v;ref.read(radiusKmProvider.notifier).state=v;}))]),
         SizedBox(width:double.infinity,child:FilledButton(onPressed:(){ref.read(buyerRepositoryProvider).saveDefaultRadius(ref.read(radiusKmProvider));Navigator.pop(context);},child:const Text('Save as default'))),
       ]))));
     }));

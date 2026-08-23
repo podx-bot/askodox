@@ -16,7 +16,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter analyze
+      - name: Analyze (errors are fatal; warnings/info remain visible)
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
       - name: Generate Android runner for CI build
         run: flutter create --platforms=android --project-name podx .

@@ -1,18 +1,121 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../../generated/l10n/app_localizations.dart';
+
 import '../application/price_benchmark_providers.dart';
 import '../domain/price_benchmark_models.dart';
 import '../domain/price_benchmark_services.dart';
 
 class PriceBenchmarkSection extends ConsumerWidget {
-  const PriceBenchmarkSection({required this.productId,required this.localShopCount,required this.nearestShop,super.key}); final String productId,nearestShop; final int localShopCount;
-  @override Widget build(BuildContext context,WidgetRef ref){ final l=AppLocalizations.of(context)!; final benchmark=ref.watch(priceBenchmarkProvider(productId)); final listings=ref.watch(onlinePriceListingsProvider(productId)); final history=ref.watch(priceHistoryProvider(productId)); String money(num value)=>NumberFormat.currency(locale:'en_IN',symbol:'₹',decimalDigits:0).format(value);
-    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[Text(l.priceBenchmarkTitle,style:Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight:FontWeight.bold)),const SizedBox(height:8),benchmark.when(loading:()=>const Center(child:CircularProgressIndicator()),error:(_,__)=>_Message(icon:Icons.sync_problem,text:l.comparisonUnavailable),data:(b){if(b==null)return _Message(icon:Icons.info_outline,text:l.insufficientObservations); final insight=const PriceInsightService().create(localLowest:b.localLowest,onlineLowest:b.onlineLowest,freshness:b.freshness); final confidence=const PriceConfidenceService().calculate(localListings:localShopCount,onlineObservations:3,matchConfidence:1,packSizeMatch:PackSizeMatch.exact,freshness:b.freshness,consistency:.86,sourceReliability:.75); return Column(children:[Row(children:[Expanded(child:_Summary(title:l.localPriceSummary,icon:Icons.storefront,lines:['${l.lowestPrice}: ${money(b.localLowest)}','${l.averagePrice}: ${money(b.localAverage)}','${l.highestPrice}: ${money(b.localHighest)}','${l.nearbyShops}: $localShopCount','${l.nearestShop}: $nearestShop',l.updatedToday])),const SizedBox(width:8),Expanded(child:_Summary(title:l.onlinePriceSummary,icon:Icons.language,lines:['${l.lowestEffectivePrice}: ${money(b.onlineLowest)}','${l.averagePrice}: ${money(b.onlineAverage)}','${l.highestPrice}: ${money(b.onlineHighest)}','${l.sourcesCompared}: 3',l.deliveryAndFeesIncluded,l.updatedToday]))]),const SizedBox(height:8),Card(color:Theme.of(context).colorScheme.secondaryContainer,child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(_insight(l,insight,money),style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),const SizedBox(height:4),Text('${l.potentialSavings}: ${money(b.savingsAmount)} (${b.savingsPercentage.toStringAsFixed(2)}%)'),Text(l.potentialSavingsDisclaimer),const Divider(),Text('${l.confidence}: ${_confidence(l,confidence.level)} · ${confidence.score.toStringAsFixed(0)}%'),if(confidence.reasons.isNotEmpty)Text(confidence.reasons.join(' · '),style:Theme.of(context).textTheme.bodySmall)]))),ExpansionTile(title:Text(l.priceStandard),children:[ListTile(title:Text('${l.observedAverage}: ${money(b.overallAverage)}'),subtitle:Text('${l.medianPrice}: ${money(b.median)} · ${l.observations}: ${b.observations}\n${l.fairPriceRange}: ${money(b.fairRange.minimum)}–${money(b.fairRange.maximum)} · ${l.volatility}: ${b.volatility.toStringAsFixed(1)}%'))]),]);})),const SizedBox(height:8),listings.when(loading:()=>const SizedBox.shrink(),error:(_,__)=>_Message(icon:Icons.cloud_off,text:l.onlineSourceUnavailable),data:(items)=>ExpansionTile(title:Text(l.onlineSources),children:[for(final item in items.where((e)=>e.available))ListTile(leading:const CircleAvatar(child:Icon(Icons.shopping_bag_outlined)),title:Text(item.source.name),subtitle:Text('${item.packSize} · ${l.minimumOrder}: ${money(item.minimumOrderValue)}'),trailing:Text(money(const EffectivePriceCalculator().online(item).total),style:const TextStyle(fontWeight:FontWeight.bold)))])),history.when(loading:()=>const SizedBox.shrink(),error:(_,__)=>const SizedBox.shrink(),data:(points)=>ExpansionTile(title:Text(l.mockPriceHistory),subtitle:Text(l.mockHistoryDisclosure),children:[Padding(padding:const EdgeInsets.all(12),child:Row(children:[for(final days in const [7,30,90])Padding(padding:const EdgeInsets.only(right:6),child:ChoiceChip(label:Text('$days ${l.days}'),selected:ref.watch(priceHistoryRangeProvider)==days,onSelected:(_)=>ref.read(priceHistoryRangeProvider.notifier).state=days))])),if(points.isNotEmpty)ListTile(title:Text('${l.localPriceSummary}: ${money(points.first.localLowest)} → ${money(points.last.localLowest)}'),subtitle:Text('${l.onlinePriceSummary}: ${money(points.first.onlineLowest)} → ${money(points.last.onlineLowest)}'))])),Card(child:Padding(padding:const EdgeInsets.all(14),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[const Icon(Icons.info_outline),const SizedBox(width:10),Expanded(child:Text(l.priceComparisonDisclosure))])))]);
+  const PriceBenchmarkSection({
+    required this.productId,
+    required this.localShopCount,
+    required this.nearestShop,
+    super.key,
+  });
+
+  final String productId;
+  final int localShopCount;
+  final String nearestShop;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final benchmark = ref.watch(priceBenchmarkProvider(productId));
+    final listings = ref.watch(onlinePriceListingsProvider(productId));
+    final money = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Price benchmark', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        benchmark.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => const _Message(icon: Icons.sync_problem, text: 'Price comparison is unavailable right now.'),
+          data: (b) {
+            if (b == null) {
+              return const _Message(icon: Icons.info_outline, text: 'Not enough price observations yet.');
+            }
+            final insight = const PriceInsightService().create(
+              localLowest: b.localLowest,
+              onlineLowest: b.onlineLowest,
+              freshness: b.freshness,
+            );
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Local lowest: ${money.format(b.localLowest)}'),
+                    Text('Local average: ${money.format(b.localAverage)}'),
+                    Text('Online lowest: ${money.format(b.onlineLowest)}'),
+                    Text('Nearby shops: $localShopCount'),
+                    Text('Nearest shop: $nearestShop'),
+                    const Divider(),
+                    Text(_insightText(insight, money), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Potential saving: ${money.format(b.savingsAmount)} (${b.savingsPercentage.toStringAsFixed(1)}%)'),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        listings.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const _Message(icon: Icons.cloud_off, text: 'Online price sources are unavailable.'),
+          data: (items) => ExpansionTile(
+            title: const Text('Online sources'),
+            children: [
+              for (final item in items.where((entry) => entry.available))
+                ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.shopping_bag_outlined)),
+                  title: Text(item.source.name),
+                  subtitle: Text(item.packSize),
+                  trailing: Text(
+                    money.format(const EffectivePriceCalculator().online(item).total),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline),
+                SizedBox(width: 10),
+                Expanded(child: Text('Prices are observations and may change. Confirm the final price with the seller before completing the deal.')),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
-  String _insight(AppLocalizations l,PriceInsight i,String Function(num) money)=>switch(i.type){PriceInsightType.localCheaper=>l.localCheaperInsight(money(i.amount)),PriceInsightType.onlineCheaper=>l.onlineCheaperInsight(money(i.amount)),PriceInsightType.pricesSimilar=>l.pricesSimilar,PriceInsightType.stale=>l.stalePriceWarning,PriceInsightType.onlineUnavailable=>l.noOnlinePrice,PriceInsightType.localUnavailable=>l.noLocalSeller,PriceInsightType.productMismatch=>l.productMatchFailed,PriceInsightType.insufficientData=>l.insufficientObservations};
-  String _confidence(AppLocalizations l,PriceConfidenceLevel level)=>switch(level){PriceConfidenceLevel.high=>l.confidenceHigh,PriceConfidenceLevel.medium=>l.confidenceMedium,PriceConfidenceLevel.low=>l.confidenceLow,PriceConfidenceLevel.insufficientData=>l.insufficientObservations};
+
+  String _insightText(PriceInsight insight, NumberFormat money) {
+    return switch (insight.type) {
+      PriceInsightType.localCheaper => 'Local is cheaper by ${money.format(insight.amount)}',
+      PriceInsightType.onlineCheaper => 'Online is cheaper by ${money.format(insight.amount)}',
+      PriceInsightType.pricesSimilar => 'Local and online prices are similar',
+      PriceInsightType.stale => 'Some price observations are old',
+      PriceInsightType.onlineUnavailable => 'No online price is available',
+      PriceInsightType.localUnavailable => 'No local seller price is available',
+      PriceInsightType.productMismatch => 'The compared product or pack does not match',
+      PriceInsightType.insufficientData => 'Not enough observations to compare',
+    };
+  }
 }
-class _Summary extends StatelessWidget { const _Summary({required this.title,required this.icon,required this.lines}); final String title; final IconData icon; final List<String> lines; @override Widget build(BuildContext context)=>Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon),Text(title,style:const TextStyle(fontWeight:FontWeight.bold)),for(final line in lines)Text(line,style:Theme.of(context).textTheme.bodySmall)]))); }
-class _Message extends StatelessWidget { const _Message({required this.icon,required this.text}); final IconData icon; final String text; @override Widget build(BuildContext context)=>ListTile(leading:Icon(icon),title:Text(text)); }
+
+class _Message extends StatelessWidget {
+  const _Message({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => ListTile(leading: Icon(icon), title: Text(text));
+}
