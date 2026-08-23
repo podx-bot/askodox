@@ -19,14 +19,25 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+
+  live-test-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
       - name: Generate Android runner for CI build
         run: flutter create --platforms=android --project-name podx .
-      - name: Build installable Android APK
-        run: flutter build apk --debug
+      - name: Build installable Android live-test APK
+        run: flutter build apk --debug -t lib/live_test_main.dart
       - name: Upload Android APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: podx-android-debug-apk
+          name: podx-android-live-test-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
