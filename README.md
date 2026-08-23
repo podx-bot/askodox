@@ -19,6 +19,13 @@ standard host projects without replacing `lib` using:
 flutter create --platforms=android,ios,web .
 ```
 
+## ASKODOX Android signing
+
+Stable ASKODOX Android builds use repository Actions secrets for the release
+keystore, keystore password, key alias, and key password. The signing material
+must never be committed to the repository. Main-branch CI uses these secrets to
+produce the stable signed update APK and publish the in-app update channel.
+
 ## Architecture
 
 - `config`: router, themes, and localization resources.
