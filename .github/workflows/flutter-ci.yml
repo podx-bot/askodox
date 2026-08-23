@@ -137,16 +137,26 @@ jobs:
           bash tool/apply_android_askodox_branding.sh
           bash tool/apply_android_live_device_bridge.sh
 
-      - name: Configure stable release signing
-        id: signing
+      - name: Require stable release signing secrets
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${KEYSTORE_B64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
-            echo 'configured=false' >> "$GITHUB_OUTPUT"
-            echo 'Stable signing secrets are not configured; release publish skipped.'
-            exit 0
+          missing=0
+          for name in KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required release secret: $name" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo 'ASKODOX release cannot publish without all signing secrets.' >&2
+            exit 1
           fi
+
+      - name: Configure stable release signing
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
           import base64, os, re
           from pathlib import Path
@@ -180,10 +190,8 @@ jobs:
           s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
           p.write_text(s)
           PY
-          echo 'configured=true' >> "$GITHUB_OUTPUT"
 
       - name: Build stable signed ASKODOX update APK
-        if: steps.signing.outputs.configured == 'true'
         run: |
           flutter build apk --release \
             -t lib/main.dart \
@@ -193,9 +201,17 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          test -s build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload signed ASKODOX release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: askodox-signed-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Publish ASKODOX latest in-app update
-        if: steps.signing.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -220,3 +236,4 @@ jobs:
             gh release create askodox-latest --prerelease --title "ASKODOX latest" --notes "ASKODOX in-app update channel"
           fi
           gh release upload askodox-latest askodox-latest.apk latest.json --clobber
+          gh release view askodox-latest --json tagName,url >/dev/null
