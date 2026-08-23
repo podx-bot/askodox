@@ -15,6 +15,9 @@ permissions:
   checks: write
   contents: write
 
+env:
+  FLUTTER_VERSION: 3.47.0
+
 jobs:
   askodox-ci:
     runs-on: ubuntu-latest
@@ -24,10 +27,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Use pinned Flutter
+        uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+
+      - name: Verify toolchain and scripts first
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version
+          dart --version
+          bash -n tool/apply_android_askodox_branding.sh
+          bash -n tool/apply_android_live_device_bridge.sh
+          test -f lib/main.dart
+          test -f pubspec.yaml
 
       - name: Install dependencies
         run: flutter pub get
@@ -38,16 +54,18 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
-      - name: Generate Android runner for ASKODOX
+      - name: Generate Android runner once for preflight
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
 
-      - name: Apply ASKODOX launcher, splash and updater bridge
-        run: bash tool/apply_android_askodox_branding.sh
+      - name: Apply ASKODOX native bridges
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tool/apply_android_askodox_branding.sh
+          bash tool/apply_android_live_device_bridge.sh
 
-      - name: Apply ASKODOX live voice and location bridge
-        run: bash tool/apply_android_live_device_bridge.sh
-
-      - name: Verify ASKODOX native bridge
+      - name: Verify ASKODOX native bridge before build
+        shell: bash
         run: |
           set -euo pipefail
           grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
@@ -57,8 +75,9 @@ jobs:
           grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'com.askodox.app/device' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'startVoiceSearch' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          ./android/gradlew -p android tasks >/dev/null
 
-      - name: Build ASKODOX debug APK
+      - name: Build ASKODOX debug APK as hard preflight gate
         run: |
           flutter build apk --debug \
             -t lib/main.dart \
@@ -69,7 +88,7 @@ jobs:
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
 
-      - name: Upload debug APK
+      - name: Upload preflight APK
         uses: actions/upload-artifact@v4
         with:
           name: askodox-real-app-debug-apk
@@ -91,19 +110,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Use same pinned Flutter as preflight
+        uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate Android runner for ASKODOX
+      - name: Recreate deterministic Android runner
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
 
       - name: Apply ASKODOX native bridges
+        shell: bash
         run: |
+          set -euo pipefail
           bash tool/apply_android_askodox_branding.sh
           bash tool/apply_android_live_device_bridge.sh
 
