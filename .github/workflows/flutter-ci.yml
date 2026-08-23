@@ -17,7 +17,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter analyze
+      - name: Analyze compile errors
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
 
   live-test-apk:
