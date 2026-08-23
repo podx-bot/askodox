@@ -28,7 +28,7 @@ void main() {
   testWidgets('radius selector exposes all preset choices', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: Scaffold(body: LocationSelector()))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Current location'));
+    await tester.tap(find.text('Use current location'));
     await tester.pumpAndSettle();
     expect(find.text('100 m'), findsOneWidget);
     expect(find.text('50 km'), findsOneWidget);

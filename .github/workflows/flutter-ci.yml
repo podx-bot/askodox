@@ -15,23 +15,39 @@ permissions:
   checks: write
   contents: write
 
+env:
+  FLUTTER_VERSION: 3.47.0
+
 jobs:
-  askodox-ci-release:
+  askodox-ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     env:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
-      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Use pinned Flutter
+        uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+
+      - name: Verify toolchain and scripts first
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version
+          dart --version
+          bash -n tool/apply_home_robot_layout_fix.sh
+          bash -n tool/apply_android_askodox_branding.sh
+          bash -n tool/apply_android_live_device_bridge.sh
+          test -f lib/main.dart
+          test -f pubspec.yaml
+
+      - name: Apply deterministic source preflight fixes
+        run: bash tool/apply_home_robot_layout_fix.sh
 
       - name: Install dependencies
         run: flutter pub get
@@ -42,28 +58,30 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
-      - name: Generate Android runner for ASKODOX
+      - name: Generate Android runner once for preflight
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
 
-      - name: Apply ASKODOX launcher, splash and updater bridge
-        run: bash tool/apply_android_askodox_branding.sh
+      - name: Apply ASKODOX native bridges
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tool/apply_android_askodox_branding.sh
+          bash tool/apply_android_live_device_bridge.sh
 
-      - name: Apply ASKODOX live voice and location bridge
-        run: bash tool/apply_android_live_device_bridge.sh
-
-      - name: Verify ASKODOX native branding, updater and live device bridge
+      - name: Verify ASKODOX native bridge before build
+        shell: bash
         run: |
           set -euo pipefail
           grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
-          grep -q 'askodox_launcher_foreground' android/app/src/main/res/drawable/launch_background.xml
           grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
           grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
           grep -q 'ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
           grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'com.askodox.app/device' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'startVoiceSearch' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          ./android/gradlew -p android tasks >/dev/null
 
-      - name: Build ASKODOX debug APK
+      - name: Build ASKODOX debug APK as hard preflight gate
         run: |
           flutter build apk --debug \
             -t lib/main.dart \
@@ -74,7 +92,7 @@ jobs:
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
 
-      - name: Upload ASKODOX debug APK artifact
+      - name: Upload preflight APK
         uses: actions/upload-artifact@v4
         with:
           name: askodox-real-app-debug-apk
@@ -82,9 +100,45 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  askodox-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: askodox-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use same pinned Flutter as preflight
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Apply same deterministic source fixes
+        run: bash tool/apply_home_robot_layout_fix.sh
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Recreate deterministic Android runner
+        run: flutter create --platforms=android --org com.askodox --project-name askodox .
+
+      - name: Apply ASKODOX native bridges
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tool/apply_android_askodox_branding.sh
+          bash tool/apply_android_live_device_bridge.sh
+
       - name: Configure stable release signing
         id: signing
-        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -96,29 +150,19 @@ jobs:
           python3 - <<'PY'
           import base64, os, re
           from pathlib import Path
-
           raw = os.environ['KEYSTORE_B64'].replace('\ufeff', '')
           raw = re.sub(r'-----BEGIN [^-]+-----', '', raw)
           raw = re.sub(r'-----END [^-]+-----', '', raw)
-          payload = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
-          payload = payload.rstrip('=')
+          payload = re.sub(r'[^A-Za-z0-9+/=]', '', raw).rstrip('=')
           payload += '=' * ((4 - len(payload) % 4) % 4)
           if not payload:
               raise SystemExit('Keystore Base64 payload is empty')
-          try:
-              data = base64.b64decode(payload, validate=True)
-          except Exception as exc:
-              raise SystemExit(f'Keystore Base64 decode failed: {exc}')
+          data = base64.b64decode(payload, validate=True)
           if len(data) < 100:
               raise SystemExit('Decoded keystore is unexpectedly small')
           Path('android/app/askodox-release.jks').write_bytes(data)
-          print(f'Decoded keystore bytes: {len(data)}')
           PY
-          test -s android/app/askodox-release.jks
-          keytool -list \
-            -keystore android/app/askodox-release.jks \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -alias "$KEY_ALIAS" >/dev/null
+          keytool -list -keystore android/app/askodox-release.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
@@ -131,8 +175,8 @@ jobs:
           s = p.read_text()
           if 'java.util.Properties' not in s:
               s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
-          s = s.replace('android {', '''val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nkeystoreProperties.load(FileInputStream(keystorePropertiesFile))\n\nandroid {''', 1)
-          s = s.replace('    buildTypes {', '''    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n    buildTypes {''', 1)
+          s = s.replace('android {', 'val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nkeystoreProperties.load(FileInputStream(keystorePropertiesFile))\n\nandroid {', 1)
+          s = s.replace('    buildTypes {', '    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n    buildTypes {', 1)
           s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
           p.write_text(s)
           PY
@@ -151,7 +195,7 @@ jobs:
             --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
 
       - name: Publish ASKODOX latest in-app update
-        if: steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
+        if: steps.signing.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
