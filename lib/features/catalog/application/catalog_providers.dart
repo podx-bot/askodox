@@ -1,12 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/backend_providers.dart';
 import '../data/mock_catalog_repository.dart';
 import '../domain/entities/catalog.dart';
 import '../domain/entities/product.dart';
 import '../domain/repositories/catalog_repository.dart';
 
-final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => const MockCatalogRepository());
-final catalogProvider = FutureProvider<Catalog>((ref) => ref.watch(catalogRepositoryProvider).loadCatalog());
+final catalogRepositoryProvider = Provider<CatalogRepository?>((ref) {
+  final config = ref.watch(appConfigProvider);
+  // Never leak demo inventory into production/rest builds. A real REST catalog
+  // repository can replace this provider once the backend catalog contract is
+  // enabled; until then production intentionally renders an empty catalog.
+  if (config.backendProvider.name == 'rest') return null;
+  return const MockCatalogRepository();
+});
+
+final catalogProvider = FutureProvider<Catalog>((ref) async {
+  final repository = ref.watch(catalogRepositoryProvider);
+  if (repository == null) {
+    return const Catalog(categories: [], brands: [], products: []);
+  }
+  return repository.loadCatalog();
+});
 
 final searchQueryProvider = StateProvider.autoDispose<String>((ref) => '');
 final selectedCategoryProvider = StateProvider.autoDispose<String?>((ref) => null);
