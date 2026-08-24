@@ -40,6 +40,14 @@ void main() {
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('Explore ASKODOX'), findsOneWidget);
     expect(find.textContaining('same AI Deal Brain'), findsOneWidget);
-    expect(find.text('Ask ASKODOX naturally'), findsOneWidget);
+    expect(find.text('Buy & Sell'), findsOneWidget);
+
+    final askNaturally = find.text('Ask ASKODOX naturally');
+    await tester.scrollUntilVisible(
+      askNaturally,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(askNaturally, findsOneWidget);
   });
 }
