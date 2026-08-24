@@ -25,10 +25,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('ASKODOX AI', findRichText: true), findsOneWidget);
-    expect(find.text('Ask Anything. Get It Done.'), findsOneWidget);
+    expect(find.text('Ask anything. Get matched, compared, done.'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxOrb')), findsOneWidget);
+    expect(find.text('Quick actions'), findsOneWidget);
+    expect(find.text('Explore more on ASKODOX'), findsOneWidget);
   });
 
   testWidgets('renders universal ASKODOX deal workspace', (tester) async {
@@ -37,7 +38,16 @@ void main() {
 
     expect(find.byType(AppBar), findsOneWidget);
     expect(find.text('ASKODOX'), findsOneWidget);
-    expect(find.text('Tell ASKODOX what you need or what you can offer'), findsOneWidget);
-    expect(find.textContaining('opposite party'), findsOneWidget);
+    expect(find.text('Explore ASKODOX'), findsOneWidget);
+    expect(find.textContaining('same AI Deal Brain'), findsOneWidget);
+    expect(find.text('Buy & Sell'), findsOneWidget);
+
+    final askNaturally = find.text('Ask ASKODOX naturally');
+    await tester.scrollUntilVisible(
+      askNaturally,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(askNaturally, findsOneWidget);
   });
 }
