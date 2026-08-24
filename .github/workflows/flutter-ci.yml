@@ -36,14 +36,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n tool/apply_home_robot_layout_fix.sh
           bash -n tool/apply_android_askodox_branding.sh
           bash -n tool/apply_android_live_device_bridge.sh
           test -f lib/main.dart
           test -f pubspec.yaml
-
-      - name: Apply deterministic source preflight fixes
-        run: bash tool/apply_home_robot_layout_fix.sh
 
       - name: Install dependencies
         run: flutter pub get
@@ -74,9 +70,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-
-      - name: Apply same deterministic source fixes
-        run: bash tool/apply_home_robot_layout_fix.sh
 
       - name: Install dependencies
         run: flutter pub get
