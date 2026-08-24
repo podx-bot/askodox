@@ -18,7 +18,15 @@ enum DealIntent {
 
 enum DealSide { demand, supply }
 
-enum DealStatus { collecting, readyToMatch, matching, matched, negotiating, closed, cancelled }
+enum DealStatus {
+  collecting,
+  readyToMatch,
+  matching,
+  matched,
+  negotiating,
+  closed,
+  cancelled,
+}
 
 class DealLocation {
   const DealLocation({this.label, this.latitude, this.longitude, this.radiusKm});
@@ -147,7 +155,6 @@ class UniversalDeal {
   /// ASKODOX should only ask what is actually required to make a useful match.
   List<String> get missingForMatch {
     final missing = <String>[];
-    if (subject == null || subject!.trim().isEmpty) missing.add('subject');
 
     switch (intent) {
       case DealIntent.needRide:
@@ -158,19 +165,25 @@ class UniversalDeal {
         break;
       case DealIntent.needWorker:
       case DealIntent.seekWork:
-        if (dynamicFields['skill'] == null && category == null) missing.add('skill');
+        final skill = dynamicFields['skill']?.toString().trim();
+        if (skill == null || skill.isEmpty) missing.add('skill');
         if (!location.isKnown) missing.add('location');
         break;
       case DealIntent.needService:
       case DealIntent.offerService:
+        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
+        if (!location.isKnown) missing.add('location');
+        break;
       case DealIntent.bookAppointment:
       case DealIntent.offerAppointment:
+        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
         if (!location.isKnown) missing.add('location');
         break;
       case DealIntent.buy:
       case DealIntent.sell:
       case DealIntent.rent:
       case DealIntent.offerRental:
+        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
         if (!location.isKnown && fulfilment != 'online') missing.add('location');
         break;
       case DealIntent.sendParcel:
@@ -179,6 +192,7 @@ class UniversalDeal {
         if (dynamicFields['to'] == null) missing.add('to');
         break;
       case DealIntent.other:
+        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
         break;
     }
     return missing;
