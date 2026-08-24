@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../config/brand/brand_config.dart';
 import '../../../config/theme/askodox_design_tokens.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
@@ -14,35 +13,40 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with SingleTickerProviderStateMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _updateService = const AskodoxUpdateService();
-  late final AnimationController _pulseController;
-  late final Animation<double> _pulse;
-
   AskodoxUpdateInfo? _updateInfo;
   bool _updating = false;
   double _updateProgress = 0;
 
   static const _quickAsks = <(String, IconData)>[
     ('Buy nearby', Icons.shopping_bag_outlined),
-    ('Sell something', Icons.business_center_outlined),
-    ('Find work', Icons.person_search_outlined),
+    ('Sell something', Icons.sell_outlined),
+    ('Find work', Icons.work_outline_rounded),
     ('Book a service', Icons.handyman_outlined),
     ('Find a ride', Icons.directions_car_outlined),
+  ];
+
+  static const _explore = <(String, IconData, String)>[
+    ('Buy & Sell', Icons.shopping_bag_outlined, 'Buy nearby'),
+    ('Jobs & Work', Icons.work_outline_rounded, 'Find work'),
+    ('Services', Icons.handyman_outlined, 'Book a service'),
+    ('Travel & Rides', Icons.directions_car_outlined, 'Find a ride'),
+    ('Money & Loans', Icons.account_balance_wallet_outlined, 'Find a loan'),
+    ('Insurance', Icons.shield_outlined, 'Compare insurance'),
+    ('Bills & Utilities', Icons.receipt_long_outlined, 'Bills and utilities'),
+    ('Credit Cards', Icons.credit_card_rounded, 'Compare credit cards'),
+    ('Real Estate', Icons.home_work_outlined, 'Find property'),
+    ('Education', Icons.school_outlined, 'Find education'),
+    ('Health', Icons.health_and_safety_outlined, 'Find healthcare'),
+    ('More', Icons.apps_rounded, 'Show more services'),
   ];
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-    _pulse = CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut);
-
     if (AskodoxUpdateService.enabled) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
     }
@@ -78,555 +82,245 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final query = _controller.text.trim();
-    if (query.isEmpty) {
+  void _start(String query) {
+    final clean = query.trim();
+    if (clean.isEmpty) {
       _focusNode.requestFocus();
       return;
     }
-    ref.read(universalDealControllerProvider.notifier).start(query);
+    ref.read(universalDealControllerProvider.notifier).start(clean);
     context.go('/search');
   }
 
-  Widget _updateCard() {
-    final info = _updateInfo;
-    if (info == null) return const SizedBox.shrink();
-    final pct = (_updateProgress * 100).round();
-    return Container(
-      key: const Key('askodoxUpdateCard'),
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AskodoxDesignTokens.navy.withValues(alpha: .92),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AskodoxDesignTokens.violet300.withValues(alpha: .65),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.system_update_alt_rounded,
-            color: AskodoxDesignTokens.violet100,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ASKODOX update ready',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  _updating
-                      ? 'Downloading… $pct%'
-                      : 'Tap Update — no manual APK download.',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          FilledButton(
-            key: const Key('askodoxUpdateButton'),
-            onPressed: _updating ? null : _installUpdate,
-            child: Text(_updating ? '$pct%' : 'Update'),
-          ),
-        ],
-      ),
-    );
+  void _submit() => _start(_controller.text);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AskodoxDesignTokens.ink,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(7),
-          child: _RoundGlassButton(
-            icon: Icons.menu_rounded,
-            tooltip: 'Menu',
-            onPressed: () => context.go('/profile'),
-          ),
-        ),
-        title: const SizedBox.shrink(),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(7),
-            child: _RoundGlassButton(
-              icon: Icons.tune_rounded,
-              tooltip: 'Deals',
-              onPressed: () => context.go('/deals'),
-            ),
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AskodoxDesignTokens.backgroundGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AskodoxDesignTokens.backgroundGradient),
         child: SafeArea(
-          top: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 28),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _updateCard(),
-                    _AnimatedAskodoxRobot(
-                      key: const Key('askodoxOrb'),
-                      animation: _pulse,
-                    ),
-                    const SizedBox(height: 22),
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 2.4,
-                            ),
-                        children: const [
-                          TextSpan(text: 'ASKODOX '),
-                          TextSpan(
-                            text: 'AI',
-                            style: TextStyle(color: AskodoxDesignTokens.violet100),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      BrandConfig.tagline,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AskodoxDesignTokens.violet100,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      BrandConfig.localPromise,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white70,
-                            height: 1.45,
-                          ),
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF11182E).withValues(alpha: .92),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: AskodoxDesignTokens.violet300.withValues(alpha: .55),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AskodoxDesignTokens.violet500.withValues(alpha: .16),
-                            blurRadius: 28,
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        key: const Key('askodoxAskField'),
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _submit(),
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: BrandConfig.askHint,
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          prefixIcon: const Icon(
-                            Icons.auto_awesome_rounded,
-                            color: AskodoxDesignTokens.violet100,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 18,
-                          ),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                key: const Key('askodoxMicButton'),
-                                tooltip: 'Speak to ASKODOX',
-                                onPressed: () => context.go('/discover/voice'),
-                                icon: const Icon(
-                                  Icons.mic_rounded,
-                                  color: AskodoxDesignTokens.violet100,
-                                ),
-                              ),
-                              IconButton(
-                                key: const Key('askodoxSendButton'),
-                                tooltip: 'Ask',
-                                onPressed: _submit,
-                                icon: const Icon(
-                                  Icons.arrow_upward_rounded,
-                                  color: AskodoxDesignTokens.violet100,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        for (final item in _quickAsks)
-                          ActionChip(
-                            avatar: Icon(
-                              item.$2,
-                              size: 18,
-                              color: AskodoxDesignTokens.violet100,
-                            ),
-                            label: Text(item.$1),
-                            side: BorderSide(
-                              color: AskodoxDesignTokens.violet300.withValues(alpha: .38),
-                            ),
-                            backgroundColor:
-                                const Color(0xFF131A31).withValues(alpha: .78),
-                            labelStyle: const TextStyle(color: Colors.white),
-                            onPressed: () {
-                              _controller.text = item.$1;
-                              _controller.selection = TextSelection.collapsed(
-                                offset: item.$1.length,
-                              );
-                              _focusNode.requestFocus();
-                            },
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _header(),
+                if (_updateInfo != null) ...[const SizedBox(height: 12), _updateCard()],
+                const SizedBox(height: 18),
+                _askBar(),
+                const SizedBox(height: 14),
+                _quickActions(),
+                const SizedBox(height: 24),
+                const _SectionTitle('Compare & Choose'),
+                const SizedBox(height: 10),
+                _comparisonCard(),
+                const SizedBox(height: 24),
+                const _SectionTitle('Explore ASKODOX'),
+                const SizedBox(height: 10),
+                _exploreGrid(),
+              ],
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _RoundGlassButton extends StatelessWidget {
-  const _RoundGlassButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
+  Widget _header() => Row(
+        children: [
+          IconButton(
+            key: const Key('askodoxMenuButton'),
+            tooltip: 'Menu',
+            onPressed: () => context.go('/profile'),
+            icon: const Icon(Icons.menu_rounded, color: Colors.white),
+          ),
+          const _CompactMascot(),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(text: 'ASKODOX ', style: TextStyle(color: Colors.white)),
+                TextSpan(text: 'AI', style: TextStyle(color: AskodoxDesignTokens.violet100)),
+              ]),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.4),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Deals',
+            onPressed: () => context.go('/deals'),
+            icon: const Icon(Icons.tune_rounded, color: Colors.white),
+          ),
+        ],
+      );
 
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: const Color(0xFF111629).withValues(alpha: .86),
-        shape: const CircleBorder(),
-        child: IconButton(
-          tooltip: tooltip,
-          onPressed: onPressed,
-          icon: Icon(icon, color: Colors.white),
+  Widget _askBar() => Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF11182E).withValues(alpha: .94),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AskodoxDesignTokens.violet300.withValues(alpha: .55)),
+        ),
+        child: TextField(
+          key: const Key('askodoxAskField'),
+          controller: _controller,
+          focusNode: _focusNode,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _submit(),
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Ask anything…',
+            hintStyle: const TextStyle(color: Colors.white54),
+            prefixIcon: const Icon(Icons.auto_awesome_rounded, color: AskodoxDesignTokens.violet100),
+            border: InputBorder.none,
+            suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                key: const Key('askodoxMicButton'),
+                tooltip: 'Speak to ASKODOX',
+                onPressed: () => context.go('/discover/voice'),
+                icon: const Icon(Icons.mic_rounded, color: AskodoxDesignTokens.violet100),
+              ),
+              IconButton(
+                key: const Key('askodoxSendButton'),
+                tooltip: 'Ask',
+                onPressed: _submit,
+                icon: const Icon(Icons.arrow_upward_rounded, color: AskodoxDesignTokens.violet100),
+              ),
+            ]),
+          ),
         ),
       );
-}
 
-class _AnimatedAskodoxRobot extends StatelessWidget {
-  const _AnimatedAskodoxRobot({super.key, required this.animation});
-
-  final Animation<double> animation;
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: animation,
-        builder: (context, child) {
-          final t = animation.value;
-          final glow = 26 + (28 * t);
-          final scale = .985 + (.025 * t);
-          return Transform.scale(
-            scale: scale,
-            child: SizedBox(
-              width: 248,
-              height: 248,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 228,
-                    height: 228,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFB23DFF), Color(0xFF3759FF)],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF7C38FF).withValues(alpha: .58),
-                          blurRadius: glow,
-                          spreadRadius: 4 + (4 * t),
-                        ),
-                        BoxShadow(
-                          color: const Color(0xFF1D7CFF).withValues(alpha: .25),
-                          blurRadius: glow * 1.25,
-                          spreadRadius: 8,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 208,
-                    height: 208,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF070A18),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .16),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 5,
-                    child: _WaveBars(intensity: t),
-                  ),
-                  Positioned(
-                    right: 8,
-                    top: 86,
-                    child: Container(
-                      width: 52,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF13224B),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF5AA4FF)),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x775AA4FF), blurRadius: 15),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _Dot(),
-                          SizedBox(width: 4),
-                          _Dot(),
-                          SizedBox(width: 4),
-                          _Dot(),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const _RobotBody(),
-                ],
+  Widget _quickActions() => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final item in _quickAsks)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ActionChip(
+                  key: Key('quick-${item.$1.toLowerCase().replaceAll(' ', '-')}'),
+                  avatar: Icon(item.$2, size: 18, color: AskodoxDesignTokens.violet100),
+                  label: Text(item.$1),
+                  labelStyle: const TextStyle(color: Colors.white),
+                  backgroundColor: const Color(0xFF131A31),
+                  side: BorderSide(color: AskodoxDesignTokens.violet300.withValues(alpha: .35)),
+                  onPressed: () => _start(item.$1),
+                ),
               ),
+          ],
+        ),
+      );
+
+  Widget _comparisonCard() => InkWell(
+        key: const Key('askodoxCompareCard'),
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => _start('Compare nearby and online options'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10172C),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFF3A466D)),
+          ),
+          child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Offline vs Online', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+            SizedBox(height: 6),
+            Text('Compare price, distance, availability, delivery and total value.', style: TextStyle(color: Colors.white70)),
+            SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              _ScopePill('1 km'), _ScopePill('5 km'), _ScopePill('25 km'), _ScopePill('100 km'), _ScopePill('Anywhere'), _ScopePill('Online'),
+            ]),
+          ]),
+        ),
+      );
+
+  Widget _exploreGrid() => GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _explore.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.05,
+        ),
+        itemBuilder: (context, index) {
+          final item = _explore[index];
+          return InkWell(
+            key: Key('explore-${item.$1.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'and')}'),
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => _start(item.$3),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121A31),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFF303B60)),
+              ),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(item.$2, color: AskodoxDesignTokens.violet100, size: 27),
+                const SizedBox(height: 8),
+                Text(item.$1, textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+              ]),
             ),
           );
         },
       );
-}
 
-class _RobotBody extends StatelessWidget {
-  const _RobotBody();
-
-  @override
-  Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 86,
-            height: 14,
-            decoration: BoxDecoration(
-              color: const Color(0xFFB9C3E8),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Transform.translate(
-                offset: const Offset(0, -20),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 5,
-                      height: 18,
-                      color: const Color(0xFF7285D9),
-                    ),
-                    Container(
-                      width: 13,
-                      height: 13,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF4B9CFF),
-                        boxShadow: [
-                          BoxShadow(color: Color(0xAA4B9CFF), blurRadius: 10),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 132,
-            height: 92,
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE9ECFA), Color(0xFF9EAAE0)],
-              ),
-              borderRadius: BorderRadius.circular(38),
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: const [
-                BoxShadow(color: Color(0x665A7CFF), blurRadius: 18),
-              ],
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF050817),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: const Stack(
-                children: [
-                  Positioned(left: 25, top: 28, child: _EyeArc()),
-                  Positioned(right: 25, top: 28, child: _EyeArc()),
-                  Positioned(left: 50, top: 49, child: _Smile()),
-                ],
-              ),
-            ),
-          ),
-          Transform.translate(
-            offset: const Offset(0, -2),
-            child: Container(
-              width: 84,
-              height: 50,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE3E7FA), Color(0xFF9BA7DE)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(34),
-                  bottomRight: Radius.circular(34),
-                ),
-                border: Border.all(color: Colors.white70),
-              ),
-              child: Center(
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF1E8CFF),
-                    boxShadow: [
-                      BoxShadow(color: Color(0xCC1E8CFF), blurRadius: 14),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-}
-
-class _EyeArc extends StatelessWidget {
-  const _EyeArc();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 24,
-        height: 12,
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: Color(0xFF3FD5FF), width: 4),
-          ),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-      );
-}
-
-class _Smile extends StatelessWidget {
-  const _Smile();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 30,
-        height: 14,
-        decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Color(0xFF3FD5FF), width: 3),
-          ),
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-        ),
-      );
-}
-
-class _WaveBars extends StatelessWidget {
-  const _WaveBars({required this.intensity});
-
-  final double intensity;
-
-  @override
-  Widget build(BuildContext context) {
-    const heights = [18.0, 36.0, 54.0, 36.0, 18.0];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (var i = 0; i < heights.length; i++)
-          Container(
-            width: 4,
-            height: heights[i] * (.72 + (.28 * intensity)),
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF3B9BFF),
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: const [
-                BoxShadow(color: Color(0xAA3B9BFF), blurRadius: 9),
-              ],
-            ),
-          ),
-      ],
+  Widget _updateCard() {
+    final pct = (_updateProgress * 100).round();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AskodoxDesignTokens.navy, borderRadius: BorderRadius.circular(16)),
+      child: Row(children: [
+        const Icon(Icons.system_update_alt_rounded, color: AskodoxDesignTokens.violet100),
+        const SizedBox(width: 8),
+        Expanded(child: Text(_updating ? 'Downloading… $pct%' : 'ASKODOX update ready', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+        FilledButton(onPressed: _updating ? null : _installUpdate, child: Text(_updating ? '$pct%' : 'Update')),
+      ]),
     );
   }
 }
 
-class _Dot extends StatelessWidget {
-  const _Dot();
+class _CompactMascot extends StatelessWidget {
+  const _CompactMascot();
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 5,
-        height: 5,
-        decoration: const BoxDecoration(
-          color: Color(0xFFB9E7FF),
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
+          gradient: const LinearGradient(colors: [Color(0xFFB23DFF), Color(0xFF3759FF)]),
+          boxShadow: [BoxShadow(color: AskodoxDesignTokens.violet500.withValues(alpha: .35), blurRadius: 16)],
         ),
+        child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 30),
+      );
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Text(text, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900));
+}
+
+class _ScopePill extends StatelessWidget {
+  const _ScopePill(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: const Color(0xFF1A2340), borderRadius: BorderRadius.circular(20)),
+        child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12)),
       );
 }
