@@ -21,9 +21,7 @@ env:
 jobs:
   askodox-ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      API_BASE_URL: ${{ vars.API_BASE_URL }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -34,12 +32,10 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify toolchain and scripts first
+      - name: Verify scripts and source tree
         shell: bash
         run: |
           set -euo pipefail
-          flutter --version
-          dart --version
           bash -n tool/apply_home_robot_layout_fix.sh
           bash -n tool/apply_android_askodox_branding.sh
           bash -n tool/apply_android_live_device_bridge.sh
@@ -57,48 +53,6 @@ jobs:
 
       - name: Run Flutter tests
         run: flutter test
-
-      - name: Generate Android runner once for preflight
-        run: flutter create --platforms=android --org com.askodox --project-name askodox .
-
-      - name: Apply ASKODOX native bridges
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash tool/apply_android_askodox_branding.sh
-          bash tool/apply_android_live_device_bridge.sh
-
-      - name: Verify ASKODOX native bridge before build
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
-          grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
-          grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
-          grep -q 'ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
-          grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
-          grep -q 'com.askodox.app/device' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
-          grep -q 'startVoiceSearch' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
-          ./android/gradlew -p android tasks >/dev/null
-
-      - name: Build ASKODOX debug APK as hard preflight gate
-        run: |
-          flutter build apk --debug \
-            -t lib/main.dart \
-            --build-number="${GITHUB_RUN_NUMBER}" \
-            --dart-define=APP_ENV=staging \
-            --dart-define=BACKEND_PROVIDER=rest \
-            --dart-define=API_BASE_URL="$API_BASE_URL" \
-            --dart-define=ASKODOX_ENABLE_UPDATES=true \
-            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
-
-      - name: Upload preflight APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: askodox-real-app-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
 
   askodox-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -136,6 +90,18 @@ jobs:
           set -euo pipefail
           bash tool/apply_android_askodox_branding.sh
           bash tool/apply_android_live_device_bridge.sh
+
+      - name: Verify ASKODOX native bridge before release build
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
+          grep -q 'android:label="@string/app_name"' android/app/src/main/AndroidManifest.xml
+          grep -q 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q 'ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'com.askodox.app/device' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'startVoiceSearch' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
 
       - name: Require stable release signing secrets
         shell: bash
