@@ -5,9 +5,15 @@ import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 
-final universalMatchRepositoryProvider = Provider<UniversalMatchRepository>(
-  (ref) => ApiUniversalMatchRepository(ref.watch(apiClientProvider)),
-);
+String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
+
+final universalMatchRepositoryProvider = Provider<UniversalMatchRepository>((ref) {
+  final user = ref.watch(authSessionProvider).user;
+  return ApiUniversalMatchRepository(
+    ref.watch(apiClientProvider),
+    appUserId: user == null ? null : _appUser(user.id),
+  );
+});
 
 class UniversalMatch {
   const UniversalMatch({
@@ -51,14 +57,19 @@ abstract interface class UniversalMatchRepository {
 }
 
 class ApiUniversalMatchRepository implements UniversalMatchRepository {
-  ApiUniversalMatchRepository(this._client);
+  ApiUniversalMatchRepository(this._client, {required this.appUserId});
   final ApiClient _client;
+  final String? appUserId;
 
   @override
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal) async {
+    final userId = appUserId;
+    if (userId == null || userId.isEmpty) {
+      throw StateError('Sign in before publishing a requirement.');
+    }
     final create = await _client.post<Map<String, Object?>>(
       '/deals',
-      body: _payload(deal),
+      body: _payload(deal, userId),
     );
     if (create is ApiError<Map<String, Object?>>) {
       throw StateError(create.failure.message ?? 'Unable to create requirement.');
@@ -93,7 +104,8 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     }
   }
 
-  Map<String, Object?> _payload(UniversalDeal deal) => {
+  Map<String, Object?> _payload(UniversalDeal deal, String userId) => {
+        'user_id': userId,
         'raw_text': deal.rawText,
         'intent': deal.intent.name,
         'opposite_intent': deal.oppositeIntent.name,
