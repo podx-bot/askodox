@@ -56,7 +56,9 @@ class UniversalDealBrain {
       'need work',
       'ఉద్యోగం కావాలి',
       'పని కావాలి',
-    ])) {
+    ]) ||
+        (text.contains('looking for ') &&
+            RegExp(r'\b(job|work|employment)\b').hasMatch(text))) {
       return DealIntent.seekWork;
     }
     if (hasAny([
