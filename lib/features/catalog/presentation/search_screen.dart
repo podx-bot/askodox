@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
+import '../../matching/presentation/universal_match_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -38,6 +39,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _start(String prompt) {
     ref.read(universalDealControllerProvider.notifier).start(prompt);
     _focusNode.requestFocus();
+  }
+
+  void _confirmAndMatch() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const UniversalMatchScreen()),
+    );
   }
 
   @override Widget build(BuildContext context) {
@@ -75,7 +82,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               Row(children: [
                 Expanded(child: OutlinedButton.icon(onPressed: () => _focusNode.requestFocus(), icon: const Icon(Icons.edit_outlined), label: const Text('Change'))),
                 const SizedBox(width: 10),
-                Expanded(child: FilledButton.icon(key: const Key('confirmRequirementButton'), onPressed: () => context.push('/deals'), icon: const Icon(Icons.check_circle_outline), label: const Text('Confirm & match'))),
+                Expanded(child: FilledButton.icon(key: const Key('confirmRequirementButton'), onPressed: _confirmAndMatch, icon: const Icon(Icons.check_circle_outline), label: const Text('Confirm & match'))),
               ]),
               const SizedBox(height: 18),
               _ComparisonEntry(onStart: _start),
