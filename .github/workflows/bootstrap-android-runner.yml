@@ -1,0 +1,70 @@
+name: Bootstrap Android Runner
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: 3.47.0
+
+jobs:
+  bootstrap-android:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Stop when Android runner already exists
+        id: check
+        shell: bash
+        run: |
+          if [ -d android ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Use pinned Flutter
+        if: steps.check.outputs.exists == 'false'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Generate deterministic Android runner
+        if: steps.check.outputs.exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter create --platforms=android --org com.askodox --project-name askodox .
+          bash tool/apply_android_askodox_branding.sh
+          bash tool/apply_android_live_device_bridge.sh
+
+      - name: Verify generated Android runner
+        if: steps.check.outputs.exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f android/app/build.gradle.kts
+          test -f android/app/src/main/AndroidManifest.xml
+          test -f android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'ASKODOX' android/app/src/main/res/values/strings.xml
+
+      - name: Commit Android runner for Codemagic
+        if: steps.check.outputs.exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add android
+          git commit -m "build: persist ASKODOX Android runner for Codemagic"
+          git push origin HEAD:main
