@@ -2,41 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/app_settings_provider.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 import '../../matching/presentation/universal_match_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
-  @override ConsumerState<SearchScreen> createState() => _SearchScreenState();
+
+  @override
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _answer = TextEditingController();
   final _focusNode = FocusNode();
+  static final _telugu = RegExp(r'[\u0C00-\u0C7F]');
 
-  static const _explore = <(String, IconData, String)>[
-    ('Buy & Sell', Icons.shopping_bag_outlined, 'I want to buy or sell something'),
-    ('Jobs', Icons.work_outline_rounded, 'I am looking for a job or worker'),
-    ('Services', Icons.handyman_outlined, 'I need or provide a service'),
-    ('Rides & Travel', Icons.directions_car_outlined, 'I need or offer a ride or travel service'),
-    ('Loans', Icons.account_balance_outlined, 'I want to compare loan options'),
-    ('Insurance', Icons.health_and_safety_outlined, 'I want to compare insurance options'),
-    ('Credit Cards', Icons.credit_card_outlined, 'I want to compare credit cards'),
-    ('Utilities', Icons.bolt_outlined, 'I need a utility or bill service'),
-  ];
+  bool _isTelugu(UniversalDeal? deal) {
+    final selected = ref.watch(appSettingsProvider).locale?.languageCode == 'te';
+    return selected || (deal != null && _telugu.hasMatch(deal.rawText));
+  }
 
-  @override void dispose() { _answer.dispose(); _focusNode.dispose(); super.dispose(); }
+  void _syncLanguage(String text) {
+    if (_telugu.hasMatch(text)) {
+      ref.read(appSettingsProvider.notifier).setLocale(const Locale('te'));
+    }
+  }
 
   void _sendAnswer() {
     final text = _answer.text.trim();
     if (text.isEmpty) return;
+    _syncLanguage(text);
     ref.read(universalDealControllerProvider.notifier).answer(text);
     _answer.clear();
     _focusNode.requestFocus();
   }
 
   void _start(String prompt) {
+    _syncLanguage(prompt);
     ref.read(universalDealControllerProvider.notifier).start(prompt);
     _focusNode.requestFocus();
   }
@@ -47,119 +51,299 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  @override Widget build(BuildContext context) {
+  @override
+  void dispose() {
+    _answer.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(universalDealControllerProvider);
     final deal = session.deal;
+    final te = _isTelugu(deal);
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
-        title: const Text('ASKODOX'),
-        actions: [
-          IconButton(tooltip: 'New request', onPressed: () { ref.read(universalDealControllerProvider.notifier).reset(); context.go('/'); }, icon: const Icon(Icons.add_circle_outline)),
-        ],
-      ),
-      body: SafeArea(child: Center(child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: deal == null ? _Explore(onStart: _start) : ListView(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => context.go('/'),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF14213D)),
+        ),
+        title: const Row(
           children: [
-            _UserRequest(text: deal.rawText),
-            const SizedBox(height: 14),
-            _RequirementCard(deal: deal),
-            const SizedBox(height: 14),
-            if (!session.completed) ...[
-              _AskodoxQuestion(text: session.lastQuestion ?? 'Tell me the missing detail.'),
-              const SizedBox(height: 10),
-              TextField(
-                key: const Key('askodoxClarificationField'), controller: _answer, focusNode: _focusNode,
-                autofocus: true, textInputAction: TextInputAction.send, onSubmitted: (_) => _sendAnswer(),
-                decoration: InputDecoration(hintText: 'Answer only this detail', prefixIcon: const Icon(Icons.auto_awesome), suffixIcon: IconButton(onPressed: _sendAnswer, icon: const Icon(Icons.arrow_upward))),
-              ),
-              const SizedBox(height: 8),
-              Text('ASKODOX remembers what you already said and asks only what is still needed.', style: Theme.of(context).textTheme.bodySmall),
-            ] else ...[
-              _ReadyToMatch(deal: deal),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: OutlinedButton.icon(onPressed: () => _focusNode.requestFocus(), icon: const Icon(Icons.edit_outlined), label: const Text('Change'))),
-                const SizedBox(width: 10),
-                Expanded(child: FilledButton.icon(key: const Key('confirmRequirementButton'), onPressed: _confirmAndMatch, icon: const Icon(Icons.check_circle_outline), label: const Text('Confirm & match'))),
-              ]),
-              const SizedBox(height: 18),
-              _ComparisonEntry(onStart: _start),
-            ],
-            const SizedBox(height: 24),
-            _ExploreCompact(onStart: _start),
+            CircleAvatar(
+              radius: 17,
+              backgroundColor: Color(0xFFE8F8ED),
+              child: Icon(Icons.smart_toy_rounded, color: Color(0xFF10A53A), size: 20),
+            ),
+            SizedBox(width: 9),
+            Text('ASKODOX', style: TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900)),
           ],
         ),
-      ))),
+        actions: [
+          IconButton(
+            tooltip: 'New request',
+            onPressed: () {
+              ref.read(universalDealControllerProvider.notifier).reset();
+              context.go('/');
+            },
+            icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF1769FF)),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: deal == null ? _emptyState(te) : _conversation(session, deal, te),
+          ),
+        ),
+      ),
     );
   }
-}
 
-class _Explore extends StatelessWidget {
-  const _Explore({required this.onStart}); final ValueChanged<String> onStart;
-  @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(20, 28, 20, 28), children: [
-    Text('Explore ASKODOX', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-    const SizedBox(height: 6),
-    const Text('Choose a shortcut or go Home and ask naturally. Every shortcut enters the same AI Deal Brain.'),
-    const SizedBox(height: 18),
-    for (final item in _SearchScreenState._explore) Card(child: ListTile(leading: Icon(item.$2), title: Text(item.$1, style: const TextStyle(fontWeight: FontWeight.w700)), trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16), onTap: () => onStart(item.$3))),
-    const SizedBox(height: 14),
-    FilledButton.icon(onPressed: () => context.go('/'), icon: const Icon(Icons.auto_awesome), label: const Text('Ask ASKODOX naturally')),
-  ]);
-}
+  Widget _emptyState(bool te) => ListView(
+        padding: const EdgeInsets.fromLTRB(22, 34, 22, 24),
+        children: [
+          const Icon(Icons.smart_toy_rounded, size: 72, color: Color(0xFF1769FF)),
+          const SizedBox(height: 14),
+          Text(
+            te ? 'ASKODOX తో మాట్లాడండి' : 'Talk to ASKODOX',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            te ? 'వేరే Search page అవసరం లేదు. మీకు కావాల్సింది సహజంగా చెప్పండి.' : 'No separate search flow. Just say what you need naturally.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF667085), height: 1.45),
+          ),
+          const SizedBox(height: 24),
+          for (final item in [
+            (Icons.shopping_bag_outlined, te ? 'దగ్గరలో చికెన్ కావాలి' : 'I want chicken nearby'),
+            (Icons.work_outline_rounded, te ? 'నాకు ఉద్యోగం కావాలి' : 'I need a job'),
+            (Icons.directions_car_outlined, te ? 'విజయవాడకి రైడ్ కావాలి' : 'I need a ride to Vijayawada'),
+          ])
+            Card(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(color: Color(0xFFE5EAF2)),
+              ),
+              child: ListTile(
+                onTap: () => _start(item.$2),
+                leading: CircleAvatar(backgroundColor: const Color(0xFFEAF1FF), child: Icon(item.$1, color: const Color(0xFF1769FF))),
+                title: Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w800)),
+                trailing: const Icon(Icons.arrow_forward_rounded),
+              ),
+            ),
+        ],
+      );
 
-class _ExploreCompact extends StatelessWidget {
-  const _ExploreCompact({required this.onStart}); final ValueChanged<String> onStart;
-  @override Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text('Explore more', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 10),
-    Wrap(spacing: 8, runSpacing: 8, children: [for (final item in _SearchScreenState._explore) ActionChip(avatar: Icon(item.$2, size: 17), label: Text(item.$1), onPressed: () => onStart(item.$3))]),
-  ]);
-}
+  Widget _conversation(UniversalDealSession session, UniversalDeal deal, bool te) => ListView(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 560),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF1FF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(deal.rawText, style: const TextStyle(color: Color(0xFF14213D), fontSize: 16)),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _understoodCard(deal, te),
+          const SizedBox(height: 14),
+          if (!session.completed) ...[
+            _assistantBubble(_questionFor(deal, te)),
+            const SizedBox(height: 12),
+            _answerBox(te),
+            const SizedBox(height: 9),
+            Text(
+              te ? 'ASKODOX మీరు చెప్పినది గుర్తుంచుకుని, మిగిలిన వివరమే అడుగుతుంది.' : 'ASKODOX remembers what you already said and asks only what is still missing.',
+              style: const TextStyle(color: Color(0xFF667085), fontSize: 12.5),
+            ),
+          ] else ...[
+            _readyCard(deal, te),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              key: const Key('confirmRequirementButton'),
+              onPressed: _confirmAndMatch,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF10A53A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(te ? 'మ్యాచ్‌లు కనుగొను' : 'Find my best matches', style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => _focusNode.requestFocus(),
+              icon: const Icon(Icons.edit_outlined),
+              label: Text(te ? 'మార్చాలి' : 'Change details'),
+            ),
+          ],
+          const SizedBox(height: 24),
+          _historyHint(te),
+        ],
+      );
 
-class _ComparisonEntry extends StatelessWidget {
-  const _ComparisonEntry({required this.onStart}); final ValueChanged<String> onStart;
-  @override Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text('Compare the best way to fulfil this', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-    const SizedBox(height: 6), const Text('ASKODOX can widen the search instead of assuming nearest is always best.'), const SizedBox(height: 12),
-    Wrap(spacing: 8, runSpacing: 8, children: [
-      for (final scope in ['Near me', 'My city', 'State', 'India', 'Anywhere', 'Online'])
-        ActionChip(label: Text(scope), onPressed: () => onStart('Find and compare this requirement in scope: $scope')),
-    ]),
-  ])));
-}
-
-class _UserRequest extends StatelessWidget {
-  const _UserRequest({required this.text}); final String text;
-  @override Widget build(BuildContext context) => Align(alignment: Alignment.centerRight, child: Container(constraints: const BoxConstraints(maxWidth: 560), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(18)), child: Text(text)));
-}
-
-class _RequirementCard extends StatelessWidget {
-  const _RequirementCard({required this.deal}); final UniversalDeal deal;
-  @override Widget build(BuildContext context) {
-    final details = <String>[
-      if (deal.subject != null && deal.subject!.trim().isNotEmpty) 'Need/offer: ${deal.subject}',
-      if (deal.quantity != null) 'Quantity: ${deal.quantity} ${deal.unit ?? ''}',
-      if (deal.price != null) 'Price/budget: ₹${deal.price}',
-      if (deal.location.isKnown) 'Location: ${deal.location.label ?? '${deal.location.latitude}, ${deal.location.longitude}'}',
-      if (deal.timing != null) 'Timing: ${deal.timing}', if (deal.fulfilment != null) 'Fulfilment: ${deal.fulfilment}',
-      for (final entry in deal.dynamicFields.entries) if (entry.value != null && '${entry.value}'.trim().isNotEmpty) '${_title(entry.key)}: ${entry.value}',
+  Widget _understoodCard(UniversalDeal deal, bool te) {
+    final rows = <String>[
+      if (deal.subject != null && deal.subject!.trim().isNotEmpty)
+        '${te ? 'అవసరం' : 'Need'}: ${deal.subject}',
+      if (deal.quantity != null) '${te ? 'పరిమాణం' : 'Quantity'}: ${deal.quantity} ${deal.unit ?? ''}',
+      if (deal.price != null) '${te ? 'బడ్జెట్' : 'Budget'}: ₹${deal.price}',
+      if (deal.location.isKnown)
+        '${te ? 'లొకేషన్' : 'Location'}: ${deal.location.label ?? '${deal.location.latitude}, ${deal.location.longitude}'}',
+      if (deal.timing != null) '${te ? 'సమయం' : 'Timing'}: ${deal.timing}',
     ];
-    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [const Icon(Icons.psychology_alt_outlined), const SizedBox(width: 8), Expanded(child: Text('Here is what I understood', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)))]),
-      const SizedBox(height: 10), for (final item in details) Padding(padding: const EdgeInsets.only(bottom: 5), child: Text('• $item')),
-      if (deal.missingForMatch.isNotEmpty) ...[const Divider(height: 22), Text('Still needed: ${deal.missingForMatch.map(_title).join(', ')}', style: Theme.of(context).textTheme.bodySmall)],
-    ])));
+
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE1E8F2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const CircleAvatar(backgroundColor: Color(0xFFE8F8ED), child: Icon(Icons.psychology_alt_rounded, color: Color(0xFF10A53A))),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                te ? 'నేను అర్థం చేసుకున్నది' : 'Here’s what I understood',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF14213D)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 13),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.circle, size: 6, color: Color(0xFF1769FF))),
+                const SizedBox(width: 9),
+                Expanded(child: Text(row, style: const TextStyle(fontSize: 15, color: Color(0xFF344054)))),
+              ]),
+            ),
+        ],
+      ),
+    );
   }
-  static String _title(String value) => value.replaceAll('_', ' ').split(' ').map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
-}
 
-class _AskodoxQuestion extends StatelessWidget {
-  const _AskodoxQuestion({required this.text}); final String text;
-  @override Widget build(BuildContext context) => Align(alignment: Alignment.centerLeft, child: Container(constraints: const BoxConstraints(maxWidth: 560), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.auto_awesome, size: 20), const SizedBox(width: 8), Flexible(child: Text(text))])));
-}
+  Widget _assistantBubble(String text) => Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 560),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F8ED),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.smart_toy_rounded, color: Color(0xFF10A53A), size: 20),
+            const SizedBox(width: 9),
+            Flexible(child: Text(text, style: const TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w700))),
+          ]),
+        ),
+      );
 
-class _ReadyToMatch extends StatelessWidget {
-  const _ReadyToMatch({required this.deal}); final UniversalDeal deal;
-  @override Widget build(BuildContext context) => Card(color: Theme.of(context).colorScheme.secondaryContainer, child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [const Icon(Icons.hub_rounded), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Requirement ready', style: TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text('Confirm it and ASKODOX will look for the matching side: ${deal.partyB.role}.')]))])));
+  Widget _answerBox(bool te) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFB8CCFF)),
+        ),
+        child: TextField(
+          key: const Key('askodoxClarificationField'),
+          controller: _answer,
+          focusNode: _focusNode,
+          autofocus: true,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _sendAnswer(),
+          decoration: InputDecoration(
+            hintText: te ? 'ఈ వివరమే చెప్పండి…' : 'Answer only this detail…',
+            prefixIcon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF1769FF)),
+            suffixIcon: IconButton(onPressed: _sendAnswer, icon: const Icon(Icons.arrow_upward_rounded, color: Color(0xFF1769FF))),
+            border: InputBorder.none,
+          ),
+        ),
+      );
+
+  Widget _readyCard(UniversalDeal deal, bool te) => Container(
+        padding: const EdgeInsets.all(17),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFFE8F8ED), Color(0xFFEAF1FF)]),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(children: [
+          const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.hub_rounded, color: Color(0xFF1769FF))),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(te ? 'అవసరం సిద్ధంగా ఉంది' : 'Requirement ready', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF14213D))),
+              const SizedBox(height: 4),
+              Text(
+                te ? 'ఇప్పుడు ASKODOX సరైన ${deal.partyB.role} వైపు మ్యాచ్‌లను చూస్తుంది.' : 'ASKODOX can now look for the matching side: ${deal.partyB.role}.',
+                style: const TextStyle(color: Color(0xFF475467), height: 1.35),
+              ),
+            ]),
+          ),
+        ]),
+      );
+
+  Widget _historyHint(bool te) => InkWell(
+        onTap: () => context.go('/watchlist'),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE5EAF2))),
+          child: Row(children: [
+            const Icon(Icons.history_rounded, color: Color(0xFF1769FF)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(te ? 'ఈ అవసరం History లో కొనసాగించవచ్చు' : 'Continue this later from History', style: const TextStyle(fontWeight: FontWeight.w800))),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 15),
+          ]),
+        ),
+      );
+
+  String _questionFor(UniversalDeal deal, bool te) {
+    final field = deal.missingForMatch.isEmpty ? null : deal.missingForMatch.first;
+    if (te) {
+      return switch (field) {
+        'subject' => 'మీకు ఖచ్చితంగా ఏమి కావాలి?',
+        'location' => 'ఎక్కడ మ్యాచ్ కావాలి?',
+        'timing' => 'ఎప్పుడు కావాలి?',
+        'from' => 'ఎక్కడి నుంచి ప్రారంభం?',
+        'to' => 'ఎక్కడికి వెళ్లాలి?',
+        'skill' => 'ఏ పని లేదా స్కిల్ కావాలి?',
+        _ => 'మిగిలిన వివరాన్ని చెప్పండి.',
+      };
+    }
+    return switch (field) {
+      'subject' => 'What exactly do you need or offer?',
+      'location' => 'Where should ASKODOX find the match?',
+      'timing' => 'When do you need this?',
+      'from' => 'Where does it start from?',
+      'to' => 'Where should it go to?',
+      'skill' => 'What skill or work is required?',
+      _ => 'Tell me the missing detail.',
+    };
+  }
 }
