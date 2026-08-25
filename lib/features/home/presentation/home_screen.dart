@@ -38,6 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _pickLanguage() async {
     final settings = ref.read(appSettingsProvider);
     final selected = settings.locale == null ? 'system' : settings.locale!.languageCode;
+    final isTe = settings.locale?.languageCode == 'te';
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
@@ -48,19 +49,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const ListTile(
-                leading: CircleAvatar(
+              ListTile(
+                leading: const CircleAvatar(
                   backgroundColor: Color(0xFFE8F8ED),
                   child: Icon(Icons.language_rounded, color: Color(0xFF10A53A)),
                 ),
-                title: Text('Language', style: TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: Text('Auto follows your device. You can change it anytime.'),
+                title: Text(isTe ? 'భాష' : 'Language', style: const TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: Text(isTe
+                    ? 'డివైస్ భాషను ఆటోగా అనుసరించవచ్చు. ఎప్పుడైనా మార్చుకోవచ్చు.'
+                    : 'Auto follows your device. You can change it anytime.'),
               ),
               RadioListTile<String>(
                 value: 'system',
                 groupValue: selected,
                 onChanged: (value) => Navigator.pop(context, value),
-                title: const Text('Auto / Device language'),
+                title: Text(isTe ? 'ఆటో / డివైస్ భాష' : 'Auto / Device language'),
               ),
               RadioListTile<String>(
                 value: 'en',
@@ -98,7 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final locale = ref.watch(appSettingsProvider).locale;
     final isTe = locale?.languageCode == 'te';
-    final languageLabel = locale == null ? 'Auto' : (isTe ? 'తెలుగు' : 'EN');
+    final languageLabel = locale == null ? (isTe ? 'ఆటో' : 'Auto') : (isTe ? 'తెలుగు' : 'EN');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
@@ -107,7 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          tooltip: 'Menu',
+          tooltip: isTe ? 'మెను' : 'Menu',
           onPressed: () => context.go('/profile'),
           icon: const Icon(Icons.menu_rounded, color: Color(0xFF14213D)),
         ),
@@ -156,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 7),
             Text(
-              isTe ? 'మీకు కావాల్సింది చెప్పండి. నేను అర్థం చేసుకుని, సరైన మ్యాచ్ కనుగొంటాను.' : 'Tell me what you need. I’ll understand it, clarify only what’s missing, and find the best match.',
+              isTe ? 'మీకు కావాల్సింది చెప్పండి. నేను అర్థం చేసుకుని, అవసరమైనది మాత్రమే అడిగి, సరైన మ్యాచ్ కనుగొంటాను.' : 'Tell me what you need. I’ll understand it, clarify only what’s missing, and find the best match.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFF667085)),
             ),
@@ -186,13 +189,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       IconButton(
                         key: const Key('askodoxMicButton'),
-                        tooltip: 'Voice',
+                        tooltip: isTe ? 'వాయిస్' : 'Voice',
                         onPressed: () => context.go('/discover/voice'),
                         icon: const Icon(Icons.mic_rounded, color: Color(0xFF10A53A)),
                       ),
                       IconButton(
                         key: const Key('askodoxSendButton'),
-                        tooltip: 'Ask ASKODOX',
+                        tooltip: isTe ? 'ASKODOXని అడగండి' : 'Ask ASKODOX',
                         onPressed: _submit,
                         icon: const CircleAvatar(
                           backgroundColor: Color(0xFF1769FF),
@@ -230,7 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _HistoryPreview(
               icon: Icons.work_outline_rounded,
               title: isTe ? 'కంప్యూటర్ ఆపరేటర్ ఉద్యోగం' : 'Computer operator job',
-              subtitle: isTe ? 'కొనసాగించండి' : 'Continue conversation',
+              subtitle: isTe ? 'సంభాషణ కొనసాగించండి' : 'Continue conversation',
               onTap: () => _startFlow(isTe ? 'నాకు కంప్యూటర్ ఆపరేటర్ ఉద్యోగం కావాలి' : 'I need a computer operator job'),
             ),
             const SizedBox(height: 18),
@@ -252,10 +255,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(isTe ? 'Explore' : 'Explore ASKODOX', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
+                        Text(isTe ? 'ASKODOXలో మరిన్ని చూడండి' : 'Explore ASKODOX', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
                         const SizedBox(height: 3),
                         Text(
-                          isTe ? 'Jobs, services, rides మరియు మరిన్ని — అవసరమైతే మాత్రమే తెరవండి.' : 'Jobs, services, rides and more — open only when you want shortcuts.',
+                          isTe ? 'ఉద్యోగాలు, సేవలు, రైడ్లు మరియు మరిన్ని — అవసరమైనప్పుడు మాత్రమే షార్ట్‌కట్స్ తెరవండి.' : 'Jobs, services, rides and more — open only when you want shortcuts.',
                           style: const TextStyle(color: Color(0xFF667085), height: 1.35),
                         ),
                       ],
