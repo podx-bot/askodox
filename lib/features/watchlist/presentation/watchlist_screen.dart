@@ -1,172 +1,181 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../application/watchlist_providers.dart';
-import '../domain/watchlist_models.dart';
-
-class WatchlistScreen extends ConsumerWidget {
+class WatchlistScreen extends StatelessWidget {
   const WatchlistScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(watchlistProvider);
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Watchlist')),
-      body: items.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.favorite_outline, size: 64),
-                  SizedBox(height: 12),
-                  Text('Your watchlist is empty'),
-                  Text('Watch products to receive smart local alerts.'),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: items.length,
-              itemBuilder: (context, i) => _Card(item: items[i]),
-            ),
+      backgroundColor: const Color(0xFFF7FAFF),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'History',
+          style: TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Filter history',
+            onPressed: () {},
+            icon: const Icon(Icons.tune_rounded, color: Color(0xFF1769FF)),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+        children: [
+          const Text(
+            'Continue where you left off',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Every ask, clarification, result and deal stays together as one ASKODOX timeline.',
+            style: TextStyle(color: Color(0xFF667085), height: 1.4),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              _FilterChipLabel('All', true),
+              _FilterChipLabel('Active', false),
+              _FilterChipLabel('Matched', false),
+              _FilterChipLabel('Completed', false),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _HistoryCard(
+            icon: Icons.shopping_bag_outlined,
+            title: 'Chicken nearby',
+            status: 'Matches ready',
+            time: 'Just now',
+            accent: const Color(0xFF10A53A),
+            onTap: () => context.go('/search'),
+          ),
+          _HistoryCard(
+            icon: Icons.work_outline_rounded,
+            title: 'Computer operator job',
+            status: 'Need one more detail',
+            time: '2 hours ago',
+            accent: const Color(0xFF1769FF),
+            onTap: () => context.go('/search'),
+          ),
+          _HistoryCard(
+            icon: Icons.directions_car_outlined,
+            title: 'Ride to Vijayawada',
+            status: '3 matches found',
+            time: 'Yesterday',
+            accent: const Color(0xFFFF8A00),
+            onTap: () => context.go('/search'),
+          ),
+          _HistoryCard(
+            icon: Icons.home_repair_service_outlined,
+            title: 'AC service',
+            status: 'Completed',
+            time: '3 days ago',
+            accent: const Color(0xFF8E5CF7),
+            onTap: () => context.go('/search'),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF1769FF),
+        foregroundColor: Colors.white,
+        onPressed: () => context.go('/'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New ask', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
     );
   }
 }
 
-class _Card extends ConsumerWidget {
-  const _Card({required this.item});
-
-  final WatchlistItem item;
+class _FilterChipLabel extends StatelessWidget {
+  const _FilterChipLabel(this.label, this.selected);
+  final String label;
+  final bool selected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                radius: 28,
-                child: Text(item.image, style: const TextStyle(fontSize: 28)),
-              ),
-              title: Text(
-                item.productName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                '${item.brand} · ${item.variant}\n'
-                '3 nearby sellers · Lowest ₹${(item.targetPrice ?? 499).toStringAsFixed(0)}\n'
-                'Updated just now',
-              ),
-              isThreeLine: true,
-              trailing: IconButton(
-                tooltip: 'Remove',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => ref
-                    .read(watchlistProvider.notifier)
-                    .remove(item.productId),
-              ),
-              onTap: () => context.push('/product/${item.productId}'),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Smart alerts'),
-              subtitle: Text(
-                '${item.radiusKm.toStringAsFixed(0)} km · ${item.frequency.name}'
-                '${item.targetPrice == null ? '' : ' · Target ₹${item.targetPrice!.toStringAsFixed(0)}'}',
-              ),
-              value: item.alertsEnabled,
-              onChanged: (v) => ref
-                  .read(watchlistProvider.notifier)
-                  .update(item.copyWith(alertsEnabled: v)),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                icon: const Icon(Icons.tune),
-                label: const Text('Alert settings'),
-                onPressed: () => _settings(context, ref),
-              ),
-            ),
-          ],
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFE8F8ED) : Colors.white,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: selected ? const Color(0xFF10A53A) : const Color(0xFFE1E8F2)),
         ),
-      ),
-    );
-  }
-
-  Future<void> _settings(BuildContext context, WidgetRef ref) async {
-    double radius = item.radiusKm;
-    double? target = item.targetPrice;
-    var frequency = item.frequency;
-    final input = TextEditingController(text: target?.toStringAsFixed(0));
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Alert settings', style: Theme.of(context).textTheme.titleLarge),
-              DropdownButtonFormField<double>(
-                initialValue: radius,
-                decoration: const InputDecoration(labelText: 'Preferred radius'),
-                items: [1.0, 2.0, 5.0, 10.0, 25.0]
-                    .map(
-                      (v) => DropdownMenuItem(
-                        value: v,
-                        child: Text('${v.toInt()} km'),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => radius = v!),
-              ),
-              TextField(
-                controller: input,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Target price (₹)'),
-              ),
-              DropdownButtonFormField<AlertFrequency>(
-                initialValue: frequency,
-                decoration: const InputDecoration(labelText: 'Frequency'),
-                items: AlertFrequency.values
-                    .map(
-                      (v) => DropdownMenuItem(value: v, child: Text(v.name)),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => frequency = v!),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  target = double.tryParse(input.text);
-                  ref.read(watchlistProvider.notifier).update(
-                        item.copyWith(
-                          radiusKm: radius,
-                          targetPrice: target,
-                          clearTarget: target == null,
-                          frequency: frequency,
-                        ),
-                      );
-                  Navigator.pop(context);
-                },
-                child: const Text('Save preferences'),
-              ),
-            ],
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF0B7E2C) : const Color(0xFF475467),
+            fontWeight: FontWeight.w800,
           ),
         ),
-      ),
-    );
-    input.dispose();
-  }
+      );
+}
+
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({
+    required this.icon,
+    required this.title,
+    required this.status,
+    required this.time,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String status;
+  final String time;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        color: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFE5EAF2)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: accent.withValues(alpha: .12),
+                  child: Icon(icon, color: accent),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
+                      const SizedBox(height: 5),
+                      Row(children: [
+                        Container(width: 7, height: 7, decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(status, style: const TextStyle(color: Color(0xFF667085)))),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(time, style: const TextStyle(color: Color(0xFF98A2B3), fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF98A2B3)),
+              ],
+            ),
+          ),
+        ),
+      );
 }
