@@ -19,7 +19,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   AppSettings build() => const AppSettings();
 
   void setThemeMode(ThemeMode mode) => state = state.copyWith(themeMode: mode);
-  void setLocale(Locale locale) => state = state.copyWith(locale: locale);
+
+  void setLocale(Locale locale) => state = AppSettings(
+        themeMode: state.themeMode,
+        locale: locale,
+      );
+
+  void useSystemLocale() => state = AppSettings(
+        themeMode: state.themeMode,
+        locale: null,
+      );
 }
 
 final appSettingsProvider =
