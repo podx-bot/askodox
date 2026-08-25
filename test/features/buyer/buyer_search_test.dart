@@ -37,7 +37,7 @@ void main() {
 
   testWidgets('product not found provides request and notification flow', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: ProductNotFoundScreen())));
-    expect(find.text('This product is not available in the PODX catalog yet.'), findsOneWidget);
+    expect(find.text('This product is not available in the ASKODOX catalog yet.'), findsOneWidget);
     expect(find.text('Request Product'), findsOneWidget);
     expect(find.text('Notify Me'), findsOneWidget);
     await tester.tap(find.text('Request Product'));
