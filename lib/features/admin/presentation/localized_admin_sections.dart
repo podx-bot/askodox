@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../domain/admin_models.dart';
+import '../application/admin_controller.dart';
 import 'admin_screens.dart';
 
 String _t(BuildContext context, String en, String te) =>
