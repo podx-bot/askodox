@@ -30,7 +30,20 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   final UniversalDealBrain _brain = const UniversalDealBrain();
 
   void start(String text) {
-    final deal = _brain.capture(text);
+    final value = text.trim();
+    if (value.isEmpty) return;
+
+    // If a requirement is already being collected, text entered on the
+    // conversation screen is an answer to the current missing field. Starting
+    // a fresh capture here used to turn answers such as "Vuyyuru" into a new
+    // product requirement and lose the original "chicken nearby" request.
+    final current = state.deal;
+    if (current != null && current.missingForMatch.isNotEmpty) {
+      answer(value);
+      return;
+    }
+
+    final deal = _brain.capture(value);
     state = UniversalDealSession(
       deal: deal,
       lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
@@ -41,7 +54,14 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   void answer(String text) {
     final current = state.deal;
     if (current == null) {
-      start(text);
+      final value = text.trim();
+      if (value.isEmpty) return;
+      final deal = _brain.capture(value);
+      state = UniversalDealSession(
+        deal: deal,
+        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
+        completed: deal.readyToMatch,
+      );
       return;
     }
     final value = text.trim();
@@ -50,7 +70,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     if (missing.isEmpty) return;
 
     final field = missing.first;
-    var dynamic = Map<String, Object?>.from(current.dynamicFields);
+    final dynamic = Map<String, Object?>.from(current.dynamicFields);
     var next = current;
 
     switch (field) {
@@ -58,7 +78,14 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
         next = current.copyWith(subject: value);
         break;
       case 'location':
-        next = current.copyWith(location: DealLocation(label: value, radiusKm: current.location.radiusKm));
+        next = current.copyWith(
+          location: DealLocation(
+            label: value,
+            latitude: current.location.latitude,
+            longitude: current.location.longitude,
+            radiusKm: current.location.radiusKm,
+          ),
+        );
         break;
       case 'timing':
         next = current.copyWith(timing: value);
