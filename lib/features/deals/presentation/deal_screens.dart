@@ -7,6 +7,21 @@ import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
 
 String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
+bool _te(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
+String _t(BuildContext context, String en, String te) => _te(context) ? te : en;
+String _statusLabel(BuildContext context, String raw) {
+  final value = raw.toUpperCase();
+  if (!_te(context)) return value.replaceAll('_', ' ');
+  return switch (value) {
+    'NEGOTIATING' => 'చర్చలో ఉంది',
+    'CONFIRMED' => 'నిర్ధారించబడింది',
+    'READY_FOR_PICKUP' => 'పికప్‌కు సిద్ధం',
+    'OUT_FOR_DELIVERY' => 'డెలివరీలో ఉంది',
+    'COMPLETED' => 'పూర్తైంది',
+    'CANCELLED' => 'రద్దు చేయబడింది',
+    _ => raw.replaceAll('_', ' '),
+  };
+}
 
 Future<Map<String, Object?>> _getMap(ApiClient client, String path) async {
   final result = await client.get<Map<String, Object?>>(path);
@@ -57,8 +72,14 @@ class _DealInboxScreenState extends ConsumerState<DealInboxScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Deals & conversations'),
-        actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
+        title: Text(_t(context, 'Deals & conversations', 'డీల్స్ & సంభాషణలు')),
+        actions: [
+          IconButton(
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh),
+            tooltip: _t(context, 'Refresh', 'రిఫ్రెష్'),
+          ),
+        ],
       ),
       body: FutureBuilder<Map<String, Object?>>(
         future: _future,
@@ -76,10 +97,14 @@ class _DealInboxScreenState extends ConsumerState<DealInboxScreen> {
               .toList();
           final unread = (data['total_unread'] as num?)?.toInt() ?? 0;
           if (rows.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No accepted deals yet. When a buyer accepts a seller response, the conversation will appear here.'),
+                padding: const EdgeInsets.all(24),
+                child: Text(_t(
+                  context,
+                  'No accepted deals yet. When a buyer accepts a seller response, the conversation will appear here.',
+                  'ఇంకా అంగీకరించిన డీల్స్ లేవు. బయ్యర్ సెల్లర్ స్పందనను అంగీకరించిన తర్వాత సంభాషణ ఇక్కడ కనిపిస్తుంది.',
+                )),
               ),
             );
           }
@@ -91,7 +116,12 @@ class _DealInboxScreenState extends ConsumerState<DealInboxScreen> {
                 if (unread > 0)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: Text('$unread unread deal update${unread == 1 ? '' : 's'}', style: Theme.of(context).textTheme.labelLarge),
+                    child: Text(
+                      _te(context)
+                          ? '$unread చదవని డీల్ అప్‌డేట్లు'
+                          : '$unread unread deal update${unread == 1 ? '' : 's'}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                   ),
                 for (final item in rows) _DealTile(item: item, userId: _userId!),
               ],
@@ -113,14 +143,15 @@ class _DealTile extends StatelessWidget {
     final requestId = (item['request_id'] as num?)?.toInt() ?? 0;
     final other = '${item['other_user_id'] ?? ''}';
     final unread = (item['unread_count'] as num?)?.toInt() ?? 0;
-    final status = '${item['deal_status'] ?? 'NEGOTIATING'}'.replaceAll('_', ' ');
-    final latest = '${item['latest_message'] ?? 'Deal accepted'}';
+    final rawStatus = '${item['deal_status'] ?? 'NEGOTIATING'}';
+    final latestRaw = '${item['latest_message'] ?? 'Deal accepted'}';
+    final latest = _te(context) && latestRaw == 'Deal accepted' ? 'డీల్ అంగీకరించబడింది' : latestRaw;
     return Card(
       child: ListTile(
         onTap: () => context.push('/deal/$requestId?user=${Uri.encodeComponent(userId)}&other=${Uri.encodeComponent(other)}'),
         leading: CircleAvatar(child: Text(unread > 0 ? '$unread' : '✓')),
-        title: Text(other.isEmpty ? 'Deal #$requestId' : other),
-        subtitle: Text('$status\n$latest', maxLines: 3, overflow: TextOverflow.ellipsis),
+        title: Text(other.isEmpty ? (_te(context) ? 'డీల్ #$requestId' : 'Deal #$requestId') : other),
+        subtitle: Text('${_statusLabel(context, rawStatus)}\n$latest', maxLines: 3, overflow: TextOverflow.ellipsis),
         isThreeLine: true,
         trailing: const Icon(Icons.chevron_right),
       ),
@@ -201,7 +232,7 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Deal #${widget.requestId}')),
+      appBar: AppBar(title: Text(_te(context) ? 'డీల్ #${widget.requestId}' : 'Deal #${widget.requestId}')),
       body: Column(
         children: [
           Expanded(
@@ -216,6 +247,8 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
                 final deal = data['deal'] is Map ? Map<String, Object?>.from(data['deal'] as Map) : const <String, Object?>{};
                 final messages = (data['messages'] as List? ?? const []).whereType<Map>().map((e) => Map<String, Object?>.from(e)).toList();
                 final status = '${deal['deal_status'] ?? 'NEGOTIATING'}';
+                final subjectRaw = '${deal['subject'] ?? 'Deal'}';
+                final subject = _te(context) && subjectRaw == 'Deal' ? 'డీల్' : subjectRaw;
                 return ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
@@ -223,14 +256,18 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('${deal['subject'] ?? 'Deal'}', style: Theme.of(context).textTheme.titleMedium),
-                          Text('Status: ${status.replaceAll('_', ' ')}'),
-                          if (deal['quantity'] != null) Text('Quantity: ${deal['quantity']} ${deal['unit'] ?? ''}'),
+                          Text(subject, style: Theme.of(context).textTheme.titleMedium),
+                          Text('${_t(context, 'Status', 'స్థితి')}: ${_statusLabel(context, status)}'),
+                          if (deal['quantity'] != null)
+                            Text('${_t(context, 'Quantity', 'పరిమాణం')}: ${deal['quantity']} ${deal['unit'] ?? ''}'),
                           const SizedBox(height: 8),
                           Wrap(spacing: 8, runSpacing: 8, children: [
                             for (final next in const ['CONFIRMED', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'COMPLETED'])
-                              ActionChip(label: Text(next.replaceAll('_', ' ')), onPressed: status == next ? null : () => _setStatus(next)),
-                            ActionChip(label: const Text('CANCEL'), onPressed: status == 'CANCELLED' ? null : () => _setStatus('CANCELLED')),
+                              ActionChip(label: Text(_statusLabel(context, next)), onPressed: status == next ? null : () => _setStatus(next)),
+                            ActionChip(
+                              label: Text(_t(context, 'CANCEL', 'రద్దు చేయండి')),
+                              onPressed: status == 'CANCELLED' ? null : () => _setStatus('CANCELLED'),
+                            ),
                           ]),
                         ]),
                       ),
@@ -246,9 +283,25 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(children: [
-                Expanded(child: TextField(controller: _message, minLines: 1, maxLines: 4, decoration: const InputDecoration(hintText: 'Message buyer or seller', border: OutlineInputBorder()))),
+                Expanded(
+                  child: TextField(
+                    controller: _message,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: _t(context, 'Message buyer or seller', 'బయ్యర్ లేదా సెల్లర్‌కు సందేశం పంపండి'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 8),
-                IconButton.filled(onPressed: _sending ? null : _send, icon: _sending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
+                IconButton.filled(
+                  onPressed: _sending ? null : _send,
+                  tooltip: _t(context, 'Send', 'పంపండి'),
+                  icon: _sending
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.send),
+                ),
               ]),
             ),
           ),
@@ -300,7 +353,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton.tonal(onPressed: onRetry, child: const Text('Retry')),
+            FilledButton.tonal(onPressed: onRetry, child: Text(_t(context, 'Retry', 'మళ్లీ ప్రయత్నించండి'))),
           ]),
         ),
       );
