@@ -10,12 +10,13 @@ class SellerShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
+    final te = Localizations.localeOf(context).languageCode == 'te';
     final destinations = [
       (strings.sellerDashboard, Icons.dashboard_outlined, '/seller/dashboard'),
       (strings.sellerProducts, Icons.inventory_2_outlined, '/seller/products'),
       (strings.sellerRequests, Icons.campaign_outlined, '/seller/requests'),
       (strings.sellerInsights, Icons.insights_outlined, '/seller/insights'),
-      ('Engagement', Icons.campaign_outlined, '/seller/engagement'),
+      (te ? 'కస్టమర్ ఎంగేజ్‌మెంట్' : 'Engagement', Icons.campaign_outlined, '/seller/engagement'),
       (strings.sellerProfile, Icons.store_outlined, '/seller/profile'),
       (strings.billing, Icons.workspace_premium_outlined, '/seller/usage'),
     ];
