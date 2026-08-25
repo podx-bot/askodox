@@ -8,31 +8,32 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const destinations = <NavigationDestination>[
+    final isTe = Localizations.localeOf(context).languageCode == 'te';
+    final destinations = <NavigationDestination>[
       NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home_rounded),
-        label: 'Home',
+        icon: const Icon(Icons.home_outlined),
+        selectedIcon: const Icon(Icons.home_rounded),
+        label: isTe ? 'హోమ్' : 'Home',
       ),
       NavigationDestination(
-        icon: Icon(Icons.history_rounded),
-        selectedIcon: Icon(Icons.history_toggle_off_rounded),
-        label: 'History',
+        icon: const Icon(Icons.history_rounded),
+        selectedIcon: const Icon(Icons.history_toggle_off_rounded),
+        label: isTe ? 'హిస్టరీ' : 'History',
       ),
-      NavigationDestination(
+      const NavigationDestination(
         icon: Icon(Icons.smart_toy_outlined),
         selectedIcon: Icon(Icons.smart_toy_rounded),
         label: 'ASKODOX',
       ),
       NavigationDestination(
-        icon: Icon(Icons.notifications_none_rounded),
-        selectedIcon: Icon(Icons.notifications_rounded),
-        label: 'Activity',
+        icon: const Icon(Icons.notifications_none_rounded),
+        selectedIcon: const Icon(Icons.notifications_rounded),
+        label: isTe ? 'యాక్టివిటీ' : 'Activity',
       ),
       NavigationDestination(
-        icon: Icon(Icons.person_outline_rounded),
-        selectedIcon: Icon(Icons.person_rounded),
-        label: 'Profile',
+        icon: const Icon(Icons.person_outline_rounded),
+        selectedIcon: const Icon(Icons.person_rounded),
+        label: isTe ? 'ప్రొఫైల్' : 'Profile',
       ),
     ];
 
