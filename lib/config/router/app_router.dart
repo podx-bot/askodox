@@ -29,6 +29,7 @@ import '../../features/watchlist/presentation/preferences_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
 import '../../features/admin/application/admin_controller.dart';
 import '../../features/admin/presentation/admin_screens.dart';
+import '../../features/admin/presentation/localized_admin_entry.dart';
 import '../../features/location/presentation/location_setup_screen.dart';
 import '../../features/location/presentation/nearby_shops_screen.dart';
 import '../../features/location/presentation/shop_details_screen.dart';
@@ -69,21 +70,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/watchlist', builder: (context, state) => const WatchlistScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/alerts', builder: (context, state) => const AlertsScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
-        ]),
+        StatefulShellBranch(routes: [GoRoute(path: '/', builder: (context, state) => const HomeScreen())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/search', builder: (context, state) => const SearchScreen())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/watchlist', builder: (context, state) => const WatchlistScreen())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/alerts', builder: (context, state) => const AlertsScreen())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen())]),
       ],
     ),
     GoRoute(path: '/location', builder: (context, state) => const LocationSetupScreen()),
@@ -105,14 +96,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/communications/following', builder: (context, state) => const LocalizedFollowedShopsScreen()),
     GoRoute(path: '/communications/preferences', builder: (context, state) => const LocalizedCommunicationPreferencesScreen()),
     GoRoute(path: '/deals', builder: (context, state) => const DealInboxScreen()),
-    GoRoute(
-      path: '/deal/:requestId',
-      builder: (context, state) => DealThreadScreen(
-        requestId: int.tryParse(state.pathParameters['requestId'] ?? '') ?? 0,
-        userId: state.uri.queryParameters['user'] ?? '',
-        otherUserId: state.uri.queryParameters['other'] ?? '',
-      ),
-    ),
+    GoRoute(path: '/deal/:requestId', builder: (context, state) => DealThreadScreen(requestId: int.tryParse(state.pathParameters['requestId'] ?? '') ?? 0, userId: state.uri.queryParameters['user'] ?? '', otherUserId: state.uri.queryParameters['other'] ?? '')),
     GoRoute(path: '/alert-simulator', builder: (context, state) => const AlertSimulatorScreen()),
     GoRoute(path: '/analytics/buyer', builder: (context, state) => const BuyerInsightsScreen()),
     GoRoute(path: '/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen()),
@@ -125,14 +109,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       builder: (context, state, child) => SellerShell(child: child),
       routes: [
         GoRoute(path: '/seller/dashboard', builder: (context, state) => const SellerDashboardScreen()),
-        GoRoute(
-          path: '/seller/products',
-          builder: (context, state) => const SellerProductsScreen(),
-          routes: [
-            GoRoute(path: 'add', builder: (context, state) => const AddSellerProductScreen()),
-            GoRoute(path: 'request', builder: (context, state) => const RequestNewProductScreen()),
-          ],
-        ),
+        GoRoute(path: '/seller/products', builder: (context, state) => const SellerProductsScreen(), routes: [
+          GoRoute(path: 'add', builder: (context, state) => const AddSellerProductScreen()),
+          GoRoute(path: 'request', builder: (context, state) => const RequestNewProductScreen()),
+        ]),
         GoRoute(path: '/seller/requests', builder: (context, state) => const SellerRequestsScreen()),
         GoRoute(path: '/seller/insights', builder: (context, state) => const SellerInsightsScreen()),
         GoRoute(path: '/seller/profile', builder: (context, state) => const SellerProfileScreen()),
@@ -154,12 +134,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ],
     ),
     GoRoute(path: '/admin/subscriptions', builder: (context, state) => const AdminMonetizationScreen()),
-    GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
+    GoRoute(path: '/admin/login', builder: (context, state) => const LocalizedAdminLoginScreen()),
     GoRoute(path: '/admin/announcements', builder: (context, state) => const AnnouncementScreen()),
     GoRoute(path: '/admin/analytics', builder: (context, state) => const AdminBusinessIntelligenceScreen()),
     GoRoute(path: '/admin/reports', builder: (context, state) => const ReportBuilderScreen()),
     ShellRoute(
-      builder: (context, state, child) => AdminShell(child: child),
+      builder: (context, state, child) => LocalizedAdminShell(child: child),
       routes: [
         for (final section in AdminSection.values)
           GoRoute(path: '/admin/${section.name}', builder: (context, state) => AdminSectionScreen(section: section)),
