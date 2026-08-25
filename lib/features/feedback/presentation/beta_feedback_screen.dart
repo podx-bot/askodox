@@ -27,7 +27,10 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
   String _categoryLabel(FeedbackCategory value) => switch (value) {
         FeedbackCategory.bug => _t('Bug', 'బగ్'),
         FeedbackCategory.feature => _t('Feature', 'ఫీచర్'),
-        FeedbackCategory.usability => _t('Usability', 'వాడుక సౌలభ్యం'),
+        FeedbackCategory.ui => _t('UI', 'యూజర్ ఇంటర్‌ఫేస్'),
+        FeedbackCategory.search => _t('Search', 'సెర్చ్'),
+        FeedbackCategory.price => _t('Price', 'ధర'),
+        FeedbackCategory.seller => _t('Seller', 'సెల్లర్'),
         FeedbackCategory.performance => _t('Performance', 'పనితీరు'),
         FeedbackCategory.other => _t('Other', 'ఇతర'),
       };
@@ -36,7 +39,7 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
         FeedbackSeverity.low => _t('Low', 'తక్కువ'),
         FeedbackSeverity.medium => _t('Medium', 'మధ్యస్థ'),
         FeedbackSeverity.high => _t('High', 'ఎక్కువ'),
-        FeedbackSeverity.critical => _t('Critical', 'తీవ్రమైనది'),
+        FeedbackSeverity.blocking => _t('Blocking', 'పూర్తిగా అడ్డుకుంటోంది'),
       };
 
   @override
