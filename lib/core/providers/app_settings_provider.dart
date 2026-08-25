@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 @immutable
 class AppSettings {
@@ -15,20 +18,57 @@ class AppSettings {
 }
 
 class AppSettingsNotifier extends Notifier<AppSettings> {
+  static const _localeKey = 'askodox.locale';
+  bool _localeChangedInSession = false;
+
   @override
-  AppSettings build() => const AppSettings();
+  AppSettings build() {
+    Future.microtask(_restoreLocale);
+    return const AppSettings();
+  }
+
+  Future<void> _restoreLocale() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (_localeChangedInSession) return;
+
+    final languageCode = preferences.getString(_localeKey);
+    if (languageCode == null || languageCode.trim().isEmpty) return;
+
+    state = AppSettings(
+      themeMode: state.themeMode,
+      locale: Locale(languageCode),
+    );
+  }
 
   void setThemeMode(ThemeMode mode) => state = state.copyWith(themeMode: mode);
 
-  void setLocale(Locale locale) => state = AppSettings(
-        themeMode: state.themeMode,
-        locale: locale,
-      );
+  void setLocale(Locale locale) {
+    _localeChangedInSession = true;
+    state = AppSettings(
+      themeMode: state.themeMode,
+      locale: locale,
+    );
+    unawaited(_persistLocale(locale.languageCode));
+  }
 
-  void useSystemLocale() => state = AppSettings(
-        themeMode: state.themeMode,
-        locale: null,
-      );
+  Future<void> _persistLocale(String languageCode) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_localeKey, languageCode);
+  }
+
+  void useSystemLocale() {
+    _localeChangedInSession = true;
+    state = AppSettings(
+      themeMode: state.themeMode,
+      locale: null,
+    );
+    unawaited(_clearPersistedLocale());
+  }
+
+  Future<void> _clearPersistedLocale() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_localeKey);
+  }
 }
 
 final appSettingsProvider =
