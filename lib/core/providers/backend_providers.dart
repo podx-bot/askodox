@@ -12,10 +12,16 @@ import '../storage/file_storage.dart';
 import '../sync/sync_models.dart';
 
 final appConfigProvider = Provider<AppConfig>((ref) {
+  final apiBaseUrl = const String.fromEnvironment('API_BASE_URL');
+  final explicitBackend = const String.fromEnvironment('BACKEND_PROVIDER');
+  final resolvedBackend = explicitBackend.isNotEmpty
+      ? explicitBackend
+      : (apiBaseUrl.isNotEmpty ? 'rest' : 'mock');
+
   return AppConfig.fromEnvironment({
     'APP_ENV': const String.fromEnvironment('APP_ENV', defaultValue: 'development'),
-    'BACKEND_PROVIDER': const String.fromEnvironment('BACKEND_PROVIDER', defaultValue: 'mock'),
-    'API_BASE_URL': const String.fromEnvironment('API_BASE_URL'),
+    'BACKEND_PROVIDER': resolvedBackend,
+    'API_BASE_URL': apiBaseUrl,
     'STORAGE_URL': const String.fromEnvironment('STORAGE_URL'),
     'AUTH_OTP_ENABLED': const String.fromEnvironment('AUTH_OTP_ENABLED', defaultValue: 'false'),
     'MAPS_PROVIDER': const String.fromEnvironment('MAPS_PROVIDER', defaultValue: 'mock'),
