@@ -20,34 +20,29 @@ Widget _screen(Widget child) => ProviderScope(
     );
 
 void main() {
-  testWidgets('renders ASKODOX AI-first home structure', (tester) async {
+  testWidgets('renders ASKODOX bright AI-first home structure', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
-    expect(find.text('ASKODOX AI', findRichText: true), findsOneWidget);
-    expect(find.text('Ask anything. Get matched, compared, done.'), findsOneWidget);
+    expect(find.text('ASKODOX AI'), findsOneWidget);
+    expect(find.text('Hi! I’m ASKODOX AI'), findsOneWidget);
+    expect(find.textContaining('Tell me what you need.'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
-    expect(find.text('Quick actions'), findsOneWidget);
-    expect(find.text('Explore more on ASKODOX'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
+    expect(find.text('Recent history'), findsOneWidget);
   });
 
-  testWidgets('renders universal ASKODOX deal workspace', (tester) async {
+  testWidgets('renders conversation-first ASKODOX workspace', (tester) async {
     await tester.pumpWidget(_screen(const SearchScreen()));
     await tester.pump();
 
     expect(find.byType(AppBar), findsOneWidget);
     expect(find.text('ASKODOX'), findsOneWidget);
-    expect(find.text('Explore ASKODOX'), findsOneWidget);
-    expect(find.textContaining('same AI Deal Brain'), findsOneWidget);
-    expect(find.text('Buy & Sell'), findsOneWidget);
-
-    final askNaturally = find.text('Ask ASKODOX naturally');
-    await tester.scrollUntilVisible(
-      askNaturally,
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(askNaturally, findsOneWidget);
+    expect(find.text('Talk to ASKODOX'), findsOneWidget);
+    expect(find.textContaining('No separate search flow.'), findsOneWidget);
+    expect(find.text('I want chicken nearby'), findsOneWidget);
+    expect(find.text('I need a job'), findsOneWidget);
+    expect(find.text('I need a ride to Vijayawada'), findsOneWidget);
   });
 }
