@@ -76,7 +76,17 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       throw StateError(create.failure.message ?? 'Unable to create requirement.');
     }
     final created = (create as ApiSuccess<Map<String, Object?>>).data;
-    final dealId = '${created['id'] ?? created['deal_id'] ?? ''}';
+    var dealId = '${created['id'] ?? created['deal_id'] ?? ''}';
+
+    // Workflow-editor builds can intentionally run against the mock API when no
+    // API_BASE_URL is supplied. MockApiClient echoes the POST body, so it has no
+    // server-generated deal id. Keep the UX functional without pretending this is
+    // a live V2 match: return a local pending requirement with no matches.
+    if (dealId.isEmpty && _client is MockApiClient) {
+      dealId = 'local-${DateTime.now().microsecondsSinceEpoch}';
+      return UniversalMatchResult(dealId: dealId, matches: const []);
+    }
+
     if (dealId.isEmpty) {
       throw StateError('Matching backend did not return a deal id.');
     }
