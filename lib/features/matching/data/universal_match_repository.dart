@@ -6,12 +6,13 @@ import '../../../core/providers/backend_providers.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 
 String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
+final String _guestAppUserId = 'app-guest-${DateTime.now().microsecondsSinceEpoch}';
 
 final universalMatchRepositoryProvider = Provider<UniversalMatchRepository>((ref) {
   final user = ref.watch(authSessionProvider).user;
   return ApiUniversalMatchRepository(
     ref.watch(apiClientProvider),
-    appUserId: user == null ? null : _appUser(user.id),
+    appUserId: user == null ? _guestAppUserId : _appUser(user.id),
   );
 });
 
@@ -65,7 +66,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal) async {
     final userId = appUserId;
     if (userId == null || userId.isEmpty) {
-      throw StateError('Sign in before publishing a requirement.');
+      throw StateError('Unable to establish an app session for matching.');
     }
     final create = await _client.post<Map<String, Object?>>(
       '/deals',
