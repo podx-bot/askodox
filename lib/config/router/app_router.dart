@@ -46,6 +46,7 @@ import '../../features/communication/presentation/communication_screens.dart';
 import '../../features/communication/presentation/localized_communication_screens.dart';
 import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
+import '../../features/analytics/presentation/localized_analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
 
@@ -114,7 +115,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(path: '/seller/subscription', builder: (context, state) => const SubscriptionScreen()),
         GoRoute(path: '/seller/invoices', builder: (context, state) => const InvoiceHistoryScreen()),
         GoRoute(path: '/seller/engagement', builder: (context, state) => const SellerEngagementScreen()),
-        GoRoute(path: '/seller/analytics', builder: (context, state) => const SellerAnalyticsScreen()),
+        GoRoute(path: '/seller/analytics', builder: (context, state) => const LocalizedSellerAnalyticsScreen()),
         GoRoute(path: '/seller/analytics/products', builder: (context, state) => const ProductPerformanceScreen()),
         GoRoute(path: '/seller/analytics/market', builder: (context, state) => const SellerMarketAnalyticsScreen()),
         GoRoute(path: '/seller/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen(seller:true)),
