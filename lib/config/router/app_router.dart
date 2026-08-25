@@ -42,6 +42,7 @@ import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
 import '../../features/communication/domain/communication_models.dart';
 import '../../features/communication/presentation/communication_screens.dart';
+import '../../features/communication/presentation/localized_communication_screens.dart';
 import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
@@ -98,11 +99,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(path: '/discover/image', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.image)),
     GoRoute(path: '/discover/voice', builder: (context, state) => const ProductDiscoveryScreen(mode: SearchIntentType.voice)),
     GoRoute(path: '/notification-preferences', builder: (context, state) => const NotificationPreferencesScreen()),
-    GoRoute(path: '/communications', builder: (context, state) => const CommunicationHubScreen()),
-    GoRoute(path: '/communications/notifications', builder: (context, state) => const NotificationCenterScreen()),
-    GoRoute(path: '/communications/requests', builder: (context, state) => const BuyerRequestsScreen()),
-    GoRoute(path: '/communications/following', builder: (context, state) => const FollowedShopsScreen()),
-    GoRoute(path: '/communications/preferences', builder: (context, state) => const CommunicationPreferencesScreen()),
+    GoRoute(path: '/communications', builder: (context, state) => const LocalizedCommunicationHubScreen()),
+    GoRoute(path: '/communications/notifications', builder: (context, state) => const LocalizedNotificationCenterScreen()),
+    GoRoute(path: '/communications/requests', builder: (context, state) => const LocalizedBuyerRequestsScreen()),
+    GoRoute(path: '/communications/following', builder: (context, state) => const LocalizedFollowedShopsScreen()),
+    GoRoute(path: '/communications/preferences', builder: (context, state) => const LocalizedCommunicationPreferencesScreen()),
     GoRoute(path: '/deals', builder: (context, state) => const DealInboxScreen()),
     GoRoute(
       path: '/deal/:requestId',
