@@ -6,19 +6,22 @@ class WatchlistScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTelugu = Localizations.localeOf(context).languageCode == 'te';
+    String t(String english, String telugu) => isTelugu ? telugu : english;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'History',
-          style: TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900),
+        title: Text(
+          t('History', 'చరిత్ర'),
+          style: const TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900),
         ),
         actions: [
           IconButton(
-            tooltip: 'Filter history',
+            tooltip: t('Filter history', 'చరిత్రను ఫిల్టర్ చేయండి'),
             onPressed: () {},
             icon: const Icon(Icons.tune_rounded, color: Color(0xFF1769FF)),
           ),
@@ -27,56 +30,59 @@ class WatchlistScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
         children: [
-          const Text(
-            'Continue where you left off',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
+          Text(
+            t('Continue where you left off', 'మీరు ఆపిన చోటు నుంచే కొనసాగించండి'),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Every ask, clarification, result and deal stays together as one ASKODOX timeline.',
-            style: TextStyle(color: Color(0xFF667085), height: 1.4),
+          Text(
+            t(
+              'Every ask, clarification, result and deal stays together as one ASKODOX timeline.',
+              'మీ ప్రతి ప్రశ్న, వివరణ, ఫలితం మరియు డీల్ అన్నీ ఒకే ASKODOX టైమ్‌లైన్‌లో కలిసి ఉంటాయి.',
+            ),
+            style: const TextStyle(color: Color(0xFF667085), height: 1.4),
           ),
           const SizedBox(height: 18),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: const [
-              _FilterChipLabel('All', true),
-              _FilterChipLabel('Active', false),
-              _FilterChipLabel('Matched', false),
-              _FilterChipLabel('Completed', false),
+            children: [
+              _FilterChipLabel(t('All', 'అన్నీ'), true),
+              _FilterChipLabel(t('Active', 'యాక్టివ్'), false),
+              _FilterChipLabel(t('Matched', 'మ్యాచ్ అయినవి'), false),
+              _FilterChipLabel(t('Completed', 'పూర్తైనవి'), false),
             ],
           ),
           const SizedBox(height: 18),
           _HistoryCard(
             icon: Icons.shopping_bag_outlined,
-            title: 'Chicken nearby',
-            status: 'Matches ready',
-            time: 'Just now',
+            title: t('Chicken nearby', 'దగ్గరలో చికెన్'),
+            status: t('Matches ready', 'మ్యాచ్లు సిద్ధంగా ఉన్నాయి'),
+            time: t('Just now', 'ఇప్పుడే'),
             accent: const Color(0xFF10A53A),
             onTap: () => context.go('/search'),
           ),
           _HistoryCard(
             icon: Icons.work_outline_rounded,
-            title: 'Computer operator job',
-            status: 'Need one more detail',
-            time: '2 hours ago',
+            title: t('Computer operator job', 'కంప్యూటర్ ఆపరేటర్ ఉద్యోగం'),
+            status: t('Need one more detail', 'ఇంకో వివరము కావాలి'),
+            time: t('2 hours ago', '2 గంటల క్రితం'),
             accent: const Color(0xFF1769FF),
             onTap: () => context.go('/search'),
           ),
           _HistoryCard(
             icon: Icons.directions_car_outlined,
-            title: 'Ride to Vijayawada',
-            status: '3 matches found',
-            time: 'Yesterday',
+            title: t('Ride to Vijayawada', 'విజయవాడకు రైడ్'),
+            status: t('3 matches found', '3 మ్యాచ్లు దొరికాయి'),
+            time: t('Yesterday', 'నిన్న'),
             accent: const Color(0xFFFF8A00),
             onTap: () => context.go('/search'),
           ),
           _HistoryCard(
             icon: Icons.home_repair_service_outlined,
-            title: 'AC service',
-            status: 'Completed',
-            time: '3 days ago',
+            title: t('AC service', 'ఏసీ సర్వీస్'),
+            status: t('Completed', 'పూర్తైంది'),
+            time: t('3 days ago', '3 రోజుల క్రితం'),
             accent: const Color(0xFF8E5CF7),
             onTap: () => context.go('/search'),
           ),
@@ -87,7 +93,7 @@ class WatchlistScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         onPressed: () => context.go('/'),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('New ask', style: TextStyle(fontWeight: FontWeight.w800)),
+        label: Text(t('New ask', 'కొత్త ప్రశ్న'), style: const TextStyle(fontWeight: FontWeight.w800)),
       ),
     );
   }
