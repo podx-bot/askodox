@@ -41,9 +41,8 @@ import '../../features/developer/presentation/storage_usage_screen.dart';
 import '../../features/developer/presentation/performance_monitor_screen.dart';
 import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
-import '../../features/communication/domain/communication_models.dart';
-import '../../features/communication/presentation/communication_screens.dart';
 import '../../features/communication/presentation/localized_communication_screens.dart';
+import '../../features/communication/presentation/localized_seller_communication_screens.dart';
 import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/analytics/presentation/localized_analytics_screens.dart';
@@ -114,12 +113,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(path: '/seller/plans', builder: (context, state) => const PricingScreen(), routes: [GoRoute(path: 'compare', builder: (context, state) => const PlanComparisonScreen()), GoRoute(path: 'review', builder: (context, state) => const OrderReviewScreen()), GoRoute(path: 'payment', builder: (context, state) => const PaymentScreen())]),
         GoRoute(path: '/seller/subscription', builder: (context, state) => const SubscriptionScreen()),
         GoRoute(path: '/seller/invoices', builder: (context, state) => const InvoiceHistoryScreen()),
-        GoRoute(path: '/seller/engagement', builder: (context, state) => const SellerEngagementScreen()),
+        GoRoute(path: '/seller/engagement', builder: (context, state) => const LocalizedSellerEngagementScreen()),
         GoRoute(path: '/seller/analytics', builder: (context, state) => const LocalizedSellerAnalyticsScreen()),
         GoRoute(path: '/seller/analytics/products', builder: (context, state) => const LocalizedProductPerformanceScreen()),
         GoRoute(path: '/seller/analytics/market', builder: (context, state) => const LocalizedSellerMarketAnalyticsScreen()),
         GoRoute(path: '/seller/analytics/privacy', builder: (context, state) => const AnalyticsPrivacyScreen(seller:true)),
-        GoRoute(path: '/seller/notifications', builder: (context, state) => const NotificationCenterScreen(audience: Audience.seller)),
+        GoRoute(path: '/seller/notifications', builder: (context, state) => const LocalizedSellerNotificationCenterScreen()),
       ]),
       GoRoute(path: '/admin/subscriptions', builder: (context, state) => const AdminMonetizationScreen()),
       GoRoute(path: '/admin/login', builder: (context, state) => const LocalizedAdminLoginScreen()),
