@@ -17,10 +17,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _focusNode = FocusNode();
 
   static final _telugu = RegExp(r'[\u0C00-\u0C7F]');
+  static final _hindi = RegExp(r'[\u0900-\u097F]');
+  static final _odia = RegExp(r'[\u0B00-\u0B7F]');
+
+  String _effectiveLanguage() {
+    final manual = ref.read(appSettingsProvider).locale?.languageCode;
+    if (manual != null) return manual;
+    final device = Localizations.localeOf(context).languageCode;
+    return const {'en', 'te', 'hi', 'or'}.contains(device) ? device : 'en';
+  }
+
+  String _tr(String en, String te, String hi, String or) {
+    return switch (_effectiveLanguage()) {
+      'te' => te,
+      'hi' => hi,
+      'or' => or,
+      _ => en,
+    };
+  }
 
   void _startFlow(String text) {
     if (_telugu.hasMatch(text)) {
       ref.read(appSettingsProvider.notifier).setLocale(const Locale('te'));
+    } else if (_hindi.hasMatch(text)) {
+      ref.read(appSettingsProvider.notifier).setLocale(const Locale('hi'));
+    } else if (_odia.hasMatch(text)) {
+      ref.read(appSettingsProvider.notifier).setLocale(const Locale('or'));
     }
     ref.read(universalDealControllerProvider.notifier).start(text);
     context.go('/search');
@@ -38,46 +60,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _pickLanguage() async {
     final settings = ref.read(appSettingsProvider);
     final selected = settings.locale == null ? 'system' : settings.locale!.languageCode;
-    final isTe = settings.locale?.languageCode == 'te';
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 4, 14, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE8F8ED),
-                  child: Icon(Icons.language_rounded, color: Color(0xFF10A53A)),
+      builder: (context) => Theme(
+        data: Theme.of(context).copyWith(
+          brightness: Brightness.light,
+          textTheme: Theme.of(context).textTheme.apply(bodyColor: const Color(0xFF14213D), displayColor: const Color(0xFF14213D)),
+          radioTheme: const RadioThemeData(fillColor: WidgetStatePropertyAll(Color(0xFF1769FF))),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8F8ED),
+                    child: Icon(Icons.language_rounded, color: Color(0xFF10A53A)),
+                  ),
+                  title: Text(
+                    _tr('Language', 'భాష', 'भाषा', 'ଭାଷା'),
+                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
+                  ),
+                  subtitle: Text(
+                    _tr(
+                      'Auto follows your device language. You can change it anytime.',
+                      'ఆటో మీ డివైస్ భాషను అనుసరిస్తుంది. ఎప్పుడైనా మార్చుకోవచ్చు.',
+                      'ऑटो आपके डिवाइस की भाषा का उपयोग करता है। आप इसे कभी भी बदल सकते हैं।',
+                      'ଅଟୋ ଆପଣଙ୍କ ଡିଭାଇସ୍ ଭାଷାକୁ ବ୍ୟବହାର କରେ। ଯେକୋଣସି ସମୟରେ ବଦଳାଇ ପାରିବେ।',
+                    ),
+                    style: const TextStyle(color: Color(0xFF667085)),
+                  ),
                 ),
-                title: Text(isTe ? 'భాష' : 'Language', style: const TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: Text(isTe
-                    ? 'డివైస్ భాషను ఆటోగా అనుసరించవచ్చు. ఎప్పుడైనా మార్చుకోవచ్చు.'
-                    : 'Auto follows your device. You can change it anytime.'),
-              ),
-              RadioListTile<String>(
-                value: 'system',
-                groupValue: selected,
-                onChanged: (value) => Navigator.pop(context, value),
-                title: Text(isTe ? 'ఆటో / డివైస్ భాష' : 'Auto / Device language'),
-              ),
-              RadioListTile<String>(
-                value: 'en',
-                groupValue: selected,
-                onChanged: (value) => Navigator.pop(context, value),
-                title: const Text('English'),
-              ),
-              RadioListTile<String>(
-                value: 'te',
-                groupValue: selected,
-                onChanged: (value) => Navigator.pop(context, value),
-                title: const Text('తెలుగు'),
-              ),
-            ],
+                _languageChoice(selected, 'system', _tr('Auto / Device language', 'ఆటో / డివైస్ భాష', 'ऑटो / डिवाइस भाषा', 'ଅଟୋ / ଡିଭାଇସ୍ ଭାଷା')),
+                _languageChoice(selected, 'en', 'English'),
+                _languageChoice(selected, 'hi', 'हिन्दी'),
+                _languageChoice(selected, 'te', 'తెలుగు'),
+                _languageChoice(selected, 'or', 'ଓଡ଼ିଆ'),
+              ],
+            ),
           ),
         ),
       ),
@@ -90,6 +114,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Widget _languageChoice(String selected, String value, String label) => RadioListTile<String>(
+        value: value,
+        groupValue: selected,
+        activeColor: const Color(0xFF1769FF),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        onChanged: (choice) => Navigator.pop(context, choice),
+        title: Text(label, style: const TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w700)),
+      );
+
   @override
   void dispose() {
     _controller.dispose();
@@ -99,9 +132,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final locale = ref.watch(appSettingsProvider).locale;
-    final isTe = locale?.languageCode == 'te';
-    final languageLabel = locale == null ? (isTe ? 'ఆటో' : 'Auto') : (isTe ? 'తెలుగు' : 'EN');
+    final settings = ref.watch(appSettingsProvider);
+    final effective = settings.locale?.languageCode ?? Localizations.localeOf(context).languageCode;
+    final languageLabel = settings.locale == null
+        ? 'Auto'
+        : switch (effective) {
+            'te' => 'తెలుగు',
+            'hi' => 'हिन्दी',
+            'or' => 'ଓଡ଼ିଆ',
+            _ => 'EN',
+          };
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
@@ -110,14 +150,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          tooltip: isTe ? 'మెను' : 'Menu',
+          tooltip: _tr('Menu', 'మెను', 'मेनू', 'ମେନୁ'),
           onPressed: () => context.go('/profile'),
           icon: const Icon(Icons.menu_rounded, color: Color(0xFF14213D)),
         ),
-        title: const Text(
-          'ASKODOX AI',
-          style: TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900),
-        ),
+        title: const Text('ASKODOX AI', style: TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900)),
         actions: [
           TextButton.icon(
             key: const Key('askodoxLanguageButton'),
@@ -153,13 +190,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              isTe ? 'హాయ్! నేను ASKODOX AI' : 'Hi! I’m ASKODOX AI',
+              _tr('Hi! I’m ASKODOX AI', 'హాయ్! నేను ASKODOX AI', 'नमस्ते! मैं ASKODOX AI हूँ', 'ନମସ୍କାର! ମୁଁ ASKODOX AI'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
             ),
             const SizedBox(height: 7),
             Text(
-              isTe ? 'మీకు కావాల్సింది చెప్పండి. నేను అర్థం చేసుకుని, అవసరమైనది మాత్రమే అడిగి, సరైన మ్యాచ్ కనుగొంటాను.' : 'Tell me what you need. I’ll understand it, clarify only what’s missing, and find the best match.',
+              _tr(
+                'Tell me what you need. I’ll understand it, clarify only what’s missing, and find the best match.',
+                'మీకు కావాల్సింది చెప్పండి. నేను అర్థం చేసుకుని, అవసరమైనది మాత్రమే అడిగి, సరైన మ్యాచ్ కనుగొంటాను.',
+                'आपको क्या चाहिए बताइए। मैं समझकर केवल जरूरी जानकारी पूछूँगा और सही मैच ढूँढूँगा।',
+                'ଆପଣଙ୍କୁ କଣ ଦରକାର କୁହନ୍ତୁ। ମୁଁ ବୁଝି କେବଳ ଆବଶ୍ୟକ ତଥ୍ୟ ପଚାରି ସଠିକ୍ ମ୍ୟାଚ୍ ଖୋଜିବି।',
+              ),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFF667085)),
             ),
@@ -181,7 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 maxLines: 4,
                 style: const TextStyle(color: Color(0xFF14213D), fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: isTe ? 'మీకు ఏమి కావాలో చెప్పండి…' : 'Talk or type what you need…',
+                  hintText: _tr('Talk or type what you need…', 'మీకు ఏమి కావాలో చెప్పండి…', 'अपनी जरूरत बोलें या लिखें…', 'ଆପଣଙ୍କ ଆବଶ୍ୟକତା କୁହନ୍ତୁ କିମ୍ବା ଲେଖନ୍ତୁ…'),
                   hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
                   prefixIcon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF10A53A)),
                   suffixIcon: Row(
@@ -189,18 +231,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       IconButton(
                         key: const Key('askodoxMicButton'),
-                        tooltip: isTe ? 'వాయిస్' : 'Voice',
+                        tooltip: _tr('Voice', 'వాయిస్', 'वॉइस', 'ଭଏସ୍'),
                         onPressed: () => context.go('/discover/voice'),
                         icon: const Icon(Icons.mic_rounded, color: Color(0xFF10A53A)),
                       ),
                       IconButton(
                         key: const Key('askodoxSendButton'),
-                        tooltip: isTe ? 'ASKODOXని అడగండి' : 'Ask ASKODOX',
+                        tooltip: _tr('Ask ASKODOX', 'ASKODOXని అడగండి', 'ASKODOX से पूछें', 'ASKODOX କୁ ପଚାରନ୍ତୁ'),
                         onPressed: _submit,
-                        icon: const CircleAvatar(
-                          backgroundColor: Color(0xFF1769FF),
-                          child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
-                        ),
+                        icon: const CircleAvatar(backgroundColor: Color(0xFF1769FF), child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20)),
                       ),
                     ],
                   ),
@@ -213,28 +252,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  isTe ? 'ఇటీవలి హిస్టరీ' : 'Recent history',
-                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
-                ),
-                TextButton(
-                  onPressed: () => context.go('/watchlist'),
-                  child: Text(isTe ? 'అన్నీ చూడండి' : 'See all'),
-                ),
+                Text(_tr('Recent history', 'ఇటీవలి హిస్టరీ', 'हाल की हिस्ट्री', 'ସମ୍ପ୍ରତି ଇତିହାସ'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
+                TextButton(onPressed: () => context.go('/watchlist'), child: Text(_tr('See all', 'అన్నీ చూడండి', 'सभी देखें', 'ସବୁ ଦେଖନ୍ତୁ'))),
               ],
             ),
             const SizedBox(height: 6),
             _HistoryPreview(
               icon: Icons.shopping_bag_outlined,
-              title: isTe ? 'దగ్గరలో చికెన్ కావాలి' : 'Chicken nearby',
-              subtitle: isTe ? 'మ్యాచ్‌లు సిద్ధంగా ఉన్నాయి' : 'Matches ready',
-              onTap: () => _startFlow(isTe ? 'నాకు దగ్గరలో చికెన్ కావాలి' : 'I want chicken nearby'),
+              title: _tr('Chicken nearby', 'దగ్గరలో చికెన్ కావాలి', 'पास में चिकन', 'ନିକଟରେ ଚିକେନ୍'),
+              subtitle: _tr('Matches ready', 'మ్యాచ్‌లు సిద్ధంగా ఉన్నాయి', 'मैच तैयार हैं', 'ମ୍ୟାଚ୍ ପ୍ରସ୍ତୁତ'),
+              onTap: () => _startFlow(_tr('I want chicken nearby', 'నాకు దగ్గరలో చికెన్ కావాలి', 'मुझे पास में चिकन चाहिए', 'ମୋତେ ନିକଟରେ ଚିକେନ୍ ଦରକାର')),
             ),
             _HistoryPreview(
               icon: Icons.work_outline_rounded,
-              title: isTe ? 'కంప్యూటర్ ఆపరేటర్ ఉద్యోగం' : 'Computer operator job',
-              subtitle: isTe ? 'సంభాషణ కొనసాగించండి' : 'Continue conversation',
-              onTap: () => _startFlow(isTe ? 'నాకు కంప్యూటర్ ఆపరేటర్ ఉద్యోగం కావాలి' : 'I need a computer operator job'),
+              title: _tr('Computer operator job', 'కంప్యూటర్ ఆపరేటర్ ఉద్యోగం', 'कंप्यूटर ऑपरेटर नौकरी', 'କମ୍ପ୍ୟୁଟର ଅପରେଟର ଚାକିରି'),
+              subtitle: _tr('Continue conversation', 'సంభాషణ కొనసాగించండి', 'बातचीत जारी रखें', 'କଥାବାର୍ତ୍ତା ଜାରି ରଖନ୍ତୁ'),
+              onTap: () => _startFlow(_tr('I need a computer operator job', 'నాకు కంప్యూటర్ ఆపరేటర్ ఉద్యోగం కావాలి', 'मुझे कंप्यूटर ऑपरेटर की नौकरी चाहिए', 'ମୋତେ କମ୍ପ୍ୟୁଟର ଅପରେଟର ଚାକିରି ଦରକାର')),
             ),
             const SizedBox(height: 18),
             Container(
@@ -245,20 +278,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 25,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.explore_rounded, color: Color(0xFF1769FF)),
-                  ),
+                  const CircleAvatar(radius: 25, backgroundColor: Colors.white, child: Icon(Icons.explore_rounded, color: Color(0xFF1769FF))),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(isTe ? 'ASKODOXలో మరిన్ని చూడండి' : 'Explore ASKODOX', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
+                        Text(_tr('Explore ASKODOX', 'ASKODOXలో మరిన్ని చూడండి', 'ASKODOX एक्सप्लोर करें', 'ASKODOX ଅନ୍ୱେଷଣ କରନ୍ତୁ'), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
                         const SizedBox(height: 3),
                         Text(
-                          isTe ? 'ఉద్యోగాలు, సేవలు, రైడ్లు మరియు మరిన్ని — అవసరమైనప్పుడు మాత్రమే షార్ట్‌కట్స్ తెరవండి.' : 'Jobs, services, rides and more — open only when you want shortcuts.',
+                          _tr(
+                            'Jobs, services, rides and more — open only when you want shortcuts.',
+                            'ఉద్యోగాలు, సేవలు, రైడ్లు మరియు మరిన్ని — అవసరమైనప్పుడు మాత్రమే షార్ట్‌కట్స్ తెరవండి.',
+                            'नौकरियाँ, सेवाएँ, राइड और बहुत कुछ — जरूरत होने पर ही शॉर्टकट खोलें।',
+                            'ଚାକିରି, ସେବା, ରାଇଡ୍ ଏବଂ ଅଧିକ — ଆବଶ୍ୟକ ହେଲେ ମାତ୍ର ଶର୍ଟକଟ୍ ଖୋଲନ୍ତୁ।',
+                          ),
                           style: const TextStyle(color: Color(0xFF667085), height: 1.35),
                         ),
                       ],
@@ -277,7 +311,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 class _HistoryPreview extends StatelessWidget {
   const _HistoryPreview({required this.icon, required this.title, required this.subtitle, required this.onTap});
-
   final IconData icon;
   final String title;
   final String subtitle;
@@ -289,16 +322,10 @@ class _HistoryPreview extends StatelessWidget {
         surfaceTintColor: Colors.white,
         margin: const EdgeInsets.only(bottom: 10),
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFE5EAF2)),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Color(0xFFE5EAF2))),
         child: ListTile(
           onTap: onTap,
-          leading: CircleAvatar(
-            backgroundColor: const Color(0xFFEAF1FF),
-            child: Icon(icon, color: const Color(0xFF1769FF)),
-          ),
+          leading: CircleAvatar(backgroundColor: const Color(0xFFEAF1FF), child: Icon(icon, color: const Color(0xFF1769FF))),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF14213D))),
           subtitle: Text(subtitle),
           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
