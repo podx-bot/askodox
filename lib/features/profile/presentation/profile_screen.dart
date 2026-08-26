@@ -1,9 +1,85 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/update/askodox_update_service.dart';
 import '../../../generated/l10n/app_localizations.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final AskodoxUpdateService _updateService = const AskodoxUpdateService();
+
+  AskodoxUpdateInfo? _updateInfo;
+  bool _checkingUpdate = false;
+  bool _installingUpdate = false;
+  double? _updateProgress;
+  String? _updateMessage;
+
+  Future<void> _checkForUpdate() async {
+    if (_checkingUpdate || _installingUpdate) return;
+
+    if (!AskodoxUpdateService.enabled) {
+      setState(() {
+        _updateInfo = null;
+        _updateMessage = 'In-app updates are enabled in signed release builds.';
+      });
+      return;
+    }
+
+    setState(() {
+      _checkingUpdate = true;
+      _updateMessage = null;
+    });
+
+    final info = await _updateService.checkForUpdate();
+    if (!mounted) return;
+
+    setState(() {
+      _checkingUpdate = false;
+      _updateInfo = info;
+      _updateMessage = info == null
+          ? 'ASKODOX is up to date.'
+          : 'ASKODOX ${info.version} is ready to install.';
+    });
+  }
+
+  Future<void> _installUpdate() async {
+    final info = _updateInfo;
+    if (info == null || _installingUpdate) return;
+
+    setState(() {
+      _installingUpdate = true;
+      _updateProgress = 0;
+      _updateMessage = 'Downloading update…';
+    });
+
+    try {
+      await _updateService.downloadAndInstall(
+        info,
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() => _updateProgress = progress);
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _installingUpdate = false;
+        _updateMessage = 'Update downloaded. Confirm the Android install prompt to finish.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _installingUpdate = false;
+        _updateProgress = null;
+        _updateMessage = 'Update could not be installed. Please try again.';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +109,60 @@ class ProfileScreen extends StatelessWidget {
                   )),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/seller/login'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.system_update_alt_rounded),
+                        title: Text(t('App update', 'యాప్ అప్‌డేట్')),
+                        subtitle: Text(t(
+                          'Check and install the latest signed ASKODOX build from inside the app.',
+                          'యాప్ నుంచే తాజా signed ASKODOX build‌ను చెక్ చేసి ఇన్‌స్టాల్ చేయండి.',
+                        )),
+                        trailing: _checkingUpdate
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                              )
+                            : IconButton(
+                                tooltip: t('Check for updates', 'అప్‌డేట్ చెక్ చేయండి'),
+                                onPressed: _checkForUpdate,
+                                icon: const Icon(Icons.refresh_rounded),
+                              ),
+                      ),
+                      if (_updateMessage != null) ...[
+                        const SizedBox(height: 4),
+                        Text(_updateMessage!, style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                      if (_installingUpdate) ...[
+                        const SizedBox(height: 10),
+                        LinearProgressIndicator(value: _updateProgress),
+                        const SizedBox(height: 6),
+                        Text(
+                          _updateProgress == null
+                              ? t('Downloading…', 'డౌన్‌లోడ్ అవుతోంది…')
+                              : '${(_updateProgress! * 100).round()}%',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                      if (_updateInfo != null && !_installingUpdate) ...[
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: _installUpdate,
+                          icon: const Icon(Icons.download_done_rounded),
+                          label: Text(t('Download & install update', 'అప్‌డేట్ డౌన్‌లోడ్ చేసి ఇన్‌స్టాల్ చేయండి')),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
