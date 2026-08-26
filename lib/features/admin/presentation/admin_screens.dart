@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../application/admin_controller.dart';
 import '../domain/admin_models.dart';
+import '../../communication/application/communication_controller.dart';
+import '../../communication/domain/communication_models.dart';
 
 class AdminLoginScreen extends ConsumerStatefulWidget { const AdminLoginScreen({super.key}); @override ConsumerState<AdminLoginScreen> createState() => _AdminLoginScreenState(); }
 class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   AdminRole role = AdminRole.superAdmin;
-  @override Widget build(BuildContext context) => Scaffold(body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: Card(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [Icon(Icons.admin_panel_settings, size: 54, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 16), Text('PODX Admin', style: Theme.of(context).textTheme.headlineMedium, textAlign: TextAlign.center), const Text('Mock secure access • local data only', textAlign: TextAlign.center), const SizedBox(height: 24), DropdownButtonFormField<AdminRole>(isExpanded: true, initialValue: role, decoration: const InputDecoration(labelText: 'Admin role', border: OutlineInputBorder()), items: [for (final value in AdminRole.values) DropdownMenuItem(value: value, child: Text(value.label, overflow: TextOverflow.ellipsis))], onChanged: (value) { if (value != null) setState(() => role = value); }), const SizedBox(height: 16), FilledButton.icon(onPressed: () async { await ref.read(adminControllerProvider.notifier).login(role); if (context.mounted) context.go('/admin/dashboard'); }, icon: const Icon(Icons.login), label: const Text('Sign in'))]))))));
+  @override Widget build(BuildContext context) => Scaffold(body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: Card(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [Icon(Icons.admin_panel_settings, size: 54, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 16), Text('ASKODOX Admin', style: Theme.of(context).textTheme.headlineMedium, textAlign: TextAlign.center), const Text('Mock secure access • local data only', textAlign: TextAlign.center), const SizedBox(height: 24), DropdownButtonFormField<AdminRole>(isExpanded: true, initialValue: role, decoration: const InputDecoration(labelText: 'Admin role', border: OutlineInputBorder()), items: [for (final value in AdminRole.values) DropdownMenuItem(value: value, child: Text(value.label, overflow: TextOverflow.ellipsis))], onChanged: (value) { if (value != null) setState(() => role = value); }), const SizedBox(height: 16), FilledButton.icon(onPressed: () async { await ref.read(adminControllerProvider.notifier).login(role); if (context.mounted) context.go('/admin/dashboard'); }, icon: const Icon(Icons.login), label: const Text('Sign in'))]))))));
 }
 
 class AdminShell extends ConsumerWidget {
@@ -20,7 +22,7 @@ class AdminShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.pathSegments.last;
     final current = allowed.indexWhere((e) => e.name == location);
     final destinations = [for (final section in allowed) NavigationRailDestination(icon: Icon(_icon(section)), label: Text(_label(section)))];
-    return LayoutBuilder(builder: (context, constraints) { final wide = constraints.maxWidth >= 850; return Scaffold(appBar: AppBar(title: Text('PODX Admin • ${user.role.label}'), actions: [IconButton(tooltip:'Analytics and BI',onPressed:()=>context.push('/admin/analytics'),icon:const Icon(Icons.analytics_outlined)),IconButton(tooltip:'Report builder',onPressed:()=>context.push('/admin/reports'),icon:const Icon(Icons.summarize_outlined)),if (!wide) PopupMenuButton<AdminSection>(icon: const Icon(Icons.menu), onSelected: (s) => context.go('/admin/${s.name}'), itemBuilder: (_) => [for (final s in allowed) PopupMenuItem(value: s, child: Text(_label(s)))]), IconButton(tooltip: 'Sign out', onPressed: () => context.go('/admin/login'), icon: const Icon(Icons.logout))]), body: Row(children: [if (wide) NavigationRail(extended: constraints.maxWidth >= 1150, selectedIndex: current < 0 ? 0 : current, onDestinationSelected: (i) => context.go('/admin/${allowed[i].name}'), destinations: destinations), if (wide) const VerticalDivider(width: 1), Expanded(child: child)])); });
+    return LayoutBuilder(builder: (context, constraints) { final wide = constraints.maxWidth >= 850; return Scaffold(appBar: AppBar(title: Text('ASKODOX Admin • ${user.role.label}'), actions: [IconButton(tooltip:'Analytics and BI',onPressed:()=>context.push('/admin/analytics'),icon:const Icon(Icons.analytics_outlined)),IconButton(tooltip:'Report builder',onPressed:()=>context.push('/admin/reports'),icon:const Icon(Icons.summarize_outlined)),if (!wide) PopupMenuButton<AdminSection>(icon: const Icon(Icons.menu), onSelected: (s) => context.go('/admin/${s.name}'), itemBuilder: (_) => [for (final s in allowed) PopupMenuItem(value: s, child: Text(_label(s)))]), IconButton(tooltip: 'Sign out', onPressed: () => context.go('/admin/login'), icon: const Icon(Icons.logout))]), body: Row(children: [if (wide) NavigationRail(extended: constraints.maxWidth >= 1150, selectedIndex: current < 0 ? 0 : current, onDestinationSelected: (i) => context.go('/admin/${allowed[i].name}'), destinations: destinations), if (wide) const VerticalDivider(width: 1), Expanded(child: child)])); });
   }
   static String _label(AdminSection s) => switch(s) { AdminSection.productRequests => 'Requests', AdminSection.searchQuality => 'Search quality', AdminSection.auditLog => 'Audit Log', _ => '${s.name[0].toUpperCase()}${s.name.substring(1)}' };
   static IconData _icon(AdminSection s) => switch(s) { AdminSection.dashboard => Icons.dashboard_outlined, AdminSection.sellers => Icons.store_outlined, AdminSection.catalog => Icons.inventory_2_outlined, AdminSection.productRequests => Icons.playlist_add_check, AdminSection.searchQuality => Icons.manage_search, AdminSection.moderation => Icons.gavel_outlined, AdminSection.support => Icons.support_agent, AdminSection.auditLog => Icons.history, AdminSection.settings => Icons.settings_outlined };
@@ -52,3 +54,75 @@ class AdminSectionScreen extends ConsumerWidget {
 
 class AdminFilters extends StatelessWidget { const AdminFilters({super.key}); @override Widget build(BuildContext context) => SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [for (final label in const ['Date range', 'Status', 'Category', 'Seller verification', 'Report type', 'Priority', 'Demand level']) Padding(padding: const EdgeInsets.only(right: 8), child: FilterChip(label: Text(label), selected: false, onSelected: (_) {}))])); }
 class _SearchIssue extends StatelessWidget { const _SearchIssue({required this.title,required this.detail,required this.icon}); final String title,detail; final IconData icon; @override Widget build(BuildContext context)=>Card(child:ListTile(leading:Icon(icon),title:Text(title),subtitle:Text(detail),trailing:const Chip(label:Text('Mock data')))); }
+
+class AnnouncementScreen extends ConsumerWidget {
+  const AnnouncementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(communicationControllerProvider);
+    final te = Localizations.localeOf(context).languageCode == 'te';
+    return Scaffold(
+      appBar: AppBar(title: Text(te ? 'ప్రకటనలు' : 'Announcements')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _publish(context, ref, te),
+        icon: const Icon(Icons.campaign_outlined),
+        label: Text(te ? 'కొత్త ప్రకటన' : 'New announcement'),
+      ),
+      body: state.announcements.isEmpty
+          ? Center(child: Text(te ? 'ఇంకా ప్రకటనలు లేవు' : 'No announcements yet'))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                for (final item in state.announcements)
+                  Card(
+                    child: ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.campaign_outlined)),
+                      title: Text(item.title),
+                      subtitle: Text('${item.body}\n${item.type.name} • ${item.publishedAt.toLocal().toString().split(' ').first}'),
+                      isThreeLine: true,
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  Future<void> _publish(BuildContext context, WidgetRef ref, bool te) async {
+    final title = TextEditingController();
+    final body = TextEditingController();
+    AnnouncementType type = AnnouncementType.feature;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(te ? 'ప్రకటన ప్రచురించండి' : 'Publish announcement'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: title, decoration: InputDecoration(labelText: te ? 'శీర్షిక' : 'Title')),
+                const SizedBox(height: 12),
+                TextField(controller: body, maxLines: 4, decoration: InputDecoration(labelText: te ? 'సందేశం' : 'Message')),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<AnnouncementType>(
+                  initialValue: type,
+                  decoration: InputDecoration(labelText: te ? 'రకం' : 'Type'),
+                  items: [for (final value in AnnouncementType.values) DropdownMenuItem(value: value, child: Text(value.name))],
+                  onChanged: (value) { if (value != null) setState(() => type = value); },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(te ? 'రద్దు' : 'Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(te ? 'ప్రచురించండి' : 'Publish')),
+          ],
+        ),
+      ),
+    );
+    if (ok == true && title.text.trim().isNotEmpty && body.text.trim().isNotEmpty) {
+      ref.read(communicationControllerProvider.notifier).publishAnnouncement(title.text.trim(), body.text.trim(), type);
+    }
+  }
+}
