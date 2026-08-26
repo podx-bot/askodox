@@ -1,6 +1,6 @@
-# PODX
+# ASKODOX
 
-PODX is a Material 3 local-commerce application for Android, iOS, and the web. It
+ASKODOX is a Material 3 local-commerce application for Android, iOS, and the web. It
 uses feature-first Clean Architecture, Riverpod state management, GoRouter
 navigation, responsive navigation rails/bars, system-aware light/dark themes, and
 English/Telugu localization.
@@ -49,7 +49,7 @@ products offer request, image-upload, and notification mock interactions.
 
 ## Sprint 15 beta workflow
 
-PODX remains a controlled, mock-first beta. Copy `.env.example` only for local
+ASKODOX remains a controlled, mock-first beta. Copy `.env.example` only for local
 configuration; never commit a populated environment file. Development uses the
 mock repository implementations. Staging/production must replace them behind the
 existing repository interfaces, and production configuration rejects a mock
