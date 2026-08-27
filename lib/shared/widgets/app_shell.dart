@@ -15,15 +15,15 @@ class AppShell extends StatelessWidget {
         selectedIcon: const Icon(Icons.home_rounded),
         label: isTe ? 'హోమ్' : 'Home',
       ),
-      NavigationDestination(
-        icon: const Icon(Icons.history_rounded),
-        selectedIcon: const Icon(Icons.history_toggle_off_rounded),
-        label: isTe ? 'హిస్టరీ' : 'History',
-      ),
       const NavigationDestination(
         icon: Icon(Icons.smart_toy_outlined),
         selectedIcon: Icon(Icons.smart_toy_rounded),
         label: 'ASKODOX',
+      ),
+      NavigationDestination(
+        icon: const Icon(Icons.history_rounded),
+        selectedIcon: const Icon(Icons.history_toggle_off_rounded),
+        label: isTe ? 'హిస్టరీ' : 'History',
       ),
       NavigationDestination(
         icon: const Icon(Icons.notifications_none_rounded),
