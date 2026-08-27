@@ -21,8 +21,22 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
     super.didChangeDependencies();
     final deal = ref.read(universalDealControllerProvider).deal;
     if (_future == null && deal != null && deal.readyToMatch) {
-      _future = ref.read(universalMatchRepositoryProvider).createAndMatch(deal);
+      _future = _loadMatches();
     }
+  }
+
+  Future<UniversalMatchResult> _loadMatches() async {
+    final deal = ref.read(universalDealControllerProvider).deal;
+    if (deal == null || !deal.readyToMatch) {
+      throw StateError('Complete the requirement before matching.');
+    }
+
+    // Keep provider creation and the first repository call inside an async
+    // boundary. In release builds a synchronous provider/configuration error
+    // previously escaped didChangeDependencies and could leave a blank grey
+    // branch screen instead of a recoverable error state.
+    final repository = ref.read(universalMatchRepositoryProvider);
+    return repository.createAndMatch(deal);
   }
 
   Future<void> _accept(UniversalMatchResult result, UniversalMatch match) async {
@@ -49,7 +63,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
     final deal = ref.read(universalDealControllerProvider).deal;
     if (deal == null || !deal.readyToMatch) return;
     setState(() {
-      _future = ref.read(universalMatchRepositoryProvider).createAndMatch(deal);
+      _future = _loadMatches();
     });
   }
 
@@ -58,6 +72,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
     final deal = ref.watch(universalDealControllerProvider).deal;
     if (deal == null || !deal.readyToMatch) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF7FAFF),
         appBar: AppBar(title: const Text('Matches')),
         body: Center(
           child: FilledButton(
@@ -69,17 +84,37 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Best matches')),
+      backgroundColor: const Color(0xFFF7FAFF),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        title: const Text('Best matches'),
+      ),
       body: FutureBuilder<UniversalMatchResult>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 14),
+                  Text('ASKODOX is finding the best matches…'),
+                ],
+              ),
+            );
           }
           if (snapshot.hasError) {
             return _MatchError(message: '${snapshot.error}', onRetry: _retry);
           }
-          final result = snapshot.data!;
+          final result = snapshot.data;
+          if (result == null) {
+            return _MatchError(
+              message: 'Matching finished without a result. Please retry.',
+              onRetry: _retry,
+            );
+          }
           if (result.matches.isEmpty) {
             return _NoMatches(
               onBroaden: () => context.go('/search'),
@@ -94,7 +129,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 6),
-              Text('Choose the best fit. Matching is based on your confirmed requirement, not on commission.'),
+              const Text('Choose the best fit. Matching is based on your confirmed requirement, not on commission.'),
               const SizedBox(height: 16),
               for (final match in result.matches)
                 Card(
