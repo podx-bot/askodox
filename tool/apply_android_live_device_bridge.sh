@@ -6,13 +6,14 @@ RES_XML="android/app/src/main/res/xml"
 KOTLIN_DIR="android/app/src/main/kotlin/com/askodox/askodox"
 mkdir -p "$KOTLIN_DIR" "$RES_XML"
 
-# Keep the FileProvider root deterministic. The native bridge always copies the
-# downloaded APK into cacheDir/askodox_updates before asking Android to install
-# it, so Dart/path_provider implementation details cannot break the hand-off.
+# Keep a narrow FileProvider fallback for compatibility, but the primary updater
+# no longer depends on any file path being shareable. Android PackageInstaller
+# receives the APK bytes through an install session instead.
 cat > "$RES_XML/askodox_update_paths.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="askodox_updates" path="askodox_updates/" />
+    <files-path name="askodox_files" path="askodox_updates/" />
 </paths>
 EOF
 
@@ -21,14 +22,18 @@ package com.askodox.askodox
 
 import android.Manifest
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
+import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -38,10 +43,22 @@ import java.util.Locale
 class MainActivity : FlutterActivity() {
     private val updateChannel = "com.askodox.app/update"
     private val deviceChannel = "com.askodox.app/device"
+    private val installStatusAction = "com.askodox.askodox.INSTALL_STATUS"
     private val voiceRequestCode = 4301
     private val locationPermissionRequestCode = 4302
     private var pendingVoiceResult: MethodChannel.Result? = null
     private var pendingLocationResult: MethodChannel.Result? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleInstallStatus(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleInstallStatus(intent)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -63,38 +80,7 @@ class MainActivity : FlutterActivity() {
                         result.error("missing_apk", "Downloaded APK is missing or empty", null)
                         return@setMethodCallHandler
                     }
-
-                    // HARD GUARANTEE: FileProvider exposes only this exact cache
-                    // subtree. Always copy the APK here before creating its URI.
-                    // This avoids code_cache/files/temp-directory differences on
-                    // Samsung and other Android builds.
-                    val updateDir = File(cacheDir, "askodox_updates")
-                    if (!updateDir.exists() && !updateDir.mkdirs()) {
-                        result.error("cache_create_failed", "Unable to create update cache", null)
-                        return@setMethodCallHandler
-                    }
-                    val installApk = File(updateDir, "askodox-update.apk")
-                    if (installApk.exists()) installApk.delete()
-                    source.inputStream().use { input ->
-                        installApk.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    if (!installApk.isFile || installApk.length() != source.length()) {
-                        result.error("apk_copy_failed", "Unable to prepare APK for installer", null)
-                        return@setMethodCallHandler
-                    }
-
-                    val uri = FileProvider.getUriForFile(
-                        this,
-                        "$packageName.askodox.fileprovider",
-                        installApk,
-                    )
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(uri, "application/vnd.android.package-archive")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        clipData = android.content.ClipData.newRawUri("ASKODOX update", uri)
-                    }
-                    startActivity(intent)
+                    installWithPackageInstaller(source)
                     result.success(true)
                 } catch (e: Exception) {
                     result.error("install_failed", e.message ?: e.javaClass.simpleName, null)
@@ -109,6 +95,68 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun installWithPackageInstaller(source: File) {
+        val installer = packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setAppPackageName(packageName)
+        }
+        val sessionId = installer.createSession(params)
+        installer.openSession(sessionId).use { session ->
+            source.inputStream().use { input ->
+                session.openWrite("ASKODOX-update.apk", 0L, source.length()).use { output ->
+                    input.copyTo(output)
+                    session.fsync(output)
+                }
+            }
+
+            val callback = Intent(this, MainActivity::class.java).apply {
+                action = installStatusAction
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            val mutableFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_MUTABLE
+            } else {
+                0
+            }
+            val sender = PendingIntent.getActivity(
+                this,
+                sessionId,
+                callback,
+                PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag,
+            ).intentSender
+            session.commit(sender)
+        }
+    }
+
+    private fun handleInstallStatus(statusIntent: Intent?) {
+        if (statusIntent?.action != installStatusAction) return
+        when (val status = statusIntent.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                val confirmIntent: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    statusIntent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    statusIntent.getParcelableExtra(Intent.EXTRA_INTENT)
+                }
+                if (confirmIntent != null) {
+                    confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(confirmIntent)
+                } else {
+                    Toast.makeText(this, "ASKODOX update needs install confirmation", Toast.LENGTH_LONG).show()
+                }
+            }
+            PackageInstaller.STATUS_SUCCESS -> {
+                Toast.makeText(this, "ASKODOX update installed", Toast.LENGTH_SHORT).show()
+            }
+            Int.MIN_VALUE -> Unit
+            else -> {
+                val message = statusIntent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                    ?: "Android installer failed (status $status)"
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun startVoiceSearch(result: MethodChannel.Result) {
@@ -214,19 +262,7 @@ permissions = [
 for permission in permissions:
     if permission not in s:
         s = s.replace('<application', f'<uses-permission android:name="{permission}" />\n    <application', 1)
-
-provider='''        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.askodox.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/askodox_update_paths" />
-        </provider>'''
-if '.askodox.fileprovider' not in s:
-    s = s.replace('</application>', provider + '\n    </application>', 1)
 p.write_text(s)
 PY
 
-echo 'ASKODOX hard update handoff, internet, voice and device location bridge applied.'
+echo 'ASKODOX PackageInstaller updater, internet, voice and device location bridge applied.'
