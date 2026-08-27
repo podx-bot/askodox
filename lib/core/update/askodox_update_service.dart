@@ -32,11 +32,26 @@ class AskodoxUpdateService {
 
   Future<AskodoxUpdateInfo?> checkForUpdate() async {
     if (!enabled) return null;
-    final uri = Uri.tryParse(manifestUrl);
-    if (uri == null || !uri.hasScheme) return null;
+    final baseUri = Uri.tryParse(manifestUrl);
+    if (baseUri == null || !baseUri.hasScheme) return null;
+
+    // The askodox-latest release replaces latest.json in place. GitHub/CDN can
+    // briefly cache that stable URL, so use a unique query on every check and
+    // explicitly request revalidation. Without this, an older installed build
+    // can keep seeing its own manifest and incorrectly report "up to date".
+    final uri = baseUri.replace(
+      queryParameters: <String, String>{
+        ...baseUri.queryParameters,
+        '_askodox_check': DateTime.now().microsecondsSinceEpoch.toString(),
+      },
+    );
+
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
     try {
-      final response = await (await client.getUrl(uri)).close().timeout(const Duration(seconds: 12));
+      final request = await client.getUrl(uri);
+      request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-store, max-age=0');
+      request.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+      final response = await request.close().timeout(const Duration(seconds: 12));
       if (response.statusCode < 200 || response.statusCode >= 300) return null;
       final decoded = jsonDecode(await utf8.decoder.bind(response).join());
       if (decoded is! Map<String, dynamic>) return null;
