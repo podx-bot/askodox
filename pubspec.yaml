@@ -17,6 +17,7 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.5
   package_info_plus: ^8.1.4
+  path_provider: ^2.1.5
   # flutter_localizations pins the compatible intl release for the active
   # Flutter SDK. Keeping this unconstrained avoids dependency-solver failures
   # when the SDK updates that pin.
