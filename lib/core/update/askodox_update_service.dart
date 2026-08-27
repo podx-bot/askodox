@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 class AskodoxUpdateInfo {
   const AskodoxUpdateInfo({
@@ -58,8 +59,6 @@ class AskodoxUpdateService {
     defaultValue: false,
   );
 
-  // Only a fallback. The updater compares against the build actually installed
-  // on the device, not only against a compile-time dart-define.
   static const compiledBuildNumber = int.fromEnvironment(
     'ASKODOX_BUILD_NUMBER',
     defaultValue: 1,
@@ -82,9 +81,7 @@ class AskodoxUpdateService {
       final info = await PackageInfo.fromPlatform();
       final value = int.tryParse(info.buildNumber.trim());
       if (value != null && value > 0) return value;
-    } catch (_) {
-      // Fall back to the compile-time value below.
-    }
+    } catch (_) {}
     return compiledBuildNumber;
   }
 
@@ -139,8 +136,6 @@ class AskodoxUpdateService {
     final assets = decoded['assets'];
     if (assets is! List) return null;
 
-    // Always derive the highest versioned APK too. Release notes can be briefly
-    // stale while an existing prerelease is edited and assets are replaced.
     final assetUrls = <int, String>{};
     for (final raw in assets) {
       if (raw is! Map) continue;
@@ -239,7 +234,12 @@ class AskodoxUpdateService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException('Update download failed');
       }
-      final dir = Directory('${Directory.systemTemp.path}/askodox_updates');
+
+      // Android FileProvider is configured with <cache-path>. Use the app's
+      // platform cache directory instead of Directory.systemTemp, which maps to
+      // code_cache on some devices and cannot be shared by that FileProvider.
+      final cacheDir = await getTemporaryDirectory();
+      final dir = Directory('${cacheDir.path}/askodox_updates');
       if (!await dir.exists()) await dir.create(recursive: true);
       final file = File('${dir.path}/askodox-${info.buildNumber}.apk');
       final sink = file.openWrite();
