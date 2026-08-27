@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/universal_deal.dart';
 import 'universal_deal_brain.dart';
@@ -25,8 +29,11 @@ final universalDealControllerProvider =
 );
 
 class UniversalDealController extends StateNotifier<UniversalDealSession> {
-  UniversalDealController() : super(const UniversalDealSession());
+  UniversalDealController() : super(const UniversalDealSession()) {
+    unawaited(_restore());
+  }
 
+  static const _storageKey = 'askodox.active_universal_deal.v1';
   final UniversalDealBrain _brain = const UniversalDealBrain();
 
   void start(String text) {
@@ -34,9 +41,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     if (value.isEmpty) return;
 
     // If a requirement is already being collected, text entered on the
-    // conversation screen is an answer to the current missing field. Starting
-    // a fresh capture here used to turn answers such as "Vuyyuru" into a new
-    // product requirement and lose the original "chicken nearby" request.
+    // conversation screen is an answer to the current missing field.
     final current = state.deal;
     if (current != null && current.missingForMatch.isNotEmpty) {
       answer(value);
@@ -44,11 +49,11 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     }
 
     final deal = _brain.capture(value);
-    state = UniversalDealSession(
+    _setSession(UniversalDealSession(
       deal: deal,
       lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
       completed: deal.readyToMatch,
-    );
+    ));
   }
 
   void answer(String text) {
@@ -57,11 +62,11 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
       final value = text.trim();
       if (value.isEmpty) return;
       final deal = _brain.capture(value);
-      state = UniversalDealSession(
+      _setSession(UniversalDealSession(
         deal: deal,
         lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
         completed: deal.readyToMatch,
-      );
+      ));
       return;
     }
     final value = text.trim();
@@ -101,14 +106,143 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
         next = current.copyWith(dynamicFields: dynamic);
     }
 
-    state = UniversalDealSession(
+    _setSession(UniversalDealSession(
       deal: next,
       lastQuestion: _questionFor(next.missingForMatch.firstOrNull),
       completed: next.readyToMatch,
+    ));
+  }
+
+  void reset() {
+    state = const UniversalDealSession();
+    unawaited(_clearPersisted());
+  }
+
+  void _setSession(UniversalDealSession next) {
+    state = next;
+    unawaited(_persist(next));
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw == null || raw.isEmpty || !mounted) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return;
+      final dealJson = decoded['deal'];
+      if (dealJson is! Map<String, dynamic>) return;
+      final deal = _dealFromJson(dealJson);
+      if (!mounted) return;
+      state = UniversalDealSession(
+        deal: deal,
+        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
+        completed: deal.readyToMatch,
+      );
+    } catch (_) {
+      // Corrupt/old local state must never prevent ASKODOX from opening.
+      await _clearPersisted();
+    }
+  }
+
+  Future<void> _persist(UniversalDealSession session) async {
+    final deal = session.deal;
+    if (deal == null) return _clearPersisted();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_storageKey, jsonEncode({'deal': _dealToJson(deal)}));
+    } catch (_) {
+      // Persistence is best-effort; the active in-memory flow remains usable.
+    }
+  }
+
+  Future<void> _clearPersisted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_storageKey);
+    } catch (_) {}
+  }
+
+  Map<String, Object?> _dealToJson(UniversalDeal d) => {
+        'rawText': d.rawText,
+        'intent': d.intent.name,
+        'partyA': _partyToJson(d.partyA),
+        'partyB': _partyToJson(d.partyB),
+        'subject': d.subject,
+        'category': d.category,
+        'quantity': d.quantity,
+        'unit': d.unit,
+        'price': d.price,
+        'priceBasis': d.priceBasis,
+        'quality': d.quality,
+        'variant': d.variant,
+        'size': d.size,
+        'weight': d.weight,
+        'model': d.model,
+        'availability': d.availability,
+        'fulfilment': d.fulfilment,
+        'location': {
+          'label': d.location.label,
+          'latitude': d.location.latitude,
+          'longitude': d.location.longitude,
+          'radiusKm': d.location.radiusKm,
+        },
+        'timing': d.timing,
+        'dynamicFields': d.dynamicFields,
+        'status': d.status.name,
+      };
+
+  Map<String, Object?> _partyToJson(DealPartyRequirement p) => {
+        'side': p.side.name,
+        'role': p.role,
+        'action': p.action,
+      };
+
+  UniversalDeal _dealFromJson(Map<String, dynamic> j) {
+    final location = (j['location'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    return UniversalDeal(
+      rawText: j['rawText']?.toString() ?? '',
+      intent: _enumByName(DealIntent.values, j['intent'], DealIntent.other),
+      partyA: _partyFromJson((j['partyA'] as Map?)?.cast<String, dynamic>()),
+      partyB: _partyFromJson((j['partyB'] as Map?)?.cast<String, dynamic>()),
+      subject: j['subject']?.toString(),
+      category: j['category']?.toString(),
+      quantity: (j['quantity'] as num?)?.toDouble(),
+      unit: j['unit']?.toString(),
+      price: (j['price'] as num?)?.toDouble(),
+      priceBasis: j['priceBasis']?.toString(),
+      quality: j['quality']?.toString(),
+      variant: j['variant']?.toString(),
+      size: j['size']?.toString(),
+      weight: j['weight']?.toString(),
+      model: j['model']?.toString(),
+      availability: j['availability']?.toString(),
+      fulfilment: j['fulfilment']?.toString(),
+      location: DealLocation(
+        label: location['label']?.toString(),
+        latitude: (location['latitude'] as num?)?.toDouble(),
+        longitude: (location['longitude'] as num?)?.toDouble(),
+        radiusKm: (location['radiusKm'] as num?)?.toDouble(),
+      ),
+      timing: j['timing']?.toString(),
+      dynamicFields: (j['dynamicFields'] as Map?)?.cast<String, Object?>() ?? const {},
+      status: _enumByName(DealStatus.values, j['status'], DealStatus.collecting),
     );
   }
 
-  void reset() => state = const UniversalDealSession();
+  DealPartyRequirement _partyFromJson(Map<String, dynamic>? j) => DealPartyRequirement(
+        side: _enumByName(DealSide.values, j?['side'], DealSide.demand),
+        role: j?['role']?.toString() ?? 'user',
+        action: j?['action']?.toString() ?? 'match',
+      );
+
+  T _enumByName<T extends Enum>(List<T> values, Object? raw, T fallback) {
+    final name = raw?.toString();
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return fallback;
+  }
 
   String? _questionFor(String? field) => switch (field) {
         'subject' => 'What exactly do you need or offer?',
