@@ -65,16 +65,37 @@ class AppShell extends StatelessWidget {
         );
       }
 
+      const navForeground = Color(0xFF17223B);
+      const navMuted = Color(0xFF667085);
+
       return Scaffold(
         backgroundColor: const Color(0xFFF7FAFF),
         body: shell,
-        bottomNavigationBar: NavigationBar(
-          height: 72,
-          backgroundColor: Colors.white,
-          indicatorColor: const Color(0xFFE3F6E8),
-          selectedIndex: shell.currentIndex,
-          onDestinationSelected: _go,
-          destinations: destinations,
+        bottomNavigationBar: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            height: 76,
+            backgroundColor: Colors.white,
+            indicatorColor: const Color(0xFFE3F6E8),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
+              return IconThemeData(
+                color: states.contains(WidgetState.selected) ? navForeground : navMuted,
+                size: 25,
+              );
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((states) {
+              return TextStyle(
+                color: states.contains(WidgetState.selected) ? navForeground : navMuted,
+                fontSize: 11,
+                fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w600,
+              );
+            }),
+          ),
+          child: NavigationBar(
+            selectedIndex: shell.currentIndex,
+            onDestinationSelected: _go,
+            destinations: destinations,
+          ),
         ),
       );
     });
