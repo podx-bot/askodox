@@ -16,6 +16,7 @@ dependencies:
   go_router: ^14.8.1
   http: ^1.2.2
   shared_preferences: ^2.3.5
+  package_info_plus: ^8.1.4
   # flutter_localizations pins the compatible intl release for the active
   # Flutter SDK. Keeping this unconstrained avoids dependency-solver failures
   # when the SDK updates that pin.
