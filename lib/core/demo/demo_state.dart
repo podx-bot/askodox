@@ -60,3 +60,9 @@ class DemoStateStore {
 
   void reset() => _records = List<DemoRecord>.from(DemoSeedData.records);
 }
+
+class DemoRuntime {
+  const DemoRuntime._();
+
+  static final DemoStateStore state = DemoStateStore();
+}
