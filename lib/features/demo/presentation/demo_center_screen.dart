@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/demo/demo_accounts.dart';
 import '../../../core/demo/demo_state.dart';
+import '../../../core/providers/backend_providers.dart';
 
-class DemoCenterScreen extends StatefulWidget {
+class DemoCenterScreen extends ConsumerStatefulWidget {
   const DemoCenterScreen({super.key});
 
   @override
-  State<DemoCenterScreen> createState() => _DemoCenterScreenState();
+  ConsumerState<DemoCenterScreen> createState() => _DemoCenterScreenState();
 }
 
-class _DemoCenterScreenState extends State<DemoCenterScreen> {
+class _DemoCenterScreenState extends ConsumerState<DemoCenterScreen> {
   DemoModule _module = DemoModule.commerce;
+  bool _switching = false;
 
   String _moduleName(DemoModule module) => switch (module) {
         DemoModule.commerce => 'Buy & Sell',
@@ -32,10 +36,24 @@ class _DemoCenterScreenState extends State<DemoCenterScreen> {
     );
   }
 
+  Future<void> _enterAs(DemoAccount account) async {
+    if (_switching) return;
+    setState(() => _switching = true);
+    await ref.read(authSessionProvider.notifier).setDemoAccount(account);
+    if (!mounted) return;
+    setState(() => _switching = false);
+    if (account.role.name == 'seller') {
+      context.go('/seller/dashboard');
+    } else {
+      context.go('/');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final accounts = DemoAccounts.forModule(_module);
     final records = DemoRuntime.state.forModule(_module);
+    final session = ref.watch(authSessionProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('ASKODOX Demo Center')),
@@ -56,6 +74,10 @@ class _DemoCenterScreenState extends State<DemoCenterScreen> {
                       const Text('Use these fixed accounts for testing, tutorials, How to Use videos and FAQ demos. They must never be used for real payments or real customer leads.'),
                       const SizedBox(height: 12),
                       SelectableText('Common demo password: ${DemoAccounts.demoPassword}'),
+                      if (session.tokenPlaceholder == 'DEMO_ONLY' && session.user != null) ...[
+                        const SizedBox(height: 10),
+                        Text('Current demo session: ${session.user!.displayName ?? session.user!.id}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ],
                     ],
                   ),
                 ),
@@ -73,11 +95,26 @@ class _DemoCenterScreenState extends State<DemoCenterScreen> {
               const SizedBox(height: 16),
               for (final account in accounts) ...[
                 Card(
-                  child: ListTile(
-                    leading: CircleAvatar(child: Text(account.party == DemoParty.a ? 'A' : 'B')),
-                    title: Text('${account.party == DemoParty.a ? 'Party A' : 'Party B'} · ${account.displayName}'),
-                    subtitle: SelectableText('${account.loginId}\n${account.location}\n${account.sampleIntent}'),
-                    isThreeLine: true,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(child: Text(account.party == DemoParty.a ? 'A' : 'B')),
+                          title: Text('${account.party == DemoParty.a ? 'Party A' : 'Party B'} · ${account.displayName}'),
+                          subtitle: SelectableText('${account.loginId}\n${account.location}\n${account.sampleIntent}'),
+                          isThreeLine: true,
+                        ),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _switching ? null : () => _enterAs(account),
+                            icon: const Icon(Icons.login_rounded),
+                            label: Text('Enter as ${account.party == DemoParty.a ? 'Party A' : 'Party B'}'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
