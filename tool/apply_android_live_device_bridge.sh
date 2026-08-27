@@ -165,6 +165,7 @@ import sys
 p = Path(sys.argv[1])
 s = p.read_text()
 permissions = [
+    'android.permission.INTERNET',
     'android.permission.ACCESS_FINE_LOCATION',
     'android.permission.ACCESS_COARSE_LOCATION',
 ]
@@ -174,4 +175,4 @@ for permission in permissions:
 p.write_text(s)
 PY
 
-echo 'ASKODOX native voice and device location bridge applied.'
+echo 'ASKODOX native update, internet, voice and device location bridge applied.'
