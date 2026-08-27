@@ -53,13 +53,9 @@ class AskodoxUpdateService {
   Future<AskodoxUpdateInfo?> checkForUpdate() async {
     if (!enabled) return null;
 
-    // Primary path: GitHub's release API. The release body carries the build
-    // number and the APK is published with a build-specific filename, so this
-    // path never depends on an overwritten/cached latest.json or APK asset.
     final releaseInfo = await _checkReleaseApi();
     if (releaseInfo != null) return releaseInfo;
 
-    // Compatibility fallback for older channels/environments.
     return _checkManifest();
   }
 
@@ -70,11 +66,24 @@ class AskodoxUpdateService {
     final body = '${decoded['body'] ?? ''}';
     final buildMatch = RegExp(r'ASKODOX_BUILD_NUMBER=(\d+)').firstMatch(body);
     final versionMatch = RegExp(r'ASKODOX_VERSION=([^\s]+)').firstMatch(body);
-    final buildNumber = int.tryParse(buildMatch?.group(1) ?? '') ?? 0;
-    if (buildNumber <= currentBuildNumber) return null;
+    var buildNumber = int.tryParse(buildMatch?.group(1) ?? '') ?? 0;
 
     final assets = decoded['assets'];
     if (assets is! List) return null;
+
+    // Defensive fallback: derive the newest numeric build directly from
+    // askodox-<build>.apk assets if release-note metadata is missing/malformed.
+    if (buildNumber <= 0) {
+      for (final raw in assets) {
+        if (raw is! Map) continue;
+        final name = '${raw['name'] ?? ''}';
+        final match = RegExp(r'^askodox-(\d+)\.apk$').firstMatch(name);
+        final candidate = int.tryParse(match?.group(1) ?? '') ?? 0;
+        if (candidate > buildNumber) buildNumber = candidate;
+      }
+    }
+
+    if (buildNumber <= currentBuildNumber) return null;
 
     String apkUrl = '';
     final expectedName = 'askodox-$buildNumber.apk';
@@ -98,8 +107,14 @@ class AskodoxUpdateService {
     }
     if (apkUrl.isEmpty) return null;
 
+    final releaseName = '${decoded['name'] ?? ''}';
+    final releaseVersionMatch = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(releaseName);
+    final version = versionMatch?.group(1) ??
+        releaseVersionMatch?.group(1) ??
+        '1.0.$buildNumber';
+
     return AskodoxUpdateInfo(
-      version: versionMatch?.group(1) ?? '1.0.$buildNumber',
+      version: version,
       buildNumber: buildNumber,
       apkUrl: apkUrl,
       notes: 'Latest ASKODOX update',
