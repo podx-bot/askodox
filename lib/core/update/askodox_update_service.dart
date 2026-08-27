@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AskodoxUpdateInfo {
   const AskodoxUpdateInfo({
@@ -12,7 +13,8 @@ class AskodoxUpdateInfo {
     required this.mandatory,
   });
 
-  factory AskodoxUpdateInfo.fromJson(Map<String, dynamic> json) => AskodoxUpdateInfo(
+  factory AskodoxUpdateInfo.fromJson(Map<String, dynamic> json) =>
+      AskodoxUpdateInfo(
         version: '${json['version'] ?? ''}',
         buildNumber: int.tryParse('${json['build_number'] ?? ''}') ?? 0,
         apkUrl: '${json['apk_url'] ?? ''}',
@@ -27,6 +29,27 @@ class AskodoxUpdateInfo {
   final bool mandatory;
 }
 
+class AskodoxUpdateCheckResult {
+  const AskodoxUpdateCheckResult({
+    required this.installedBuildNumber,
+    required this.latestBuildNumber,
+    required this.update,
+  });
+
+  final int installedBuildNumber;
+  final int latestBuildNumber;
+  final AskodoxUpdateInfo? update;
+
+  bool get isUpToDate => update == null;
+}
+
+class AskodoxUpdateException implements Exception {
+  const AskodoxUpdateException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class AskodoxUpdateService {
   const AskodoxUpdateService();
 
@@ -34,10 +57,14 @@ class AskodoxUpdateService {
     'ASKODOX_ENABLE_UPDATES',
     defaultValue: false,
   );
-  static const currentBuildNumber = int.fromEnvironment(
+
+  // Only a fallback. The updater compares against the build actually installed
+  // on the device, not only against a compile-time dart-define.
+  static const compiledBuildNumber = int.fromEnvironment(
     'ASKODOX_BUILD_NUMBER',
     defaultValue: 1,
   );
+
   static const releaseApiUrl = String.fromEnvironment(
     'ASKODOX_UPDATE_RELEASE_API_URL',
     defaultValue:
@@ -50,16 +77,57 @@ class AskodoxUpdateService {
   );
   static const _channel = MethodChannel('com.askodox.app/update');
 
-  Future<AskodoxUpdateInfo?> checkForUpdate() async {
-    if (!enabled) return null;
-
-    final releaseInfo = await _checkReleaseApi();
-    if (releaseInfo != null) return releaseInfo;
-
-    return _checkManifest();
+  Future<int> installedBuildNumber() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final value = int.tryParse(info.buildNumber.trim());
+      if (value != null && value > 0) return value;
+    } catch (_) {
+      // Fall back to the compile-time value below.
+    }
+    return compiledBuildNumber;
   }
 
-  Future<AskodoxUpdateInfo?> _checkReleaseApi() async {
+  Future<AskodoxUpdateCheckResult> checkForUpdate() async {
+    if (!enabled) {
+      throw const AskodoxUpdateException(
+        'In-app updates are not enabled in this build.',
+      );
+    }
+
+    final installed = await installedBuildNumber();
+
+    AskodoxUpdateInfo? releaseInfo;
+    AskodoxUpdateInfo? manifestInfo;
+    try {
+      releaseInfo = await _readReleaseApi();
+    } catch (_) {}
+    try {
+      manifestInfo = await _readManifest();
+    } catch (_) {}
+
+    final candidates = <AskodoxUpdateInfo>[
+      if (releaseInfo != null) releaseInfo,
+      if (manifestInfo != null) manifestInfo,
+    ].where((info) => info.buildNumber > 0 && info.apkUrl.isNotEmpty).toList();
+
+    if (candidates.isEmpty) {
+      throw const AskodoxUpdateException(
+        'Unable to verify the latest ASKODOX build. Check internet and retry.',
+      );
+    }
+
+    candidates.sort((a, b) => b.buildNumber.compareTo(a.buildNumber));
+    final latest = candidates.first;
+
+    return AskodoxUpdateCheckResult(
+      installedBuildNumber: installed,
+      latestBuildNumber: latest.buildNumber,
+      update: latest.buildNumber > installed ? latest : null,
+    );
+  }
+
+  Future<AskodoxUpdateInfo?> _readReleaseApi() async {
     final decoded = await _getJson(releaseApiUrl);
     if (decoded == null) return null;
 
@@ -71,30 +139,25 @@ class AskodoxUpdateService {
     final assets = decoded['assets'];
     if (assets is! List) return null;
 
-    // Defensive fallback: derive the newest numeric build directly from
-    // askodox-<build>.apk assets if release-note metadata is missing/malformed.
-    if (buildNumber <= 0) {
-      for (final raw in assets) {
-        if (raw is! Map) continue;
-        final name = '${raw['name'] ?? ''}';
-        final match = RegExp(r'^askodox-(\d+)\.apk$').firstMatch(name);
-        final candidate = int.tryParse(match?.group(1) ?? '') ?? 0;
+    // Always derive the highest versioned APK too. Release notes can be briefly
+    // stale while an existing prerelease is edited and assets are replaced.
+    final assetUrls = <int, String>{};
+    for (final raw in assets) {
+      if (raw is! Map) continue;
+      final asset = Map<String, dynamic>.from(raw);
+      final name = '${asset['name'] ?? ''}';
+      final match = RegExp(r'^askodox-(\d+)\.apk$').firstMatch(name);
+      final candidate = int.tryParse(match?.group(1) ?? '') ?? 0;
+      final url = '${asset['browser_download_url'] ?? ''}';
+      if (candidate > 0 && url.isNotEmpty) {
+        assetUrls[candidate] = url;
         if (candidate > buildNumber) buildNumber = candidate;
       }
     }
 
-    if (buildNumber <= currentBuildNumber) return null;
+    if (buildNumber <= 0) return null;
 
-    String apkUrl = '';
-    final expectedName = 'askodox-$buildNumber.apk';
-    for (final raw in assets) {
-      if (raw is! Map) continue;
-      final asset = Map<String, dynamic>.from(raw);
-      if ('${asset['name'] ?? ''}' == expectedName) {
-        apkUrl = '${asset['browser_download_url'] ?? ''}';
-        break;
-      }
-    }
+    var apkUrl = assetUrls[buildNumber] ?? '';
     if (apkUrl.isEmpty) {
       for (final raw in assets) {
         if (raw is! Map) continue;
@@ -122,13 +185,11 @@ class AskodoxUpdateService {
     );
   }
 
-  Future<AskodoxUpdateInfo?> _checkManifest() async {
+  Future<AskodoxUpdateInfo?> _readManifest() async {
     final decoded = await _getJson(manifestUrl);
     if (decoded == null) return null;
     final info = AskodoxUpdateInfo.fromJson(decoded);
-    return info.buildNumber > currentBuildNumber && info.apkUrl.isNotEmpty
-        ? info
-        : null;
+    return info.buildNumber > 0 && info.apkUrl.isNotEmpty ? info : null;
   }
 
   Future<Map<String, dynamic>?> _getJson(String url) async {
