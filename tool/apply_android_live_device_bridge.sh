@@ -2,8 +2,19 @@
 set -euo pipefail
 
 MANIFEST="android/app/src/main/AndroidManifest.xml"
+RES_XML="android/app/src/main/res/xml"
 KOTLIN_DIR="android/app/src/main/kotlin/com/askodox/askodox"
-mkdir -p "$KOTLIN_DIR"
+mkdir -p "$KOTLIN_DIR" "$RES_XML"
+
+# Keep the FileProvider root deterministic. The native bridge always copies the
+# downloaded APK into cacheDir/askodox_updates before asking Android to install
+# it, so Dart/path_provider implementation details cannot break the hand-off.
+cat > "$RES_XML/askodox_update_paths.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="askodox_updates" path="askodox_updates/" />
+</paths>
+EOF
 
 cat > "$KOTLIN_DIR/MainActivity.kt" <<'EOF'
 package com.askodox.askodox
@@ -14,7 +25,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
-import android.os.Bundle
 import android.speech.RecognizerIntent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -42,21 +52,52 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                     return@setMethodCallHandler
                 }
-                val path = call.argument<String>("path")
-                if (path.isNullOrBlank()) {
+                val sourcePath = call.argument<String>("path")
+                if (sourcePath.isNullOrBlank()) {
                     result.error("missing_path", "APK path missing", null)
                     return@setMethodCallHandler
                 }
                 try {
-                    val apk = File(path)
-                    val uri = FileProvider.getUriForFile(this, "$packageName.askodox.fileprovider", apk)
-                    startActivity(Intent(Intent.ACTION_VIEW).apply {
+                    val source = File(sourcePath)
+                    if (!source.isFile || source.length() <= 0L) {
+                        result.error("missing_apk", "Downloaded APK is missing or empty", null)
+                        return@setMethodCallHandler
+                    }
+
+                    // HARD GUARANTEE: FileProvider exposes only this exact cache
+                    // subtree. Always copy the APK here before creating its URI.
+                    // This avoids code_cache/files/temp-directory differences on
+                    // Samsung and other Android builds.
+                    val updateDir = File(cacheDir, "askodox_updates")
+                    if (!updateDir.exists() && !updateDir.mkdirs()) {
+                        result.error("cache_create_failed", "Unable to create update cache", null)
+                        return@setMethodCallHandler
+                    }
+                    val installApk = File(updateDir, "askodox-update.apk")
+                    if (installApk.exists()) installApk.delete()
+                    source.inputStream().use { input ->
+                        installApk.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    if (!installApk.isFile || installApk.length() != source.length()) {
+                        result.error("apk_copy_failed", "Unable to prepare APK for installer", null)
+                        return@setMethodCallHandler
+                    }
+
+                    val uri = FileProvider.getUriForFile(
+                        this,
+                        "$packageName.askodox.fileprovider",
+                        installApk,
+                    )
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "application/vnd.android.package-archive")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    })
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        clipData = android.content.ClipData.newRawUri("ASKODOX update", uri)
+                    }
+                    startActivity(intent)
                     result.success(true)
                 } catch (e: Exception) {
-                    result.error("install_failed", e.message, null)
+                    result.error("install_failed", e.message ?: e.javaClass.simpleName, null)
                 }
             }
 
@@ -166,13 +207,26 @@ p = Path(sys.argv[1])
 s = p.read_text()
 permissions = [
     'android.permission.INTERNET',
+    'android.permission.REQUEST_INSTALL_PACKAGES',
     'android.permission.ACCESS_FINE_LOCATION',
     'android.permission.ACCESS_COARSE_LOCATION',
 ]
 for permission in permissions:
     if permission not in s:
         s = s.replace('<application', f'<uses-permission android:name="{permission}" />\n    <application', 1)
+
+provider='''        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.askodox.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/askodox_update_paths" />
+        </provider>'''
+if '.askodox.fileprovider' not in s:
+    s = s.replace('</application>', provider + '\n    </application>', 1)
 p.write_text(s)
 PY
 
-echo 'ASKODOX native update, internet, voice and device location bridge applied.'
+echo 'ASKODOX hard update handoff, internet, voice and device location bridge applied.'
