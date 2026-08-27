@@ -181,18 +181,31 @@ jobs:
             echo 'A newer main commit exists; skipping stale APK publish.'
             exit 0
           fi
-          cp build/app/outputs/flutter-apk/app-release.apk askodox-latest.apk
+
+          VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          VERSIONED_APK="askodox-${GITHUB_RUN_NUMBER}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$VERSIONED_APK"
+          cp "$VERSIONED_APK" askodox-latest.apk
+
           cat > latest.json <<EOF
           {
-            "version": "1.0.${GITHUB_RUN_NUMBER}",
+            "version": "$VERSION",
             "build_number": ${GITHUB_RUN_NUMBER},
             "mandatory": false,
             "notes": "Latest ASKODOX update",
-            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/askodox-latest/askodox-latest.apk"
+            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/askodox-latest/$VERSIONED_APK"
           }
           EOF
+
+          RELEASE_NOTES="ASKODOX_VERSION=$VERSION
+          ASKODOX_BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          Stable development channel for ASKODOX in-app updates."
+
           if ! gh release view askodox-latest >/dev/null 2>&1; then
-            gh release create askodox-latest --prerelease --title "ASKODOX latest" --notes "ASKODOX in-app update channel"
+            gh release create askodox-latest --prerelease --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
+          else
+            gh release edit askodox-latest --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
           fi
-          gh release upload askodox-latest askodox-latest.apk latest.json --clobber
-          gh release view askodox-latest --json tagName,url >/dev/null
+
+          gh release upload askodox-latest "$VERSIONED_APK" askodox-latest.apk latest.json --clobber
+          gh release view askodox-latest --json tagName,url,name,body >/dev/null
