@@ -142,6 +142,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             'or' => 'ଓଡ଼ିଆ',
             _ => 'EN',
           };
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final askFieldBackground = isDark ? const Color(0xFF18213F) : Colors.white;
+    final askFieldBorder = isDark ? const Color(0xFF5B63A8) : const Color(0xFFB8CCFF);
+    final askFieldText = isDark ? Colors.white : const Color(0xFF14213D);
+    final askFieldHint = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF98A2B3);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
@@ -208,9 +213,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: askFieldBackground,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFB8CCFF), width: 1.5),
+                border: Border.all(color: askFieldBorder, width: 1.5),
                 boxShadow: const [BoxShadow(color: Color(0x120B4EFF), blurRadius: 24, offset: Offset(0, 8))],
               ),
               child: TextField(
@@ -221,10 +226,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onSubmitted: (_) => _submit(),
                 minLines: 1,
                 maxLines: 4,
-                style: const TextStyle(color: Color(0xFF14213D), fontSize: 16),
+                cursorColor: askFieldText,
+                style: TextStyle(color: askFieldText, fontSize: 16),
                 decoration: InputDecoration(
+                  filled: false,
                   hintText: _tr('Talk or type what you need…', 'మీకు ఏమి కావాలో చెప్పండి…', 'अपनी जरूरत बोलें या लिखें…', 'ଆପଣଙ୍କ ଆବଶ୍ୟକତା କୁହନ୍ତୁ କିମ୍ବା ଲେଖନ୍ତୁ…'),
-                  hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
+                  hintStyle: TextStyle(color: askFieldHint),
                   prefixIcon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF10A53A)),
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -244,6 +251,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
                 ),
               ),
