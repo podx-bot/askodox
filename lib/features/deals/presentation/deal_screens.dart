@@ -24,9 +24,18 @@ String _statusLabel(BuildContext context, String raw) {
 }
 
 Future<Map<String, Object?>> _getMap(ApiClient client, String path) async {
-  final result = await client.get<Map<String, Object?>>(path);
-  if (result is ApiSuccess<Map<String, Object?>>) return result.data;
-  final failure = (result as ApiError<Map<String, Object?>>).failure;
+  // Read as Object? first. The local/mock API intentionally returns null for
+  // endpoints that have no seeded data yet; asking it for a non-null Map<T>
+  // caused a runtime `Null` -> `Map<String, Object?>` cast before this screen
+  // could show the normal empty-deals state.
+  final result = await client.get<Object?>(path);
+  if (result is ApiSuccess<Object?>) {
+    final data = result.data;
+    if (data == null) return const <String, Object?>{};
+    if (data is Map) return Map<String, Object?>.from(data);
+    throw StateError('Deal data has an unexpected format.');
+  }
+  final failure = (result as ApiError<Object?>).failure;
   throw StateError(failure.message ?? 'Unable to load deal data');
 }
 
