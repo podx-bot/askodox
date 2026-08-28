@@ -8,9 +8,23 @@ void main() {
     expect(config.mockControlsEnabled, isTrue);
   });
 
-  test('production rejects the mock backend', () {
+  test('production permits local matching fallback without developer controls', () {
+    final config = AppConfig.fromEnvironment(const {
+      'APP_ENV': 'production',
+      'BACKEND_PROVIDER': 'mock',
+    });
+    expect(config.environment, AppEnvironment.production);
+    expect(config.backendProvider, BackendProvider.mock);
+    expect(config.developerToolsEnabled, isFalse);
+    expect(config.mockControlsEnabled, isFalse);
+  });
+
+  test('production remote backend still requires an absolute API URL', () {
     expect(
-      () => AppConfig.fromEnvironment(const {'APP_ENV': 'production'}),
+      () => AppConfig.fromEnvironment(const {
+        'APP_ENV': 'production',
+        'BACKEND_PROVIDER': 'rest',
+      }),
       throwsFormatException,
     );
   });
