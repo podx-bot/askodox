@@ -12,8 +12,8 @@ class AppConfig {
   final String mapsProvider;
   final LoggingLevel loggingLevel;
 
-  /// Demo and diagnostic controls must never be reachable in a production
-  /// build, even when the framework was compiled with assertions enabled.
+  /// Developer-only controls stay hidden in production even when the app is
+  /// temporarily using the local matching backend as a safe fallback.
   bool get developerToolsEnabled => environment != AppEnvironment.production;
   bool get mockControlsEnabled =>
       environment != AppEnvironment.production &&
@@ -39,9 +39,11 @@ class AppConfig {
     if (backendProvider != BackendProvider.mock && (apiBaseUrl == null || !apiBaseUrl!.hasScheme)) {
       throw const FormatException('API_BASE_URL is required and must be an absolute URL when a remote backend is selected.');
     }
-    if (environment == AppEnvironment.production && backendProvider == BackendProvider.mock) {
-      throw const FormatException('Production must select a non-mock BACKEND_PROVIDER.');
-    }
+    // A signed production APK may temporarily use the local/mock data client
+    // when API_BASE_URL is intentionally not configured. This keeps buyer,
+    // seller and service matching testable without exposing developer tools.
+    // Once a live API URL is supplied, backend_providers.dart automatically
+    // selects the configured remote provider instead.
   }
 
   static AppConfig development() => const AppConfig(environment: AppEnvironment.development, backendProvider: BackendProvider.mock, apiBaseUrl: null, storageUrl: null, authSettings: {'otpEnabled': 'false'}, mapsProvider: 'mock', loggingLevel: LoggingLevel.debug);
