@@ -25,6 +25,8 @@ class UniversalMatch {
     this.distanceKm,
     this.price,
     this.providerId,
+    this.trustScore,
+    this.availabilityScore,
   });
 
   final String id;
@@ -34,6 +36,30 @@ class UniversalMatch {
   final double? distanceKm;
   final double? price;
   final String? providerId;
+  final double? trustScore;
+  final double? availabilityScore;
+
+  /// Client-side fallback ranking for ASKODOX's Universal Decision Brain.
+  ///
+  /// The backend score remains the strongest signal when present, but price is
+  /// never treated as the only decision factor. Trust, availability and travel
+  /// distance can improve or reduce the final value. Values are normalized and
+  /// intentionally conservative so the server can later provide category-aware
+  /// weights without changing the app contract.
+  double get totalValueScore {
+    final backend = (score ?? 0).clamp(0, 100).toDouble();
+    final trust = (trustScore ?? 50).clamp(0, 100).toDouble();
+    final available = (availabilityScore ?? 50).clamp(0, 100).toDouble();
+    final distance = distanceKm;
+    final distanceValue = distance == null
+        ? 50.0
+        : (100 - (distance.clamp(0, 50).toDouble() * 2)).clamp(0, 100).toDouble();
+
+    return (backend * 0.55) +
+        (trust * 0.20) +
+        (available * 0.15) +
+        (distanceValue * 0.10);
+  }
 
   factory UniversalMatch.fromJson(Map<String, Object?> json) => UniversalMatch(
         id: '${json['id'] ?? json['match_id'] ?? ''}',
@@ -43,6 +69,9 @@ class UniversalMatch {
         distanceKm: (json['distance_km'] as num?)?.toDouble(),
         price: (json['price'] as num?)?.toDouble(),
         providerId: json['provider_id']?.toString() ?? json['user_id']?.toString(),
+        trustScore: ((json['trust_score'] ?? json['trust']) as num?)?.toDouble(),
+        availabilityScore:
+            ((json['availability_score'] ?? json['availability_fit']) as num?)?.toDouble(),
       );
 }
 
@@ -100,7 +129,8 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         .whereType<Map>()
         .map((item) => UniversalMatch.fromJson(Map<String, Object?>.from(item)))
         .where((item) => item.id.isNotEmpty)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
     return UniversalMatchResult(dealId: dealId, matches: rows);
   }
 
