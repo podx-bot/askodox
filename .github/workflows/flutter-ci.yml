@@ -95,6 +95,10 @@ jobs:
           grep -q 'com.askodox.app/update' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'com.askodox.app/device' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'startVoiceSearch' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'packageInstaller' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'SessionParams' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'openWrite' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'session.commit' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
 
       - name: Require stable release signing secrets
         shell: bash
