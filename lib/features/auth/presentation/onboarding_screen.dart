@@ -143,8 +143,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
       FocusScope.of(context).unfocus();
-      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-      if (mounted) setState(() => _step = 2);
+      setState(() => _step = 2);
     } else if (result is ApiError<Map<String, dynamic>>) {
       setState(() => _error = result.failure.message ?? result.failure.localizedMessage(_languageCode));
     }
@@ -166,12 +165,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
-      // Fully tear down the numeric OTP input connection before showing the name field.
       FocusScope.of(context).unfocus();
-      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      if (!mounted) return;
       setState(() => _step = 3);
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        _nameFocus.requestFocus();
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        if (!mounted || !_nameFocus.hasFocus) return;
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+      });
     } else if (result is ApiError<Map<String, dynamic>>) {
       setState(() => _error = result.failure.message ?? result.failure.localizedMessage(_languageCode));
     }
@@ -328,14 +330,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         Text(_t('profileInfo')),
         const SizedBox(height: 18),
         TextField(
-          key: UniqueKey(),
+          key: const ValueKey('name-input'),
           focusNode: _nameFocus,
           controller: _name,
-          keyboardType: TextInputType.text,
+          autofocus: true,
+          keyboardType: TextInputType.name,
           textInputAction: TextInputAction.done,
           textCapitalization: TextCapitalization.words,
           enableSuggestions: true,
-          autocorrect: false,
+          autocorrect: true,
+          onTap: () {
+            if (!_nameFocus.hasFocus) _nameFocus.requestFocus();
+          },
           onSubmitted: (_) => _finish(),
           decoration: InputDecoration(labelText: _t('name'), border: const OutlineInputBorder()),
         ),
