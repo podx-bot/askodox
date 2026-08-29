@@ -14,8 +14,7 @@ class AskodoxUpdateInfo {
     required this.mandatory,
   });
 
-  factory AskodoxUpdateInfo.fromJson(Map<String, dynamic> json) =>
-      AskodoxUpdateInfo(
+  factory AskodoxUpdateInfo.fromJson(Map<String, dynamic> json) => AskodoxUpdateInfo(
         version: '${json['version'] ?? ''}',
         buildNumber: int.tryParse('${json['build_number'] ?? ''}') ?? 0,
         apkUrl: '${json['apk_url'] ?? ''}',
@@ -66,13 +65,11 @@ class AskodoxUpdateService {
 
   static const releaseApiUrl = String.fromEnvironment(
     'ASKODOX_UPDATE_RELEASE_API_URL',
-    defaultValue:
-        'https://api.github.com/repos/podx-bot/podx/releases/tags/askodox-latest',
+    defaultValue: 'https://api.github.com/repos/podx-bot/askodox/releases/tags/askodox-latest',
   );
   static const manifestUrl = String.fromEnvironment(
     'ASKODOX_UPDATE_MANIFEST_URL',
-    defaultValue:
-        'https://github.com/podx-bot/podx/releases/download/askodox-latest/latest.json',
+    defaultValue: 'https://github.com/podx-bot/askodox/releases/download/askodox-latest/latest.json',
   );
   static const _channel = MethodChannel('com.askodox.app/update');
 
@@ -87,9 +84,7 @@ class AskodoxUpdateService {
 
   Future<AskodoxUpdateCheckResult> checkForUpdate() async {
     if (!enabled) {
-      throw const AskodoxUpdateException(
-        'In-app updates are not enabled in this build.',
-      );
+      throw const AskodoxUpdateException('In-app updates are not enabled in this build.');
     }
 
     final installed = await installedBuildNumber();
@@ -109,9 +104,7 @@ class AskodoxUpdateService {
     ].where((info) => info.buildNumber > 0 && info.apkUrl.isNotEmpty).toList();
 
     if (candidates.isEmpty) {
-      throw const AskodoxUpdateException(
-        'Unable to verify the latest ASKODOX build. Check internet and retry.',
-      );
+      throw const AskodoxUpdateException('Unable to verify the latest ASKODOX build. Check internet and retry.');
     }
 
     candidates.sort((a, b) => b.buildNumber.compareTo(a.buildNumber));
@@ -167,9 +160,7 @@ class AskodoxUpdateService {
 
     final releaseName = '${decoded['name'] ?? ''}';
     final releaseVersionMatch = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(releaseName);
-    final version = versionMatch?.group(1) ??
-        releaseVersionMatch?.group(1) ??
-        '1.0.$buildNumber';
+    final version = versionMatch?.group(1) ?? releaseVersionMatch?.group(1) ?? '1.0.$buildNumber';
 
     return AskodoxUpdateInfo(
       version: version,
@@ -201,10 +192,7 @@ class AskodoxUpdateService {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
     try {
       final request = await client.getUrl(uri);
-      request.headers.set(
-        HttpHeaders.cacheControlHeader,
-        'no-cache, no-store, max-age=0',
-      );
+      request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-store, max-age=0');
       request.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
       request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
       final response = await request.close().timeout(const Duration(seconds: 12));
@@ -226,18 +214,12 @@ class AskodoxUpdateService {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 12);
     try {
       final request = await client.getUrl(Uri.parse(info.apkUrl));
-      request.headers.set(
-        HttpHeaders.cacheControlHeader,
-        'no-cache, no-store, max-age=0',
-      );
+      request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-store, max-age=0');
       final response = await request.close().timeout(const Duration(seconds: 30));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException('Update download failed');
       }
 
-      // Android FileProvider is configured with <cache-path>. Use the app's
-      // platform cache directory instead of Directory.systemTemp, which maps to
-      // code_cache on some devices and cannot be shared by that FileProvider.
       final cacheDir = await getTemporaryDirectory();
       final dir = Directory('${cacheDir.path}/askodox_updates');
       if (!await dir.exists()) await dir.create(recursive: true);
