@@ -35,6 +35,7 @@ import '../../features/location/presentation/nearby_shops_screen.dart';
 import '../../features/location/presentation/shop_details_screen.dart';
 import '../../features/location/presentation/seller_location_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
+import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
 import '../../features/developer/presentation/storage_usage_screen.dart';
@@ -54,8 +55,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     errorBuilder: (context, state) => AuthMessageScreen(title: 'Page not found', message: 'This link is unavailable or no longer exists. (${state.uri.path})'),
     redirect: (context, state) => const RouteGuard().redirect(session, state.matchedLocation),
-    initialLocation: '/',
+    initialLocation: '/onboarding',
     routes: [
+      GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(path: '/auth/login', builder: (context, state) => const AuthMessageScreen(title: 'Sign in required', message: 'Choose a demo role in Developer settings to continue.')),
       GoRoute(path: '/auth/session-expired', builder: (context, state) => const AuthMessageScreen(title: 'Session expired', message: 'Your session expired. Sign in again to continue.')),
       GoRoute(path: '/account-status', builder: (context, state) => const AuthMessageScreen(title: 'Account suspended', message: 'This account is suspended. Contact support for help.')),
