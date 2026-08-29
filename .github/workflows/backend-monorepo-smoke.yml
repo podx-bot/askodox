@@ -1,0 +1,60 @@
+name: ASKODOX backend monorepo smoke
+
+on:
+  push:
+    branches:
+      - main
+      - migration/backend-monorepo
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - railway.json
+      - backend/**
+      - .github/workflows/backend-monorepo-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - railway.json
+      - backend/**
+      - .github/workflows/backend-monorepo-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build backend image from monorepo
+        run: docker build -t askodox-backend-smoke .
+
+      - name: Start backend container
+        run: |
+          docker run -d --name askodox-backend \
+            -e PORT=8000 \
+            -e PODX_DATABASE_PATH=/tmp/askodox-smoke.db \
+            -p 8000:8000 \
+            askodox-backend-smoke
+
+      - name: Wait for health endpoint
+        run: |
+          set -euxo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs askodox-backend
+          exit 1
+
+      - name: Show container logs
+        if: always()
+        run: docker logs askodox-backend || true
