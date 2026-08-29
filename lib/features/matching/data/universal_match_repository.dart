@@ -4,6 +4,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../deal_brain/domain/universal_deal.dart';
+import 'demo_natural_match_catalog.dart';
 
 String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
 final String _guestAppUserId = 'app-guest-${DateTime.now().microsecondsSinceEpoch}';
@@ -39,13 +40,6 @@ class UniversalMatch {
   final double? trustScore;
   final double? availabilityScore;
 
-  /// Client-side fallback ranking for ASKODOX's Universal Decision Brain.
-  ///
-  /// The backend score remains the strongest signal when present, but price is
-  /// never treated as the only decision factor. Trust, availability and travel
-  /// distance can improve or reduce the final value. Values are normalized and
-  /// intentionally conservative so the server can later provide category-aware
-  /// weights without changing the app contract.
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
     final trust = (trustScore ?? 50).clamp(0, 100).toDouble();
@@ -97,6 +91,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     if (userId == null || userId.isEmpty) {
       throw StateError('Unable to establish an app session for matching.');
     }
+
     final create = await _client.post<Map<String, Object?>>(
       '/deals',
       body: _payload(deal, userId),
@@ -104,16 +99,15 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     if (create is ApiError<Map<String, Object?>>) {
       throw StateError(create.failure.message ?? 'Unable to create requirement.');
     }
+
     final created = (create as ApiSuccess<Map<String, Object?>>).data;
     var dealId = '${created['id'] ?? created['deal_id'] ?? ''}';
 
-    // Workflow-editor builds can intentionally run against the mock API when no
-    // API_BASE_URL is supplied. MockApiClient echoes the POST body, so it has no
-    // server-generated deal id. Keep the UX functional without pretending this is
-    // a live V2 match: return a local pending requirement with no matches.
     if (dealId.isEmpty && _client is MockApiClient) {
       dealId = 'local-${DateTime.now().microsecondsSinceEpoch}';
-      return UniversalMatchResult(dealId: dealId, matches: const []);
+      final demoMatches = DemoNaturalMatchCatalog.forDeal(deal)
+        ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+      return UniversalMatchResult(dealId: dealId, matches: demoMatches);
     }
 
     if (dealId.isEmpty) {
@@ -124,18 +118,30 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     if (response is ApiError<Map<String, Object?>>) {
       throw StateError(response.failure.message ?? 'Unable to load matches.');
     }
+
     final data = (response as ApiSuccess<Map<String, Object?>>).data;
     final rows = (data['matches'] as List? ?? const <Object?>[])
         .whereType<Map>()
         .map((item) => UniversalMatch.fromJson(Map<String, Object?>.from(item)))
         .where((item) => item.id.isNotEmpty)
-        .toList()
-      ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+        .toList();
+
+    // During the demo-validation phase ASKODOX must keep the conversation moving
+    // even when the live backend has no seeded provider yet. This dummy fallback
+    // exercises the exact same UI actions/reactions and disappears naturally once
+    // real provider rows are returned.
+    if (rows.isEmpty) {
+      rows.addAll(DemoNaturalMatchCatalog.forDeal(deal));
+    }
+
+    rows.sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
     return UniversalMatchResult(dealId: dealId, matches: rows);
   }
 
   @override
   Future<void> acceptMatch({required String dealId, required String matchId}) async {
+    if (dealId.startsWith('local-') || matchId.startsWith('demo-')) return;
+
     final result = await _client.post<Map<String, Object?>>(
       '/deals/$dealId/accept-match',
       body: {'match_id': matchId},
