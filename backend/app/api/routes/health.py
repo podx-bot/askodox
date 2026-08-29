@@ -34,7 +34,7 @@ def _readiness_payload(settings, database_ok: bool) -> dict:
 def home() -> dict:
     return {
         "status": "Running",
-        "app": "PODX AI CONNECT V2",
+        "app": "ASKODOX",
     }
 
 
