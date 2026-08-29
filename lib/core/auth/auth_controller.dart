@@ -11,6 +11,23 @@ class AuthController extends StateNotifier<AuthSession> {
 
   Future<void> restore() async => state = await manager.restore();
 
+  Future<void> completeOnboarding({required String mobile, required String displayName}) async {
+    final digits = mobile.replaceAll(RegExp(r'\D'), '');
+    final stableId = digits.isEmpty ? 'onboarding-user' : 'phone-$digits';
+    final session = AuthSession(
+      user: AuthUser(
+        id: stableId,
+        role: UserRole.buyer,
+        displayName: displayName.trim(),
+      ),
+      status: AuthStatus.loggedIn,
+      tokenPlaceholder: 'OTP_VERIFIED',
+      expiresAt: DateTime.now().add(const Duration(days: 30)),
+    );
+    await manager.save(session);
+    state = session;
+  }
+
   Future<void> setDemoRole(UserRole role) async {
     final s = AuthSession(
       user: AuthUser(
