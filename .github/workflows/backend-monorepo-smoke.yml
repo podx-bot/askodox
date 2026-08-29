@@ -3,6 +3,7 @@ name: ASKODOX backend monorepo smoke
 on:
   push:
     branches:
+      - main
       - migration/backend-monorepo
     paths:
       - Dockerfile
@@ -10,6 +11,16 @@ on:
       - railway.json
       - backend/**
       - .github/workflows/backend-monorepo-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - railway.json
+      - backend/**
+      - .github/workflows/backend-monorepo-smoke.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,10 +29,8 @@ jobs:
   docker-smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout migration branch
+      - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          ref: migration/backend-monorepo
 
       - name: Build backend image from monorepo
         run: docker build -t askodox-backend-smoke .
