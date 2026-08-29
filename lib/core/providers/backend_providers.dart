@@ -15,10 +15,6 @@ final appConfigProvider = Provider<AppConfig>((ref) {
   final apiBaseUrl = const String.fromEnvironment('API_BASE_URL').trim();
   final explicitBackend = const String.fromEnvironment('BACKEND_PROVIDER').trim();
 
-  // A signed/demo build must never select the REST client with an empty URL.
-  // CI can intentionally leave API_BASE_URL unset while the live backend is
-  // not configured yet. In that case keep the app/demo usable via the mock
-  // backend instead of throwing during match navigation.
   final resolvedBackend = apiBaseUrl.isEmpty
       ? 'mock'
       : (explicitBackend.isNotEmpty ? explicitBackend : 'rest');
@@ -34,7 +30,7 @@ final appConfigProvider = Provider<AppConfig>((ref) {
   });
 });
 
-final localStoreProvider = Provider<LocalStore>((ref) => MemoryLocalStore());
+final localStoreProvider = Provider<LocalStore>((ref) => SharedPreferencesLocalStore());
 final authenticationServiceProvider = Provider<AuthenticationService>((ref) => MockAuthenticationService());
 final sessionManagerProvider = Provider<SessionManager>((ref) => SessionManager(
       ref.watch(localStoreProvider),
