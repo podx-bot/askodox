@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +25,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _mobile = TextEditingController(text: '+91');
   final _otp = TextEditingController();
   final _name = TextEditingController();
+  final _nameFocus = FocusNode(debugLabel: 'askodox-name-focus');
+
   int _step = 0;
   bool _loading = true;
   bool _busy = false;
@@ -67,6 +70,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _mobile.dispose();
     _otp.dispose();
     _name.dispose();
+    _nameFocus.dispose();
     super.dispose();
   }
 
@@ -80,7 +84,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'te': 'డివైస్ భాష ఆటోమేటిక్‌గా ఎంపికైంది',
         'hi': 'डिवाइस की भाषा अपने-आप चुनी गई है',
       },
-      'useDevice': {'en': 'Use device language', 'te': 'డివైస్ భాషను ఉపయోగించండి', 'hi': 'डिवाइस की भाषा उपयोग करें'},
       'changeLanguage': {'en': 'Or choose another language', 'te': 'లేదా మరో భాషను ఎంచుకోండి', 'hi': 'या दूसरी भाषा चुनें'},
       'continue': {'en': 'Continue', 'te': 'కొనసాగించండి', 'hi': 'जारी रखें'},
       'mobileTitle': {'en': 'Enter mobile number', 'te': 'మొబైల్ నంబర్ నమోదు చేయండి', 'hi': 'मोबाइल नंबर दर्ज करें'},
@@ -139,8 +142,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
-      FocusManager.instance.primaryFocus?.unfocus();
-      setState(() => _step = 2);
+      FocusScope.of(context).unfocus();
+      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      if (mounted) setState(() => _step = 2);
     } else if (result is ApiError<Map<String, dynamic>>) {
       setState(() => _error = result.failure.message ?? result.failure.localizedMessage(_languageCode));
     }
@@ -162,7 +166,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
-      FocusManager.instance.primaryFocus?.unfocus();
+      // Fully tear down the numeric OTP input connection before showing the name field.
+      FocusScope.of(context).unfocus();
+      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!mounted) return;
       setState(() => _step = 3);
     } else if (result is ApiError<Map<String, dynamic>>) {
       setState(() => _error = result.failure.message ?? result.failure.localizedMessage(_languageCode));
@@ -174,7 +182,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       setState(() => _error = _t('invalidName'));
       return;
     }
-    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_mobileKey, _mobile.text.trim());
     await prefs.setString(_nameKey, _name.text.trim());
@@ -182,13 +190,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (mounted) context.go('/');
   }
 
-  void _useDeviceLanguage({bool continueFlow = true}) {
+  void _useDeviceLanguage() {
     final code = _deviceLanguageCode();
     ref.read(appSettingsProvider.notifier).useSystemLocale();
     setState(() {
       _languageCode = code;
       _usingDeviceLanguage = true;
-      if (continueFlow) _step = 1;
+      _step = 1;
       _error = null;
     });
   }
@@ -208,6 +216,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -223,93 +232,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     const SizedBox(height: 16),
                     const Text('ASKODOX', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 8),
-                    Text('${_t('step')} ${_step + 1} ${_t('of')} 4', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+                    Text('${_t('step')} ${_step + 1} ${_t('of')} 4', textAlign: TextAlign.center),
                     const SizedBox(height: 28),
-                    if (_step == 0) ...[
-                      Text(_t('languageTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.language_rounded),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(_t('autoSelected'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                                    const SizedBox(height: 4),
-                                    Text('${_languageName(_deviceLanguageCode())} • Auto'),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () => _useDeviceLanguage(),
-                        child: Text('${_t('continue')} • ${_languageName(_deviceLanguageCode())}'),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(_t('changeLanguage'), style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 12),
-                      _languageButton('English', 'en'),
-                      _languageButton('తెలుగు', 'te'),
-                      _languageButton('हिन्दी', 'hi'),
-                    ] else if (_step == 1) ...[
-                      Text(_t('mobileTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text(_t('otpInfo')),
-                      const SizedBox(height: 18),
-                      TextField(
-                        key: const ValueKey('mobile-input'),
-                        controller: _mobile,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(labelText: _t('mobile'), border: const OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(onPressed: _busy ? null : _sendOtp, child: Text(_busy ? _t('sending') : _t('sendOtp'))),
-                      TextButton(
-                        onPressed: () => setState(() => _step = 0),
-                        child: Text('${_t('languageTitle')}: ${_usingDeviceLanguage ? '${_languageName(_deviceLanguageCode())} (Auto)' : _languageName(_languageCode)}'),
-                      ),
-                    ] else if (_step == 2) ...[
-                      Text(_t('verifyTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text('${_t('codeSent')} ${_mobile.text.trim()}'),
-                      const SizedBox(height: 18),
-                      TextField(
-                        key: const ValueKey('otp-input'),
-                        controller: _otp,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        decoration: InputDecoration(labelText: _t('otp'), border: const OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 8),
-                      FilledButton(onPressed: _busy ? null : _verifyOtp, child: Text(_busy ? _t('verifying') : _t('verifyOtp'))),
-                      TextButton(onPressed: _busy ? null : _sendOtp, child: Text(_t('resend'))),
-                    ] else ...[
-                      Text(_t('profileTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text(_t('profileInfo')),
-                      const SizedBox(height: 18),
-                      TextField(
-                        key: const ValueKey('name-input'),
-                        controller: _name,
-                        keyboardType: TextInputType.name,
-                        textInputAction: TextInputAction.done,
-                        textCapitalization: TextCapitalization.words,
-                        autofillHints: const [AutofillHints.name],
-                        onSubmitted: (_) => _finish(),
-                        decoration: InputDecoration(labelText: _t('name'), border: const OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(onPressed: _finish, child: Text(_t('toAskodox'))),
-                    ],
+                    if (_step == 0) ..._languageStep(context),
+                    if (_step == 1) ..._mobileStep(),
+                    if (_step == 2) ..._otpStep(),
+                    if (_step == 3) ..._profileStep(),
                     if (_error != null) ...[
                       const SizedBox(height: 14),
                       Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w600)),
@@ -323,6 +251,97 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
     );
   }
+
+  List<Widget> _languageStep(BuildContext context) => [
+        Text(_t('languageTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.language_rounded),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_t('autoSelected'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text('${_languageName(_deviceLanguageCode())} • Auto'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(onPressed: _useDeviceLanguage, child: Text('${_t('continue')} • ${_languageName(_deviceLanguageCode())}')),
+        const SizedBox(height: 20),
+        Text(_t('changeLanguage'), style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        _languageButton('English', 'en'),
+        _languageButton('తెలుగు', 'te'),
+        _languageButton('हिन्दी', 'hi'),
+      ];
+
+  List<Widget> _mobileStep() => [
+        Text(_t('mobileTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(_t('otpInfo')),
+        const SizedBox(height: 18),
+        TextField(
+          key: const ValueKey('mobile-input'),
+          controller: _mobile,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(labelText: _t('mobile'), border: const OutlineInputBorder()),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: _busy ? null : _sendOtp, child: Text(_busy ? _t('sending') : _t('sendOtp'))),
+        TextButton(
+          onPressed: () => setState(() => _step = 0),
+          child: Text('${_t('languageTitle')}: ${_usingDeviceLanguage ? '${_languageName(_deviceLanguageCode())} (Auto)' : _languageName(_languageCode)}'),
+        ),
+      ];
+
+  List<Widget> _otpStep() => [
+        Text(_t('verifyTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text('${_t('codeSent')} ${_mobile.text.trim()}'),
+        const SizedBox(height: 18),
+        TextField(
+          key: const ValueKey('otp-input'),
+          controller: _otp,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: InputDecoration(labelText: _t('otp'), border: const OutlineInputBorder()),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(onPressed: _busy ? null : _verifyOtp, child: Text(_busy ? _t('verifying') : _t('verifyOtp'))),
+        TextButton(onPressed: _busy ? null : _sendOtp, child: Text(_t('resend'))),
+      ];
+
+  List<Widget> _profileStep() => [
+        Text(_t('profileTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(_t('profileInfo')),
+        const SizedBox(height: 18),
+        TextField(
+          key: UniqueKey(),
+          focusNode: _nameFocus,
+          controller: _name,
+          keyboardType: TextInputType.text,
+          textInputAction: TextInputAction.done,
+          textCapitalization: TextCapitalization.words,
+          enableSuggestions: true,
+          autocorrect: false,
+          onSubmitted: (_) => _finish(),
+          decoration: InputDecoration(labelText: _t('name'), border: const OutlineInputBorder()),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: _finish, child: Text(_t('toAskodox'))),
+      ];
 
   Widget _languageButton(String label, String code) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
