@@ -139,6 +139,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
+      FocusManager.instance.primaryFocus?.unfocus();
       setState(() => _step = 2);
     } else if (result is ApiError<Map<String, dynamic>>) {
       setState(() => _error = result.failure.message ?? result.failure.localizedMessage(_languageCode));
@@ -161,6 +162,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
+      FocusManager.instance.primaryFocus?.unfocus();
       setState(() => _step = 3);
     } else if (result is ApiError<Map<String, dynamic>>) {
       setState(() => _error = result.failure.message ?? result.failure.localizedMessage(_languageCode));
@@ -172,6 +174,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       setState(() => _error = _t('invalidName'));
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_mobileKey, _mobile.text.trim());
     await prefs.setString(_nameKey, _name.text.trim());
@@ -263,6 +266,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       Text(_t('otpInfo')),
                       const SizedBox(height: 18),
                       TextField(
+                        key: const ValueKey('mobile-input'),
                         controller: _mobile,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(labelText: _t('mobile'), border: const OutlineInputBorder()),
@@ -279,6 +283,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       Text('${_t('codeSent')} ${_mobile.text.trim()}'),
                       const SizedBox(height: 18),
                       TextField(
+                        key: const ValueKey('otp-input'),
                         controller: _otp,
                         keyboardType: TextInputType.number,
                         maxLength: 6,
@@ -293,8 +298,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       Text(_t('profileInfo')),
                       const SizedBox(height: 18),
                       TextField(
+                        key: const ValueKey('name-input'),
                         controller: _name,
+                        keyboardType: TextInputType.name,
+                        textInputAction: TextInputAction.done,
                         textCapitalization: TextCapitalization.words,
+                        autofillHints: const [AutofillHints.name],
+                        onSubmitted: (_) => _finish(),
                         decoration: InputDecoration(labelText: _t('name'), border: const OutlineInputBorder()),
                       ),
                       const SizedBox(height: 16),
