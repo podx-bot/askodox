@@ -5,6 +5,7 @@ from app.api.routes.debug import router as debug_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
+from app.api.routes.onboarding_auth import router as onboarding_auth_router
 from app.core.universal_commerce_container import UniversalCommerceAppContainer
 from app.repositories.conversation_observability_repository import ConversationObservabilityRepository
 from app.repositories.conversation_turn_ledger_repository import ConversationTurnLedgerRepository
@@ -32,7 +33,7 @@ from app.services.universal_profile_summary_service import UniversalProfileSumma
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="PODX AI CONNECT V2", version="2.0.0")
+    app = FastAPI(title="ASKODOX", version="2.0.0")
 
     container = UniversalCommerceAppContainer()
     meet_repository = PodxMeetRepository(container.settings.database_path)
@@ -142,10 +143,6 @@ def create_app() -> FastAPI:
     )
     container.runtime_complaint_prevention_service = quality_guard
 
-    # Conversation OS stays on the synchronous WhatsApp hot path, so it must not
-    # add a second blocking model call before the existing runtime can answer.
-    # It builds continuity from the durable turn ledger and raw prior turn; deeper
-    # semantic enrichment belongs off the reply-critical path.
     conversation_os_ledger = ConversationTurnLedgerRepository(container.settings.database_path)
     conversation_os = ConversationOSRuntimeService(
         delegate=quality_guard,
@@ -156,8 +153,6 @@ def create_app() -> FastAPI:
     container.conversation_turn_ledger_repository = conversation_os_ledger
     container.conversation_os_runtime_service = conversation_os
 
-    # Outermost response boundary: every domain may reason with internal state,
-    # but no channel should expose implementation vocabulary to a customer.
     customer_response_policy = CustomerFacingResponsePolicy(
         delegate=conversation_os,
         ledger_repository=conversation_os_ledger,
@@ -168,6 +163,7 @@ def create_app() -> FastAPI:
     app.state.container = container
     app.add_middleware(AppointmentLocationMiddleware, container=container)
     app.include_router(health_router)
+    app.include_router(onboarding_auth_router)
     app.include_router(webhook_router)
     app.include_router(debug_router)
     app.include_router(in_app_deal_router)
