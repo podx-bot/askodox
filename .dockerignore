@@ -1,5 +1,7 @@
-# Railway build bridge: backend is pinned to the last verified V2 backend commit while the full backend is being vendored into this monorepo.
+# Railway monorepo build: keep the root deploy files and vendored backend only.
 *
 !.dockerignore
 !Dockerfile
 !railway.json
+!backend/
+!backend/**
