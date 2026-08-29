@@ -1,4 +1,5 @@
 import hashlib
+import os
 import secrets
 import threading
 import time
@@ -23,6 +24,21 @@ _otps: dict[str, _OtpEntry] = {}
 _TTL_SECONDS = 5 * 60
 _RESEND_SECONDS = 45
 _MAX_ATTEMPTS = 5
+_TEST_OTP = "123456"
+
+
+def _test_mode() -> bool:
+    return os.getenv("ASKODOX_TEST_OTP_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _test_mobiles() -> set[str]:
+    raw = os.getenv("ASKODOX_TEST_OTP_MOBILES", "")
+    return {"".join(ch for ch in value if ch.isdigit()) for value in raw.split(",") if value.strip()}
+
+
+def _is_test_mobile(mobile: str) -> bool:
+    allowed = _test_mobiles()
+    return _test_mode() and bool(allowed) and mobile in allowed
 
 
 def _mobile(value: str) -> str:
@@ -49,13 +65,14 @@ class VerifyOtpRequest(BaseModel):
 def send_otp(payload: SendOtpRequest, request: Request) -> dict:
     mobile = _mobile(payload.mobile)
     now = time.time()
+    is_test = _is_test_mobile(mobile)
     with _lock:
         current = _otps.get(mobile)
         if current and now - current.last_sent_at < _RESEND_SECONDS:
             wait = max(1, int(_RESEND_SECONDS - (now - current.last_sent_at)))
             raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds before requesting another OTP.")
 
-        otp = f"{secrets.randbelow(1_000_000):06d}"
+        otp = _TEST_OTP if is_test else f"{secrets.randbelow(1_000_000):06d}"
         entry = _OtpEntry(
             digest=_digest(mobile, otp),
             expires_at=now + _TTL_SECONDS,
@@ -63,6 +80,11 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
             last_sent_at=now,
         )
         _otps[mobile] = entry
+
+    if is_test:
+        # Never send or return the fixed test OTP. It is only accepted for explicitly
+        # allow-listed test numbers while ASKODOX_TEST_OTP_MODE is enabled server-side.
+        return {"status": "sent", "channel": "test", "expires_in_seconds": _TTL_SECONDS}
 
     service = request.app.state.container.whatsapp_service
     result = service.send_text_message(
