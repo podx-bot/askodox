@@ -61,6 +61,13 @@ def _latest_created_deal(container, user_id: str):
 
 @router.post("")
 def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
+    """Create a universal ASKODOX requirement through the existing V2 Deal Brain.
+
+    The app sends its normalized deal object, but V2 still runs the original natural
+    request through the same conversation/extraction/capture pipeline used by other
+    channels. This prevents the Flutter client from becoming a second source of
+    business rules.
+    """
     container = request.app.state.container
     user_id = _app_user(payload.user_id)
     _prepare_askodox_app_identity(container, user_id)
@@ -95,6 +102,11 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
 
 @router.get("/{deal_id}/matches")
 def get_matches(deal_id: int, request: Request) -> dict:
+    """Return genuine opposite-party responders for a published requirement.
+
+    Only responders who actually expressed interest are returned. Targeted users who
+    have not consented are intentionally not presented as connectable matches.
+    """
     container = request.app.state.container
     demand = container.universal_demand_repository.get(deal_id)
     if not demand:
@@ -154,6 +166,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
 
 @router.post("/{deal_id}/accept-match")
 def accept_match(deal_id: int, payload: AcceptMatchRequest, request: Request) -> dict:
+    """Accept a responder who already opted in and open the existing in-app deal."""
     container = request.app.state.container
     demand = container.universal_demand_repository.get(deal_id)
     if not demand:

@@ -63,7 +63,15 @@ class UniversalNotificationRepository:
                 if name not in cols:
                     conn.execute(f"ALTER TABLE universal_interests ADD COLUMN {name} {sql}")
 
-    def reserve_notification(self, request_id, requester_user_id, target_user_id, wave=1, distance_km=None, relevance_score=None):
+    def reserve_notification(
+        self,
+        request_id,
+        requester_user_id,
+        target_user_id,
+        wave=1,
+        distance_km=None,
+        relevance_score=None,
+    ):
         try:
             with self._connect() as conn:
                 cur = conn.execute(
@@ -73,8 +81,16 @@ class UniversalNotificationRepository:
                         status,created_at,updated_at
                     ) VALUES(?,?,?,?,?,?,'PENDING',?,?)
                     """,
-                    (request_id, str(requester_user_id), str(target_user_id), wave, distance_km,
-                     relevance_score, self._now(), self._now()),
+                    (
+                        request_id,
+                        str(requester_user_id),
+                        str(target_user_id),
+                        wave,
+                        distance_km,
+                        relevance_score,
+                        self._now(),
+                        self._now(),
+                    ),
                 )
                 return cur.lastrowid
         except sqlite3.IntegrityError:
@@ -82,18 +98,27 @@ class UniversalNotificationRepository:
 
     def mark_sent(self, notification_id, provider_message_id=None):
         with self._connect() as conn:
-            conn.execute("UPDATE universal_notifications SET status='SENT',provider_message_id=?,updated_at=? WHERE id=?",
-                         (provider_message_id, self._now(), notification_id))
+            conn.execute(
+                "UPDATE universal_notifications SET status='SENT',provider_message_id=?,updated_at=? WHERE id=?",
+                (provider_message_id, self._now(), notification_id),
+            )
 
     def mark_failed(self, notification_id):
         with self._connect() as conn:
-            conn.execute("UPDATE universal_notifications SET status='FAILED',updated_at=? WHERE id=?",
-                         (self._now(), notification_id))
+            conn.execute(
+                "UPDATE universal_notifications SET status='FAILED',updated_at=? WHERE id=?",
+                (self._now(), notification_id),
+            )
 
     def contacted_user_ids(self, request_id):
         with self._connect() as conn:
-            return [str(row["target_user_id"]) for row in conn.execute(
-                "SELECT target_user_id FROM universal_notifications WHERE request_id=?", (request_id,))]
+            return [
+                str(row["target_user_id"])
+                for row in conn.execute(
+                    "SELECT target_user_id FROM universal_notifications WHERE request_id=?",
+                    (request_id,),
+                )
+            ]
 
     def record_interest(self, request_id, buyer, seller):
         now = self._now()
@@ -111,8 +136,10 @@ class UniversalNotificationRepository:
                 """,
                 (request_id, str(buyer), str(seller), now, now),
             )
-            return conn.execute("SELECT id FROM universal_interests WHERE request_id=? AND responder_user_id=?",
-                                (request_id, str(seller))).fetchone()["id"]
+            return conn.execute(
+                "SELECT id FROM universal_interests WHERE request_id=? AND responder_user_id=?",
+                (request_id, str(seller)),
+            ).fetchone()["id"]
 
     def set_seller_decision(self, request_id, seller, accepted):
         with self._connect() as conn:
@@ -122,9 +149,13 @@ class UniversalNotificationRepository:
                 SET requester_status=?,qualification_status=?,updated_at=?
                 WHERE request_id=? AND responder_user_id=?
                 """,
-                ("ACCEPTED" if accepted else "REJECTED",
-                 "READY_FOR_BUYER" if accepted else "DECLINED",
-                 self._now(), request_id, str(seller)),
+                (
+                    "ACCEPTED" if accepted else "REJECTED",
+                    "READY_FOR_BUYER" if accepted else "DECLINED",
+                    self._now(),
+                    request_id,
+                    str(seller),
+                ),
             )
 
     def set_requester_consent(self, request_id, responder_user_id, accepted):
@@ -132,89 +163,138 @@ class UniversalNotificationRepository:
 
     def mark_waiting_address(self, request_id, seller):
         with self._connect() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE universal_interests SET qualification_status='WAITING_ADDRESS',updated_at=?
                 WHERE request_id=? AND responder_user_id=? AND requester_status='ACCEPTED'
-                """, (self._now(), request_id, str(seller)))
+                """,
+                (self._now(), request_id, str(seller)),
+            )
 
     def save_delivery_address(self, request_id, seller, address):
         with self._connect() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE universal_interests
                 SET delivery_address=?,qualification_status='WAITING_FINAL_CONFIRM',converted_at=NULL,updated_at=?
                 WHERE request_id=? AND responder_user_id=? AND requester_status='ACCEPTED'
-                """, (str(address).strip(), self._now(), request_id, str(seller)))
+                """,
+                (str(address).strip(), self._now(), request_id, str(seller)),
+            )
 
     def confirm_order(self, request_id, seller):
         with self._connect() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE universal_interests
                 SET qualification_status='CONVERTED',converted_at=?,updated_at=?
                 WHERE request_id=? AND responder_user_id=? AND requester_status='ACCEPTED'
                   AND qualification_status='WAITING_FINAL_CONFIRM'
-                """, (self._now(), self._now(), request_id, str(seller)))
+                """,
+                (self._now(), self._now(), request_id, str(seller)),
+            )
 
     def cancel_order(self, request_id, seller):
         with self._connect() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE universal_interests
                 SET qualification_status='CANCELLED',converted_at=NULL,updated_at=?
                 WHERE request_id=? AND responder_user_id=?
-                """, (self._now(), request_id, str(seller)))
+                """,
+                (self._now(), request_id, str(seller)),
+            )
 
     def mark_contact_shared(self, request_id, seller):
         with self._connect() as conn:
-            conn.execute("UPDATE universal_interests SET contact_shared=1,updated_at=? WHERE request_id=? AND responder_user_id=?",
-                         (self._now(), request_id, str(seller)))
+            conn.execute(
+                "UPDATE universal_interests SET contact_shared=1,updated_at=? WHERE request_id=? AND responder_user_id=?",
+                (self._now(), request_id, str(seller)),
+            )
 
     def get_interest(self, request_id, seller):
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM universal_interests WHERE request_id=? AND responder_user_id=?",
-                               (request_id, str(seller))).fetchone()
+            row = conn.execute(
+                "SELECT * FROM universal_interests WHERE request_id=? AND responder_user_id=?",
+                (request_id, str(seller)),
+            ).fetchone()
             return dict(row) if row else None
 
     def was_targeted(self, request_id, target):
         with self._connect() as conn:
-            return conn.execute("""
-                SELECT 1 FROM universal_notifications
-                WHERE request_id=? AND target_user_id=? AND status='SENT' LIMIT 1
-                """, (request_id, str(target))).fetchone() is not None
+            return (
+                conn.execute(
+                    """
+                    SELECT 1 FROM universal_notifications
+                    WHERE request_id=? AND target_user_id=? AND status='SENT' LIMIT 1
+                    """,
+                    (request_id, str(target)),
+                ).fetchone()
+                is not None
+            )
 
     def latest_sent_request_for_target(self, target):
         with self._connect() as conn:
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT request_id,requester_user_id,target_user_id,created_at
                 FROM universal_notifications
                 WHERE target_user_id=? AND status='SENT'
                 ORDER BY id DESC LIMIT 1
-                """, (str(target),)).fetchone()
+                """,
+                (str(target),),
+            ).fetchone()
             return dict(row) if row else None
 
     def _latest(self, where, args):
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM universal_interests WHERE " + where + " ORDER BY id DESC LIMIT 1", args).fetchone()
+            row = conn.execute(
+                "SELECT * FROM universal_interests WHERE " + where + " ORDER BY id DESC LIMIT 1",
+                args,
+            ).fetchone()
             return dict(row) if row else None
 
     def latest_interest_for_buyer(self, buyer):
-        return self._latest("requester_user_id=? AND responder_status='INTERESTED' AND qualification_status NOT IN ('DECLINED','CANCELLED')", (str(buyer),))
+        return self._latest(
+            "requester_user_id=? AND responder_status='INTERESTED' AND qualification_status NOT IN ('DECLINED','CANCELLED')",
+            (str(buyer),),
+        )
 
     def latest_pending_interest_for_seller(self, seller):
-        return self._latest("responder_user_id=? AND responder_status='INTERESTED' AND requester_status='PENDING' AND contact_shared=0", (str(seller),))
+        return self._latest(
+            "responder_user_id=? AND responder_status='INTERESTED' AND requester_status='PENDING' AND contact_shared=0",
+            (str(seller),),
+        )
 
     def latest_pending_interest_for_requester(self, requester):
-        return self._latest("requester_user_id=? AND responder_status='INTERESTED' AND requester_status='PENDING' AND contact_shared=0", (str(requester),))
+        return self._latest(
+            "requester_user_id=? AND responder_status='INTERESTED' AND requester_status='PENDING' AND contact_shared=0",
+            (str(requester),),
+        )
 
     def latest_waiting_address_for_buyer(self, buyer):
-        return self._latest("requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='WAITING_ADDRESS'", (str(buyer),))
+        return self._latest(
+            "requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='WAITING_ADDRESS'",
+            (str(buyer),),
+        )
 
     def latest_waiting_final_confirm_for_buyer(self, buyer):
-        return self._latest("requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='WAITING_FINAL_CONFIRM'", (str(buyer),))
+        return self._latest(
+            "requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='WAITING_FINAL_CONFIRM'",
+            (str(buyer),),
+        )
 
     def latest_ready_for_buyer(self, buyer):
-        return self._latest("requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='READY_FOR_BUYER'", (str(buyer),))
+        return self._latest(
+            "requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='READY_FOR_BUYER'",
+            (str(buyer),),
+        )
 
     def latest_qualified_interest_for_buyer(self, buyer):
-        return self._latest("requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='CONVERTED'", (str(buyer),))
+        return self._latest(
+            "requester_user_id=? AND requester_status='ACCEPTED' AND qualification_status='CONVERTED'",
+            (str(buyer),),
+        )
 
     def latest_waiting_address_for_responder(self, responder):
         return self.latest_waiting_address_for_buyer(responder)

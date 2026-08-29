@@ -21,9 +21,15 @@ class DeliveryLogRepository:
                 recipient_mobile,
                 status,
                 error_message
-            ) VALUES (?, ?, ?, ?)
+            )
+            VALUES (?, ?, ?, ?)
             """,
-            (provider_message_id, recipient_mobile, status, error_message)
+            (
+                provider_message_id,
+                recipient_mobile,
+                status,
+                error_message
+            )
         )
 
     def latest_for_message(self, provider_message_id: str) -> Optional[dict]:

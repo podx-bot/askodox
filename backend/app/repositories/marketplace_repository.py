@@ -93,6 +93,7 @@ class MarketplaceRepository:
         return [dict(row) for row in rows]
 
     def find_service_providers(self, service_names: list[str], limit: int = 30) -> list[dict]:
+        """Return unique active providers whose saved service name matches any supplied alias."""
         aliases = [self._norm(value) for value in service_names if self._norm(value)]
         if not aliases:
             return []

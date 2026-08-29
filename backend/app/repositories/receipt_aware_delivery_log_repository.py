@@ -20,4 +20,5 @@ class ReceiptAwareDeliveryLogRepository(DeliveryLogRepository):
                     error_message=error_message,
                 )
             except Exception:
+                # Delivery logging must never fail because a recovery hook failed.
                 pass

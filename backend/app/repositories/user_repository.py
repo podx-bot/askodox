@@ -10,7 +10,10 @@ class UserRepository:
         self.database = database
         self.capability_repository = CapabilityRepository(database)
 
-    def find_by_whatsapp_mobile(self, whatsapp_mobile: str) -> Optional[dict]:
+    def find_by_whatsapp_mobile(
+        self,
+        whatsapp_mobile: str
+    ) -> Optional[dict]:
         row = self.database.fetchone(
             """
             SELECT *
@@ -25,11 +28,29 @@ class UserRepository:
         user["capabilities"] = self.list_capabilities(whatsapp_mobile)
         return user
 
-    def add_capability(self, whatsapp_mobile: str, capability: str, source: str | None = "conversation") -> None:
-        self.capability_repository.add(whatsapp_mobile, capability, source=source)
+    def add_capability(
+        self,
+        whatsapp_mobile: str,
+        capability: str,
+        source: str | None = "conversation",
+    ) -> None:
+        self.capability_repository.add(
+            whatsapp_mobile,
+            capability,
+            source=source,
+        )
 
-    def add_capabilities(self, whatsapp_mobile: str, capabilities, source: str | None = "registration") -> None:
-        self.capability_repository.add_many(whatsapp_mobile, capabilities, source=source)
+    def add_capabilities(
+        self,
+        whatsapp_mobile: str,
+        capabilities,
+        source: str | None = "registration",
+    ) -> None:
+        self.capability_repository.add_many(
+            whatsapp_mobile,
+            capabilities,
+            source=source,
+        )
 
     def list_capabilities(self, whatsapp_mobile: str) -> list[str]:
         return self.capability_repository.list_for_user(whatsapp_mobile)
@@ -37,7 +58,14 @@ class UserRepository:
     def has_capability(self, whatsapp_mobile: str, capability: str) -> bool:
         return self.capability_repository.has(whatsapp_mobile, capability)
 
-    def create_or_update_registration(self, whatsapp_mobile: str, entered_mobile: str, name: str, language: str, area: str) -> None:
+    def create_or_update_registration(
+        self,
+        whatsapp_mobile: str,
+        entered_mobile: str,
+        name: str,
+        language: str,
+        area: str
+    ) -> None:
         self.database.execute(
             """
             INSERT INTO users (
@@ -59,10 +87,22 @@ class UserRepository:
                 registration_complete = 1,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (whatsapp_mobile, entered_mobile, name, language, area)
+            (
+                whatsapp_mobile,
+                entered_mobile,
+                name,
+                language,
+                area
+            )
         )
 
-    def save_worker_profile(self, whatsapp_mobile: str, category: str, experience: str, availability: str) -> None:
+    def save_worker_profile(
+        self,
+        whatsapp_mobile: str,
+        category: str,
+        experience: str,
+        availability: str
+    ) -> None:
         self.database.execute(
             """
             INSERT INTO users (
@@ -84,11 +124,19 @@ class UserRepository:
                 worker_registration_complete = 0,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (whatsapp_mobile, category, experience, availability)
+            (
+                whatsapp_mobile,
+                category,
+                experience,
+                availability
+            )
         )
         self.add_capability(whatsapp_mobile, "WORKER", source="job_flow")
 
-    def complete_worker_registration(self, whatsapp_mobile: str) -> None:
+    def complete_worker_registration(
+        self,
+        whatsapp_mobile: str
+    ) -> None:
         self.database.execute(
             """
             UPDATE users
@@ -100,7 +148,12 @@ class UserRepository:
         )
         self.add_capability(whatsapp_mobile, "WORKER", source="job_flow")
 
-    def save_employer_post(self, whatsapp_mobile: str, service: str, requirement: str) -> int:
+    def save_employer_post(
+        self,
+        whatsapp_mobile: str,
+        service: str,
+        requirement: str
+    ) -> int:
         self.database.execute(
             """
             UPDATE employer_jobs
@@ -111,9 +164,11 @@ class UserRepository:
             """,
             (whatsapp_mobile,)
         )
+
         employer = self.find_by_whatsapp_mobile(whatsapp_mobile) or {}
         employer_contact = employer.get("entered_mobile") or whatsapp_mobile
         required_workers = self._required_worker_count(requirement)
+
         cursor = self.database.execute(
             """
             INSERT INTO employer_jobs (
@@ -127,12 +182,25 @@ class UserRepository:
             )
             VALUES (?, ?, ?, ?, ?, 'DRAFT', CURRENT_TIMESTAMP)
             """,
-            (whatsapp_mobile, service, requirement, required_workers, employer_contact)
+            (
+                whatsapp_mobile,
+                service,
+                requirement,
+                required_workers,
+                employer_contact
+            )
         )
         self.add_capability(whatsapp_mobile, "EMPLOYER", source="job_flow")
         return int(cursor.lastrowid)
 
-    def save_employer_job_location(self, whatsapp_mobile: str, latitude: float, longitude: float, location_name: Optional[str] = None, location_address: Optional[str] = None) -> Optional[dict]:
+    def save_employer_job_location(
+        self,
+        whatsapp_mobile: str,
+        latitude: float,
+        longitude: float,
+        location_name: Optional[str] = None,
+        location_address: Optional[str] = None
+    ) -> Optional[dict]:
         row = self.database.fetchone(
             """
             SELECT *
@@ -146,6 +214,7 @@ class UserRepository:
         )
         if not row:
             return None
+
         job_id = int(row["id"])
         self.database.execute(
             """
@@ -158,12 +227,21 @@ class UserRepository:
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (latitude, longitude, location_name, location_address, job_id)
+            (
+                latitude,
+                longitude,
+                location_name,
+                location_address,
+                job_id
+            )
         )
         return self.find_employer_job(job_id)
 
     def find_employer_job(self, job_id: int) -> Optional[dict]:
-        row = self.database.fetchone("SELECT * FROM employer_jobs WHERE id = ?", (job_id,))
+        row = self.database.fetchone(
+            "SELECT * FROM employer_jobs WHERE id = ?",
+            (job_id,)
+        )
         return dict(row) if row else None
 
     def find_candidate_workers(self, category: str) -> list[dict]:
@@ -182,7 +260,11 @@ class UserRepository:
         )
         return [dict(row) for row in rows]
 
-    def has_match_notification(self, employer_job_id: int, worker_mobile: str) -> bool:
+    def has_match_notification(
+        self,
+        employer_job_id: int,
+        worker_mobile: str
+    ) -> bool:
         row = self.database.fetchone(
             """
             SELECT 1
@@ -195,7 +277,13 @@ class UserRepository:
         )
         return row is not None
 
-    def record_match_notification(self, employer_job_id: int, worker_mobile: str, distance_km: float, provider_message_id: Optional[str]) -> None:
+    def record_match_notification(
+        self,
+        employer_job_id: int,
+        worker_mobile: str,
+        distance_km: float,
+        provider_message_id: Optional[str]
+    ) -> None:
         self.database.execute(
             """
             INSERT OR IGNORE INTO match_notifications (
@@ -206,10 +294,22 @@ class UserRepository:
             )
             VALUES (?, ?, ?, ?)
             """,
-            (employer_job_id, worker_mobile, distance_km, provider_message_id)
+            (
+                employer_job_id,
+                worker_mobile,
+                distance_km,
+                provider_message_id
+            )
         )
 
-    def save_location(self, whatsapp_mobile: str, latitude: float, longitude: float, location_name: Optional[str] = None, location_address: Optional[str] = None) -> None:
+    def save_location(
+        self,
+        whatsapp_mobile: str,
+        latitude: float,
+        longitude: float,
+        location_name: Optional[str] = None,
+        location_address: Optional[str] = None
+    ) -> None:
         self.database.execute(
             """
             INSERT INTO users (
@@ -231,7 +331,13 @@ class UserRepository:
                 location_updated_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (whatsapp_mobile, latitude, longitude, location_name, location_address)
+            (
+                whatsapp_mobile,
+                latitude,
+                longitude,
+                location_name,
+                location_address
+            )
         )
 
     @staticmethod

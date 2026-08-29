@@ -51,6 +51,8 @@ class SessionRepository:
         except (TypeError, json.JSONDecodeError):
             data = {}
 
+        # A user should never remain trapped forever in a half-finished flow.
+        # Preserve stable menu states, but reset old intermediate states after 24h.
         if step not in self.STABLE_STEPS and self._is_stale(row["updated_at"]):
             session = ConversationSession(step=ConversationStep.MAIN_MENU, data={})
             self.save(sender_mobile, session)
@@ -58,7 +60,11 @@ class SessionRepository:
 
         return ConversationSession(step=step, data=data)
 
-    def save(self, sender_mobile: str, session: ConversationSession) -> None:
+    def save(
+        self,
+        sender_mobile: str,
+        session: ConversationSession
+    ) -> None:
         self.database.execute(
             """
             INSERT INTO conversation_sessions (

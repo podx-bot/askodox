@@ -142,6 +142,10 @@ def create_app() -> FastAPI:
     )
     container.runtime_complaint_prevention_service = quality_guard
 
+    # Conversation OS stays on the synchronous WhatsApp hot path, so it must not
+    # add a second blocking model call before the existing runtime can answer.
+    # It builds continuity from the durable turn ledger and raw prior turn; deeper
+    # semantic enrichment belongs off the reply-critical path.
     conversation_os_ledger = ConversationTurnLedgerRepository(container.settings.database_path)
     conversation_os = ConversationOSRuntimeService(
         delegate=quality_guard,
@@ -152,6 +156,8 @@ def create_app() -> FastAPI:
     container.conversation_turn_ledger_repository = conversation_os_ledger
     container.conversation_os_runtime_service = conversation_os
 
+    # Outermost response boundary: every domain may reason with internal state,
+    # but no channel should expose implementation vocabulary to a customer.
     customer_response_policy = CustomerFacingResponsePolicy(
         delegate=conversation_os,
         ledger_repository=conversation_os_ledger,

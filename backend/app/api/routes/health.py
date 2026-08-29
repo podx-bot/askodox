@@ -50,6 +50,7 @@ def health(request: Request) -> dict:
 
 @router.get("/readiness")
 def readiness(request: Request) -> dict:
+    """Safe pre-live-test readiness summary. Never returns API keys or tokens."""
     container = request.app.state.container
     try:
         database_ok = bool(container.database.health_check())
