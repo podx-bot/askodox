@@ -42,6 +42,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     FocusScope.of(context).unfocus();
   }
 
+  void _useSuggestedAnswer(String value) {
+    _answer.text = value;
+    _answer.selection = TextSelection.collapsed(offset: value.length);
+    _focusNode.requestFocus();
+  }
+
   void _start(String prompt) {
     _syncLanguage(prompt);
     setState(() => _lastAnswer = null);
@@ -91,7 +97,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'New request',
+            tooltip: te ? 'కొత్త అవసరం' : 'New request',
             onPressed: () {
               ref.read(universalDealControllerProvider.notifier).reset();
               setState(() => _lastAnswer = null);
@@ -125,7 +131,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            te ? 'మీకు కావాల్సింది సహజంగా చెప్పండి. ASKODOX ఒక్కో అవసరమైన వివరాన్ని మాత్రమే అడుగుతుంది.' : 'Say what you need naturally. ASKODOX asks only for the details that are still needed.',
+            te ? 'మీకు కావాల్సింది సహజంగా చెప్పండి. ASKODOX అవసరమైన వివరాలను ఒక్కొక్కటిగా తీసుకుంటుంది.' : 'Say what you need naturally. ASKODOX will collect only the details needed.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Color(0xFF667085), height: 1.45),
           ),
@@ -152,209 +158,235 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ],
       );
 
-  Widget _conversation(UniversalDealSession session, UniversalDeal deal, bool te) => ListView(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-        children: [
-          _sectionLabel(te ? 'మీరు అడిగింది' : 'YOU ASKED'),
-          const SizedBox(height: 7),
-          _userBubble(deal.rawText),
-          if (_lastAnswer != null) ...[
-            const SizedBox(height: 10),
-            _sectionLabel(te ? 'మీరు ఇచ్చిన తాజా వివరము' : 'YOUR LATEST DETAIL'),
-            const SizedBox(height: 7),
-            _userBubble(_lastAnswer!),
-          ],
-          const SizedBox(height: 18),
-          _sectionLabel(te ? 'ASKODOX సమాధానం' : 'ASKODOX REPLY'),
-          const SizedBox(height: 8),
-          if (!session.completed)
-            _replyCard(
-              title: te ? 'అర్థం చేసుకున్నాను' : 'Got it',
-              message: _questionFor(deal, te),
-              helper: te ? 'ఇంకో వివరమే కావాలి. క్రింద సమాధానం ఇవ్వండి.' : 'I only need one more detail. Reply below.',
-            )
-          else
-            _replyCard(
-              title: te ? 'అన్ని అవసరమైన వివరాలు వచ్చాయి' : 'I have everything I need',
-              message: te ? 'ఇప్పుడు మీకు సరిపోయే మ్యాచ్‌లను చూడవచ్చు.' : 'You can now check the best available matches.',
-              helper: te ? 'కింద ఉన్న “మ్యాచ్‌లు కనుగొను” బటన్ నొక్కండి.' : 'Tap “Find my best matches” below.',
-              success: true,
-            ),
-          const SizedBox(height: 14),
-          _understoodCard(deal, te),
-          const SizedBox(height: 14),
-          if (!session.completed) ...[
-            _answerBox(te),
-          ] else ...[
-            FilledButton.icon(
-              key: const Key('confirmRequirementButton'),
-              onPressed: _confirmAndMatch,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF10A53A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: Text(te ? 'మ్యాచ్‌లు కనుగొను' : 'Find my best matches', style: const TextStyle(fontWeight: FontWeight.w900)),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () => _focusNode.requestFocus(),
-              icon: const Icon(Icons.edit_outlined),
-              label: Text(te ? 'వివరాలు మార్చాలి' : 'Change details'),
-            ),
-          ],
-          const SizedBox(height: 24),
-          _historyHint(te),
-        ],
-      );
-
-  Widget _sectionLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-          letterSpacing: .7,
-          color: Color(0xFF667085),
+  Widget _conversation(UniversalDealSession session, UniversalDeal deal, bool te) {
+    final missing = deal.missingForMatch.isEmpty ? null : deal.missingForMatch.first;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+      children: [
+        _flowCard(
+          number: 1,
+          tint: const Color(0xFFEAF1FF),
+          numberColor: const Color(0xFF1769FF),
+          title: te ? 'మీరు అడిగింది' : 'You asked',
+          icon: Icons.person_rounded,
+          child: _messageBubble(deal.rawText, const Color(0xFFF4F7FF)),
         ),
-      );
-
-  Widget _userBubble(String text) => Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 560),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF1FF),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(5),
+        const SizedBox(height: 12),
+        _flowCard(
+          number: 2,
+          tint: const Color(0xFFEAFBF0),
+          numberColor: const Color(0xFF10A53A),
+          title: te ? 'ఇప్పటివరకు గుర్తించిన వివరాలు' : 'Details captured so far',
+          icon: Icons.location_on_outlined,
+          child: _capturedDetails(deal, te),
+        ),
+        const SizedBox(height: 12),
+        _flowCard(
+          number: 3,
+          tint: const Color(0xFFF3EEFF),
+          numberColor: const Color(0xFF6A3FD6),
+          title: te ? 'ASKODOX సమాధానం' : 'ASKODOX reply',
+          icon: Icons.smart_toy_rounded,
+          child: _assistantReply(session, deal, te),
+        ),
+        if (!session.completed) ...[
+          const SizedBox(height: 12),
+          _flowCard(
+            number: 4,
+            tint: const Color(0xFFFFF4E8),
+            numberColor: const Color(0xFFF57C00),
+            title: te ? 'ఇంకా కావాల్సిన వివరము' : 'One detail still needed',
+            icon: Icons.help_outline_rounded,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _questionFor(deal, te),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF14213D), height: 1.35),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _suggestionsFor(missing, te)
+                      .map(
+                        (value) => ActionChip(
+                          avatar: const Icon(Icons.add_rounded, size: 17),
+                          label: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          onPressed: () => _useSuggestedAnswer(value),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
             ),
           ),
-          child: Text(text, style: const TextStyle(color: Color(0xFF14213D), fontSize: 16, fontWeight: FontWeight.w700)),
-        ),
-      );
-
-  Widget _replyCard({required String title, required String message, required String helper, bool success = false}) => Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          color: success ? const Color(0xFFEAFBF0) : const Color(0xFFFFFFFF),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: success ? const Color(0xFFA9E5BB) : const Color(0xFFCFE0FF), width: 1.4),
-          boxShadow: const [
-            BoxShadow(color: Color(0x0D14213D), blurRadius: 16, offset: Offset(0, 6)),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: success ? const Color(0xFFDDF7E5) : const Color(0xFFE8F8ED),
-              child: Icon(success ? Icons.check_rounded : Icons.smart_toy_rounded, color: const Color(0xFF10A53A)),
+          const SizedBox(height: 12),
+          _flowCard(
+            number: 5,
+            tint: const Color(0xFFE9FAFA),
+            numberColor: const Color(0xFF0F9C9C),
+            title: te ? 'మీ సమాధానం ఇవ్వండి' : 'Send your reply',
+            icon: Icons.mic_none_rounded,
+            child: _answerBox(te),
+          ),
+        ] else ...[
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            key: const Key('confirmRequirementButton'),
+            onPressed: _confirmAndMatch,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF10A53A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
-                  const SizedBox(height: 8),
-                  Text(message, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, height: 1.35, color: Color(0xFF14213D))),
-                  const SizedBox(height: 8),
-                  Text(helper, style: const TextStyle(fontSize: 13.5, height: 1.4, color: Color(0xFF667085))),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _understoodCard(UniversalDeal deal, bool te) {
-    final rows = <String>[
-      if (deal.subject != null && deal.subject!.trim().isNotEmpty)
-        '${te ? 'అవసరం' : 'Need'}: ${deal.subject}',
-      if (deal.quantity != null) '${te ? 'పరిమాణం' : 'Quantity'}: ${deal.quantity} ${deal.unit ?? ''}',
-      if (deal.price != null) '${te ? 'బడ్జెట్' : 'Budget'}: ₹${deal.price}',
-      if (deal.location.isKnown)
-        '${te ? 'లొకేషన్' : 'Location'}: ${deal.location.label ?? '${deal.location.latitude}, ${deal.location.longitude}'}',
-      if (deal.timing != null) '${te ? 'సమయం' : 'Timing'}: ${deal.timing}',
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE1E8F2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const CircleAvatar(backgroundColor: Color(0xFFE8F8ED), child: Icon(Icons.psychology_alt_rounded, color: Color(0xFF10A53A))),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                te ? 'ఇప్పటివరకు గుర్తించిన వివరాలు' : 'Details captured so far',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF14213D)),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 13),
-          if (rows.isEmpty)
-            Text(te ? 'ఇంకా వివరాలు సేకరిస్తున్నాను.' : 'Still collecting the details.', style: const TextStyle(color: Color(0xFF667085)))
-          else
-            for (final row in rows)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10A53A))),
-                  const SizedBox(width: 9),
-                  Expanded(child: Text(row, style: const TextStyle(fontSize: 15, color: Color(0xFF344054)))),
-                ]),
-              ),
+            icon: const Icon(Icons.auto_awesome_rounded),
+            label: Text(te ? 'మ్యాచ్‌లు కనుగొను' : 'Find my best matches', style: const TextStyle(fontWeight: FontWeight.w900)),
+          ),
         ],
-      ),
+        const SizedBox(height: 18),
+        _historyHint(te),
+      ],
     );
   }
 
-  Widget _answerBox(bool te) => Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+  Widget _flowCard({
+    required int number,
+    required Color tint,
+    required Color numberColor,
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) => Container(
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: const Color(0xFF14213D),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF6F8FFF), width: 1.4),
+          color: tint,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: numberColor.withValues(alpha: .18)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(te ? 'మీ సమాధానం' : 'YOUR REPLY', style: const TextStyle(color: Color(0xFFB8C7E8), fontSize: 11.5, fontWeight: FontWeight.w900, letterSpacing: .6)),
-            TextField(
-              key: const Key('askodoxClarificationField'),
-              controller: _answer,
-              focusNode: _focusNode,
-              textInputAction: TextInputAction.send,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-              onSubmitted: (_) => _sendAnswer(),
-              decoration: InputDecoration(
-                hintText: te ? 'ఉదా: వుయ్యూరు' : 'Example: Vuyyuru',
-                hintStyle: const TextStyle(color: Color(0xFFAAB5CF)),
-                suffixIcon: IconButton(
-                  tooltip: te ? 'పంపండి' : 'Send',
-                  onPressed: _sendAnswer,
-                  icon: const CircleAvatar(
-                    backgroundColor: Color(0xFF1769FF),
-                    child: Icon(Icons.arrow_upward_rounded, color: Colors.white),
-                  ),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: numberColor,
+                  child: Text('$number', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.only(top: 12),
+                const SizedBox(width: 9),
+                Expanded(child: Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: numberColor))),
+                Icon(icon, color: numberColor),
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      );
+
+  Widget _messageBubble(String text, Color color) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(18)),
+        child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF14213D), height: 1.35)),
+      );
+
+  Widget _capturedDetails(UniversalDeal deal, bool te) {
+    final rows = <String>[
+      if (deal.subject != null && deal.subject!.trim().isNotEmpty) '${te ? 'అవసరం' : 'Need'}: ${deal.subject}',
+      if (_lastAnswer != null) '${te ? 'తాజా వివరము' : 'Latest detail'}: $_lastAnswer',
+      if (deal.quantity != null) '${te ? 'పరిమాణం' : 'Quantity'}: ${deal.quantity} ${deal.unit ?? ''}',
+      if (deal.price != null) '${te ? 'బడ్జెట్' : 'Budget'}: ₹${deal.price}',
+      if (deal.location.isKnown) '${te ? 'స్థలం' : 'Location'}: ${deal.location.label ?? '${deal.location.latitude}, ${deal.location.longitude}'}',
+      if (deal.timing != null) '${te ? 'సమయం' : 'Timing'}: ${deal.timing}',
+    ];
+
+    if (rows.isEmpty) {
+      return Text(te ? 'ఇంకా వివరాలు సేకరిస్తున్నాను.' : 'Still collecting details.', style: const TextStyle(color: Color(0xFF667085)));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rows
+          .map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 3),
+                    child: Icon(Icons.check_circle_rounded, size: 17, color: Color(0xFF10A53A)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(row, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF344054)))),
+                ],
               ),
             ),
-          ],
+          )
+          .toList(),
+    );
+  }
+
+  Widget _assistantReply(UniversalDealSession session, UniversalDeal deal, bool te) {
+    final message = session.completed
+        ? (te ? 'సరే! అవసరమైన వివరాలు వచ్చాయి. ఇప్పుడు సరైన మ్యాచ్‌లను వెతుకుతాను.' : 'Great. I have the required details and can now find the best matches.')
+        : (te ? 'సరే, అర్థమైంది. ఇప్పుడు ఒక చిన్న వివరమే కావాలి.' : 'Got it. I only need one more detail.');
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const CircleAvatar(
+          backgroundColor: Colors.white,
+          child: Icon(Icons.smart_toy_rounded, color: Color(0xFF6A3FD6)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+            child: Text(message, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF14213D), height: 1.4)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<String> _suggestionsFor(String? field, bool te) {
+    return switch (field) {
+      'location' => te ? ['నా ప్రస్తుత స్థానం', 'వుయ్యూరు'] : ['My current area', 'Vuyyuru'],
+      'timing' => te ? ['ఇప్పుడే', 'ఈ రోజు', 'రేపు'] : ['Now', 'Today', 'Tomorrow'],
+      'quantity' => te ? ['1 kg', '2 kg', '5 kg'] : ['1 kg', '2 kg', '5 kg'],
+      _ => const <String>[],
+    };
+  }
+
+  Widget _answerBox(bool te) => Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 7, 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14213D),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF6F8FFF), width: 1.3),
+        ),
+        child: TextField(
+          key: const Key('askodoxClarificationField'),
+          controller: _answer,
+          focusNode: _focusNode,
+          textInputAction: TextInputAction.send,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          onSubmitted: (_) => _sendAnswer(),
+          decoration: InputDecoration(
+            hintText: te ? 'మీ సమాధానం టైప్ చేయండి…' : 'Type your reply…',
+            hintStyle: const TextStyle(color: Color(0xFFAAB5CF)),
+            prefixIcon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF6F8FFF)),
+            suffixIcon: IconButton(
+              tooltip: te ? 'పంపండి' : 'Send',
+              onPressed: _sendAnswer,
+              icon: const CircleAvatar(backgroundColor: Color(0xFF6A3FD6), child: Icon(Icons.arrow_upward_rounded, color: Colors.white)),
+            ),
+            border: InputBorder.none,
+          ),
         ),
       );
 
@@ -367,7 +399,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           child: Row(children: [
             const Icon(Icons.history_rounded, color: Color(0xFF1769FF)),
             const SizedBox(width: 10),
-            Expanded(child: Text(te ? 'ఈ అవసరం History లో కొనసాగించవచ్చు' : 'Continue this later from History', style: const TextStyle(fontWeight: FontWeight.w800))),
+            Expanded(child: Text(te ? 'ఈ అవసరాన్ని History లో తర్వాత కూడా కొనసాగించవచ్చు' : 'Continue this later from History', style: const TextStyle(fontWeight: FontWeight.w800))),
             const Icon(Icons.arrow_forward_ios_rounded, size: 15),
           ]),
         ),
