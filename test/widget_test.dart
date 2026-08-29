@@ -40,7 +40,7 @@ void main() {
     expect(find.byType(AppBar), findsOneWidget);
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('Talk to ASKODOX'), findsOneWidget);
-    expect(find.textContaining('No separate search flow.'), findsOneWidget);
+    expect(find.textContaining('Say what you need naturally.'), findsOneWidget);
     expect(find.text('I want chicken nearby'), findsOneWidget);
     expect(find.text('I need a job'), findsOneWidget);
     expect(find.text('I need a ride to Vijayawada'), findsOneWidget);
