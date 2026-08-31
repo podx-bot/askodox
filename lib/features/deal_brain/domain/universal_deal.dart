@@ -100,7 +100,7 @@ class UniversalDeal {
 
   /// Category-specific values live here so the core remains universal.
   /// Examples: job skill/experience, catering guest count/menu, ride seats/route,
-  /// rental duration, appointment specialty, product storage/colour/warranty.
+  /// rental duration, appointment specialty, product cut/freshness/preferences.
   final Map<String, Object?> dynamicFields;
   final DealStatus status;
 
@@ -152,7 +152,13 @@ class UniversalDeal {
     );
   }
 
-  /// ASKODOX should only ask what is actually required to make a useful match.
+  bool get isChickenRequest {
+    final source = '${subject ?? ''} $rawText'.toLowerCase();
+    return source.contains('chicken') || source.contains('చికెన్');
+  }
+
+  /// ASKODOX asks only the next useful missing detail. Category-specific
+  /// preferences can be collected progressively without turning the UI into a form.
   List<String> get missingForMatch {
     final missing = <String>[];
 
@@ -184,6 +190,17 @@ class UniversalDeal {
       case DealIntent.rent:
       case DealIntent.offerRental:
         if (subject == null || subject!.trim().isEmpty) missing.add('subject');
+        if (isChickenRequest) {
+          if (quantity == null) missing.add('quantity');
+          if (dynamicFields['freshness'] == null) missing.add('freshness');
+          if (dynamicFields['cut'] == null) missing.add('cut');
+          if (dynamicFields['chickenPreference'] == null) {
+            missing.add('chickenPreference');
+          }
+          if (fulfilment == null || fulfilment!.trim().isEmpty) {
+            missing.add('fulfilment');
+          }
+        }
         if (!location.isKnown && fulfilment != 'online') missing.add('location');
         break;
       case DealIntent.sendParcel:
