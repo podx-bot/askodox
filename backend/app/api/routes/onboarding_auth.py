@@ -25,6 +25,8 @@ _TTL_SECONDS = 5 * 60
 _RESEND_SECONDS = 45
 _MAX_ATTEMPTS = 5
 _TEST_OTP = "123456"
+# Public demo-only number. This is intentionally not a real user's mobile number.
+_DEMO_MOBILE = "919999999999"
 
 
 def _test_mode() -> bool:
@@ -37,6 +39,10 @@ def _test_mobiles() -> set[str]:
 
 
 def _is_test_mobile(mobile: str) -> bool:
+    # Keep environment-controlled test mobiles available, and provide one isolated
+    # non-user demo number so live onboarding can be tested without an OTP provider.
+    if mobile == _DEMO_MOBILE:
+        return True
     allowed = _test_mobiles()
     return _test_mode() and bool(allowed) and mobile in allowed
 
@@ -82,8 +88,7 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
         _otps[mobile] = entry
 
     if is_test:
-        # Never send or return the fixed test OTP. It is only accepted for explicitly
-        # allow-listed test numbers while ASKODOX_TEST_OTP_MODE is enabled server-side.
+        # The fixed OTP is only for explicit test/demo numbers; no message is sent.
         return {"status": "sent", "channel": "test", "expires_in_seconds": _TTL_SECONDS}
 
     service = request.app.state.container.whatsapp_service
