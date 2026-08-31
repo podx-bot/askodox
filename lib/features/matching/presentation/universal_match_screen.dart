@@ -67,6 +67,8 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
           final reaction = switch (stage) {
@@ -74,7 +76,9 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
             1 => match.price == null
                 ? 'I have confirmed availability. We can continue with the deal.'
                 : 'Current demo price is ₹${match.price!.toStringAsFixed(0)}. Final price can be confirmed in chat.',
-            _ => 'Confirmed. I have reserved this requirement for you. ASKODOX will keep the deal active until completion.',
+            2 => 'Confirmed. I have reserved this requirement for you. The deal is now confirmed.',
+            3 => 'Ready for pickup / delivery. The provider has marked your requirement ready.',
+            _ => 'Completed. The demo deal has successfully moved through the full action and reaction flow.',
           };
           return SafeArea(
             child: Padding(
@@ -106,7 +110,16 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
                     if (match.price != null) Chip(label: Text('₹${match.price!.toStringAsFixed(0)}')),
                   ]),
                   const SizedBox(height: 18),
-                  const Text('Opposite party reaction', style: TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+                  Text(
+                    switch (stage) {
+                      0 => 'Opposite party reaction',
+                      1 => 'Price / details',
+                      2 => 'Deal confirmed',
+                      3 => 'Ready for fulfilment',
+                      _ => 'Deal completed',
+                    },
+                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w900),
+                  ),
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
@@ -139,19 +152,37 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
                         child: const Text('Confirm deal'),
                       ),
                     )
+                  else if (stage == 2)
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => setSheetState(() => stage = 3),
+                        icon: const Icon(Icons.inventory_2_outlined),
+                        label: const Text('Mark ready for pickup / delivery'),
+                      ),
+                    )
+                  else if (stage == 3)
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => setSheetState(() => stage = 4),
+                        icon: const Icon(Icons.done_all_rounded),
+                        label: const Text('Complete demo deal'),
+                      ),
+                    )
                   else
                     Column(children: [
                       const Row(children: [
                         Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
                         SizedBox(width: 8),
-                        Expanded(child: Text('Demo deal confirmed • Action → Reaction → Deal state working', style: TextStyle(color: _ink, fontWeight: FontWeight.w800))),
+                        Expanded(child: Text('Action → Reaction → Confirmed → Ready → Completed', style: TextStyle(color: _ink, fontWeight: FontWeight.w800))),
                       ]),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
                           onPressed: () => Navigator.of(sheetContext).pop(),
-                          icon: const Icon(Icons.done_all_rounded),
+                          icon: const Icon(Icons.close_rounded),
                           label: const Text('Done'),
                         ),
                       ),
@@ -236,7 +267,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
                       ],
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, runSpacing: 8, children: [
-                        if (match.score != null) Chip(label: Text('Fit ${(match.score! * 100).round()}%')),
+                        if (match.score != null) Chip(label: Text('Fit ${match.score!.clamp(0, 100).round()}%')),
                         if (match.distanceKm != null) Chip(label: Text('${match.distanceKm!.toStringAsFixed(1)} km')),
                         if (match.price != null) Chip(label: Text('₹${match.price!.toStringAsFixed(0)}')),
                         if (match.trustScore != null) Chip(label: Text('Trust ${match.trustScore!.round()}%')),
