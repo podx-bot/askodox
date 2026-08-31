@@ -1,0 +1,130 @@
+name: Android Live Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish a GitHub prerelease with the APK
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/android-live-build.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      ANDROID_ORG: ${{ vars.ANDROID_ORG }}
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Validate live build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo 'Repository variable API_BASE_URL is required for a live build.' >&2
+            exit 1
+          fi
+          if [[ "$API_BASE_URL" != https://* ]]; then
+            echo 'API_BASE_URL must be an https:// URL.' >&2
+            exit 1
+          fi
+          echo "ANDROID_ORG=${ANDROID_ORG:-com.askodox}" >> "$GITHUB_ENV"
+
+      - name: Generate Android host project
+        run: flutter create --platforms=android --org "$ANDROID_ORG" .
+
+      - name: Install dependencies and verify
+        run: |
+          flutter pub get
+          flutter gen-l10n
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Build installable debug APK
+        run: |
+          flutter build apk --debug --build-number="${GITHUB_RUN_NUMBER}" --dart-define=APP_ENV=staging --dart-define=BACKEND_PROVIDER=rest --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Prepare release signing when configured
+        id: signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${KEYSTORE_B64:-}" ] && [ -n "${KEYSTORE_PASSWORD:-}" ] && [ -n "${KEY_ALIAS:-}" ] && [ -n "${KEY_PASSWORD:-}" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > android/app/askodox-release.jks
+            cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=askodox-release.jks
+          EOF
+            python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text()
+          if 'java.util.Properties' not in s:
+              s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
+          s = s.replace('android {', 'val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) { keystoreProperties.load(FileInputStream(keystorePropertiesFile)) }\n\nandroid {', 1)
+          needle = '    buildTypes {\n'
+          signing = '''    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n'''
+          s = s.replace(needle, signing + needle, 1)
+          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
+          p.write_text(s)
+          PY
+            echo 'configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo 'Release signing secrets are not configured; signed release APK will be skipped.'
+          fi
+
+      - name: Build stable signed release APK
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          flutter build apk --release --build-number="${GITHUB_RUN_NUMBER}" --dart-define=APP_ENV=production --dart-define=BACKEND_PROVIDER=rest --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Collect APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-debug.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}-debug.apk"
+          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk"; fi
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: askodox-android-${{ github.run_number }}
+          path: dist/*
+          retention-days: 30
+
+      - name: Publish prerelease download link
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="android-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk" dist/SHA256SUMS.txt --prerelease --title "ASKODOX Android ${GITHUB_RUN_NUMBER}" --notes "Live ASKODOX Android build. Existing installs can update only when the application ID and signing certificate match."
