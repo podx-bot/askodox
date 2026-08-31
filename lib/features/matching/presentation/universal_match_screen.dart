@@ -68,7 +68,6 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
           final reaction = switch (stage) {
