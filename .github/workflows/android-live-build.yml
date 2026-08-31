@@ -13,6 +13,7 @@ on:
     paths:
       - 'lib/**'
       - 'assets/**'
+      - 'tool/**'
       - 'pubspec.yaml'
       - '.github/workflows/android-live-build.yml'
 
@@ -55,23 +56,14 @@ jobs:
           echo "ANDROID_ORG=${ANDROID_ORG:-com.askodox}" >> "$GITHUB_ENV"
 
       - name: Generate Android host project
-        run: flutter create --platforms=android --org "$ANDROID_ORG" .
+        run: flutter create --platforms=android --org "$ANDROID_ORG" --project-name askodox .
 
-      - name: Enable Android internet access
+      - name: Apply ASKODOX Android branding and in-app updater bridge
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          s = p.read_text()
-          permission = '<uses-permission android:name="android.permission.INTERNET" />'
-          if permission not in s:
-              marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
-              s = s.replace(marker, marker + '\n    ' + permission, 1)
-              p.write_text(s)
-          print(p.read_text())
-          PY
+          bash tool/apply_android_askodox_branding.sh
+          bash tool/apply_android_live_device_bridge.sh
 
       - name: Install dependencies and verify
         run: |
@@ -82,7 +74,13 @@ jobs:
 
       - name: Build installable debug APK
         run: |
-          flutter build apk --debug --build-number="${GITHUB_RUN_NUMBER}" --dart-define=APP_ENV=staging --dart-define=BACKEND_PROVIDER=rest --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build apk --debug \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=APP_ENV=staging \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
 
       - name: Prepare release signing when configured
         id: signing
@@ -119,7 +117,13 @@ jobs:
       - name: Build stable signed release APK
         if: steps.signing.outputs.configured == 'true'
         run: |
-          flutter build apk --release --build-number="${GITHUB_RUN_NUMBER}" --dart-define=APP_ENV=production --dart-define=BACKEND_PROVIDER=rest --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build apk --release \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=APP_ENV=production \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
 
       - name: Collect APKs
         shell: bash
@@ -127,7 +131,9 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-debug.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}-debug.apk"
-          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk"; fi
+          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk"
+          fi
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
@@ -135,6 +141,37 @@ jobs:
           name: askodox-android-${{ github.run_number }}
           path: dist/*
           retention-days: 30
+
+      - name: Publish ASKODOX in-app update channel
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="askodox-latest"
+          VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          cp "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk" "dist/askodox-${GITHUB_RUN_NUMBER}.apk"
+          cp "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk" dist/askodox-latest.apk
+          cat > dist/latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "build_number": ${GITHUB_RUN_NUMBER},
+            "mandatory": false,
+            "notes": "Latest ASKODOX update",
+            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-${GITHUB_RUN_NUMBER}.apk"
+          }
+          EOF
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "ASKODOX ${VERSION}" --notes "ASKODOX in-app update channel"
+          fi
+          gh release upload "$TAG" \
+            "dist/askodox-${GITHUB_RUN_NUMBER}.apk" \
+            dist/askodox-latest.apk \
+            dist/latest.json \
+            --clobber
+          gh release edit "$TAG" --title "ASKODOX ${VERSION}" --notes "ASKODOX_BUILD_NUMBER=${GITHUB_RUN_NUMBER}\nASKODOX_VERSION=${VERSION}\nLatest signed ASKODOX in-app update."
+          gh release view "$TAG" --json tagName,url,assets --jq '.tagName, .url, (.assets[].name)'
 
       - name: Publish prerelease download link
         if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true'
