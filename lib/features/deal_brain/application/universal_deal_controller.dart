@@ -23,8 +23,7 @@ class UniversalDealSession {
   }
 }
 
-final universalDealControllerProvider =
-    StateNotifierProvider<UniversalDealController, UniversalDealSession>(
+final universalDealControllerProvider = StateNotifierProvider<UniversalDealController, UniversalDealSession>(
   (ref) => UniversalDealController(),
 );
 
@@ -39,41 +38,27 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   void start(String text) {
     final value = text.trim();
     if (value.isEmpty) return;
-
-    // If a requirement is already being collected, text entered on the
-    // conversation screen is an answer to the current missing field.
     final current = state.deal;
     if (current != null && current.missingForMatch.isNotEmpty) {
       answer(value);
       return;
     }
-
     final deal = _brain.capture(value);
-    _setSession(UniversalDealSession(
-      deal: deal,
-      lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
-      completed: deal.readyToMatch,
-    ));
+    _setSession(_sessionFor(deal));
   }
 
   void answer(String text) {
-    final current = state.deal;
-    if (current == null) {
-      final value = text.trim();
-      if (value.isEmpty) return;
-      final deal = _brain.capture(value);
-      _setSession(UniversalDealSession(
-        deal: deal,
-        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
-        completed: deal.readyToMatch,
-      ));
-      return;
-    }
     final value = text.trim();
     if (value.isEmpty) return;
+    final current = state.deal;
+    if (current == null) {
+      final deal = _brain.capture(value);
+      _setSession(_sessionFor(deal));
+      return;
+    }
+
     final missing = current.missingForMatch;
     if (missing.isEmpty) return;
-
     final field = missing.first;
     final dynamic = Map<String, Object?>.from(current.dynamicFields);
     var next = current;
@@ -81,6 +66,24 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     switch (field) {
       case 'subject':
         next = current.copyWith(subject: value);
+        break;
+      case 'quantity':
+        final parsed = _quantity(value);
+        if (parsed != null) {
+          next = current.copyWith(quantity: parsed.$1, unit: parsed.$2);
+        } else {
+          dynamic['quantityText'] = value;
+          next = current.copyWith(quantity: 1, unit: value, dynamicFields: dynamic);
+        }
+        break;
+      case 'freshness':
+      case 'cut':
+      case 'chickenPreference':
+        dynamic[field] = value;
+        next = current.copyWith(dynamicFields: dynamic);
+        break;
+      case 'fulfilment':
+        next = current.copyWith(fulfilment: _fulfilment(value) ?? value);
         break;
       case 'location':
         next = current.copyWith(
@@ -106,16 +109,34 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
         next = current.copyWith(dynamicFields: dynamic);
     }
 
-    _setSession(UniversalDealSession(
-      deal: next,
-      lastQuestion: _questionFor(next.missingForMatch.firstOrNull),
-      completed: next.readyToMatch,
-    ));
+    _setSession(_sessionFor(next));
   }
 
   void reset() {
     state = const UniversalDealSession();
     unawaited(_clearPersisted());
+  }
+
+  UniversalDealSession _sessionFor(UniversalDeal deal) => UniversalDealSession(
+        deal: deal,
+        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
+        completed: deal.readyToMatch,
+      );
+
+  (double, String)? _quantity(String value) {
+    final lower = value.toLowerCase();
+    final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*(kg|kgs|g|gm|grams|piece|pieces|pcs)?').firstMatch(lower);
+    final amount = double.tryParse(match?.group(1) ?? '');
+    if (amount == null) return null;
+    return (amount, match?.group(2) ?? 'kg');
+  }
+
+  String? _fulfilment(String value) {
+    final lower = value.toLowerCase();
+    if (lower.contains('delivery') || lower.contains('డెలివరీ')) return 'delivery';
+    if (lower.contains('pickup') || lower.contains('pick up') || lower.contains('పికప్')) return 'pickup';
+    if (lower.contains('online')) return 'online';
+    return null;
   }
 
   void _setSession(UniversalDealSession next) {
@@ -134,13 +155,8 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
       if (dealJson is! Map<String, dynamic>) return;
       final deal = _dealFromJson(dealJson);
       if (!mounted) return;
-      state = UniversalDealSession(
-        deal: deal,
-        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
-        completed: deal.readyToMatch,
-      );
+      state = _sessionFor(deal);
     } catch (_) {
-      // Corrupt/old local state must never prevent ASKODOX from opening.
       await _clearPersisted();
     }
   }
@@ -151,9 +167,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_storageKey, jsonEncode({'deal': _dealToJson(deal)}));
-    } catch (_) {
-      // Persistence is best-effort; the active in-memory flow remains usable.
-    }
+    } catch (_) {}
   }
 
   Future<void> _clearPersisted() async {
@@ -192,11 +206,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
         'status': d.status.name,
       };
 
-  Map<String, Object?> _partyToJson(DealPartyRequirement p) => {
-        'side': p.side.name,
-        'role': p.role,
-        'action': p.action,
-      };
+  Map<String, Object?> _partyToJson(DealPartyRequirement p) => {'side': p.side.name, 'role': p.role, 'action': p.action};
 
   UniversalDeal _dealFromJson(Map<String, dynamic> j) {
     final location = (j['location'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
@@ -246,6 +256,11 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   String? _questionFor(String? field) => switch (field) {
         'subject' => 'What exactly do you need or offer?',
+        'quantity' => 'How much do you need?',
+        'freshness' => 'Do you want fresh/live-cut or chilled?',
+        'cut' => 'How should it be cut?',
+        'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
+        'fulfilment' => 'Do you want pickup or delivery?',
         'location' => 'Where should ASKODOX find the match?',
         'timing' => 'When do you need this?',
         'from' => 'Where does it start from?',
