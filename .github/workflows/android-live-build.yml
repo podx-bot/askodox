@@ -57,6 +57,22 @@ jobs:
       - name: Generate Android host project
         run: flutter create --platforms=android --org "$ANDROID_ORG" .
 
+      - name: Enable Android internet access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          permission = '<uses-permission android:name="android.permission.INTERNET" />'
+          if permission not in s:
+              marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+              s = s.replace(marker, marker + '\n    ' + permission, 1)
+              p.write_text(s)
+          print(p.read_text())
+          PY
+
       - name: Install dependencies and verify
         run: |
           flutter pub get
