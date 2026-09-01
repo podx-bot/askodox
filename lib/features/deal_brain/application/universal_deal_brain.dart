@@ -158,7 +158,10 @@ class UniversalDealBrain {
     }
 
     final isChicken = lower.contains('chicken') || lower.contains('చికెన్');
-    if (isChicken) {
+    final commerceCompatible = intent == DealIntent.buy ||
+        intent == DealIntent.sell ||
+        (intent == DealIntent.other && _numberBeforeUnit(lower) != null);
+    if (isChicken && commerceCompatible) {
       fields['productKind'] = 'chicken';
       if (lower.contains('fresh') || lower.contains('ఫ్రెష్') || lower.contains('live cut')) fields['freshness'] = 'fresh';
       if (lower.contains('chilled')) fields['freshness'] = 'chilled';
