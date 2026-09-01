@@ -152,7 +152,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 26),
           for (final item in [
-            (Icons.shopping_bag_outlined, te ? 'నాకు దగ్గరలో చికెన్ కావాలి' : 'I want chicken nearby'),
+            (Icons.health_and_safety_outlined, te ? 'నా కుటుంబానికి హెల్త్ ఇన్సూరెన్స్ కావాలి' : 'I need health insurance for my family'),
             (Icons.work_outline_rounded, te ? 'నాకు ఉద్యోగం కావాలి' : 'I need a job'),
             (Icons.directions_car_outlined, te ? 'విజయవాడకి రైడ్ కావాలి' : 'I need a ride to Vijayawada'),
           ])
