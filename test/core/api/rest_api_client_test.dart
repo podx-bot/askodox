@@ -60,4 +60,65 @@ void main() {
     expect(failure.statusCode, 409);
     expect(failure.message, 'deal is not accepted yet');
   });
+
+  test('GET retries transient server failure when configured', () async {
+    var calls = 0;
+    final mock = MockClient((request) async {
+      calls += 1;
+      if (calls == 1) return http.Response(jsonEncode({'detail': 'temporary'}), 503);
+      return http.Response(jsonEncode({'ok': true}), 200);
+    });
+    final client = RestApiClient(baseUrl: Uri.parse('https://api.example.com'), httpClient: mock);
+
+    final result = await client.get<Map<String, Object?>>(
+      '/health',
+      options: const ApiRequestOptions(retryCount: 1),
+    );
+
+    expect(calls, 2);
+    expect(result, isA<ApiSuccess<Map<String, Object?>>>());
+  });
+
+  test('POST does not retry without an idempotency key', () async {
+    var calls = 0;
+    final mock = MockClient((request) async {
+      calls += 1;
+      return http.Response(jsonEncode({'detail': 'temporary'}), 503);
+    });
+    final client = RestApiClient(baseUrl: Uri.parse('https://api.example.com'), httpClient: mock);
+
+    final result = await client.post<Map<String, Object?>>(
+      '/payments',
+      body: const {'amount': 100},
+      options: const ApiRequestOptions(retryCount: 2),
+    );
+
+    expect(calls, 1);
+    expect(result, isA<ApiError<Map<String, Object?>>>());
+  });
+
+  test('idempotent POST retries with stable request headers', () async {
+    var calls = 0;
+    final mock = MockClient((request) async {
+      calls += 1;
+      expect(request.headers['x-request-id'], 'req-123');
+      expect(request.headers['idempotency-key'], 'deal-123');
+      if (calls == 1) return http.Response(jsonEncode({'detail': 'temporary'}), 503);
+      return http.Response(jsonEncode({'status': 'accepted'}), 200);
+    });
+    final client = RestApiClient(baseUrl: Uri.parse('https://api.example.com'), httpClient: mock);
+
+    final result = await client.post<Map<String, Object?>>(
+      '/deals/accept',
+      body: const {'deal_id': 123},
+      options: const ApiRequestOptions(
+        retryCount: 1,
+        requestId: 'req-123',
+        idempotencyKey: 'deal-123',
+      ),
+    );
+
+    expect(calls, 2);
+    expect(result, isA<ApiSuccess<Map<String, Object?>>>());
+  });
 }
