@@ -119,7 +119,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   UniversalDealSession _sessionFor(UniversalDeal deal) => UniversalDealSession(
         deal: deal,
-        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
+        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull, deal),
         completed: deal.readyToMatch,
       );
 
@@ -254,21 +254,24 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     return fallback;
   }
 
-  String? _questionFor(String? field) => switch (field) {
-        'subject' => 'What exactly do you need or offer?',
-        'quantity' => 'How much do you need?',
-        'freshness' => 'Do you want fresh/live-cut or chilled?',
-        'cut' => 'How should it be cut?',
-        'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
-        'fulfilment' => 'Do you want pickup or delivery?',
-        'location' => 'Where should ASKODOX find the match?',
-        'timing' => 'When do you need this?',
-        'from' => 'Where does it start from?',
-        'to' => 'Where should it go to?',
-        'skill' => 'What skill or work is required?',
-        null => null,
-        _ => 'Please tell me the missing $field detail.',
-      };
+  String? _questionFor(String? field, UniversalDeal deal) {
+    final chicken = deal.dynamicFields['productKind'] == 'chicken';
+    return switch (field) {
+      'subject' => 'What exactly do you need or offer?',
+      'quantity' => chicken ? 'How much chicken do you need?' : 'What quantity or number of units do you need?',
+      'freshness' => chicken ? 'Do you want fresh/live-cut or chilled?' : 'What quality or freshness do you prefer?',
+      'cut' => chicken ? 'How should the chicken be cut?' : 'Which variant or specification do you need?',
+      'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
+      'fulfilment' => 'Do you want pickup or delivery?',
+      'location' => 'Where should ASKODOX find the match?',
+      'timing' => 'When do you need this?',
+      'from' => 'Where does it start from?',
+      'to' => 'Where should it go to?',
+      'skill' => 'What skill or work is required?',
+      null => null,
+      _ => 'Please tell me the missing $field detail.',
+    };
+  }
 }
 
 extension _FirstOrNull<T> on List<T> {
