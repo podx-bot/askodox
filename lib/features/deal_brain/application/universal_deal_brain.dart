@@ -59,7 +59,7 @@ class UniversalDealBrain {
     if (hasAny(['for rent', 'rent out', 'అద్దెకు ఇస్తాను'])) return DealIntent.offerRental;
     if (hasAny(['book appointment', 'appointment కావాలి'])) return DealIntent.bookAppointment;
     if (hasAny(['appointments available', 'take appointments'])) return DealIntent.offerAppointment;
-    return DealIntent.buy;
+    return DealIntent.other;
   }
 
   (DealPartyRequirement, DealPartyRequirement) _parties(DealIntent intent) {
@@ -110,7 +110,8 @@ class UniversalDealBrain {
     if (intent == DealIntent.sendParcel || intent == DealIntent.deliverParcel) return 'parcel';
     if (intent == DealIntent.rent || intent == DealIntent.offerRental) return 'rental';
     if (intent == DealIntent.bookAppointment || intent == DealIntent.offerAppointment) return 'appointment';
-    return 'product';
+    if (intent == DealIntent.buy || intent == DealIntent.sell) return 'product';
+    return null;
   }
 
   double? _price(String text) {
