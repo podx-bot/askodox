@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:askodox/features/deal_brain/application/domain_brain_registry.dart';
-import 'package:askodox/features/deal_brain/application/natural_deal_brain.dart';
+import 'package:podx/features/deal_brain/application/domain_brain_registry.dart';
+import 'package:podx/features/deal_brain/application/natural_deal_brain.dart';
 
 void main() {
   const brain = NaturalDealBrain();
