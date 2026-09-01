@@ -8,23 +8,30 @@ class DemoNaturalMatchCatalog {
     final text = '${deal.rawText} ${deal.subject ?? ''} ${deal.category ?? ''}'.toLowerCase();
     final location = deal.location.label?.trim();
 
-    if (_hasAny(text, const ['chicken', 'చికెన్', 'కోడి', 'meat', 'mutton', 'మటన్'])) {
-      return [
-        _match('demo-chicken-1', 'Fresh Chicken Center', location,
-            'Demo verified seller • fresh cut chicken • ready now • pickup/delivery', 96, 1.2, 220, 92, 96),
-        _match('demo-chicken-2', 'Local Meat & Chicken Shop', location,
-            'Demo verified seller • chicken, boneless & wings • quick response', 91, 2.4, 215, 88, 90),
-        _match('demo-chicken-3', 'Daily Fresh Poultry', location,
-            'Demo verified seller • fresh stock • same-day fulfilment', 86, 3.6, 225, 84, 88),
-      ];
-    }
-
     if (_hasAny(text, const ['job', 'ఉద్యోగం', 'work', 'computer operator', 'driver job'])) {
       return [
         _match('demo-job-1', 'Local Office Hiring', location,
             'Demo verified employer • computer operator • immediate opening', 95, 2.0, null, 90, 94),
         _match('demo-job-2', 'Retail Back Office Job', location,
             'Demo verified employer • full-time • local candidates preferred', 88, 4.5, null, 86, 90),
+      ];
+    }
+
+    if (_hasAny(text, const ['insurance', 'policy', 'coverage', 'premium', 'claim', 'ఇన్సూరెన్స్', 'బీమా'])) {
+      return [
+        _match('demo-insurance-1', 'Health Cover Advisor', location,
+            'Demo verified insurance advisor • compare coverage, exclusions and premium', 94, 2.2, null, 92, 93),
+        _match('demo-insurance-2', 'Family Policy Specialist', location,
+            'Demo verified insurance advisor • family cover options • clear policy terms', 88, 4.0, null, 89, 90),
+      ];
+    }
+
+    if (_hasAny(text, const ['loan', 'emi', 'lender', 'interest rate', 'లోన్', 'రుణం'])) {
+      return [
+        _match('demo-loan-1', 'Loan Eligibility Advisor', location,
+            'Demo verified finance provider • eligibility, EMI and total-cost comparison', 93, 2.6, null, 91, 92),
+        _match('demo-loan-2', 'Local Lending Partner', location,
+            'Demo verified finance provider • tenure and fee comparison', 86, 4.3, null, 87, 89),
       ];
     }
 
@@ -37,7 +44,7 @@ class DemoNaturalMatchCatalog {
       ];
     }
 
-    if (_hasAny(text, const ['ride', 'carpool', 'driver', 'passenger', 'విజయవాడ', 'భీమవరం'])) {
+    if (_hasAny(text, const ['ride', 'carpool', 'passenger', 'విజయవాడ', 'భీమవరం'])) {
       return [
         _match('demo-ride-1', 'Verified Carpool Driver', location,
             'Demo verified driver • seats available • route matched', 94, 1.0, 750, 93, 92),
@@ -73,10 +80,30 @@ class DemoNaturalMatchCatalog {
       ];
     }
 
+    if (_isCommerceDeal(deal) && _hasAny(text, const ['chicken', 'చికెన్', 'కోడి', 'meat', 'mutton', 'మటన్'])) {
+      return [
+        _match('demo-chicken-1', 'Fresh Chicken Center', location,
+            'Demo verified seller • fresh cut chicken • ready now • pickup/delivery', 96, 1.2, 220, 92, 96),
+        _match('demo-chicken-2', 'Local Meat & Chicken Shop', location,
+            'Demo verified seller • chicken, boneless & wings • quick response', 91, 2.4, 215, 88, 90),
+        _match('demo-chicken-3', 'Daily Fresh Poultry', location,
+            'Demo verified seller • fresh stock • same-day fulfilment', 86, 3.6, 225, 84, 88),
+      ];
+    }
+
     return [
-      _match('demo-local-1', 'Nearby Local Provider', location,
-          'Demo verified opposite-side profile • relevant local option • available now', 82, 2.5, deal.price, 84, 86),
+      _match('demo-local-1', 'Nearby Relevant Provider', location,
+          'Demo verified provider • matched to this request • available now', 82, 2.5, deal.price, 84, 86),
     ];
+  }
+
+  static bool _isCommerceDeal(UniversalDeal deal) {
+    final category = deal.category?.toLowerCase();
+    return deal.intent == DealIntent.buy ||
+        deal.intent == DealIntent.sell ||
+        category == 'product' ||
+        category == 'fresh_food' ||
+        category == 'grocery';
   }
 
   static bool _hasAny(String text, List<String> values) => values.any(text.contains);
