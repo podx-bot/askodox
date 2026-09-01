@@ -98,7 +98,7 @@ class UniversalDealBrain {
         break;
       }
     }
-    final genericValues = <String>{'work', 'job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
+    final genericValues = <String>{'work', 'job', 'a job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
     if (value.isEmpty || genericValues.contains(value.toLowerCase())) return null;
     return value;
   }
