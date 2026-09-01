@@ -35,7 +35,8 @@ class UniversalDealBrain {
       return DealIntent.sell;
     }
     if (hasAny(['need a job', 'looking for job', 'find work', 'need work', 'ఉద్యోగం కావాలి', 'పని కావాలి']) ||
-        (text.contains('looking for ') && RegExp(r'\b(job|work|employment)\b').hasMatch(text))) {
+        ((text.contains('i need ') || text.contains('looking for ') || text.contains('want a ') || text.contains('want to find ')) &&
+            RegExp(r'\b(job|work|employment)\b').hasMatch(text))) {
       return DealIntent.seekWork;
     }
     if (hasAny(['need worker', 'need staff', 'hiring', 'hire ', 'worker కావాలి', 'మనిషి కావాలి'])) {
@@ -97,6 +98,10 @@ class UniversalDealBrain {
         value = value.substring(prefix.length).trim();
         break;
       }
+    }
+    if (intent == DealIntent.seekWork) {
+      value = value.replaceFirst(RegExp(r'^(?:a|an)\s+', caseSensitive: false), '');
+      value = value.replaceFirst(RegExp(r'\s+(?:job|work|employment)$', caseSensitive: false), '').trim();
     }
     final genericValues = <String>{'work', 'job', 'a job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
     if (value.isEmpty || genericValues.contains(value.toLowerCase())) return null;
