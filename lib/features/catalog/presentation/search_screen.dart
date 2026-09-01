@@ -6,6 +6,7 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 import '../../matching/presentation/universal_match_screen.dart';
+import 'deal_prompt_policy.dart';
 
 const _ink = Color(0xFF14213D);
 const _muted = Color(0xFF667085);
@@ -172,7 +173,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _conversation(UniversalDealSession session, UniversalDeal deal, bool te) {
     final missing = deal.missingForMatch.firstOrNull;
-    final quickReplies = _suggestionsFor(missing, te);
+    final quickReplies = DealPromptPolicy.suggestionsFor(deal: deal, field: missing, telugu: te);
 
     return Column(
       children: [
@@ -235,65 +236,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           : 'Got it. I have the important details. I will verify them once and find the best matches.';
     }
     final field = deal.missingForMatch.firstOrNull;
-    return _questionFor(field, te);
-  }
-
-  String _questionFor(String? field, bool te) {
-    if (te) {
-      return switch (field) {
-        'subject' => 'సరే. మీకు ఖచ్చితంగా ఏది కావాలి?',
-        'quantity' => 'సరే 👍 ఎంత చికెన్ కావాలి? ఉదాహరణకు 1 kg, 2 kg అని చెప్పండి.',
-        'freshness' => 'ఫ్రెష్ / live-cut కావాలా, లేక chilled కూడా సరేనా?',
-        'cut' => 'ఎలా కట్ చేయాలి? కర్రీ ముక్కలా, బిర్యానీ ముక్కలా, whole chickenలా?',
-        'chickenPreference' => 'ఇంకేమైనా preference ఉందా? Skinless/with skin, front/back/mixed, breast/leg/wings, liver/gizzard — ఏది కావాలో చెప్పండి. ఏమీ లేకపోతే “ఏదైనా సరే” అనండి.',
-        'fulfilment' => 'మీరు షాప్‌కి వెళ్లి తీసుకుంటారా, లేక delivery కావాలా?',
-        'location' => 'ఏ ప్రాంతంలో చూడాలి? మీ ప్రస్తుత స్థానం ఉపయోగించాలంటే “నా ప్రస్తుత స్థానం” అనండి.',
-        'timing' => 'ఎప్పుడు కావాలి?',
-        'from' => 'ఎక్కడి నుంచి బయలుదేరాలి?',
-        'to' => 'ఎక్కడికి వెళ్లాలి?',
-        'skill' => 'ఏ పని లేదా skill కావాలి?',
-        _ => 'ఇంకో చిన్న వివరము చెప్తారా?',
-      };
-    }
-    return switch (field) {
-      'subject' => 'Sure. What exactly do you need?',
-      'quantity' => 'How much do you need? For example, 1 kg or 2 kg.',
-      'freshness' => 'Do you want fresh/live-cut, or is chilled okay too?',
-      'cut' => 'How should it be cut: curry cut, biryani cut, or whole?',
-      'chickenPreference' => 'Any preference for skin, portion, breast/leg/wings, liver or gizzard? You can also say “no preference”.',
-      'fulfilment' => 'Would you like pickup or delivery?',
-      'location' => 'Which area should I search?',
-      'timing' => 'When do you need it?',
-      'from' => 'Where should the trip start?',
-      'to' => 'Where should it go?',
-      'skill' => 'What work or skill do you need?',
-      _ => 'Tell me one more small detail.',
-    };
-  }
-
-  List<String> _suggestionsFor(String? field, bool te) {
-    if (te) {
-      return switch (field) {
-        'quantity' => ['1 kg', '2 kg', '3 kg'],
-        'freshness' => ['ఫ్రెష్ / live-cut', 'Chilled కూడా సరే'],
-        'cut' => ['కర్రీ కట్', 'బిర్యానీ కట్', 'Whole chicken'],
-        'chickenPreference' => ['Skinless • mixed pieces', 'Leg pieces', 'Liver కూడా కావాలి', 'ఏదైనా సరే'],
-        'fulfilment' => ['డెలివరీ కావాలి', 'పికప్ చేస్తాను'],
-        'location' => ['నా ప్రస్తుత స్థానం'],
-        'timing' => ['ఇప్పుడు', 'ఈరోజు', 'రేపు'],
-        _ => const [],
-      };
-    }
-    return switch (field) {
-      'quantity' => ['1 kg', '2 kg', '3 kg'],
-      'freshness' => ['Fresh / live-cut', 'Chilled is okay'],
-      'cut' => ['Curry cut', 'Biryani cut', 'Whole chicken'],
-      'chickenPreference' => ['Skinless • mixed', 'Leg pieces', 'Add liver', 'No preference'],
-      'fulfilment' => ['Delivery', 'Pickup'],
-      'location' => ['My current location'],
-      'timing' => ['Now', 'Today', 'Tomorrow'],
-      _ => const [],
-    };
+    return DealPromptPolicy.questionFor(deal: deal, field: field, telugu: te);
   }
 
   Widget _composer(bool te) => Container(
