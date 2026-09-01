@@ -157,6 +157,28 @@ class UniversalDeal {
     return source.contains('chicken') || source.contains('చికెన్');
   }
 
+  List<String> get _domainRequiredSignals {
+    final raw = dynamicFields['_requiredSignals'];
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList(growable: false);
+  }
+
+  bool _hasSignal(String signal) {
+    final dynamic = dynamicFields[signal];
+    if (dynamic != null && dynamic.toString().trim().isNotEmpty) return true;
+    return switch (signal) {
+      'subject' || 'item' || 'problem_or_service' || 'professional_or_service' || 'rental_item' || 'policy_need' || 'loan_purpose' => subject != null && subject!.trim().isNotEmpty,
+      'quantity' || 'amount' => quantity != null,
+      'location' => location.isKnown,
+      'timing' || 'date_time' || 'time' => timing != null && timing!.trim().isNotEmpty,
+      'pickup' || 'from' => dynamicFields['from'] != null || dynamicFields['pickup'] != null,
+      'drop' || 'to' => dynamicFields['to'] != null || dynamicFields['drop'] != null,
+      'role_or_skill' || 'target_role' => dynamicFields['skill'] != null || dynamicFields['role_or_skill'] != null || subject != null,
+      'goal' => rawText.trim().isNotEmpty,
+      _ => false,
+    };
+  }
+
   /// ASKODOX asks only the next useful missing detail. Category-specific
   /// preferences can be collected progressively without turning the UI into a form.
   List<String> get missingForMatch {
@@ -209,7 +231,14 @@ class UniversalDeal {
         if (dynamicFields['to'] == null) missing.add('to');
         break;
       case DealIntent.other:
-        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
+        final domainRequired = _domainRequiredSignals;
+        if (domainRequired.isNotEmpty) {
+          for (final signal in domainRequired) {
+            if (!_hasSignal(signal)) missing.add(signal);
+          }
+        } else if (subject == null || subject!.trim().isEmpty) {
+          missing.add('subject');
+        }
         break;
     }
     return missing;
