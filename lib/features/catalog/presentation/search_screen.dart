@@ -172,7 +172,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _conversation(UniversalDealSession session, UniversalDeal deal, bool te) {
     final missing = deal.missingForMatch.firstOrNull;
-    final quickReplies = _suggestionsFor(missing, te);
+    final quickReplies = _suggestionsFor(missing, te, deal);
 
     return Column(
       children: [
@@ -235,18 +235,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           : 'Got it. I have the important details. I will verify them once and find the best matches.';
     }
     final field = deal.missingForMatch.firstOrNull;
-    return _questionFor(field, te);
+    return _questionFor(field, te, deal);
   }
 
-  String _questionFor(String? field, bool te) {
+  bool _isChickenDeal(UniversalDeal deal) => deal.dynamicFields['productKind'] == 'chicken';
+
+  String _questionFor(String? field, bool te, UniversalDeal deal) {
+    final chicken = _isChickenDeal(deal);
     if (te) {
       return switch (field) {
         'subject' => 'సరే. మీకు ఖచ్చితంగా ఏది కావాలి?',
-        'quantity' => 'సరే 👍 ఎంత చికెన్ కావాలి? ఉదాహరణకు 1 kg, 2 kg అని చెప్పండి.',
-        'freshness' => 'ఫ్రెష్ / live-cut కావాలా, లేక chilled కూడా సరేనా?',
-        'cut' => 'ఎలా కట్ చేయాలి? కర్రీ ముక్కలా, బిర్యానీ ముక్కలా, whole chickenలా?',
+        'quantity' => chicken ? 'సరే 👍 ఎంత చికెన్ కావాలి? ఉదాహరణకు 1 kg, 2 kg అని చెప్పండి.' : 'ఎంత quantity కావాలి? పరిమాణం లేదా units చెప్పండి.',
+        'freshness' => chicken ? 'ఫ్రెష్ / live-cut కావాలా, లేక chilled కూడా సరేనా?' : 'మీకు ఏ quality లేదా freshness preference ఉంది?',
+        'cut' => chicken ? 'ఎలా కట్ చేయాలి? కర్రీ ముక్కలా, బిర్యానీ ముక్కలా, whole chickenలా?' : 'ఏ variant లేదా specification కావాలి?',
         'chickenPreference' => 'ఇంకేమైనా preference ఉందా? Skinless/with skin, front/back/mixed, breast/leg/wings, liver/gizzard — ఏది కావాలో చెప్పండి. ఏమీ లేకపోతే “ఏదైనా సరే” అనండి.',
-        'fulfilment' => 'మీరు షాప్‌కి వెళ్లి తీసుకుంటారా, లేక delivery కావాలా?',
+        'fulfilment' => 'పికప్ కావాలా, delivery కావాలా?',
         'location' => 'ఏ ప్రాంతంలో చూడాలి? మీ ప్రస్తుత స్థానం ఉపయోగించాలంటే “నా ప్రస్తుత స్థానం” అనండి.',
         'timing' => 'ఎప్పుడు కావాలి?',
         'from' => 'ఎక్కడి నుంచి బయలుదేరాలి?',
@@ -257,9 +260,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
     return switch (field) {
       'subject' => 'Sure. What exactly do you need?',
-      'quantity' => 'How much do you need? For example, 1 kg or 2 kg.',
-      'freshness' => 'Do you want fresh/live-cut, or is chilled okay too?',
-      'cut' => 'How should it be cut: curry cut, biryani cut, or whole?',
+      'quantity' => chicken ? 'How much chicken do you need? For example, 1 kg or 2 kg.' : 'What quantity or number of units do you need?',
+      'freshness' => chicken ? 'Do you want fresh/live-cut, or is chilled okay too?' : 'Do you have a quality or freshness preference?',
+      'cut' => chicken ? 'How should it be cut: curry cut, biryani cut, or whole?' : 'Which variant or specification do you need?',
       'chickenPreference' => 'Any preference for skin, portion, breast/leg/wings, liver or gizzard? You can also say “no preference”.',
       'fulfilment' => 'Would you like pickup or delivery?',
       'location' => 'Which area should I search?',
@@ -271,13 +274,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     };
   }
 
-  List<String> _suggestionsFor(String? field, bool te) {
+  List<String> _suggestionsFor(String? field, bool te, UniversalDeal deal) {
+    final chicken = _isChickenDeal(deal);
     if (te) {
       return switch (field) {
-        'quantity' => ['1 kg', '2 kg', '3 kg'],
-        'freshness' => ['ఫ్రెష్ / live-cut', 'Chilled కూడా సరే'],
-        'cut' => ['కర్రీ కట్', 'బిర్యానీ కట్', 'Whole chicken'],
-        'chickenPreference' => ['Skinless • mixed pieces', 'Leg pieces', 'Liver కూడా కావాలి', 'ఏదైనా సరే'],
+        'quantity' => chicken ? ['1 kg', '2 kg', '3 kg'] : const [],
+        'freshness' => chicken ? ['ఫ్రెష్ / live-cut', 'Chilled కూడా సరే'] : const [],
+        'cut' => chicken ? ['కర్రీ కట్', 'బిర్యానీ కట్', 'Whole chicken'] : const [],
+        'chickenPreference' => chicken ? ['Skinless • mixed pieces', 'Leg pieces', 'Liver కూడా కావాలి', 'ఏదైనా సరే'] : const [],
         'fulfilment' => ['డెలివరీ కావాలి', 'పికప్ చేస్తాను'],
         'location' => ['నా ప్రస్తుత స్థానం'],
         'timing' => ['ఇప్పుడు', 'ఈరోజు', 'రేపు'],
@@ -285,10 +289,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       };
     }
     return switch (field) {
-      'quantity' => ['1 kg', '2 kg', '3 kg'],
-      'freshness' => ['Fresh / live-cut', 'Chilled is okay'],
-      'cut' => ['Curry cut', 'Biryani cut', 'Whole chicken'],
-      'chickenPreference' => ['Skinless • mixed', 'Leg pieces', 'Add liver', 'No preference'],
+      'quantity' => chicken ? ['1 kg', '2 kg', '3 kg'] : const [],
+      'freshness' => chicken ? ['Fresh / live-cut', 'Chilled is okay'] : const [],
+      'cut' => chicken ? ['Curry cut', 'Biryani cut', 'Whole chicken'] : const [],
+      'chickenPreference' => chicken ? ['Skinless • mixed', 'Leg pieces', 'Add liver', 'No preference'] : const [],
       'fulfilment' => ['Delivery', 'Pickup'],
       'location' => ['My current location'],
       'timing' => ['Now', 'Today', 'Tomorrow'],
