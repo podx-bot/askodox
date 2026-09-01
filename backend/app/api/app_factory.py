@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.appointment_location_middleware import AppointmentLocationMiddleware
+from app.api.request_observability_middleware import RequestObservabilityMiddleware
 from app.api.routes.debug import router as debug_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
@@ -161,6 +162,7 @@ def create_app() -> FastAPI:
     container.conversation_service = customer_response_policy
 
     app.state.container = container
+    app.add_middleware(RequestObservabilityMiddleware)
     app.add_middleware(AppointmentLocationMiddleware, container=container)
     app.include_router(health_router)
     app.include_router(onboarding_auth_router)
