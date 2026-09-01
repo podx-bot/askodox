@@ -62,6 +62,46 @@ void main() {
     expect(result.profile.requiredSignals, isNot(contains('item')));
   });
 
+  test('service request stays in service behaviour', () {
+    final result = brain.understand('I need an electrician today near me');
+
+    expect(result.domain, NaturalDomain.services);
+    expect(result.goal.id, 'service_solve');
+    expect(result.profile.requiredSignals, containsAll(['problem_or_service', 'location']));
+    expect(result.profile.requiredSignals, isNot(contains('item')));
+    expect(result.profile.actions, contains('match_provider'));
+  });
+
+  test('doctor booking stays in appointment behaviour', () {
+    final result = brain.understand('Book a doctor appointment tomorrow morning');
+
+    expect(result.domain, NaturalDomain.appointments);
+    expect(result.goal.id, 'appointment_book');
+    expect(result.profile.requiredSignals, contains('professional_or_service'));
+    expect(result.profile.actions, contains('find_slots'));
+    expect(result.profile.actions, isNot(contains('match_seller')));
+  });
+
+  test('loan query stays in loan behaviour', () {
+    final result = brain.understand('I need a personal loan of 5 lakh');
+
+    expect(result.domain, NaturalDomain.loans);
+    expect(result.goal.id, 'loans_goal');
+    expect(result.profile.requiredSignals, containsAll(['loan_purpose', 'amount']));
+    expect(result.profile.actions, contains('compare_eligibility'));
+    expect(result.profile.requiredSignals, isNot(contains('item')));
+  });
+
+  test('property request stays in property behaviour', () {
+    final result = brain.understand('I want to rent a 2 BHK house in Vijayawada');
+
+    expect(result.domain, NaturalDomain.property);
+    expect(result.goal.id, 'property_goal');
+    expect(result.profile.requiredSignals, containsAll(['buy_rent_intent', 'location']));
+    expect(result.profile.actions, contains('match_property'));
+    expect(result.profile.actions, isNot(contains('order_or_connect')));
+  });
+
   test('chicken stays in fresh-food behaviour only', () {
     final result = brain.understand('I want 2 kg fresh chicken curry cut delivered today');
 
@@ -79,6 +119,16 @@ void main() {
     expect(result.goal.actions, contains('derive_schema'));
     expect(result.goal.requiredSignals, ['goal']);
     expect(result.deal.category, isNull);
+  });
+
+  test('new event-planning goal does not fall back to commerce', () {
+    final result = brain.understand('Help me plan a birthday event tomorrow');
+
+    expect(result.domain, NaturalDomain.general);
+    expect(result.goal.id, 'open_ended');
+    expect(result.deal.category, isNull);
+    expect(result.profile.requiredSignals, isNot(contains('item')));
+    expect(result.profile.actions, contains('derive_schema'));
   });
 
   test('missing questions follow the resolved goal, not only broad domain', () {
