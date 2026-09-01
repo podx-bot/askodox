@@ -55,9 +55,9 @@ class WatchlistScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _HistoryCard(
-            icon: Icons.shopping_bag_outlined,
-            title: t('Chicken nearby', 'దగ్గరలో చికెన్'),
-            status: t('Matches ready', 'మ్యాచ్లు సిద్ధంగా ఉన్నాయి'),
+            icon: Icons.health_and_safety_outlined,
+            title: t('Health insurance options', 'హెల్త్ ఇన్సూరెన్స్ ఆప్షన్లు'),
+            status: t('Compare coverage', 'కవరేజ్ పోల్చండి'),
             time: t('Just now', 'ఇప్పుడే'),
             accent: const Color(0xFF10A53A),
             onTap: () => context.go('/search'),

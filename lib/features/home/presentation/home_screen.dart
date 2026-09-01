@@ -267,10 +267,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 6),
             _HistoryPreview(
-              icon: Icons.shopping_bag_outlined,
-              title: _tr('Chicken nearby', 'దగ్గరలో చికెన్ కావాలి', 'पास में चिकन', 'ନିକଟରେ ଚିକେନ୍'),
-              subtitle: _tr('Matches ready', 'మ్యాచ్‌లు సిద్ధంగా ఉన్నాయి', 'मैच तैयार हैं', 'ମ୍ୟାଚ୍ ପ୍ରସ୍ତୁତ'),
-              onTap: () => _startFlow(_tr('I want chicken nearby', 'నాకు దగ్గరలో చికెన్ కావాలి', 'मुझे पास में चिकन चाहिए', 'ମୋତେ ନିକଟରେ ଚିକେନ୍ ଦରକାର')),
+              icon: Icons.health_and_safety_outlined,
+              title: _tr('Family health insurance', 'కుటుంబ హెల్త్ ఇన్సూరెన్స్', 'फैमिली हेल्थ इंश्योरेंस', 'ପରିବାର ସ୍ୱାସ୍ଥ୍ୟ ବୀମା'),
+              subtitle: _tr('Compare coverage', 'కవరేజ్ పోల్చండి', 'कवरेज की तुलना करें', 'କଭରେଜ୍ ତୁଳନା କରନ୍ତୁ'),
+              onTap: () => _startFlow(_tr('I need health insurance for my family', 'నా కుటుంబానికి హెల్త్ ఇన్సూరెన్స్ కావాలి', 'मुझे अपने परिवार के लिए हेल्थ इंश्योरेंस चाहिए', 'ମୋ ପରିବାର ପାଇଁ ସ୍ୱାସ୍ଥ୍ୟ ବୀମା ଦରକାର')),
             ),
             _HistoryPreview(
               icon: Icons.work_outline_rounded,

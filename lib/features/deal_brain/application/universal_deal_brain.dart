@@ -35,7 +35,8 @@ class UniversalDealBrain {
       return DealIntent.sell;
     }
     if (hasAny(['need a job', 'looking for job', 'find work', 'need work', 'ఉద్యోగం కావాలి', 'పని కావాలి']) ||
-        (text.contains('looking for ') && RegExp(r'\b(job|work|employment)\b').hasMatch(text))) {
+        ((text.contains('i need ') || text.contains('looking for ') || text.contains('want a ') || text.contains('want to find ')) &&
+            RegExp(r'\b(job|work|employment)\b').hasMatch(text))) {
       return DealIntent.seekWork;
     }
     if (hasAny(['need worker', 'need staff', 'hiring', 'hire ', 'worker కావాలి', 'మనిషి కావాలి'])) {
@@ -59,7 +60,7 @@ class UniversalDealBrain {
     if (hasAny(['for rent', 'rent out', 'అద్దెకు ఇస్తాను'])) return DealIntent.offerRental;
     if (hasAny(['book appointment', 'appointment కావాలి'])) return DealIntent.bookAppointment;
     if (hasAny(['appointments available', 'take appointments'])) return DealIntent.offerAppointment;
-    return DealIntent.buy;
+    return DealIntent.other;
   }
 
   (DealPartyRequirement, DealPartyRequirement) _parties(DealIntent intent) {
@@ -98,7 +99,11 @@ class UniversalDealBrain {
         break;
       }
     }
-    final genericValues = <String>{'work', 'job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
+    if (intent == DealIntent.seekWork) {
+      value = value.replaceFirst(RegExp(r'^(?:a|an)\s+', caseSensitive: false), '');
+      value = value.replaceFirst(RegExp(r'\s+(?:job|work|employment)$', caseSensitive: false), '').trim();
+    }
+    final genericValues = <String>{'work', 'job', 'a job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
     if (value.isEmpty || genericValues.contains(value.toLowerCase())) return null;
     return value;
   }
@@ -110,7 +115,8 @@ class UniversalDealBrain {
     if (intent == DealIntent.sendParcel || intent == DealIntent.deliverParcel) return 'parcel';
     if (intent == DealIntent.rent || intent == DealIntent.offerRental) return 'rental';
     if (intent == DealIntent.bookAppointment || intent == DealIntent.offerAppointment) return 'appointment';
-    return 'product';
+    if (intent == DealIntent.buy || intent == DealIntent.sell) return 'product';
+    return null;
   }
 
   double? _price(String text) {
@@ -157,7 +163,10 @@ class UniversalDealBrain {
     }
 
     final isChicken = lower.contains('chicken') || lower.contains('చికెన్');
-    if (isChicken) {
+    final commerceCompatible = intent == DealIntent.buy ||
+        intent == DealIntent.sell ||
+        (intent == DealIntent.other && _numberBeforeUnit(lower) != null);
+    if (isChicken && commerceCompatible) {
       fields['productKind'] = 'chicken';
       if (lower.contains('fresh') || lower.contains('ఫ్రెష్') || lower.contains('live cut')) fields['freshness'] = 'fresh';
       if (lower.contains('chilled')) fields['freshness'] = 'chilled';

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/universal_deal.dart';
-import 'universal_deal_brain.dart';
+import 'natural_deal_brain.dart';
 
 class UniversalDealSession {
   const UniversalDealSession({this.deal, this.lastQuestion, this.completed = false});
@@ -33,7 +33,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   }
 
   static const _storageKey = 'askodox.active_universal_deal.v1';
-  final UniversalDealBrain _brain = const UniversalDealBrain();
+  final NaturalDealBrain _brain = const NaturalDealBrain();
 
   void start(String text) {
     final value = text.trim();
@@ -43,7 +43,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
       answer(value);
       return;
     }
-    final deal = _brain.capture(value);
+    final deal = _capture(value);
     _setSession(_sessionFor(deal));
   }
 
@@ -52,7 +52,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     if (value.isEmpty) return;
     final current = state.deal;
     if (current == null) {
-      final deal = _brain.capture(value);
+      final deal = _capture(value);
       _setSession(_sessionFor(deal));
       return;
     }
@@ -65,15 +65,22 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
     switch (field) {
       case 'subject':
+      case 'item':
+      case 'problem_or_service':
+      case 'professional_or_service':
+      case 'rental_item':
+      case 'policy_need':
+      case 'loan_purpose':
         next = current.copyWith(subject: value);
         break;
       case 'quantity':
+      case 'amount':
         final parsed = _quantity(value);
         if (parsed != null) {
           next = current.copyWith(quantity: parsed.$1, unit: parsed.$2);
         } else {
-          dynamic['quantityText'] = value;
-          next = current.copyWith(quantity: 1, unit: value, dynamicFields: dynamic);
+          dynamic[field] = value;
+          next = current.copyWith(dynamicFields: dynamic);
         }
         break;
       case 'freshness':
@@ -96,12 +103,31 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
         );
         break;
       case 'timing':
+      case 'time':
+      case 'date_time':
         next = current.copyWith(timing: value);
         break;
+      case 'pickup':
       case 'from':
-      case 'to':
-      case 'skill':
+        dynamic['from'] = value;
         dynamic[field] = value;
+        next = current.copyWith(dynamicFields: dynamic);
+        break;
+      case 'drop':
+      case 'to':
+        dynamic['to'] = value;
+        dynamic[field] = value;
+        next = current.copyWith(dynamicFields: dynamic);
+        break;
+      case 'skill':
+      case 'role_or_skill':
+      case 'target_role':
+        dynamic['skill'] = value;
+        dynamic[field] = value;
+        next = current.copyWith(dynamicFields: dynamic);
+        break;
+      case 'goal':
+        dynamic['goal'] = value;
         next = current.copyWith(dynamicFields: dynamic);
         break;
       default:
@@ -112,6 +138,15 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(next));
   }
 
+  UniversalDeal _capture(String value) {
+    final result = _brain.understand(value);
+    final dynamic = Map<String, Object?>.from(result.deal.dynamicFields)
+      ..['_domain'] = result.domain.name
+      ..['_goal'] = result.goal.id
+      ..['_requiredSignals'] = result.goal.requiredSignals;
+    return result.deal.copyWith(dynamicFields: dynamic);
+  }
+
   void reset() {
     state = const UniversalDealSession();
     unawaited(_clearPersisted());
@@ -119,7 +154,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   UniversalDealSession _sessionFor(UniversalDeal deal) => UniversalDealSession(
         deal: deal,
-        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
+        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull, deal),
         completed: deal.readyToMatch,
       );
 
@@ -254,21 +289,34 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     return fallback;
   }
 
-  String? _questionFor(String? field) => switch (field) {
-        'subject' => 'What exactly do you need or offer?',
-        'quantity' => 'How much do you need?',
-        'freshness' => 'Do you want fresh/live-cut or chilled?',
-        'cut' => 'How should it be cut?',
-        'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
-        'fulfilment' => 'Do you want pickup or delivery?',
-        'location' => 'Where should ASKODOX find the match?',
-        'timing' => 'When do you need this?',
-        'from' => 'Where does it start from?',
-        'to' => 'Where should it go to?',
-        'skill' => 'What skill or work is required?',
-        null => null,
-        _ => 'Please tell me the missing $field detail.',
-      };
+  String? _questionFor(String? field, UniversalDeal deal) {
+    final chicken = deal.dynamicFields['productKind'] == 'chicken';
+    return switch (field) {
+      'subject' => 'What exactly do you need or offer?',
+      'policy_need' => 'What kind of insurance cover do you need?',
+      'loan_purpose' => 'What is the loan for?',
+      'amount' => 'What amount do you need?',
+      'problem_or_service' => 'What problem or service should ASKODOX solve?',
+      'professional_or_service' => 'Which professional or appointment do you need?',
+      'rental_item' => 'What would you like to rent?',
+      'role_or_skill' || 'target_role' => 'What role or skill are you looking for?',
+      'pickup' => 'Where should pickup be?',
+      'drop' => 'Where should the trip end?',
+      'quantity' => chicken ? 'How much chicken do you need?' : 'What quantity or number of units do you need?',
+      'freshness' => chicken ? 'Do you want fresh/live-cut or chilled?' : 'What quality or freshness do you prefer?',
+      'cut' => chicken ? 'How should the chicken be cut?' : 'Which variant or specification do you need?',
+      'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
+      'fulfilment' => 'Do you want pickup or delivery?',
+      'location' => 'Where should ASKODOX find the match?',
+      'timing' || 'time' || 'date_time' => 'When do you need this?',
+      'from' => 'Where does it start from?',
+      'to' => 'Where should it go to?',
+      'skill' => 'What skill or work is required?',
+      'goal' => 'Tell me a little more about what you want to achieve.',
+      null => null,
+      _ => 'Please tell me the missing $field detail.',
+    };
+  }
 }
 
 extension _FirstOrNull<T> on List<T> {

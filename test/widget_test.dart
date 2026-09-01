@@ -41,7 +41,7 @@ void main() {
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('Tell me what you need naturally'), findsOneWidget);
     expect(find.textContaining('No forms.'), findsOneWidget);
-    expect(find.text('I want chicken nearby'), findsOneWidget);
+    expect(find.text('I need health insurance for my family'), findsOneWidget);
     expect(find.text('I need a job'), findsOneWidget);
     expect(find.text('I need a ride to Vijayawada'), findsOneWidget);
   });
