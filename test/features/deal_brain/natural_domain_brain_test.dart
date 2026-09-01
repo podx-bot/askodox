@@ -128,7 +128,7 @@ void main() {
     expect(result.goal.id, 'open_ended');
     expect(result.deal.category, isNull);
     expect(result.profile.requiredSignals, isNot(contains('item')));
-    expect(result.profile.actions, contains('derive_schema'));
+    expect(result.goal.actions, contains('derive_schema'));
   });
 
   test('missing questions follow the resolved goal, not only broad domain', () {
