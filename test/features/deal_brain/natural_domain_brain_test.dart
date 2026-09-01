@@ -109,6 +109,27 @@ void main() {
     expect(result.goal.id, 'commerce_transaction');
     expect(result.profile.requiredSignals, containsAll(['item', 'quantity']));
     expect(result.profile.optionalSignals, contains('cut_or_variant'));
+    expect(result.deal.dynamicFields['productKind'], 'chicken');
+  });
+
+  test('chicken wording inside a job does not inject food fields', () {
+    final result = brain.understand('I need a chicken delivery job in Vijayawada');
+
+    expect(result.domain, NaturalDomain.jobs);
+    expect(result.deal.dynamicFields, isNot(contains('productKind')));
+    expect(result.deal.dynamicFields, isNot(contains('freshness')));
+    expect(result.deal.dynamicFields, isNot(contains('cut')));
+    expect(result.deal.dynamicFields, isNot(contains('chickenPreference')));
+  });
+
+  test('chicken wording inside insurance does not inject food fields', () {
+    final result = brain.understand('I need insurance for my chicken farm');
+
+    expect(result.domain, NaturalDomain.insurance);
+    expect(result.deal.dynamicFields, isNot(contains('productKind')));
+    expect(result.deal.dynamicFields, isNot(contains('freshness')));
+    expect(result.deal.dynamicFields, isNot(contains('cut')));
+    expect(result.deal.dynamicFields, isNot(contains('chickenPreference')));
   });
 
   test('unknown goal stays open-ended and can derive a new schema', () {
