@@ -14,6 +14,8 @@ class ApiRequestOptions {
     this.pageToken,
     this.pageSize,
     this.retryCount = 0,
+    this.requestId,
+    this.idempotencyKey,
   });
 
   final Map<String, String> headers;
@@ -23,6 +25,8 @@ class ApiRequestOptions {
   final String? pageToken;
   final int? pageSize;
   final int retryCount;
+  final String? requestId;
+  final String? idempotencyKey;
 }
 
 abstract interface class ApiClient {
@@ -57,8 +61,18 @@ class RestApiClient implements ApiClient {
         'Accept': 'application/json',
         if (jsonBody) 'Content-Type': 'application/json',
         if (options.authToken != null && options.authToken!.isNotEmpty) 'Authorization': 'Bearer ${options.authToken}',
+        if (options.requestId != null && options.requestId!.trim().isNotEmpty) 'X-Request-ID': options.requestId!.trim(),
+        if (options.idempotencyKey != null && options.idempotencyKey!.trim().isNotEmpty) 'Idempotency-Key': options.idempotencyKey!.trim(),
         ...options.headers,
       };
+
+  bool _canRetry(String method, ApiRequestOptions options) {
+    final normalized = method.toUpperCase();
+    if (normalized == 'GET') return true;
+    return options.idempotencyKey != null && options.idempotencyKey!.trim().isNotEmpty;
+  }
+
+  bool _retryableStatus(int statusCode) => statusCode == 408 || statusCode == 429 || statusCode >= 500;
 
   Future<ApiResult<T>> _request<T>(
     String method,
@@ -67,7 +81,8 @@ class RestApiClient implements ApiClient {
     ApiRequestOptions options = const ApiRequestOptions(),
   }) async {
     final uri = _uri(path, options);
-    var attempt = 0;
+    var retriesUsed = 0;
+    final canRetry = _canRetry(method, options);
     while (true) {
       try {
         final request = http.Request(method, uri)..headers.addAll(_headers(options, jsonBody: body != null));
@@ -78,6 +93,10 @@ class RestApiClient implements ApiClient {
           final Object? decoded = response.body.trim().isEmpty ? null : jsonDecode(response.body);
           return ApiSuccess<T>(decoded as T);
         }
+        if (canRetry && _retryableStatus(response.statusCode) && retriesUsed < options.retryCount) {
+          retriesUsed += 1;
+          continue;
+        }
         final message = _errorMessage(response.body);
         final failure = mapApiError(message, statusCode: response.statusCode);
         return ApiError<T>(ApiFailure(
@@ -87,15 +106,24 @@ class RestApiClient implements ApiClient {
           cause: response.body,
         ));
       } on TimeoutException catch (error) {
-        if (attempt++ < options.retryCount) continue;
+        if (canRetry && retriesUsed < options.retryCount) {
+          retriesUsed += 1;
+          continue;
+        }
         return ApiError<T>(ApiFailure(ApiFailureType.timeout, message: 'The request timed out.', cause: error));
       } on http.ClientException catch (error) {
-        if (attempt++ < options.retryCount) continue;
+        if (canRetry && retriesUsed < options.retryCount) {
+          retriesUsed += 1;
+          continue;
+        }
         return ApiError<T>(ApiFailure(ApiFailureType.network, message: error.message, cause: error));
       } on FormatException catch (error) {
         return ApiError<T>(ApiFailure(ApiFailureType.server, message: 'Backend returned invalid JSON.', cause: error));
       } catch (error) {
-        if (attempt++ < options.retryCount) continue;
+        if (canRetry && retriesUsed < options.retryCount) {
+          retriesUsed += 1;
+          continue;
+        }
         return ApiError<T>(mapApiError(error));
       }
     }
