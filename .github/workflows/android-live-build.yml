@@ -28,7 +28,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      API_BASE_URL: ${{ vars.API_BASE_URL || 'https://podx-ai-connect-production-3279.up.railway.app' }}
       ANDROID_ORG: ${{ vars.ANDROID_ORG }}
       KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${API_BASE_URL:-}" ]; then
-            echo 'Repository variable API_BASE_URL is required for a live build.' >&2
+            echo 'API_BASE_URL is required for a live build.' >&2
             exit 1
           fi
           if [[ "$API_BASE_URL" != https://* ]]; then
@@ -54,6 +54,10 @@ jobs:
             exit 1
           fi
           echo "ANDROID_ORG=${ANDROID_ORG:-com.askodox}" >> "$GITHUB_ENV"
+
+      - name: Verify ASKODOX production backend
+        shell: bash
+        run: bash tool/verify_v2_backend.sh
 
       - name: Generate Android host project
         run: flutter create --platforms=android --org "$ANDROID_ORG" --project-name askodox .
