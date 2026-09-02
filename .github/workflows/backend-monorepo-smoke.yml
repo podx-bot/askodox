@@ -32,6 +32,38 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Verify provider reliability primitive
+        run: |
+          python - <<'PY'
+          from time import sleep
+
+          from backend.app.core.provider_reliability import (
+              ProviderPolicy,
+              ProviderReliabilityExecutor,
+          )
+
+          executor = ProviderReliabilityExecutor(
+              ProviderPolicy(timeout_seconds=0.05, failure_threshold=2, cooldown_seconds=60)
+          )
+
+          def fail():
+              raise RuntimeError("primary unavailable")
+
+          assert executor.execute([("primary", fail), ("fallback", lambda: "ok")]) == "ok"
+          assert not executor.circuit_open("primary")
+
+          assert executor.execute([("primary", fail), ("fallback", lambda: "ok")]) == "ok"
+          assert executor.circuit_open("primary")
+          assert executor.execute([("primary", lambda: "wrong"), ("fallback", lambda: "circuit-skip")]) == "circuit-skip"
+
+          def slow():
+              sleep(0.2)
+              return "too-late"
+
+          assert executor.execute([("slow", slow), ("fast", lambda: "timeout-fallback")]) == "timeout-fallback"
+          print("provider reliability smoke passed")
+          PY
+
       - name: Build backend image from monorepo
         run: docker build -t askodox-backend-smoke .
 
