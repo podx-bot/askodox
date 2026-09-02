@@ -135,6 +135,34 @@ jobs:
           print("real-user intent routing smoke passed")
           PY
 
+      - name: Verify baseline intent families
+        run: |
+          python - <<'PY'
+          from backend.app.core.default_intent_rules import build_default_intent_router
+
+          router = build_default_intent_router()
+
+          cases = {
+              "I want to buy a used laptop": ("commerce", "buy"),
+              "I want to sell my old phone": ("commerce", "sell"),
+              "Need a house for rent near me": ("rental", "rent"),
+              "Book appointment with a doctor": ("appointment", "book"),
+              "I need to send parcel to Hyderabad": ("parcel", "send"),
+              "How do I file a complaint about this service?": ("assistance", "complaint"),
+              "How to apply for this scheme?": ("assistance", "application"),
+              "I have a doubt, can you explain this?": ("assistance", "doubt"),
+              "నాకు ఒక వస్తువు కొనాలి": ("commerce", "buy"),
+              "కంప్లైంట్ చేయాలి": ("assistance", "complaint"),
+              "ఎలా అప్లై చేయాలి": ("assistance", "application"),
+          }
+
+          for text, expected in cases.items():
+              route = router.route(text)
+              assert (route.domain, route.action) == expected, (text, route, expected)
+
+          print("baseline intent families smoke passed")
+          PY
+
       - name: Build backend image from monorepo
         run: docker build -t askodox-backend-smoke .
 
