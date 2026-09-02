@@ -20,6 +20,7 @@ class UniversalDealBrain {
       unit: _unit(lower),
       price: _price(lower),
       fulfilment: _fulfilment(lower),
+      location: DealLocation(label: _location(text, intent)),
       timing: _timing(lower),
       dynamicFields: _dynamicFields(text, lower, intent),
     );
@@ -98,6 +99,18 @@ class UniversalDealBrain {
         break;
       }
     }
+
+    // Location/time are separate deal fields. Keeping them inside the subject causes
+    // ASKODOX to search for e.g. "laptop in Vijayawada" as if it were the item name.
+    value = value.replaceFirst(
+      RegExp(r'\s+(?:in|at|near|around)\s+.+?(?=\s+(?:today|tomorrow|tonight|now|urgent)\b|$)', caseSensitive: false),
+      '',
+    );
+    value = value.replaceFirst(
+      RegExp(r'\s+(?:today|tomorrow|tonight|now|urgent)\b.*$', caseSensitive: false),
+      '',
+    ).trim();
+
     final genericValues = <String>{'work', 'job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
     if (value.isEmpty || genericValues.contains(value.toLowerCase())) return null;
     return value;
@@ -111,6 +124,21 @@ class UniversalDealBrain {
     if (intent == DealIntent.rent || intent == DealIntent.offerRental) return 'rental';
     if (intent == DealIntent.bookAppointment || intent == DealIntent.offerAppointment) return 'appointment';
     return 'product';
+  }
+
+  String? _location(String text, DealIntent intent) {
+    if (intent == DealIntent.needRide ||
+        intent == DealIntent.offerRide ||
+        intent == DealIntent.sendParcel ||
+        intent == DealIntent.deliverParcel) {
+      return null;
+    }
+    final match = RegExp(
+      r'\b(?:in|at|near|around)\s+(.+?)(?=\s+(?:today|tomorrow|tonight|now|urgent)\b|$)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    final value = match?.group(1)?.trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   double? _price(String text) {
