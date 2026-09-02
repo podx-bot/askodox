@@ -8,9 +8,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from app.core.domain_field_requirements import missing_fields
-from app.core.domain_module_registry import DomainModuleRegistry
-from app.core.intent_domain_router import IntentRoute, RealUserIntentRouter
+try:
+    from app.core.domain_field_requirements import missing_fields
+    from app.core.domain_module_registry import DomainModuleRegistry
+    from app.core.intent_domain_router import IntentRoute, RealUserIntentRouter
+except ModuleNotFoundError:  # Monorepo import mode used by CI/tests.
+    from backend.app.core.domain_field_requirements import missing_fields
+    from backend.app.core.domain_module_registry import DomainModuleRegistry
+    from backend.app.core.intent_domain_router import IntentRoute, RealUserIntentRouter
 
 
 @dataclass(frozen=True)
@@ -37,15 +42,5 @@ class RoutedIntentFlow:
         result = self.evaluate(text, payload)
         if not result.ready:
             return result
-
-        output = self._registry.execute(
-            result.route.domain,
-            dict(payload),
-            action=result.route.action,
-        )
-        return RoutedIntentResult(
-            route=result.route,
-            missing=(),
-            ready=True,
-            output=output,
-        )
+        output = self._registry.execute(result.route.domain, dict(payload), action=result.route.action)
+        return RoutedIntentResult(route=result.route, missing=(), ready=True, output=output)
