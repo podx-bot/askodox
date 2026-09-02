@@ -6,8 +6,9 @@ import 'package:podx/features/catalog/presentation/search_screen.dart';
 import 'package:podx/features/home/presentation/home_screen.dart';
 import 'package:podx/generated/l10n/app_localizations.dart';
 
-Widget _screen(Widget child) => ProviderScope(
+Widget _screen(Widget child, {Locale? locale}) => ProviderScope(
       child: MaterialApp(
+        locale: locale,
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -51,6 +52,29 @@ void main() {
     expect(find.text('Chats'), findsOneWidget);
     expect(find.text('Ask'), findsOneWidget);
     expect(find.text('Activity'), findsWidgets);
+  });
+
+  testWidgets('renders Telugu AI-first home without layout regressions', (tester) async {
+    await tester.pumpWidget(_screen(const HomeScreen(), locale: const Locale('te')));
+    await tester.pump();
+
+    expect(find.text('ASKODOX'), findsOneWidget);
+    expect(find.text('శుభ సాయంత్రం 👋'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
+    expect(find.text('యాక్టివిటీ'), findsWidgets);
+
+    await tester.scrollUntilVisible(
+      find.text('మీ సంభాషణలను కొనసాగించండి'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
+
+    expect(find.text('మీ సంభాషణలను కొనసాగించండి'), findsOneWidget);
+    expect(find.text('చాట్స్'), findsOneWidget);
+    expect(find.text('అడగండి'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('renders conversation-first ASKODOX workspace', (tester) async {
