@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -174,6 +176,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _conversation(UniversalDealSession session, UniversalDeal deal, bool te) {
     final missing = deal.missingForMatch.firstOrNull;
     final quickReplies = DealPromptPolicy.suggestionsFor(deal: deal, field: missing, telugu: te);
+    final attachment = deal.dynamicFields['attachment'];
+    final media = attachment is Map ? attachment.cast<Object?, Object?>() : null;
+    final attachmentPath = media?['path']?.toString();
+    final attachmentName = media?['name']?.toString();
 
     return Column(
       children: [
@@ -183,6 +189,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
             children: [
               _UserBubble(text: deal.rawText),
+              if (attachmentPath != null && attachmentPath.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _AttachmentPreview(path: attachmentPath, name: attachmentName ?? (te ? 'జత చేసిన ఫోటో' : 'Attached photo'), te: te),
+              ],
               const SizedBox(height: 12),
               if (_turns.isEmpty)
                 _AssistantBubble(text: _assistantText(session, te), thinking: !session.completed),
@@ -280,6 +290,59 @@ class _ChatTurn {
   final bool isUser;
 }
 
+class _AttachmentPreview extends StatelessWidget {
+  const _AttachmentPreview({required this.path, required this.name, required this.te});
+  final String path;
+  final String name;
+  final bool te;
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          key: const Key('askodoxConversationAttachment'),
+          width: 220,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFDCE4F2)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              height: 150,
+              width: double.infinity,
+              child: Image.file(
+                File(path),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const ColoredBox(
+                  color: Color(0xFFF2F4F8),
+                  child: Center(child: Icon(Icons.image_not_supported_outlined, color: _muted, size: 34)),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 9, 12, 11),
+              child: Row(children: [
+                const Icon(Icons.image_outlined, color: _purple, size: 18),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(te ? 'జతచేశారు' : 'Attached', style: const TextStyle(color: _muted, fontSize: 10, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+}
+
 class _UserBubble extends StatelessWidget {
   const _UserBubble({required this.text});
   final String text;
@@ -375,6 +438,7 @@ class _RequirementSummary extends StatelessWidget {
       if (deal.dynamicFields['chickenPreference'] != null) '${deal.dynamicFields['chickenPreference']}',
       if (deal.fulfilment != null) deal.fulfilment!,
       if (deal.location.isKnown) deal.location.label ?? '',
+      if (deal.dynamicFields['attachment'] != null) te ? 'ఫోటో జతచేశారు' : 'Photo attached',
     ].where((e) => e.trim().isNotEmpty).toList();
 
     return Container(
