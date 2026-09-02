@@ -7,6 +7,7 @@ on:
     paths:
       - backend/app/repositories/universal_demand_repository.py
       - backend/app/services/universal_matcher.py
+      - backend/app/services/demo_seed_service.py
       - .github/workflows/demo-isolation-smoke.yml
   pull_request:
     branches:
@@ -14,6 +15,7 @@ on:
     paths:
       - backend/app/repositories/universal_demand_repository.py
       - backend/app/services/universal_matcher.py
+      - backend/app/services/demo_seed_service.py
       - .github/workflows/demo-isolation-smoke.yml
   workflow_dispatch:
 
@@ -83,4 +85,52 @@ jobs:
               assert {row['id'] for row in repo.list_active(test_mode=True)} == {demo_need_id, demo_offer_id}
 
           print('REAL↔REAL and TEST↔TEST isolation passed')
+          PY
+
+      - name: Verify deterministic demo seed and reset
+        run: |
+          python - <<'PY'
+          import tempfile
+
+          from backend.app.repositories.universal_demand_repository import UniversalDemandRepository
+          from backend.app.services.demo_seed_service import DemoSeedService
+          from backend.app.services.universal_matcher import UniversalMatcher
+
+          with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+              repo = UniversalDemandRepository(tmp.name)
+              matcher = UniversalMatcher(repo)
+              seeds = DemoSeedService(repo)
+
+              real_id = repo.create({
+                  'user_id': 'app-real-preserved',
+                  'side': 'NEED',
+                  'domain': 'PRODUCT',
+                  'subject': 'rice',
+                  'source': 'text',
+              })
+
+              first = seeds.seed()
+              assert first['created_count'] == 10, first
+              assert len(seeds.active_demo_records()) == 10
+              assert repo.get(real_id) is not None
+
+              for flow, ids in first['pairs'].items():
+                  party_a = repo.get(ids['party_a_id'])
+                  party_b = repo.get(ids['party_b_id'])
+                  matches = matcher.find_matches(party_a)
+                  assert any(row['id'] == party_b['id'] for row in matches), (flow, matches)
+
+              second = seeds.seed()
+              assert second['deleted'] == 10, second
+              assert second['created_count'] == 10, second
+              assert len(seeds.active_demo_records()) == 10
+              assert repo.get(real_id) is not None
+              assert [row['id'] for row in repo.list_active(test_mode=False)] == [real_id]
+
+              deleted = seeds.reset()
+              assert deleted == 10, deleted
+              assert seeds.active_demo_records() == []
+              assert repo.get(real_id) is not None
+
+          print('deterministic demo seed/reset passed')
           PY
