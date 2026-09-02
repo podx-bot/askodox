@@ -91,7 +91,30 @@ class UniversalDealBrain {
     if ({'buy nearby', 'sell something', 'find work', 'book a service', 'find a ride'}.contains(lowerText)) return null;
 
     var value = text;
-    final prefixes = <String>['i want to buy ', 'want to buy ', 'need to buy ', 'i want to sell ', 'want to sell ', 'i need ', 'need a ', 'need an ', 'looking for ', 'find ', 'book a ', 'book '];
+    final prefixes = <String>[
+      'i want to buy a ',
+      'i want to buy an ',
+      'want to buy a ',
+      'want to buy an ',
+      'need to buy a ',
+      'need to buy an ',
+      'i want to sell a ',
+      'i want to sell an ',
+      'want to sell a ',
+      'want to sell an ',
+      'i want to buy ',
+      'want to buy ',
+      'need to buy ',
+      'i want to sell ',
+      'want to sell ',
+      'i need ',
+      'need a ',
+      'need an ',
+      'looking for ',
+      'find ',
+      'book a ',
+      'book ',
+    ];
     final lower = value.toLowerCase();
     for (final prefix in prefixes) {
       if (lower.startsWith(prefix)) {
