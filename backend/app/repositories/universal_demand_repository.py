@@ -92,6 +92,14 @@ class UniversalDemandRepository:
             return f" AND {test_expression}", list(cls.TEST_SOURCES)
         return f" AND NOT {test_expression}", list(cls.TEST_SOURCES)
 
+    @classmethod
+    def _test_expression(cls) -> tuple[str, List[Any]]:
+        markers = ",".join("?" for _ in cls.TEST_SOURCES)
+        expression = (
+            f"(LOWER(source) IN ({markers}) OR LOWER(source) LIKE 'demo:%' OR LOWER(source) LIKE 'test:%')"
+        )
+        return expression, list(cls.TEST_SOURCES)
+
     def create(self, record: Dict[str, Any]) -> int:
         now = datetime.now(timezone.utc).isoformat()
         constraints = record.get("constraints") or {}
@@ -227,6 +235,16 @@ class UniversalDemandRepository:
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [self._row(row) for row in rows]
+
+    def delete_test_records(self) -> int:
+        """Delete only controlled TEST/DEMO rows and preserve production rows."""
+        expression, params = self._test_expression()
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"DELETE FROM {self.TABLE} WHERE {expression}",
+                params,
+            )
+            return int(cur.rowcount if cur.rowcount is not None else 0)
 
     def update_status(self, demand_id: int, status: str) -> None:
         now = datetime.now(timezone.utc).isoformat()
