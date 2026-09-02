@@ -39,12 +39,16 @@ def home() -> dict:
 
 
 @router.get("/health")
-def health(request: Request) -> dict:
-    container = request.app.state.container
+def health() -> dict:
+    """Process liveness probe for Railway and load balancers.
+
+    Keep this endpoint dependency-free so transient database or external-service
+    problems do not make a healthy application process fail deployment health
+    checks. Dependency readiness is reported by /readiness instead.
+    """
     return {
         "status": "healthy",
-        "database": container.database.health_check(),
-        "whatsapp_configured": container.whatsapp_service.is_configured(),
+        "app": "ASKODOX",
     }
 
 
