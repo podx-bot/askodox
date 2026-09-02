@@ -5,8 +5,13 @@ from pydantic import BaseModel, Field
 
 from app.api.routes.debug import _prepare_askodox_app_identity
 from app.api.routes.in_app_deal import InterestDecisionRequest, interest_action
+from backend.app.core.default_intent_rules import build_default_intent_router
+from backend.app.core.domain_field_requirements import FieldPolicyNotFoundError, missing_fields
+from backend.app.core.intent_domain_router import IntentRouteNotFoundError
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
+
+_INTENT_ROUTER = build_default_intent_router()
 
 
 class UniversalDealCreateRequest(BaseModel):
@@ -59,6 +64,47 @@ def _latest_created_deal(container, user_id: str):
     )
 
 
+def _intent_context(payload: UniversalDealCreateRequest) -> dict | None:
+    """Classify the natural request without becoming a second deal brain.
+
+    This is advisory metadata at the app request boundary. The existing conversation
+    service remains authoritative for extraction, state merging, and publication.
+    """
+    try:
+        route = _INTENT_ROUTER.route(payload.raw_text)
+    except IntentRouteNotFoundError:
+        return None
+
+    state = {
+        "subject": payload.subject,
+        "location": payload.location,
+        "timing": payload.timing,
+        "quantity": payload.quantity,
+        "unit": payload.unit,
+        "price": payload.price,
+        "price_basis": payload.price_basis,
+        "quality": payload.quality,
+        "variant": payload.variant,
+        "size": payload.size,
+        "weight": payload.weight,
+        "model": payload.model,
+        "availability": payload.availability,
+        "fulfilment": payload.fulfilment,
+        **dict(payload.dynamic_fields or {}),
+    }
+    try:
+        required_missing = missing_fields(route.domain, route.action, state)
+    except FieldPolicyNotFoundError:
+        required_missing = ()
+
+    return {
+        "domain": route.domain,
+        "action": route.action,
+        "score": route.score,
+        "missing_fields": list(required_missing),
+    }
+
+
 @router.post("")
 def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     """Create a universal ASKODOX requirement through the existing V2 Deal Brain.
@@ -71,6 +117,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     container = request.app.state.container
     user_id = _app_user(payload.user_id)
     _prepare_askodox_app_identity(container, user_id)
+    intent_context = _intent_context(payload)
 
     before = _latest_created_deal(container, user_id)
     before_id = int(before["id"]) if before else 0
@@ -80,9 +127,17 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     )
     created = _latest_created_deal(container, user_id)
     if not created or int(created["id"]) <= before_id:
+        headers = None
+        if intent_context is not None:
+            headers = {
+                "X-ASKODOX-Intent-Domain": str(intent_context["domain"]),
+                "X-ASKODOX-Intent-Action": str(intent_context["action"]),
+                "X-ASKODOX-Missing-Fields": ",".join(intent_context["missing_fields"]),
+            }
         raise HTTPException(
             status_code=422,
             detail="ASKODOX understood the message but the requirement is not ready to publish yet",
+            headers=headers,
         )
 
     item = dict(created)
@@ -97,6 +152,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
         "domain": item.get("domain"),
         "subject": item.get("subject"),
         "reply": reply,
+        "intent_context": intent_context,
     }
 
 
