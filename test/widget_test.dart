@@ -29,12 +29,11 @@ void main() {
     expect(find.text('Good evening 👋'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.text('In Progress'), findsOneWidget);
 
-    // Home stays AI-first: capability/category tiles must not compete with the
-    // natural-language entry point.
     expect(find.text('Buy & Local'), findsNothing);
     expect(find.text('Products nearby'), findsNothing);
     expect(find.text('Jobs'), findsNothing);
@@ -61,6 +60,7 @@ void main() {
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('శుభ సాయంత్రం 👋'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
     expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
     expect(find.text('యాక్టివిటీ'), findsWidgets);
 
