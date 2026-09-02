@@ -123,8 +123,6 @@ class UniversalDealBrain {
       }
     }
 
-    // Location/time are separate deal fields. Keeping them inside the subject causes
-    // ASKODOX to search for e.g. "laptop in Vijayawada" as if it were the item name.
     value = value.replaceFirst(
       RegExp(r'\s+(?:in|at|near|around)\s+.+?(?=\s+(?:today|tomorrow|tonight|now|urgent)\b|$)', caseSensitive: false),
       '',
@@ -193,6 +191,35 @@ class UniversalDealBrain {
     return null;
   }
 
+  (String, String)? _route(String raw, DealIntent intent) {
+    var value = raw.trim();
+    final prefixes = switch (intent) {
+      DealIntent.sendParcel => ['send parcel from ', 'send parcel ', 'parcel పంపాలి '],
+      DealIntent.deliverParcel => ['deliver parcel from ', 'deliver parcel ', 'parcel delivery from ', 'parcel delivery '],
+      DealIntent.needRide => ['need a ride from ', 'need ride from ', 'find a ride from ', 'find ride from ', 'ride కావాలి '],
+      DealIntent.offerRide => ['offer ride from ', 'ride available from ', 'carpool available from '],
+      _ => const <String>[],
+    };
+    final lower = value.toLowerCase();
+    for (final prefix in prefixes) {
+      if (lower.startsWith(prefix)) {
+        value = value.substring(prefix.length).trim();
+        break;
+      }
+    }
+    value = value.replaceFirst(RegExp(r'^from\s+', caseSensitive: false), '');
+    final match = RegExp(r'^(.+?)\s+(?:to|->|→)\s+(.+)$', caseSensitive: false).firstMatch(value);
+    if (match == null) return null;
+    final from = match.group(1)?.trim() ?? '';
+    var to = match.group(2)?.trim() ?? '';
+    to = to.replaceFirst(
+      RegExp(r'\s+(?:today|tomorrow|tonight|now|urgent)\b.*$', caseSensitive: false),
+      '',
+    ).trim();
+    if (from.isEmpty || to.isEmpty) return null;
+    return (from, to);
+  }
+
   Map<String, Object?> _dynamicFields(String raw, String lower, DealIntent intent) {
     final fields = <String, Object?>{};
     if (intent == DealIntent.needWorker || intent == DealIntent.seekWork) {
@@ -200,10 +227,10 @@ class UniversalDealBrain {
       if (skill != null && skill.trim().isNotEmpty) fields['skill'] = skill;
     }
     if (intent == DealIntent.needRide || intent == DealIntent.offerRide || intent == DealIntent.sendParcel || intent == DealIntent.deliverParcel) {
-      final route = RegExp(r'(.+?)\s+(?:to|->|→)\s+(.+)', caseSensitive: false).firstMatch(raw);
+      final route = _route(raw, intent);
       if (route != null) {
-        fields['from'] = route.group(1)?.trim();
-        fields['to'] = route.group(2)?.trim();
+        fields['from'] = route.$1;
+        fields['to'] = route.$2;
       }
     }
 
