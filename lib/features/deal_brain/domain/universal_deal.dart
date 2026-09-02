@@ -184,11 +184,10 @@ class UniversalDeal {
       case DealIntent.offerAppointment:
         if (subject == null || subject!.trim().isEmpty) missing.add('subject');
         if (!location.isKnown) missing.add('location');
+        if (timing == null || timing!.trim().isEmpty) missing.add('timing');
         break;
       case DealIntent.buy:
       case DealIntent.sell:
-      case DealIntent.rent:
-      case DealIntent.offerRental:
         if (subject == null || subject!.trim().isEmpty) missing.add('subject');
         if (isChickenRequest) {
           if (quantity == null) missing.add('quantity');
@@ -203,10 +202,17 @@ class UniversalDeal {
         }
         if (!location.isKnown && fulfilment != 'online') missing.add('location');
         break;
+      case DealIntent.rent:
+      case DealIntent.offerRental:
+        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
+        if (!location.isKnown && fulfilment != 'online') missing.add('location');
+        if (timing == null || timing!.trim().isEmpty) missing.add('timing');
+        break;
       case DealIntent.sendParcel:
       case DealIntent.deliverParcel:
         if (dynamicFields['from'] == null) missing.add('from');
         if (dynamicFields['to'] == null) missing.add('to');
+        if (timing == null || timing!.trim().isEmpty) missing.add('timing');
         break;
       case DealIntent.other:
         if (subject == null || subject!.trim().isEmpty) missing.add('subject');
