@@ -95,6 +95,46 @@ jobs:
           print("patch-safe domain isolation smoke passed")
           PY
 
+      - name: Verify real-user intent routing
+        run: |
+          python - <<'PY'
+          from backend.app.core.domain_module_registry import DomainModuleRegistry
+          from backend.app.core.intent_domain_router import IntentRule, RealUserIntentRouter
+
+          router = RealUserIntentRouter()
+          router.register_many([
+              IntentRule(
+                  domain="ride",
+                  phrases=("need a cab", "need a ride"),
+                  keywords=("cab", "ride", "taxi"),
+              ),
+              IntentRule(
+                  domain="service",
+                  phrases=("near me",),
+                  keywords=("electrician", "plumber", "repair"),
+              ),
+              IntentRule(
+                  domain="jobs",
+                  phrases=("looking for job", "job opening"),
+                  keywords=("job", "vacancy", "hiring"),
+              ),
+          ])
+
+          assert router.route("Need a cab from Vijayawada to Gannavaram today").domain == "ride"
+          assert router.route("Looking for electrician near me").domain == "service"
+          assert router.route("I am looking for job in accounts").domain == "jobs"
+
+          registry = DomainModuleRegistry()
+          registry.register("ride", lambda payload: f"ride:{payload['id']}")
+          registry.register("service", lambda payload: f"service:{payload['id']}")
+          registry.register("jobs", lambda payload: f"jobs:{payload['id']}")
+
+          assert router.dispatch("Taxi needed today", {"id": 7}, registry) == "ride:7"
+          assert router.dispatch("Plumber near me", {"id": 8}, registry) == "service:8"
+          assert router.dispatch("Any job vacancy?", {"id": 9}, registry) == "jobs:9"
+          print("real-user intent routing smoke passed")
+          PY
+
       - name: Build backend image from monorepo
         run: docker build -t askodox-backend-smoke .
 
