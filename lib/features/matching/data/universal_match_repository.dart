@@ -102,6 +102,15 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
   final ApiClient _client;
   final String? appUserId;
 
+  static const _createOptions = ApiRequestOptions(
+    timeout: Duration(seconds: 30),
+  );
+
+  static const _matchOptions = ApiRequestOptions(
+    timeout: Duration(seconds: 30),
+    retryCount: 1,
+  );
+
   @override
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal) async {
     final userId = appUserId;
@@ -109,9 +118,13 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       throw StateError('Unable to establish an app session for matching.');
     }
 
+    // Railway can need more than the global 15 second API timeout while a
+    // service is waking up. Creating a real deal is not retried automatically
+    // because it is a POST and we must not risk duplicate requirements.
     final create = await _client.post<Map<String, Object?>>(
       '/deals',
       body: _payload(deal, userId),
+      options: _createOptions,
     );
     if (create is ApiError<Map<String, Object?>>) {
       final failure = create.failure;
@@ -147,7 +160,12 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       throw StateError('Matching backend did not return a deal id.');
     }
 
-    final response = await _client.get<Map<String, Object?>>('/deals/$dealId/matches');
+    // Match lookup is a safe GET, so retry once after a cold-start/network
+    // timeout. A successful empty response then flows to the real no-match UI.
+    final response = await _client.get<Map<String, Object?>>(
+      '/deals/$dealId/matches',
+      options: _matchOptions,
+    );
     if (response is ApiError<Map<String, Object?>>) {
       throw StateError(response.failure.message ?? 'Unable to load matches.');
     }
