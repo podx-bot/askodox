@@ -5,7 +5,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deals/services/deal_invoice_service.dart';
-import '../data/demo_natural_match_catalog.dart';
 import '../data/universal_match_repository.dart';
 
 const _ink = Color(0xFF14213D);
@@ -50,16 +49,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
     if (deal == null || !deal.readyToMatch) {
       throw StateError('Complete the requirement before matching.');
     }
-    try {
-      return await ref.read(universalMatchRepositoryProvider).createAndMatch(deal);
-    } catch (_) {
-      final demoMatches = DemoNaturalMatchCatalog.forDeal(deal)
-        ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
-      return UniversalMatchResult(
-        dealId: 'local-${DateTime.now().microsecondsSinceEpoch}',
-        matches: demoMatches,
-      );
-    }
+    return ref.read(universalMatchRepositoryProvider).createAndMatch(deal);
   }
 
   bool get _te => RegExp(r'[\u0C00-\u0C7F]').hasMatch(
@@ -262,7 +252,15 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
             return _LoadingConversation(te: _te);
           }
           if (snapshot.hasError) {
-            return _MatchError(message: '${snapshot.error}', onRetry: _retry, te: _te);
+            final error = snapshot.error;
+            if (error is DealNeedsDetailsException) {
+              return _NeedsDetails(
+                exception: error,
+                onComplete: () => context.go('/search'),
+                te: _te,
+              );
+            }
+            return _MatchError(message: '$error', onRetry: _retry, te: _te);
           }
           final result = snapshot.data;
           if (result == null) {
@@ -714,6 +712,77 @@ class _ThinkingDots extends StatelessWidget {
           style: TextStyle(color: Color(0xFF9AA3B2), letterSpacing: 3, fontSize: 11),
         ),
       );
+}
+
+class _NeedsDetails extends StatelessWidget {
+  const _NeedsDetails({
+    required this.exception,
+    required this.onComplete,
+    required this.te,
+  });
+
+  final DealNeedsDetailsException exception;
+  final VoidCallback onComplete;
+  final bool te;
+
+  static const _englishLabels = <String, String>{
+    'subject': 'what you need',
+    'location': 'location',
+    'timing': 'timing',
+    'from_location': 'pickup / from location',
+    'to_location': 'destination / to location',
+    'issue': 'issue details',
+    'applicant_context': 'applicant details',
+    'question': 'your question',
+  };
+
+  static const _teluguLabels = <String, String>{
+    'subject': 'ఏది కావాలో',
+    'location': 'లొకేషన్',
+    'timing': 'ఎప్పుడు కావాలో',
+    'from_location': 'ఎక్కడి నుంచి',
+    'to_location': 'ఎక్కడికి',
+    'issue': 'సమస్య వివరాలు',
+    'applicant_context': 'అప్లికెంట్ వివరాలు',
+    'question': 'మీ ప్రశ్న',
+  };
+
+  String _label(String field) {
+    final labels = te ? _teluguLabels : _englishLabels;
+    return labels[field] ?? field.replaceAll('_', ' ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = exception.missingFields.map(_label).toList(growable: false);
+    final details = labels.isEmpty
+        ? (te ? 'కొన్ని వివరాలు ఇంకా కావాలి.' : 'A few more details are required.')
+        : (te
+            ? 'ఇంకా కావాల్సింది: ${labels.join(', ')}.'
+            : 'Still needed: ${labels.join(', ')}.');
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.edit_note_rounded, size: 52, color: _ink),
+          const SizedBox(height: 12),
+          Text(
+            te ? 'Match చేసే ముందు ఈ వివరాలు పూర్తి చేయండి' : 'Complete these details before matching',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(details, textAlign: TextAlign.center, style: const TextStyle(color: _mutedInk)),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: onComplete,
+            icon: const Icon(Icons.arrow_back_rounded),
+            label: Text(te ? 'వివరాలు పూర్తి చేయండి' : 'Complete details'),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 class _MatchError extends StatelessWidget {
