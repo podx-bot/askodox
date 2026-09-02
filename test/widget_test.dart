@@ -24,13 +24,14 @@ void main() {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
-    expect(find.text('ASKODOX AI'), findsOneWidget);
-    expect(find.text('Hi! I’m ASKODOX AI'), findsOneWidget);
-    expect(find.textContaining('Tell me what you need.'), findsOneWidget);
+    expect(find.text('ASKODOX'), findsOneWidget);
+    expect(find.text('Good evening 👋'), findsOneWidget);
+    expect(find.textContaining('What can I'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
-    expect(find.text('Recent history'), findsOneWidget);
+    expect(find.text('In Progress'), findsOneWidget);
+    expect(find.text('Continue your conversations'), findsOneWidget);
   });
 
   testWidgets('renders conversation-first ASKODOX workspace', (tester) async {
