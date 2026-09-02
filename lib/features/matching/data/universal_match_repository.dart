@@ -133,6 +133,9 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     final created = (create as ApiSuccess<Map<String, Object?>>).data;
     var dealId = '${created['id'] ?? created['deal_id'] ?? ''}';
 
+    // Demo data is allowed only when the app is explicitly using MockApiClient.
+    // A live backend must never be replaced by fake matches, because that hides
+    // genuine no-match, validation, and provider-availability states.
     if (dealId.isEmpty && _client is MockApiClient) {
       dealId = 'local-${DateTime.now().microsecondsSinceEpoch}';
       final demoMatches = DemoNaturalMatchCatalog.forDeal(deal)
@@ -155,10 +158,6 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         .map((item) => UniversalMatch.fromJson(Map<String, Object?>.from(item)))
         .where((item) => item.id.isNotEmpty)
         .toList();
-
-    if (rows.isEmpty) {
-      rows.addAll(DemoNaturalMatchCatalog.forDeal(deal));
-    }
 
     rows.sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
     return UniversalMatchResult(dealId: dealId, matches: rows);
