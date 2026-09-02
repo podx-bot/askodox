@@ -6,7 +6,10 @@ people ask for help, so phrasing can evolve without rewriting domain logic.
 """
 from __future__ import annotations
 
-from app.core.intent_domain_router import IntentRule, RealUserIntentRouter
+try:
+    from app.core.intent_domain_router import IntentRule, RealUserIntentRouter
+except ModuleNotFoundError:  # Monorepo import mode used by CI/tests.
+    from backend.app.core.intent_domain_router import IntentRule, RealUserIntentRouter
 
 
 DEFAULT_INTENT_RULES: tuple[IntentRule, ...] = (
