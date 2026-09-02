@@ -6,6 +6,10 @@ products and future request types use the same storage model.
 Important: this storage uses its own table name. The older DemandRepository
 already owns `universal_demands` with a different schema, so sharing that table
 causes startup failures on both fresh and existing databases.
+
+TEST/DEMO isolation uses the existing ``source`` column so no destructive schema
+migration is needed. Normal production reads exclude test/demo rows by default;
+test mode reads only those rows.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 class UniversalDemandRepository:
     TABLE = "universal_need_offer_records"
+    TEST_SOURCES = ("demo", "test", "seed", "qa")
 
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
@@ -64,6 +69,28 @@ class UniversalDemandRepository:
             conn.execute(
                 f"CREATE INDEX IF NOT EXISTS idx_need_offer_user_status ON {self.TABLE}(user_id, status)"
             )
+            conn.execute(
+                f"CREATE INDEX IF NOT EXISTS idx_need_offer_source_status ON {self.TABLE}(source, status)"
+            )
+
+    @classmethod
+    def is_test_source(cls, value: Any) -> bool:
+        source = str(value or "").strip().casefold()
+        return source in cls.TEST_SOURCES or source.startswith("demo:") or source.startswith("test:")
+
+    @classmethod
+    def is_test_record(cls, record: Dict[str, Any]) -> bool:
+        return cls.is_test_source(record.get("source"))
+
+    @classmethod
+    def _mode_sql(cls, test_mode: bool) -> tuple[str, List[Any]]:
+        markers = ",".join("?" for _ in cls.TEST_SOURCES)
+        test_expression = (
+            f"(LOWER(source) IN ({markers}) OR LOWER(source) LIKE 'demo:%' OR LOWER(source) LIKE 'test:%')"
+        )
+        if test_mode:
+            return f" AND {test_expression}", list(cls.TEST_SOURCES)
+        return f" AND NOT {test_expression}", list(cls.TEST_SOURCES)
 
     def create(self, record: Dict[str, Any]) -> int:
         now = datetime.now(timezone.utc).isoformat()
@@ -159,9 +186,17 @@ class UniversalDemandRepository:
                 (float(latitude), float(longitude), location_text, now, int(demand_id)),
             )
 
-    def list_active(self, limit: int = 500, exclude_user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_active(
+        self,
+        limit: int = 500,
+        exclude_user_id: Optional[str] = None,
+        test_mode: bool = False,
+    ) -> List[Dict[str, Any]]:
         sql = f"SELECT * FROM {self.TABLE} WHERE status = 'ACTIVE'"
         params: List[Any] = []
+        mode_sql, mode_params = self._mode_sql(test_mode)
+        sql += mode_sql
+        params.extend(mode_params)
         if exclude_user_id is not None:
             sql += " AND user_id <> ?"
             params.append(str(exclude_user_id))
@@ -171,10 +206,19 @@ class UniversalDemandRepository:
             rows = conn.execute(sql, params).fetchall()
         return [self._row(row) for row in rows]
 
-    def list_opposite_active(self, side: str, domain: Optional[str] = None, limit: int = 200) -> List[Dict[str, Any]]:
+    def list_opposite_active(
+        self,
+        side: str,
+        domain: Optional[str] = None,
+        limit: int = 200,
+        test_mode: bool = False,
+    ) -> List[Dict[str, Any]]:
         opposite = "OFFER" if str(side).upper() == "NEED" else "NEED"
         sql = f"SELECT * FROM {self.TABLE} WHERE side = ? AND status = 'ACTIVE'"
         params: List[Any] = [opposite]
+        mode_sql, mode_params = self._mode_sql(test_mode)
+        sql += mode_sql
+        params.extend(mode_params)
         if domain:
             sql += " AND domain = ?"
             params.append(str(domain).upper())
