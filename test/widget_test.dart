@@ -26,12 +26,14 @@ void main() {
 
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('Good evening 👋'), findsOneWidget);
-    expect(find.textContaining('What can I'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.text('In Progress'), findsOneWidget);
     expect(find.text('Continue your conversations'), findsOneWidget);
+    expect(find.text('Chats'), findsOneWidget);
+    expect(find.text('Ask'), findsOneWidget);
+    expect(find.text('Activity'), findsWidgets);
   });
 
   testWidgets('renders conversation-first ASKODOX workspace', (tester) async {
