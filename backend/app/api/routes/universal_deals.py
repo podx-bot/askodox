@@ -5,9 +5,9 @@ from pydantic import BaseModel, Field
 
 from app.api.routes.debug import _prepare_askodox_app_identity
 from app.api.routes.in_app_deal import InterestDecisionRequest, interest_action
-from backend.app.core.default_intent_rules import build_default_intent_router
-from backend.app.core.domain_field_requirements import FieldPolicyNotFoundError, missing_fields
-from backend.app.core.intent_domain_router import IntentRouteNotFoundError
+from app.core.default_intent_rules import build_default_intent_router
+from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing_fields
+from app.core.intent_domain_router import IntentRouteNotFoundError
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
@@ -154,9 +154,6 @@ def _normalized_intent_state(payload: UniversalDealCreateRequest) -> dict:
         **dynamic,
     }
 
-    # Flutter's universal deal brain intentionally uses compact cross-domain keys.
-    # Field policies use explicit canonical names. Preserve both without changing the
-    # app model or the authoritative V2 extraction/capture pipeline.
     aliases = {
         "from": "from_location",
         "to": "to_location",
@@ -175,10 +172,6 @@ def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict
         return None
 
     state = _normalized_intent_state(payload)
-
-    # Avoid a second AI call when Flutter already supplied every field needed by the
-    # route. Only reuse the existing extractor if the preliminary policy is missing
-    # something that may already be present in raw_text.
     try:
         preliminary_missing = missing_fields(route.domain, route.action, state)
     except FieldPolicyNotFoundError:
@@ -205,13 +198,6 @@ def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict
 
 @router.post("")
 def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
-    """Create a universal ASKODOX requirement through the existing V2 Deal Brain.
-
-    The app sends its normalized deal object, but V2 still runs the original natural
-    request through the same conversation/extraction/capture pipeline used by other
-    channels. This prevents the Flutter client from becoming a second source of
-    business rules.
-    """
     container = request.app.state.container
     user_id = _app_user(payload.user_id)
     _prepare_askodox_app_identity(container, user_id)
@@ -258,11 +244,6 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
 
 @router.get("/{deal_id}/matches")
 def get_matches(deal_id: int, request: Request) -> dict:
-    """Return genuine opposite-party responders for a published requirement.
-
-    Only responders who actually expressed interest are returned. Targeted users who
-    have not consented are intentionally not presented as connectable matches.
-    """
     container = request.app.state.container
     demand = container.universal_demand_repository.get(deal_id)
     if not demand:
@@ -322,7 +303,6 @@ def get_matches(deal_id: int, request: Request) -> dict:
 
 @router.post("/{deal_id}/accept-match")
 def accept_match(deal_id: int, payload: AcceptMatchRequest, request: Request) -> dict:
-    """Accept a responder who already opted in and open the existing in-app deal."""
     container = request.app.state.container
     demand = container.universal_demand_repository.get(deal_id)
     if not demand:
