@@ -8,7 +8,6 @@ import '../../deal_brain/application/universal_deal_controller.dart';
 const _ink = Color(0xFF111936);
 const _muted = Color(0xFF6B7280);
 const _purple = Color(0xFF7A4DFF);
-const _blue = Color(0xFF1769FF);
 const _soft = Color(0xFFF7F8FF);
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -202,7 +201,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 104,
+              height: 108,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
@@ -378,12 +377,20 @@ class _QuickCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           child: Container(
             width: 94,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(color: _soft, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE9E7F5))),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               CircleAvatar(backgroundColor: Colors.white, child: Icon(icon, color: _purple, size: 21)),
-              const SizedBox(height: 7),
-              Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ink, fontSize: 11, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _ink, fontSize: 11, height: 1.1, fontWeight: FontWeight.w800),
+                ),
+              ),
             ]),
           ),
         ),
