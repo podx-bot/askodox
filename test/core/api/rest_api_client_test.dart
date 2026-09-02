@@ -61,6 +61,29 @@ void main() {
     expect(failure.message, 'deal is not accepted yet');
   });
 
+  test('validation failure preserves ASKODOX guidance headers', () async {
+    final mock = MockClient((request) async => http.Response(
+          jsonEncode({'detail': 'ASKODOX understood the message but the requirement is not ready to publish yet'}),
+          422,
+          headers: {
+            'X-ASKODOX-Intent-Domain': 'commerce',
+            'X-ASKODOX-Intent-Action': 'buy',
+            'X-ASKODOX-Missing-Fields': 'location,timing',
+          },
+        ));
+    final client = RestApiClient(baseUrl: Uri.parse('https://api.example.com'), httpClient: mock);
+
+    final result = await client.post<Map<String, Object?>>('/deals', body: const {});
+
+    expect(result, isA<ApiError<Map<String, Object?>>>());
+    final failure = (result as ApiError<Map<String, Object?>>).failure;
+    expect(failure.type, ApiFailureType.validation);
+    expect(failure.statusCode, 422);
+    expect(failure.header('X-ASKODOX-Intent-Domain'), 'commerce');
+    expect(failure.header('x-askodox-intent-action'), 'buy');
+    expect(failure.header('X-ASKODOX-Missing-Fields'), 'location,timing');
+  });
+
   test('GET retries transient server failure when configured', () async {
     var calls = 0;
     final mock = MockClient((request) async {
