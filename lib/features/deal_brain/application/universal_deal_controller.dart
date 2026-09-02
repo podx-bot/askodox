@@ -112,6 +112,18 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(next));
   }
 
+  void attachMedia({required String path, required String name, String kind = 'image'}) {
+    final current = state.deal;
+    if (current == null || path.trim().isEmpty) return;
+    final dynamic = Map<String, Object?>.from(current.dynamicFields);
+    dynamic['attachment'] = {
+      'kind': kind,
+      'name': name,
+      'path': path,
+    };
+    _setSession(_sessionFor(current.copyWith(dynamicFields: dynamic)));
+  }
+
   void reset() {
     state = const UniversalDealSession();
     unawaited(_clearPersisted());
