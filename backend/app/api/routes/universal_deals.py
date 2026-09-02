@@ -196,6 +196,47 @@ def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict
     }
 
 
+def _demo_discovery_matches(container, demand: dict, existing_ids: set[str]) -> list[dict]:
+    """Expose matcher candidates only for isolated TEST/DEMO records.
+
+    Production keeps the consent-first interested-responder contract unchanged.
+    Demo mode can immediately show its deterministic opposite-side candidate so
+    end-to-end UI tests do not depend on a second real account responding first.
+    """
+    repository = container.universal_demand_repository
+    if not repository.is_test_record(demand):
+        return []
+
+    discovered = []
+    for candidate in container.universal_matcher.find_matches(demand, limit=20):
+        responder = str(candidate.get("user_id") or "").strip()
+        if not responder or responder in existing_ids:
+            continue
+        subject = str(candidate.get("subject") or "Match").strip()
+        domain = str(candidate.get("domain") or "").upper()
+        if domain in {"WORK", "WORKERS"}:
+            title = f"{subject.title()} job match"
+            subtitle = "Demo employer available nearby" if domain == "WORKERS" else "Demo worker available nearby"
+        else:
+            title = subject
+            subtitle = "Demo match available nearby"
+        discovered.append(
+            {
+                "id": responder,
+                "match_id": responder,
+                "provider_id": responder,
+                "title": title,
+                "subtitle": subtitle,
+                "score": candidate.get("score"),
+                "distance_km": candidate.get("distance_km"),
+                "price": candidate.get("price"),
+                "match_source": "demo_discovery",
+                "demo": True,
+            }
+        )
+    return discovered
+
+
 @router.post("")
 def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     container = request.app.state.container
@@ -267,11 +308,13 @@ def get_matches(deal_id: int, request: Request) -> dict:
     )
 
     matches = []
+    existing_ids: set[str] = set()
     for row in rows:
         item = dict(row)
         responder = str(item.get("responder_user_id") or "")
         if not responder:
             continue
+        existing_ids.add(responder)
         score = item.get("relevance_score")
         if score is not None:
             score = float(score)
@@ -287,8 +330,12 @@ def get_matches(deal_id: int, request: Request) -> dict:
                 "score": score,
                 "distance_km": item.get("distance_km"),
                 "price": None,
+                "match_source": "interest",
+                "demo": False,
             }
         )
+
+    matches.extend(_demo_discovery_matches(container, demand, existing_ids))
 
     return {
         "deal_id": deal_id,
