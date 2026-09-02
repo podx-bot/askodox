@@ -8,6 +8,7 @@ on:
       - backend/app/repositories/universal_demand_repository.py
       - backend/app/services/universal_matcher.py
       - backend/app/services/demo_seed_service.py
+      - backend/app/api/routes/universal_deals.py
       - .github/workflows/demo-isolation-smoke.yml
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - backend/app/repositories/universal_demand_repository.py
       - backend/app/services/universal_matcher.py
       - backend/app/services/demo_seed_service.py
+      - backend/app/api/routes/universal_deals.py
       - .github/workflows/demo-isolation-smoke.yml
   workflow_dispatch:
 
@@ -133,4 +135,49 @@ jobs:
               assert repo.get(real_id) is not None
 
           print('deterministic demo seed/reset passed')
+          PY
+
+      - name: Verify computer-operator demo job discovery result
+        env:
+          PYTHONPATH: backend
+        run: |
+          python - <<'PY'
+          import tempfile
+          from types import SimpleNamespace
+
+          from app.api.routes.universal_deals import _demo_discovery_matches
+          from app.repositories.universal_demand_repository import UniversalDemandRepository
+          from app.services.demo_seed_service import DemoSeedService
+          from app.services.universal_matcher import UniversalMatcher
+
+          with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+              repo = UniversalDemandRepository(tmp.name)
+              matcher = UniversalMatcher(repo)
+              seeded = DemoSeedService(repo).seed()
+              job_ids = seeded['pairs']['job']
+              seeker = repo.get(job_ids['party_a_id'])
+              employer = repo.get(job_ids['party_b_id'])
+              container = SimpleNamespace(
+                  universal_demand_repository=repo,
+                  universal_matcher=matcher,
+              )
+
+              results = _demo_discovery_matches(container, seeker, set())
+              assert results, results
+              job = next(row for row in results if row['match_id'] == employer['user_id'])
+              assert job['demo'] is True, job
+              assert job['match_source'] == 'demo_discovery', job
+              assert 'Computer Operator' in job['title'], job
+              assert job['subtitle'] == 'Demo employer available nearby', job
+
+              real = repo.create({
+                  'user_id': 'app-real-job-seeker',
+                  'side': 'OFFER',
+                  'domain': 'WORK',
+                  'subject': 'computer operator',
+                  'source': 'text',
+              })
+              assert _demo_discovery_matches(container, repo.get(real), set()) == []
+
+          print('computer-operator demo discovery passed')
           PY
