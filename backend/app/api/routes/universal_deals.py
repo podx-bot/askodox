@@ -64,12 +64,48 @@ def _latest_created_deal(container, user_id: str):
     )
 
 
-def _intent_context(payload: UniversalDealCreateRequest) -> dict | None:
-    """Classify the natural request without becoming a second deal brain.
+def _present(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_present(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_present(item) for item in value)
+    return True
 
-    This is advisory metadata at the app request boundary. The existing conversation
-    service remains authoritative for extraction, state merging, and publication.
+
+def _extractor_context(raw_text: str, extractor) -> dict:
+    """Reuse the existing UniversalRequestExtractor only to fill details already said.
+
+    The extractor remains advisory here. It never overrides normalized app fields and
+    the existing conversation/live-capture pipeline remains authoritative for saving,
+    merging and matching the actual requirement.
     """
+    if extractor is None:
+        return {}
+    try:
+        extracted = extractor.extract(raw_text)
+    except Exception:
+        return {}
+    if not extracted or not extracted.get("success"):
+        return {}
+    request = dict(extracted.get("request") or {})
+    if not request:
+        return {}
+    return {
+        "subject": request.get("subject"),
+        "quantity": request.get("quantity"),
+        "unit": request.get("unit"),
+        "price": request.get("price"),
+        "timing": request.get("when_text"),
+        "location": request.get("location_text"),
+    }
+
+
+def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict | None:
+    """Classify the request and ask only for details the user has not already stated."""
     try:
         route = _INTENT_ROUTER.route(payload.raw_text)
     except IntentRouteNotFoundError:
@@ -92,6 +128,21 @@ def _intent_context(payload: UniversalDealCreateRequest) -> dict | None:
         "fulfilment": payload.fulfilment,
         **dict(payload.dynamic_fields or {}),
     }
+
+    # Avoid a second AI call when Flutter already supplied every field needed by the
+    # route. Only reuse the existing extractor if the preliminary policy is missing
+    # something that may already be present in raw_text.
+    try:
+        preliminary_missing = missing_fields(route.domain, route.action, state)
+    except FieldPolicyNotFoundError:
+        preliminary_missing = ()
+
+    if preliminary_missing and extractor is not None:
+        extracted_state = _extractor_context(payload.raw_text, extractor)
+        for key, value in extracted_state.items():
+            if not _present(state.get(key)) and _present(value):
+                state[key] = value
+
     try:
         required_missing = missing_fields(route.domain, route.action, state)
     except FieldPolicyNotFoundError:
@@ -117,7 +168,10 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     container = request.app.state.container
     user_id = _app_user(payload.user_id)
     _prepare_askodox_app_identity(container, user_id)
-    intent_context = _intent_context(payload)
+    intent_context = _intent_context(
+        payload,
+        extractor=getattr(container, "universal_request_extractor", None),
+    )
 
     before = _latest_created_deal(container, user_id)
     before_id = int(before["id"]) if before else 0
