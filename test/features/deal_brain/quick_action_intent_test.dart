@@ -56,5 +56,32 @@ void main() {
       expect(deal.subject, isNull);
       expect(deal.missingForMatch, ['from', 'to', 'timing']);
     });
+
+    test('buy request reuses stated location and keeps it out of subject', () {
+      final deal = brain.capture('I want to buy a laptop in Vijayawada');
+
+      expect(deal.intent, DealIntent.buy);
+      expect(deal.subject, 'laptop');
+      expect(deal.location.label, 'Vijayawada');
+      expect(deal.missingForMatch, isEmpty);
+    });
+
+    test('appointment reuses stated location but still asks only for timing', () {
+      final deal = brain.capture('Book appointment doctor near Guntur');
+
+      expect(deal.intent, DealIntent.bookAppointment);
+      expect(deal.subject, 'appointment doctor');
+      expect(deal.location.label, 'Guntur');
+      expect(deal.missingForMatch, ['timing']);
+    });
+
+    test('job location is separated from skill instead of being asked twice', () {
+      final deal = brain.capture('Looking for computer operator job in Vijayawada');
+
+      expect(deal.intent, DealIntent.seekWork);
+      expect(deal.dynamicFields['skill'], 'computer operator job');
+      expect(deal.location.label, 'Vijayawada');
+      expect(deal.missingForMatch, isEmpty);
+    });
   });
 }
