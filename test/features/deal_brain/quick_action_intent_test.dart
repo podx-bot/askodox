@@ -41,6 +41,14 @@ void main() {
       expect(deal.missingForMatch, contains('location'));
     });
 
+    test('Telugu job request keeps only the real skill', () {
+      final deal = brain.capture('నాకు కంప్యూటర్ ఆపరేటర్ ఉద్యోగం కావాలి');
+
+      expect(deal.intent, DealIntent.seekWork);
+      expect(deal.dynamicFields['skill'], 'కంప్యూటర్ ఆపరేటర్');
+      expect(deal.missingForMatch, ['location']);
+    });
+
     test('Book a service asks for the actual service before location', () {
       final deal = brain.capture('Book a service');
 
