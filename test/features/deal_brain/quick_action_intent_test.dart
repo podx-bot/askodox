@@ -83,5 +83,25 @@ void main() {
       expect(deal.location.label, 'Vijayawada');
       expect(deal.missingForMatch, isEmpty);
     });
+
+    test('parcel route excludes command prefix and timing', () {
+      final deal = brain.capture('Send parcel from Vijayawada to Hyderabad today');
+
+      expect(deal.intent, DealIntent.sendParcel);
+      expect(deal.dynamicFields['from'], 'Vijayawada');
+      expect(deal.dynamicFields['to'], 'Hyderabad');
+      expect(deal.timing, 'today');
+      expect(deal.missingForMatch, isEmpty);
+    });
+
+    test('ride route excludes request prefix and timing', () {
+      final deal = brain.capture('Need a ride from Guntur to Vijayawada tomorrow');
+
+      expect(deal.intent, DealIntent.needRide);
+      expect(deal.dynamicFields['from'], 'Guntur');
+      expect(deal.dynamicFields['to'], 'Vijayawada');
+      expect(deal.timing, 'tomorrow');
+      expect(deal.missingForMatch, isEmpty);
+    });
   });
 }
