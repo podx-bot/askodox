@@ -12,7 +12,10 @@ import re
 from threading import RLock
 from typing import Any, Iterable
 
-from app.core.domain_module_registry import DomainModuleRegistry
+try:
+    from app.core.domain_module_registry import DomainModuleRegistry
+except ModuleNotFoundError:  # Monorepo import mode used by CI/tests.
+    from backend.app.core.domain_module_registry import DomainModuleRegistry
 
 
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
@@ -75,36 +78,24 @@ class RealUserIntentRouter:
         for rule in rules:
             score = rule.priority
             matched: list[str] = []
-
             excluded = [term for term in rule.exclude_keywords if self._normalize(term) in tokens]
             if excluded:
                 continue
-
             for phrase in rule.phrases:
                 term = self._normalize(phrase)
                 if term and term in normalized:
                     score += 4
                     matched.append(term)
-
             for keyword in rule.keywords:
                 term = self._normalize(keyword)
                 if term and term in tokens:
                     score += 2
                     matched.append(term)
-
             if score >= self.minimum_score and matched:
-                candidates.append(
-                    IntentRoute(
-                        domain=str(rule.domain).strip().casefold(),
-                        action=str(rule.action or "default").strip().casefold() or "default",
-                        score=score,
-                        matched_terms=tuple(dict.fromkeys(matched)),
-                    )
-                )
+                candidates.append(IntentRoute(domain=str(rule.domain).strip().casefold(), action=str(rule.action or "default").strip().casefold() or "default", score=score, matched_terms=tuple(dict.fromkeys(matched))))
 
         if not candidates:
             raise IntentRouteNotFoundError("no registered intent rule matched")
-
         candidates.sort(key=lambda route: (route.score, len(route.matched_terms)), reverse=True)
         return candidates[0]
 
