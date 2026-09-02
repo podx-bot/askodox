@@ -1,0 +1,86 @@
+name: ASKODOX demo isolation smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/app/repositories/universal_demand_repository.py
+      - backend/app/services/universal_matcher.py
+      - .github/workflows/demo-isolation-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - backend/app/repositories/universal_demand_repository.py
+      - backend/app/services/universal_matcher.py
+      - .github/workflows/demo-isolation-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify REAL and TEST matching isolation
+        run: |
+          python - <<'PY'
+          import tempfile
+
+          from backend.app.repositories.universal_demand_repository import UniversalDemandRepository
+          from backend.app.services.universal_matcher import UniversalMatcher
+
+          with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+              repo = UniversalDemandRepository(tmp.name)
+              matcher = UniversalMatcher(repo)
+
+              real_need_id = repo.create({
+                  'user_id': 'app-real-seeker',
+                  'side': 'NEED',
+                  'domain': 'PRODUCT',
+                  'subject': 'chicken',
+                  'source': 'text',
+              })
+              real_offer_id = repo.create({
+                  'user_id': 'app-real-seller',
+                  'side': 'OFFER',
+                  'domain': 'PRODUCT',
+                  'subject': 'chicken',
+                  'source': 'text',
+              })
+              demo_need_id = repo.create({
+                  'user_id': 'app-demo-seeker',
+                  'side': 'NEED',
+                  'domain': 'PRODUCT',
+                  'subject': 'chicken',
+                  'source': 'demo:buyer',
+              })
+              demo_offer_id = repo.create({
+                  'user_id': 'app-demo-seller',
+                  'side': 'OFFER',
+                  'domain': 'PRODUCT',
+                  'subject': 'chicken',
+                  'source': 'demo:seller',
+              })
+
+              real_matches = matcher.find_matches(repo.get(real_need_id))
+              demo_matches = matcher.find_matches(repo.get(demo_need_id))
+
+              real_ids = {row['id'] for row in real_matches}
+              demo_ids = {row['id'] for row in demo_matches}
+
+              assert real_offer_id in real_ids, real_matches
+              assert demo_offer_id not in real_ids, real_matches
+              assert demo_offer_id in demo_ids, demo_matches
+              assert real_offer_id not in demo_ids, demo_matches
+
+              assert {row['id'] for row in repo.list_active(test_mode=False)} == {real_need_id, real_offer_id}
+              assert {row['id'] for row in repo.list_active(test_mode=True)} == {demo_need_id, demo_offer_id}
+
+          print('REAL↔REAL and TEST↔TEST isolation passed')
+          PY
