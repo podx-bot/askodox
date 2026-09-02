@@ -66,6 +66,10 @@ class RestApiClient implements ApiClient {
         ...options.headers,
       };
 
+  Map<String, String> _responseHeaders(http.Response response) => {
+        for (final entry in response.headers.entries) entry.key.toLowerCase(): entry.value,
+      };
+
   bool _canRetry(String method, ApiRequestOptions options) {
     final normalized = method.toUpperCase();
     if (normalized == 'GET') return true;
@@ -104,6 +108,7 @@ class RestApiClient implements ApiClient {
           message: message,
           statusCode: response.statusCode,
           cause: response.body,
+          headers: _responseHeaders(response),
         ));
       } on TimeoutException catch (error) {
         if (canRetry && retriesUsed < options.retryCount) {
@@ -177,7 +182,12 @@ class RestApiClient implements ApiClient {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final message = _errorMessage(response.body);
         final failure = mapApiError(message, statusCode: response.statusCode);
-        return ApiError<Uri>(ApiFailure(failure.type, message: message, statusCode: response.statusCode));
+        return ApiError<Uri>(ApiFailure(
+          failure.type,
+          message: message,
+          statusCode: response.statusCode,
+          headers: _responseHeaders(response),
+        ));
       }
       final decoded = jsonDecode(response.body);
       final value = decoded is Map ? decoded['url'] ?? decoded['uri'] : null;
