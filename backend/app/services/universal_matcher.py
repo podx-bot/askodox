@@ -1,9 +1,12 @@
-"""Universal Party A ↔ Party B matching for PODX.
+"""Universal Party A ↔ Party B matching for ASKODOX.
 
 The matcher is intentionally category-light. It ranks compatible active records
 using relationship compatibility, free-form subject similarity, optional visual
 similarity, distance, time, quantity and price. Unknown future subjects can still
 match without adding code.
+
+Production and TEST/DEMO records are isolated. A production request only sees
+production candidates; a demo/test request only sees demo/test candidates.
 """
 
 from __future__ import annotations
@@ -29,9 +32,13 @@ class UniversalMatcher:
         self.min_subject_score = float(min_subject_score)
 
     def find_matches(self, record: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
+        test_mode = bool(
+            getattr(self.repository, "is_test_record", lambda _record: False)(record)
+        )
         candidates = self.repository.list_active(
             limit=500,
             exclude_user_id=str(record.get("user_id") or ""),
+            test_mode=test_mode,
         )
         ranked: List[Dict[str, Any]] = []
         for candidate in candidates:
