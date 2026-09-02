@@ -7,6 +7,8 @@ on:
       - backend/app/core/domain_field_requirements.py
       - backend/app/core/default_intent_rules.py
       - backend/app/core/intent_domain_router.py
+      - backend/app/core/domain_module_registry.py
+      - backend/app/core/routed_intent_flow.py
       - .github/workflows/intent-field-requirements-smoke.yml
   pull_request:
     branches: [main]
@@ -14,6 +16,8 @@ on:
       - backend/app/core/domain_field_requirements.py
       - backend/app/core/default_intent_rules.py
       - backend/app/core/intent_domain_router.py
+      - backend/app/core/domain_module_registry.py
+      - backend/app/core/routed_intent_flow.py
       - .github/workflows/intent-field-requirements-smoke.yml
   workflow_dispatch:
 
@@ -50,4 +54,51 @@ jobs:
           route = router.route("I want to sell my phone")
           assert missing_fields(route.domain, route.action, {"subject": "phone", "location": "Guntur"}) == ()
           print("routed intent field requirements smoke passed")
+          PY
+
+      - name: Verify collect then dispatch flow
+        run: |
+          python - <<'PY'
+          from backend.app.core.default_intent_rules import build_default_intent_router
+          from backend.app.core.domain_module_registry import DomainModuleRegistry
+          from backend.app.core.routed_intent_flow import RoutedIntentFlow
+
+          registry = DomainModuleRegistry()
+          registry.register(
+              "commerce",
+              lambda payload: f"buy:{payload['subject']}:{payload['location']}",
+              action="buy",
+          )
+          registry.register(
+              "assistance",
+              lambda payload: f"complaint:{payload['subject']}:{payload['issue']}",
+              action="complaint",
+          )
+
+          flow = RoutedIntentFlow(build_default_intent_router(), registry)
+
+          incomplete = flow.execute_when_ready(
+              "I want to buy a laptop",
+              {"subject": "laptop"},
+          )
+          assert incomplete.ready is False
+          assert incomplete.missing == ("location",)
+          assert incomplete.output is None
+
+          complete = flow.execute_when_ready(
+              "I want to buy a laptop",
+              {"subject": "laptop", "location": "Vijayawada"},
+          )
+          assert complete.ready is True
+          assert complete.missing == ()
+          assert complete.output == "buy:laptop:Vijayawada"
+
+          complaint = flow.execute_when_ready(
+              "File a complaint about billing",
+              {"subject": "billing", "issue": "charged twice"},
+          )
+          assert complaint.ready is True
+          assert complaint.output == "complaint:billing:charged twice"
+
+          print("collect then dispatch flow smoke passed")
           PY
