@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Verify routed intent field requirements
         run: |
           python - <<'PY'
@@ -104,6 +105,9 @@ jobs:
 
           print("collect then dispatch flow smoke passed")
           PY
+
+      - name: Install backend runtime dependencies
+        run: python -m pip install --disable-pip-version-check -q -r backend/requirements.txt
 
       - name: Verify universal deal intent boundary
         env:
