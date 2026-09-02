@@ -64,6 +64,35 @@ def _latest_created_deal(container, user_id: str):
     )
 
 
+def _deal_progressed(before, after) -> bool:
+    """Treat both a new row and a meaningful in-place follow-up update as progress."""
+    if after is None:
+        return False
+    if before is None:
+        return True
+    before_item = dict(before)
+    after_item = dict(after)
+    if int(after_item.get("id") or 0) > int(before_item.get("id") or 0):
+        return True
+    if int(after_item.get("id") or 0) != int(before_item.get("id") or 0):
+        return False
+    mutable_fields = (
+        "side",
+        "domain",
+        "subject",
+        "quantity",
+        "unit",
+        "price",
+        "currency",
+        "when_text",
+        "location_text",
+        "latitude",
+        "longitude",
+        "status",
+    )
+    return any(before_item.get(field) != after_item.get(field) for field in mutable_fields)
+
+
 def _present(value) -> bool:
     if value is None:
         return False
@@ -192,13 +221,12 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     )
 
     before = _latest_created_deal(container, user_id)
-    before_id = int(before["id"]) if before else 0
     reply = container.conversation_service.process(
         sender_mobile=user_id,
         message=" ".join(payload.raw_text.strip().split()),
     )
     created = _latest_created_deal(container, user_id)
-    if not created or int(created["id"]) <= before_id:
+    if not _deal_progressed(before, created):
         headers = None
         if intent_context is not None:
             headers = {
