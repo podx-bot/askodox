@@ -28,8 +28,17 @@ void main() {
     expect(find.text('Good evening 👋'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.text('In Progress'), findsOneWidget);
+
+    // Home stays AI-first: capability/category tiles must not compete with the
+    // natural-language entry point.
+    expect(find.text('Buy & Local'), findsNothing);
+    expect(find.text('Products nearby'), findsNothing);
+    expect(find.text('Jobs'), findsNothing);
+    expect(find.text('Rides'), findsNothing);
+    expect(find.text('Business'), findsNothing);
 
     await tester.scrollUntilVisible(
       find.text('Continue your conversations'),
