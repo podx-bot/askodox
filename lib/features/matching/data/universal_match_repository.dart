@@ -17,6 +17,23 @@ final universalMatchRepositoryProvider = Provider<UniversalMatchRepository>((ref
   );
 });
 
+class DealNeedsDetailsException implements Exception {
+  const DealNeedsDetailsException({
+    required this.domain,
+    required this.action,
+    required this.missingFields,
+  });
+
+  final String domain;
+  final String action;
+  final List<String> missingFields;
+
+  @override
+  String toString() => missingFields.isEmpty
+      ? 'More details are required before matching.'
+      : 'Please complete: ${missingFields.join(', ')}';
+}
+
 class UniversalMatch {
   const UniversalMatch({
     required this.id,
@@ -97,7 +114,20 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       body: _payload(deal, userId),
     );
     if (create is ApiError<Map<String, Object?>>) {
-      throw StateError(create.failure.message ?? 'Unable to create requirement.');
+      final failure = create.failure;
+      if (failure.statusCode == 422) {
+        final missing = (failure.header('x-askodox-missing-fields') ?? '')
+            .split(',')
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false);
+        throw DealNeedsDetailsException(
+          domain: failure.header('x-askodox-intent-domain') ?? '',
+          action: failure.header('x-askodox-intent-action') ?? '',
+          missingFields: missing,
+        );
+      }
+      throw StateError(failure.message ?? 'Unable to create requirement.');
     }
 
     final created = (create as ApiSuccess<Map<String, Object?>>).data;
@@ -126,10 +156,6 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         .where((item) => item.id.isNotEmpty)
         .toList();
 
-    // During the demo-validation phase ASKODOX must keep the conversation moving
-    // even when the live backend has no seeded provider yet. This dummy fallback
-    // exercises the exact same UI actions/reactions and disappears naturally once
-    // real provider rows are returned.
     if (rows.isEmpty) {
       rows.addAll(DemoNaturalMatchCatalog.forDeal(deal));
     }
