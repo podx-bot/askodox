@@ -171,9 +171,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Center(child: _AskodoxOrb()),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             _AskField(
               controller: _controller,
               focusNode: _focusNode,
@@ -212,13 +212,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              _tr('One AI. Your local world.', 'ఒకే AI. మీ లోకల్ ప్రపంచం.', 'एक AI. आपकी लोकल दुनिया.', 'ଗୋଟିଏ AI. ଆପଣଙ୍କ ସ୍ଥାନୀୟ ଦୁନିଆ.'),
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: _ink),
-            ),
             const SizedBox(height: 12),
-            const _CapabilityGrid(),
           ],
         ),
       ),
@@ -226,10 +220,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         selectedIndex: 1,
         backgroundColor: Colors.white,
         indicatorColor: const Color(0xFFEDE8FF),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline_rounded), label: 'Chats'),
-          NavigationDestination(icon: Icon(Icons.auto_awesome_rounded, color: _purple), label: 'Ask'),
-          NavigationDestination(icon: Icon(Icons.monitor_heart_outlined), label: 'Activity'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.chat_bubble_outline_rounded), label: _tr('Chats', 'చాట్స్', 'चैट्स', 'ଚାଟ୍ସ')),
+          NavigationDestination(icon: const Icon(Icons.auto_awesome_rounded, color: _purple), label: _tr('Ask', 'అడగండి', 'पूछें', 'ପଚାରନ୍ତୁ')),
+          NavigationDestination(icon: const Icon(Icons.monitor_heart_outlined), label: _tr('Activity', 'యాక్టివిటీ', 'एक्टिविटी', 'କାର୍ଯ୍ୟକଳାପ')),
         ],
         onDestinationSelected: (index) {
           if (index == 0) context.go('/search');
@@ -268,11 +262,17 @@ class _AskField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-            prefixIcon: IconButton(key: const Key('askodoxMicButton'), onPressed: onVoice, icon: const Icon(Icons.mic_none_rounded, color: _ink)),
+            prefixIcon: IconButton(
+              key: const Key('askodoxMicButton'),
+              tooltip: 'Voice',
+              onPressed: onVoice,
+              icon: const Icon(Icons.mic_none_rounded, color: _ink),
+            ),
             suffixIcon: IconButton(
               key: const Key('askodoxSendButton'),
+              tooltip: 'Send',
               onPressed: onSubmit,
-              icon: const CircleAvatar(backgroundColor: _purple, child: Icon(Icons.add_rounded, color: Colors.white)),
+              icon: const CircleAvatar(backgroundColor: _purple, child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20)),
             ),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 17),
@@ -286,23 +286,23 @@ class _AskodoxOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 132,
-        height: 132,
+        width: 112,
+        height: 112,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(colors: [Color(0xFF0B183E), Color(0xFF28146F), Color(0xFF7A4DFF)]),
           boxShadow: [
-            BoxShadow(color: Color(0x557A4DFF), blurRadius: 32, spreadRadius: 8),
-            BoxShadow(color: Color(0x3320D9FF), blurRadius: 48, spreadRadius: 3),
+            BoxShadow(color: Color(0x447A4DFF), blurRadius: 26, spreadRadius: 6),
+            BoxShadow(color: Color(0x2920D9FF), blurRadius: 38, spreadRadius: 2),
           ],
         ),
         child: const Stack(
           alignment: Alignment.center,
           children: [
-            Icon(Icons.smart_toy_rounded, color: Colors.white, size: 62),
-            Positioned(left: 41, top: 51, child: _Dot()),
-            Positioned(right: 41, top: 51, child: _Dot()),
-            Positioned(bottom: 31, child: Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFF3DE9FF), size: 23)),
+            Icon(Icons.smart_toy_rounded, color: Colors.white, size: 52),
+            Positioned(left: 35, top: 43, child: _Dot()),
+            Positioned(right: 35, top: 43, child: _Dot()),
+            Positioned(bottom: 25, child: Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFF3DE9FF), size: 20)),
           ],
         ),
       );
@@ -311,7 +311,7 @@ class _AskodoxOrb extends StatelessWidget {
 class _Dot extends StatelessWidget {
   const _Dot();
   @override
-  Widget build(BuildContext context) => Container(width: 9, height: 9, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF3DE9FF)));
+  Widget build(BuildContext context) => Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF3DE9FF)));
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -394,44 +394,5 @@ class _QuickCard extends StatelessWidget {
             ]),
           ),
         ),
-      );
-}
-
-class _CapabilityGrid extends StatelessWidget {
-  const _CapabilityGrid();
-  @override
-  Widget build(BuildContext context) => GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 1.65,
-        children: const [
-          _Capability(icon: Icons.shopping_bag_outlined, title: 'Buy & Local', subtitle: 'Products nearby'),
-          _Capability(icon: Icons.work_outline_rounded, title: 'Jobs', subtitle: 'Skills & openings'),
-          _Capability(icon: Icons.directions_car_outlined, title: 'Rides', subtitle: 'Travel & pooling'),
-          _Capability(icon: Icons.insights_outlined, title: 'Business', subtitle: 'Sales & insights'),
-        ],
-      );
-}
-
-class _Capability extends StatelessWidget {
-  const _Capability({required this.icon, required this.title, required this.subtitle});
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(color: _soft, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE9E7F5))),
-        child: Row(children: [
-          CircleAvatar(backgroundColor: Colors.white, child: Icon(icon, color: _purple, size: 20)),
-          const SizedBox(width: 10),
-          Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
-            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 11)),
-          ])),
-        ]),
       );
 }
