@@ -114,7 +114,11 @@ jobs:
           PYTHONPATH: backend
         run: |
           python - <<'PY'
-          from app.api.routes.universal_deals import UniversalDealCreateRequest, _intent_context
+          from app.api.routes.universal_deals import (
+              UniversalDealCreateRequest,
+              _deal_progressed,
+              _intent_context,
+          )
 
           class FakeExtractor:
               def __init__(self, request):
@@ -184,6 +188,29 @@ jobs:
           assert context["domain"] == "parcel"
           assert context["action"] == "send"
           assert context["missing_fields"] == []
+
+          base = {
+              "id": 7,
+              "side": "NEED",
+              "domain": "PRODUCT",
+              "subject": "laptop",
+              "quantity": None,
+              "unit": None,
+              "price": None,
+              "currency": "INR",
+              "when_text": None,
+              "location_text": None,
+              "latitude": None,
+              "longitude": None,
+              "status": "ACTIVE",
+          }
+          assert _deal_progressed(base, dict(base)) is False
+          location_followup = dict(base, location_text="Vijayawada")
+          assert _deal_progressed(base, location_followup) is True
+          revised = dict(base, id=8, quantity=2.0, unit="kg")
+          assert _deal_progressed(base, revised) is True
+          assert _deal_progressed(None, base) is True
+          assert _deal_progressed(base, None) is False
 
           unknown = UniversalDealCreateRequest(
               user_id="app-smoke",
