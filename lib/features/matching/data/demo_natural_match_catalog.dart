@@ -4,7 +4,14 @@ import 'universal_match_repository.dart';
 class DemoNaturalMatchCatalog {
   const DemoNaturalMatchCatalog._();
 
-  static List<UniversalMatch> forDeal(UniversalDeal deal) {
+  static List<UniversalMatch> forDeal(
+    UniversalDeal deal, {
+    bool enabled = false,
+  }) {
+    // Never let a live error/no-match state silently turn into fake providers.
+    // Demo data must be explicitly requested by a known demo/mock caller.
+    if (!enabled) return <UniversalMatch>[];
+
     final text = '${deal.rawText} ${deal.subject ?? ''} ${deal.category ?? ''}'.toLowerCase();
     final location = deal.location.label?.trim();
 
