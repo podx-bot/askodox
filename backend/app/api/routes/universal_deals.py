@@ -104,13 +104,9 @@ def _extractor_context(raw_text: str, extractor) -> dict:
     }
 
 
-def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict | None:
-    """Classify the request and ask only for details the user has not already stated."""
-    try:
-        route = _INTENT_ROUTER.route(payload.raw_text)
-    except IntentRouteNotFoundError:
-        return None
-
+def _normalized_intent_state(payload: UniversalDealCreateRequest) -> dict:
+    """Translate Flutter deal aliases into the canonical intent-policy field names."""
+    dynamic = dict(payload.dynamic_fields or {})
     state = {
         "subject": payload.subject,
         "location": payload.location,
@@ -126,8 +122,30 @@ def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict
         "model": payload.model,
         "availability": payload.availability,
         "fulfilment": payload.fulfilment,
-        **dict(payload.dynamic_fields or {}),
+        **dynamic,
     }
+
+    # Flutter's universal deal brain intentionally uses compact cross-domain keys.
+    # Field policies use explicit canonical names. Preserve both without changing the
+    # app model or the authoritative V2 extraction/capture pipeline.
+    aliases = {
+        "from": "from_location",
+        "to": "to_location",
+    }
+    for source, target in aliases.items():
+        if not _present(state.get(target)) and _present(state.get(source)):
+            state[target] = state[source]
+    return state
+
+
+def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict | None:
+    """Classify the request and ask only for details the user has not already stated."""
+    try:
+        route = _INTENT_ROUTER.route(payload.raw_text)
+    except IntentRouteNotFoundError:
+        return None
+
+    state = _normalized_intent_state(payload)
 
     # Avoid a second AI call when Flutter already supplied every field needed by the
     # route. Only reuse the existing extractor if the preliminary policy is missing
