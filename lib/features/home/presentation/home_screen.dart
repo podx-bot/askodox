@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
@@ -12,7 +13,6 @@ const _soft = Color(0xFFF7F8FF);
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
-
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
@@ -20,26 +20,26 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  final _picker = ImagePicker();
+  XFile? _attachment;
 
   static final _telugu = RegExp(r'[\u0C00-\u0C7F]');
   static final _hindi = RegExp(r'[\u0900-\u097F]');
   static final _odia = RegExp(r'[\u0B00-\u0B7F]');
 
-  String _effectiveLanguage() {
+  String _lang() {
     final manual = ref.read(appSettingsProvider).locale?.languageCode;
     if (manual != null) return manual;
     final device = Localizations.localeOf(context).languageCode;
     return const {'en', 'te', 'hi', 'or'}.contains(device) ? device : 'en';
   }
 
-  String _tr(String en, String te, String hi, String or) {
-    return switch (_effectiveLanguage()) {
-      'te' => te,
-      'hi' => hi,
-      'or' => or,
-      _ => en,
-    };
-  }
+  String _tr(String en, String te, String hi, String or) => switch (_lang()) {
+        'te' => te,
+        'hi' => hi,
+        'or' => or,
+        _ => en,
+      };
 
   void _startFlow(String text) {
     if (_telugu.hasMatch(text)) {
@@ -49,17 +49,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } else if (_odia.hasMatch(text)) {
       ref.read(appSettingsProvider.notifier).setLocale(const Locale('or'));
     }
-    ref.read(universalDealControllerProvider.notifier).start(text);
+    final deal = ref.read(universalDealControllerProvider.notifier);
+    deal.start(text);
+    final attachment = _attachment;
+    if (attachment != null) deal.attachMedia(path: attachment.path, name: attachment.name);
     context.go('/search');
   }
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isEmpty) {
-      _focusNode.requestFocus();
-      return;
-    }
+    if (text.isEmpty) return _focusNode.requestFocus();
     _startFlow(text);
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1600);
+      if (!mounted || picked == null) return;
+      setState(() => _attachment = picked);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_tr(
+        'Could not open photos. Please try again.',
+        'ఫోటోలు తెరవలేకపోయాం. మళ్లీ ప్రయత్నించండి.',
+        'फ़ोटो नहीं खुल सके। फिर से कोशिश करें।',
+        'ଫଟୋ ଖୋଲିହେଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
+      ))));
+    }
   }
 
   Future<void> _pickLanguage() async {
@@ -70,27 +86,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       backgroundColor: Colors.white,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Color(0xFFF0ECFF),
-                  child: Icon(Icons.language_rounded, color: _purple),
-                ),
-                title: Text('ASKODOX Language', style: TextStyle(fontWeight: FontWeight.w900, color: _ink)),
-                subtitle: Text('Auto follows your device. Change anytime.', style: TextStyle(color: _muted)),
-              ),
-              _languageChoice(selected, 'system', 'Auto / Device language'),
-              _languageChoice(selected, 'en', 'English'),
-              _languageChoice(selected, 'hi', 'हिन्दी'),
-              _languageChoice(selected, 'te', 'తెలుగు'),
-              _languageChoice(selected, 'or', 'ଓଡ଼ିଆ'),
-            ],
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const ListTile(
+            leading: CircleAvatar(backgroundColor: Color(0xFFF0ECFF), child: Icon(Icons.language_rounded, color: _purple)),
+            title: Text('ASKODOX Language', style: TextStyle(fontWeight: FontWeight.w900, color: _ink)),
+            subtitle: Text('Auto follows your device. Change anytime.', style: TextStyle(color: _muted)),
           ),
-        ),
+          for (final item in const [
+            ('system', 'Auto / Device language'),
+            ('en', 'English'),
+            ('hi', 'हिन्दी'),
+            ('te', 'తెలుగు'),
+            ('or', 'ଓଡ଼ିଆ'),
+          ])
+            RadioListTile<String>(
+              value: item.$1,
+              groupValue: selected,
+              activeColor: _purple,
+              onChanged: (value) => Navigator.pop(context, value),
+              title: Text(item.$2, style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+            ),
+          const SizedBox(height: 12),
+        ]),
       ),
     );
     if (!mounted || choice == null) return;
@@ -100,14 +117,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(appSettingsProvider.notifier).setLocale(Locale(choice));
     }
   }
-
-  Widget _languageChoice(String selected, String value, String label) => RadioListTile<String>(
-        value: value,
-        groupValue: selected,
-        activeColor: _purple,
-        onChanged: (choice) => Navigator.pop(context, choice),
-        title: Text(label, style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
-      );
 
   @override
   void dispose() {
@@ -136,11 +145,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         centerTitle: true,
         title: const Text('ASKODOX', style: TextStyle(color: _ink, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
-        leading: IconButton(
-          tooltip: _tr('Menu', 'మెను', 'मेनू', 'ମେନୁ'),
-          onPressed: () => context.go('/profile'),
-          icon: const Icon(Icons.menu_rounded, color: _ink),
-        ),
+        leading: IconButton(onPressed: () => context.go('/profile'), icon: const Icon(Icons.menu_rounded, color: _ink)),
         actions: [
           TextButton(
             key: const Key('askodoxLanguageButton'),
@@ -154,23 +159,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
           children: [
-            Text(
-              _tr('Good evening 👋', 'శుభ సాయంత్రం 👋', 'शुभ संध्या 👋', 'ଶୁଭ ସନ୍ଧ୍ୟା 👋'),
-              style: const TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700),
-            ),
+            Text(_tr('Good evening 👋', 'శుభ సాయంత్రం 👋', 'शुभ संध्या 👋', 'ଶୁଭ ସନ୍ଧ୍ୟା 👋'), style: const TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 30, height: 1.08, fontWeight: FontWeight.w900, color: _ink),
-                children: [
-                  TextSpan(text: _tr('What can I\n', 'నేను ఏమి\n', 'मैं क्या\n', 'ମୁଁ କଣ\n')),
-                  TextSpan(
-                    text: _tr('help you get done?', 'మీకు చేసి పెట్టగలను?', 'आपके लिए कर सकता हूँ?', 'ଆପଣଙ୍କ ପାଇଁ କରିପାରିବି?'),
-                    style: const TextStyle(color: _purple),
-                  ),
-                ],
-              ),
-            ),
+            RichText(text: TextSpan(
+              style: const TextStyle(fontSize: 30, height: 1.08, fontWeight: FontWeight.w900, color: _ink),
+              children: [
+                TextSpan(text: _tr('What can I\n', 'నేను ఏమి\n', 'मैं क्या\n', 'ମୁଁ କଣ\n')),
+                TextSpan(text: _tr('help you get done?', 'మీకు చేసి పెట్టగలను?', 'आपके लिए कर सकता हूँ?', 'ଆପଣଙ୍କ ପାଇଁ କରିପାରିବି?'), style: const TextStyle(color: _purple)),
+              ],
+            )),
             const SizedBox(height: 18),
             const Center(child: _AskodoxOrb()),
             const SizedBox(height: 18),
@@ -180,7 +177,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               hint: _tr('Ask anything…', 'ఏదైనా అడగండి…', 'कुछ भी पूछें…', 'ଯେକୌଣସି କଥା ପଚାରନ୍ତୁ…'),
               onSubmit: _submit,
               onVoice: () => context.go('/discover/voice'),
+              onImage: _pickImage,
             ),
+            if (_attachment case final attachment?) ...[
+              const SizedBox(height: 10),
+              _AttachmentChip(name: attachment.name, onRemove: () => setState(() => _attachment = null)),
+            ],
             const SizedBox(height: 24),
             _SectionHeader(
               title: _tr('In Progress', 'ప్రస్తుతం జరుగుతున్నవి', 'चल रहा है', 'ଚାଲିଛି'),
@@ -202,17 +204,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 12),
             SizedBox(
               height: 108,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _QuickCard(icon: Icons.shopping_bag_outlined, label: _tr('Chicken\nnear me', 'దగ్గరలో\nచికెన్', 'पास में\nचिकन', 'ନିକଟରେ\nଚିକେନ୍'), onTap: () => _startFlow('I need chicken near me')),
-                  _QuickCard(icon: Icons.work_outline_rounded, label: _tr('Computer\noperator job', 'కంప్యూటర్\nఆపరేటర్ ఉద్యోగం', 'कंप्यूटर\nऑपरेटर जॉब', 'କମ୍ପ୍ୟୁଟର\nଅପରେଟର ଜବ୍'), onTap: () => _startFlow('I need a computer operator job')),
-                  _QuickCard(icon: Icons.directions_car_outlined, label: _tr('Ride to\nHyderabad', 'హైదరాబాద్\nరైడ్', 'हैदराबाद\nराइड', 'ହାଇଦ୍ରାବାଦ\nରାଇଡ୍'), onTap: () => _startFlow('I need a ride to Hyderabad')),
-                  _QuickCard(icon: Icons.home_repair_service_outlined, label: _tr('Book a\nservice', 'సర్వీస్\nబుక్ చేయండి', 'सर्विस\nबुक करें', 'ସର୍ଭିସ୍\nବୁକ୍ କରନ୍ତୁ'), onTap: () => _startFlow('I need a local service')),
-                ],
-              ),
+              child: ListView(scrollDirection: Axis.horizontal, children: [
+                _QuickCard(icon: Icons.shopping_bag_outlined, label: _tr('Chicken\nnear me', 'దగ్గరలో\nచికెన్', 'पास में\nचिकन', 'ନିକଟରେ\nଚିକେନ୍'), onTap: () => _startFlow('I need chicken near me')),
+                _QuickCard(icon: Icons.work_outline_rounded, label: _tr('Computer\noperator job', 'కంప్యూటర్\nఆపరేటర్ ఉద్యోగం', 'कंप्यूटर\nऑपरेटर जॉब', 'କମ୍ପ୍ୟୁଟର\nଅପରେଟର ଜବ୍'), onTap: () => _startFlow('I need a computer operator job')),
+                _QuickCard(icon: Icons.directions_car_outlined, label: _tr('Ride to\nHyderabad', 'హైదరాబాద్\nరైడ్', 'हैदराबाद\nराइड', 'ହାଇଦ୍ରାବାଦ\nରାଇଡ୍'), onTap: () => _startFlow('I need a ride to Hyderabad')),
+                _QuickCard(icon: Icons.home_repair_service_outlined, label: _tr('Book a\nservice', 'సర్వీస్\nబుక్ చేయండి', 'सर्विस\nबुक करें', 'ସର୍ଭିସ୍\nବୁକ୍ କରନ୍ତୁ'), onTap: () => _startFlow('I need a local service')),
+              ]),
             ),
-            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -235,12 +233,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _AskField extends StatelessWidget {
-  const _AskField({required this.controller, required this.focusNode, required this.hint, required this.onSubmit, required this.onVoice});
+  const _AskField({required this.controller, required this.focusNode, required this.hint, required this.onSubmit, required this.onVoice, required this.onImage});
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hint;
   final VoidCallback onSubmit;
   final VoidCallback onVoice;
+  final VoidCallback onImage;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -268,12 +267,20 @@ class _AskField extends StatelessWidget {
               onPressed: onVoice,
               icon: const Icon(Icons.mic_none_rounded, color: _ink),
             ),
-            suffixIcon: IconButton(
-              key: const Key('askodoxSendButton'),
-              tooltip: 'Send',
-              onPressed: onSubmit,
-              icon: const CircleAvatar(backgroundColor: _purple, child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20)),
-            ),
+            suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                key: const Key('askodoxImageButton'),
+                tooltip: 'Add image',
+                onPressed: onImage,
+                icon: const Icon(Icons.image_outlined, color: _ink),
+              ),
+              IconButton(
+                key: const Key('askodoxSendButton'),
+                tooltip: 'Send',
+                onPressed: onSubmit,
+                icon: const CircleAvatar(backgroundColor: _purple, child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20)),
+              ),
+            ]),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 17),
           ),
@@ -281,9 +288,28 @@ class _AskField extends StatelessWidget {
       );
 }
 
+class _AttachmentChip extends StatelessWidget {
+  const _AttachmentChip({required this.name, required this.onRemove});
+  final String name;
+  final VoidCallback onRemove;
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: Chip(
+          key: const Key('askodoxAttachmentChip'),
+          avatar: const Icon(Icons.image_outlined, color: _purple, size: 18),
+          label: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: Text(name.isEmpty ? 'Image attached' : name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          deleteIcon: const Icon(Icons.close_rounded, size: 18),
+          onDeleted: onRemove,
+        ),
+      );
+}
+
 class _AskodoxOrb extends StatelessWidget {
   const _AskodoxOrb();
-
   @override
   Widget build(BuildContext context) => Container(
         width: 112,
@@ -291,20 +317,14 @@ class _AskodoxOrb extends StatelessWidget {
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(colors: [Color(0xFF0B183E), Color(0xFF28146F), Color(0xFF7A4DFF)]),
-          boxShadow: [
-            BoxShadow(color: Color(0x447A4DFF), blurRadius: 26, spreadRadius: 6),
-            BoxShadow(color: Color(0x2920D9FF), blurRadius: 38, spreadRadius: 2),
-          ],
+          boxShadow: [BoxShadow(color: Color(0x447A4DFF), blurRadius: 26, spreadRadius: 6), BoxShadow(color: Color(0x2920D9FF), blurRadius: 38, spreadRadius: 2)],
         ),
-        child: const Stack(
-          alignment: Alignment.center,
-          children: [
-            Icon(Icons.smart_toy_rounded, color: Colors.white, size: 52),
-            Positioned(left: 35, top: 43, child: _Dot()),
-            Positioned(right: 35, top: 43, child: _Dot()),
-            Positioned(bottom: 25, child: Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFF3DE9FF), size: 20)),
-          ],
-        ),
+        child: const Stack(alignment: Alignment.center, children: [
+          Icon(Icons.smart_toy_rounded, color: Colors.white, size: 52),
+          Positioned(left: 35, top: 43, child: _Dot()),
+          Positioned(right: 35, top: 43, child: _Dot()),
+          Positioned(bottom: 25, child: Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFF3DE9FF), size: 20)),
+        ]),
       );
 }
 
@@ -320,12 +340,10 @@ class _SectionHeader extends StatelessWidget {
   final String action;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Expanded(child: Text(title, style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w900))),
-          TextButton(onPressed: onTap, child: Text(action, style: const TextStyle(color: _purple, fontWeight: FontWeight.w800))),
-        ],
-      );
+  Widget build(BuildContext context) => Row(children: [
+        Expanded(child: Text(title, style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w900))),
+        TextButton(onPressed: onTap, child: Text(action, style: const TextStyle(color: _purple, fontWeight: FontWeight.w800))),
+      ]);
 }
 
 class _ProgressCard extends StatelessWidget {
@@ -342,23 +360,17 @@ class _ProgressCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8E5F6)),
-              boxShadow: const [BoxShadow(color: Color(0x0C000000), blurRadius: 16, offset: Offset(0, 5))],
-            ),
-            child: Row(
-              children: [
-                const CircleAvatar(backgroundColor: Color(0xFFE8FFF5), child: Icon(Icons.auto_awesome_rounded, color: Color(0xFF18A66A))),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: _muted, fontSize: 12)),
-                ])),
-                const Icon(Icons.chevron_right_rounded, color: _muted),
-              ],
-            ),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE8E5F6))),
+            child: Row(children: [
+              const CircleAvatar(backgroundColor: Color(0xFFE8FFF5), child: Icon(Icons.auto_awesome_rounded, color: Color(0xFF18A66A))),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(color: _muted, fontSize: 12)),
+              ])),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ]),
           ),
         ),
       );
@@ -382,15 +394,7 @@ class _QuickCard extends StatelessWidget {
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               CircleAvatar(backgroundColor: Colors.white, child: Icon(icon, color: _purple, size: 21)),
               const SizedBox(height: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _ink, fontSize: 11, height: 1.1, fontWeight: FontWeight.w800),
-                ),
-              ),
+              Flexible(child: Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ink, fontSize: 11, height: 1.1, fontWeight: FontWeight.w800))),
             ]),
           ),
         ),
