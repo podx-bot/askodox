@@ -1,11 +1,21 @@
 enum ApiFailureType { network, timeout, authentication, permission, validation, notFound, duplicate, rateLimit, server, unknown }
 
 class ApiFailure implements Exception {
-  const ApiFailure(this.type, {this.message, this.statusCode, this.cause});
+  const ApiFailure(
+    this.type, {
+    this.message,
+    this.statusCode,
+    this.cause,
+    this.headers = const {},
+  });
+
   final ApiFailureType type;
   final String? message;
   final int? statusCode;
   final Object? cause;
+  final Map<String, String> headers;
+
+  String? header(String name) => headers[name.toLowerCase()];
 
   String localizedMessage(String languageCode) {
     final te = languageCode == 'te';
@@ -36,6 +46,7 @@ ApiFailure mapApiError(Object error, {int? statusCode}) {
     403 => ApiFailureType.permission,
     404 => ApiFailureType.notFound,
     409 => ApiFailureType.duplicate,
+    422 => ApiFailureType.validation,
     429 => ApiFailureType.rateLimit,
     int code when code >= 500 => ApiFailureType.server,
     _ => ApiFailureType.unknown,
