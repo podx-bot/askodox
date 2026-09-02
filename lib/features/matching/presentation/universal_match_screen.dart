@@ -56,6 +56,14 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
         ref.read(universalDealControllerProvider).deal?.rawText ?? '',
       );
 
+  void _returnToSearch() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      context.go('/search');
+    }
+  }
+
   void _select(UniversalMatch match) {
     setState(() {
       _selected = match;
@@ -223,7 +231,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
         ),
         body: Center(
           child: FilledButton(
-            onPressed: () => context.go('/search'),
+            onPressed: _returnToSearch,
             child: Text(_te ? 'ముందు వివరాలు పూర్తి చేయండి' : 'Complete requirement first'),
           ),
         ),
@@ -256,7 +264,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
             if (error is DealNeedsDetailsException) {
               return _NeedsDetails(
                 exception: error,
-                onComplete: () => context.go('/search'),
+                onComplete: _returnToSearch,
                 te: _te,
               );
             }
@@ -272,7 +280,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
           }
           _result ??= result;
           if (result.matches.isEmpty) {
-            return _NoMatches(onBroaden: () => context.go('/search'), te: _te);
+            return _NoMatches(onBroaden: _returnToSearch, te: _te);
           }
           return _conversation(result);
         },
