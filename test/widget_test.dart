@@ -30,7 +30,15 @@ void main() {
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.text('In Progress'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Continue your conversations'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
     expect(find.text('Continue your conversations'), findsOneWidget);
+
     expect(find.text('Chats'), findsOneWidget);
     expect(find.text('Ask'), findsOneWidget);
     expect(find.text('Activity'), findsWidgets);
