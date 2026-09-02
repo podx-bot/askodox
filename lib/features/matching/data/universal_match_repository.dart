@@ -138,7 +138,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     // genuine no-match, validation, and provider-availability states.
     if (dealId.isEmpty && _client is MockApiClient) {
       dealId = 'local-${DateTime.now().microsecondsSinceEpoch}';
-      final demoMatches = DemoNaturalMatchCatalog.forDeal(deal)
+      final demoMatches = DemoNaturalMatchCatalog.forDeal(deal, enabled: true)
         ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
       return UniversalMatchResult(dealId: dealId, matches: demoMatches);
     }
