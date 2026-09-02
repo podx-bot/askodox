@@ -64,6 +64,37 @@ jobs:
           print("provider reliability smoke passed")
           PY
 
+      - name: Verify patch-safe domain isolation
+        run: |
+          python - <<'PY'
+          from backend.app.core.domain_module_registry import DomainModuleRegistry
+
+          registry = DomainModuleRegistry()
+          registry.register("chicken", lambda payload: f"chicken:{payload['value']}")
+          registry.register("ride", lambda payload: f"ride:{payload['value']}")
+          registry.register("jobs", lambda payload: f"jobs:{payload['value']}")
+
+          assert registry.execute("chicken", {"value": "v1"}) == "chicken:v1"
+          assert registry.execute("ride", {"value": "v1"}) == "ride:v1"
+          assert registry.execute("jobs", {"value": "v1"}) == "jobs:v1"
+
+          registry.register(
+              "chicken",
+              lambda payload: f"chicken-patched:{payload['value']}",
+              replace=True,
+          )
+
+          assert registry.execute("chicken", {"value": "v2"}) == "chicken-patched:v2"
+          assert registry.execute("ride", {"value": "v2"}) == "ride:v2"
+          assert registry.execute("jobs", {"value": "v2"}) == "jobs:v2"
+          assert registry.snapshot() == {
+              "chicken": ("default",),
+              "jobs": ("default",),
+              "ride": ("default",),
+          }
+          print("patch-safe domain isolation smoke passed")
+          PY
+
       - name: Build backend image from monorepo
         run: docker build -t askodox-backend-smoke .
 
