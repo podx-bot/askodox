@@ -12,7 +12,7 @@ import re
 from threading import RLock
 from typing import Any, Iterable
 
-from backend.app.core.domain_module_registry import DomainModuleRegistry
+from app.core.domain_module_registry import DomainModuleRegistry
 
 
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
@@ -47,13 +47,6 @@ class IntentRouteNotFoundError(LookupError):
 
 
 class RealUserIntentRouter:
-    """Route natural user wording to isolated domain modules.
-
-    Rules are registered independently. Phrase matches are stronger than loose
-    keyword matches, while exclusions reduce false positives. The router does
-    not own domain business logic; it only chooses the module boundary.
-    """
-
     def __init__(self, *, minimum_score: int = 2) -> None:
         if minimum_score < 1:
             raise ValueError("minimum_score must be >= 1")
@@ -83,10 +76,7 @@ class RealUserIntentRouter:
             score = rule.priority
             matched: list[str] = []
 
-            excluded = [
-                term for term in rule.exclude_keywords
-                if self._normalize(term) in tokens
-            ]
+            excluded = [term for term in rule.exclude_keywords if self._normalize(term) in tokens]
             if excluded:
                 continue
 
@@ -115,18 +105,10 @@ class RealUserIntentRouter:
         if not candidates:
             raise IntentRouteNotFoundError("no registered intent rule matched")
 
-        candidates.sort(
-            key=lambda route: (route.score, len(route.matched_terms)),
-            reverse=True,
-        )
+        candidates.sort(key=lambda route: (route.score, len(route.matched_terms)), reverse=True)
         return candidates[0]
 
-    def dispatch(
-        self,
-        text: str,
-        payload: Any,
-        registry: DomainModuleRegistry,
-    ) -> Any:
+    def dispatch(self, text: str, payload: Any, registry: DomainModuleRegistry) -> Any:
         route = self.route(text)
         return registry.execute(route.domain, payload, action=route.action)
 
