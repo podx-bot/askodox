@@ -14,13 +14,14 @@ void main() {
     expect(source, contains("context.go('/search')"));
 
     final returnHelper = RegExp(
-      r"void _returnToSearch\(\)\s*\{([\s\S]*?)\n\s*\}",
+      r"void _returnToSearch\(\)\s*\{([\s\S]*?)context\.go\('/search'\);\s*\}",
     ).firstMatch(source)?.group(1);
 
     expect(returnHelper, isNotNull);
+    expect(returnHelper, contains('Navigator.of(context).pop()'));
     expect(
-      returnHelper!.indexOf('Navigator.of(context).pop()'),
-      lessThan(returnHelper.indexOf("context.go('/search')")),
+      source.indexOf('Navigator.of(context).pop()', source.indexOf('void _returnToSearch()')),
+      lessThan(source.indexOf("context.go('/search')", source.indexOf('void _returnToSearch()'))),
       reason: 'A pushed match screen must pop first; routing to the already-active /search route can be a no-op.',
     );
   });
