@@ -173,6 +173,18 @@ jobs:
           assert context["action"] == "send"
           assert context["missing_fields"] == ["from_location", "timing"]
 
+          flutter_parcel = UniversalDealCreateRequest(
+              user_id="app-smoke",
+              raw_text="Send parcel to Hyderabad",
+              timing="today",
+              dynamic_fields={"from": "Vijayawada", "to": "Hyderabad"},
+          )
+          context = _intent_context(flutter_parcel)
+          assert context is not None
+          assert context["domain"] == "parcel"
+          assert context["action"] == "send"
+          assert context["missing_fields"] == []
+
           unknown = UniversalDealCreateRequest(
               user_id="app-smoke",
               raw_text="hello there",
