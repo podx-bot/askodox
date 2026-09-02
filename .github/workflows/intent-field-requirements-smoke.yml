@@ -116,6 +116,15 @@ jobs:
           python - <<'PY'
           from app.api.routes.universal_deals import UniversalDealCreateRequest, _intent_context
 
+          class FakeExtractor:
+              def __init__(self, request):
+                  self.request = request
+                  self.calls = 0
+
+              def extract(self, text):
+                  self.calls += 1
+                  return {"success": True, "request": dict(self.request)}
+
           buy = UniversalDealCreateRequest(
               user_id="app-smoke",
               raw_text="I want to buy a laptop",
@@ -126,6 +135,32 @@ jobs:
           assert context["domain"] == "commerce"
           assert context["action"] == "buy"
           assert context["missing_fields"] == ["location"]
+
+          extractor = FakeExtractor({
+              "subject": "laptop",
+              "location_text": "Vijayawada",
+              "when_text": None,
+          })
+          raw_only = UniversalDealCreateRequest(
+              user_id="app-smoke",
+              raw_text="I want to buy a laptop in Vijayawada",
+          )
+          context = _intent_context(raw_only, extractor=extractor)
+          assert context is not None
+          assert context["missing_fields"] == []
+          assert extractor.calls == 1
+
+          complete_payload_extractor = FakeExtractor({"subject": "should not be used"})
+          complete_payload = UniversalDealCreateRequest(
+              user_id="app-smoke",
+              raw_text="I want to buy a laptop in Vijayawada",
+              subject="laptop",
+              location={"label": "Vijayawada"},
+          )
+          context = _intent_context(complete_payload, extractor=complete_payload_extractor)
+          assert context is not None
+          assert context["missing_fields"] == []
+          assert complete_payload_extractor.calls == 0
 
           parcel = UniversalDealCreateRequest(
               user_id="app-smoke",
