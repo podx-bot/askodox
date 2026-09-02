@@ -1,0 +1,53 @@
+name: ASKODOX intent field requirements smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/app/core/domain_field_requirements.py
+      - backend/app/core/default_intent_rules.py
+      - backend/app/core/intent_domain_router.py
+      - .github/workflows/intent-field-requirements-smoke.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/app/core/domain_field_requirements.py
+      - backend/app/core/default_intent_rules.py
+      - backend/app/core/intent_domain_router.py
+      - .github/workflows/intent-field-requirements-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify routed intent field requirements
+        run: |
+          python - <<'PY'
+          from backend.app.core.default_intent_rules import build_default_intent_router
+          from backend.app.core.domain_field_requirements import missing_fields
+
+          router = build_default_intent_router()
+
+          cases = [
+              ("I want to buy a laptop", {"subject": "laptop"}, ("location",)),
+              ("Need a house for rent", {"subject": "house", "location": "Vijayawada"}, ("timing",)),
+              ("Book appointment with doctor", {"subject": "doctor", "location": "nearby"}, ("timing",)),
+              ("Send parcel to Hyderabad", {"to_location": "Hyderabad"}, ("from_location", "timing")),
+              ("File a complaint about billing", {"subject": "billing"}, ("issue",)),
+              ("How to apply for scholarship", {"subject": "scholarship"}, ("applicant_context",)),
+              ("I have a doubt about this bill", {"subject": "bill"}, ("question",)),
+          ]
+
+          for text, payload, expected_missing in cases:
+              route = router.route(text)
+              assert missing_fields(route.domain, route.action, payload) == expected_missing
+
+          route = router.route("I want to sell my phone")
+          assert missing_fields(route.domain, route.action, {"subject": "phone", "location": "Guntur"}) == ()
+          print("routed intent field requirements smoke passed")
+          PY
