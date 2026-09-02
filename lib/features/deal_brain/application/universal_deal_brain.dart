@@ -123,6 +123,11 @@ class UniversalDealBrain {
       }
     }
 
+    if (intent == DealIntent.seekWork) {
+      value = value.replaceFirst(RegExp(r'^(?:నాకు|నేను)\s*'), '').trim();
+      value = value.replaceFirst(RegExp(r'\s*(?:ఉద్యోగం|జాబ్|పని)\s*కావాలి\s*$'), '').trim();
+    }
+
     value = value.replaceFirst(
       RegExp(r'\s+(?:in|at|near|around)\s+.+?(?=\s+(?:today|tomorrow|tonight|now|urgent)\b|$)', caseSensitive: false),
       '',
