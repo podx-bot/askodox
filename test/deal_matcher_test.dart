@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:askodox/features/deal_brain/application/universal_deal_brain.dart';
-import 'package:askodox/features/deal_brain/domain/deal_matcher.dart';
-import 'package:askodox/features/deal_brain/domain/universal_deal.dart';
+import 'package:podx/features/deal_brain/application/universal_deal_brain.dart';
+import 'package:podx/features/deal_brain/domain/deal_matcher.dart';
+import 'package:podx/features/deal_brain/domain/universal_deal.dart';
 
 void main() {
   const brain = UniversalDealBrain();
