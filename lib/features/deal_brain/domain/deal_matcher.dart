@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'no_match_recovery.dart';
 import 'universal_deal.dart';
 
 class DealMatchCandidate {
@@ -27,17 +28,25 @@ class DealMatch {
 }
 
 class DealMatchResult {
-  const DealMatchResult({required this.matches});
+  const DealMatchResult({
+    required this.matches,
+    this.recovery,
+  });
+
   final List<DealMatch> matches;
+  final NoMatchRecoveryPlan? recovery;
+
   bool get hasLocalMatch => matches.isNotEmpty;
-  bool get needsNoMatchRecovery => matches.isEmpty;
+  bool get needsNoMatchRecovery => recovery != null;
 }
 
 class DealMatcher {
   const DealMatcher();
 
   DealMatchResult match(UniversalDeal request, Iterable<DealMatchCandidate> candidates) {
-    if (!request.readyToMatch) return const DealMatchResult(matches: []);
+    if (!request.readyToMatch) {
+      return const DealMatchResult(matches: []);
+    }
 
     final matches = <DealMatch>[];
     for (final candidate in candidates) {
@@ -64,7 +73,10 @@ class DealMatcher {
     }
 
     matches.sort((a, b) => b.score.compareTo(a.score));
-    return DealMatchResult(matches: matches);
+    return DealMatchResult(
+      matches: matches,
+      recovery: matches.isEmpty ? const NoMatchRecovery().build(request) : null,
+    );
   }
 
   bool _sameCategory(UniversalDeal a, UniversalDeal b) {
