@@ -42,21 +42,25 @@ class NoMatchRecoveryPlan {
 class NoMatchRecovery {
   const NoMatchRecovery();
 
-  NoMatchRecoveryPlan build(UniversalDeal request) {
+  NoMatchRecoveryPlan? build(UniversalDeal request) {
+    if (!request.readyToMatch) return null;
+
     final actions = <NoMatchFallbackAction>[
       if (request.fulfilment != 'online')
         const NoMatchFallbackAction(
           kind: NoMatchFallbackKind.broadenLocalRadius,
           label: 'Search a wider local area',
         ),
-      const NoMatchFallbackAction(
-        kind: NoMatchFallbackKind.onlineSuggestion,
-        label: 'Show relevant online alternatives',
-      ),
-      const NoMatchFallbackAction(
-        kind: NoMatchFallbackKind.affiliateSuggestion,
-        label: 'Show verified external buying options',
-      ),
+      if (request.intent == DealIntent.buy)
+        const NoMatchFallbackAction(
+          kind: NoMatchFallbackKind.onlineSuggestion,
+          label: 'Show relevant online alternatives',
+        ),
+      if (request.intent == DealIntent.buy)
+        const NoMatchFallbackAction(
+          kind: NoMatchFallbackKind.affiliateSuggestion,
+          label: 'Show verified external buying options',
+        ),
       const NoMatchFallbackAction(
         kind: NoMatchFallbackKind.adminReview,
         label: 'Send no-match case for admin review',
