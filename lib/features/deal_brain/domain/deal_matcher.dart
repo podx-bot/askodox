@@ -45,6 +45,7 @@ class DealMatcher {
       if (!supply.readyToMatch || supply.intent != request.oppositeIntent) continue;
       if (!_sameCategory(request, supply)) continue;
       if (!_sameSubject(request, supply)) continue;
+      if (!_jobCompatible(request, supply)) continue;
 
       final distanceKm = _distanceKm(request.location, supply.location);
       if (!_locationCompatible(request, supply, distanceKm)) continue;
@@ -52,6 +53,7 @@ class DealMatcher {
       var score = 60.0;
       if (request.productProfile == supply.productProfile) score += 15;
       if (_normalized(request.subject) == _normalized(supply.subject)) score += 10;
+      score += _jobScore(request, supply);
       score += candidate.trustScore.clamp(0, 100) * 0.15;
       if (distanceKm != null) {
         score += (10 - distanceKm).clamp(0, 10);
@@ -77,10 +79,76 @@ class DealMatcher {
   }
 
   bool _sameSubject(UniversalDeal a, UniversalDeal b) {
-    final left = _normalized(a.subject);
-    final right = _normalized(b.subject);
+    if (_isWorkDeal(a) && _isWorkDeal(b)) {
+      return _sameMeaning(
+        a.dynamicFields['skill']?.toString() ?? a.subject,
+        b.dynamicFields['skill']?.toString() ?? b.subject,
+      );
+    }
+
+    return _sameMeaning(a.subject, b.subject);
+  }
+
+  bool _jobCompatible(UniversalDeal a, UniversalDeal b) {
+    if (!_isWorkDeal(a) || !_isWorkDeal(b)) return true;
+
+    final employer = a.intent == DealIntent.needWorker ? a : b;
+    final worker = a.intent == DealIntent.seekWork ? a : b;
+
+    final requiredType = _normalized(employer.dynamicFields['jobType']?.toString());
+    final workerType = _normalized(worker.dynamicFields['jobType']?.toString());
+    if (requiredType.isNotEmpty && workerType.isNotEmpty && requiredType != workerType) {
+      return false;
+    }
+
+    final minimumExperience = _number(employer.dynamicFields['minExperienceYears']);
+    final workerExperience = _number(worker.dynamicFields['experienceYears']);
+    if (minimumExperience != null &&
+        workerExperience != null &&
+        workerExperience < minimumExperience) {
+      return false;
+    }
+
+    return true;
+  }
+
+  double _jobScore(UniversalDeal a, UniversalDeal b) {
+    if (!_isWorkDeal(a) || !_isWorkDeal(b)) return 0;
+
+    final employer = a.intent == DealIntent.needWorker ? a : b;
+    final worker = a.intent == DealIntent.seekWork ? a : b;
+    var score = 0.0;
+
+    final employerSkill = _normalized(employer.dynamicFields['skill']?.toString());
+    final workerSkill = _normalized(worker.dynamicFields['skill']?.toString());
+    if (employerSkill.isNotEmpty && employerSkill == workerSkill) score += 12;
+
+    final requiredType = _normalized(employer.dynamicFields['jobType']?.toString());
+    final workerType = _normalized(worker.dynamicFields['jobType']?.toString());
+    if (requiredType.isNotEmpty && requiredType == workerType) score += 4;
+
+    final minimumExperience = _number(employer.dynamicFields['minExperienceYears']);
+    final workerExperience = _number(worker.dynamicFields['experienceYears']);
+    if (minimumExperience != null && workerExperience != null) {
+      score += (workerExperience - minimumExperience).clamp(0, 5);
+    }
+
+    return score;
+  }
+
+  bool _isWorkDeal(UniversalDeal deal) =>
+      deal.intent == DealIntent.needWorker || deal.intent == DealIntent.seekWork;
+
+  bool _sameMeaning(String? leftValue, String? rightValue) {
+    final left = _normalized(leftValue);
+    final right = _normalized(rightValue);
     if (left.isEmpty || right.isEmpty) return true;
     return left == right || left.contains(right) || right.contains(left);
+  }
+
+  double? _number(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString().trim() ?? '');
   }
 
   bool _locationCompatible(UniversalDeal a, UniversalDeal b, double? distanceKm) {
