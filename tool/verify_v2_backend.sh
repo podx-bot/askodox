@@ -13,8 +13,36 @@ case "$BASE_URL" in
 esac
 
 BASE_URL="${BASE_URL%/}"
-HEALTH_JSON="$(curl --fail --silent --show-error --location --max-time 20 "$BASE_URL/health")"
-READINESS_JSON="$(curl --fail --silent --show-error --location --max-time 20 "$BASE_URL/readiness")"
+
+fetch_json() {
+  local path="$1"
+  local attempts=5
+  local delay=3
+  local out
+  local i
+
+  for i in $(seq 1 "$attempts"); do
+    if out="$(curl --fail --silent --show-error --location \
+      --connect-timeout 10 --max-time 20 \
+      --retry 2 --retry-delay 1 --retry-all-errors \
+      "$BASE_URL$path")"; then
+      printf '%s' "$out"
+      return 0
+    fi
+
+    if [ "$i" -lt "$attempts" ]; then
+      echo "ASKODOX backend check $path failed (attempt $i/$attempts); retrying in ${delay}s..." >&2
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+  done
+
+  echo "ASKODOX backend check $path failed after $attempts attempts." >&2
+  return 1
+}
+
+HEALTH_JSON="$(fetch_json /health)"
+READINESS_JSON="$(fetch_json /readiness)"
 
 HEALTH_JSON="$HEALTH_JSON" READINESS_JSON="$READINESS_JSON" python3 - <<'PY'
 import json, os
