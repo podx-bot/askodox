@@ -55,6 +55,9 @@ class DealMatcher {
       if (!_sameCategory(request, supply)) continue;
       if (!_sameSubject(request, supply)) continue;
       if (!_jobCompatible(request, supply)) continue;
+      if (!_routeCompatible(request, supply)) continue;
+      if (!_timingCompatible(request, supply)) continue;
+      if (!_capacityCompatible(request, supply)) continue;
 
       final distanceKm = _distanceKm(request.location, supply.location);
       if (!_locationCompatible(request, supply, distanceKm)) continue;
@@ -63,6 +66,7 @@ class DealMatcher {
       if (request.productProfile == supply.productProfile) score += 15;
       if (_normalized(request.subject) == _normalized(supply.subject)) score += 10;
       score += _jobScore(request, supply);
+      score += _routeScore(request, supply);
       score += candidate.trustScore.clamp(0, 100) * 0.15;
       if (distanceKm != null) {
         score += (10 - distanceKm).clamp(0, 10);
@@ -98,6 +102,7 @@ class DealMatcher {
       );
     }
 
+    if (_isRouteDeal(a) && _isRouteDeal(b)) return true;
     return _sameMeaning(a.subject, b.subject);
   }
 
@@ -119,6 +124,54 @@ class DealMatcher {
         workerExperience != null &&
         workerExperience < minimumExperience) {
       return false;
+    }
+
+    return true;
+  }
+
+  bool _routeCompatible(UniversalDeal a, UniversalDeal b) {
+    if (!_isRouteDeal(a) || !_isRouteDeal(b)) return true;
+    return _sameMeaning(
+          a.dynamicFields['from']?.toString(),
+          b.dynamicFields['from']?.toString(),
+        ) &&
+        _sameMeaning(
+          a.dynamicFields['to']?.toString(),
+          b.dynamicFields['to']?.toString(),
+        );
+  }
+
+  bool _timingCompatible(UniversalDeal a, UniversalDeal b) {
+    if (!_isRouteDeal(a) || !_isRouteDeal(b)) return true;
+    final left = _normalized(a.timing);
+    final right = _normalized(b.timing);
+    if (left.isEmpty || right.isEmpty) return true;
+    return left == right;
+  }
+
+  bool _capacityCompatible(UniversalDeal a, UniversalDeal b) {
+    if (_isRidePair(a, b)) {
+      final passenger = a.intent == DealIntent.needRide ? a : b;
+      final driver = a.intent == DealIntent.offerRide ? a : b;
+      final neededSeats = _number(passenger.dynamicFields['seats']) ?? passenger.quantity;
+      final availableSeats =
+          _number(driver.dynamicFields['seatsAvailable']) ??
+          _number(driver.dynamicFields['seats']) ??
+          driver.quantity;
+      if (neededSeats != null && availableSeats != null && availableSeats < neededSeats) {
+        return false;
+      }
+    }
+
+    if (_isParcelPair(a, b)) {
+      final parcel = a.intent == DealIntent.sendParcel ? a : b;
+      final carrier = a.intent == DealIntent.deliverParcel ? a : b;
+      final parcelWeight =
+          _number(parcel.dynamicFields['weightKg']) ?? _number(parcel.weight);
+      final maxWeight = _number(carrier.dynamicFields['maxWeightKg']);
+      if (parcelWeight != null && maxWeight != null && parcelWeight > maxWeight) {
+        return false;
+      }
     }
 
     return true;
@@ -148,8 +201,34 @@ class DealMatcher {
     return score;
   }
 
+  double _routeScore(UniversalDeal a, UniversalDeal b) {
+    if (!_isRouteDeal(a) || !_isRouteDeal(b)) return 0;
+    var score = 0.0;
+    if (_normalized(a.dynamicFields['from']?.toString()) ==
+        _normalized(b.dynamicFields['from']?.toString())) score += 8;
+    if (_normalized(a.dynamicFields['to']?.toString()) ==
+        _normalized(b.dynamicFields['to']?.toString())) score += 8;
+    if (_normalized(a.timing).isNotEmpty &&
+        _normalized(a.timing) == _normalized(b.timing)) score += 4;
+    return score;
+  }
+
   bool _isWorkDeal(UniversalDeal deal) =>
       deal.intent == DealIntent.needWorker || deal.intent == DealIntent.seekWork;
+
+  bool _isRouteDeal(UniversalDeal deal) =>
+      deal.intent == DealIntent.needRide ||
+      deal.intent == DealIntent.offerRide ||
+      deal.intent == DealIntent.sendParcel ||
+      deal.intent == DealIntent.deliverParcel;
+
+  bool _isRidePair(UniversalDeal a, UniversalDeal b) =>
+      {a.intent, b.intent}.contains(DealIntent.needRide) &&
+      {a.intent, b.intent}.contains(DealIntent.offerRide);
+
+  bool _isParcelPair(UniversalDeal a, UniversalDeal b) =>
+      {a.intent, b.intent}.contains(DealIntent.sendParcel) &&
+      {a.intent, b.intent}.contains(DealIntent.deliverParcel);
 
   bool _sameMeaning(String? leftValue, String? rightValue) {
     final left = _normalized(leftValue);
@@ -160,10 +239,13 @@ class DealMatcher {
 
   double? _number(Object? value) {
     if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString().trim() ?? '');
+    final text = value?.toString().trim() ?? '';
+    final match = RegExp(r'-?[0-9]+(?:\.[0-9]+)?').firstMatch(text);
+    return double.tryParse(match?.group(0) ?? '');
   }
 
   bool _locationCompatible(UniversalDeal a, UniversalDeal b, double? distanceKm) {
+    if (_isRouteDeal(a) && _isRouteDeal(b)) return true;
     if (a.fulfilment == 'online' || b.fulfilment == 'online') return true;
 
     if (distanceKm != null) {
