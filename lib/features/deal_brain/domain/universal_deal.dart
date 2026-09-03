@@ -152,10 +152,44 @@ class UniversalDeal {
     );
   }
 
+  String get productProfile {
+    final explicit = dynamicFields['productProfile']?.toString().trim();
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+
+    final source = '${subject ?? ''} $rawText'.toLowerCase();
+    if (_hasAny(source, const [
+      'chicken', 'చికెన్', 'mutton', 'మటన్', 'meat', 'fish', 'చేప', 'prawns',
+      'vegetable', 'vegetables', 'కూరగాయ', 'fruit', 'fruits', 'పండ్లు',
+    ])) {
+      return 'fresh_food';
+    }
+    if (_hasAny(source, const [
+      'rice', 'బియ్యం', 'dal', 'పప్పు', 'flour', 'atta', 'sugar', 'చక్కెర',
+      'oil', 'milk', 'పాలు', 'grocery', 'groceries', 'కిరాణా',
+    ])) {
+      return 'grocery';
+    }
+    if (_hasAny(source, const [
+      'cement', 'సిమెంట్', 'sand', 'steel', 'iron', 'bricks', 'tiles',
+      'wood', 'timber', 'material',
+    ])) {
+      return 'material';
+    }
+    return 'general';
+  }
+
   bool get isChickenRequest {
     final source = '${subject ?? ''} $rawText'.toLowerCase();
     return source.contains('chicken') || source.contains('చికెన్');
   }
+
+  bool get productNeedsQuantity =>
+      productProfile == 'fresh_food' ||
+      productProfile == 'grocery' ||
+      productProfile == 'material';
+
+  bool _hasAny(String source, List<String> values) =>
+      values.any(source.contains);
 
   /// ASKODOX asks only the next useful missing detail. Category-specific
   /// preferences can be collected progressively without turning the UI into a form.
@@ -189,8 +223,10 @@ class UniversalDeal {
       case DealIntent.buy:
       case DealIntent.sell:
         if (subject == null || subject!.trim().isEmpty) missing.add('subject');
+        if (subject != null && subject!.trim().isNotEmpty && productNeedsQuantity && quantity == null) {
+          missing.add('quantity');
+        }
         if (isChickenRequest) {
-          if (quantity == null) missing.add('quantity');
           if (dynamicFields['freshness'] == null) missing.add('freshness');
           if (dynamicFields['cut'] == null) missing.add('cut');
           if (dynamicFields['chickenPreference'] == null) {
