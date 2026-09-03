@@ -1,0 +1,42 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/deal_brain/application/universal_deal_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  test('vision hints fill missing deal fields without replacing known values', () async {
+    final controller = UniversalDealController();
+    controller.start('buy nearby');
+
+    expect(controller.state.deal?.subject, isNull);
+    expect(controller.state.deal?.category, 'product');
+
+    controller.mergeVisionAnalysis({
+      'detected_subject': 'running shoes',
+      'category_hint': 'fashion',
+      'summary': 'A pair of running shoes is visible.',
+      'deal_hints': {
+        'subject': 'running shoes',
+        'category': 'footwear',
+        'variant': 'blue',
+        'size': '9',
+        'model': null,
+        'quality': null,
+      },
+    });
+
+    final deal = controller.state.deal!;
+    expect(deal.subject, 'running shoes');
+    expect(deal.category, 'product');
+    expect(deal.variant, 'blue');
+    expect(deal.size, '9');
+    expect(deal.dynamicFields['visionAnalysis'], isA<Map>());
+
+    controller.dispose();
+  });
+}
