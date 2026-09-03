@@ -65,7 +65,7 @@ class ProductCategorySchemas {
       },
     ),
     ProductCategorySchema(
-      id: 'construction_material',
+      id: 'material',
       keywords: [
         'cement', 'సిమెంట్', 'sand', 'steel', 'iron', 'bricks', 'tiles',
         'wood', 'timber', 'material',
@@ -82,9 +82,7 @@ class ProductCategorySchemas {
     ProductCategorySchema(
       id: 'mobile_phone',
       keywords: ['phone', 'mobile', 'smartphone', 'iphone', 'android phone'],
-      questions: {
-        'model': 'Any preferred brand or model?',
-      },
+      questions: {'model': 'Any preferred brand or model?'},
     ),
     ProductCategorySchema(
       id: 'furniture',
