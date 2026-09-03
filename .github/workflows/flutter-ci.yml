@@ -211,5 +211,12 @@ jobs:
             gh release edit askodox-latest --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
           fi
 
-          gh release upload askodox-latest "$VERSIONED_APK" askodox-latest.apk latest.json --clobber
+          # GitHub can return 422 for duplicate release asset names even when
+          # gh release upload --clobber is used. Delete known rolling assets
+          # explicitly before uploading the fresh set.
+          gh release delete-asset askodox-latest askodox-latest.apk -y >/dev/null 2>&1 || true
+          gh release delete-asset askodox-latest latest.json -y >/dev/null 2>&1 || true
+          gh release delete-asset askodox-latest "$VERSIONED_APK" -y >/dev/null 2>&1 || true
+
+          gh release upload askodox-latest "$VERSIONED_APK" askodox-latest.apk latest.json
           gh release view askodox-latest --json tagName,url,name,body >/dev/null
