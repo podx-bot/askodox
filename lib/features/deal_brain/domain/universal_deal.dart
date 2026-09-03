@@ -1,4 +1,5 @@
 import 'product_category_schema.dart';
+import 'rfq_schema.dart';
 
 enum DealIntent {
   buy,
@@ -165,6 +166,12 @@ class UniversalDeal {
   }
 
   String get productProfile => productSchema.id;
+
+  RfqSchema get rfqSchema => RfqSchemas.resolve(
+        category: category ?? intent.name,
+        productProfile: productProfile,
+        subject: subject ?? rawText,
+      );
 
   bool get isChickenRequest => productProfile == 'chicken';
 
