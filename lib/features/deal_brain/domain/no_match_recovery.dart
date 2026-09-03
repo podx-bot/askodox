@@ -37,6 +37,25 @@ class NoMatchRecoveryPlan {
 
   final NoMatchAdminSignal adminSignal;
   final List<NoMatchFallbackAction> actions;
+
+  NoMatchFallbackAction? get onlineSuggestion =>
+      _actionOfKind(NoMatchFallbackKind.onlineSuggestion);
+
+  NoMatchFallbackAction? get affiliateSuggestion =>
+      _actionOfKind(NoMatchFallbackKind.affiliateSuggestion);
+
+  NoMatchFallbackAction? get broadenLocalRadius =>
+      _actionOfKind(NoMatchFallbackKind.broadenLocalRadius);
+
+  NoMatchFallbackAction? get adminReview =>
+      _actionOfKind(NoMatchFallbackKind.adminReview);
+
+  NoMatchFallbackAction? _actionOfKind(NoMatchFallbackKind kind) {
+    for (final action in actions) {
+      if (action.kind == kind) return action;
+    }
+    return null;
+  }
 }
 
 class NoMatchRecovery {
