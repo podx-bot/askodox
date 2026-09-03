@@ -50,4 +50,35 @@ void main() {
     expect(controller.state.completed, isTrue);
     controller.dispose();
   });
+
+  test('television uses category-specific size question and stores size', () {
+    final controller = UniversalDealController();
+    controller.start('I want to buy a TV near Vijayawada');
+
+    expect(controller.state.deal?.productProfile, 'television');
+    expect(controller.state.deal?.missingForMatch.first, 'size');
+    expect(controller.state.lastQuestion, 'What TV screen size do you prefer?');
+
+    controller.answer('55 inch');
+
+    expect(controller.state.deal?.size, '55 inch');
+    expect(controller.state.completed, isTrue);
+    controller.dispose();
+  });
+
+  test('wholesale packaged goods asks quantity then pack size', () {
+    final controller = UniversalDealController();
+    controller.start('I want to buy masala wholesale near Guntur');
+
+    expect(controller.state.deal?.productProfile, 'wholesale_packaged_goods');
+    expect(controller.state.lastQuestion, 'How many packs, bags, cartons or units do you need?');
+
+    controller.answer('10 bags');
+    expect(controller.state.lastQuestion, 'What pack or bag size do you need?');
+
+    controller.answer('25 kg');
+    expect(controller.state.deal?.dynamicFields['packSize'], '25 kg');
+    expect(controller.state.completed, isTrue);
+    controller.dispose();
+  });
 }
