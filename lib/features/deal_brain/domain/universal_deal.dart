@@ -1,3 +1,5 @@
+import 'product_category_schema.dart';
+
 enum DealIntent {
   buy,
   sell,
@@ -152,47 +154,48 @@ class UniversalDeal {
     );
   }
 
-  String get productProfile {
+  ProductCategorySchema get productSchema {
     final explicit = dynamicFields['productProfile']?.toString().trim();
-    if (explicit != null && explicit.isNotEmpty) return explicit;
-
-    final source = '${subject ?? ''} $rawText'.toLowerCase();
-    if (_hasAny(source, const [
-      'chicken', 'చికెన్', 'mutton', 'మటన్', 'meat', 'fish', 'చేప', 'prawns',
-      'vegetable', 'vegetables', 'కూరగాయ', 'fruit', 'fruits', 'పండ్లు',
-    ])) {
-      return 'fresh_food';
+    if (explicit != null && explicit.isNotEmpty) {
+      for (final schema in ProductCategorySchemas.schemas) {
+        if (schema.id == explicit) return schema;
+      }
     }
-    if (_hasAny(source, const [
-      'rice', 'బియ్యం', 'dal', 'పప్పు', 'flour', 'atta', 'sugar', 'చక్కెర',
-      'oil', 'milk', 'పాలు', 'grocery', 'groceries', 'కిరాణా',
-    ])) {
-      return 'grocery';
-    }
-    if (_hasAny(source, const [
-      'cement', 'సిమెంట్', 'sand', 'steel', 'iron', 'bricks', 'tiles',
-      'wood', 'timber', 'material',
-    ])) {
-      return 'material';
-    }
-    return 'general';
+    return ProductCategorySchemas.resolve('${subject ?? ''} $rawText');
   }
 
-  bool get isChickenRequest {
-    final source = '${subject ?? ''} $rawText'.toLowerCase();
-    return source.contains('chicken') || source.contains('చికెన్');
+  String get productProfile => productSchema.id;
+
+  bool get isChickenRequest => productProfile == 'chicken';
+
+  bool get productNeedsQuantity => productSchema.requiresQuantity;
+
+  bool _fieldMissing(String field) {
+    switch (field) {
+      case 'quantity':
+        return quantity == null;
+      case 'quality':
+        return quality == null || quality!.trim().isEmpty;
+      case 'variant':
+        return variant == null || variant!.trim().isEmpty;
+      case 'size':
+        return size == null || size!.trim().isEmpty;
+      case 'weight':
+        return weight == null || weight!.trim().isEmpty;
+      case 'model':
+        return model == null || model!.trim().isEmpty;
+      case 'availability':
+        return availability == null || availability!.trim().isEmpty;
+      case 'fulfilment':
+        return fulfilment == null || fulfilment!.trim().isEmpty;
+      default:
+        final value = dynamicFields[field];
+        return value == null || value.toString().trim().isEmpty;
+    }
   }
 
-  bool get productNeedsQuantity =>
-      productProfile == 'fresh_food' ||
-      productProfile == 'grocery' ||
-      productProfile == 'material';
-
-  bool _hasAny(String source, List<String> values) =>
-      values.any(source.contains);
-
-  /// ASKODOX asks only the next useful missing detail. Category-specific
-  /// preferences can be collected progressively without turning the UI into a form.
+  /// ASKODOX asks only the next useful missing detail. Product-specific
+  /// requirements come from ProductCategorySchemas instead of hard-coded flows.
   List<String> get missingForMatch {
     final missing = <String>[];
 
@@ -222,18 +225,14 @@ class UniversalDeal {
         break;
       case DealIntent.buy:
       case DealIntent.sell:
-        if (subject == null || subject!.trim().isEmpty) missing.add('subject');
-        if (subject != null && subject!.trim().isNotEmpty && productNeedsQuantity && quantity == null) {
-          missing.add('quantity');
-        }
-        if (isChickenRequest) {
-          if (dynamicFields['freshness'] == null) missing.add('freshness');
-          if (dynamicFields['cut'] == null) missing.add('cut');
-          if (dynamicFields['chickenPreference'] == null) {
-            missing.add('chickenPreference');
+        if (subject == null || subject!.trim().isEmpty) {
+          missing.add('subject');
+        } else {
+          if (productSchema.requiresQuantity && quantity == null) {
+            missing.add('quantity');
           }
-          if (fulfilment == null || fulfilment!.trim().isEmpty) {
-            missing.add('fulfilment');
+          for (final field in productSchema.requiredFields) {
+            if (!missing.contains(field) && _fieldMissing(field)) missing.add(field);
           }
         }
         if (!location.isKnown && fulfilment != 'online') missing.add('location');
