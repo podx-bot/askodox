@@ -34,4 +34,31 @@ void main() {
     final b = QuoteNormalizer.fromText(sellerId: 'b', text: 'Total ₹1100, delivery ₹20');
     expect(DealQuoteComparison.cheapest(<DealQuote>[a, b])?.sellerId, 'b');
   });
+
+  test('parses comma prices GST included free delivery and tomorrow', () {
+    final quote = QuoteNormalizer.fromText(
+      sellerId: 'seller-real',
+      text: 'Total ₹25,000, GST included, free delivery tomorrow',
+    );
+    expect(quote.amount, 25000);
+    expect(quote.tax, 0);
+    expect(quote.deliveryFee, 0);
+    expect(quote.leadTimeHours, 24);
+    expect(quote.dynamicFields['gstIncluded'], true);
+    expect(quote.dynamicFields['freeDelivery'], true);
+  });
+
+  test('parses GST extra validity payment terms and warranty', () {
+    final now = DateTime(2026, 9, 3, 10);
+    final quote = QuoteNormalizer.fromText(
+      sellerId: 'seller-terms',
+      text: 'Total ₹18,500, GST extra ₹925, validity 3 days, payment terms: 50% advance, 12 months warranty',
+      now: now,
+    );
+    expect(quote.amount, 18500);
+    expect(quote.tax, 925);
+    expect(quote.validUntil, now.add(const Duration(days: 3)));
+    expect(quote.paymentTerms, '50% advance');
+    expect(quote.warrantyOrReturn, '12 months warranty');
+  });
 }
