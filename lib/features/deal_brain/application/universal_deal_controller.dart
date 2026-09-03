@@ -124,6 +124,45 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(current.copyWith(dynamicFields: dynamic)));
   }
 
+  void mergeVisionAnalysis(Map<String, dynamic> analysis) {
+    final current = state.deal;
+    if (current == null || analysis.isEmpty) return;
+
+    final dynamic = Map<String, Object?>.from(current.dynamicFields);
+    dynamic['visionAnalysis'] = Map<String, Object?>.from(analysis);
+
+    final hints = analysis['deal_hints'];
+    final hintMap = hints is Map ? hints.cast<Object?, Object?>() : const <Object?, Object?>{};
+    String? hint(String key) {
+      final value = hintMap[key]?.toString().trim();
+      return value == null || value.isEmpty || value.toLowerCase() == 'null' ? null : value;
+    }
+
+    final detectedSubject = analysis['detected_subject']?.toString().trim();
+    final categoryHint = analysis['category_hint']?.toString().trim();
+    final subjectHint = hint('subject') ??
+        ((detectedSubject == null || detectedSubject.isEmpty || detectedSubject.toLowerCase() == 'null')
+            ? null
+            : detectedSubject);
+    final category = hint('category') ??
+        ((categoryHint == null || categoryHint.isEmpty || categoryHint.toLowerCase() == 'null')
+            ? null
+            : categoryHint);
+
+    final next = current.copyWith(
+      subject: _missing(current.subject) ? subjectHint : current.subject,
+      category: _missing(current.category) ? category : current.category,
+      variant: _missing(current.variant) ? hint('variant') : current.variant,
+      size: _missing(current.size) ? hint('size') : current.size,
+      model: _missing(current.model) ? hint('model') : current.model,
+      quality: _missing(current.quality) ? hint('quality') : current.quality,
+      dynamicFields: dynamic,
+    );
+    _setSession(_sessionFor(next));
+  }
+
+  bool _missing(String? value) => value == null || value.trim().isEmpty;
+
   void reset() {
     state = const UniversalDealSession();
     unawaited(_clearPersisted());
