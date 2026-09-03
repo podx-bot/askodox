@@ -76,6 +76,24 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
           next = current.copyWith(quantity: 1, unit: value, dynamicFields: fields);
         }
         break;
+      case 'quality':
+        next = current.copyWith(quality: value);
+        break;
+      case 'variant':
+        next = current.copyWith(variant: value);
+        break;
+      case 'size':
+        next = current.copyWith(size: value);
+        break;
+      case 'weight':
+        next = current.copyWith(weight: value);
+        break;
+      case 'model':
+        next = current.copyWith(model: value);
+        break;
+      case 'availability':
+        next = current.copyWith(availability: value);
+        break;
       case 'freshness':
       case 'cut':
       case 'chickenPreference':
@@ -187,11 +205,14 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     unawaited(_clearPersisted());
   }
 
-  UniversalDealSession _sessionFor(UniversalDeal deal) => UniversalDealSession(
-        deal: deal,
-        lastQuestion: _questionFor(deal.missingForMatch.firstOrNull),
-        completed: deal.readyToMatch,
-      );
+  UniversalDealSession _sessionFor(UniversalDeal deal) {
+    final missing = deal.missingForMatch.firstOrNull;
+    return UniversalDealSession(
+      deal: deal,
+      lastQuestion: _questionFor(deal, missing),
+      completed: deal.readyToMatch,
+    );
+  }
 
   (double, String)? _quantity(String value) {
     final lower = value.toLowerCase();
@@ -324,21 +345,25 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     return fallback;
   }
 
-  String? _questionFor(String? field) => switch (field) {
-        'subject' => 'What exactly do you need or offer?',
-        'quantity' => 'How much do you need?',
-        'freshness' => 'Do you want fresh/live-cut or chilled?',
-        'cut' => 'How should it be cut?',
-        'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
-        'fulfilment' => 'Do you want pickup or delivery?',
-        'location' => 'Where should ASKODOX find the match?',
-        'timing' => 'When do you need this?',
-        'from' => 'Where does it start from?',
-        'to' => 'Where should it go to?',
-        'skill' => 'What skill or work is required?',
-        null => null,
-        _ => 'Please tell me the missing $field detail.',
-      };
+  String? _questionFor(UniversalDeal deal, String? field) {
+    if (field == null) return null;
+    final categoryQuestion = deal.productSchema.questions[field];
+    if (categoryQuestion != null && categoryQuestion.trim().isNotEmpty) return categoryQuestion;
+    return switch (field) {
+      'subject' => 'What exactly do you need or offer?',
+      'quantity' => 'How much do you need?',
+      'freshness' => 'Do you want fresh/live-cut or chilled?',
+      'cut' => 'How should it be cut?',
+      'chickenPreference' => 'Any preference for skin, portion, liver or gizzard? You can also say no preference.',
+      'fulfilment' => 'Do you want pickup or delivery?',
+      'location' => 'Where should ASKODOX find the match?',
+      'timing' => 'When do you need this?',
+      'from' => 'Where does it start from?',
+      'to' => 'Where should it go to?',
+      'skill' => 'What skill or work is required?',
+      _ => 'Please tell me the missing $field detail.',
+    };
+  }
 }
 
 extension _FirstOrNull<T> on List<T> {
