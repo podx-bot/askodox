@@ -41,6 +41,37 @@ void main() {
         );
   }
 
+  UniversalDeal job({
+    required DealIntent intent,
+    required String skill,
+    required double lat,
+    required double lng,
+    double radiusKm = 15,
+    String? jobType,
+    double? minExperienceYears,
+    double? experienceYears,
+  }) {
+    final fields = <String, Object?>{'skill': skill};
+    if (jobType != null) fields['jobType'] = jobType;
+    if (minExperienceYears != null) {
+      fields['minExperienceYears'] = minExperienceYears;
+    }
+    if (experienceYears != null) fields['experienceYears'] = experienceYears;
+
+    return brain.capture(skill).copyWith(
+          intent: intent,
+          subject: skill,
+          category: 'work',
+          location: DealLocation(
+            label: 'Vijayawada',
+            latitude: lat,
+            longitude: lng,
+            radiusKm: radiusKm,
+          ),
+          dynamicFields: fields,
+        );
+  }
+
   test('matches only opposite-side exact relevant local product', () {
     final request = ready('Need 10 kg rice in Vijayawada', DealIntent.buy, 'rice', 'product');
     final riceSeller = ready('Sell rice in Vijayawada', DealIntent.sell, 'rice', 'product');
@@ -152,5 +183,88 @@ void main() {
     ]);
 
     expect(result.matches.first.candidate.id, 'near');
+  });
+
+  test('job opening matches only qualified worker with correct skill and job type', () {
+    final opening = job(
+      intent: DealIntent.needWorker,
+      skill: 'electrician',
+      lat: 16.5062,
+      lng: 80.6480,
+      jobType: 'full-time',
+      minExperienceYears: 2,
+    );
+    final qualified = job(
+      intent: DealIntent.seekWork,
+      skill: 'electrician',
+      lat: 16.5150,
+      lng: 80.6550,
+      jobType: 'full-time',
+      experienceYears: 4,
+    );
+    final novice = job(
+      intent: DealIntent.seekWork,
+      skill: 'electrician',
+      lat: 16.5100,
+      lng: 80.6500,
+      jobType: 'full-time',
+      experienceYears: 1,
+    );
+    final plumber = job(
+      intent: DealIntent.seekWork,
+      skill: 'plumber',
+      lat: 16.5100,
+      lng: 80.6500,
+      jobType: 'full-time',
+      experienceYears: 8,
+    );
+    final partTime = job(
+      intent: DealIntent.seekWork,
+      skill: 'electrician',
+      lat: 16.5100,
+      lng: 80.6500,
+      jobType: 'part-time',
+      experienceYears: 5,
+    );
+
+    final result = matcher.match(opening, [
+      DealMatchCandidate(id: 'qualified', deal: qualified, trustScore: 85),
+      DealMatchCandidate(id: 'novice', deal: novice, trustScore: 100),
+      DealMatchCandidate(id: 'plumber', deal: plumber, trustScore: 100),
+      DealMatchCandidate(id: 'part-time', deal: partTime, trustScore: 100),
+    ]);
+
+    expect(result.matches.map((m) => m.candidate.id), ['qualified']);
+  });
+
+  test('more experienced matching worker ranks higher when other signals are equal', () {
+    final opening = job(
+      intent: DealIntent.needWorker,
+      skill: 'driver',
+      lat: 16.5062,
+      lng: 80.6480,
+      minExperienceYears: 2,
+    );
+    final experienced = job(
+      intent: DealIntent.seekWork,
+      skill: 'driver',
+      lat: 16.5100,
+      lng: 80.6500,
+      experienceYears: 6,
+    );
+    final eligible = job(
+      intent: DealIntent.seekWork,
+      skill: 'driver',
+      lat: 16.5100,
+      lng: 80.6500,
+      experienceYears: 2,
+    );
+
+    final result = matcher.match(opening, [
+      DealMatchCandidate(id: 'eligible', deal: eligible, trustScore: 90),
+      DealMatchCandidate(id: 'experienced', deal: experienced, trustScore: 90),
+    ]);
+
+    expect(result.matches.first.candidate.id, 'experienced');
   });
 }
