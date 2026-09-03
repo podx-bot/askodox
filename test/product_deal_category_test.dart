@@ -26,12 +26,12 @@ void main() {
     controller.dispose();
   });
 
-  test('general product does not force irrelevant quantity question', () {
+  test('mobile phone category does not force irrelevant quantity question', () {
     final controller = UniversalDealController();
     controller.start('I want to buy a phone near Vijayawada');
 
     final deal = controller.state.deal!;
-    expect(deal.productProfile, 'general');
+    expect(deal.productProfile, 'mobile_phone');
     expect(deal.missingForMatch, isEmpty);
     expect(controller.state.completed, isTrue);
     controller.dispose();
