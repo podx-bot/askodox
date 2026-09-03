@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../services/vision_api_service.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 
 const _ink = Color(0xFF111936);
@@ -41,7 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _ => en,
       };
 
-  void _startFlow(String text) {
+  Future<void> _startFlow(String text) async {
     if (_telugu.hasMatch(text)) {
       ref.read(appSettingsProvider.notifier).setLocale(const Locale('te'));
     } else if (_hindi.hasMatch(text)) {
@@ -52,8 +53,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final deal = ref.read(universalDealControllerProvider.notifier);
     deal.start(text);
     final attachment = _attachment;
-    if (attachment != null) deal.attachMedia(path: attachment.path, name: attachment.name);
+    if (attachment != null) {
+      deal.attachMedia(path: attachment.path, name: attachment.name);
+    }
+    final language = _lang();
     context.go('/search');
+
+    if (attachment != null) {
+      final analysis = await const VisionApiService().analyze(
+        image: attachment,
+        userText: text,
+        language: language,
+      );
+      if (analysis != null) deal.mergeVisionAnalysis(analysis);
+    }
   }
 
   void _submit() {
