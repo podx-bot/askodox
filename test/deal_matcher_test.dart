@@ -53,9 +53,7 @@ void main() {
   }) {
     final fields = <String, Object?>{'skill': skill};
     if (jobType != null) fields['jobType'] = jobType;
-    if (minExperienceYears != null) {
-      fields['minExperienceYears'] = minExperienceYears;
-    }
+    if (minExperienceYears != null) fields['minExperienceYears'] = minExperienceYears;
     if (experienceYears != null) fields['experienceYears'] = experienceYears;
 
     return brain.capture(skill).copyWith(
@@ -68,6 +66,32 @@ void main() {
             longitude: lng,
             radiusKm: radiusKm,
           ),
+          dynamicFields: fields,
+        );
+  }
+
+  UniversalDeal routeDeal({
+    required DealIntent intent,
+    required String from,
+    required String to,
+    required String timing,
+    double? seats,
+    double? seatsAvailable,
+    double? weightKg,
+    double? maxWeightKg,
+  }) {
+    final fields = <String, Object?>{'from': from, 'to': to};
+    if (seats != null) fields['seats'] = seats;
+    if (seatsAvailable != null) fields['seatsAvailable'] = seatsAvailable;
+    if (weightKg != null) fields['weightKg'] = weightKg;
+    if (maxWeightKg != null) fields['maxWeightKg'] = maxWeightKg;
+    final category = intent == DealIntent.needRide || intent == DealIntent.offerRide
+        ? 'ride'
+        : 'parcel';
+    return brain.capture('$from to $to $timing').copyWith(
+          intent: intent,
+          category: category,
+          timing: timing,
           dynamicFields: fields,
         );
   }
@@ -114,34 +138,10 @@ void main() {
   });
 
   test('matches correct service provider inside radius and rejects outside provider', () {
-    final request = service(
-      intent: DealIntent.needService,
-      subject: 'electrician',
-      lat: 16.5062,
-      lng: 80.6480,
-      radiusKm: 8,
-    );
-    final nearby = service(
-      intent: DealIntent.offerService,
-      subject: 'electrician',
-      lat: 16.5150,
-      lng: 80.6550,
-      radiusKm: 10,
-    );
-    final farAway = service(
-      intent: DealIntent.offerService,
-      subject: 'electrician',
-      lat: 16.6100,
-      lng: 80.7200,
-      radiusKm: 20,
-    );
-    final plumber = service(
-      intent: DealIntent.offerService,
-      subject: 'plumber',
-      lat: 16.5100,
-      lng: 80.6500,
-      radiusKm: 10,
-    );
+    final request = service(intent: DealIntent.needService, subject: 'electrician', lat: 16.5062, lng: 80.6480, radiusKm: 8);
+    final nearby = service(intent: DealIntent.offerService, subject: 'electrician', lat: 16.5150, lng: 80.6550, radiusKm: 10);
+    final farAway = service(intent: DealIntent.offerService, subject: 'electrician', lat: 16.6100, lng: 80.7200, radiusKm: 20);
+    final plumber = service(intent: DealIntent.offerService, subject: 'plumber', lat: 16.5100, lng: 80.6500, radiusKm: 10);
 
     final result = matcher.match(request, [
       DealMatchCandidate(id: 'near-electrician', deal: nearby, trustScore: 80),
@@ -155,27 +155,9 @@ void main() {
   });
 
   test('nearer provider ranks first when trust is equal', () {
-    final request = service(
-      intent: DealIntent.needService,
-      subject: 'electrician',
-      lat: 16.5062,
-      lng: 80.6480,
-      radiusKm: 20,
-    );
-    final near = service(
-      intent: DealIntent.offerService,
-      subject: 'electrician',
-      lat: 16.5100,
-      lng: 80.6500,
-      radiusKm: 20,
-    );
-    final farther = service(
-      intent: DealIntent.offerService,
-      subject: 'electrician',
-      lat: 16.5600,
-      lng: 80.6800,
-      radiusKm: 20,
-    );
+    final request = service(intent: DealIntent.needService, subject: 'electrician', lat: 16.5062, lng: 80.6480, radiusKm: 20);
+    final near = service(intent: DealIntent.offerService, subject: 'electrician', lat: 16.5100, lng: 80.6500, radiusKm: 20);
+    final farther = service(intent: DealIntent.offerService, subject: 'electrician', lat: 16.5600, lng: 80.6800, radiusKm: 20);
 
     final result = matcher.match(request, [
       DealMatchCandidate(id: 'farther', deal: farther, trustScore: 90),
@@ -186,46 +168,11 @@ void main() {
   });
 
   test('job opening matches only qualified worker with correct skill and job type', () {
-    final opening = job(
-      intent: DealIntent.needWorker,
-      skill: 'electrician',
-      lat: 16.5062,
-      lng: 80.6480,
-      jobType: 'full-time',
-      minExperienceYears: 2,
-    );
-    final qualified = job(
-      intent: DealIntent.seekWork,
-      skill: 'electrician',
-      lat: 16.5150,
-      lng: 80.6550,
-      jobType: 'full-time',
-      experienceYears: 4,
-    );
-    final novice = job(
-      intent: DealIntent.seekWork,
-      skill: 'electrician',
-      lat: 16.5100,
-      lng: 80.6500,
-      jobType: 'full-time',
-      experienceYears: 1,
-    );
-    final plumber = job(
-      intent: DealIntent.seekWork,
-      skill: 'plumber',
-      lat: 16.5100,
-      lng: 80.6500,
-      jobType: 'full-time',
-      experienceYears: 8,
-    );
-    final partTime = job(
-      intent: DealIntent.seekWork,
-      skill: 'electrician',
-      lat: 16.5100,
-      lng: 80.6500,
-      jobType: 'part-time',
-      experienceYears: 5,
-    );
+    final opening = job(intent: DealIntent.needWorker, skill: 'electrician', lat: 16.5062, lng: 80.6480, jobType: 'full-time', minExperienceYears: 2);
+    final qualified = job(intent: DealIntent.seekWork, skill: 'electrician', lat: 16.5150, lng: 80.6550, jobType: 'full-time', experienceYears: 4);
+    final novice = job(intent: DealIntent.seekWork, skill: 'electrician', lat: 16.5100, lng: 80.6500, jobType: 'full-time', experienceYears: 1);
+    final plumber = job(intent: DealIntent.seekWork, skill: 'plumber', lat: 16.5100, lng: 80.6500, jobType: 'full-time', experienceYears: 8);
+    final partTime = job(intent: DealIntent.seekWork, skill: 'electrician', lat: 16.5100, lng: 80.6500, jobType: 'part-time', experienceYears: 5);
 
     final result = matcher.match(opening, [
       DealMatchCandidate(id: 'qualified', deal: qualified, trustScore: 85),
@@ -238,27 +185,9 @@ void main() {
   });
 
   test('more experienced matching worker ranks higher when other signals are equal', () {
-    final opening = job(
-      intent: DealIntent.needWorker,
-      skill: 'driver',
-      lat: 16.5062,
-      lng: 80.6480,
-      minExperienceYears: 2,
-    );
-    final experienced = job(
-      intent: DealIntent.seekWork,
-      skill: 'driver',
-      lat: 16.5100,
-      lng: 80.6500,
-      experienceYears: 6,
-    );
-    final eligible = job(
-      intent: DealIntent.seekWork,
-      skill: 'driver',
-      lat: 16.5100,
-      lng: 80.6500,
-      experienceYears: 2,
-    );
+    final opening = job(intent: DealIntent.needWorker, skill: 'driver', lat: 16.5062, lng: 80.6480, minExperienceYears: 2);
+    final experienced = job(intent: DealIntent.seekWork, skill: 'driver', lat: 16.5100, lng: 80.6500, experienceYears: 6);
+    final eligible = job(intent: DealIntent.seekWork, skill: 'driver', lat: 16.5100, lng: 80.6500, experienceYears: 2);
 
     final result = matcher.match(opening, [
       DealMatchCandidate(id: 'eligible', deal: eligible, trustScore: 90),
@@ -266,5 +195,37 @@ void main() {
     ]);
 
     expect(result.matches.first.candidate.id, 'experienced');
+  });
+
+  test('ride matches exact route and timing with enough seats', () {
+    final request = routeDeal(intent: DealIntent.needRide, from: 'Vijayawada', to: 'Bhimavaram', timing: 'tomorrow', seats: 2);
+    final exact = routeDeal(intent: DealIntent.offerRide, from: 'Vijayawada', to: 'Bhimavaram', timing: 'tomorrow', seatsAvailable: 3);
+    final wrongRoute = routeDeal(intent: DealIntent.offerRide, from: 'Vijayawada', to: 'Guntur', timing: 'tomorrow', seatsAvailable: 4);
+    final wrongDay = routeDeal(intent: DealIntent.offerRide, from: 'Vijayawada', to: 'Bhimavaram', timing: 'today', seatsAvailable: 4);
+    final notEnoughSeats = routeDeal(intent: DealIntent.offerRide, from: 'Vijayawada', to: 'Bhimavaram', timing: 'tomorrow', seatsAvailable: 1);
+
+    final result = matcher.match(request, [
+      DealMatchCandidate(id: 'exact', deal: exact, trustScore: 80),
+      DealMatchCandidate(id: 'wrong-route', deal: wrongRoute, trustScore: 100),
+      DealMatchCandidate(id: 'wrong-day', deal: wrongDay, trustScore: 100),
+      DealMatchCandidate(id: 'one-seat', deal: notEnoughSeats, trustScore: 100),
+    ]);
+
+    expect(result.matches.map((m) => m.candidate.id), ['exact']);
+  });
+
+  test('parcel matches route timing and delivery weight capacity', () {
+    final request = routeDeal(intent: DealIntent.sendParcel, from: 'Vijayawada', to: 'Guntur', timing: 'today', weightKg: 12);
+    final capable = routeDeal(intent: DealIntent.deliverParcel, from: 'Vijayawada', to: 'Guntur', timing: 'today', maxWeightKg: 20);
+    final underCapacity = routeDeal(intent: DealIntent.deliverParcel, from: 'Vijayawada', to: 'Guntur', timing: 'today', maxWeightKg: 5);
+    final reverseRoute = routeDeal(intent: DealIntent.deliverParcel, from: 'Guntur', to: 'Vijayawada', timing: 'today', maxWeightKg: 20);
+
+    final result = matcher.match(request, [
+      DealMatchCandidate(id: 'capable', deal: capable, trustScore: 80),
+      DealMatchCandidate(id: 'under-capacity', deal: underCapacity, trustScore: 100),
+      DealMatchCandidate(id: 'reverse-route', deal: reverseRoute, trustScore: 100),
+    ]);
+
+    expect(result.matches.map((m) => m.candidate.id), ['capable']);
   });
 }
