@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/deal_brain/application/universal_deal_brain.dart';
 import 'package:podx/features/deal_brain/domain/rfq_schema.dart';
 
 void main() {
@@ -24,5 +25,18 @@ void main() {
     final schema = RfqSchemas.resolve(category: 'product', productProfile: 'wholesale_packaged_goods', subject: 'masala');
     expect(schema.id, 'wholesale');
     expect(schema.fields, containsAll(<String>['moq', 'unitPrice', 'taxes', 'freight', 'paymentTerms']));
+  });
+
+  test('captured wholesale deal exposes wholesale RFQ schema', () {
+    final deal = const UniversalDealBrain().capture('I want to buy masala wholesale near Guntur');
+    expect(deal.productProfile, 'wholesale_packaged_goods');
+    expect(deal.rfqSchema.id, 'wholesale');
+    expect(deal.rfqSchema.fields, containsAll(<String>['moq', 'unitPrice', 'freight', 'paymentTerms']));
+  });
+
+  test('captured service deal exposes service RFQ schema', () {
+    final deal = const UniversalDealBrain().capture('I need electrical repair near Vijayawada');
+    expect(deal.rfqSchema.id, 'service');
+    expect(deal.rfqSchema.fields, containsAll(<String>['labourPrice', 'materialPrice', 'timeline', 'warranty']));
   });
 }
