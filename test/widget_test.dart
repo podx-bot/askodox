@@ -28,6 +28,7 @@ void main() {
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('Good evening 👋'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPlusButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
@@ -53,6 +54,20 @@ void main() {
     expect(find.text('Activity'), findsWidgets);
   });
 
+  testWidgets('opens multimodal actions from ASKODOX plus button', (tester) async {
+    await tester.pumpWidget(_screen(const HomeScreen()));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('askodoxPlusButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add to your request'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPlusPhotosAction')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPlusVoiceAction')), findsOneWidget);
+    expect(find.text('Choose a photo'), findsOneWidget);
+    expect(find.text('Use voice'), findsOneWidget);
+  });
+
   testWidgets('renders Telugu AI-first home without layout regressions', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen(), locale: const Locale('te')));
     await tester.pump();
@@ -60,6 +75,7 @@ void main() {
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.text('శుభ సాయంత్రం 👋'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPlusButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
     expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
     expect(find.text('యాక్టివిటీ'), findsWidgets);
