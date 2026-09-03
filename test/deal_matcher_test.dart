@@ -31,6 +31,16 @@ void main() {
     return brain.capture('$from to $to $timing').copyWith(intent: intent, category: category, timing: timing, dynamicFields: fields);
   }
 
+  UniversalDeal rental({required DealIntent intent, required String subject, required String timing, required String rentalType, required String startDate, double? durationDays, double? availableDays}) {
+    final fields = <String, Object?>{'rentalType': rentalType, 'startDate': startDate};
+    if (durationDays != null) fields['durationDays'] = durationDays;
+    if (availableDays != null) fields['availableDays'] = availableDays;
+    return brain.capture(subject).copyWith(intent: intent, subject: subject, category: 'rental', timing: timing, location: const DealLocation(label: 'Vijayawada'), dynamicFields: fields);
+  }
+
+  UniversalDeal appointment({required DealIntent intent, required String speciality, required String slot, String location = 'Vijayawada'}) =>
+      brain.capture(speciality).copyWith(intent: intent, subject: speciality, category: 'appointment', timing: slot, location: DealLocation(label: location), dynamicFields: {'speciality': speciality, 'slot': slot});
+
   test('matches only opposite-side exact relevant local product', () {
     final request = ready('Need 10 kg rice in Vijayawada', DealIntent.buy, 'rice', 'product');
     final result = matcher.match(request, [
@@ -104,5 +114,36 @@ void main() {
     final result = matcher.match(incomplete, const []);
     expect(result.hasLocalMatch, isFalse);
     expect(result.needsNoMatchRecovery, isFalse);
+  });
+
+  test('rental matches type start date and sufficient duration', () {
+    final request = rental(intent: DealIntent.rent, subject: 'car', timing: '2026-09-10', rentalType: 'car', startDate: '2026-09-10', durationDays: 3);
+    final result = matcher.match(request, [
+      DealMatchCandidate(id: 'valid', deal: rental(intent: DealIntent.offerRental, subject: 'car', timing: '2026-09-10', rentalType: 'car', startDate: '2026-09-10', availableDays: 5)),
+      DealMatchCandidate(id: 'wrong-type', deal: rental(intent: DealIntent.offerRental, subject: 'car', timing: '2026-09-10', rentalType: 'bike', startDate: '2026-09-10', availableDays: 5)),
+      DealMatchCandidate(id: 'wrong-date', deal: rental(intent: DealIntent.offerRental, subject: 'car', timing: '2026-09-11', rentalType: 'car', startDate: '2026-09-11', availableDays: 5)),
+      DealMatchCandidate(id: 'too-short', deal: rental(intent: DealIntent.offerRental, subject: 'car', timing: '2026-09-10', rentalType: 'car', startDate: '2026-09-10', availableDays: 2)),
+    ]);
+    expect(result.matches.map((m) => m.candidate.id), ['valid']);
+  });
+
+  test('appointment matches speciality location and exact slot', () {
+    final request = appointment(intent: DealIntent.bookAppointment, speciality: 'dentist', slot: '2026-09-10 10:00');
+    final result = matcher.match(request, [
+      DealMatchCandidate(id: 'exact', deal: appointment(intent: DealIntent.offerAppointment, speciality: 'dentist', slot: '2026-09-10 10:00'), trustScore: 80),
+      DealMatchCandidate(id: 'wrong-slot', deal: appointment(intent: DealIntent.offerAppointment, speciality: 'dentist', slot: '2026-09-10 11:00'), trustScore: 100),
+      DealMatchCandidate(id: 'wrong-speciality', deal: appointment(intent: DealIntent.offerAppointment, speciality: 'cardiologist', slot: '2026-09-10 10:00'), trustScore: 100),
+      DealMatchCandidate(id: 'wrong-location', deal: appointment(intent: DealIntent.offerAppointment, speciality: 'dentist', slot: '2026-09-10 10:00', location: 'Guntur'), trustScore: 100),
+    ]);
+    expect(result.matches.map((m) => m.candidate.id), ['exact']);
+  });
+
+  test('appointment no-match recovery stays local/admin only', () {
+    final request = appointment(intent: DealIntent.bookAppointment, speciality: 'dentist', slot: '2026-09-10 10:00');
+    final result = matcher.match(request, [DealMatchCandidate(id: 'wrong', deal: appointment(intent: DealIntent.offerAppointment, speciality: 'dentist', slot: '2026-09-10 12:00'))]);
+    expect(result.hasLocalMatch, isFalse);
+    expect(result.needsNoMatchRecovery, isTrue);
+    expect(result.recovery!.onlineSuggestion, isNull);
+    expect(result.recovery!.affiliateSuggestion, isNull);
   });
 }
