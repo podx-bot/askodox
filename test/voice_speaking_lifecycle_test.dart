@@ -81,7 +81,7 @@ void main() {
     expect(completed.voiceResult, 'I need chicken nearby');
   });
 
-  test('selected ASKODOX locale reaches recognition and TTS', () async {
+  test('selected ASKODOX locale and voice preference reach native TTS', () async {
     SharedPreferences.setMockInitialValues({});
     final arguments = <String, Object?>{};
 
@@ -95,17 +95,50 @@ void main() {
 
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    container.read(appSettingsProvider.notifier).setLocale(const Locale('te'));
+    container.read(appSettingsProvider.notifier)
+      ..setLocale(const Locale('te'))
+      ..setVoicePreference(VoicePreference.female);
 
     await container
         .read(productDiscoveryControllerProvider.notifier)
         .startVoice();
 
     expect(arguments['startVoiceSearch'], {'languageCode': 'te'});
-    expect(arguments['speakAcknowledgement'], {'languageCode': 'te'});
+    expect(
+      arguments['speakAcknowledgement'],
+      {'languageCode': 'te', 'voicePreference': 'female'},
+    );
     expect(
       container.read(productDiscoveryControllerProvider).voiceResult,
       'నాకు చికెన్ కావాలి',
+    );
+  });
+
+  test('voice preference persists and restores across provider recreation', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    final first = ProviderContainer();
+    first
+        .read(appSettingsProvider.notifier)
+        .setVoicePreference(VoicePreference.male);
+    await Future<void>.delayed(Duration.zero);
+    first.dispose();
+
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    second.read(appSettingsProvider);
+
+    for (var i = 0; i < 20; i++) {
+      if (second.read(appSettingsProvider).voicePreference ==
+          VoicePreference.male) {
+        break;
+      }
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(
+      second.read(appSettingsProvider).voicePreference,
+      VoicePreference.male,
     );
   });
 
