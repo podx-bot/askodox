@@ -12,6 +12,22 @@ import 'core/providers/offline_providers.dart';
 import 'generated/l10n/app_localizations.dart';
 import 'shared/widgets/connectivity_banner.dart';
 
+Locale askodoxUiLocale(Locale? requested, Iterable<Locale> supportedLocales) {
+  final supported = supportedLocales.toList(growable: false);
+  if (supported.isEmpty) return const Locale('en');
+  if (requested == null) return supported.first;
+
+  for (final locale in supported) {
+    if (locale.languageCode == requested.languageCode) return locale;
+  }
+
+  for (final locale in supported) {
+    if (locale.languageCode == 'en') return locale;
+  }
+
+  return supported.first;
+}
+
 class PodxApp extends ConsumerWidget {
   const PodxApp({super.key});
 
@@ -27,6 +43,8 @@ class PodxApp extends ConsumerWidget {
       themeMode: ThemeMode.dark,
       locale: settings.locale,
       supportedLocales: AppLocalizations.supportedLocales,
+      localeResolutionCallback: (locale, supportedLocales) =>
+          askodoxUiLocale(locale, supportedLocales),
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
