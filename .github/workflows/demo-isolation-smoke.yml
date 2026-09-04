@@ -112,8 +112,9 @@ jobs:
               })
 
               first = seeds.seed()
-              assert first['created_count'] == 10, first
-              assert len(seeds.active_demo_records()) == 10
+              assert first['created_count'] == 16, first
+              assert len(first['pairs']) == 8, first
+              assert len(seeds.active_demo_records()) == 16
               assert repo.get(real_id) is not None
 
               for flow, ids in first['pairs'].items():
@@ -123,14 +124,15 @@ jobs:
                   assert any(row['id'] == party_b['id'] for row in matches), (flow, matches)
 
               second = seeds.seed()
-              assert second['deleted'] == 10, second
-              assert second['created_count'] == 10, second
-              assert len(seeds.active_demo_records()) == 10
+              assert second['deleted'] == 16, second
+              assert second['created_count'] == 16, second
+              assert len(second['pairs']) == 8, second
+              assert len(seeds.active_demo_records()) == 16
               assert repo.get(real_id) is not None
               assert [row['id'] for row in repo.list_active(test_mode=False)] == [real_id]
 
               deleted = seeds.reset()
-              assert deleted == 10, deleted
+              assert deleted == 16, deleted
               assert seeds.active_demo_records() == []
               assert repo.get(real_id) is not None
 
