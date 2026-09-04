@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../services/vision_api_service.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
+import 'askodox_orb.dart';
 
 const _ink = Color(0xFF111936);
 const _muted = Color(0xFF6B7280);
@@ -297,7 +298,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            const Center(child: _AskodoxOrb()),
+            Center(
+              child: AskodoxVoiceOrb(
+                onTap: () => context.go('/discover/voice'),
+              ),
+            ),
             const SizedBox(height: 18),
             _AskField(
               controller: _controller,
@@ -442,22 +447,6 @@ class _AttachmentChip extends StatelessWidget {
             IconButton(onPressed: onRemove, visualDensity: VisualDensity.compact, icon: const Icon(Icons.close_rounded, size: 17, color: _muted)),
           ],
         ),
-      );
-}
-
-class _AskodoxOrb extends StatelessWidget {
-  const _AskodoxOrb();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 112,
-        height: 112,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [Color(0xFFFFFFFF), Color(0xFFE8E1FF), Color(0xFF7A4DFF)]),
-          boxShadow: [BoxShadow(color: Color(0x557A4DFF), blurRadius: 30, spreadRadius: 3)],
-        ),
-        child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 48),
       );
 }
 
