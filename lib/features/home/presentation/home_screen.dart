@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../config/localization/askodox_language_catalog.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../services/vision_api_service.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
@@ -75,9 +76,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   String _lang() {
     final manual = ref.read(appSettingsProvider).locale?.languageCode;
-    if (manual != null) return manual;
+    if (manual != null) return AskodoxLanguageCatalog.normalize(manual);
     final device = Localizations.localeOf(context).languageCode;
-    return const {'en', 'te', 'hi', 'or'}.contains(device) ? device : 'en';
+    return AskodoxLanguageCatalog.normalize(device);
   }
 
   String _tr(String en, String te, String hi, String or) => switch (_lang()) {
@@ -203,34 +204,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       backgroundColor: Colors.white,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Color(0xFFF0ECFF),
-                child: Icon(Icons.language_rounded, color: _purple),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.72,
+          child: Column(
+            children: [
+              const ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Color(0xFFF0ECFF),
+                  child: Icon(Icons.language_rounded, color: _purple),
+                ),
+                title: Text('ASKODOX Language', style: TextStyle(fontWeight: FontWeight.w900, color: _ink)),
+                subtitle: Text('Auto follows your device. Change anytime.', style: TextStyle(color: _muted)),
               ),
-              title: Text('ASKODOX Language', style: TextStyle(fontWeight: FontWeight.w900, color: _ink)),
-              subtitle: Text('Auto follows your device. Change anytime.', style: TextStyle(color: _muted)),
-            ),
-            for (final item in const [
-              ('system', 'Auto / Device language'),
-              ('en', 'English'),
-              ('hi', 'हिन्दी'),
-              ('te', 'తెలుగు'),
-              ('or', 'ଓଡ଼ିଆ'),
-            ])
-              RadioListTile<String>(
-                value: item.$1,
-                groupValue: selected,
-                activeColor: _purple,
-                onChanged: (value) => Navigator.pop(context, value),
-                title: Text(item.$2, style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+              Expanded(
+                child: ListView(
+                  children: [
+                    RadioListTile<String>(
+                      value: 'system',
+                      groupValue: selected,
+                      activeColor: _purple,
+                      onChanged: (value) => Navigator.pop(context, value),
+                      title: const Text('Auto / Device language', style: TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+                    ),
+                    for (final language in AskodoxLanguageCatalog.all)
+                      RadioListTile<String>(
+                        value: language.code,
+                        groupValue: selected,
+                        activeColor: _purple,
+                        onChanged: (value) => Navigator.pop(context, value),
+                        title: Text(language.name, style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+                        subtitle: Text(language.code.toUpperCase()),
+                      ),
+                  ],
+                ),
               ),
-            const SizedBox(height: 12),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -254,12 +265,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final settings = ref.watch(appSettingsProvider);
     final languageLabel = settings.locale == null
         ? 'Auto'
-        : switch (settings.locale!.languageCode) {
-            'te' => 'తెలుగు',
-            'hi' => 'हिन्दी',
-            'or' => 'ଓଡ଼ିଆ',
-            _ => 'EN',
-          };
+        : AskodoxLanguageCatalog.byCode(settings.locale!.languageCode).name;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -274,7 +280,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           TextButton(
             key: const Key('askodoxLanguageButton'),
             onPressed: _pickLanguage,
-            child: Text(languageLabel, style: const TextStyle(color: _purple, fontWeight: FontWeight.w800)),
+            child: Text(languageLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _purple, fontWeight: FontWeight.w800)),
           ),
         ],
       ),
