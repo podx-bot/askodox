@@ -62,8 +62,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "startVoiceSearch" -> startVoiceSearch(result)
-                    "speakAcknowledgement" -> speakAcknowledgement(result)
+                    "startVoiceSearch" -> startVoiceSearch(call.argument("languageCode"), result)
+                    "speakAcknowledgement" -> speakAcknowledgement(call.argument("languageCode"), result)
                     "getCurrentLocation" -> getCurrentLocation(result)
                     else -> result.notImplemented()
                 }
@@ -96,9 +96,26 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun speakAcknowledgement(result: MethodChannel.Result) {
+    private fun localeFor(languageCode: String?): Locale = when (languageCode?.lowercase()) {
+        "te" -> Locale("te", "IN")
+        "hi" -> Locale("hi", "IN")
+        "or" -> Locale("or", "IN")
+        "en" -> Locale.ENGLISH
+        else -> Locale.getDefault()
+    }
+
+    private fun speakAcknowledgement(languageCode: String?, result: MethodChannel.Result) {
         val engine = textToSpeech
         if (!ttsReady || engine == null) {
+            result.success(false)
+            return
+        }
+
+        val locale = localeFor(languageCode)
+        val languageResult = engine.setLanguage(locale)
+        if (languageResult == TextToSpeech.LANG_MISSING_DATA ||
+            languageResult == TextToSpeech.LANG_NOT_SUPPORTED
+        ) {
             result.success(false)
             return
         }
@@ -107,7 +124,7 @@ class MainActivity : FlutterActivity() {
         pendingSpeechResult = result
         engine.stop()
         val status = engine.speak(
-            acknowledgementText(),
+            acknowledgementText(locale.language),
             TextToSpeech.QUEUE_FLUSH,
             null,
             acknowledgementUtteranceId,
@@ -115,7 +132,7 @@ class MainActivity : FlutterActivity() {
         if (status == TextToSpeech.ERROR) finishSpeechResult(false)
     }
 
-    private fun acknowledgementText(): String = when (Locale.getDefault().language) {
+    private fun acknowledgementText(languageCode: String): String = when (languageCode) {
         "te" -> "అర్థమైంది. మీ అభ్యర్థనను కొనసాగిస్తున్నాను."
         "hi" -> "समझ गया। आपकी रिक्वेस्ट आगे बढ़ा रहा हूँ।"
         "or" -> "ବୁଝିଲି। ଆପଣଙ୍କ ଅନୁରୋଧ ଜାରି ରଖୁଛି।"
@@ -128,16 +145,18 @@ class MainActivity : FlutterActivity() {
         result.success(completed)
     }
 
-    private fun startVoiceSearch(result: MethodChannel.Result) {
+    private fun startVoiceSearch(languageCode: String?, result: MethodChannel.Result) {
         if (pendingVoiceResult != null) {
             result.error("voice_busy", "Voice search is already active", null)
             return
         }
         try {
             pendingVoiceResult = result
+            val locale = localeFor(languageCode)
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale.toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask ASKODOX")
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             }
