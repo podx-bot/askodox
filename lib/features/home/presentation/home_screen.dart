@@ -12,6 +12,49 @@ const _muted = Color(0xFF6B7280);
 const _purple = Color(0xFF7A4DFF);
 const _soft = Color(0xFFF7F8FF);
 
+String askodoxGreetingForHour(int hour, String languageCode) {
+  final normalizedHour = hour.clamp(0, 23);
+  final period = normalizedHour < 5
+      ? 'night'
+      : normalizedHour < 12
+          ? 'morning'
+          : normalizedHour < 17
+              ? 'afternoon'
+              : normalizedHour < 21
+                  ? 'evening'
+                  : 'night';
+
+  const greetings = <String, Map<String, String>>{
+    'en': {
+      'morning': 'Good morning 👋',
+      'afternoon': 'Good afternoon 👋',
+      'evening': 'Good evening 👋',
+      'night': 'Good night 👋',
+    },
+    'te': {
+      'morning': 'శుభోదయం 👋',
+      'afternoon': 'శుభ మధ్యాహ్నం 👋',
+      'evening': 'శుభ సాయంత్రం 👋',
+      'night': 'శుభ రాత్రి 👋',
+    },
+    'hi': {
+      'morning': 'सुप्रभात 👋',
+      'afternoon': 'शुभ दोपहर 👋',
+      'evening': 'शुभ संध्या 👋',
+      'night': 'शुभ रात्रि 👋',
+    },
+    'or': {
+      'morning': 'ଶୁଭ ସକାଳ 👋',
+      'afternoon': 'ଶୁଭ ଅପରାହ୍ନ 👋',
+      'evening': 'ଶୁଭ ସନ୍ଧ୍ୟା 👋',
+      'night': 'ଶୁଭ ରାତ୍ରି 👋',
+    },
+  };
+
+  final language = greetings.containsKey(languageCode) ? languageCode : 'en';
+  return greetings[language]![period]!;
+}
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -239,7 +282,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
           children: [
-            Text(_tr('Good evening 👋', 'శుభ సాయంత్రం 👋', 'शुभ संध्या 👋', 'ଶୁଭ ସନ୍ଧ୍ୟା 👋'), style: const TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+            Text(askodoxGreetingForHour(DateTime.now().hour, _lang()), style: const TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             RichText(
               text: TextSpan(
