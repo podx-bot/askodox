@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/core/providers/app_settings_provider.dart';
 import 'package:podx/features/search/application/product_discovery_controller.dart';
 import 'package:podx/features/search/domain/search_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -77,6 +79,34 @@ void main() {
     final completed = container.read(productDiscoveryControllerProvider);
     expect(completed.voiceState, VoiceSearchState.result);
     expect(completed.voiceResult, 'I need chicken nearby');
+  });
+
+  test('selected ASKODOX locale reaches recognition and TTS', () async {
+    SharedPreferences.setMockInitialValues({});
+    final arguments = <String, Object?>{};
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      arguments[call.method] = call.arguments;
+      if (call.method == 'startVoiceSearch') return 'నాకు చికెన్ కావాలి';
+      if (call.method == 'speakAcknowledgement') return true;
+      return null;
+    });
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(appSettingsProvider.notifier).setLocale(const Locale('te'));
+
+    await container
+        .read(productDiscoveryControllerProvider.notifier)
+        .startVoice();
+
+    expect(arguments['startVoiceSearch'], {'languageCode': 'te'});
+    expect(arguments['speakAcknowledgement'], {'languageCode': 'te'});
+    expect(
+      container.read(productDiscoveryControllerProvider).voiceResult,
+      'నాకు చికెన్ కావాలి',
+    );
   });
 
   test('TTS failure does not discard a valid voice request', () async {
