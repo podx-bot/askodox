@@ -8,6 +8,8 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -22,11 +24,16 @@ class MainActivity : FlutterActivity() {
     private val deviceChannel = "com.askodox.app/device"
     private val voiceRequestCode = 4301
     private val locationPermissionRequestCode = 4302
+    private val acknowledgementUtteranceId = "askodox_voice_acknowledgement"
     private var pendingVoiceResult: MethodChannel.Result? = null
     private var pendingLocationResult: MethodChannel.Result? = null
+    private var pendingSpeechResult: MethodChannel.Result? = null
+    private var textToSpeech: TextToSpeech? = null
+    private var ttsReady = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        initializeTextToSpeech()
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, updateChannel)
             .setMethodCallHandler { call, result ->
@@ -56,10 +63,69 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startVoiceSearch" -> startVoiceSearch(result)
+                    "speakAcknowledgement" -> speakAcknowledgement(result)
                     "getCurrentLocation" -> getCurrentLocation(result)
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status != TextToSpeech.SUCCESS) {
+                ttsReady = false
+                return@TextToSpeech
+            }
+            val engine = textToSpeech ?: return@TextToSpeech
+            val languageResult = engine.setLanguage(Locale.getDefault())
+            ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) = Unit
+
+                override fun onDone(utteranceId: String?) {
+                    if (utteranceId != acknowledgementUtteranceId) return
+                    runOnUiThread { finishSpeechResult(true) }
+                }
+
+                override fun onError(utteranceId: String?) {
+                    if (utteranceId != acknowledgementUtteranceId) return
+                    runOnUiThread { finishSpeechResult(false) }
+                }
+            })
+        }
+    }
+
+    private fun speakAcknowledgement(result: MethodChannel.Result) {
+        val engine = textToSpeech
+        if (!ttsReady || engine == null) {
+            result.success(false)
+            return
+        }
+
+        pendingSpeechResult?.success(false)
+        pendingSpeechResult = result
+        engine.stop()
+        val status = engine.speak(
+            acknowledgementText(),
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            acknowledgementUtteranceId,
+        )
+        if (status == TextToSpeech.ERROR) finishSpeechResult(false)
+    }
+
+    private fun acknowledgementText(): String = when (Locale.getDefault().language) {
+        "te" -> "అర్థమైంది. మీ అభ్యర్థనను కొనసాగిస్తున్నాను."
+        "hi" -> "समझ गया। आपकी रिक्वेस्ट आगे बढ़ा रहा हूँ।"
+        "or" -> "ବୁଝିଲି। ଆପଣଙ୍କ ଅନୁରୋଧ ଜାରି ରଖୁଛି।"
+        else -> "Got it. Continuing your request."
+    }
+
+    private fun finishSpeechResult(completed: Boolean) {
+        val result = pendingSpeechResult ?: return
+        pendingSpeechResult = null
+        result.success(completed)
     }
 
     private fun startVoiceSearch(result: MethodChannel.Result) {
@@ -147,5 +213,15 @@ class MainActivity : FlutterActivity() {
         } else {
             result.error("location_denied", "Location permission denied", null)
         }
+    }
+
+    override fun onDestroy() {
+        pendingSpeechResult?.success(false)
+        pendingSpeechResult = null
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        ttsReady = false
+        super.onDestroy()
     }
 }
