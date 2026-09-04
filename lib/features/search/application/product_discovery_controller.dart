@@ -171,6 +171,18 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
         // Keep the primary universal-deal flow alive without catalog evidence.
       }
 
+      // Speaking is a real lifecycle state. Android completes this method only
+      // when the acknowledgement finishes (or immediately reports unavailable).
+      state = state.copyWith(
+        voiceState: VoiceSearchState.speaking,
+        voiceResult: spoken,
+      );
+      try {
+        await _deviceChannel.invokeMethod<bool>('speakAcknowledgement');
+      } catch (_) {
+        // TTS is helpful feedback, not a blocker for the user's request.
+      }
+
       state = state.copyWith(
         voiceState: VoiceSearchState.result,
         voiceResult: spoken,
