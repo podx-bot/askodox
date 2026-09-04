@@ -1,6 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../search/application/product_discovery_controller.dart';
+import '../../search/domain/search_models.dart';
 
 enum AskodoxOrbState { idle, listening, thinking, speaking }
+
+AskodoxOrbState askodoxOrbStateForVoice(VoiceSearchState state) => switch (state) {
+      VoiceSearchState.listening => AskodoxOrbState.listening,
+      VoiceSearchState.processing => AskodoxOrbState.thinking,
+      VoiceSearchState.speaking => AskodoxOrbState.speaking,
+      _ => AskodoxOrbState.idle,
+    };
+
+class AskodoxVoiceOrb extends ConsumerWidget {
+  const AskodoxVoiceOrb({super.key, this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final voiceState = ref.watch(
+      productDiscoveryControllerProvider.select((state) => state.voiceState),
+    );
+    return AskodoxOrb(
+      state: askodoxOrbStateForVoice(voiceState),
+      onTap: onTap,
+    );
+  }
+}
 
 class AskodoxOrb extends StatefulWidget {
   const AskodoxOrb({
