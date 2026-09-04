@@ -101,12 +101,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun localeFor(languageCode: String?): Locale = when (languageCode?.lowercase()) {
-        "te" -> Locale("te", "IN")
-        "hi" -> Locale("hi", "IN")
-        "or" -> Locale("or", "IN")
-        "en" -> Locale.ENGLISH
-        else -> Locale.getDefault()
+    private val askodoxIndianLanguageCodes = setOf(
+        "as", "bn", "brx", "doi", "gu", "hi", "kn", "ks", "kok", "mai", "ml",
+        "mni", "mr", "ne", "or", "pa", "sa", "sat", "sd", "ta", "te", "ur",
+    )
+
+    private fun localeFor(languageCode: String?): Locale {
+        val normalized = languageCode?.trim()?.lowercase(Locale.ROOT)
+        return when {
+            normalized == "en" -> Locale.ENGLISH
+            normalized != null && askodoxIndianLanguageCodes.contains(normalized) ->
+                Locale(normalized, "IN")
+            else -> Locale.getDefault()
+        }
     }
 
     private fun voiceDeclaresPreference(voice: Voice, preference: String): Boolean {
