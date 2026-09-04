@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/home/presentation/askodox_orb.dart';
+import 'package:podx/features/search/domain/search_models.dart';
 
 void main() {
   Widget host(AskodoxOrbState state) => MaterialApp(
@@ -8,6 +9,33 @@ void main() {
           body: Center(child: AskodoxOrb(state: state)),
         ),
       );
+
+  test('maps ASKODOX voice lifecycle to home orb states', () {
+    expect(
+      askodoxOrbStateForVoice(VoiceSearchState.idle),
+      AskodoxOrbState.idle,
+    );
+    expect(
+      askodoxOrbStateForVoice(VoiceSearchState.listening),
+      AskodoxOrbState.listening,
+    );
+    expect(
+      askodoxOrbStateForVoice(VoiceSearchState.processing),
+      AskodoxOrbState.thinking,
+    );
+    expect(
+      askodoxOrbStateForVoice(VoiceSearchState.speaking),
+      AskodoxOrbState.speaking,
+    );
+    expect(
+      askodoxOrbStateForVoice(VoiceSearchState.result),
+      AskodoxOrbState.idle,
+    );
+    expect(
+      askodoxOrbStateForVoice(VoiceSearchState.error),
+      AskodoxOrbState.idle,
+    );
+  });
 
   testWidgets('renders every ASKODOX orb state accessibly', (tester) async {
     const cases = <AskodoxOrbState, String>{
