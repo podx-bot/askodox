@@ -43,6 +43,11 @@ void main() {
     expect(finder, findsOneWidget);
   }
 
+  List<String> navigationLabels(WidgetTester tester) => tester
+      .widgetList<NavigationDestination>(find.byType(NavigationDestination))
+      .map((destination) => destination.label)
+      .toList(growable: false);
+
   testWidgets('Home keeps one AI-first ask entry point and minimal navigation',
       (tester) async {
     await pumpHome(tester);
@@ -56,9 +61,8 @@ void main() {
 
     expect(find.text('In Progress'), findsOneWidget);
     expect(find.text('Continue your conversations'), findsOneWidget);
-    expect(find.text('Chats'), findsOneWidget);
-    expect(find.text('Ask'), findsOneWidget);
-    expect(find.text('Activity'), findsWidgets);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(navigationLabels(tester), ['Chats', 'Ask', 'Activity']);
   });
 
   testWidgets('Telugu Home remains readable and keeps the same AI-first hierarchy',
@@ -75,9 +79,8 @@ void main() {
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
     expect(find.text('మీ సంభాషణలను కొనసాగించండి'), findsOneWidget);
-    expect(find.text('చాట్స్'), findsOneWidget);
-    expect(find.text('అడగండి'), findsOneWidget);
-    expect(find.text('యాక్టివిటీ'), findsWidgets);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(navigationLabels(tester), ['చాట్స్', 'అడగండి', 'యాక్టివిటీ']);
 
     expect(tester.takeException(), isNull);
   });
