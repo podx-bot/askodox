@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/catalog/presentation/search_screen.dart';
 import 'package:podx/features/home/presentation/home_screen.dart';
 import 'package:podx/generated/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget _screen(Widget child, {Locale? locale}) => ProviderScope(
       child: MaterialApp(
@@ -104,5 +107,37 @@ void main() {
     expect(find.text('I want chicken nearby'), findsOneWidget);
     expect(find.text('I need a job'), findsOneWidget);
     expect(find.text('I need a ride to Vijayawada'), findsOneWidget);
+  });
+
+  testWidgets('restores visible ASKODOX conversation turns after recreation', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'askodox.active_universal_deal.v1': jsonEncode({
+        'deal': {
+          'rawText': 'I want chicken nearby',
+          'intent': 'buy',
+          'partyA': {'side': 'demand', 'role': 'buyer', 'action': 'buy'},
+          'partyB': {'side': 'supply', 'role': 'seller', 'action': 'sell'},
+          'subject': 'chicken',
+          'category': 'food',
+          'location': {'label': 'Vijayawada', 'radiusKm': 10},
+          'dynamicFields': <String, Object?>{},
+          'status': 'collecting',
+        },
+        'quotes': <Object?>[],
+      }),
+      'askodox.active_conversation_turns.v1': jsonEncode([
+        {'text': '5 kg', 'isUser': true},
+        {'text': 'Do you want pickup or delivery?', 'isUser': false},
+      ]),
+    });
+
+    await tester.pumpWidget(_screen(const SearchScreen()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('I want chicken nearby'), findsOneWidget);
+    expect(find.text('5 kg'), findsOneWidget);
+    expect(find.text('Do you want pickup or delivery?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
