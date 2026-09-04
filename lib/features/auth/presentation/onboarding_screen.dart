@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../config/localization/askodox_language_catalog.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
@@ -20,7 +21,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const _mobileKey = 'askodox.profile.mobile';
   static const _nameKey = 'askodox.profile.name';
   static const _localeKey = 'askodox.locale';
-  static const _supportedLanguages = {'en', 'te', 'hi'};
 
   final _mobile = TextEditingController(text: '+91');
   final _otp = TextEditingController();
@@ -49,8 +49,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     final saved = prefs.getString(_localeKey)?.trim();
-    if (saved != null && _supportedLanguages.contains(saved)) {
-      _languageCode = saved;
+    if (AskodoxLanguageCatalog.supports(saved)) {
+      _languageCode = AskodoxLanguageCatalog.normalize(saved);
       _usingDeviceLanguage = false;
     } else {
       _languageCode = _deviceLanguageCode();
@@ -62,7 +62,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   String _deviceLanguageCode() {
     final code = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-    return _supportedLanguages.contains(code) ? code : 'en';
+    return AskodoxLanguageCatalog.supports(code)
+        ? AskodoxLanguageCatalog.normalize(code)
+        : AskodoxLanguageCatalog.english.code;
   }
 
   @override
@@ -120,11 +122,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return values[key]?[_languageCode] ?? values[key]?['en'] ?? key;
   }
 
-  String _languageName(String code) => switch (code) {
-        'te' => 'తెలుగు',
-        'hi' => 'हिन्दी',
-        _ => 'English',
-      };
+  String _languageName(String code) => AskodoxLanguageCatalog.byCode(code).name;
 
   Future<void> _sendOtp() async {
     if (_mobile.text.replaceAll(RegExp(r'\D'), '').length < 10) {
@@ -204,9 +202,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _chooseLanguage(String code) {
-    ref.read(appSettingsProvider.notifier).setLocale(Locale(code));
+    final normalized = AskodoxLanguageCatalog.normalize(code);
+    ref.read(appSettingsProvider.notifier).setLocale(Locale(normalized));
     setState(() {
-      _languageCode = code;
+      _languageCode = normalized;
       _usingDeviceLanguage = false;
       _step = 1;
       _error = null;
@@ -283,9 +282,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         const SizedBox(height: 20),
         Text(_t('changeLanguage'), style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
-        _languageButton('English', 'en'),
-        _languageButton('తెలుగు', 'te'),
-        _languageButton('हिन्दी', 'hi'),
+        ...AskodoxLanguageCatalog.all.map(
+          (language) => _languageButton(language.name, language.code),
+        ),
       ];
 
   List<Widget> _mobileStep() => [
