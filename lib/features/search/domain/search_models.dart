@@ -19,5 +19,5 @@ class SmartMatch { const SmartMatch({required this.product, required this.kind, 
 enum RelatedProductType { similar, alternateBrand, betterOffer, alternatePackSize }
 class RelatedProduct { const RelatedProduct(this.product, this.type); final Product product; final RelatedProductType type; }
 
-enum VoiceSearchState { idle, listening, processing, result, error }
+enum VoiceSearchState { idle, listening, processing, speaking, result, error }
 class SearchAnalytics { const SearchAnalytics({this.mostSearched = const {}, this.failedSearches = const [], this.barcodeSearches = 0, this.ocrSearches = 0, this.imageSearches = 0}); final Map<String, int> mostSearched; final List<String> failedSearches; final int barcodeSearches, ocrSearches, imageSearches; }
