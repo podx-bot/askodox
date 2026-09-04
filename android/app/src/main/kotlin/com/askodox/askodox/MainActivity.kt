@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -104,6 +105,33 @@ class MainActivity : FlutterActivity() {
         else -> Locale.getDefault()
     }
 
+    private fun selectCompatibleVoice(engine: TextToSpeech, locale: Locale) {
+        val voices = engine.voices ?: return
+        val candidates = voices.filter { voice ->
+            voice.locale.language.equals(locale.language, ignoreCase = true)
+        }
+        if (candidates.isEmpty()) return
+
+        val preferred = candidates.sortedWith(
+            compareByDescending<Voice> { voice ->
+                locale.country.isNotBlank() &&
+                    voice.locale.country.equals(locale.country, ignoreCase = true)
+            }
+                .thenBy { it.isNetworkConnectionRequired }
+                .thenByDescending { it.quality }
+                .thenBy { it.latency }
+                .thenBy { it.name },
+        ).firstOrNull()
+
+        if (preferred != null) {
+            try {
+                engine.voice = preferred
+            } catch (_: Exception) {
+                // Keep the engine-selected voice when a vendor rejects a voice.
+            }
+        }
+    }
+
     private fun speakAcknowledgement(languageCode: String?, result: MethodChannel.Result) {
         val engine = textToSpeech
         if (!ttsReady || engine == null) {
@@ -119,6 +147,7 @@ class MainActivity : FlutterActivity() {
             result.success(false)
             return
         }
+        selectCompatibleVoice(engine, locale)
 
         pendingSpeechResult?.success(false)
         pendingSpeechResult = result
