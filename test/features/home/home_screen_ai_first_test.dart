@@ -43,6 +43,15 @@ void main() {
     expect(finder, findsOneWidget);
   }
 
+  Future<void> revealBottomNavigation(WidgetTester tester) async {
+    final navigation = find.byType(NavigationBar);
+    for (var i = 0; i < 12 && navigation.evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(navigation, findsOneWidget);
+  }
+
   List<String> navigationLabels(WidgetTester tester) => tester
       .widgetList<NavigationDestination>(find.byType(NavigationDestination))
       .map((destination) => destination.label)
@@ -61,7 +70,7 @@ void main() {
 
     expect(find.text('In Progress'), findsOneWidget);
     expect(find.text('Continue your conversations'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    await revealBottomNavigation(tester);
     expect(navigationLabels(tester), ['Chats', 'Ask', 'Activity']);
   });
 
@@ -79,7 +88,7 @@ void main() {
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
     expect(find.text('మీ సంభాషణలను కొనసాగించండి'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    await revealBottomNavigation(tester);
     expect(navigationLabels(tester), ['చాట్స్', 'అడగండి', 'యాక్టివిటీ']);
 
     expect(tester.takeException(), isNull);
