@@ -114,6 +114,39 @@ void main() {
     );
   });
 
+  test('catalog locale outside legacy four reaches native STT and TTS unchanged', () async {
+    SharedPreferences.setMockInitialValues({});
+    final arguments = <String, Object?>{};
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      arguments[call.method] = call.arguments;
+      if (call.method == 'startVoiceSearch') return 'எனக்கு உதவி வேண்டும்';
+      if (call.method == 'speakAcknowledgement') return true;
+      return null;
+    });
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(appSettingsProvider.notifier)
+      ..setLocale(const Locale('ta'))
+      ..setVoicePreference(VoicePreference.automatic);
+
+    await container
+        .read(productDiscoveryControllerProvider.notifier)
+        .startVoice();
+
+    expect(arguments['startVoiceSearch'], {'languageCode': 'ta'});
+    expect(
+      arguments['speakAcknowledgement'],
+      {'languageCode': 'ta', 'voicePreference': 'automatic'},
+    );
+    expect(
+      container.read(productDiscoveryControllerProvider).voiceResult,
+      'எனக்கு உதவி வேண்டும்',
+    );
+  });
+
   test('voice preference persists and restores across provider recreation', () async {
     SharedPreferences.setMockInitialValues({});
 
