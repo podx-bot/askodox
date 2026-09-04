@@ -64,7 +64,11 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startVoiceSearch" -> startVoiceSearch(call.argument("languageCode"), result)
-                    "speakAcknowledgement" -> speakAcknowledgement(call.argument("languageCode"), result)
+                    "speakAcknowledgement" -> speakAcknowledgement(
+                        call.argument("languageCode"),
+                        call.argument("voicePreference"),
+                        result,
+                    )
                     "getCurrentLocation" -> getCurrentLocation(result)
                     else -> result.notImplemented()
                 }
@@ -105,13 +109,44 @@ class MainActivity : FlutterActivity() {
         else -> Locale.getDefault()
     }
 
-    private fun selectCompatibleVoice(engine: TextToSpeech, locale: Locale) {
+    private fun voiceDeclaresPreference(voice: Voice, preference: String): Boolean {
+        val normalized = preference.lowercase(Locale.ROOT)
+        if (normalized != "male" && normalized != "female") return false
+        return voice.features.orEmpty().any { feature ->
+            val value = feature.lowercase(Locale.ROOT)
+            value == normalized ||
+                value == "gender=$normalized" ||
+                value == "gender:$normalized" ||
+                value == "voice_gender_$normalized"
+        }
+    }
+
+    private fun selectCompatibleVoice(
+        engine: TextToSpeech,
+        locale: Locale,
+        voicePreference: String?,
+    ) {
         val voices = engine.voices ?: return
-        val candidates = voices.filter { voice ->
+        val languageCandidates = voices.filter { voice ->
             voice.locale.language.equals(locale.language, ignoreCase = true)
         }
-        if (candidates.isEmpty()) return
+        if (languageCandidates.isEmpty()) return
 
+        val normalizedPreference = voicePreference?.lowercase(Locale.ROOT) ?: "automatic"
+        val explicitPreferenceCandidates = if (
+            normalizedPreference == "male" || normalizedPreference == "female"
+        ) {
+            languageCandidates.filter { voice ->
+                voiceDeclaresPreference(voice, normalizedPreference)
+            }
+        } else {
+            emptyList()
+        }
+
+        // Android's standard Voice API does not expose gender. We only honor a
+        // male/female preference when the TTS engine explicitly declares it in
+        // voice features; otherwise we safely fall back without guessing names.
+        val candidates = explicitPreferenceCandidates.ifEmpty { languageCandidates }
         val preferred = candidates.sortedWith(
             compareByDescending<Voice> { voice ->
                 locale.country.isNotBlank() &&
@@ -132,7 +167,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun speakAcknowledgement(languageCode: String?, result: MethodChannel.Result) {
+    private fun speakAcknowledgement(
+        languageCode: String?,
+        voicePreference: String?,
+        result: MethodChannel.Result,
+    ) {
         val engine = textToSpeech
         if (!ttsReady || engine == null) {
             result.success(false)
@@ -147,7 +186,7 @@ class MainActivity : FlutterActivity() {
             result.success(false)
             return
         }
-        selectCompatibleVoice(engine, locale)
+        selectCompatibleVoice(engine, locale, voicePreference)
 
         pendingSpeechResult?.success(false)
         pendingSpeechResult = result
