@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../../generated/l10n/app_localizations.dart';
 import '../../demo/presentation/demo_center_screen.dart';
 import '../../help/presentation/help_support_screen.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final AskodoxUpdateService _updateService = const AskodoxUpdateService();
   AskodoxUpdateInfo? _updateInfo;
   bool _checkingUpdate = false;
@@ -87,10 +89,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _pickVoicePreference(bool isTe) async {
+    final current = ref.read(appSettingsProvider).voicePreference;
+    final selected = await showModalBottomSheet<VoicePreference>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.record_voice_over_outlined),
+              title: Text(isTe ? 'వాయిస్ ప్రాధాన్యత' : 'Voice preference'),
+              subtitle: Text(
+                isTe
+                    ? 'ASKODOX మాట్లాడే వాయిస్‌ను ఎంచుకోండి. Auto మీ డివైస్‌కు సరిపోయే వాయిస్‌ను ఉపయోగిస్తుంది.'
+                    : 'Choose the voice ASKODOX uses. Auto picks a compatible device voice.',
+              ),
+            ),
+            for (final preference in VoicePreference.values)
+              RadioListTile<VoicePreference>(
+                value: preference,
+                groupValue: current,
+                title: Text(
+                  switch (preference) {
+                    VoicePreference.automatic => isTe ? 'ఆటోమేటిక్' : 'Automatic',
+                    VoicePreference.male => isTe ? 'పురుష వాయిస్' : 'Male voice',
+                    VoicePreference.female => isTe ? 'మహిళా వాయిస్' : 'Female voice',
+                  },
+                ),
+                onChanged: (value) => Navigator.pop(context, value),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    ref.read(appSettingsProvider.notifier).setVoicePreference(selected);
+  }
+
+  String _voiceLabel(VoicePreference preference, bool isTe) => switch (preference) {
+        VoicePreference.automatic => isTe ? 'ఆటోమేటిక్' : 'Automatic',
+        VoicePreference.male => isTe ? 'పురుష వాయిస్' : 'Male voice',
+        VoicePreference.female => isTe ? 'మహిళా వాయిస్' : 'Female voice',
+      };
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final isTe = Localizations.localeOf(context).languageCode == 'te';
+    final voicePreference = ref.watch(appSettingsProvider).voicePreference;
     String t(String en, String te) => isTe ? te : en;
     return Scaffold(
       appBar: AppBar(title: Text(t('Profile', 'ప్రొఫైల్'))),
@@ -263,6 +312,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ListTile(
                       leading: const Icon(Icons.settings_outlined),
                       title: Text(t('Settings', 'సెట్టింగ్స్')),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      key: const Key('askodoxVoicePreferenceSetting'),
+                      leading: const Icon(Icons.record_voice_over_outlined),
+                      title: Text(t('Voice preference', 'వాయిస్ ప్రాధాన్యత')),
+                      subtitle: Text(_voiceLabel(voicePreference, isTe)),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _pickVoicePreference(isTe),
                     ),
                     const Divider(height: 1),
                     ListTile(
