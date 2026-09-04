@@ -46,6 +46,7 @@ void main() {
     expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxHomeOrb')), findsOneWidget);
     expect(find.text('In Progress'), findsOneWidget);
 
     expect(find.text('Buy & Local'), findsNothing);
@@ -72,7 +73,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('askodoxPlusButton')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Add to your request'), findsOneWidget);
     expect(find.byKey(const Key('askodoxPlusPhotosAction')), findsOneWidget);
