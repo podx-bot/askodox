@@ -1,5 +1,3 @@
-import 'package:podx/config/localization/askodox_language_catalog.dart';
-import 'package:podx/core/providers/app_settings_provider.dart';
 import 'package:podx/features/home/presentation/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,22 +9,38 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  Future<void> pumpHome(
-    WidgetTester tester, {
-    Locale locale = const Locale('en'),
-  }) async {
+  Future<void> pumpHome(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
-      ProviderScope(
+      const ProviderScope(
         child: MaterialApp(
-          locale: locale,
-          supportedLocales: AskodoxLanguageCatalog.all
-              .map((language) => language.locale)
-              .toList(growable: false),
-          home: const HomeScreen(),
+          locale: Locale('en'),
+          supportedLocales: [Locale('en')],
+          home: HomeScreen(),
         ),
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> openLanguagePicker(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('askodoxLanguageButton')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  Future<void> revealLanguage(WidgetTester tester, String language) async {
+    final finder = find.text(language);
+    for (var i = 0; i < 12 && finder.evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(finder, findsOneWidget);
   }
 
   testWidgets('Home keeps one AI-first ask entry point and minimal navigation',
@@ -49,12 +63,13 @@ void main() {
 
   testWidgets('Telugu Home remains readable and keeps the same AI-first hierarchy',
       (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'askodox.locale': 'te',
+    });
 
-    await pumpHome(tester, locale: const Locale('te'));
+    await pumpHome(tester);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
@@ -69,34 +84,24 @@ void main() {
 
   testWidgets('Home language picker exposes catalog languages beyond legacy four',
       (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
     await pumpHome(tester);
-    await tester.tap(find.byKey(const Key('askodoxLanguageButton')));
-    await tester.pumpAndSettle();
+    await openLanguagePicker(tester);
 
     expect(find.text('ASKODOX Language'), findsOneWidget);
-    expect(find.text('Tamil'), findsOneWidget);
-    expect(find.text('Bengali'), findsOneWidget);
-    expect(find.text('Kannada'), findsOneWidget);
+    await revealLanguage(tester, 'Bengali');
+    await revealLanguage(tester, 'Kannada');
+    await revealLanguage(tester, 'Tamil');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('Tamil Home selection persists while untranslated Home copy falls back safely',
       (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
     await pumpHome(tester);
-    await tester.tap(find.byKey(const Key('askodoxLanguageButton')));
-    await tester.pumpAndSettle();
+    await openLanguagePicker(tester);
+    await revealLanguage(tester, 'Tamil');
     await tester.tap(find.text('Tamil'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
 
     final preferences = await SharedPreferences.getInstance();
