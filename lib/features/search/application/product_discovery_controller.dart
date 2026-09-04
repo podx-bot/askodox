@@ -140,9 +140,14 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
   }
 
   Future<void> startVoice() async {
-    final languageCode = ref.read(appSettingsProvider).locale?.languageCode;
-    final voiceArguments = <String, Object?>{
+    final appSettings = ref.read(appSettingsProvider);
+    final languageCode = appSettings.locale?.languageCode;
+    final recognitionArguments = <String, Object?>{
       if (languageCode != null) 'languageCode': languageCode,
+    };
+    final ttsArguments = <String, Object?>{
+      ...recognitionArguments,
+      'voicePreference': appSettings.voicePreference.storageValue,
     };
 
     state = state.copyWith(
@@ -152,7 +157,7 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
     try {
       final result = await _deviceChannel.invokeMethod<String>(
         'startVoiceSearch',
-        voiceArguments,
+        recognitionArguments,
       );
       final spoken = result?.trim();
       if (spoken == null || spoken.isEmpty) {
@@ -188,7 +193,7 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
       try {
         await _deviceChannel.invokeMethod<bool>(
           'speakAcknowledgement',
-          voiceArguments,
+          ttsArguments,
         );
       } catch (_) {
         // TTS is helpful feedback, not a blocker for the user's request.
