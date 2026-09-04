@@ -1,0 +1,84 @@
+name: ASKODOX history memory smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/app/repositories/purchase_history_repository.py
+      - backend/app/services/oasat_history_context.py
+      - .github/workflows/history-memory-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - backend/app/repositories/purchase_history_repository.py
+      - backend/app/services/oasat_history_context.py
+      - .github/workflows/history-memory-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history-memory:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: backend
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify structured purchase recall and OASAT context
+        run: |
+          python - <<'PY'
+          import tempfile
+
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+          from app.services.oasat_history_context import OASATHistoryContext
+
+          with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+              repo = PurchaseHistoryRepository(tmp.name)
+              purchase_id = repo.add_purchase(
+                  'user-1',
+                  item_name='rice',
+                  quantity=25,
+                  unit='kg',
+                  unit_price=58,
+                  seller_id='seller-1',
+                  seller_name='Demo Grocery',
+                  purchased_at='2026-07-01T10:00:00+00:00',
+                  usage_days=52,
+                  remaining_status='FINISHED',
+                  repeat_cycle_days=55,
+                  preference_note='prefers same brand',
+                  conversation_rationale='family monthly grocery purchase',
+                  source_reference='deal-1001',
+              )
+
+              row = repo.latest_item_purchase('user-1', 'RICE')
+              assert row is not None
+              assert row['id'] == purchase_id
+              assert row['total_price'] == 1450.0
+              assert row['seller_name'] == 'Demo Grocery'
+
+              context = OASATHistoryContext(repo).for_item('user-1', 'rice')
+              assert context['has_history'] is True
+              assert context['last_purchase']['last_quantity'] == 25.0
+              assert context['last_purchase']['usage_days'] == 52
+              assert 'last_purchase_finished' in context['signals']
+              assert 'repeat_cycle_55_days' in context['signals']
+              assert 'saved_preference_available' in context['signals']
+              assert 'saved_purchase_rationale_available' in context['signals']
+              assert 'baseline' in context['reasoning_hint']
+
+              assert repo.update_usage(purchase_id, remaining_status='REMAINING', usage_days=40)
+              updated = OASATHistoryContext(repo).for_item('user-1', 'rice')
+              assert 'last_purchase_has_remaining_stock' in updated['signals']
+              assert 'avoid automatically increasing' in updated['reasoning_hint']
+
+              missing = OASATHistoryContext(repo).for_item('user-1', 'oil')
+              assert missing['has_history'] is False
+
+          print('structured purchase history + OASAT recall passed')
+          PY
