@@ -1,5 +1,5 @@
-import 'package:askodox/core/providers/app_settings_provider.dart';
-import 'package:askodox/features/home/presentation/home_screen.dart';
+import 'package:podx/core/providers/app_settings_provider.dart';
+import 'package:podx/features/home/presentation/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
