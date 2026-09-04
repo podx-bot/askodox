@@ -217,12 +217,17 @@ class _ProductDiscoveryScreenState
             ),
           ),
           onPressed: state.voiceState == VoiceSearchState.listening ||
-                  state.voiceState == VoiceSearchState.processing
+                  state.voiceState == VoiceSearchState.processing ||
+                  state.voiceState == VoiceSearchState.speaking
               ? null
               : () => ref
                   .read(productDiscoveryControllerProvider.notifier)
                   .startVoice(),
-          icon: const Icon(Icons.mic_rounded),
+          icon: Icon(
+            state.voiceState == VoiceSearchState.speaking
+                ? Icons.volume_up_rounded
+                : Icons.mic_rounded,
+          ),
           label: Text(
             state.voiceState == VoiceSearchState.listening
                 ? t('Listening…', 'వింటున్నాను…')
@@ -231,7 +236,12 @@ class _ProductDiscoveryScreenState
                         'ASKODOX is understanding…',
                         'ASKODOX అర్థం చేసుకుంటోంది…',
                       )
-                    : t('Talk to ASKODOX', 'ASKODOXతో మాట్లాడండి'),
+                    : state.voiceState == VoiceSearchState.speaking
+                        ? t(
+                            'ASKODOX is speaking…',
+                            'ASKODOX మాట్లాడుతోంది…',
+                          )
+                        : t('Talk to ASKODOX', 'ASKODOXతో మాట్లాడండి'),
           ),
         ),
         const SizedBox(height: 14),
@@ -313,6 +323,7 @@ class _VoiceAssistantCard extends StatelessWidget {
       VoiceSearchState.listening => t('Listening', 'వింటున్నాను'),
       VoiceSearchState.processing =>
         t('Thinking & Understanding', 'ఆలోచించి అర్థం చేసుకుంటోంది'),
+      VoiceSearchState.speaking => t('Speaking', 'మాట్లాడుతోంది'),
       VoiceSearchState.result => t('Understood', 'అర్థమైంది'),
       _ => t('Ready', 'సిద్ధంగా ఉంది'),
     };
@@ -320,6 +331,7 @@ class _VoiceAssistantCard extends StatelessWidget {
     final icon = switch (state) {
       VoiceSearchState.listening => Icons.mic_rounded,
       VoiceSearchState.processing => Icons.psychology_alt_rounded,
+      VoiceSearchState.speaking => Icons.volume_up_rounded,
       VoiceSearchState.result => Icons.check_rounded,
       _ => Icons.auto_awesome_rounded,
     };
@@ -327,14 +339,17 @@ class _VoiceAssistantCard extends StatelessWidget {
     final accent = switch (state) {
       VoiceSearchState.listening => const Color(0xFF2C9CFF),
       VoiceSearchState.processing => const Color(0xFF9C4DFF),
+      VoiceSearchState.speaking => const Color(0xFFFF5DB1),
       VoiceSearchState.result => const Color(0xFF44D7C5),
       _ => const Color(0xFF7A62FF),
     };
 
     final active = state == VoiceSearchState.listening ||
-        state == VoiceSearchState.processing;
+        state == VoiceSearchState.processing ||
+        state == VoiceSearchState.speaking;
 
     return Column(
+      key: Key('askodoxVoiceState-${state.name}'),
       children: [
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
@@ -398,8 +413,24 @@ class _VoiceAssistantCard extends StatelessWidget {
                     ),
                   ),
                   if (state == VoiceSearchState.listening) ...[
-                    const Positioned(left: 12, child: _SideWave()),
-                    const Positioned(right: 12, child: _SideWave()),
+                    const Positioned(
+                      left: 12,
+                      child: _SideWave(color: Color(0xFF39A8FF)),
+                    ),
+                    const Positioned(
+                      right: 12,
+                      child: _SideWave(color: Color(0xFF39A8FF)),
+                    ),
+                  ],
+                  if (state == VoiceSearchState.speaking) ...[
+                    const Positioned(
+                      left: 12,
+                      child: _SideWave(color: Color(0xFFFF5DB1)),
+                    ),
+                    const Positioned(
+                      right: 12,
+                      child: _SideWave(color: Color(0xFFFF5DB1)),
+                    ),
                   ],
                   if (state == VoiceSearchState.processing)
                     const Positioned(
@@ -509,7 +540,9 @@ class _MiniRobot extends StatelessWidget {
 }
 
 class _SideWave extends StatelessWidget {
-  const _SideWave();
+  const _SideWave({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -520,7 +553,7 @@ class _SideWave extends StatelessWidget {
               height: h,
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
               decoration: BoxDecoration(
-                color: const Color(0xFF39A8FF),
+                color: color,
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
