@@ -4,39 +4,75 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum VoicePreference { automatic, male, female }
+
+extension VoicePreferenceStorage on VoicePreference {
+  String get storageValue => name;
+
+  static VoicePreference fromStorage(String? value) =>
+      VoicePreference.values.where((item) => item.name == value).firstOrNull ??
+      VoicePreference.automatic;
+}
+
 @immutable
 class AppSettings {
-  const AppSettings({this.themeMode = ThemeMode.system, this.locale});
+  const AppSettings({
+    this.themeMode = ThemeMode.system,
+    this.locale,
+    this.voicePreference = VoicePreference.automatic,
+  });
 
   final ThemeMode themeMode;
   final Locale? locale;
+  final VoicePreference voicePreference;
 
-  AppSettings copyWith({ThemeMode? themeMode, Locale? locale}) => AppSettings(
+  AppSettings copyWith({
+    ThemeMode? themeMode,
+    Locale? locale,
+    VoicePreference? voicePreference,
+  }) =>
+      AppSettings(
         themeMode: themeMode ?? this.themeMode,
         locale: locale ?? this.locale,
+        voicePreference: voicePreference ?? this.voicePreference,
       );
 }
 
 class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _localeKey = 'askodox.locale';
+  static const _voicePreferenceKey = 'askodox.voice.preference';
   bool _localeChangedInSession = false;
+  bool _voiceChangedInSession = false;
 
   @override
   AppSettings build() {
-    Future.microtask(_restoreLocale);
+    Future.microtask(_restorePersistedSettings);
     return const AppSettings();
   }
 
-  Future<void> _restoreLocale() async {
+  Future<void> _restorePersistedSettings() async {
     final preferences = await SharedPreferences.getInstance();
-    if (_localeChangedInSession) return;
 
-    final languageCode = preferences.getString(_localeKey);
-    if (languageCode == null || languageCode.trim().isEmpty) return;
+    var nextLocale = state.locale;
+    var nextVoicePreference = state.voicePreference;
+
+    if (!_localeChangedInSession) {
+      final languageCode = preferences.getString(_localeKey);
+      if (languageCode != null && languageCode.trim().isNotEmpty) {
+        nextLocale = Locale(languageCode);
+      }
+    }
+
+    if (!_voiceChangedInSession) {
+      nextVoicePreference = VoicePreferenceStorage.fromStorage(
+        preferences.getString(_voicePreferenceKey),
+      );
+    }
 
     state = AppSettings(
       themeMode: state.themeMode,
-      locale: Locale(languageCode),
+      locale: nextLocale,
+      voicePreference: nextVoicePreference,
     );
   }
 
@@ -47,6 +83,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = AppSettings(
       themeMode: state.themeMode,
       locale: locale,
+      voicePreference: state.voicePreference,
     );
     unawaited(_persistLocale(locale.languageCode));
   }
@@ -61,6 +98,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = AppSettings(
       themeMode: state.themeMode,
       locale: null,
+      voicePreference: state.voicePreference,
     );
     unawaited(_clearPersistedLocale());
   }
@@ -68,6 +106,17 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> _clearPersistedLocale() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_localeKey);
+  }
+
+  void setVoicePreference(VoicePreference preference) {
+    _voiceChangedInSession = true;
+    state = state.copyWith(voicePreference: preference);
+    unawaited(_persistVoicePreference(preference));
+  }
+
+  Future<void> _persistVoicePreference(VoicePreference preference) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_voicePreferenceKey, preference.storageValue);
   }
 }
 
