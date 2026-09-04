@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../config/localization/askodox_language_catalog.dart';
+
 enum VoicePreference { automatic, male, female }
 
 extension VoicePreferenceStorage on VoicePreference {
@@ -58,8 +60,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
     if (!_localeChangedInSession) {
       final languageCode = preferences.getString(_localeKey);
-      if (languageCode != null && languageCode.trim().isNotEmpty) {
-        nextLocale = Locale(languageCode);
+      if (AskodoxLanguageCatalog.supports(languageCode)) {
+        nextLocale = Locale(AskodoxLanguageCatalog.normalize(languageCode));
       }
     }
 
@@ -79,13 +81,15 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   void setThemeMode(ThemeMode mode) => state = state.copyWith(themeMode: mode);
 
   void setLocale(Locale locale) {
+    final normalizedCode = AskodoxLanguageCatalog.normalize(locale.languageCode);
+    final normalizedLocale = Locale(normalizedCode);
     _localeChangedInSession = true;
     state = AppSettings(
       themeMode: state.themeMode,
-      locale: locale,
+      locale: normalizedLocale,
       voicePreference: state.voicePreference,
     );
-    unawaited(_persistLocale(locale.languageCode));
+    unawaited(_persistLocale(normalizedCode));
   }
 
   Future<void> _persistLocale(String languageCode) async {
