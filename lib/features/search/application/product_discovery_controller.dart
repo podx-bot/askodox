@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/app_settings_provider.dart';
 import '../../catalog/application/catalog_providers.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../data/mock_product_discovery_repository.dart';
@@ -139,13 +140,20 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
   }
 
   Future<void> startVoice() async {
+    final languageCode = ref.read(appSettingsProvider).locale?.languageCode;
+    final voiceArguments = <String, Object?>{
+      if (languageCode != null) 'languageCode': languageCode,
+    };
+
     state = state.copyWith(
       voiceState: VoiceSearchState.listening,
       clearVoiceResult: true,
     );
     try {
-      final result =
-          await _deviceChannel.invokeMethod<String>('startVoiceSearch');
+      final result = await _deviceChannel.invokeMethod<String>(
+        'startVoiceSearch',
+        voiceArguments,
+      );
       final spoken = result?.trim();
       if (spoken == null || spoken.isEmpty) {
         state = state.copyWith(
@@ -178,7 +186,10 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
         voiceResult: spoken,
       );
       try {
-        await _deviceChannel.invokeMethod<bool>('speakAcknowledgement');
+        await _deviceChannel.invokeMethod<bool>(
+          'speakAcknowledgement',
+          voiceArguments,
+        );
       } catch (_) {
         // TTS is helpful feedback, not a blocker for the user's request.
       }
