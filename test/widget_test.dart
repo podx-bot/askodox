@@ -24,12 +24,22 @@ Widget _screen(Widget child, {Locale? locale}) => ProviderScope(
     );
 
 void main() {
+  test('returns localized ASKODOX greetings for each daypart', () {
+    expect(askodoxGreetingForHour(9, 'en'), 'Good morning 👋');
+    expect(askodoxGreetingForHour(13, 'en'), 'Good afternoon 👋');
+    expect(askodoxGreetingForHour(18, 'en'), 'Good evening 👋');
+    expect(askodoxGreetingForHour(22, 'en'), 'Good night 👋');
+    expect(askodoxGreetingForHour(9, 'te'), 'శుభోదయం 👋');
+    expect(askodoxGreetingForHour(18, 'hi'), 'शुभ संध्या 👋');
+    expect(askodoxGreetingForHour(22, 'or'), 'ଶୁଭ ରାତ୍ରି 👋');
+  });
+
   testWidgets('renders ASKODOX bright AI-first home structure', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
     expect(find.text('ASKODOX'), findsOneWidget);
-    expect(find.text('Good evening 👋'), findsOneWidget);
+    expect(find.text(askodoxGreetingForHour(DateTime.now().hour, 'en')), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPlusButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
@@ -76,7 +86,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('ASKODOX'), findsOneWidget);
-    expect(find.text('శుభ సాయంత్రం 👋'), findsOneWidget);
+    expect(find.text(askodoxGreetingForHour(DateTime.now().hour, 'te')), findsOneWidget);
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPlusButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
