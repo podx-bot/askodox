@@ -44,6 +44,21 @@ class DemoSeedService:
             {"user_id": "app-demo-parcel-sender", "side": "NEED", "domain": "PARCEL", "subject": "Vijayawada to Gannavaram parcel"},
             {"user_id": "app-demo-delivery-partner", "side": "OFFER", "domain": "PARCEL", "subject": "Vijayawada to Gannavaram parcel"},
         ),
+        (
+            "appointments",
+            {"user_id": "app-demo-appointment-customer", "side": "NEED", "domain": "SERVICE", "subject": "doctor appointment tomorrow"},
+            {"user_id": "app-demo-appointment-provider", "side": "OFFER", "domain": "SERVICE", "subject": "doctor appointment tomorrow"},
+        ),
+        (
+            "catering",
+            {"user_id": "app-demo-catering-customer", "side": "NEED", "domain": "SERVICE", "subject": "catering for 100 guests"},
+            {"user_id": "app-demo-caterer", "side": "OFFER", "domain": "SERVICE", "subject": "catering for 100 guests"},
+        ),
+        (
+            "local_discovery",
+            {"user_id": "app-demo-local-seeker", "side": "NEED", "domain": "PRODUCT", "subject": "nearby local seller"},
+            {"user_id": "app-demo-local-business", "side": "OFFER", "domain": "PRODUCT", "subject": "nearby local seller"},
+        ),
     )
 
     def __init__(self, repository) -> None:
