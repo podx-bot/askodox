@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 import '../../matching/presentation/universal_match_screen.dart';
+import '../application/conversation_turn_store.dart';
 import 'deal_prompt_policy.dart';
 
 const _ink = Color(0xFF14213D);
@@ -24,8 +26,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _answer = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
+  final _conversationStore = ConversationTurnStore();
   final List<_ChatTurn> _turns = [];
   static final _telugu = RegExp(r'[\u0C00-\u0C7F]');
+  int _conversationEpoch = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreTurns());
+  }
+
+  Future<void> _restoreTurns() async {
+    final epoch = _conversationEpoch;
+    final records = await _conversationStore.load();
+    if (!mounted || epoch != _conversationEpoch || records.isEmpty) return;
+    setState(() {
+      _turns
+        ..clear()
+        ..addAll(records.map(_ChatTurn.fromRecord));
+    });
+    _scrollToBottom();
+  }
+
+  void _persistTurns() {
+    unawaited(_conversationStore.save(_turns.map((turn) => turn.record).toList(growable: false)));
+  }
+
+  void _clearTurns() {
+    _conversationEpoch += 1;
+    setState(() => _turns.clear());
+    unawaited(_conversationStore.clear());
+  }
 
   bool _isTelugu(UniversalDeal? deal) {
     final selected = ref.watch(appSettingsProvider).locale?.languageCode == 'te';
@@ -47,13 +79,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _answer.clear();
     FocusScope.of(context).unfocus();
     setState(() => _turns.add(_ChatTurn.assistant(_assistantText(next, te))));
+    _persistTurns();
     _scrollToBottom();
   }
 
   void _start(String prompt) {
     _syncLanguage(prompt);
     ref.read(universalDealControllerProvider.notifier).start(prompt);
-    setState(() => _turns.clear());
+    _clearTurns();
     _focusNode.requestFocus();
   }
 
@@ -94,7 +127,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           tooltip: te ? 'కొత్త అవసరం' : 'New request',
           onPressed: () {
             ref.read(universalDealControllerProvider.notifier).reset();
-            setState(() => _turns.clear());
+            _clearTurns();
             context.go('/');
           },
           icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF1769FF)),
@@ -172,8 +205,10 @@ class _ChatTurn {
   const _ChatTurn(this.text, this.isUser);
   factory _ChatTurn.user(String text) => _ChatTurn(text, true);
   factory _ChatTurn.assistant(String text) => _ChatTurn(text, false);
+  factory _ChatTurn.fromRecord(ConversationTurnRecord record) => _ChatTurn(record.text, record.isUser);
   final String text;
   final bool isUser;
+  ConversationTurnRecord get record => ConversationTurnRecord(text: text, isUser: isUser);
 }
 
 class _AttachmentPreview extends StatelessWidget {
