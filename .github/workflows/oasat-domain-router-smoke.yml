@@ -27,6 +27,15 @@ jobs:
           assert 'MATCHING' in doc['skip_stages']
           assert doc['adapter'] == 'documents'
 
+          reminder = router.route('Remind me tomorrow to pay bill')
+          assert reminder['domain'] == 'REMINDERS'
+          assert reminder['intent'] == 'SCHEDULE_OR_MONITOR'
+          assert reminder['adapter'] == 'reminders'
+
+          reminder_pdf = router.route('Remind me tomorrow to review this PDF')
+          assert reminder_pdf['domain'] == 'REMINDERS'
+          assert reminder_pdf['adapter'] == 'reminders'
+
           job = router.route('I need a job near Vijayawada')
           assert job['domain'] == 'JOBS'
           assert job['adapter'] == 'jobs'
