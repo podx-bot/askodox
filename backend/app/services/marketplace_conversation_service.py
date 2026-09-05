@@ -1,5 +1,7 @@
 from app.models.session import ConversationStep
+from app.repositories.user_memory_repository import UserMemoryRepository
 from app.services.role_aware_conversation_service import RoleAwareConversationService
+from app.services.user_memory_service import UserMemoryService
 
 
 class MarketplaceConversationService(RoleAwareConversationService):
@@ -13,6 +15,18 @@ class MarketplaceConversationService(RoleAwareConversationService):
     def __init__(self, user_repository, session_registry, intent_router, marketplace_repository, appointment_service=None, demand_capture_service=None) -> None:
         super().__init__(user_repository=user_repository, session_registry=session_registry, intent_router=intent_router, appointment_service=appointment_service, demand_capture_service=demand_capture_service)
         self.marketplace_repository = marketplace_repository
+        self.user_memory_service = self._build_user_memory_service()
+
+    def _build_user_memory_service(self):
+        try:
+            database = getattr(self.user_repository, "database", None)
+            row = database.fetchone("PRAGMA database_list") if database is not None else None
+            db_path = str(row["file"] or "") if row else ""
+            if not db_path:
+                return None
+            return UserMemoryService(UserMemoryRepository(db_path))
+        except Exception:
+            return None
 
     def process(self, sender_mobile: str, message: str) -> str:
         clean_message = str(message or "").strip()
@@ -20,6 +34,11 @@ class MarketplaceConversationService(RoleAwareConversationService):
         session = self.session_registry.get(sender_mobile)
         existing_user = self.user_repository.find_by_whatsapp_mobile(sender_mobile)
         registered = bool(existing_user and existing_user.get("registration_complete") == 1)
+
+        if registered and self.user_memory_service is not None:
+            memory_reply = self.user_memory_service.process(sender_mobile, clean_message)
+            if memory_reply is not None:
+                return self._reply(sender_mobile, memory_reply)
 
         # Greetings are deterministic control messages. Never send a registered
         # user's Hi through an external AI classifier: a provider outage must not
