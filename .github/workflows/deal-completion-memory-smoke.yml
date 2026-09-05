@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'backend/app/api/routes/in_app_deal.py'
       - 'backend/app/services/deal_completion_memory_service.py'
       - 'backend/app/repositories/purchase_history_repository.py'
       - '.github/workflows/deal-completion-memory-smoke.yml'
@@ -12,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install route smoke dependencies
+        run: python -m pip install --quiet fastapi pydantic
       - name: Verify completed deal automatically becomes OASAT purchase memory
         working-directory: backend
         run: |
@@ -27,6 +30,9 @@ jobs:
             assert pending['recorded'] is False and repo.recent_purchases('u1') == []
             done=writer.record({'deal_id':'d1','status':'CLOSED','domain':'COMMERCE','intent':'BUY','buyer_id':'u1','seller_id':'s1','seller_name':'Local Store','subject':'Rice','quantity':10,'unit':'kg','agreed_price':600,'conversation_rationale':'best current exact offer'})
             assert done['recorded'] is True
+            duplicate=writer.record({'deal_id':'d1','status':'CLOSED','domain':'COMMERCE','intent':'BUY','buyer_id':'u1','seller_id':'s1','subject':'Rice','quantity':10,'unit':'kg','agreed_price':600})
+            assert duplicate['recorded'] is False and duplicate['reason']=='purchase_memory_already_recorded'
+            assert len(repo.recent_purchases('u1')) == 1
             memory=repo.latest_item_purchase('u1','Rice')
             assert memory['quantity']==10 and memory['unit_price']==60 and memory['seller_name']=='Local Store'
             ctx=OASATHistoryContext(repo).for_item('u1','Rice')
@@ -36,4 +42,66 @@ jobs:
             print('deal completion -> structured purchase memory -> OASAT recall passed')
           finally:
             os.remove(path)
+          PY
+      - name: Verify real in-app COMPLETED endpoint writes purchase memory once
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os, sqlite3, tempfile
+          from types import SimpleNamespace
+          from app.api.routes.in_app_deal import DealStatusRequest, deal_status
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+
+          class DB:
+            def __init__(self, path):
+              self.conn=sqlite3.connect(path); self.conn.row_factory=sqlite3.Row
+            def execute(self, sql, params=()):
+              cur=self.conn.execute(sql, params); self.conn.commit(); return cur
+            def fetchone(self, sql, params=()): return self.conn.execute(sql, params).fetchone()
+            def fetchall(self, sql, params=()): return self.conn.execute(sql, params).fetchall()
+            def close(self): self.conn.close()
+
+          class DemandRepo:
+            def __init__(self):
+              self.rows={
+                1:{'id':1,'user_id':'app-buyer','side':'NEED','domain':'COMMERCE','subject':'Rice','quantity':10,'unit':'kg','price':60,'status':'ACTIVE'},
+                2:{'id':2,'user_id':'app-buyer','side':'NEED','domain':'SERVICES','subject':'Plumber','quantity':1,'unit':'job','price':500,'status':'ACTIVE'},
+              }
+            def get(self, request_id): return dict(self.rows[request_id])
+            def update_status(self, request_id, status): self.rows[request_id]['status']=status
+
+          class InterestRepo:
+            def get_interest(self, request_id, responder):
+              return {'requester_user_id':'app-buyer','requester_status':'ACCEPTED','responder_user_id':responder}
+
+          fd,path=tempfile.mkstemp(suffix='.db'); os.close(fd)
+          db=DB(path)
+          try:
+            container=SimpleNamespace(
+              database=db,
+              settings=SimpleNamespace(database_path=path),
+              universal_demand_repository=DemandRepo(),
+              universal_notification_repository=InterestRepo(),
+            )
+            request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=container)))
+
+            first=deal_status(DealStatusRequest(user_id='app-buyer',request_id=1,other_user_id='app-seller',status='COMPLETED'),request)
+            assert first['status']=='COMPLETED' and first['purchase_memory']['recorded'] is True
+            purchases=PurchaseHistoryRepository(path)
+            rows=purchases.recent_purchases('app-buyer')
+            assert len(rows)==1 and rows[0]['item_name']=='Rice' and rows[0]['quantity']==10 and rows[0]['unit_price']==60
+            assert rows[0]['seller_id']=='app-seller' and rows[0]['source_reference']=='1'
+
+            retry=deal_status(DealStatusRequest(user_id='app-buyer',request_id=1,other_user_id='app-seller',status='COMPLETED'),request)
+            assert retry['purchase_memory']['recorded'] is False
+            assert retry['purchase_memory']['reason']=='purchase_memory_already_recorded'
+            assert len(purchases.recent_purchases('app-buyer'))==1
+
+            non_commerce=deal_status(DealStatusRequest(user_id='app-buyer',request_id=2,other_user_id='app-provider',status='COMPLETED'),request)
+            assert non_commerce['purchase_memory']['recorded'] is False
+            assert non_commerce['purchase_memory']['reason']=='not_purchase_memory_domain'
+            assert len(purchases.recent_purchases('app-buyer'))==1
+            print('production in-app COMPLETED -> purchase memory integration passed')
+          finally:
+            db.close(); os.remove(path)
           PY
