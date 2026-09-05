@@ -128,7 +128,8 @@ class ConversationOSRuntimeService:
             f"reason about={','.join(contract.get('reason_about') or [])}; "
             f"allowed actions={','.join(contract.get('allowed_actions') or [])}; "
             f"never force={','.join(contract.get('never_force') or [])}. "
-            "Do not use one global answer template. Ask only relevant missing questions and reason/action according to this domain and the user's actual requirement."
+            "Do not use one global answer template. Ask only relevant missing questions and reason/action according to this domain and the user's actual requirement. "
+            "Do not force commerce/seller logic into non-commerce domains."
         )
         evidence = (state.get("known_fields") or {}).get("oasat_commerce_evidence")
         if evidence is not None:
