@@ -1,0 +1,67 @@
+name: ASKODOX OASAT domain router smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/oasat_domain_router.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - '.github/workflows/oasat-domain-router-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify domain-specific routing and live ConversationOS wiring
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          from app.services.oasat_domain_router import OASATDomainRouter
+          from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
+
+          router = OASATDomainRouter()
+          doc = router.route('Explain this PDF invoice')
+          assert doc['domain'] == 'DOCUMENTS'
+          assert 'MATCHING' in doc['skip_stages']
+          assert doc['adapter'] == 'documents'
+
+          job = router.route('I need a job near Vijayawada')
+          assert job['domain'] == 'JOBS'
+          assert job['adapter'] == 'jobs'
+          assert 'MATCHING' in job['stages']
+
+          doctor = router.route('Need doctor appointment tomorrow')
+          assert doctor['domain'] == 'APPOINTMENTS'
+          assert 'availability' in doctor['required_context']
+
+          buy = router.route('I want to buy rice nearby')
+          assert buy['domain'] in {'FOOD','COMMERCE'}
+          assert buy['adapter'] in {'food','commerce'}
+
+          class Delegate:
+              def __init__(self): self.last = None
+              def process(self, sender_mobile, message):
+                  self.last = message
+                  return 'ok'
+
+          class Ledger:
+              def __init__(self): self.state = None
+              def load_state(self, user_id): return self.state
+              def save_state(self, user_id, state, channel=None): self.state = state
+              def append_turn(self, *args, **kwargs): pass
+
+          d = Delegate(); l = Ledger()
+          runtime = ConversationOSRuntimeService(d, l)
+          assert runtime.process('u1', 'Explain this PDF') == 'ok'
+          assert 'domain=DOCUMENTS' in d.last
+          assert 'Do not force commerce/seller logic' in d.last
+          assert l.state['known_fields']['domain'] == 'DOCUMENTS'
+          assert l.state['known_fields']['oasat_adapter'] == 'documents'
+
+          runtime.process('u1', 'I need a job')
+          assert l.state['known_fields']['domain'] == 'JOBS'
+          assert l.state['known_fields']['oasat_adapter'] == 'jobs'
+          print('universal OASAT routing + ConversationOS wiring passed')
+          PY
