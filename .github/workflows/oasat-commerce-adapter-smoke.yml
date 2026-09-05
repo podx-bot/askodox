@@ -1,0 +1,43 @@
+name: ASKODOX OASAT commerce adapter smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/oasat_commerce_adapter.py'
+      - '.github/workflows/oasat-commerce-adapter-smoke.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify history repeat reasoning and fresh seller comparison together
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os,tempfile
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+          from app.services.oasat_history_context import OASATHistoryContext
+          from app.services.oasat_repeat_purchase_advisor import OASATRepeatPurchaseAdvisor
+          from app.services.oasat_offer_recommendation_service import OASATOfferRecommendationService
+          from app.services.oasat_commerce_adapter import OASATCommerceAdapter
+          fd,path=tempfile.mkstemp(suffix='.db'); os.close(fd)
+          try:
+            repo=PurchaseHistoryRepository(path)
+            repo.add_purchase('u1',item_name='Rice',quantity=10,unit='kg',unit_price=60,seller_name='Old Store',usage_days=30,remaining_status='FINISHED')
+            history=OASATHistoryContext(repo)
+            adapter=OASATCommerceAdapter(OASATRepeatPurchaseAdvisor(history),OASATOfferRecommendationService(history))
+            result=adapter.solve('u1','Rice',target_days=60,local_offers=[
+              {'seller_name':'Old Store','price':62,'verified_seller':True,'exact_variant':True},
+              {'seller_name':'Better Store','price':58,'verified_seller':True,'exact_variant':True,'service_available':True}])
+            assert result['repeat_purchase']['recommended_quantity']==20
+            assert result['offer_recommendation']['best_offer']['seller_name']=='Better Store'
+            assert result['offer_recommendation']['history_comparison']['price_delta_vs_previous']==-2
+            assert 'different_seller_ranked_best' in result['offer_recommendation']['reason_codes']
+            assert result['approval_required_before_action'] is True
+            nofresh=adapter.solve('u1','Rice',target_days=30)
+            assert nofresh['needs_fresh_offers'] is True
+            assert nofresh['offer_recommendation']['best_offer'] is None
+            print('history + repeat quantity + fresh seller/price comparison adapter passed')
+          finally: os.remove(path)
+          PY
