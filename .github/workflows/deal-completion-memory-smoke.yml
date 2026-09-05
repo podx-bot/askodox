@@ -1,0 +1,39 @@
+name: ASKODOX deal completion memory smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/deal_completion_memory_service.py'
+      - 'backend/app/repositories/purchase_history_repository.py'
+      - '.github/workflows/deal-completion-memory-smoke.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify completed deal automatically becomes OASAT purchase memory
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os, tempfile
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+          from app.services.deal_completion_memory_service import DealCompletionMemoryService
+          from app.services.oasat_history_context import OASATHistoryContext
+          fd,path=tempfile.mkstemp(suffix='.db'); os.close(fd)
+          try:
+            repo=PurchaseHistoryRepository(path); writer=DealCompletionMemoryService(repo)
+            pending=writer.record({'deal_id':'d0','status':'MATCHED','domain':'COMMERCE','buyer_id':'u1','subject':'Rice','quantity':10,'unit':'kg','agreed_price':600})
+            assert pending['recorded'] is False and repo.recent_purchases('u1') == []
+            done=writer.record({'deal_id':'d1','status':'CLOSED','domain':'COMMERCE','intent':'BUY','buyer_id':'u1','seller_id':'s1','seller_name':'Local Store','subject':'Rice','quantity':10,'unit':'kg','agreed_price':600,'conversation_rationale':'best current exact offer'})
+            assert done['recorded'] is True
+            memory=repo.latest_item_purchase('u1','Rice')
+            assert memory['quantity']==10 and memory['unit_price']==60 and memory['seller_name']=='Local Store'
+            ctx=OASATHistoryContext(repo).for_item('u1','Rice')
+            assert ctx['has_history'] is True and ctx['last_purchase']['last_unit_price']==60
+            service=writer.record({'deal_id':'d2','status':'CLOSED','domain':'SERVICES','buyer_id':'u1','subject':'Plumber','quantity':1,'unit_price':500})
+            assert service['recorded'] is False
+            print('deal completion -> structured purchase memory -> OASAT recall passed')
+          finally:
+            os.remove(path)
+          PY
