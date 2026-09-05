@@ -62,10 +62,18 @@ class OASATDomainRouter:
         text = " ".join(str(message or "").strip().split()).casefold()
         context = context or {}
         explicit_domain = str(context.get("domain") or "").strip().upper()
-        if explicit_domain in self.PLANS:
+        detected_domain = self._detect_domain(text)
+
+        # A clear domain signal in the current user message must override stale
+        # conversation context. Previous domain is only a fallback for genuine
+        # follow-ups where the new message has no domain signal of its own.
+        if detected_domain != "GENERAL":
+            plan = self.PLANS[detected_domain]
+        elif explicit_domain in self.PLANS:
             plan = self.PLANS[explicit_domain]
         else:
-            plan = self.PLANS[self._detect_domain(text)]
+            plan = self.PLANS["GENERAL"]
+
         result = plan.as_dict()
         result["rule"] = "Use the common OASAT core, but ask/recommend/act only according to this domain plan."
         return result
