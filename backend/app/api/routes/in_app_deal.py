@@ -3,6 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+from app.services.deal_completion_memory_service import DealCompletionMemoryService
+
 router = APIRouter(prefix="/debug", tags=["Debug"])
 
 
@@ -133,6 +136,35 @@ def _accepted_interest(container, request_id: int, user_a: str, user_b: str):
     if str(interest.get("requester_status") or "").upper() != "ACCEPTED":
         raise HTTPException(status_code=409, detail="deal is not accepted yet")
     return demand, interest, buyer, seller
+
+
+def _record_completed_purchase_memory(container, demand: dict, buyer: str, seller: str, request_id: int) -> dict:
+    """Persist one structured purchase-memory row after a real in-app completion.
+
+    The demand row remains authoritative for item/quantity/price. DealCompletionMemoryService
+    applies the commerce/BUY guard and the stable request id makes repeated COMPLETED callbacks
+    idempotent instead of duplicating History/OASAT memory.
+    """
+    service = getattr(container, "deal_completion_memory_service", None)
+    if service is None:
+        purchases = PurchaseHistoryRepository(container.settings.database_path)
+        service = DealCompletionMemoryService(purchases)
+
+    side = str(demand.get("side") or "").strip().upper()
+    return service.record(
+        {
+            "deal_id": request_id,
+            "status": "COMPLETED",
+            "domain": demand.get("domain"),
+            "intent": "BUY" if side == "NEED" else "OFFER",
+            "buyer_id": buyer,
+            "seller_id": seller,
+            "subject": demand.get("subject"),
+            "quantity": demand.get("quantity"),
+            "unit": demand.get("unit"),
+            "unit_price": demand.get("price"),
+        }
+    )
 
 
 @router.post("/interest-action")
@@ -335,7 +367,7 @@ def deal_status(payload: DealStatusRequest, request: Request) -> dict:
     container = request.app.state.container
     actor = _app_user(payload.user_id)
     other = _app_user(payload.other_user_id, "other_user_id")
-    _demand, _interest, buyer, seller = _accepted_interest(container, payload.request_id, actor, other)
+    demand, _interest, buyer, seller = _accepted_interest(container, payload.request_id, actor, other)
     status = payload.status.strip().upper().replace(" ", "_")
     allowed = {
         "NEGOTIATING", "CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY",
@@ -366,8 +398,10 @@ def deal_status(payload: DealStatusRequest, request: Request) -> dict:
         db, payload.request_id, buyer, seller, other,
         "DEAL_STATUS", "Deal status updated", f"Deal is now {status}.", int(cursor.lastrowid),
     )
+    memory = None
     if status == "COMPLETED":
         container.universal_demand_repository.update_status(payload.request_id, "COMPLETED")
+        memory = _record_completed_purchase_memory(container, demand, buyer, seller, payload.request_id)
     elif status == "CANCELLED":
         container.universal_demand_repository.update_status(payload.request_id, "CANCELLED")
 
@@ -377,4 +411,5 @@ def deal_status(payload: DealStatusRequest, request: Request) -> dict:
         "updated_by": actor,
         "recipient_user_id": other,
         "channel": "in_app",
+        "purchase_memory": memory,
     }
