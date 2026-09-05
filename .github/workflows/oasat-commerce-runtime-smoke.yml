@@ -1,0 +1,91 @@
+name: ASKODOX OASAT commerce runtime smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - 'backend/app/services/oasat_commerce_adapter.py'
+      - '.github/workflows/oasat-commerce-runtime-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify commerce evidence reaches actual ConversationOS runtime
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os, tempfile
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+          from app.services.oasat_history_context import OASATHistoryContext
+          from app.services.oasat_repeat_purchase_advisor import OASATRepeatPurchaseAdvisor
+          from app.services.oasat_offer_recommendation_service import OASATOfferRecommendationService
+          from app.services.oasat_commerce_adapter import OASATCommerceAdapter
+          from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
+
+          class Delegate:
+              def __init__(self): self.last = None
+              def process(self, sender_mobile, message):
+                  self.last = message
+                  return 'ok'
+
+          class Ledger:
+              def __init__(self, known):
+                  self.state = {
+                      'user_id': 'u1', 'goal': None, 'active_flow': None,
+                      'active_entity': None, 'known_fields': dict(known),
+                      'missing_fields': [], 'pending_action': None,
+                      'last_bot_message': None, 'last_bot_intent': None,
+                      'expected_reply_type': None, 'last_user_message': None,
+                  }
+              def load_state(self, user_id): return self.state
+              def save_state(self, user_id, state, channel=None): self.state = state
+              def append_turn(self, *args, **kwargs): pass
+
+          fd, path = tempfile.mkstemp(suffix='.db'); os.close(fd)
+          try:
+              repo = PurchaseHistoryRepository(path)
+              repo.add_purchase('u1', item_name='Rice', quantity=10, unit='kg', unit_price=60,
+                                seller_name='Old Store', usage_days=30, remaining_status='FINISHED')
+              history = OASATHistoryContext(repo)
+              commerce = OASATCommerceAdapter(
+                  OASATRepeatPurchaseAdvisor(history),
+                  OASATOfferRecommendationService(history))
+
+              known = {
+                  'item_name': 'Rice', 'target_days': 60,
+                  'local_offers': [
+                      {'seller_name':'Old Store','price':62,'verified_seller':True,'exact_variant':True},
+                      {'seller_name':'Better Store','price':58,'verified_seller':True,'exact_variant':True,'service_available':True},
+                  ],
+              }
+              d = Delegate(); l = Ledger(known)
+              runtime = ConversationOSRuntimeService(d, l, oasat_commerce=commerce)
+              assert runtime.process('u1', 'I want to buy rice nearby') == 'ok'
+              assert 'Structured commerce evidence=' in d.last
+              evidence = l.state['known_fields']['oasat_commerce_evidence']
+              assert evidence['repeat_purchase']['recommended_quantity'] == 20
+              assert evidence['offer_recommendation']['best_offer']['seller_name'] == 'Better Store'
+              assert evidence['offer_recommendation']['history_comparison']['price_delta_vs_previous'] == -2
+              assert evidence['approval_required_before_action'] is True
+
+              d2 = Delegate(); l2 = Ledger({'item_name':'Rice','target_days':30})
+              runtime2 = ConversationOSRuntimeService(d2, l2, oasat_commerce=commerce)
+              assert runtime2.process('u1', 'Buy rice again') == 'ok'
+              evidence2 = l2.state['known_fields']['oasat_commerce_evidence']
+              assert evidence2['needs_fresh_offers'] is True
+              assert evidence2['offer_recommendation']['best_offer'] is None
+              assert 'never present historical prices as current prices' in d2.last
+
+              d3 = Delegate(); l3 = Ledger({'item_name':'Rice'})
+              runtime3 = ConversationOSRuntimeService(d3, l3, oasat_commerce=commerce)
+              assert runtime3.process('u1', 'Explain this PDF') == 'ok'
+              assert 'Structured commerce evidence=' not in d3.last
+              assert 'oasat_commerce_evidence' not in l3.state['known_fields']
+              print('ConversationOS commerce runtime integration passed')
+          finally:
+              os.remove(path)
+          PY
