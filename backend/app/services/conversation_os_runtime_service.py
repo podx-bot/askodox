@@ -45,8 +45,12 @@ class ConversationOSRuntimeService:
 
             current_context = dict(state_dict.get("known_fields") or {})
             oasat_plan = self.oasat_router.route(clean, current_context)
+            extracted_facts = self._extract_request_facts(clean, oasat_plan)
+            if extracted_facts:
+                state_dict = self.merge_engine.merge_state(state_dict, {"known_fields": extracted_facts})
+                current_context = dict(state_dict.get("known_fields") or {})
             reasoning = self.oasat_reasoning.build(oasat_plan, current_context)
-            state_dict = self._merge_followup_facts(state_dict, clean, None, decision.kind)
+            state_dict = self._merge_followup_facts(state_dict, clean, extracted_facts or None, decision.kind)
             commerce_evidence = self._commerce_evidence(user_id, oasat_plan, state_dict)
             known_patch = {
                 "domain": oasat_plan.get("domain"), "oasat_intent": oasat_plan.get("intent"),
@@ -67,12 +71,12 @@ class ConversationOSRuntimeService:
             if decision.kind in {TurnKind.NEW_REQUEST, TurnKind.NEW_TOPIC} and clean:
                 state_dict = self.merge_engine.merge_state(state_dict, {
                     "active_flow": "ACTIVE_CONVERSATION", "active_entity": "current request",
-                    "known_fields": {"request_text": clean, "constraints": [], **known_patch},
+                    "known_fields": {"request_text": clean, "constraints": [], **extracted_facts, **known_patch},
                     "missing_fields": [], "expected_reply_type": None})
             elif not state_dict.get("active_entity") and clean:
                 state_dict = self.merge_engine.merge_state(state_dict, {
                     "active_flow": "ACTIVE_CONVERSATION", "active_entity": "current request",
-                    "known_fields": {"request_text": clean, **known_patch}})
+                    "known_fields": {"request_text": clean, **extracted_facts, **known_patch}})
 
             final_state = self.merge_engine.merge_state(state_dict, {
                 "last_user_message": clean, "last_bot_message": validated,
@@ -85,6 +89,46 @@ class ConversationOSRuntimeService:
             return validated
         except Exception:
             return self._delegate(user_id, clean)
+
+    def _extract_request_facts(self, message: str, plan: Dict[str, Any]) -> Dict[str, Any]:
+        """Advisory natural-language extraction; never blocks the conversation on AI failure."""
+        if self.request_extractor is None or not message:
+            return {}
+        try:
+            extracted = self.request_extractor.extract(message)
+        except Exception:
+            return {}
+        if not extracted or not extracted.get("success"):
+            return {}
+        request = dict(extracted.get("request") or {})
+        if not request:
+            return {}
+
+        facts: Dict[str, Any] = {}
+        aliases = {
+            "subject": "subject", "quantity": "quantity", "unit": "unit",
+            "price": "price", "currency": "currency", "when_text": "when_text",
+            "location_text": "location_text", "side": "side",
+        }
+        for source, target in aliases.items():
+            value = request.get(source)
+            if value not in (None, "", [], {}):
+                facts[target] = value
+        constraints = request.get("constraints")
+        if isinstance(constraints, list) and constraints:
+            facts["constraints"] = [str(x) for x in constraints if str(x).strip()]
+        request_domain = request.get("domain")
+        if request_domain:
+            facts["request_domain"] = request_domain
+        confidence = request.get("confidence")
+        if confidence not in (None, ""):
+            facts["request_extraction_confidence"] = confidence
+
+        oasat_domain = str(plan.get("domain") or "").upper()
+        subject = facts.get("subject")
+        if subject and oasat_domain in {"COMMERCE", "FOOD", "GROCERY"}:
+            facts["item_name"] = subject
+        return facts
 
     def _commerce_evidence(self, user_id: str, plan: Dict[str, Any], state: Dict[str, Any]):
         if self.oasat_commerce is None or str(plan.get("domain") or "").upper() not in {"COMMERCE", "FOOD", "GROCERY"}:
@@ -114,8 +158,11 @@ class ConversationOSRuntimeService:
         constraints = list(known.get("constraints") or [])
         if message and message not in constraints:
             constraints.append(message)
+        patch: Dict[str, Any] = {"constraints": constraints}
+        if request:
+            patch.update(request)
         return self.merge_engine.merge_state(state, {"last_user_message": message,
-                                                       "known_fields": {"constraints": constraints}})
+                                                       "known_fields": patch})
 
     def _planned_message(self, original: str, state: Dict[str, Any], kind: TurnKind,
                          oasat_plan: Dict[str, Any] | None = None,
@@ -150,7 +197,7 @@ class ConversationOSRuntimeService:
 
     @staticmethod
     def _compact_facts(facts: Dict[str, Any]) -> str:
-        preferred = ("request_text", "quantity", "unit", "price", "currency", "variant",
+        preferred = ("request_text", "subject", "item_name", "quantity", "unit", "price", "currency", "variant",
                      "quality", "when_text", "location_text", "side", "domain",
                      "oasat_intent", "oasat_adapter")
         values = [f"{k}={facts[k]}" for k in preferred if facts.get(k) not in (None, "", [], {})]
