@@ -45,6 +45,19 @@ jobs:
               def save_state(self, user_id, state, channel=None): self.state = state
               def append_turn(self, *args, **kwargs): pass
 
+          class Extractor:
+              def extract(self, message):
+                  return {
+                      'success': True,
+                      'status': 'EXTRACTED',
+                      'request': {
+                          'side': 'NEED', 'domain': 'PRODUCT', 'subject': 'Rice',
+                          'quantity': 10, 'unit': 'kg', 'price': None, 'currency': None,
+                          'when_text': None, 'location_text': None,
+                          'constraints': [], 'confidence': 0.98,
+                      },
+                  }
+
           fd, path = tempfile.mkstemp(suffix='.db'); os.close(fd)
           try:
               repo = PurchaseHistoryRepository(path)
@@ -85,7 +98,23 @@ jobs:
               assert runtime3.process('u1', 'Explain this PDF') == 'ok'
               assert 'Structured commerce evidence=' not in d3.last
               assert 'oasat_commerce_evidence' not in l3.state['known_fields']
-              print('ConversationOS commerce runtime integration passed')
+
+              # First-turn natural language: no pre-seeded item or quantity.
+              d4 = Delegate(); l4 = Ledger({})
+              runtime4 = ConversationOSRuntimeService(
+                  d4, l4, request_extractor=Extractor(), oasat_commerce=commerce)
+              assert runtime4.process('u1', 'Buy 10 kg rice again') == 'ok'
+              facts4 = l4.state['known_fields']
+              assert facts4['subject'] == 'Rice'
+              assert facts4['item_name'] == 'Rice'
+              assert facts4['quantity'] == 10
+              assert facts4['unit'] == 'kg'
+              assert facts4['request_domain'] == 'PRODUCT'
+              assert facts4['request_extraction_confidence'] == 0.98
+              assert facts4['oasat_commerce_evidence']['item_name'] == 'Rice'
+              assert facts4['oasat_commerce_evidence']['needs_fresh_offers'] is True
+              assert 'Structured commerce evidence=' in d4.last
+              print('ConversationOS commerce runtime + first-turn extraction passed')
           finally:
               os.remove(path)
           PY
