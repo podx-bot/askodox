@@ -18,7 +18,7 @@ class ConversationOSRuntimeService:
                  topic_resolver: ConversationTopicResolver | None = None,
                  oasat_router: OASATDomainRouter | None = None,
                  oasat_reasoning: OASATDomainReasoningService | None = None,
-                 channel: str = "whatsapp") -> None:
+                 oasat_commerce=None, channel: str = "whatsapp") -> None:
         self.delegate = delegate
         self.ledger = ledger_repository
         self.request_extractor = request_extractor
@@ -27,6 +27,7 @@ class ConversationOSRuntimeService:
         self.topic_resolver = topic_resolver or ConversationTopicResolver()
         self.oasat_router = oasat_router or OASATDomainRouter()
         self.oasat_reasoning = oasat_reasoning or OASATDomainReasoningService()
+        self.oasat_commerce = oasat_commerce
         self.channel = str(channel or "whatsapp")
 
     def process(self, sender_mobile: str, message: str) -> str:
@@ -46,13 +47,17 @@ class ConversationOSRuntimeService:
             oasat_plan = self.oasat_router.route(clean, current_context)
             reasoning = self.oasat_reasoning.build(oasat_plan, current_context)
             state_dict = self._merge_followup_facts(state_dict, clean, None, decision.kind)
-            state_dict = self.merge_engine.merge_state(state_dict, {"known_fields": {
+            commerce_evidence = self._commerce_evidence(user_id, oasat_plan, state_dict)
+            known_patch = {
                 "domain": oasat_plan.get("domain"), "oasat_intent": oasat_plan.get("intent"),
                 "oasat_adapter": oasat_plan.get("adapter"), "oasat_stages": oasat_plan.get("stages"),
                 "oasat_questions": reasoning.get("questions"),
                 "oasat_reason_about": reasoning.get("reason_about"),
                 "oasat_allowed_actions": reasoning.get("allowed_actions"),
-            }})
+            }
+            if commerce_evidence is not None:
+                known_patch["oasat_commerce_evidence"] = commerce_evidence
+            state_dict = self.merge_engine.merge_state(state_dict, {"known_fields": known_patch})
             routed_message = self._planned_message(clean, state_dict, decision.kind, oasat_plan, reasoning)
             reply = self._delegate(user_id, routed_message)
             validated = self.kernel.validate_reply(decision, reply)
@@ -62,21 +67,12 @@ class ConversationOSRuntimeService:
             if decision.kind in {TurnKind.NEW_REQUEST, TurnKind.NEW_TOPIC} and clean:
                 state_dict = self.merge_engine.merge_state(state_dict, {
                     "active_flow": "ACTIVE_CONVERSATION", "active_entity": "current request",
-                    "known_fields": {"request_text": clean, "constraints": [],
-                        "domain": oasat_plan.get("domain"), "oasat_intent": oasat_plan.get("intent"),
-                        "oasat_adapter": oasat_plan.get("adapter"), "oasat_stages": oasat_plan.get("stages"),
-                        "oasat_questions": reasoning.get("questions"),
-                        "oasat_reason_about": reasoning.get("reason_about"),
-                        "oasat_allowed_actions": reasoning.get("allowed_actions")},
+                    "known_fields": {"request_text": clean, "constraints": [], **known_patch},
                     "missing_fields": [], "expected_reply_type": None})
             elif not state_dict.get("active_entity") and clean:
                 state_dict = self.merge_engine.merge_state(state_dict, {
                     "active_flow": "ACTIVE_CONVERSATION", "active_entity": "current request",
-                    "known_fields": {"request_text": clean, "domain": oasat_plan.get("domain"),
-                        "oasat_intent": oasat_plan.get("intent"), "oasat_adapter": oasat_plan.get("adapter"),
-                        "oasat_stages": oasat_plan.get("stages"), "oasat_questions": reasoning.get("questions"),
-                        "oasat_reason_about": reasoning.get("reason_about"),
-                        "oasat_allowed_actions": reasoning.get("allowed_actions")}})
+                    "known_fields": {"request_text": clean, **known_patch}})
 
             final_state = self.merge_engine.merge_state(state_dict, {
                 "last_user_message": clean, "last_bot_message": validated,
@@ -89,6 +85,20 @@ class ConversationOSRuntimeService:
             return validated
         except Exception:
             return self._delegate(user_id, clean)
+
+    def _commerce_evidence(self, user_id: str, plan: Dict[str, Any], state: Dict[str, Any]):
+        if self.oasat_commerce is None or str(plan.get("domain") or "").upper() not in {"COMMERCE", "FOOD", "GROCERY"}:
+            return None
+        facts = state.get("known_fields") or {}
+        item = facts.get("item_name") or facts.get("item") or facts.get("product")
+        if not item:
+            return None
+        target_days = facts.get("target_days")
+        local_offers = facts.get("local_offers") or []
+        online_offers = facts.get("online_offers") or []
+        return self.oasat_commerce.solve(user_id, str(item), target_days=target_days,
+                                         local_offers=local_offers, online_offers=online_offers,
+                                         urgency=str(facts.get("urgency") or "NORMAL"))
 
     def _delegate(self, user_id: str, message: str) -> str:
         try:
@@ -120,6 +130,9 @@ class ConversationOSRuntimeService:
             f"never force={','.join(contract.get('never_force') or [])}. "
             "Do not use one global answer template. Ask only relevant missing questions and reason/action according to this domain and the user's actual requirement."
         )
+        evidence = (state.get("known_fields") or {}).get("oasat_commerce_evidence")
+        if evidence is not None:
+            domain_instruction += f" Structured commerce evidence={evidence}. Use it as evidence; never present historical prices as current prices."
         if kind not in {TurnKind.UPDATE_EXISTING, TurnKind.CLARIFICATION, TurnKind.QUESTION, TurnKind.CONFIRMATION}:
             return f"{domain_instruction} User request: {original}"
         entity = str(state.get("active_entity") or "current request")
