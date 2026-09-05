@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify non-commerce domains through live ConversationOS runtime
+      - name: Verify universal domains, switching, and general fallback through ConversationOS
         working-directory: backend
         run: |
           python - <<'PY'
@@ -30,8 +30,11 @@ jobs:
               'Need doctor appointment': ('APPOINTMENTS', 'specialty_or_need', 'book_after_approval', None),
               'Need a plumber service': ('SERVICES', 'problem', 'match_service_provider', None),
               'Need a ride to airport': ('RIDES', 'pickup', 'match_ride', None),
+              'Plan food for ten relatives': ('FOOD', 'people_or_quantity', 'suggest_food_plan', None),
               'Research the best solar options': ('RESEARCH', 'topic', 'research', 'seller_matching'),
               'Remind me tomorrow to pay bill': ('REMINDERS', 'task', 'schedule_after_approval', None),
+              'I want to buy a laptop': ('COMMERCE', 'item', 'compare_offers', None),
+              'Help me decide what to do next': ('GENERAL', 'goal', 'suggest_next_step', None),
           }
 
           class Delegate:
@@ -62,7 +65,27 @@ jobs:
               assert f'OASAT domain={domain}' in d.last, (message, d.last)
               assert action in d.last, (message, d.last)
               assert 'Do not force commerce/seller logic into non-commerce domains.' in d.last
-              assert 'oasat_commerce_evidence' not in known, (message, known)
+              if domain not in {'COMMERCE','FOOD'}:
+                  assert 'oasat_commerce_evidence' not in known, (message, known)
 
-          print('documents/jobs/appointments/services/rides/research/reminders -> ConversationOS OASAT contracts passed')
+          # Same conversation must switch away from stale persisted domain when the
+          # current message has a clear new-domain signal.
+          d=Delegate(); l=Ledger(); runtime=ConversationOSRuntimeService(d,l)
+          runtime.process('switch-user', 'I want to buy a laptop')
+          assert l.state['known_fields']['domain'] == 'COMMERCE'
+          runtime.process('switch-user', 'Explain this PDF')
+          assert l.state['known_fields']['domain'] == 'DOCUMENTS'
+          assert 'OASAT domain=DOCUMENTS' in d.last
+          assert 'seller_matching' in d.last
+          runtime.process('switch-user', 'Need doctor appointment')
+          assert l.state['known_fields']['domain'] == 'APPOINTMENTS'
+          assert 'book_after_approval' in d.last
+
+          # A genuine follow-up with no new domain signal should retain the active
+          # domain instead of falling back to an unrelated global template.
+          runtime.process('switch-user', 'tomorrow morning')
+          assert l.state['known_fields']['domain'] == 'APPOINTMENTS'
+          assert 'OASAT domain=APPOINTMENTS' in d.last
+
+          print('all OASAT domains + cross-domain switching + follow-up fallback passed')
           PY
