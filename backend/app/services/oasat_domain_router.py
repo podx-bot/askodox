@@ -45,6 +45,21 @@ class OASATDomainRouter:
         "COMMERCE": ("buy", "seller", "shop", "price", "rate", "కొనాలి", "సెల్లర్", "ధర", "రేట్"),
     }
 
+    # Action intents must win over incidental nouns from the task payload.
+    # Example: "Remind me tomorrow to pay bill" is a reminder request; "bill"
+    # describes the task and must not reroute it to DOCUMENTS.
+    DOMAIN_PRIORITY = (
+        "REMINDERS",
+        "APPOINTMENTS",
+        "RIDES",
+        "JOBS",
+        "SERVICES",
+        "RESEARCH",
+        "FOOD",
+        "COMMERCE",
+        "DOCUMENTS",
+    )
+
     PLANS = {
         "DOCUMENTS": OASATDomainPlan("DOCUMENTS", "UNDERSTAND_FILE", ("SITUATION", "REASONING", "ANSWER"), "documents", ("file_content",), ("MATCHING", "SELLER_COMPARISON")),
         "JOBS": OASATDomainPlan("JOBS", "MATCH_JOB", ("SITUATION", "REQUIREMENTS", "REASONING", "MATCHING", "APPROVAL", "ACTION"), "jobs", ("skills", "experience", "location")),
@@ -79,7 +94,8 @@ class OASATDomainRouter:
         return result
 
     def _detect_domain(self, text: str) -> str:
-        for domain, markers in self.DOMAIN_MARKERS.items():
+        for domain in self.DOMAIN_PRIORITY:
+            markers = self.DOMAIN_MARKERS[domain]
             if any(marker in text for marker in markers):
                 return domain
         return "GENERAL"
