@@ -1,0 +1,65 @@
+name: user-memory-smoke
+
+on:
+  push:
+    paths:
+      - 'backend/app/repositories/user_memory_repository.py'
+      - 'backend/app/services/user_memory_service.py'
+      - 'backend/app/services/marketplace_conversation_service.py'
+      - '.github/workflows/user-memory-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify persistent user memory
+        run: |
+          python - <<'PY'
+          import os
+          import tempfile
+
+          from app.repositories.user_memory_repository import UserMemoryRepository
+          from app.services.user_memory_service import UserMemoryService
+
+          fd, path = tempfile.mkstemp(suffix='.db')
+          os.close(fd)
+          try:
+              repo = UserMemoryRepository(path)
+              service = UserMemoryService(repo)
+
+              saved = service.process('u1', 'Remember that I prefer Telugu replies')
+              assert 'Remembered:' in saved
+
+              # Re-open from disk to prove cross-session persistence.
+              repo2 = UserMemoryRepository(path)
+              service2 = UserMemoryService(repo2)
+              recalled = service2.process('u1', 'What do you remember about me')
+              assert 'I prefer Telugu replies' in recalled
+
+              # User isolation: another user must not see u1 memory.
+              empty = service2.process('u2', 'What do you remember about me')
+              assert 'don\'t have any saved long-term memory' in empty
+
+              forgotten = service2.process('u1', 'Forget Telugu replies')
+              assert 'Forgotten:' in forgotten
+              after = service2.process('u1', 'What do you remember about me')
+              assert 'don\'t have any saved long-term memory' in after
+
+              service2.process('u1', 'Remember that I like concise answers')
+              cleared = service2.process('u1', 'Clear my memory')
+              assert 'Cleared 1 saved memory item' in cleared
+              print('user memory smoke passed')
+          finally:
+              try:
+                  os.remove(path)
+              except OSError:
+                  pass
+          PY
