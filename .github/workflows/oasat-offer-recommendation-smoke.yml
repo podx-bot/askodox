@@ -1,0 +1,54 @@
+name: ASKODOX OASAT offer recommendation smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/repositories/purchase_history_repository.py'
+      - 'backend/app/services/oasat_history_context.py'
+      - 'backend/app/services/buyer_intelligence_service.py'
+      - 'backend/app/services/oasat_offer_recommendation_service.py'
+      - '.github/workflows/oasat-offer-recommendation-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify history-aware current offer recommendation
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os, tempfile
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+          from app.services.oasat_history_context import OASATHistoryContext
+          from app.services.oasat_offer_recommendation_service import OASATOfferRecommendationService
+
+          fd, path = tempfile.mkstemp(suffix='.db')
+          os.close(fd)
+          try:
+              repo = PurchaseHistoryRepository(path)
+              repo.add_purchase(
+                  'u1', item_name='Rice', quantity=10, unit='kg', unit_price=60,
+                  seller_name='Old Local Store', usage_days=30,
+                  remaining_status='FINISHED', repeat_cycle_days=30,
+              )
+              service = OASATOfferRecommendationService(OASATHistoryContext(repo))
+              result = service.recommend(
+                  'u1', 'Rice',
+                  local_offers=[
+                      {'seller_name':'Old Local Store','price':62,'verified_seller':True,'exact_variant':True},
+                      {'seller_name':'Better Local Store','price':58,'verified_seller':True,'exact_variant':True,'service_available':True},
+                  ],
+              )
+              assert result['history']['has_history'] is True
+              assert result['best_offer']['seller_name'] == 'Better Local Store'
+              assert result['history_comparison']['price_delta_vs_previous'] == -2.0
+              assert 'current_price_lower_than_previous' in result['reason_codes']
+              assert 'different_seller_ranked_best' in result['reason_codes']
+              assert result['recommendation'] == 'BUY_LOCAL'
+          finally:
+              try: os.remove(path)
+              except FileNotFoundError: pass
+          PY
