@@ -1,0 +1,55 @@
+name: ASKODOX OASAT domain reasoning smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/oasat_domain_reasoning_service.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - '.github/workflows/oasat-domain-reasoning-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify different domains use different reasoning and actions
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          from app.services.oasat_domain_router import OASATDomainRouter
+          from app.services.oasat_domain_reasoning_service import OASATDomainReasoningService
+          from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
+
+          router = OASATDomainRouter(); reasoning = OASATDomainReasoningService()
+          doc = reasoning.build(router.route('Explain this PDF'))
+          job = reasoning.build(router.route('I need a job'))
+          doctor = reasoning.build(router.route('Need doctor appointment'))
+          shop = reasoning.build(router.route('I want to buy rice'))
+          assert 'file_content' in doc['reason_about'] and 'seller_matching' in doc['never_force']
+          assert 'role_fit' in job['reason_about'] and 'match_jobs' in job['allowed_actions']
+          assert 'available_slots' in doctor['reason_about'] and 'book_after_approval' in doctor['allowed_actions']
+          assert 'price' in shop['reason_about'] and ('compare_offers' in shop['allowed_actions'] or 'compare_sources' in shop['allowed_actions'])
+          assert doc['allowed_actions'] != job['allowed_actions'] != doctor['allowed_actions']
+
+          class Delegate:
+              def __init__(self): self.last = ''
+              def process(self, sender_mobile, message): self.last = message; return 'ok'
+          class Ledger:
+              def __init__(self): self.state = None
+              def load_state(self, user_id): return self.state
+              def save_state(self, user_id, state, channel=None): self.state = state
+              def append_turn(self, *args, **kwargs): pass
+
+          d=Delegate(); l=Ledger(); runtime=ConversationOSRuntimeService(d,l)
+          assert runtime.process('u1','Explain this PDF') == 'ok'
+          assert 'Domain questions=document_goal' in d.last
+          assert 'never force=seller_matching,price_comparison' in d.last
+          assert l.state['known_fields']['oasat_allowed_actions'] == ['explain','extract','summarize','compare_document_data']
+          runtime.process('u1','Need doctor appointment')
+          assert 'Domain questions=specialty_or_need,urgency,location,availability' in d.last
+          assert 'book_after_approval' in d.last
+          assert l.state['known_fields']['domain'] == 'APPOINTMENTS'
+          print('domain-specific OASAT reasoning + ConversationOS wiring passed')
+          PY
