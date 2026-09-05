@@ -1,0 +1,83 @@
+name: ASKODOX OASAT repeat purchase smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/app/repositories/purchase_history_repository.py
+      - backend/app/services/oasat_history_context.py
+      - backend/app/services/oasat_repeat_purchase_advisor.py
+      - .github/workflows/oasat-repeat-purchase-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - backend/app/repositories/purchase_history_repository.py
+      - backend/app/services/oasat_history_context.py
+      - backend/app/services/oasat_repeat_purchase_advisor.py
+      - .github/workflows/oasat-repeat-purchase-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repeat-purchase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify OASAT repeat purchase reasoning
+        env:
+          PYTHONPATH: backend
+        run: |
+          python - <<'PY'
+          import tempfile
+
+          from app.repositories.purchase_history_repository import PurchaseHistoryRepository
+          from app.services.oasat_history_context import OASATHistoryContext
+          from app.services.oasat_repeat_purchase_advisor import OASATRepeatPurchaseAdvisor
+
+          with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+              repo = PurchaseHistoryRepository(tmp.name)
+              advisor = OASATRepeatPurchaseAdvisor(OASATHistoryContext(repo))
+
+              repo.add_purchase(
+                  'buyer-1',
+                  item_name='rice',
+                  quantity=10,
+                  unit='kg',
+                  unit_price=55,
+                  seller_name='Demo Grocery',
+                  usage_days=30,
+                  remaining_status='FINISHED',
+                  repeat_cycle_days=30,
+                  preference_note='same brand',
+                  conversation_rationale='monthly household grocery',
+              )
+              rec = advisor.recommend('buyer-1', 'rice', target_days=60, current_unit_price=58)
+              assert rec['recommendation_status'] == 'RECOMMENDED_FROM_USAGE_HISTORY', rec
+              assert rec['recommended_quantity'] == 20.0, rec
+              assert rec['estimated_total'] == 1160.0, rec
+              assert rec['unit_price_change'] == 3.0, rec
+
+              repo.add_purchase(
+                  'buyer-2',
+                  item_name='oil',
+                  quantity=5,
+                  unit='L',
+                  unit_price=140,
+                  remaining_status='REMAINING',
+              )
+              rec2 = advisor.recommend('buyer-2', 'oil', target_days=60)
+              assert rec2['recommendation_status'] == 'DO_NOT_AUTO_INCREASE', rec2
+              assert rec2['recommended_quantity'] == 5.0, rec2
+
+              rec3 = advisor.recommend('buyer-3', 'sugar', target_days=30)
+              assert rec3['has_history'] is False, rec3
+              assert rec3['recommendation_status'] == 'NEED_CURRENT_REQUIREMENTS', rec3
+
+          print('OASAT repeat purchase reasoning passed')
+          PY
