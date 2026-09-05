@@ -1,0 +1,68 @@
+name: OASAT Live Research Smoke
+
+on:
+  push:
+    paths:
+      - 'backend/app/services/oasat_live_research_service.py'
+      - '.github/workflows/oasat-live-research-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify research evidence contract
+        run: |
+          python - <<'PY'
+          from datetime import datetime, timedelta, timezone
+          from app.services.oasat_live_research_service import OASATLiveResearchService
+
+          now = datetime.now(timezone.utc)
+          def provider(query, limit):
+              return [
+                  {
+                      'title':'Official update',
+                      'url':'https://example.gov/latest',
+                      'snippet':'Primary evidence',
+                      'published_at': now.isoformat(),
+                      'source_type':'official',
+                  },
+                  {
+                      'title':'News analysis',
+                      'url':'https://news.example/story',
+                      'snippet':'Secondary evidence',
+                      'published_at': (now - timedelta(days=2)).isoformat(),
+                      'source_type':'news',
+                  },
+                  {
+                      'title':'Old page',
+                      'url':'https://old.example/page',
+                      'snippet':'Stale evidence',
+                      'published_at': (now - timedelta(days=90)).isoformat(),
+                      'source_type':'web',
+                  },
+                  {
+                      'title':'Duplicate',
+                      'url':'https://example.gov/latest',
+                      'snippet':'Duplicate URL',
+                      'published_at': now.isoformat(),
+                      'source_type':'official',
+                  },
+              ]
+
+          result = OASATLiveResearchService(provider).research('latest policy update', max_age_days=30)
+          assert result['live_research'] is True
+          assert result['source_count'] == 2, result
+          assert result['sources'][0]['source_type'] == 'official', result
+          assert result['citation_map']['S1'] == 'https://example.gov/latest'
+          assert result['conflicts_present'] is True
+          assert all('old.example' not in s['url'] for s in result['sources'])
+          print('OASAT live research evidence smoke: PASS')
+          PY
