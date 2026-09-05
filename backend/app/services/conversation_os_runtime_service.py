@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from app.services.conversation_kernel import ConversationKernel, ConversationState, TurnKind
 from app.services.conversation_state_merge_engine import ConversationStateMergeEngine
 from app.services.conversation_topic_resolver import ConversationTopicResolver
+from app.services.oasat_domain_router import OASATDomainRouter
 
 
 class ConversationOSRuntimeService:
@@ -23,6 +24,7 @@ class ConversationOSRuntimeService:
         kernel: ConversationKernel | None = None,
         merge_engine: ConversationStateMergeEngine | None = None,
         topic_resolver: ConversationTopicResolver | None = None,
+        oasat_router: OASATDomainRouter | None = None,
         channel: str = "whatsapp",
     ) -> None:
         self.delegate = delegate
@@ -31,6 +33,7 @@ class ConversationOSRuntimeService:
         self.kernel = kernel or ConversationKernel()
         self.merge_engine = merge_engine or ConversationStateMergeEngine()
         self.topic_resolver = topic_resolver or ConversationTopicResolver()
+        self.oasat_router = oasat_router or OASATDomainRouter()
         self.channel = str(channel or "whatsapp")
 
     def process(self, sender_mobile: str, message: str) -> str:
@@ -40,8 +43,6 @@ class ConversationOSRuntimeService:
             state_dict = self.ledger.load_state(user_id) or self._blank_state(user_id)
             state = self._state_from_dict(user_id, state_dict)
 
-            # Never require semantic extraction to create a reply. On the WhatsApp
-            # hot path, continuity is resolved from durable state + raw prior turn.
             topic = self.topic_resolver.resolve(state.active_entity, clean, None)
             decision = self.kernel.resolve(user_id, clean, state)
             if topic == "CONTINUE" and state.active_entity and decision.kind == TurnKind.NEW_REQUEST:
@@ -49,17 +50,26 @@ class ConversationOSRuntimeService:
                 decision.next_action = "merge_active_state"
                 decision.confidence = max(decision.confidence, 0.88)
 
+            current_context = dict(state_dict.get("known_fields") or {})
+            oasat_plan = self.oasat_router.route(clean, current_context)
             state_dict = self._merge_followup_facts(state_dict, clean, None, decision.kind)
-            routed_message = self._planned_message(clean, state_dict, decision.kind)
+            state_dict = self.merge_engine.merge_state(
+                state_dict,
+                {
+                    "known_fields": {
+                        "domain": oasat_plan.get("domain"),
+                        "oasat_intent": oasat_plan.get("intent"),
+                        "oasat_adapter": oasat_plan.get("adapter"),
+                        "oasat_stages": oasat_plan.get("stages"),
+                    }
+                },
+            )
+            routed_message = self._planned_message(clean, state_dict, decision.kind, oasat_plan)
             reply = self._delegate(user_id, routed_message)
             validated = self.kernel.validate_reply(decision, reply)
             if validated is None:
                 validated = str(self._delegate(user_id, clean) or "").strip()
 
-            # A new request must replace the durable request anchor. Otherwise a
-            # correctly routed new turn can still leave the previous subject in
-            # memory and poison the following message. Keep the generic active
-            # conversation envelope, but reset request-specific remembered facts.
             if decision.kind in {TurnKind.NEW_REQUEST, TurnKind.NEW_TOPIC} and clean:
                 state_dict = self.merge_engine.merge_state(
                     state_dict,
@@ -69,21 +79,28 @@ class ConversationOSRuntimeService:
                         "known_fields": {
                             "request_text": clean,
                             "constraints": [],
+                            "domain": oasat_plan.get("domain"),
+                            "oasat_intent": oasat_plan.get("intent"),
+                            "oasat_adapter": oasat_plan.get("adapter"),
+                            "oasat_stages": oasat_plan.get("stages"),
                         },
                         "missing_fields": [],
                         "expected_reply_type": None,
                     },
                 )
-            # A successful first turn becomes the durable conversation anchor even
-            # without an extra model call. This is enough for short follow-ups such
-            # as "బోన్లెస్ కావాలి" and "రేట్ ఎంత?" to retain the original request.
             elif not state_dict.get("active_entity") and clean:
                 state_dict = self.merge_engine.merge_state(
                     state_dict,
                     {
                         "active_flow": "ACTIVE_CONVERSATION",
                         "active_entity": "current request",
-                        "known_fields": {"request_text": clean},
+                        "known_fields": {
+                            "request_text": clean,
+                            "domain": oasat_plan.get("domain"),
+                            "oasat_intent": oasat_plan.get("intent"),
+                            "oasat_adapter": oasat_plan.get("adapter"),
+                            "oasat_stages": oasat_plan.get("stages"),
+                        },
                     },
                 )
 
@@ -110,7 +127,6 @@ class ConversationOSRuntimeService:
             )
             return validated
         except Exception:
-            # Memory is a reliability layer, never a single point of failure.
             return self._delegate(user_id, clean)
 
     def _delegate(self, user_id: str, message: str) -> str:
@@ -136,15 +152,27 @@ class ConversationOSRuntimeService:
         patch["known_fields"] = {"constraints": constraints}
         return self.merge_engine.merge_state(state, patch)
 
-    def _planned_message(self, original: str, state: Dict[str, Any], kind: TurnKind) -> str:
+    def _planned_message(
+        self,
+        original: str,
+        state: Dict[str, Any],
+        kind: TurnKind,
+        oasat_plan: Dict[str, Any] | None = None,
+    ) -> str:
+        plan = oasat_plan or {}
+        domain_instruction = (
+            f"OASAT domain={plan.get('domain', 'GENERAL')}; adapter={plan.get('adapter', 'general')}; "
+            f"intent={plan.get('intent', 'ASSIST')}; stages={','.join(plan.get('stages') or [])}. "
+            "Do not force commerce/seller logic when it does not apply; use only domain-relevant questions, reasoning and actions."
+        )
         if kind not in {TurnKind.UPDATE_EXISTING, TurnKind.CLARIFICATION, TurnKind.QUESTION, TurnKind.CONFIRMATION}:
-            return original
+            return f"{domain_instruction} User request: {original}"
         entity = str(state.get("active_entity") or "current request")
         facts = state.get("known_fields") or {}
         fact_text = self._compact_facts(facts)
         previous_user = str(facts.get("request_text") or "").strip()
         previous_bot = str(state.get("last_bot_message") or "").strip()
-        pieces = [f"Continue the existing {entity}."]
+        pieces = [domain_instruction, f"Continue the existing {entity}."]
         if previous_user:
             pieces.append(f"Original user request: {previous_user}")
         if fact_text:
@@ -159,6 +187,7 @@ class ConversationOSRuntimeService:
         preferred = (
             "request_text", "quantity", "unit", "price", "currency", "variant",
             "quality", "when_text", "location_text", "side", "domain",
+            "oasat_intent", "oasat_adapter",
         )
         values = []
         for key in preferred:
