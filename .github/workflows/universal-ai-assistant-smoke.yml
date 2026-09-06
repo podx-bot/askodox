@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - 'backend/app/services/universal_ai_assistant_service.py'
+      - 'backend/app/services/runtime_readiness_service.py'
+      - 'backend/app/core/settings.py'
       - 'backend/app/api/app_factory.py'
+      - 'backend/app/api/routes/health.py'
       - '.github/workflows/universal-ai-assistant-smoke.yml'
   workflow_dispatch:
 
@@ -26,6 +29,7 @@ jobs:
           python - <<'PY'
           from types import SimpleNamespace
 
+          from app.services.runtime_readiness_service import RuntimeReadinessService
           from app.services.universal_ai_assistant_service import UniversalAIAssistantService
 
           class Delegate:
@@ -55,7 +59,7 @@ jobs:
           service = UniversalAIAssistantService(
               delegate,
               api_key='test-key',
-              model='gemini-test',
+              model='gemini-text-test',
               client=Client(models),
           )
 
@@ -64,26 +68,36 @@ jobs:
           assert answer == 'తెలుగులో సహాయం'
           assert len(models.calls) == 1
           call = models.calls[0]
-          assert call['model'] == 'gemini-test'
+          assert call['model'] == 'gemini-text-test'
           assert 'same language' in call['contents']
           assert 'Do not pretend you checked live/current web information' in call['contents']
 
-          # Domain-specific flows must not be swallowed by the generic assistant.
           commerce = 'OASAT domain=COMMERCE; adapter=commerce; User request: Buy chicken nearby'
           assert service.process('u1', commerce).startswith('DELEGATE:')
           assert len(models.calls) == 1
 
-          # No key/client => deterministic delegate fallback.
-          fallback = UniversalAIAssistantService(delegate, api_key='', model='gemini-test')
+          fallback = UniversalAIAssistantService(delegate, api_key='', model='gemini-text-test')
           assert fallback.process('u2', general).startswith('DELEGATE:')
 
-          # Provider failure => delegate; never break the conversation.
           failing = UniversalAIAssistantService(
               delegate,
               api_key='test-key',
-              model='gemini-test',
+              model='gemini-text-test',
               client=Client(Models(fail=True)),
           )
           assert failing.process('u3', general).startswith('DELEGATE:')
+
+          ready_settings = SimpleNamespace(
+              whatsapp_access_token='x', whatsapp_phone_number_id='y', whatsapp_webhook_verify_token='z',
+              sarvam_api_key='', gemini_api_key='gemini-key', gemini_text_model='gemini-text-test',
+              openai_api_key='', voice_reply_enabled=False, google_maps_api_key='', brave_search_api_key='brave-key')
+          readiness = RuntimeReadinessService(ready_settings).check()
+          assert readiness.universal_ai_ready is True
+
+          no_text_model = SimpleNamespace(**{**ready_settings.__dict__, 'gemini_text_model': ''})
+          degraded = RuntimeReadinessService(no_text_model).check()
+          assert degraded.universal_ai_ready is False
+          assert any('Universal AI assistant' in warning for warning in degraded.warnings)
+
           print('universal AI assistant smoke passed')
           PY
