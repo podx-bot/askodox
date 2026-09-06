@@ -12,6 +12,7 @@ from app.repositories.conversation_observability_repository import ConversationO
 from app.repositories.conversation_turn_ledger_repository import ConversationTurnLedgerRepository
 from app.repositories.driver_kyc_repository import DriverKYCRepository
 from app.repositories.podx_meet_repository import PodxMeetRepository
+from app.repositories.user_memory_repository import UserMemoryRepository
 from app.services.admin_monitoring_runtime_service import AdminMonitoringRuntimeService
 from app.services.admin_monitoring_service import AdminMonitoringService
 from app.services.brave_web_search_provider import BraveWebSearchProvider
@@ -35,6 +36,7 @@ from app.services.runtime_complaint_prevention_service import RuntimeComplaintPr
 from app.services.universal_category_flow_brain import UniversalCategoryFlowBrain
 from app.services.universal_correction_service import UniversalCorrectionService
 from app.services.universal_profile_summary_service import UniversalProfileSummaryService
+from app.services.user_memory_service import UserMemoryService
 
 
 def create_app() -> FastAPI:
@@ -164,11 +166,17 @@ def create_app() -> FastAPI:
     container.oasat_deep_research_service = deep_research
     container.live_research_aware_conversation_service = research_aware
 
+    user_memory_repository = UserMemoryRepository(container.settings.database_path)
+    user_memory_service = UserMemoryService(user_memory_repository)
+    container.user_memory_repository = user_memory_repository
+    container.user_memory_service = user_memory_service
+
     conversation_os_ledger = ConversationTurnLedgerRepository(container.settings.database_path)
     conversation_os = ConversationOSRuntimeService(
         delegate=research_aware,
         ledger_repository=conversation_os_ledger,
         request_extractor=None,
+        user_memory_service=user_memory_service,
         channel="whatsapp",
     )
     container.conversation_turn_ledger_repository = conversation_os_ledger
