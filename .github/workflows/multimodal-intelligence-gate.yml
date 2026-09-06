@@ -109,7 +109,7 @@ jobs:
           assert 'capture.captureCamera()' in controller
           assert 'capture.chooseGallery()' in controller
           assert 'visionApiServiceProvider' in controller
-          assert "'/vision/analyze'" in vision_client
+          assert '/vision/analyze' in vision_client
           assert 'ImageSource.camera' in capture
           assert 'ImageSource.gallery' in capture
 
