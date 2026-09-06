@@ -6,6 +6,8 @@ on:
       - 'backend/app/repositories/user_memory_repository.py'
       - 'backend/app/services/user_memory_service.py'
       - 'backend/app/services/marketplace_conversation_service.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - 'backend/app/api/app_factory.py'
       - '.github/workflows/user-memory-smoke.yml'
   workflow_dispatch:
 
@@ -20,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Verify persistent user memory
+      - name: Verify persistent and contextual user memory
         run: |
           python - <<'PY'
           import os
@@ -28,6 +30,24 @@ jobs:
 
           from app.repositories.user_memory_repository import UserMemoryRepository
           from app.services.user_memory_service import UserMemoryService
+          from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
+
+          class FakeLedger:
+              def __init__(self):
+                  self.state = {}
+              def load_state(self, user_id):
+                  return self.state.get(user_id)
+              def save_state(self, user_id, state, channel='whatsapp'):
+                  self.state[user_id] = state
+              def append_turn(self, *args, **kwargs):
+                  return None
+
+          class CaptureDelegate:
+              def __init__(self):
+                  self.last_message = None
+              def process(self, sender_mobile, message):
+                  self.last_message = message
+                  return 'Context-aware answer'
 
           fd, path = tempfile.mkstemp(suffix='.db')
           os.close(fd)
@@ -48,15 +68,52 @@ jobs:
               empty = service2.process('u2', 'What do you remember about me')
               assert 'don\'t have any saved long-term memory' in empty
 
-              forgotten = service2.process('u1', 'Forget Telugu replies')
-              assert 'Forgotten:' in forgotten
-              after = service2.process('u1', 'What do you remember about me')
-              assert 'don\'t have any saved long-term memory' in after
+              # Production Conversation OS must automatically inject durable memory
+              # into ordinary relevant requests without the user explicitly recalling it.
+              delegate = CaptureDelegate()
+              runtime = ConversationOSRuntimeService(
+                  delegate=delegate,
+                  ledger_repository=FakeLedger(),
+                  user_memory_service=service2,
+              )
+              reply = runtime.process('u1', 'Explain this in the best way for me')
+              assert reply == 'Context-aware answer'
+              assert 'Durable user memory=' in delegate.last_message
+              assert 'I prefer Telugu replies' in delegate.last_message
+              assert 'Use these saved user-provided facts only when relevant' in delegate.last_message
 
-              service2.process('u1', 'Remember that I like concise answers')
-              cleared = service2.process('u1', 'Clear my memory')
+              # A different user must not receive u1 memory in their OASAT prompt.
+              runtime.process('u2', 'Explain this in the best way for me')
+              assert 'I prefer Telugu replies' not in delegate.last_message
+
+              # Explicit memory commands are handled before OASAT prompt decoration.
+              direct = runtime.process('u1', 'Remember that I like concise answers')
+              assert 'Remembered:' in direct
+              assert 'I like concise answers' in direct
+
+              # A fresh runtime/service instance still retrieves the same durable context.
+              service3 = UserMemoryService(UserMemoryRepository(path))
+              delegate2 = CaptureDelegate()
+              runtime2 = ConversationOSRuntimeService(
+                  delegate=delegate2,
+                  ledger_repository=FakeLedger(),
+                  user_memory_service=service3,
+              )
+              runtime2.process('u1', 'Help me choose an option')
+              assert 'I prefer Telugu replies' in delegate2.last_message
+              assert 'I like concise answers' in delegate2.last_message
+
+              forgotten = service3.process('u1', 'Forget Telugu replies')
+              assert 'Forgotten:' in forgotten
+              runtime2.process('u1', 'Help me again')
+              assert 'I prefer Telugu replies' not in delegate2.last_message
+              assert 'I like concise answers' in delegate2.last_message
+
+              cleared = service3.process('u1', 'Clear my memory')
               assert 'Cleared 1 saved memory item' in cleared
-              print('user memory smoke passed')
+              runtime2.process('u1', 'Help me one more time')
+              assert 'Durable user memory=' not in delegate2.last_message
+              print('user memory contextual recall smoke passed')
           finally:
               try:
                   os.remove(path)
