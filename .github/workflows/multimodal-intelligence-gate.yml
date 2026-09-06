@@ -57,6 +57,7 @@ jobs:
                       'side': 'NEED',
                       'domain': 'PRODUCT',
                       'subject': 'test product',
+                      'visible_text': 'ASKODOX TEST LABEL',
                       'confidence': 0.99,
                   }
 
@@ -77,6 +78,7 @@ jobs:
           assert result['status'] == 'success'
           assert result['analysis']['subject'] == 'test product'
           assert result['analysis']['side'] == 'NEED'
+          assert result['analysis']['visible_text'] == 'ASKODOX TEST LABEL'
 
           try:
               analyze_vision(
@@ -93,13 +95,18 @@ jobs:
               assert exc.status_code == 400
 
           app_factory = Path('app/api/app_factory.py').read_text(encoding='utf-8')
+          image_service = Path('app/services/universal_image_service.py').read_text(encoding='utf-8')
           assert 'from app.api.routes.vision import router as vision_router' in app_factory
           assert 'app.include_router(vision_router)' in app_factory
+          assert 'ASKODOX universal visual intelligence' in image_service
+          assert '\\"visible_text\\":string|null' in image_service
+          assert 'PODX visual commerce brain' not in image_service
 
           root = Path('..')
           controller = (root / 'lib/features/search/application/product_discovery_controller.dart').read_text(encoding='utf-8')
           capture = (root / 'lib/services/multimodal_capture_service.dart').read_text(encoding='utf-8')
           vision_client = (root / 'lib/services/vision_api_service.dart').read_text(encoding='utf-8')
+          screen = (root / 'lib/features/search/presentation/product_discovery_screen.dart').read_text(encoding='utf-8')
 
           # No demo image/OCR shortcuts may survive in the live controller.
           assert 'extractMockText' not in controller
@@ -113,9 +120,16 @@ jobs:
           assert 'ImageSource.camera' in capture
           assert 'ImageSource.gallery' in capture
 
+          # Product Discovery UI must expose the live actions, not placeholder copy.
+          assert ".runOcr('camera')" in screen
+          assert ".runOcr('gallery')" in screen
+          assert '.uploadImage()' in screen
+          assert 'Camera OCR is being connected' not in screen
+          assert 'Image understanding is being connected' not in screen
+
           # Structured image evidence and voice both enter the same universal deal brain.
           assert 'String _visionText(Map<String, dynamic> analysis)' in controller
-          for field in ('subject', 'brand', 'model', 'quantity', 'price', 'location_text', 'constraints'):
+          for field in ('visible_text', 'subject', 'brand', 'model', 'quantity', 'price', 'location_text', 'constraints'):
               assert f"'{field}'" in controller, f'missing structured vision field: {field}'
           assert controller.count('universalDealControllerProvider.notifier') >= 3
           assert 'startVoiceSearch' in controller
