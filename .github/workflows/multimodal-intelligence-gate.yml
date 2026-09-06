@@ -1,0 +1,92 @@
+name: Multimodal Intelligence Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/api/routes/vision.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/services/universal_image_service.py'
+      - 'lib/services/vision_api_service.dart'
+      - 'lib/services/camera_capture_service.dart'
+      - '.github/workflows/multimodal-intelligence-gate.yml'
+  pull_request:
+    paths:
+      - 'backend/app/api/routes/vision.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/services/universal_image_service.py'
+      - 'lib/services/vision_api_service.dart'
+      - 'lib/services/camera_capture_service.dart'
+      - '.github/workflows/multimodal-intelligence-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  multimodal-intelligence:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install gate dependencies
+        run: pip install fastapi pydantic
+      - name: Verify registered vision endpoint and structured analysis
+        run: |
+          python - <<'PY'
+          import base64
+          from types import SimpleNamespace
+          from fastapi import HTTPException
+          from app.api.routes.vision import VisionAnalyzeRequest, analyze_vision
+
+          class FakeImageService:
+              def _analyze_multi_ai(self, image_bytes, mime_type, caption):
+                  assert image_bytes == b'askodox-image'
+                  assert mime_type == 'image/png'
+                  assert caption == 'find this nearby'
+                  return {
+                      'side': 'NEED',
+                      'domain': 'PRODUCT',
+                      'subject': 'test product',
+                      'confidence': 0.99,
+                  }
+
+          request = SimpleNamespace(
+              app=SimpleNamespace(
+                  state=SimpleNamespace(
+                      container=SimpleNamespace(universal_image_service=FakeImageService())
+                  )
+              )
+          )
+          payload = VisionAnalyzeRequest(
+              image_base64=base64.b64encode(b'askodox-image').decode('ascii'),
+              mime_type='image/png',
+              user_text='find this nearby',
+              language='en',
+          )
+          result = analyze_vision(payload, request)
+          assert result['status'] == 'success'
+          assert result['analysis']['subject'] == 'test product'
+          assert result['analysis']['side'] == 'NEED'
+
+          try:
+              analyze_vision(
+                  VisionAnalyzeRequest(
+                      image_base64='not-base64!!',
+                      mime_type='image/jpeg',
+                      user_text='',
+                      language='en',
+                  ),
+                  request,
+              )
+              raise AssertionError('invalid base64 must fail')
+          except HTTPException as exc:
+              assert exc.status_code == 400
+
+          app_factory = open('app/api/app_factory.py', encoding='utf-8').read()
+          assert 'from app.api.routes.vision import router as vision_router' in app_factory
+          assert 'app.include_router(vision_router)' in app_factory
+          print('MULTIMODAL INTELLIGENCE GATE: PASS')
+          PY
