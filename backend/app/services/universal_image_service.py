@@ -47,6 +47,28 @@ class UniversalImageService:
         self.http = http_client or httpx.Client(timeout=20.0)
         self.image_normalizer = image_normalizer or ImageNormalizationService()
 
+    def analyze(
+        self,
+        image_bytes: bytes,
+        mime_type: str = "image/jpeg",
+        caption: str | None = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Public app-facing image analysis contract.
+
+        Provider orchestration stays private so API routes and clients do not depend
+        on implementation details such as Gemini/OpenAI fallback ordering.
+        """
+        if not image_bytes:
+            return None
+        normalized_mime = str(mime_type or "image/jpeg").strip().lower()
+        if not normalized_mime.startswith("image/"):
+            return None
+        return self._analyze_multi_ai(
+            image_bytes=image_bytes,
+            mime_type=normalized_mime,
+            caption=caption,
+        )
+
     def process_image(
         self,
         sender_mobile: str,
@@ -74,7 +96,7 @@ class UniversalImageService:
         analysis_mime = normalized.analysis_mime_type if normalized else (mime_type or "image/jpeg")
 
         ai_started = time.perf_counter()
-        payload = self._analyze_multi_ai(
+        payload = self.analyze(
             image_bytes=analysis_bytes,
             mime_type=analysis_mime,
             caption=caption,
