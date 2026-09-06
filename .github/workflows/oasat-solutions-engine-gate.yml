@@ -1,0 +1,133 @@
+name: ASKODOX OASAT solutions engine gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/oasat_domain_router.py'
+      - 'backend/app/services/oasat_domain_reasoning_service.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - '.github/workflows/oasat-solutions-engine-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify strict OASAT multi-domain production gate
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          from app.services.oasat_domain_router import OASATDomainRouter
+          from app.services.oasat_domain_reasoning_service import OASATDomainReasoningService
+          from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
+
+          router = OASATDomainRouter()
+          reasoning = OASATDomainReasoningService()
+
+          scenarios = [
+              ('DOCUMENTS', 'Explain this PDF invoice', 'document_goal', 'explain', {'seller_matching','price_comparison'}),
+              ('JOBS', 'I need a software job in Hyderabad', 'skills', 'match_jobs', set()),
+              ('APPOINTMENTS', 'Book a doctor appointment tomorrow', 'specialty_or_need', 'book_after_approval', set()),
+              ('RIDES', 'Need a ride from Vijayawada to Gannavaram', 'pickup', 'match_ride', set()),
+              ('FOOD', 'Plan chicken food for ten people', 'people_or_quantity', 'suggest_food_plan', set()),
+              ('RESEARCH', 'Research latest solar subsidy news', 'topic', 'research', {'seller_matching'}),
+              ('REMINDERS', 'Remind me tomorrow to pay electricity bill', 'task', 'schedule_after_approval', set()),
+              ('SERVICES', 'Need an electrician repair service today', 'problem', 'match_service_provider', set()),
+              ('COMMERCE', 'I want to buy a 256GB phone', 'item', 'compare_offers', set()),
+              ('GENERAL', 'Help me think through a difficult decision', 'goal', 'suggest_next_step', set()),
+          ]
+
+          class Delegate:
+              def __init__(self):
+                  self.messages = []
+              def process(self, sender_mobile, message):
+                  self.messages.append(message)
+                  return 'solution-ok'
+
+          class Ledger:
+              def __init__(self):
+                  self.states = {}
+              def load_state(self, user_id):
+                  return self.states.get(user_id)
+              def save_state(self, user_id, state, channel=None):
+                  self.states[user_id] = state
+              def append_turn(self, *args, **kwargs):
+                  pass
+
+          # 1) Every supported domain must route, reason, persist and reach the delegate
+          # with its own domain-specific contract.
+          for idx, (domain, message, question, action, never_forced) in enumerate(scenarios, 1):
+              plan = router.route(message)
+              assert plan['domain'] == domain, (message, plan)
+              contract = reasoning.build(plan)
+              assert question in contract['questions'], (domain, contract)
+              assert action in contract['allowed_actions'], (domain, contract)
+              for forbidden in never_forced:
+                  assert forbidden in contract['never_force'], (domain, contract)
+
+              delegate = Delegate()
+              ledger = Ledger()
+              runtime = ConversationOSRuntimeService(delegate, ledger)
+              result = runtime.process(f'domain-{idx}', message)
+              assert result == 'solution-ok'
+              state = ledger.states[f'domain-{idx}']
+              known = state['known_fields']
+              assert known['domain'] == domain, (domain, known)
+              assert known['oasat_adapter'] == plan['adapter'], (domain, known)
+              assert question in known['oasat_questions'], (domain, known)
+              assert action in known['oasat_allowed_actions'], (domain, known)
+              prompt = delegate.messages[-1]
+              assert f'OASAT domain={domain}' in prompt, (domain, prompt)
+              assert f'adapter={plan["adapter"]}' in prompt, (domain, prompt)
+              assert action in prompt, (domain, prompt)
+              assert 'Do not use one global answer template.' in prompt
+              assert 'Do not force commerce/seller logic into non-commerce domains.' in prompt
+              if domain not in {'COMMERCE','FOOD'}:
+                  assert 'oasat_commerce_evidence' not in known, (domain, known)
+
+          # 2) Action-intent priority must beat incidental nouns.
+          collisions = {
+              'Remind me tomorrow to pay bill': 'REMINDERS',
+              'Remind me tomorrow to review this PDF': 'REMINDERS',
+              'Book a doctor appointment about my bill question': 'APPOINTMENTS',
+              'Need a ride to a restaurant': 'RIDES',
+              'Need electrician service to fix shop wiring': 'SERVICES',
+          }
+          for message, expected_domain in collisions.items():
+              assert router.route(message)['domain'] == expected_domain, (message, router.route(message))
+
+          # 3) A clear new request must switch domains; a genuine context-only follow-up
+          # must stay in the active domain.
+          delegate = Delegate(); ledger = Ledger(); runtime = ConversationOSRuntimeService(delegate, ledger)
+          runtime.process('switch', 'I want to buy a laptop')
+          assert ledger.states['switch']['known_fields']['domain'] == 'COMMERCE'
+          runtime.process('switch', 'Explain this PDF invoice')
+          assert ledger.states['switch']['known_fields']['domain'] == 'DOCUMENTS'
+          runtime.process('switch', 'Need doctor appointment')
+          assert ledger.states['switch']['known_fields']['domain'] == 'APPOINTMENTS'
+          runtime.process('switch', 'tomorrow morning')
+          assert ledger.states['switch']['known_fields']['domain'] == 'APPOINTMENTS'
+          assert 'OASAT domain=APPOINTMENTS' in delegate.messages[-1]
+
+          # 4) Cross-user state isolation: one user's active domain must not leak to another.
+          delegate = Delegate(); ledger = Ledger(); runtime = ConversationOSRuntimeService(delegate, ledger)
+          runtime.process('user-a', 'I want to buy chicken')
+          runtime.process('user-b', 'Explain this PDF')
+          assert ledger.states['user-a']['known_fields']['domain'] in {'FOOD','COMMERCE'}
+          assert ledger.states['user-b']['known_fields']['domain'] == 'DOCUMENTS'
+          assert ledger.states['user-a'] is not ledger.states['user-b']
+
+          # 5) Failure containment: if the orchestration path fails, the raw user request
+          # is delegated rather than fabricating an OASAT result.
+          class BrokenLedger(Ledger):
+              def load_state(self, user_id):
+                  raise RuntimeError('ledger unavailable')
+          delegate = Delegate(); runtime = ConversationOSRuntimeService(delegate, BrokenLedger())
+          raw = 'Need a plumber service'
+          assert runtime.process('fallback-user', raw) == 'solution-ok'
+          assert delegate.messages[-1] == raw
+
+          print('STRICT OASAT SOLUTIONS ENGINE GATE PASSED')
+          PY
