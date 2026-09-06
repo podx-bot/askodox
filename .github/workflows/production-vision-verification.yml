@@ -1,0 +1,73 @@
+name: Production Vision Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/api/routes/vision.py'
+      - 'backend/app/api/routes/health.py'
+      - 'backend/app/services/universal_image_service.py'
+      - 'lib/services/vision_api_service.dart'
+      - '.github/workflows/production-vision-verification.yml'
+  workflow_dispatch:
+
+jobs:
+  verify-production-vision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ASKODOX_PRODUCTION_BASE_URL: https://podx-ai-connect-production-3279.up.railway.app
+    steps:
+      - name: Verify production health and multimodal readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${ASKODOX_PRODUCTION_BASE_URL%/}"
+
+          health="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 "$BASE/health")"
+          python - "$health" <<'PY'
+          import json, sys
+          data = json.loads(sys.argv[1])
+          assert data.get('status') == 'healthy', data
+          assert data.get('app') == 'ASKODOX', data
+          print('PRODUCTION HEALTH: PASS')
+          PY
+
+          readiness="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 "$BASE/readiness")"
+          python - "$readiness" <<'PY'
+          import json, sys
+          data = json.loads(sys.argv[1])
+          optional = data.get('optional') or {}
+          assert optional.get('image_ai') is True, data
+          print('PRODUCTION IMAGE AI READINESS: PASS')
+          PY
+
+      - name: Verify production vision endpoint executes real analysis path
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${ASKODOX_PRODUCTION_BASE_URL%/}"
+          # 1x1 PNG. The test verifies the deployed endpoint reaches the configured
+          # production vision service; a successful response must contain structured analysis.
+          IMAGE_B64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+          body="$(printf '{\"image_base64\":\"%s\",\"mime_type\":\"image/png\",\"user_text\":\"Describe only what is actually visible.\",\"language\":\"en\"}' "$IMAGE_B64")"
+          response_file="$(mktemp)"
+          code="$(curl --silent --show-error --retry 2 --retry-delay 2 --connect-timeout 10 --max-time 60 \
+            -o "$response_file" -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -d "$body" \
+            "$BASE/vision/analyze")"
+          cat "$response_file"
+          echo
+          test "$code" = '200'
+          python - "$response_file" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding='utf-8') as fh:
+              data = json.load(fh)
+          assert data.get('status') == 'success', data
+          analysis = data.get('analysis')
+          assert isinstance(analysis, dict) and analysis, data
+          assert 'subject' in analysis, data
+          assert 'confidence' in analysis, data
+          print('PRODUCTION VISION ENDPOINT: PASS')
+          PY
