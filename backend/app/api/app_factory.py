@@ -14,6 +14,7 @@ from app.repositories.driver_kyc_repository import DriverKYCRepository
 from app.repositories.podx_meet_repository import PodxMeetRepository
 from app.services.admin_monitoring_runtime_service import AdminMonitoringRuntimeService
 from app.services.admin_monitoring_service import AdminMonitoringService
+from app.services.brave_web_search_provider import BraveWebSearchProvider
 from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
 from app.services.customer_facing_response_policy import CustomerFacingResponsePolicy
 from app.services.domain_complaint_prevention_service import DomainComplaintPreventionService
@@ -21,8 +22,10 @@ from app.services.driver_kyc_runtime_service import DriverKYCAwareConversationSe
 from app.services.dynamic_role_profile_attachment_service import DynamicRoleProfileAttachmentService
 from app.services.end_to_end_app_flow_service import EndToEndAppFlowService
 from app.services.fresh_test_reset_service import FreshTestResetService
+from app.services.live_research_aware_conversation_service import LiveResearchAwareConversationService
 from app.services.multilingual_onboarding_service import MultilingualOnboardingService
 from app.services.natural_conversation_orchestrator import NaturalConversationOrchestrator
+from app.services.oasat_live_research_service import OASATLiveResearchService
 from app.services.podx_meet_aware_conversation_service import PodxMeetAwareConversationService
 from app.services.podx_meet_runtime_service import PodxMeetRuntimeService
 from app.services.progressive_role_profile_essentials_service import ProgressiveRoleProfileEssentialsService
@@ -144,9 +147,22 @@ def create_app() -> FastAPI:
     )
     container.runtime_complaint_prevention_service = quality_guard
 
+    web_provider = BraveWebSearchProvider(
+        api_key=container.settings.brave_search_api_key,
+        timeout_seconds=container.settings.brave_search_timeout_seconds,
+    )
+    live_research = OASATLiveResearchService(web_provider)
+    research_aware = LiveResearchAwareConversationService(
+        delegate=quality_guard,
+        research_service=live_research,
+    )
+    container.brave_web_search_provider = web_provider
+    container.oasat_live_research_service = live_research
+    container.live_research_aware_conversation_service = research_aware
+
     conversation_os_ledger = ConversationTurnLedgerRepository(container.settings.database_path)
     conversation_os = ConversationOSRuntimeService(
-        delegate=quality_guard,
+        delegate=research_aware,
         ledger_repository=conversation_os_ledger,
         request_extractor=None,
         channel="whatsapp",
