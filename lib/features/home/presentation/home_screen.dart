@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../config/localization/askodox_language_catalog.dart';
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../services/multimodal_capture_service.dart';
 import '../../../services/vision_api_service.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import 'askodox_orb.dart';
@@ -67,7 +68,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  final _picker = ImagePicker();
+  final _capture = MultimodalCaptureService();
   XFile? _attachment;
 
   static final _telugu = RegExp(r'[\u0C00-\u0C7F]');
@@ -126,13 +127,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _startFlow(text);
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _setCapturedImage(Future<XFile?> Function() capture) async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1600,
-      );
+      final picked = await capture();
       if (!mounted || picked == null) return;
       setState(() => _attachment = picked);
     } catch (_) {
@@ -141,16 +138,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         SnackBar(
           content: Text(
             _tr(
-              'Could not open photos. Please try again.',
-              'ఫోటోలు తెరవలేకపోయాం. మళ్లీ ప్రయత్నించండి.',
-              'फ़ोटो नहीं खुल सके। फिर से कोशिश करें।',
-              'ଫଟୋ ଖୋଲିହେଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
+              'Could not open the camera or photos. Please try again.',
+              'కెమెరా లేదా ఫోటోలు తెరవలేకపోయాం. మళ్లీ ప్రయత్నించండి.',
+              'कैमरा या फ़ोटो नहीं खुल सके। फिर से कोशिश करें।',
+              'କ୍ୟାମେରା କିମ୍ବା ଫଟୋ ଖୋଲିହେଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
             ),
           ),
         ),
       );
     }
   }
+
+  Future<void> _pickImage() => _setCapturedImage(_capture.chooseGallery);
+
+  Future<void> _takePhoto() => _setCapturedImage(_capture.captureCamera);
 
   Future<void> _showActions() async {
     final action = await showModalBottomSheet<String>(
@@ -172,6 +173,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             ListTile(
+              key: const Key('askodoxPlusCameraAction'),
+              leading: const Icon(Icons.photo_camera_outlined, color: _purple),
+              title: Text(_tr('Take a photo', 'ఫోటో తీయండి', 'फ़ोटो लें', 'ଫଟୋ ନିଅନ୍ତୁ')),
+              onTap: () => Navigator.pop(context, 'camera'),
+            ),
+            ListTile(
               key: const Key('askodoxPlusPhotosAction'),
               leading: const Icon(Icons.photo_library_outlined, color: _purple),
               title: Text(_tr('Choose a photo', 'ఫోటో ఎంచుకోండి', 'फ़ोटो चुनें', 'ଫଟୋ ବାଛନ୍ତୁ')),
@@ -190,7 +197,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     if (!mounted || action == null) return;
-    if (action == 'photo') {
+    if (action == 'camera') {
+      await _takePhoto();
+    } else if (action == 'photo') {
       await _pickImage();
     } else if (action == 'voice') {
       context.go('/discover/voice');
