@@ -155,14 +155,14 @@ class UniversalImageService:
                 try:
                     payload = self._analyze_gemini(model, prompt, image_bytes, mime_type)
                     confidence = self._confidence(payload)
-                    print(f"PODX IMAGE BRAIN: provider=gemini model={model} confidence={confidence:.2f} status=success", flush=True)
+                    print(f"ASKODOX IMAGE BRAIN: provider=gemini model={model} confidence={confidence:.2f} status=success", flush=True)
                     if confidence > best_confidence:
                         best, best_confidence = payload, confidence
                     if self._acceptable(payload):
                         return payload
                 except Exception as error:
                     print(
-                        f"PODX IMAGE BRAIN: provider=gemini model={model} status=failed "
+                        f"ASKODOX IMAGE BRAIN: provider=gemini model={model} status=failed "
                         f"error={type(error).__name__}: {error}",
                         flush=True,
                     )
@@ -172,7 +172,7 @@ class UniversalImageService:
                 payload = self._analyze_openai(prompt, image_bytes, mime_type)
                 confidence = self._confidence(payload)
                 print(
-                    f"PODX IMAGE BRAIN: provider=openai model={self.openai_model} "
+                    f"ASKODOX IMAGE BRAIN: provider=openai model={self.openai_model} "
                     f"confidence={confidence:.2f} status=success",
                     flush=True,
                 )
@@ -182,13 +182,13 @@ class UniversalImageService:
                     return payload
             except Exception as error:
                 print(
-                    f"PODX IMAGE BRAIN: provider=openai model={self.openai_model} status=failed "
+                    f"ASKODOX IMAGE BRAIN: provider=openai model={self.openai_model} status=failed "
                     f"error={type(error).__name__}: {error}",
                     flush=True,
                 )
 
         if best and str(best.get("subject") or "").strip():
-            print(f"PODX IMAGE BRAIN: status=best_effort confidence={best_confidence:.2f}", flush=True)
+            print(f"ASKODOX IMAGE BRAIN: status=best_effort confidence={best_confidence:.2f}", flush=True)
             return best
         return None
 
@@ -271,14 +271,14 @@ class UniversalImageService:
     def _prompt(caption: str | None) -> str:
         cap = str(caption or "").strip()
         return (
-            "You are the PODX visual commerce brain. Analyze the attached photo or screenshot. "
-            "Return exactly one JSON object and no markdown. Read visible labels, packaging text, brand, model and product name when possible. "
-            "Identify the physical product/material/service/work subject. Use the most specific visible product name as subject. "
-            "Use caption only to infer intent. If caption clearly means wants/buys/needs, side=NEED. "
+            "You are ASKODOX universal visual intelligence. Analyze the attached photo or screenshot across any supported domain, not only commerce. "
+            "Return exactly one JSON object and no markdown. Preserve meaningful text that is actually visible in the image in visible_text; do not paraphrase or invent it. "
+            "Identify the most useful subject for the user's context, including products, services, work/jobs, documents, vehicles, places, appointments or other visible subjects. "
+            "Use caption only to infer user intent. If caption clearly means wants/buys/needs, side=NEED. "
             "If caption clearly means sells/has/offers/provides, side=OFFER. Otherwise side=UNKNOWN. "
-            "Never invent price, quantity, brand, model, location or intent. Confidence should reflect certainty.\n"
-            "Schema: {\"side\":\"NEED|OFFER|UNKNOWN\",\"domain\":\"PRODUCT|SERVICE|WORK|WORKERS|OTHER\","
-            "\"subject\":\"short free-form name\",\"brand\":string|null,\"model\":string|null,"
+            "Choose the closest domain. Never invent price, quantity, brand, model, location, intent or visible text. Confidence should reflect certainty.\n"
+            "Schema: {\"side\":\"NEED|OFFER|UNKNOWN\",\"domain\":\"PRODUCT|SERVICE|WORK|WORKERS|DOCUMENT|VEHICLE|PLACE|APPOINTMENT|OTHER\","
+            "\"subject\":\"short free-form name\",\"visible_text\":string|null,\"brand\":string|null,\"model\":string|null,"
             "\"quantity\":number|null,\"unit\":string|null,\"price\":number|null,\"currency\":string|null,"
             "\"when_text\":string|null,\"location_text\":string|null,\"constraints\":[string],\"confidence\":0..1}.\n"
             f"Caption: {cap if cap else '<none>'}"
