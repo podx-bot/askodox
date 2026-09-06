@@ -49,7 +49,7 @@ jobs:
           from app.api.routes.vision import VisionAnalyzeRequest, analyze_vision
 
           class FakeImageService:
-              def _analyze_multi_ai(self, image_bytes, mime_type, caption):
+              def analyze(self, image_bytes, mime_type, caption):
                   assert image_bytes == b'askodox-image'
                   assert mime_type == 'image/png'
                   assert caption == 'find this nearby'
@@ -96,8 +96,12 @@ jobs:
 
           app_factory = Path('app/api/app_factory.py').read_text(encoding='utf-8')
           image_service = Path('app/services/universal_image_service.py').read_text(encoding='utf-8')
+          vision_route = Path('app/api/routes/vision.py').read_text(encoding='utf-8')
           assert 'from app.api.routes.vision import router as vision_router' in app_factory
           assert 'app.include_router(vision_router)' in app_factory
+          assert 'def analyze(' in image_service
+          assert 'image_service.analyze(' in vision_route
+          assert 'image_service._analyze_multi_ai(' not in vision_route
           assert 'ASKODOX universal visual intelligence' in image_service
           assert '\\"visible_text\\":string|null' in image_service
           assert 'PODX visual commerce brain' not in image_service
@@ -108,26 +112,19 @@ jobs:
           vision_client = (root / 'lib/services/vision_api_service.dart').read_text(encoding='utf-8')
           screen = (root / 'lib/features/search/presentation/product_discovery_screen.dart').read_text(encoding='utf-8')
 
-          # No demo image/OCR shortcuts may survive in the live controller.
           assert 'extractMockText' not in controller
           assert 'local://pending-product-image.jpg' not in controller
-
-          # Camera and gallery must use real capture, then the registered vision API.
           assert 'capture.captureCamera()' in controller
           assert 'capture.chooseGallery()' in controller
           assert 'visionApiServiceProvider' in controller
           assert '/vision/analyze' in vision_client
           assert 'ImageSource.camera' in capture
           assert 'ImageSource.gallery' in capture
-
-          # Product Discovery UI must expose the live actions, not placeholder copy.
           assert ".runOcr('camera')" in screen
           assert ".runOcr('gallery')" in screen
           assert '.uploadImage()' in screen
           assert 'Camera OCR is being connected' not in screen
           assert 'Image understanding is being connected' not in screen
-
-          # Structured image evidence and voice both enter the same universal deal brain.
           assert 'String _visionText(Map<String, dynamic> analysis)' in controller
           for field in ('visible_text', 'subject', 'brand', 'model', 'quantity', 'price', 'location_text', 'constraints'):
               assert f"'{field}'" in controller, f'missing structured vision field: {field}'
