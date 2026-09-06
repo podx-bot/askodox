@@ -22,7 +22,6 @@ class _ProductDiscoveryScreenState
   final barcode = TextEditingController();
 
   bool get te => Localizations.localeOf(context).languageCode == 'te';
-
   String t(String en, String telugu) => te ? telugu : en;
 
   @override
@@ -34,13 +33,9 @@ class _ProductDiscoveryScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productDiscoveryControllerProvider);
-
     return Scaffold(
       backgroundColor: const Color(0xFF050713),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: Text(_title(widget.mode)),
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent, title: Text(_title(widget.mode))),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -53,18 +48,14 @@ class _ProductDiscoveryScreenState
           padding: const EdgeInsets.all(20),
           children: [
             if (widget.mode != SearchIntentType.voice) _hero(context),
-            if (widget.mode != SearchIntentType.voice)
-              const SizedBox(height: 16),
+            if (widget.mode != SearchIntentType.voice) const SizedBox(height: 16),
             if (widget.mode == SearchIntentType.barcode) ..._barcode(state),
             if (widget.mode == SearchIntentType.ocr) ..._ocr(state),
             if (widget.mode == SearchIntentType.image) ..._image(state),
             if (widget.mode == SearchIntentType.voice) ..._voice(state),
             if (state.matches.isNotEmpty) ...[
               const SizedBox(height: 20),
-              Text(
-                t('Smart matches', 'స్మార్ట్ మ్యాచ్‌లు'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text(t('Smart matches', 'స్మార్ట్ మ్యాచ్‌లు'), style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               LayoutBuilder(
                 builder: (context, constraints) => GridView.builder(
@@ -79,15 +70,9 @@ class _ProductDiscoveryScreenState
                   itemCount: state.matches.length,
                   itemBuilder: (_, i) => Column(
                     children: [
-                      Expanded(
-                        child: ProductCard(
-                          product: state.matches[i].product,
-                        ),
-                      ),
+                      Expanded(child: ProductCard(product: state.matches[i].product)),
                       Text(
-                        '${state.matches[i].confidence.label} • '
-                        '${(state.matches[i].confidence.score * 100).round()}% • '
-                        '${state.matches[i].reason}',
+                        '${state.matches[i].confidence.label} • ${(state.matches[i].confidence.score * 100).round()}% • ${state.matches[i].reason}',
                         maxLines: 2,
                         textAlign: TextAlign.center,
                       ),
@@ -105,22 +90,11 @@ class _ProductDiscoveryScreenState
   Widget _hero(BuildContext context) => Card(
         child: Padding(
           padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Icon(
-                _icon(widget.mode),
-                size: 42,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  _description(widget.mode),
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-            ],
-          ),
+          child: Row(children: [
+            Icon(_icon(widget.mode), size: 42, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 16),
+            Expanded(child: Text(_description(widget.mode), style: Theme.of(context).textTheme.bodyLarge)),
+          ]),
         ),
       );
 
@@ -130,38 +104,21 @@ class _ProductDiscoveryScreenState
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
-            labelText: t(
-              'Enter barcode number',
-              'బార్‌కోడ్ నంబర్ నమోదు చేయండి',
-            ),
+            labelText: t('Enter barcode number', 'బార్‌కోడ్ నంబర్ నమోదు చేయండి'),
             prefixIcon: const Icon(Icons.numbers),
           ),
         ),
         const SizedBox(height: 10),
         FilledButton.icon(
-          onPressed: () => ref
-              .read(productDiscoveryControllerProvider.notifier)
-              .scan(barcode.text),
+          onPressed: () => ref.read(productDiscoveryControllerProvider.notifier).scan(barcode.text),
           icon: const Icon(Icons.qr_code_scanner),
           label: Text(t('Find product', 'ఉత్పత్తిని కనుగొనండి')),
         ),
         if (state.barcodeResult != null)
           ListTile(
-            leading: Icon(
-              state.barcodeResult!.state == BarcodeMatchState.found
-                  ? Icons.check_circle
-                  : Icons.info,
-            ),
-            title: Text(
-              te
-                  ? 'బార్‌కోడ్: ${state.barcodeResult!.state.name}'
-                  : 'Barcode: ${state.barcodeResult!.state.name}',
-            ),
-            subtitle: Text(
-              te
-                  ? '${state.barcodeResult!.matches.length} మ్యాచ్‌లు'
-                  : '${state.barcodeResult!.matches.length} match(es)',
-            ),
+            leading: Icon(state.barcodeResult!.state == BarcodeMatchState.found ? Icons.check_circle : Icons.info),
+            title: Text(te ? 'బార్‌కోడ్: ${state.barcodeResult!.state.name}' : 'Barcode: ${state.barcodeResult!.state.name}'),
+            subtitle: Text(te ? '${state.barcodeResult!.matches.length} మ్యాచ్‌లు' : '${state.barcodeResult!.matches.length} match(es)'),
           ),
       ];
 
@@ -169,18 +126,35 @@ class _ProductDiscoveryScreenState
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(
-              t(
-                'Camera OCR is being connected to the live request pipeline. Use text or voice now.',
-                'కెమెరా OCRను లైవ్ రిక్వెస్ట్ ఫ్లోతో కనెక్ట్ చేస్తున్నాం. ప్రస్తుతం టెక్స్ట్ లేదా వాయిస్ ఉపయోగించండి.',
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(t(
+                  'Capture a photo or choose one from your gallery. ASKODOX reads visible details and sends them into the same universal request brain.',
+                  'ఫోటో తీయండి లేదా గ్యాలరీ నుంచి ఎంచుకోండి. ASKODOX కనిపించే వివరాలను చదివి అదే యూనివర్సల్ రిక్వెస్ట్ బ్రెయిన్‌లోకి పంపుతుంది.',
+                )),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  key: const Key('ocrTakePhoto'),
+                  onPressed: () => ref.read(productDiscoveryControllerProvider.notifier).runOcr('camera'),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(t('Take photo', 'ఫోటో తీయండి')),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const Key('ocrChooseGallery'),
+                  onPressed: () => ref.read(productDiscoveryControllerProvider.notifier).runOcr('gallery'),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(t('Choose from gallery', 'గ్యాలరీ నుంచి ఎంచుకోండి')),
+                ),
+              ],
             ),
           ),
         ),
         if (state.ocrResult != null)
           Card(
             child: ListTile(
-              title: Text(t('Extracted text', 'గుర్తించిన టెక్స్ట్')),
+              title: Text(t('Understood from image', 'ఇమేజ్ నుంచి అర్థమైనది')),
               subtitle: Text(state.ocrResult!.extractedText),
               trailing: Text(state.ocrResult!.source),
             ),
@@ -193,67 +167,56 @@ class _ProductDiscoveryScreenState
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(
-              t(
-                'Image understanding is being connected to the live request pipeline. Use text or voice now.',
-                'ఇమేజ్ అర్థం చేసుకునే ఫీచర్‌ను లైవ్ రిక్వెస్ట్ ఫ్లోతో కనెక్ట్ చేస్తున్నాం. ప్రస్తుతం టెక్స్ట్ లేదా వాయిస్ ఉపయోగించండి.',
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(t(
+                  'Choose an image and ASKODOX will understand the item, service, work or other useful context and continue through the universal reasoning flow.',
+                  'ఇమేజ్ ఎంచుకోండి. ASKODOX వస్తువు, సర్వీస్, పని లేదా ఇతర ఉపయోగకరమైన సందర్భాన్ని అర్థం చేసుకుని యూనివర్సల్ రీజనింగ్ ఫ్లోలో కొనసాగిస్తుంది.',
+                )),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  key: const Key('imageChooseGallery'),
+                  onPressed: () => ref.read(productDiscoveryControllerProvider.notifier).uploadImage(),
+                  icon: const Icon(Icons.image_outlined),
+                  label: Text(t('Choose image', 'ఇమేజ్ ఎంచుకోండి')),
+                ),
+              ],
             ),
           ),
         ),
+        if (state.imageRequest != null)
+          ListTile(
+            leading: const Icon(Icons.check_circle_outline),
+            title: Text(t('Image analyzed', 'ఇమేజ్ విశ్లేషించబడింది')),
+            subtitle: Text(t('Continuing with ASKODOX reasoning and matching.', 'ASKODOX రీజనింగ్ మరియు మ్యాచింగ్‌తో కొనసాగుతోంది.')),
+          ),
       ];
 
   List<Widget> _voice(DiscoveryState state) => [
-        _VoiceAssistantCard(
-          state: state.voiceState,
-          result: state.voiceResult,
-        ),
+        _VoiceAssistantCard(state: state.voiceState, result: state.voiceResult),
         const SizedBox(height: 18),
         FilledButton.icon(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(58),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-          ),
-          onPressed: state.voiceState == VoiceSearchState.listening ||
-                  state.voiceState == VoiceSearchState.processing ||
-                  state.voiceState == VoiceSearchState.speaking
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+          onPressed: state.voiceState == VoiceSearchState.listening || state.voiceState == VoiceSearchState.processing || state.voiceState == VoiceSearchState.speaking
               ? null
-              : () => ref
-                  .read(productDiscoveryControllerProvider.notifier)
-                  .startVoice(),
-          icon: Icon(
-            state.voiceState == VoiceSearchState.speaking
-                ? Icons.volume_up_rounded
-                : Icons.mic_rounded,
-          ),
+              : () => ref.read(productDiscoveryControllerProvider.notifier).startVoice(),
+          icon: Icon(state.voiceState == VoiceSearchState.speaking ? Icons.volume_up_rounded : Icons.mic_rounded),
           label: Text(
             state.voiceState == VoiceSearchState.listening
                 ? t('Listening…', 'వింటున్నాను…')
                 : state.voiceState == VoiceSearchState.processing
-                    ? t(
-                        'ASKODOX is understanding…',
-                        'ASKODOX అర్థం చేసుకుంటోంది…',
-                      )
+                    ? t('ASKODOX is understanding…', 'ASKODOX అర్థం చేసుకుంటోంది…')
                     : state.voiceState == VoiceSearchState.speaking
-                        ? t(
-                            'ASKODOX is speaking…',
-                            'ASKODOX మాట్లాడుతోంది…',
-                          )
+                        ? t('ASKODOX is speaking…', 'ASKODOX మాట్లాడుతోంది…')
                         : t('Talk to ASKODOX', 'ASKODOXతో మాట్లాడండి'),
           ),
         ),
         const SizedBox(height: 14),
         Text(
           state.voiceResult == null
-              ? t(
-                  'Speak naturally. Text and voice use the same ASKODOX request brain.',
-                  'సహజంగా మాట్లాడండి. టెక్స్ట్ మరియు వాయిస్ రెండూ ఒకే ASKODOX రిక్వెస్ట్ బ్రెయిన్‌ను ఉపయోగిస్తాయి.',
-                )
-              : te
-                  ? 'మీరు చెప్పారు: ${state.voiceResult}'
-                  : 'You said: ${state.voiceResult}',
+              ? t('Speak naturally. Text and voice use the same ASKODOX request brain.', 'సహజంగా మాట్లాడండి. టెక్స్ట్ మరియు వాయిస్ రెండూ ఒకే ASKODOX రిక్వెస్ట్ బ్రెయిన్‌ను ఉపయోగిస్తాయి.')
+              : te ? 'మీరు చెప్పారు: ${state.voiceResult}' : 'You said: ${state.voiceResult}',
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.white70),
         ),
@@ -261,25 +224,17 @@ class _ProductDiscoveryScreenState
 
   String _description(SearchIntentType mode) => te
       ? switch (mode) {
-          SearchIntentType.voice =>
-            'సహజంగా మాట్లాడండి. ASKODOX మీ అవసరాన్ని టెక్స్ట్‌లాగే గుర్తించి అదే మ్యాచింగ్ ఫ్లోను కొనసాగిస్తుంది.',
-          SearchIntentType.barcode =>
-            'బార్‌కోడ్ నమోదు చేసి సరిపోలే లైవ్ లిస్టింగ్‌ను వెతకండి.',
-          SearchIntentType.ocr =>
-            'కెమెరా లేదా ఇమేజ్ నుంచి ఉపయోగకరమైన రిక్వెస్ట్ వివరాలను చదవండి.',
-          SearchIntentType.image =>
-            'ఇమేజ్ నుంచి వస్తువు లేదా అవసరాన్ని అర్థం చేసుకోండి.',
+          SearchIntentType.voice => 'సహజంగా మాట్లాడండి. ASKODOX మీ అవసరాన్ని టెక్స్ట్‌లాగే గుర్తించి అదే మ్యాచింగ్ ఫ్లోను కొనసాగిస్తుంది.',
+          SearchIntentType.barcode => 'బార్‌కోడ్ నమోదు చేసి సరిపోలే లైవ్ లిస్టింగ్‌ను వెతకండి.',
+          SearchIntentType.ocr => 'కెమెరా లేదా ఇమేజ్ నుంచి ఉపయోగకరమైన రిక్వెస్ట్ వివరాలను చదవండి.',
+          SearchIntentType.image => 'ఇమేజ్ నుంచి వస్తువు లేదా అవసరాన్ని అర్థం చేసుకోండి.',
           _ => 'మీ ASKODOX రిక్వెస్ట్‌కు వేగమైన ఇన్‌పుట్‌ను ఉపయోగించండి.',
         }
       : switch (mode) {
-          SearchIntentType.voice =>
-            'Speak naturally. ASKODOX captures the same requirement as text and continues the same matching flow.',
-          SearchIntentType.barcode =>
-            'Enter a barcode to look for a matching live listing.',
-          SearchIntentType.ocr =>
-            'Read useful request details from a camera or image.',
-          SearchIntentType.image =>
-            'Understand an item or requirement from an image.',
+          SearchIntentType.voice => 'Speak naturally. ASKODOX captures the same requirement as text and continues the same matching flow.',
+          SearchIntentType.barcode => 'Enter a barcode to look for a matching live listing.',
+          SearchIntentType.ocr => 'Read useful request details from a camera or image.',
+          SearchIntentType.image => 'Understand an item or requirement from an image.',
           _ => 'Use the fastest input for your ASKODOX request.',
         };
 
@@ -310,7 +265,6 @@ class _ProductDiscoveryScreenState
 
 class _VoiceAssistantCard extends StatelessWidget {
   const _VoiceAssistantCard({required this.state, required this.result});
-
   final VoiceSearchState state;
   final String? result;
 
@@ -318,16 +272,13 @@ class _VoiceAssistantCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final te = Localizations.localeOf(context).languageCode == 'te';
     String t(String en, String telugu) => te ? telugu : en;
-
     final label = switch (state) {
       VoiceSearchState.listening => t('Listening', 'వింటున్నాను'),
-      VoiceSearchState.processing =>
-        t('Thinking & Understanding', 'ఆలోచించి అర్థం చేసుకుంటోంది'),
+      VoiceSearchState.processing => t('Thinking & Understanding', 'ఆలోచించి అర్థం చేసుకుంటోంది'),
       VoiceSearchState.speaking => t('Speaking', 'మాట్లాడుతోంది'),
       VoiceSearchState.result => t('Understood', 'అర్థమైంది'),
       _ => t('Ready', 'సిద్ధంగా ఉంది'),
     };
-
     final icon = switch (state) {
       VoiceSearchState.listening => Icons.mic_rounded,
       VoiceSearchState.processing => Icons.psychology_alt_rounded,
@@ -335,7 +286,6 @@ class _VoiceAssistantCard extends StatelessWidget {
       VoiceSearchState.result => Icons.check_rounded,
       _ => Icons.auto_awesome_rounded,
     };
-
     final accent = switch (state) {
       VoiceSearchState.listening => const Color(0xFF2C9CFF),
       VoiceSearchState.processing => const Color(0xFF9C4DFF),
@@ -343,135 +293,39 @@ class _VoiceAssistantCard extends StatelessWidget {
       VoiceSearchState.result => const Color(0xFF44D7C5),
       _ => const Color(0xFF7A62FF),
     };
-
-    final active = state == VoiceSearchState.listening ||
-        state == VoiceSearchState.processing ||
-        state == VoiceSearchState.speaking;
-
+    final active = state == VoiceSearchState.listening || state == VoiceSearchState.processing || state == VoiceSearchState.speaking;
     return Column(
       key: Key('askodoxVoiceState-${state.name}'),
       children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 350),
-          child: Text(
-            label,
-            key: ValueKey(state),
-            style: TextStyle(
-              color: accent,
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-            ),
-          ),
-        ),
+        AnimatedSwitcher(duration: const Duration(milliseconds: 350), child: Text(label, key: ValueKey(state), style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 18))),
         const SizedBox(height: 16),
         TweenAnimationBuilder<double>(
           key: ValueKey(state),
           duration: const Duration(milliseconds: 800),
           tween: Tween(begin: .94, end: active ? 1.04 : 1),
           curve: Curves.easeInOut,
-          builder: (context, scale, child) =>
-              Transform.scale(scale: scale, child: child),
+          builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
           child: Container(
             width: 238,
             height: 238,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [accent, const Color(0xFF673BFF)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: accent.withValues(alpha: .45),
-                  blurRadius: active ? 50 : 32,
-                  spreadRadius: active ? 7 : 3,
-                ),
-              ],
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [accent, const Color(0xFF673BFF)]), boxShadow: [BoxShadow(color: accent.withValues(alpha: .45), blurRadius: active ? 50 : 32, spreadRadius: active ? 7 : 3)]),
             padding: const EdgeInsets.all(9),
             child: Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF080B19),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const _MiniRobot(),
-                  Positioned(
-                    bottom: 20,
-                    child: Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: accent,
-                        boxShadow: [
-                          BoxShadow(color: accent, blurRadius: 16),
-                        ],
-                      ),
-                      child: Icon(icon, color: Colors.white, size: 28),
-                    ),
-                  ),
-                  if (state == VoiceSearchState.listening) ...[
-                    const Positioned(
-                      left: 12,
-                      child: _SideWave(color: Color(0xFF39A8FF)),
-                    ),
-                    const Positioned(
-                      right: 12,
-                      child: _SideWave(color: Color(0xFF39A8FF)),
-                    ),
-                  ],
-                  if (state == VoiceSearchState.speaking) ...[
-                    const Positioned(
-                      left: 12,
-                      child: _SideWave(color: Color(0xFFFF5DB1)),
-                    ),
-                    const Positioned(
-                      right: 12,
-                      child: _SideWave(color: Color(0xFFFF5DB1)),
-                    ),
-                  ],
-                  if (state == VoiceSearchState.processing)
-                    const Positioned(
-                      right: 23,
-                      top: 34,
-                      child: Icon(
-                        Icons.more_horiz_rounded,
-                        color: Color(0xFFBCA7FF),
-                        size: 42,
-                      ),
-                    ),
-                ],
-              ),
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF080B19)),
+              child: Stack(alignment: Alignment.center, children: [
+                const _MiniRobot(),
+                Positioned(bottom: 20, child: Container(width: 54, height: 54, decoration: BoxDecoration(shape: BoxShape.circle, color: accent, boxShadow: [BoxShadow(color: accent, blurRadius: 16)]), child: Icon(icon, color: Colors.white, size: 28))),
+                if (state == VoiceSearchState.listening) ...[const Positioned(left: 12, child: _SideWave(color: Color(0xFF39A8FF))), const Positioned(right: 12, child: _SideWave(color: Color(0xFF39A8FF)))],
+                if (state == VoiceSearchState.speaking) ...[const Positioned(left: 12, child: _SideWave(color: Color(0xFFFF5DB1))), const Positioned(right: 12, child: _SideWave(color: Color(0xFFFF5DB1)))],
+                if (state == VoiceSearchState.processing) const Positioned(right: 23, top: 34, child: Icon(Icons.more_horiz_rounded, color: Color(0xFFBCA7FF), size: 42)),
+              ]),
             ),
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
-          'ASKODOX AI',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.8,
-          ),
-        ),
+        const Text('ASKODOX AI', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
         const SizedBox(height: 6),
-        Text(
-          result == null
-              ? t('Ask Anything. Get It Done.', 'ఏదైనా అడగండి. పని పూర్తి చేసుకోండి.')
-              : t(
-                  'Got it. Continuing your request.',
-                  'అర్థమైంది. మీ రిక్వెస్ట్‌ను కొనసాగిస్తున్నాను.',
-                ),
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFFC6A8FF),
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-          ),
-        ),
+        Text(result == null ? t('Ask Anything. Get It Done.', 'ఏదైనా అడగండి. పని పూర్తి చేసుకోండి.') : t('Got it. Continuing your request.', 'అర్థమైంది. మీ రిక్వెస్ట్‌ను కొనసాగిస్తున్నాను.'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFC6A8FF), fontWeight: FontWeight.w700, fontSize: 17)),
       ],
     );
   }
@@ -479,130 +333,34 @@ class _VoiceAssistantCard extends StatelessWidget {
 
 class _MiniRobot extends StatelessWidget {
   const _MiniRobot();
-
   @override
-  Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 5, height: 16, color: const Color(0xFF8093E8)),
-          Transform.translate(
-            offset: const Offset(0, -20),
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: const BoxDecoration(
-                color: Color(0xFF43A8FF),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Container(
-            width: 128,
-            height: 88,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE9ECFB), Color(0xFF9BA8E1)],
-              ),
-              borderRadius: BorderRadius.circular(38),
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF050817),
-                borderRadius: BorderRadius.circular(29),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Icon(Icons.circle, size: 14, color: Color(0xFF47D9FF)),
-                  Icon(Icons.circle, size: 14, color: Color(0xFF47D9FF)),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            width: 78,
-            height: 42,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE2E6FA), Color(0xFF98A4DD)],
-              ),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(28),
-                bottomRight: Radius.circular(28),
-              ),
-              border: Border.all(color: Colors.white70),
-            ),
-          ),
-        ],
-      );
+  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 5, height: 16, color: const Color(0xFF8093E8)),
+        Transform.translate(offset: const Offset(0, -20), child: Container(width: 12, height: 12, decoration: const BoxDecoration(color: Color(0xFF43A8FF), shape: BoxShape.circle))),
+        Container(width: 128, height: 88, padding: const EdgeInsets.all(8), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFE9ECFB), Color(0xFF9BA8E1)]), borderRadius: BorderRadius.circular(38), border: Border.all(color: Colors.white, width: 2)), child: Container(decoration: BoxDecoration(color: const Color(0xFF050817), borderRadius: BorderRadius.circular(29)), child: const Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [Icon(Icons.circle, size: 14, color: Color(0xFF47D9FF)), Icon(Icons.circle, size: 14, color: Color(0xFF47D9FF))]))),
+        Container(width: 78, height: 42, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFE2E6FA), Color(0xFF98A4DD)]), borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)), border: Border.all(color: Colors.white70))),
+      ]);
 }
 
 class _SideWave extends StatelessWidget {
   const _SideWave({required this.color});
-
   final Color color;
-
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          for (final h in const [16.0, 30.0, 44.0, 30.0, 16.0])
-            Container(
-              width: 3,
-              height: h,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(5),
-              ),
-            ),
-        ],
-      );
+  Widget build(BuildContext context) => Row(children: [for (final h in const [16.0, 30.0, 44.0, 30.0, 16.0]) Container(width: 3, height: h, margin: const EdgeInsets.symmetric(horizontal: 1.5), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(5)))]);
 }
 
 class DiscoveryTools extends StatelessWidget {
   const DiscoveryTools({super.key});
-
   @override
   Widget build(BuildContext context) {
     final te = Localizations.localeOf(context).languageCode == 'te';
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _button(
-          context,
-          te ? 'బార్‌కోడ్' : 'Barcode',
-          Icons.qr_code_scanner,
-          'barcode',
-        ),
-        _button(context, 'OCR', Icons.document_scanner_outlined, 'ocr'),
-        _button(
-          context,
-          te ? 'ఇమేజ్' : 'Image',
-          Icons.image_search,
-          'image',
-        ),
-        _button(
-          context,
-          te ? 'వాయిస్' : 'Voice',
-          Icons.mic_none,
-          'voice',
-        ),
-      ],
-    );
+    return Wrap(spacing: 8, runSpacing: 8, children: [
+      _button(context, te ? 'బార్‌కోడ్' : 'Barcode', Icons.qr_code_scanner, 'barcode'),
+      _button(context, 'OCR', Icons.document_scanner_outlined, 'ocr'),
+      _button(context, te ? 'ఇమేజ్' : 'Image', Icons.image_search, 'image'),
+      _button(context, te ? 'వాయిస్' : 'Voice', Icons.mic_none, 'voice'),
+    ]);
   }
 
-  Widget _button(
-    BuildContext context,
-    String text,
-    IconData icon,
-    String route,
-  ) =>
-      ActionChip(
-        avatar: Icon(icon),
-        label: Text(text),
-        onPressed: () => context.push('/discover/$route'),
-      );
+  Widget _button(BuildContext context, String text, IconData icon, String route) => ActionChip(avatar: Icon(icon), label: Text(text), onPressed: () => context.push('/discover/$route'));
 }
