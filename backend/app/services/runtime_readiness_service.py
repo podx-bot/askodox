@@ -11,6 +11,7 @@ class RuntimeReadiness:
     voice_tts_ready: bool
     image_ai_ready: bool
     maps_ready: bool
+    live_web_ready: bool
     warnings: tuple[str, ...]
 
 
@@ -44,6 +45,7 @@ class RuntimeReadinessService:
         voice_tts_ready = gemini and bool(getattr(self.settings, "voice_reply_enabled", False))
         image_ai_ready = openai or gemini
         maps_ready = bool(str(getattr(self.settings, "google_maps_api_key", "") or "").strip())
+        live_web_ready = bool(str(getattr(self.settings, "brave_search_api_key", "") or "").strip())
 
         if not voice_stt_ready:
             warnings.append("Voice transcription providers are not configured")
@@ -53,6 +55,8 @@ class RuntimeReadinessService:
             warnings.append("Image AI providers are not configured")
         if not maps_ready:
             warnings.append("Google Maps key is not configured; route fallback will be used")
+        if not live_web_ready:
+            warnings.append("Live web search provider is not configured")
 
         return RuntimeReadiness(
             whatsapp_ready=whatsapp_ready,
@@ -61,5 +65,6 @@ class RuntimeReadinessService:
             voice_tts_ready=voice_tts_ready,
             image_ai_ready=image_ai_ready,
             maps_ready=maps_ready,
+            live_web_ready=live_web_ready,
             warnings=tuple(warnings),
         )
