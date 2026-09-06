@@ -21,6 +21,7 @@ def _readiness_payload(settings, database_ok: bool) -> dict:
             "voice_tts": readiness.voice_tts_ready,
             "image_ai": readiness.image_ai_ready,
             "maps": readiness.maps_ready,
+            "live_web_search": readiness.live_web_ready,
         },
         "warnings": list(readiness.warnings),
         "payment_policy": {
