@@ -114,8 +114,9 @@ jobs:
           assert 'ImageSource.gallery' in capture
 
           # Structured image evidence and voice both enter the same universal deal brain.
-          assert "analysis['subject']" in controller
-          assert "analysis['constraints']" in controller
+          assert 'String _visionText(Map<String, dynamic> analysis)' in controller
+          for field in ('subject', 'brand', 'model', 'quantity', 'price', 'location_text', 'constraints'):
+              assert f"'{field}'" in controller, f'missing structured vision field: {field}'
           assert controller.count('universalDealControllerProvider.notifier') >= 3
           assert 'startVoiceSearch' in controller
           assert 'voicePreference' in controller
