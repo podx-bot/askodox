@@ -1,0 +1,89 @@
+name: universal-ai-assistant-smoke
+
+on:
+  push:
+    paths:
+      - 'backend/app/services/universal_ai_assistant_service.py'
+      - 'backend/app/api/app_factory.py'
+      - '.github/workflows/universal-ai-assistant-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+      - name: Verify general AI routing and safe fallback
+        run: |
+          python - <<'PY'
+          from types import SimpleNamespace
+
+          from app.services.universal_ai_assistant_service import UniversalAIAssistantService
+
+          class Delegate:
+              def __init__(self):
+                  self.messages = []
+              def process(self, sender_mobile, message):
+                  self.messages.append((sender_mobile, message))
+                  return 'DELEGATE:' + message
+
+          class Models:
+              def __init__(self, text='AI ANSWER', fail=False):
+                  self.text = text
+                  self.fail = fail
+                  self.calls = []
+              def generate_content(self, **kwargs):
+                  self.calls.append(kwargs)
+                  if self.fail:
+                      raise RuntimeError('provider down')
+                  return SimpleNamespace(text=self.text)
+
+          class Client:
+              def __init__(self, models):
+                  self.models = models
+
+          delegate = Delegate()
+          models = Models(text='తెలుగులో సహాయం')
+          service = UniversalAIAssistantService(
+              delegate,
+              api_key='test-key',
+              model='gemini-test',
+              client=Client(models),
+          )
+
+          general = 'OASAT domain=GENERAL; adapter=general; intent=ASSIST; User request: జీవిత లక్ష్యం ఎలా ప్లాన్ చేయాలి?'
+          answer = service.process('u1', general)
+          assert answer == 'తెలుగులో సహాయం'
+          assert len(models.calls) == 1
+          call = models.calls[0]
+          assert call['model'] == 'gemini-test'
+          assert 'same language' in call['contents']
+          assert 'Do not pretend you checked live/current web information' in call['contents']
+
+          # Domain-specific flows must not be swallowed by the generic assistant.
+          commerce = 'OASAT domain=COMMERCE; adapter=commerce; User request: Buy chicken nearby'
+          assert service.process('u1', commerce).startswith('DELEGATE:')
+          assert len(models.calls) == 1
+
+          # No key/client => deterministic delegate fallback.
+          fallback = UniversalAIAssistantService(delegate, api_key='', model='gemini-test')
+          assert fallback.process('u2', general).startswith('DELEGATE:')
+
+          # Provider failure => delegate; never break the conversation.
+          failing = UniversalAIAssistantService(
+              delegate,
+              api_key='test-key',
+              model='gemini-test',
+              client=Client(Models(fail=True)),
+          )
+          assert failing.process('u3', general).startswith('DELEGATE:')
+          print('universal AI assistant smoke passed')
+          PY
