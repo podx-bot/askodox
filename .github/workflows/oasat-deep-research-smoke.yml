@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'backend/app/services/oasat_deep_research_service.py'
+      - 'backend/app/services/evidence_conflict_analyzer.py'
       - 'backend/app/services/live_research_aware_conversation_service.py'
       - 'backend/app/api/app_factory.py'
       - '.github/workflows/oasat-deep-research-smoke.yml'
@@ -24,18 +25,49 @@ jobs:
       - name: Deep research orchestration smoke
         run: |
           PYTHONPATH=. python - <<'PY'
+          from app.services.evidence_conflict_analyzer import EvidenceConflictAnalyzer
           from app.services.oasat_deep_research_service import OASATDeepResearchService
           from app.services.live_research_aware_conversation_service import LiveResearchAwareConversationService
+
+          analyzer = EvidenceConflictAnalyzer()
+          conflict = analyzer.analyze([
+              {
+                  'url': 'https://official.example/a', 'domain': 'official.example',
+                  'title': 'Program approval rate update',
+                  'snippet': 'The program approval rate for applicants is 62% this year.',
+              },
+              {
+                  'url': 'https://independent.example/b', 'domain': 'independent.example',
+                  'title': 'Program approval rate analysis',
+                  'snippet': 'The program approval rate for applicants is 54% this year.',
+              },
+          ])
+          assert conflict['conflicts_present'] is True, conflict
+          assert conflict['conflict_count'] >= 1, conflict
+          assert conflict['conflicts'][0]['claim_type'] == 'percentage', conflict
+
+          no_conflict = analyzer.analyze([
+              {
+                  'url': 'https://one.example/a', 'domain': 'one.example',
+                  'snippet': 'Battery efficiency measured 92% in laboratory tests.',
+              },
+              {
+                  'url': 'https://two.example/b', 'domain': 'two.example',
+                  'snippet': 'Employment participation reached 54% in the survey.',
+              },
+          ])
+          assert no_conflict['conflicts_present'] is False, no_conflict
 
           class FakeLiveResearch:
               def research(self, query, *, limit=5, max_age_days=None):
                   if 'independent analysis' in query:
                       raise RuntimeError('simulated provider branch failure')
                   slug = str(abs(hash(query)))
+                  pct = '62%' if 'official' in query or query.endswith('power') else '54%'
                   official = {
-                      'title': f'Official {query}',
+                      'title': f'Program approval rate {query}',
                       'url': f'https://example.gov.in/{slug}',
-                      'snippet': 'Primary evidence',
+                      'snippet': f'The program approval rate for applicants is {pct} this year.',
                       'published_at': '2026-09-06T00:00:00+00:00',
                       'source_type': 'government',
                       'domain': 'example.gov.in',
@@ -44,9 +76,9 @@ jobs:
                       'evidence_score': 1.0,
                   }
                   shared = {
-                      'title': 'Shared source',
+                      'title': 'Shared program approval rate source',
                       'url': 'https://reference.example/shared',
-                      'snippet': 'Independent supporting evidence',
+                      'snippet': 'The program approval rate for applicants is 54% this year.',
                       'published_at': '2026-09-05T00:00:00+00:00',
                       'source_type': 'reference',
                       'domain': 'reference.example',
@@ -71,19 +103,39 @@ jobs:
           urls = [s['url'] for s in result['sources']]
           assert urls.count('https://reference.example/shared') == 1
           assert result['citation_map']['S1'].startswith('https://example.gov.in/')
+          assert result['citation_integrity'] is True
           assert result['multi_source'] is True
           assert all('discovered_by_query' in s for s in result['sources'])
+          assert 'evidence_sufficiency' in result
+          assert 'evidence_conflicts' in result
+          assert result['conflicts_present'] is True, result['evidence_conflicts']
+
+          class WeakLiveResearch:
+              def __init__(self): self.calls = []
+              def research(self, query, *, limit=5, max_age_days=None):
+                  self.calls.append(query)
+                  if 'official primary source documentation' in query:
+                      return {'source_count': 2, 'sources': [
+                          {'title':'Official','url':'https://agency.gov/item','snippet':'Official evidence',
+                           'source_type':'government','domain':'agency.gov','quality_score':1.0,'freshness_score':1.0,'evidence_score':1.0},
+                          {'title':'Independent','url':'https://analysis.example/item','snippet':'Independent evidence',
+                           'source_type':'analysis','domain':'analysis.example','quality_score':0.8,'freshness_score':0.8,'evidence_score':0.8},
+                      ], 'source_count': 2}
+                  return {'source_count': 1, 'sources': [
+                      {'title':'Only','url':'https://single.example/item','snippet':'Single source evidence',
+                       'source_type':'analysis','domain':'single.example','quality_score':0.7,'freshness_score':0.8,'evidence_score':0.7}
+                  ]}
+          weak = WeakLiveResearch()
+          weak_result = OASATDeepResearchService(weak).research('Investigate a topic', max_queries=1)
+          assert weak_result['follow_up_triggered'] is True, weak_result
+          assert 'official primary source documentation' in weak_result['follow_up_query']
+          assert weak_result['citation_integrity'] is True
 
           class Delegate:
-              def __init__(self):
-                  self.last = None
-              def process(self, sender_mobile, message):
-                  self.last = message
-                  return message
-
+              def __init__(self): self.last = None
+              def process(self, sender_mobile, message): self.last = message; return message
           class Router:
-              def route(self, message):
-                  return {'domain': 'RESEARCH'}
+              def route(self, message): return {'domain': 'RESEARCH'}
 
           delegate = Delegate()
           wrapper = LiveResearchAwareConversationService(
