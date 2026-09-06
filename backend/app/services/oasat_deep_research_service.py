@@ -1,19 +1,22 @@
 """Multi-step deep research orchestration for ASKODOX OASAT.
 
 The service decomposes a broad request into bounded sub-queries, merges citation-
-ready evidence, measures evidence sufficiency, and performs at most one follow-up
-search when the first pass is weak. It never fabricates research coverage.
+ready evidence, measures evidence sufficiency, performs at most one follow-up
+search when the first pass is weak, and reports structured evidence conflicts.
 """
 from __future__ import annotations
 
 from typing import Any
 
+from app.services.evidence_conflict_analyzer import EvidenceConflictAnalyzer
+
 
 class OASATDeepResearchService:
     """Run bounded multi-query research on top of OASAT live research."""
 
-    def __init__(self, live_research_service) -> None:
+    def __init__(self, live_research_service, conflict_analyzer=None) -> None:
         self.live_research_service = live_research_service
+        self.conflict_analyzer = conflict_analyzer or EvidenceConflictAnalyzer()
 
     def research(self, query: str, *, limit_per_query: int = 5,
                  max_queries: int = 4, max_age_days: int | None = None) -> dict[str, Any]:
@@ -69,6 +72,15 @@ class OASATDeepResearchService:
         successful_primary_queries = sum(1 for r in query_results if not r.get("follow_up"))
         coverage_ratio = round(successful_primary_queries / len(queries), 3) if queries else 0.0
         sufficiency = self._sufficiency(merged, successful_primary_queries, len(queries))
+        try:
+            conflict_analysis = self.conflict_analyzer.analyze(merged)
+        except Exception:
+            conflict_analysis = {
+                "conflicts_present": False,
+                "conflict_count": 0,
+                "conflicts": [],
+                "analysis_failed": True,
+            }
 
         return {
             "query": clean,
@@ -86,10 +98,13 @@ class OASATDeepResearchService:
             "evidence_sufficiency": sufficiency,
             "follow_up_triggered": follow_up_query is not None,
             "follow_up_query": follow_up_query,
+            "evidence_conflicts": conflict_analysis,
+            "conflicts_present": bool(conflict_analysis.get("conflicts_present")),
             "synthesis_rule": (
                 "Answer only from collected evidence; cite only ids present in citation_map; "
-                "state evidence gaps, conflicts and partial failures; prefer primary/high-trust/fresh sources; "
-                "never present an uncited current factual claim as established fact."
+                "state evidence gaps, structured conflicts and partial failures; do not choose a side in a conflict "
+                "without stronger evidence; prefer primary/high-trust/fresh sources; never present an uncited current "
+                "factual claim as established fact."
             ),
         }
 
