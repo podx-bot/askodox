@@ -43,7 +43,7 @@ def analyze_vision(payload: VisionAnalyzeRequest, request: Request) -> dict:
         raise HTTPException(status_code=503, detail="vision service unavailable")
 
     try:
-        analysis = image_service._analyze_multi_ai(
+        analysis = image_service.analyze(
             image_bytes=image_bytes,
             mime_type=mime_type,
             caption=payload.user_text.strip() or None,
