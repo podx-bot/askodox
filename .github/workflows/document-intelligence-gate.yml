@@ -1,0 +1,101 @@
+name: Document Intelligence Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/api/routes/documents.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/services/universal_document_service.py'
+      - 'backend/requirements.txt'
+      - '.github/workflows/document-intelligence-gate.yml'
+  pull_request:
+    paths:
+      - 'backend/app/api/routes/documents.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/services/universal_document_service.py'
+      - 'backend/requirements.txt'
+      - '.github/workflows/document-intelligence-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  document-intelligence:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install document gate dependencies
+        run: pip install fastapi pydantic pypdf openpyxl python-docx
+      - name: Verify universal file extraction and registered API
+        run: |
+          python - <<'PY'
+          import base64
+          import io
+          from pathlib import Path
+          from types import SimpleNamespace
+
+          from docx import Document
+          from openpyxl import Workbook
+
+          from app.api.routes.documents import DocumentAnalyzeRequest, analyze_document
+          from app.services.universal_document_service import UniversalDocumentService
+
+          service = UniversalDocumentService()
+
+          text = service.analyze(file_bytes='Hello ASKODOX\nతెలుగు'.encode(), filename='note.txt', mime_type='text/plain')
+          assert text['kind'] == 'text'
+          assert 'Hello ASKODOX' in text['text']
+
+          csv_result = service.analyze(file_bytes=b'name,qty\nchicken,2\n', filename='items.csv', mime_type='text/csv')
+          assert csv_result['kind'] == 'csv'
+          assert csv_result['metadata']['rows'] == 2
+          assert 'chicken' in csv_result['text']
+
+          workbook = Workbook()
+          sheet = workbook.active
+          sheet.title = 'Orders'
+          sheet.append(['item', 'qty'])
+          sheet.append(['mutton', 3])
+          xlsx = io.BytesIO()
+          workbook.save(xlsx)
+          spreadsheet = service.analyze(file_bytes=xlsx.getvalue(), filename='orders.xlsx', mime_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+          assert spreadsheet['kind'] == 'spreadsheet'
+          assert spreadsheet['metadata']['sheets'] == ['Orders']
+          assert 'mutton' in spreadsheet['text']
+
+          document = Document()
+          document.add_paragraph('ASKODOX document intelligence')
+          docx = io.BytesIO()
+          document.save(docx)
+          doc_result = service.analyze(file_bytes=docx.getvalue(), filename='brief.docx', mime_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+          assert doc_result['kind'] == 'document'
+          assert 'ASKODOX document intelligence' in doc_result['text']
+
+          class FakeDocumentService:
+              def analyze(self, *, file_bytes, filename, mime_type=None):
+                  assert file_bytes == b'hello-file'
+                  assert filename == 'note.txt'
+                  return {'kind': 'text', 'filename': filename, 'mime_type': mime_type, 'text': 'hello-file', 'truncated': False, 'metadata': {'lines': 1}}
+
+          request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=SimpleNamespace(universal_document_service=FakeDocumentService()))))
+          payload = DocumentAnalyzeRequest(file_base64=base64.b64encode(b'hello-file').decode('ascii'), filename='note.txt', mime_type='text/plain')
+          api_result = analyze_document(payload, request)
+          assert api_result['status'] == 'success'
+          assert api_result['analysis']['text'] == 'hello-file'
+
+          app_factory = Path('app/api/app_factory.py').read_text(encoding='utf-8')
+          assert 'from app.api.routes.documents import router as documents_router' in app_factory
+          assert 'container.universal_document_service = UniversalDocumentService()' in app_factory
+          assert 'app.include_router(documents_router)' in app_factory
+
+          service_source = Path('app/services/universal_document_service.py').read_text(encoding='utf-8')
+          for marker in ('PdfReader', 'load_workbook', 'Document', '_csv', '_json'):
+              assert marker in service_source
+
+          print('DOCUMENT INTELLIGENCE GATE: PASS')
+          PY
