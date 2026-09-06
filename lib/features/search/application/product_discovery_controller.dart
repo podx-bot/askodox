@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../services/multimodal_capture_service.dart';
+import '../../../services/vision_api_service.dart';
 import '../../catalog/application/catalog_providers.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../data/mock_product_discovery_repository.dart';
@@ -10,6 +12,14 @@ import '../domain/search_models.dart';
 
 final productDiscoveryRepositoryProvider = Provider<ProductDiscoveryRepository>(
   (ref) => const MockProductDiscoveryRepository(),
+);
+
+final multimodalCaptureServiceProvider = Provider<MultimodalCaptureService>(
+  (ref) => MultimodalCaptureService(),
+);
+
+final visionApiServiceProvider = Provider<VisionApiService>(
+  (ref) => const VisionApiService(),
 );
 
 class DiscoveryState {
@@ -117,26 +127,81 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
   }
 
   Future<void> runOcr(String source) async {
+    final capture = ref.read(multimodalCaptureServiceProvider);
+    final image = source.toLowerCase().contains('camera')
+        ? await capture.captureCamera()
+        : await capture.chooseGallery();
+    if (image == null) return;
+
+    final settings = ref.read(appSettingsProvider);
+    final language = settings.locale?.languageCode ?? 'en';
+    final analysis = await ref.read(visionApiServiceProvider).analyze(
+          image: image,
+          userText: 'Read the useful text and understand what I need from this image.',
+          language: language,
+        );
+    if (analysis == null) return;
+
+    final extracted = _visionText(analysis);
+    if (extracted.isEmpty) return;
+
+    // Camera/gallery evidence enters the same universal ASKODOX reasoning brain
+    // as typed and spoken requests; product matching remains supplemental.
+    ref.read(universalDealControllerProvider.notifier).start(extracted);
+
     final catalog = (await ref.read(catalogProvider.future)).products;
-    final result = repository.extractMockText(source, catalog);
+    final matches = repository.matchText(extracted, catalog);
     state = state.copyWith(
-      ocrResult: result,
-      matches: result.matches,
+      ocrResult: OCRResult(text: extracted, matches: matches, source: source),
+      matches: matches,
       analytics: _analytics(ocr: 1),
     );
   }
 
   Future<void> uploadImage({bool cropped = false}) async {
+    final capture = ref.read(multimodalCaptureServiceProvider);
+    final image = await capture.chooseGallery();
+    if (image == null) return;
+
+    final settings = ref.read(appSettingsProvider);
+    final language = settings.locale?.languageCode ?? 'en';
+    final analysis = await ref.read(visionApiServiceProvider).analyze(
+          image: image,
+          userText: 'Understand this image and identify the user request or useful details.',
+          language: language,
+        );
+    if (analysis == null) return;
+
+    final extracted = _visionText(analysis);
+    if (extracted.isNotEmpty) {
+      ref.read(universalDealControllerProvider.notifier).start(extracted);
+    }
+
     final request = ImageSearchRequest(
-      localReference: 'local://pending-product-image.jpg',
+      localReference: image.path,
       cropped: cropped,
     );
     final catalog = (await ref.read(catalogProvider.future)).products;
+    final matches = extracted.isEmpty
+        ? repository.searchImage(request, catalog)
+        : repository.matchText(extracted, catalog);
     state = state.copyWith(
       imageRequest: request,
-      matches: repository.searchImage(request, catalog),
+      matches: matches,
       analytics: _analytics(image: 1),
     );
+  }
+
+  String _visionText(Map<String, dynamic> analysis) {
+    for (final key in const ['request_text', 'text', 'summary', 'description']) {
+      final value = analysis[key];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    final labels = analysis['labels'];
+    if (labels is List) {
+      return labels.whereType<String>().map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
+    }
+    return '';
   }
 
   Future<void> startVoice() async {
@@ -184,8 +249,6 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
         // Keep the primary universal-deal flow alive without catalog evidence.
       }
 
-      // Speaking is a real lifecycle state. Android completes this method only
-      // when the acknowledgement finishes (or immediately reports unavailable).
       state = state.copyWith(
         voiceState: VoiceSearchState.speaking,
         voiceResult: spoken,
