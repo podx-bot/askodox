@@ -27,6 +27,8 @@ class Settings:
     image_ai_min_confidence: float
     voice_reply_enabled: bool
     voice_reply_max_chars: int
+    brave_search_api_key: str
+    brave_search_timeout_seconds: int
 
 
 def _database_path() -> str:
@@ -113,4 +115,6 @@ def load_settings() -> Settings:
             "PODX_VOICE_REPLY_MAX_CHARS",
             900,
         ),
+        brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY", "").strip(),
+        brave_search_timeout_seconds=_positive_int_env("BRAVE_SEARCH_TIMEOUT_SECONDS", 8),
     )
