@@ -170,7 +170,7 @@ def create_app() -> FastAPI:
     universal_ai = UniversalAIAssistantService(
         delegate=research_aware,
         api_key=container.settings.gemini_api_key,
-        model=container.settings.gemini_voice_model,
+        model=container.settings.gemini_text_model,
     )
     container.universal_ai_assistant_service = universal_ai
 
