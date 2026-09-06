@@ -1,0 +1,105 @@
+name: OASAT Deep Research Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/oasat_deep_research_service.py'
+      - 'backend/app/services/live_research_aware_conversation_service.py'
+      - 'backend/app/api/app_factory.py'
+      - '.github/workflows/oasat-deep-research-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Deep research orchestration smoke
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from app.services.oasat_deep_research_service import OASATDeepResearchService
+          from app.services.live_research_aware_conversation_service import LiveResearchAwareConversationService
+
+          class FakeLiveResearch:
+              def research(self, query, *, limit=5, max_age_days=None):
+                  if 'independent analysis' in query:
+                      raise RuntimeError('simulated provider branch failure')
+                  slug = str(abs(hash(query)))
+                  official = {
+                      'title': f'Official {query}',
+                      'url': f'https://example.gov.in/{slug}',
+                      'snippet': 'Primary evidence',
+                      'published_at': '2026-09-06T00:00:00+00:00',
+                      'source_type': 'government',
+                      'domain': 'example.gov.in',
+                      'quality_score': 1.0,
+                      'freshness_score': 1.0,
+                      'evidence_score': 1.0,
+                  }
+                  shared = {
+                      'title': 'Shared source',
+                      'url': 'https://reference.example/shared',
+                      'snippet': 'Independent supporting evidence',
+                      'published_at': '2026-09-05T00:00:00+00:00',
+                      'source_type': 'reference',
+                      'domain': 'reference.example',
+                      'quality_score': 0.8,
+                      'freshness_score': 0.9,
+                      'evidence_score': 0.84,
+                  }
+                  return {
+                      'source_count': 2,
+                      'sources': [official, shared],
+                      'citation_map': {'S1': official['url'], 'S2': shared['url']},
+                      'conflicts_present': True,
+                  }
+
+          deep = OASATDeepResearchService(FakeLiveResearch())
+          result = deep.research('Compare solar and wind power', max_queries=4)
+          assert result['deep_research'] is True
+          assert len(result['planned_queries']) == 4
+          assert result['partial_failure'] is True
+          assert 0 < result['coverage_ratio'] < 1
+          assert result['source_count'] >= 3
+          urls = [s['url'] for s in result['sources']]
+          assert urls.count('https://reference.example/shared') == 1
+          assert result['citation_map']['S1'].startswith('https://example.gov.in/')
+          assert result['multi_source'] is True
+          assert all('discovered_by_query' in s for s in result['sources'])
+
+          class Delegate:
+              def __init__(self):
+                  self.last = None
+              def process(self, sender_mobile, message):
+                  self.last = message
+                  return message
+
+          class Router:
+              def route(self, message):
+                  return {'domain': 'RESEARCH'}
+
+          delegate = Delegate()
+          wrapper = LiveResearchAwareConversationService(
+              delegate=delegate,
+              research_service=FakeLiveResearch(),
+              deep_research_service=deep,
+              router=Router(),
+          )
+          out = wrapper.process('app-test', 'Compare solar and wind power')
+          assert 'OASAT DEEP RESEARCH EVIDENCE' in out
+          assert 'coverage_ratio=' in out
+          assert 'partial_failure=True' in out
+          assert '[S1]' in out
+
+          assert LiveResearchAwareConversationService._needs_deep_research('deep research this topic')
+          assert LiveResearchAwareConversationService._needs_deep_research('compare A vs B')
+          assert not LiveResearchAwareConversationService._needs_deep_research('latest news today')
+          print('deep research smoke passed')
+          PY
