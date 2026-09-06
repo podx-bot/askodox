@@ -18,7 +18,8 @@ class ConversationOSRuntimeService:
                  topic_resolver: ConversationTopicResolver | None = None,
                  oasat_router: OASATDomainRouter | None = None,
                  oasat_reasoning: OASATDomainReasoningService | None = None,
-                 oasat_commerce=None, channel: str = "whatsapp") -> None:
+                 oasat_commerce=None, user_memory_service=None,
+                 channel: str = "whatsapp") -> None:
         self.delegate = delegate
         self.ledger = ledger_repository
         self.request_extractor = request_extractor
@@ -28,11 +29,20 @@ class ConversationOSRuntimeService:
         self.oasat_router = oasat_router or OASATDomainRouter()
         self.oasat_reasoning = oasat_reasoning or OASATDomainReasoningService()
         self.oasat_commerce = oasat_commerce
+        self.user_memory_service = user_memory_service
         self.channel = str(channel or "whatsapp")
 
     def process(self, sender_mobile: str, message: str) -> str:
         user_id = str(sender_mobile)
         clean = " ".join(str(message or "").strip().split())
+
+        # Memory management must happen before OASAT prompt decoration, otherwise
+        # explicit commands such as "remember that ..." stop matching the durable
+        # memory command grammar once instructions are prepended to the message.
+        memory_reply = self._memory_command(user_id, clean)
+        if memory_reply is not None:
+            return memory_reply
+
         try:
             state_dict = self.ledger.load_state(user_id) or self._blank_state(user_id)
             state = self._state_from_dict(user_id, state_dict)
@@ -52,6 +62,7 @@ class ConversationOSRuntimeService:
             reasoning = self.oasat_reasoning.build(oasat_plan, current_context)
             state_dict = self._merge_followup_facts(state_dict, clean, extracted_facts or None, decision.kind)
             commerce_evidence = self._commerce_evidence(user_id, oasat_plan, state_dict)
+            memory_context = self._memory_context(user_id)
             known_patch = {
                 "domain": oasat_plan.get("domain"), "oasat_intent": oasat_plan.get("intent"),
                 "oasat_adapter": oasat_plan.get("adapter"), "oasat_stages": oasat_plan.get("stages"),
@@ -61,6 +72,8 @@ class ConversationOSRuntimeService:
             }
             if commerce_evidence is not None:
                 known_patch["oasat_commerce_evidence"] = commerce_evidence
+            if memory_context:
+                known_patch["oasat_user_memory"] = memory_context
             state_dict = self.merge_engine.merge_state(state_dict, {"known_fields": known_patch})
             routed_message = self._planned_message(clean, state_dict, decision.kind, oasat_plan, reasoning)
             reply = self._delegate(user_id, routed_message)
@@ -89,6 +102,28 @@ class ConversationOSRuntimeService:
             return validated
         except Exception:
             return self._delegate(user_id, clean)
+
+    def _memory_command(self, user_id: str, message: str) -> str | None:
+        if self.user_memory_service is None:
+            return None
+        try:
+            return self.user_memory_service.process(user_id, message)
+        except Exception:
+            return None
+
+    def _memory_context(self, user_id: str) -> list[str]:
+        if self.user_memory_service is None:
+            return []
+        try:
+            rows = self.user_memory_service.context(user_id, limit=10) or []
+        except Exception:
+            return []
+        values: list[str] = []
+        for row in rows:
+            value = " ".join(str((row or {}).get("memory_value") or "").strip().split())
+            if value and value not in values:
+                values.append(value)
+        return values
 
     def _extract_request_facts(self, message: str, plan: Dict[str, Any]) -> Dict[str, Any]:
         """Advisory natural-language extraction; never blocks the conversation on AI failure."""
@@ -178,9 +213,17 @@ class ConversationOSRuntimeService:
             "Do not use one global answer template. Ask only relevant missing questions and reason/action according to this domain and the user's actual requirement. "
             "Do not force commerce/seller logic into non-commerce domains."
         )
-        evidence = (state.get("known_fields") or {}).get("oasat_commerce_evidence")
+        known_fields = state.get("known_fields") or {}
+        evidence = known_fields.get("oasat_commerce_evidence")
         if evidence is not None:
             domain_instruction += f" Structured commerce evidence={evidence}. Use it as evidence; never present historical prices as current prices."
+        memory = known_fields.get("oasat_user_memory") or []
+        if memory:
+            memory_text = " | ".join(str(x) for x in memory if str(x).strip())
+            domain_instruction += (
+                f" Durable user memory={memory_text}. Use these saved user-provided facts only when relevant to the current request. "
+                "Do not invent additional personal facts and do not mention memory unless it helps the answer."
+            )
         if kind not in {TurnKind.UPDATE_EXISTING, TurnKind.CLARIFICATION, TurnKind.QUESTION, TurnKind.CONFIRMATION}:
             return f"{domain_instruction} User request: {original}"
         entity = str(state.get("active_entity") or "current request")
