@@ -18,6 +18,7 @@ class Settings:
     sarvam_stt_model: str
     sarvam_stt_timeout_seconds: int
     gemini_api_key: str
+    gemini_text_model: str
     gemini_voice_model: str
     gemini_voice_max_bytes: int
     gemini_tts_model: str
@@ -91,6 +92,10 @@ def load_settings() -> Settings:
         sarvam_stt_model=os.getenv("SARVAM_STT_MODEL", "saaras:v3").strip(),
         sarvam_stt_timeout_seconds=_positive_int_env("SARVAM_STT_TIMEOUT_SECONDS", 8),
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
+        gemini_text_model=os.getenv(
+            "GEMINI_TEXT_MODEL",
+            "gemini-3.6-flash",
+        ).strip(),
         gemini_voice_model=os.getenv(
             "GEMINI_VOICE_MODEL",
             "gemini-3.6-flash",
