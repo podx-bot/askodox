@@ -1,0 +1,83 @@
+name: Long-Term Memory Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/repositories/user_memory_repository.py'
+      - 'backend/app/services/user_memory_service.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - '.github/workflows/long-term-memory-gate.yml'
+  pull_request:
+    paths:
+      - 'backend/app/repositories/user_memory_repository.py'
+      - 'backend/app/services/user_memory_service.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - '.github/workflows/long-term-memory-gate.yml'
+
+jobs:
+  long-term-memory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify persistent user-scoped memory lifecycle
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import os
+          import tempfile
+          from app.repositories.user_memory_repository import UserMemoryRepository
+          from app.services.user_memory_service import UserMemoryService
+
+          with tempfile.TemporaryDirectory() as td:
+              db = os.path.join(td, 'memory.db')
+              repo = UserMemoryRepository(db)
+              svc = UserMemoryService(repo)
+
+              # Explicit opt-in save.
+              saved = svc.process('user-a', 'remember that I prefer Telugu replies')
+              assert saved and 'Remembered' in saved
+              rows = repo.list_active('user-a')
+              assert len(rows) == 1
+              assert rows[0]['memory_type'] == 'EXPLICIT_USER_MEMORY'
+              assert rows[0]['source'] == 'conversation'
+
+              # Persistence across repository/service recreation.
+              repo2 = UserMemoryRepository(db)
+              svc2 = UserMemoryService(repo2)
+              recalled = svc2.process('user-a', 'what do you remember about me')
+              assert recalled and 'I prefer Telugu replies' in recalled
+
+              # Strict user isolation.
+              assert repo2.list_active('user-b') == []
+              other = svc2.process('user-b', 'what do you remember about me')
+              assert other and "don't have any saved" in other
+
+              # Targeted forgetting must deactivate the matching fact only.
+              forgotten = svc2.process('user-a', 'forget Telugu replies')
+              assert forgotten and 'Forgotten' in forgotten
+              assert repo2.list_active('user-a') == []
+
+              # Clear-all lifecycle.
+              svc2.process('user-a', 'remember that my preferred language is Telugu')
+              svc2.process('user-a', 'remember that I like concise answers')
+              assert len(repo2.list_active('user-a')) == 2
+              cleared = svc2.process('user-a', 'clear my memory')
+              assert cleared and 'Cleared 2 saved memory items' in cleared
+              assert repo2.list_active('user-a') == []
+
+          print('Long-term memory gate: PASS')
+          PY
+
+      - name: Verify ConversationOS memory wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('backend/app/services/conversation_os_runtime_service.py').read_text(encoding='utf-8')
+          assert 'user_memory_service' in text
+          assert '.context(' in text or '.process(' in text
+          print('ConversationOS memory wiring: PASS')
+          PY
