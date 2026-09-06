@@ -1,0 +1,92 @@
+name: OASAT Live Web Provider Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/brave_web_search_provider.py'
+      - 'backend/app/services/oasat_live_research_service.py'
+      - 'backend/app/services/live_research_aware_conversation_service.py'
+      - 'backend/app/core/settings.py'
+      - 'backend/app/api/app_factory.py'
+      - '.github/workflows/oasat-live-web-provider-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Verify provider, evidence ranking, research routing and fallback
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import httpx
+
+          from app.services.brave_web_search_provider import BraveWebSearchProvider
+          from app.services.oasat_live_research_service import OASATLiveResearchService
+          from app.services.live_research_aware_conversation_service import LiveResearchAwareConversationService
+
+          def handler(request: httpx.Request) -> httpx.Response:
+              assert request.headers.get('X-Subscription-Token') == 'test-key'
+              assert 'q=latest+solar+policy' in str(request.url)
+              return httpx.Response(200, json={
+                  'web': {'results': [
+                      {
+                          'title': 'Official Solar Update',
+                          'url': 'https://energy.gov.in/solar/update',
+                          'description': 'Official policy update.',
+                          'page_age': '2026-09-05T12:00:00Z',
+                      },
+                      {
+                          'title': 'Industry Coverage',
+                          'url': 'https://example.com/solar-news',
+                          'description': 'Industry summary of the update.',
+                          'page_age': '2026-09-05T13:00:00Z',
+                      },
+                  ]}
+              })
+
+          client = httpx.Client(transport=httpx.MockTransport(handler))
+          provider = BraveWebSearchProvider('test-key', client=client)
+          rows = provider('latest solar policy', 5)
+          assert len(rows) == 2
+          assert rows[0]['source_type'] == 'government'
+
+          research = OASATLiveResearchService(provider)
+          evidence = research.research('latest solar policy', limit=5, max_age_days=7)
+          assert evidence['live_research'] is True
+          assert evidence['source_count'] == 2
+          assert evidence['citation_map']['S1'] == 'https://energy.gov.in/solar/update'
+          assert evidence['conflicts_present'] is True
+
+          class Delegate:
+              def __init__(self): self.last = ''
+              def process(self, sender_mobile, message):
+                  self.last = message
+                  return 'ok'
+
+          delegate = Delegate()
+          aware = LiveResearchAwareConversationService(delegate, research)
+          assert aware.process('u1', 'latest solar policy') == 'ok'
+          assert 'OASAT LIVE RESEARCH EVIDENCE' in delegate.last
+          assert '[S1]' in delegate.last
+          assert 'energy.gov.in/solar/update' in delegate.last
+
+          no_key = OASATLiveResearchService(BraveWebSearchProvider(''))
+          fallback_delegate = Delegate()
+          fallback = LiveResearchAwareConversationService(fallback_delegate, no_key)
+          assert fallback.process('u2', 'latest solar policy') == 'ok'
+          assert 'live web evidence is currently unavailable' in fallback_delegate.last
+          assert 'Do not claim that current web results were checked' in fallback_delegate.last
+
+          normal_delegate = Delegate()
+          normal = LiveResearchAwareConversationService(normal_delegate, research)
+          assert normal.process('u3', 'I want to buy rice nearby') == 'ok'
+          assert normal_delegate.last == 'I want to buy rice nearby'
+          PY
