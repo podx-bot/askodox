@@ -25,6 +25,7 @@ from app.services.fresh_test_reset_service import FreshTestResetService
 from app.services.live_research_aware_conversation_service import LiveResearchAwareConversationService
 from app.services.multilingual_onboarding_service import MultilingualOnboardingService
 from app.services.natural_conversation_orchestrator import NaturalConversationOrchestrator
+from app.services.oasat_deep_research_service import OASATDeepResearchService
 from app.services.oasat_live_research_service import OASATLiveResearchService
 from app.services.podx_meet_aware_conversation_service import PodxMeetAwareConversationService
 from app.services.podx_meet_runtime_service import PodxMeetRuntimeService
@@ -152,12 +153,15 @@ def create_app() -> FastAPI:
         timeout_seconds=container.settings.brave_search_timeout_seconds,
     )
     live_research = OASATLiveResearchService(web_provider)
+    deep_research = OASATDeepResearchService(live_research)
     research_aware = LiveResearchAwareConversationService(
         delegate=quality_guard,
         research_service=live_research,
+        deep_research_service=deep_research,
     )
     container.brave_web_search_provider = web_provider
     container.oasat_live_research_service = live_research
+    container.oasat_deep_research_service = deep_research
     container.live_research_aware_conversation_service = research_aware
 
     conversation_os_ledger = ConversationTurnLedgerRepository(container.settings.database_path)
