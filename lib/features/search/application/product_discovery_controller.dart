@@ -195,10 +195,64 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
   }
 
   String _visionText(Map<String, dynamic> analysis) {
-    for (final key in const ['request_text', 'text', 'summary', 'description']) {
+    for (final key in const [
+      'request_text',
+      'ocr_text',
+      'visible_text',
+      'text',
+      'summary',
+      'description',
+    ]) {
       final value = analysis[key];
       if (value is String && value.trim().isNotEmpty) return value.trim();
     }
+
+    // The backend vision brain returns structured evidence. Build a compact
+    // natural request from that schema so every domain can enter the same
+    // universal ASKODOX reasoning path even when no free-form summary exists.
+    final parts = <String>[];
+    final side = (analysis['side'] as String?)?.trim().toUpperCase();
+    if (side == 'NEED') parts.add('I need');
+    if (side == 'OFFER') parts.add('I offer');
+
+    for (final key in const ['subject', 'brand', 'model']) {
+      final value = analysis[key];
+      if (value is String && value.trim().isNotEmpty) parts.add(value.trim());
+    }
+
+    final quantity = analysis['quantity'];
+    final unit = analysis['unit'];
+    if (quantity is num) {
+      parts.add(unit is String && unit.trim().isNotEmpty
+          ? '${quantity.toString()} ${unit.trim()}'
+          : quantity.toString());
+    }
+
+    final price = analysis['price'];
+    final currency = analysis['currency'];
+    if (price is num) {
+      parts.add(currency is String && currency.trim().isNotEmpty
+          ? '${currency.trim()} ${price.toString()}'
+          : price.toString());
+    }
+
+    for (final key in const ['when_text', 'location_text']) {
+      final value = analysis[key];
+      if (value is String && value.trim().isNotEmpty) parts.add(value.trim());
+    }
+
+    final constraints = analysis['constraints'];
+    if (constraints is List) {
+      parts.addAll(
+        constraints
+            .whereType<String>()
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty),
+      );
+    }
+
+    if (parts.isNotEmpty) return parts.join(' ');
+
     final labels = analysis['labels'];
     if (labels is List) {
       return labels
