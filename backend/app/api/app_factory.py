@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.appointment_location_middleware import AppointmentLocationMiddleware
 from app.api.request_observability_middleware import RequestObservabilityMiddleware
 from app.api.routes.debug import router as debug_router
+from app.api.routes.documents import router as documents_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
@@ -37,6 +38,7 @@ from app.services.runtime_complaint_prevention_service import RuntimeComplaintPr
 from app.services.universal_ai_assistant_service import UniversalAIAssistantService
 from app.services.universal_category_flow_brain import UniversalCategoryFlowBrain
 from app.services.universal_correction_service import UniversalCorrectionService
+from app.services.universal_document_service import UniversalDocumentService
 from app.services.universal_profile_summary_service import UniversalProfileSummaryService
 from app.services.user_memory_service import UserMemoryService
 
@@ -45,6 +47,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="ASKODOX", version="2.0.0")
 
     container = UniversalCommerceAppContainer()
+    container.universal_document_service = UniversalDocumentService()
     meet_repository = PodxMeetRepository(container.settings.database_path)
     meet_runtime = PodxMeetRuntimeService(meet_repository, user_repository=container.user_repository)
     container.podx_meet_repository = meet_repository
@@ -207,6 +210,7 @@ def create_app() -> FastAPI:
     app.include_router(debug_router)
     app.include_router(in_app_deal_router)
     app.include_router(vision_router)
+    app.include_router(documents_router)
 
     @app.on_event("shutdown")
     def shutdown_event() -> None:
