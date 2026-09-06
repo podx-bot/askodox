@@ -33,6 +33,7 @@ from app.services.podx_meet_runtime_service import PodxMeetRuntimeService
 from app.services.progressive_role_profile_essentials_service import ProgressiveRoleProfileEssentialsService
 from app.services.ride_settlement_runtime_service import RideSettlementRuntimeService
 from app.services.runtime_complaint_prevention_service import RuntimeComplaintPreventionService
+from app.services.universal_ai_assistant_service import UniversalAIAssistantService
 from app.services.universal_category_flow_brain import UniversalCategoryFlowBrain
 from app.services.universal_correction_service import UniversalCorrectionService
 from app.services.universal_profile_summary_service import UniversalProfileSummaryService
@@ -166,6 +167,13 @@ def create_app() -> FastAPI:
     container.oasat_deep_research_service = deep_research
     container.live_research_aware_conversation_service = research_aware
 
+    universal_ai = UniversalAIAssistantService(
+        delegate=research_aware,
+        api_key=container.settings.gemini_api_key,
+        model=container.settings.gemini_voice_model,
+    )
+    container.universal_ai_assistant_service = universal_ai
+
     user_memory_repository = UserMemoryRepository(container.settings.database_path)
     user_memory_service = UserMemoryService(user_memory_repository)
     container.user_memory_repository = user_memory_repository
@@ -173,7 +181,7 @@ def create_app() -> FastAPI:
 
     conversation_os_ledger = ConversationTurnLedgerRepository(container.settings.database_path)
     conversation_os = ConversationOSRuntimeService(
-        delegate=research_aware,
+        delegate=universal_ai,
         ledger_repository=conversation_os_ledger,
         request_extractor=None,
         user_memory_service=user_memory_service,
