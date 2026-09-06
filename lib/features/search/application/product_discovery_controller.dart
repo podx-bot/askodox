@@ -145,14 +145,16 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
     final extracted = _visionText(analysis);
     if (extracted.isEmpty) return;
 
-    // Camera/gallery evidence enters the same universal ASKODOX reasoning brain
-    // as typed and spoken requests; product matching remains supplemental.
     ref.read(universalDealControllerProvider.notifier).start(extracted);
 
     final catalog = (await ref.read(catalogProvider.future)).products;
     final matches = repository.matchText(extracted, catalog);
     state = state.copyWith(
-      ocrResult: OCRResult(text: extracted, matches: matches, source: source),
+      ocrResult: OCRResult(
+        extractedText: extracted,
+        matches: matches,
+        source: source,
+      ),
       matches: matches,
       analytics: _analytics(ocr: 1),
     );
@@ -199,7 +201,11 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
     }
     final labels = analysis['labels'];
     if (labels is List) {
-      return labels.whereType<String>().map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
+      return labels
+          .whereType<String>()
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .join(' ');
     }
     return '';
   }
@@ -238,11 +244,8 @@ class ProductDiscoveryController extends StateNotifier<DiscoveryState> {
         voiceResult: spoken,
       );
 
-      // Voice and text enter the same ASKODOX Party A ↔ Party B brain first.
       ref.read(universalDealControllerProvider.notifier).start(spoken);
 
-      // Product discovery is supplemental evidence only. A catalog load/search
-      // failure must never discard a valid voice result or universal deal.
       try {
         await search(spoken);
       } catch (_) {
