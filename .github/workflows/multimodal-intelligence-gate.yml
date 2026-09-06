@@ -8,7 +8,10 @@ on:
       - 'backend/app/api/app_factory.py'
       - 'backend/app/services/universal_image_service.py'
       - 'lib/services/vision_api_service.dart'
-      - 'lib/services/camera_capture_service.dart'
+      - 'lib/services/multimodal_capture_service.dart'
+      - 'lib/features/search/application/product_discovery_controller.dart'
+      - 'lib/features/search/presentation/product_discovery_screen.dart'
+      - 'lib/features/home/presentation/home_screen.dart'
       - '.github/workflows/multimodal-intelligence-gate.yml'
   pull_request:
     paths:
@@ -16,7 +19,10 @@ on:
       - 'backend/app/api/app_factory.py'
       - 'backend/app/services/universal_image_service.py'
       - 'lib/services/vision_api_service.dart'
-      - 'lib/services/camera_capture_service.dart'
+      - 'lib/services/multimodal_capture_service.dart'
+      - 'lib/features/search/application/product_discovery_controller.dart'
+      - 'lib/features/search/presentation/product_discovery_screen.dart'
+      - 'lib/features/home/presentation/home_screen.dart'
       - '.github/workflows/multimodal-intelligence-gate.yml'
   workflow_dispatch:
 
@@ -37,6 +43,7 @@ jobs:
         run: |
           python - <<'PY'
           import base64
+          from pathlib import Path
           from types import SimpleNamespace
           from fastapi import HTTPException
           from app.api.routes.vision import VisionAnalyzeRequest, analyze_vision
@@ -85,8 +92,34 @@ jobs:
           except HTTPException as exc:
               assert exc.status_code == 400
 
-          app_factory = open('app/api/app_factory.py', encoding='utf-8').read()
+          app_factory = Path('app/api/app_factory.py').read_text(encoding='utf-8')
           assert 'from app.api.routes.vision import router as vision_router' in app_factory
           assert 'app.include_router(vision_router)' in app_factory
+
+          root = Path('..')
+          controller = (root / 'lib/features/search/application/product_discovery_controller.dart').read_text(encoding='utf-8')
+          capture = (root / 'lib/services/multimodal_capture_service.dart').read_text(encoding='utf-8')
+          vision_client = (root / 'lib/services/vision_api_service.dart').read_text(encoding='utf-8')
+
+          # No demo image/OCR shortcuts may survive in the live controller.
+          assert 'extractMockText' not in controller
+          assert 'local://pending-product-image.jpg' not in controller
+
+          # Camera and gallery must use real capture, then the registered vision API.
+          assert 'capture.captureCamera()' in controller
+          assert 'capture.chooseGallery()' in controller
+          assert 'visionApiServiceProvider' in controller
+          assert "'/vision/analyze'" in vision_client
+          assert 'ImageSource.camera' in capture
+          assert 'ImageSource.gallery' in capture
+
+          # Structured image evidence and voice both enter the same universal deal brain.
+          assert "analysis['subject']" in controller
+          assert "analysis['constraints']" in controller
+          assert controller.count('universalDealControllerProvider.notifier') >= 3
+          assert 'startVoiceSearch' in controller
+          assert 'voicePreference' in controller
+          assert 'languageCode' in controller
+
           print('MULTIMODAL INTELLIGENCE GATE: PASS')
           PY
