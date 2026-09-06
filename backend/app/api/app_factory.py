@@ -7,6 +7,7 @@ from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
 from app.api.routes.onboarding_auth import router as onboarding_auth_router
+from app.api.routes.vision import router as vision_router
 from app.core.universal_commerce_container import UniversalCommerceAppContainer
 from app.repositories.conversation_observability_repository import ConversationObservabilityRepository
 from app.repositories.conversation_turn_ledger_repository import ConversationTurnLedgerRepository
@@ -205,6 +206,7 @@ def create_app() -> FastAPI:
     app.include_router(webhook_router)
     app.include_router(debug_router)
     app.include_router(in_app_deal_router)
+    app.include_router(vision_router)
 
     @app.on_event("shutdown")
     def shutdown_event() -> None:
