@@ -1,0 +1,115 @@
+name: Live Web Intelligence Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/brave_web_search_provider.py'
+      - 'backend/app/services/oasat_live_research_service.py'
+      - 'backend/app/services/runtime_readiness_service.py'
+      - 'backend/app/core/settings.py'
+      - 'backend/app/api/app_factory.py'
+      - '.github/workflows/live-web-intelligence-gate.yml'
+  pull_request:
+    paths:
+      - 'backend/app/services/brave_web_search_provider.py'
+      - 'backend/app/services/oasat_live_research_service.py'
+      - 'backend/app/services/runtime_readiness_service.py'
+      - 'backend/app/core/settings.py'
+      - 'backend/app/api/app_factory.py'
+      - '.github/workflows/live-web-intelligence-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  live-web-intelligence:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused dependencies
+        run: pip install httpx
+      - name: Verify provider, evidence ranking and readiness
+        run: |
+          python - <<'PY'
+          from types import SimpleNamespace
+          import httpx
+
+          from app.services.brave_web_search_provider import BraveWebSearchProvider
+          from app.services.oasat_live_research_service import OASATLiveResearchService
+          from app.services.runtime_readiness_service import RuntimeReadinessService
+
+          class FakeResponse:
+              def raise_for_status(self):
+                  return None
+              def json(self):
+                  return {
+                      'web': {
+                          'results': [
+                              {
+                                  'title': 'Official update',
+                                  'url': 'https://example.gov.in/update',
+                                  'description': 'Primary government evidence',
+                                  'page_age': '2026-09-06T08:00:00Z',
+                              },
+                              {
+                                  'title': 'Independent report',
+                                  'url': 'https://example.com/report',
+                                  'description': 'Independent supporting evidence',
+                                  'page_age': '2026-09-05T08:00:00Z',
+                              },
+                          ]
+                      }
+                  }
+
+          class FakeClient:
+              def get(self, url, *, headers, params):
+                  assert url == BraveWebSearchProvider.API_URL
+                  assert headers['X-Subscription-Token'] == 'brave-test-key'
+                  assert params['q'] == 'latest policy update'
+                  assert params['count'] == 2
+                  return FakeResponse()
+
+          provider = BraveWebSearchProvider('brave-test-key', client=FakeClient())
+          assert provider.configured is True
+          raw = provider('latest policy update', 2)
+          assert len(raw) == 2
+          assert raw[0]['source_type'] == 'government'
+          assert raw[0]['published_at'] is not None
+
+          research = OASATLiveResearchService(provider).research(
+              'latest policy update', limit=2, max_age_days=7
+          )
+          assert research['live_research'] is True
+          assert research['source_count'] == 2
+          assert research['sources'][0]['source_type'] == 'government'
+          assert research['sources'][0]['quality_score'] == 1.0
+          assert research['citation_map']['S1'].startswith('https://')
+          assert research['conflicts_present'] is True
+
+          unconfigured = BraveWebSearchProvider('')
+          assert unconfigured.configured is False
+          assert unconfigured('anything', 5) == []
+
+          settings = SimpleNamespace(
+              whatsapp_access_token='x', whatsapp_phone_number_id='y',
+              whatsapp_webhook_verify_token='z', sarvam_api_key='',
+              gemini_api_key='', gemini_text_model='', openai_api_key='',
+              voice_reply_enabled=False, google_maps_api_key='',
+              brave_search_api_key='brave-test-key'
+          )
+          readiness = RuntimeReadinessService(settings).check()
+          assert readiness.live_web_ready is True
+          assert 'Live web search provider is not configured' not in readiness.warnings
+
+          settings.brave_search_api_key = ''
+          readiness = RuntimeReadinessService(settings).check()
+          assert readiness.live_web_ready is False
+          assert 'Live web search provider is not configured' in readiness.warnings
+
+          print('LIVE WEB INTELLIGENCE GATE: PASS')
+          PY
