@@ -74,6 +74,26 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Align Android plugin compile SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          matches = sorted(Path.home().glob('.pub-cache/hosted/pub.dev/file_picker-*/android/build.gradle'))
+          if not matches:
+              raise SystemExit('file_picker Android Gradle file not found')
+          for path in matches:
+              text = path.read_text()
+              updated, count = re.subn(r'compileSdk(?:Version)?\s+34\b', 'compileSdk 36', text)
+              if count == 0 and not re.search(r'compileSdk(?:Version)?\s+36\b', text):
+                  raise SystemExit(f'Unable to align compileSdk in {path}')
+              path.write_text(updated)
+              print(f'Using Android compileSdk 36 for {path}')
+          PY
+
       - name: Recreate deterministic Android runner
         run: flutter create --platforms=android --org com.askodox --project-name askodox .
 
@@ -211,9 +231,6 @@ jobs:
             gh release edit askodox-latest --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
           fi
 
-          # GitHub can return 422 for duplicate release asset names even when
-          # gh release upload --clobber is used. Delete known rolling assets
-          # explicitly before uploading the fresh set.
           gh release delete-asset askodox-latest askodox-latest.apk -y >/dev/null 2>&1 || true
           gh release delete-asset askodox-latest latest.json -y >/dev/null 2>&1 || true
           gh release delete-asset askodox-latest "$VERSIONED_APK" -y >/dev/null 2>&1 || true
