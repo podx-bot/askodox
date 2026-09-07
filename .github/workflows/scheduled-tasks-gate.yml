@@ -1,0 +1,101 @@
+name: Scheduled Tasks Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/api/routes/scheduled_tasks.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/services/scheduled_task_service.py'
+      - '.github/workflows/scheduled-tasks-gate.yml'
+  pull_request:
+    paths:
+      - 'backend/app/api/routes/scheduled_tasks.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/services/scheduled_task_service.py'
+      - '.github/workflows/scheduled-tasks-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  scheduled-tasks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install gate dependencies
+        run: pip install fastapi pydantic
+      - name: Verify reminders recurring schedules and condition watches
+        run: |
+          python - <<'PY'
+          import tempfile
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+          from types import SimpleNamespace
+
+          from app.api.routes.scheduled_tasks import ScheduledTaskCreateRequest, create_scheduled_task
+          from app.services.scheduled_task_service import ScheduledTaskService
+
+          with tempfile.TemporaryDirectory() as directory:
+              db = Path(directory) / 'tasks.db'
+              service = ScheduledTaskService(db)
+              future = datetime.now(timezone.utc) + timedelta(hours=2)
+
+              reminder = service.create(
+                  user_id='u1', title='Medicine', prompt='Remind me to take medicine',
+                  kind='reminder', run_at=future.isoformat(), recurrence='once',
+                  timezone_name='Asia/Kolkata',
+              )
+              assert reminder['enabled'] is True
+              assert reminder['recurrence'] == 'once'
+              assert len(service.list(user_id='u1')) == 1
+
+              daily = service.create(
+                  user_id='u1', title='Daily brief', prompt='Send the daily brief',
+                  kind='scheduled', run_at=future.isoformat(), recurrence='daily',
+                  timezone_name='Asia/Kolkata',
+              )
+              ran = service.mark_run(task_id=daily['id'], status='delivered', ran_at=future)
+              assert ran['enabled'] is True
+              assert ran['next_run_at'] is not None
+
+              watch = service.create(
+                  user_id='u1', title='Price watch', prompt='Check price and alert if below target',
+                  kind='condition_watch', run_at=future.isoformat(), recurrence='hourly',
+                  timezone_name='UTC', condition={'field': 'price', 'operator': 'lt', 'value': 100},
+              )
+              assert watch['condition']['value'] == 100
+              checked = service.mark_run(task_id=watch['id'], status='condition_false', ran_at=future)
+              assert checked['enabled'] is True
+
+              cancelled = service.cancel(task_id=reminder['id'], user_id='u1')
+              assert cancelled['enabled'] is False
+
+              # Direct API contract with the same container service.
+              request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=SimpleNamespace(
+                  scheduled_task_service=service,
+                  settings=SimpleNamespace(database_path=db),
+              ))))
+              payload = ScheduledTaskCreateRequest(
+                  user_id='api-user', title='API task', prompt='Do the task', kind='scheduled',
+                  run_at=(future + timedelta(hours=1)).isoformat(), recurrence='weekly', timezone='UTC',
+              )
+              api_result = create_scheduled_task(payload, request)
+              assert api_result['status'] == 'success'
+              assert api_result['task']['user_id'] == 'api-user'
+
+          app_factory = Path('app/api/app_factory.py').read_text(encoding='utf-8')
+          assert 'from app.api.routes.scheduled_tasks import router as scheduled_tasks_router' in app_factory
+          assert 'container.scheduled_task_service = ScheduledTaskService(container.settings.database_path)' in app_factory
+          assert 'app.include_router(scheduled_tasks_router)' in app_factory
+
+          source = Path('app/services/scheduled_task_service.py').read_text(encoding='utf-8')
+          for marker in ('condition_watch', 'hourly', 'daily', 'weekly', 'next_run_at', 'mark_run'):
+              assert marker in source
+
+          print('SCHEDULED TASKS GATE: PASS')
+          PY
