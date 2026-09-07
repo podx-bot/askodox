@@ -155,7 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 20), child: Column(children: [
-        Row(children: [const AskodoxOrb(size: 48), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(greeting, style: const TextStyle(fontSize: 14, color: _muted, fontWeight: FontWeight.w700)), const Text('ASKODOX', style: TextStyle(fontSize: 22, color: _ink, fontWeight: FontWeight.w900))]))]),
+        Row(children: [const AskodoxOrb(), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(greeting, style: const TextStyle(fontSize: 14, color: _muted, fontWeight: FontWeight.w700)), const Text('ASKODOX', style: TextStyle(fontSize: 22, color: _ink, fontWeight: FontWeight.w900))]))]),
         const Spacer(),
         Text(_tr('What can I help you with?', 'నేను మీకు ఏ విషయంలో సహాయం చేయాలి?', 'मैं आपकी किस चीज़ में मदद करूँ?', 'ମୁଁ ଆପଣଙ୍କୁ କେଉଁଥିରେ ସାହାଯ୍ୟ କରିପାରିବି?'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, height: 1.15, fontWeight: FontWeight.w900, color: _ink)),
         const SizedBox(height: 12),
