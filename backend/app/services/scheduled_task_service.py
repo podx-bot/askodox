@@ -51,10 +51,10 @@ class ScheduledTask:
 class ScheduledTaskService:
     """Persistent reminder/schedule/monitoring task registry.
 
-    Execution workers can claim due tasks through ``due`` and acknowledge an
-    attempt through ``mark_run``. The registry deliberately keeps delivery
-    provider details outside this service so in-app, push, email, or other
-    channels can share the same scheduling contract.
+    Workers should use ``claim_due`` rather than ``due`` for execution. Claiming
+    is atomic and lease-based, so multiple application replicas cannot execute
+    the same scheduled occurrence concurrently. ``mark_run`` acknowledges the
+    attempt and clears the lease.
     """
 
     def __init__(self, database_path: str | Path):
@@ -62,7 +62,7 @@ class ScheduledTaskService:
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
+        connection = sqlite3.connect(self.database_path, timeout=10)
         connection.row_factory = sqlite3.Row
         return connection
 
@@ -84,15 +84,25 @@ class ScheduledTaskService:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     last_run_at TEXT,
-                    last_status TEXT
+                    last_status TEXT,
+                    claim_token TEXT,
+                    claim_until TEXT,
+                    claim_scheduled_for TEXT
                 )
                 """
             )
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(scheduled_tasks)")}
+            for name in ("claim_token", "claim_until", "claim_scheduled_for"):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE scheduled_tasks ADD COLUMN {name} TEXT")
             db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_due ON scheduled_tasks(enabled, next_run_at)"
             )
             db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_user ON scheduled_tasks(user_id, created_at)"
+            )
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_claim ON scheduled_tasks(claim_until)"
             )
 
     @staticmethod
@@ -199,7 +209,12 @@ class ScheduledTaskService:
         now_iso = _iso(_utc_now())
         with self._connect() as db:
             cursor = db.execute(
-                "UPDATE scheduled_tasks SET enabled = 0, updated_at = ? WHERE id = ? AND user_id = ?",
+                """
+                UPDATE scheduled_tasks
+                SET enabled = 0, updated_at = ?, claim_token = NULL,
+                    claim_until = NULL, claim_scheduled_for = NULL
+                WHERE id = ? AND user_id = ?
+                """,
                 (now_iso, task_id, user_id),
             )
         if cursor.rowcount == 0:
@@ -219,26 +234,91 @@ class ScheduledTaskService:
             ).fetchall()
         return [self._serialize(row) for row in rows]
 
-    def mark_run(self, *, task_id: str, status: str, ran_at: datetime | None = None) -> dict[str, Any]:
+    def claim_due(
+        self,
+        *,
+        now: datetime | None = None,
+        limit: int = 100,
+        lease_seconds: int = 90,
+    ) -> list[dict[str, Any]]:
+        instant = (now or _utc_now()).astimezone(timezone.utc)
+        now_iso = _iso(instant)
+        claim_until = _iso(instant + timedelta(seconds=max(15, min(lease_seconds, 900))))
+        bounded_limit = max(1, min(limit, 500))
+        claimed: list[dict[str, Any]] = []
+
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(
+                """
+                SELECT * FROM scheduled_tasks
+                WHERE enabled = 1
+                  AND next_run_at IS NOT NULL
+                  AND next_run_at <= ?
+                  AND (claim_until IS NULL OR claim_until <= ?)
+                ORDER BY next_run_at ASC
+                LIMIT ?
+                """,
+                (now_iso, now_iso, bounded_limit),
+            ).fetchall()
+            for row in rows:
+                token = uuid.uuid4().hex
+                scheduled_for = row["next_run_at"]
+                cursor = db.execute(
+                    """
+                    UPDATE scheduled_tasks
+                    SET claim_token = ?, claim_until = ?, claim_scheduled_for = ?, updated_at = ?
+                    WHERE id = ?
+                      AND enabled = 1
+                      AND next_run_at = ?
+                      AND (claim_until IS NULL OR claim_until <= ?)
+                    """,
+                    (token, claim_until, scheduled_for, now_iso, row["id"], scheduled_for, now_iso),
+                )
+                if cursor.rowcount != 1:
+                    continue
+                item = self._serialize(row)
+                item["claim_token"] = token
+                item["scheduled_for"] = scheduled_for
+                claimed.append(item)
+        return claimed
+
+    def mark_run(
+        self,
+        *,
+        task_id: str,
+        status: str,
+        ran_at: datetime | None = None,
+        claim_token: str | None = None,
+    ) -> dict[str, Any]:
         if status not in {"delivered", "condition_false", "failed"}:
             raise ValueError("Unsupported run status")
         current = (ran_at or _utc_now()).astimezone(timezone.utc)
-        task = self.get(task_id=task_id)
-        scheduled_for = _parse_datetime(task["next_run_at"]) if task["next_run_at"] else current
-
-        # Failed attempts stay due for the execution layer to retry deliberately.
-        if status == "failed":
-            next_run = scheduled_for
-            enabled = task["enabled"]
-        else:
-            next_run = self._next_after(scheduled_for, task["recurrence"])
-            enabled = next_run is not None
 
         with self._connect() as db:
+            row = db.execute(
+                "SELECT next_run_at, recurrence, enabled, claim_token, claim_scheduled_for FROM scheduled_tasks WHERE id = ?",
+                (task_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(task_id)
+            if claim_token is not None and row["claim_token"] != claim_token:
+                raise RuntimeError("Scheduled task claim is no longer owned by this worker")
+
+            scheduled_for_text = row["claim_scheduled_for"] or row["next_run_at"]
+            scheduled_for = _parse_datetime(scheduled_for_text) if scheduled_for_text else current
+            if status == "failed":
+                next_run = scheduled_for
+                enabled = bool(row["enabled"])
+            else:
+                next_run = self._next_after(scheduled_for, row["recurrence"])
+                enabled = next_run is not None
+
             db.execute(
                 """
                 UPDATE scheduled_tasks
-                SET next_run_at = ?, enabled = ?, updated_at = ?, last_run_at = ?, last_status = ?
+                SET next_run_at = ?, enabled = ?, updated_at = ?, last_run_at = ?, last_status = ?,
+                    claim_token = NULL, claim_until = NULL, claim_scheduled_for = NULL
                 WHERE id = ?
                 """,
                 (_iso(next_run), int(enabled), _iso(current), _iso(current), status, task_id),
