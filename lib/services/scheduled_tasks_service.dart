@@ -73,7 +73,7 @@ class ScheduledTasksService {
     String timezone = 'UTC',
     Map<String, dynamic>? condition,
   }) async {
-    return _withClient((client) async {
+    return _withClient<ScheduledTaskModel?>((client) async {
       final response = await client
           .post(
             Uri.parse('$_baseUrl/tasks'),
@@ -123,7 +123,7 @@ class ScheduledTasksService {
     required String taskId,
     required String userId,
   }) async {
-    return _withClient((client) async {
+    return _withClient<ScheduledTaskModel?>((client) async {
       final response = await client
           .post(
             Uri.parse('$_baseUrl/tasks/$taskId/cancel'),
