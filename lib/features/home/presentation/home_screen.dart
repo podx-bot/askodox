@@ -27,7 +27,6 @@ String askodoxGreetingForHour(int hour, String languageCode) {
               : normalizedHour < 21
                   ? 'evening'
                   : 'night';
-
   const greetings = <String, Map<String, String>>{
     'en': {'morning': 'Good morning 👋', 'afternoon': 'Good afternoon 👋', 'evening': 'Good evening 👋', 'night': 'Good night 👋'},
     'te': {'morning': 'శుభోదయం 👋', 'afternoon': 'శుభ మధ్యాహ్నం 👋', 'evening': 'శుభ సాయంత్రం 👋', 'night': 'శుభ రాత్రి 👋'},
@@ -61,7 +60,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return AskodoxLanguageCatalog.normalize(Localizations.localeOf(context).languageCode);
   }
 
-  String _tr(String en, String te, String hi, String or) => switch (_lang()) {'te' => te, 'hi' => hi, 'or' => or, _ => en};
+  String _tr(String en, String te, String hi, String or) => switch (_lang()) {
+        'te' => te,
+        'hi' => hi,
+        'or' => or,
+        _ => en,
+      };
 
   Future<void> _startFlow(String text) async {
     if (_telugu.hasMatch(text)) {
@@ -76,8 +80,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
     if (taskResult.handled) {
       setState(() => _taskBusy = false);
-      final message = taskResult.message ?? (taskResult.success ? 'Done.' : 'Please try again.');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(taskResult.message ?? (taskResult.success ? 'Done.' : 'Please try again.'))),
+      );
       if (taskResult.success) {
         _controller.clear();
         _focusNode.requestFocus();
@@ -111,7 +116,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _startFlow(text).catchError((_) {
       if (!mounted) return;
       setState(() => _taskBusy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_tr('Something went wrong. Please try again.', 'ఏదో సమస్య వచ్చింది. మళ్లీ ప్రయత్నించండి.', 'कुछ गलत हुआ। फिर से कोशिश करें।', 'କିଛି ସମସ୍ୟା ହେଲା। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_tr('Something went wrong. Please try again.', 'ఏదో సమస్య వచ్చింది. మళ్లీ ప్రయత్నించండి.', 'कुछ गलत हुआ। फिर से कोशिश करें।', 'କିଛି ସମସ୍ୟା ହେଲା। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।'))),
+      );
     });
   }
 
@@ -120,10 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final picked = await capture();
       if (!mounted || picked == null) return;
       setState(() => _attachment = picked);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_tr('Could not open the camera or photos. Please try again.', 'కెమెరా లేదా ఫోటోలు తెరవలేకపోయాం. మళ్లీ ప్రయత్నించండి.', 'कैमरा या फ़ोटो नहीं खुल सके। फिर से कोशिश करें।', 'କ୍ୟାମେରା କିମ୍ବା ଫଟୋ ଖୋଲିହେଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।'))));
-    }
+    } catch (_) {}
   }
 
   Future<void> _pickImage() => _setCapturedImage(_capture.chooseGallery);
@@ -134,40 +138,124 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       backgroundColor: Colors.white,
       showDragHandle: true,
-      builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(leading: const CircleAvatar(backgroundColor: Color(0xFFF0ECFF), child: Icon(Icons.add_rounded, color: _purple)), title: Text(_tr('Add to your request', 'మీ అభ్యర్థనకు జోడించండి', 'अपनी रिक्वेस्ट में जोड़ें', 'ଆପଣଙ୍କ ଅନୁରୋଧରେ ଯୋଡନ୍ତୁ'), style: const TextStyle(fontWeight: FontWeight.w900, color: _ink))),
-        ListTile(key: const Key('askodoxPlusCameraAction'), leading: const Icon(Icons.photo_camera_outlined, color: _purple), title: Text(_tr('Take a photo', 'ఫోటో తీయండి', 'फ़ोटो लें', 'ଫଟୋ ନିଅନ୍ତୁ')), onTap: () => Navigator.pop(context, 'camera')),
-        ListTile(key: const Key('askodoxPlusGalleryAction'), leading: const Icon(Icons.photo_library_outlined, color: _purple), title: Text(_tr('Choose a photo', 'ఫోటో ఎంచుకోండి', 'फ़ोटो चुनें', 'ଫଟୋ ବାଛନ୍ତୁ')), onTap: () => Navigator.pop(context, 'gallery')),
-      ])),
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(title: Text(_tr('Add to your request', 'మీ అభ్యర్థనకు జోడించండి', 'अपनी रिक्वेस्ट में जोड़ें', 'ଆପଣଙ୍କ ଅନୁରୋଧରେ ଯୋଡନ୍ତୁ'), style: const TextStyle(fontWeight: FontWeight.w900))),
+          ListTile(key: const Key('askodoxPlusCameraAction'), leading: const Icon(Icons.photo_camera_outlined), title: Text(_tr('Take a photo', 'ఫోటో తీయండి', 'फ़ोटो लें', 'ଫଟୋ ନିଅନ୍ତୁ')), onTap: () => Navigator.pop(context, 'camera')),
+          ListTile(key: const Key('askodoxPlusPhotosAction'), leading: const Icon(Icons.photo_library_outlined), title: Text(_tr('Choose a photo', 'ఫోటో ఎంచుకోండి', 'फ़ोटो चुनें', 'ଫଟୋ ବାଛନ୍ତୁ')), onTap: () => Navigator.pop(context, 'photo')),
+          ListTile(key: const Key('askodoxPlusVoiceAction'), leading: const Icon(Icons.mic_none_rounded), title: Text(_tr('Use voice', 'వాయిస్ ఉపయోగించండి', 'वॉइस इस्तेमाल करें', 'ଭଏସ୍ ବ୍ୟବହାର କରନ୍ତୁ')), onTap: () => Navigator.pop(context, 'voice')),
+        ]),
+      ),
     );
-    if (!mounted) return;
+    if (!mounted || action == null) return;
     if (action == 'camera') await _takePhoto();
-    if (action == 'gallery') await _pickImage();
+    if (action == 'photo') await _pickImage();
+    if (action == 'voice') context.go('/discover/voice');
+  }
+
+  Future<void> _pickLanguage() async {
+    final settings = ref.read(appSettingsProvider);
+    final selected = settings.locale?.languageCode ?? 'system';
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .72,
+          child: Column(children: [
+            const ListTile(title: Text('ASKODOX Language', style: TextStyle(fontWeight: FontWeight.w900))),
+            Expanded(
+              child: ListView(children: [
+                RadioListTile<String>(value: 'system', groupValue: selected, title: const Text('Auto / Device language'), onChanged: (v) => Navigator.pop(context, v)),
+                for (final language in AskodoxLanguageCatalog.all)
+                  RadioListTile<String>(value: language.code, groupValue: selected, title: Text(language.name), onChanged: (v) => Navigator.pop(context, v)),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'system') {
+      ref.read(appSettingsProvider.notifier).useSystemLocale();
+    } else {
+      ref.read(appSettingsProvider.notifier).setLocale(Locale(choice));
+    }
   }
 
   @override
-  void dispose() { _controller.dispose(); _focusNode.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final lang = _lang();
-    final greeting = askodoxGreetingForHour(DateTime.now().hour, lang);
+    final settings = ref.watch(appSettingsProvider);
+    final languageLabel = settings.locale == null ? 'Auto' : AskodoxLanguageCatalog.byCode(settings.locale!.languageCode).name;
+    final te = _lang() == 'te';
+    final hi = _lang() == 'hi';
+    final odia = _lang() == 'or';
+    String nav(String en, String tv, String hv, String ov) => te ? tv : hi ? hv : odia ? ov : en;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 20), child: Column(children: [
-        Row(children: [const AskodoxOrb(), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(greeting, style: const TextStyle(fontSize: 14, color: _muted, fontWeight: FontWeight.w700)), const Text('ASKODOX', style: TextStyle(fontSize: 22, color: _ink, fontWeight: FontWeight.w900))]))]),
-        const Spacer(),
-        Text(_tr('What can I help you with?', 'నేను మీకు ఏ విషయంలో సహాయం చేయాలి?', 'मैं आपकी किस चीज़ में मदद करूँ?', 'ମୁଁ ଆପଣଙ୍କୁ କେଉଁଥିରେ ସାହାଯ୍ୟ କରିପାରିବି?'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, height: 1.15, fontWeight: FontWeight.w900, color: _ink)),
-        const SizedBox(height: 12),
-        Text(_tr('Ask naturally — local needs, services, jobs, reminders and more.', 'సహజంగా అడగండి — లోకల్ అవసరాలు, సర్వీసులు, ఉద్యోగాలు, రిమైండర్లు ఇంకా మరెన్నో.', 'स्वाभाविक रूप से पूछें — लोकल जरूरतें, सेवाएँ, नौकरियाँ, रिमाइंडर और भी बहुत कुछ।', 'ସ୍ୱାଭାବିକ ଭାବେ ପଚାରନ୍ତୁ — ଲୋକାଲ ଆବଶ୍ୟକତା, ସେବା, ଚାକିରି, ରିମାଇଣ୍ଡର ଏବଂ ଅଧିକ।'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: _muted)),
-        const Spacer(),
-        if (_attachment != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [const Icon(Icons.image_outlined, color: _purple), const SizedBox(width: 8), Expanded(child: Text(_attachment!.name, overflow: TextOverflow.ellipsis)), IconButton(onPressed: () => setState(() => _attachment = null), icon: const Icon(Icons.close))])),
-        Container(decoration: BoxDecoration(color: _soft, borderRadius: BorderRadius.circular(24)), padding: const EdgeInsets.fromLTRB(8, 6, 8, 6), child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          IconButton(key: const Key('askodoxPlusButton'), onPressed: _taskBusy ? null : _showActions, icon: const Icon(Icons.add_circle_outline_rounded, color: _purple)),
-          Expanded(child: TextField(key: const Key('askodoxHomeInput'), controller: _controller, focusNode: _focusNode, minLines: 1, maxLines: 5, textInputAction: TextInputAction.send, onSubmitted: (_) => _submit(), decoration: InputDecoration(hintText: _tr('Ask ASKODOX...', 'ASKODOXని అడగండి...', 'ASKODOX से पूछें...', 'ASKODOXକୁ ପଚାରନ୍ତୁ...'), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12)))),
-          _taskBusy ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))) : IconButton(key: const Key('askodoxSendButton'), onPressed: _submit, icon: const Icon(Icons.arrow_upward_rounded, color: _purple)),
-        ])),
-      ]))),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        centerTitle: true,
+        title: const Text('ASKODOX', style: TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+        actions: [TextButton(key: const Key('askodoxLanguageButton'), onPressed: _pickLanguage, child: Text(languageLabel))],
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+          children: [
+            Text(askodoxGreetingForHour(DateTime.now().hour, _lang()), style: const TextStyle(fontWeight: FontWeight.w700, color: _ink)),
+            const SizedBox(height: 12),
+            const Center(child: AskodoxOrb()),
+            const SizedBox(height: 16),
+            Container(
+              key: const Key('askodoxAskField'),
+              decoration: BoxDecoration(color: _soft, borderRadius: BorderRadius.circular(24)),
+              child: Row(children: [
+                IconButton(key: const Key('askodoxPlusButton'), onPressed: _taskBusy ? null : _showActions, icon: const Icon(Icons.add_rounded, color: _purple)),
+                IconButton(key: const Key('askodoxMicButton'), onPressed: () => context.go('/discover/voice'), icon: const Icon(Icons.mic_none_rounded, color: _purple)),
+                Expanded(child: TextField(controller: _controller, focusNode: _focusNode, textInputAction: TextInputAction.send, onSubmitted: (_) => _submit(), decoration: InputDecoration(hintText: _tr('Ask anything…', 'ఏదైనా అడగండి…', 'कुछ भी पूछें…', 'ଯେକୌଣସି କଥା ପଚାରନ୍ତୁ…'), border: InputBorder.none))),
+                IconButton(key: const Key('askodoxImageButton'), onPressed: _pickImage, icon: const Icon(Icons.image_outlined, color: _muted)),
+                _taskBusy
+                    ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                    : IconButton(key: const Key('askodoxSendButton'), onPressed: _submit, icon: const Icon(Icons.arrow_upward_rounded, color: _purple)),
+              ]),
+            ),
+            if (_attachment != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_attachment!.name, overflow: TextOverflow.ellipsis)),
+            const SizedBox(height: 24),
+            Text(_tr('In Progress', 'ప్రస్తుతం జరుగుతున్నవి', 'चल रहा है', 'ଚାଲିଛି'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 12),
+            Text(_tr('ASKODOX is finding your best match', 'మీకు సరైన మ్యాచ్‌ను ASKODOX వెతుకుతోంది', 'ASKODOX आपका सही मैच ढूँढ रहा है', 'ASKODOX ଆପଣଙ୍କ ସର୍ବୋତ୍ତମ ମ୍ୟାଚ୍ ଖୋଜୁଛି')),
+            const SizedBox(height: 28),
+            Text(_tr('Continue your conversations', 'మీ సంభాషణలను కొనసాగించండి', 'अपनी बातचीत जारी रखें', 'ଆପଣଙ୍କ କଥୋପକଥନ ଜାରି ରଖନ୍ତୁ'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 12),
+            Text(_tr('Activity', 'యాక్టివిటీ', 'एक्टिविटी', 'କାର୍ଯ୍ୟକଳାପ')),
+            const SizedBox(height: 420),
+            NavigationBar(
+              selectedIndex: 1,
+              onDestinationSelected: (i) {
+                if (i == 0) context.go('/search');
+                if (i == 2) context.go('/activity');
+              },
+              destinations: [
+                NavigationDestination(icon: const Icon(Icons.chat_bubble_outline_rounded), label: nav('Chats', 'చాట్స్', 'चैट्स', 'ଚାଟ୍ସ')),
+                NavigationDestination(icon: const Icon(Icons.auto_awesome_rounded), label: nav('Ask', 'అడగండి', 'पूछें', 'ପଚାରନ୍ତୁ')),
+                NavigationDestination(icon: const Icon(Icons.notifications_none_rounded), label: nav('Activity', 'యాక్టివిటీ', 'एक्टिविटी', 'କାର୍ଯ୍ୟକଳାପ')),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
