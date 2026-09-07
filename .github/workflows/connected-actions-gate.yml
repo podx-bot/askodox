@@ -1,0 +1,146 @@
+name: Connected Actions Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/server.py'
+      - 'backend/app/api/routes/connected_actions.py'
+      - 'backend/app/services/connected_action_service.py'
+      - '.github/workflows/connected-actions-gate.yml'
+  pull_request:
+    paths:
+      - 'backend/server.py'
+      - 'backend/app/api/routes/connected_actions.py'
+      - 'backend/app/services/connected_action_service.py'
+      - '.github/workflows/connected-actions-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  connected-actions:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install gate dependencies
+        run: pip install fastapi pydantic
+      - name: Verify approval idempotency execution and audit trail
+        run: |
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from types import SimpleNamespace
+
+          from app.api.routes.connected_actions import (
+              ConnectedActionCreateRequest,
+              ConnectedActionUserRequest,
+              approve_connected_action,
+              create_connected_action,
+              execute_connected_action,
+          )
+          from app.services.connected_action_service import ConnectedActionService
+
+          with tempfile.TemporaryDirectory() as directory:
+              db = Path(directory) / 'actions.db'
+              service = ConnectedActionService(db)
+              calls = []
+
+              def executor(request):
+                  calls.append(request)
+                  return {'provider_id': 'demo-1', 'ok': True}
+
+              service.register_executor('message.send', executor)
+
+              action = service.create(
+                  user_id='app-user-1',
+                  action_type='message.send',
+                  target='seller-7',
+                  payload={'text': 'Hello'},
+                  idempotency_key='msg-001',
+              )
+              assert action['status'] == 'pending_approval'
+
+              duplicate = service.create(
+                  user_id='app-user-1',
+                  action_type='message.send',
+                  target='seller-7',
+                  payload={'text': 'Hello'},
+                  idempotency_key='msg-001',
+              )
+              assert duplicate['id'] == action['id']
+
+              try:
+                  service.execute(action_id=action['id'], user_id='app-user-1')
+                  raise AssertionError('execution should require approval')
+              except PermissionError:
+                  pass
+
+              approved = service.approve(action_id=action['id'], user_id='app-user-1')
+              assert approved['status'] == 'approved'
+              assert approved['approved_at']
+
+              executed = service.execute(action_id=action['id'], user_id='app-user-1')
+              assert executed['status'] == 'executed'
+              assert executed['result']['provider_id'] == 'demo-1'
+              assert len(calls) == 1
+
+              replay = service.execute(action_id=action['id'], user_id='app-user-1')
+              assert replay['status'] == 'executed'
+              assert len(calls) == 1
+
+              assert service.list(user_id='app-user-2') == []
+
+              container = SimpleNamespace(
+                  connected_action_service=service,
+                  settings=SimpleNamespace(database_path=db),
+              )
+              request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=container)))
+              api_action = create_connected_action(
+                  ConnectedActionCreateRequest(
+                      user_id='app-user-3',
+                      action_type='message.send',
+                      target='seller-9',
+                      payload={'text': 'API'},
+                      idempotency_key='api-msg-1',
+                  ),
+                  request,
+              )['action']
+              approve_connected_action(
+                  api_action['id'],
+                  ConnectedActionUserRequest(user_id='app-user-3'),
+                  request,
+              )
+              api_executed = execute_connected_action(
+                  api_action['id'],
+                  ConnectedActionUserRequest(user_id='app-user-3'),
+                  request,
+              )['action']
+              assert api_executed['status'] == 'executed'
+
+          server = Path('server.py').read_text(encoding='utf-8')
+          for marker in (
+              'connected_actions_router',
+              'ConnectedActionService',
+              'app.include_router(connected_actions_router)',
+              'container.connected_action_service',
+          ):
+              assert marker in server
+
+          source = Path('app/services/connected_action_service.py').read_text(encoding='utf-8')
+          for marker in (
+              'UNIQUE(user_id, idempotency_key)',
+              "status = 'executing'",
+              'BEGIN IMMEDIATE',
+              'approval_required',
+              'approved_at',
+              'executed_at',
+          ):
+              assert marker in source
+
+          print('CONNECTED ACTIONS GATE: PASS')
+          PY
