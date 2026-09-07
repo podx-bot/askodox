@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from app.services.scheduled_task_delivery_service import ScheduledTaskDeliveryService
 from app.services.scheduled_task_service import ScheduledTaskService
 
 router = APIRouter(prefix="/tasks", tags=["Scheduled Tasks"])
@@ -23,12 +24,25 @@ class ScheduledTaskCancelRequest(BaseModel):
     user_id: str = Field(min_length=1, max_length=128)
 
 
+class ScheduledTaskReadRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=128)
+
+
 def _service(request: Request) -> ScheduledTaskService:
     service = getattr(request.app.state.container, "scheduled_task_service", None)
     if service is None:
         database_path = request.app.state.container.settings.database_path
         service = ScheduledTaskService(database_path)
         request.app.state.container.scheduled_task_service = service
+    return service
+
+
+def _delivery_service(request: Request) -> ScheduledTaskDeliveryService:
+    service = getattr(request.app.state.container, "scheduled_task_delivery_service", None)
+    if service is None:
+        database_path = request.app.state.container.settings.database_path
+        service = ScheduledTaskDeliveryService(database_path)
+        request.app.state.container.scheduled_task_delivery_service = service
     return service
 
 
@@ -58,6 +72,37 @@ def list_scheduled_tasks(
 ) -> dict:
     tasks = _service(request).list(user_id=user_id, include_disabled=include_disabled)
     return {"status": "success", "tasks": tasks, "count": len(tasks)}
+
+
+@router.get("/inbox")
+def list_scheduled_task_inbox(
+    request: Request,
+    user_id: str = Query(min_length=1, max_length=128),
+    unread_only: bool = False,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    deliveries = _delivery_service(request).list(
+        user_id=user_id,
+        unread_only=unread_only,
+        limit=limit,
+    )
+    return {"status": "success", "deliveries": deliveries, "count": len(deliveries)}
+
+
+@router.post("/inbox/{delivery_id}/read")
+def mark_scheduled_task_delivery_read(
+    delivery_id: int,
+    payload: ScheduledTaskReadRequest,
+    request: Request,
+) -> dict:
+    try:
+        delivery = _delivery_service(request).mark_read(
+            delivery_id=delivery_id,
+            user_id=payload.user_id,
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Delivery not found") from error
+    return {"status": "success", "delivery": delivery}
 
 
 @router.get("/{task_id}")
