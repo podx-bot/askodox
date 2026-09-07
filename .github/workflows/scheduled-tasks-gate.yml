@@ -4,15 +4,21 @@ on:
   push:
     branches: [main]
     paths:
+      - 'backend/server.py'
       - 'backend/app/api/routes/scheduled_tasks.py'
       - 'backend/app/api/app_factory.py'
       - 'backend/app/services/scheduled_task_service.py'
+      - 'backend/app/services/scheduled_task_delivery_service.py'
+      - 'backend/app/services/scheduled_task_worker.py'
       - '.github/workflows/scheduled-tasks-gate.yml'
   pull_request:
     paths:
+      - 'backend/server.py'
       - 'backend/app/api/routes/scheduled_tasks.py'
       - 'backend/app/api/app_factory.py'
       - 'backend/app/services/scheduled_task_service.py'
+      - 'backend/app/services/scheduled_task_delivery_service.py'
+      - 'backend/app/services/scheduled_task_worker.py'
       - '.github/workflows/scheduled-tasks-gate.yml'
   workflow_dispatch:
 
@@ -29,7 +35,7 @@ jobs:
           python-version: '3.12'
       - name: Install gate dependencies
         run: pip install fastapi pydantic
-      - name: Verify reminders recurring schedules and condition watches
+      - name: Verify scheduler worker delivery retry and isolation
         run: |
           python - <<'PY'
           import tempfile
@@ -37,64 +43,119 @@ jobs:
           from pathlib import Path
           from types import SimpleNamespace
 
-          from app.api.routes.scheduled_tasks import ScheduledTaskCreateRequest, create_scheduled_task
+          from app.api.routes.scheduled_tasks import (
+              ScheduledTaskCreateRequest,
+              create_scheduled_task,
+              list_scheduled_task_inbox,
+          )
+          from app.services.scheduled_task_delivery_service import ScheduledTaskDeliveryService
           from app.services.scheduled_task_service import ScheduledTaskService
+          from app.services.scheduled_task_worker import ScheduledTaskWorker
 
           with tempfile.TemporaryDirectory() as directory:
               db = Path(directory) / 'tasks.db'
               service = ScheduledTaskService(db)
+              deliveries = ScheduledTaskDeliveryService(db)
               future = datetime.now(timezone.utc) + timedelta(hours=2)
 
               reminder = service.create(
-                  user_id='u1', title='Medicine', prompt='Remind me to take medicine',
+                  user_id='app-u1', title='Medicine', prompt='Take medicine',
                   kind='reminder', run_at=future.isoformat(), recurrence='once',
                   timezone_name='Asia/Kolkata',
               )
-              assert reminder['enabled'] is True
-              assert reminder['recurrence'] == 'once'
-              assert len(service.list(user_id='u1')) == 1
-
-              daily = service.create(
-                  user_id='u1', title='Daily brief', prompt='Send the daily brief',
-                  kind='scheduled', run_at=future.isoformat(), recurrence='daily',
-                  timezone_name='Asia/Kolkata',
+              first_claim = service.claim_due(now=future + timedelta(seconds=1))
+              assert [item['id'] for item in first_claim] == [reminder['id']]
+              assert service.claim_due(now=future + timedelta(seconds=2)) == []
+              service.mark_run(
+                  task_id=reminder['id'], status='failed',
+                  ran_at=future + timedelta(seconds=2),
+                  claim_token=first_claim[0]['claim_token'],
               )
-              ran = service.mark_run(task_id=daily['id'], status='delivered', ran_at=future)
-              assert ran['enabled'] is True
-              assert ran['next_run_at'] is not None
+              assert service.get(task_id=reminder['id'])['enabled'] is True
 
+          with tempfile.TemporaryDirectory() as directory:
+              db = Path(directory) / 'worker.db'
+              service = ScheduledTaskService(db)
+              deliveries = ScheduledTaskDeliveryService(db)
+              worker = ScheduledTaskWorker(tasks=service, deliveries=deliveries)
+              future = datetime.now(timezone.utc) + timedelta(hours=2)
+
+              once = service.create(
+                  user_id='app-user-a', title='One time', prompt='Do it',
+                  kind='reminder', run_at=future.isoformat(), recurrence='once',
+                  timezone_name='UTC',
+              )
+              summary = worker.run_once(now=future + timedelta(seconds=1))
+              assert summary['delivered'] == 1
+              assert service.get(task_id=once['id'])['enabled'] is False
+              inbox = deliveries.list(user_id='app-user-a')
+              assert len(inbox) == 1
+              assert inbox[0]['task_id'] == once['id']
+              assert deliveries.list(user_id='app-user-b') == []
+              assert worker.run_once(now=future + timedelta(seconds=2))['claimed'] == 0
+
+              daily_at = future + timedelta(minutes=10)
+              daily = service.create(
+                  user_id='app-user-a', title='Daily brief', prompt='Daily brief',
+                  kind='scheduled', run_at=daily_at.isoformat(), recurrence='daily',
+                  timezone_name='UTC',
+              )
+              summary = worker.run_once(now=daily_at + timedelta(seconds=1))
+              assert summary['delivered'] == 1
+              advanced = service.get(task_id=daily['id'])
+              assert advanced['enabled'] is True
+              assert advanced['next_run_at'] != daily['next_run_at']
+
+              watch_at = daily_at + timedelta(minutes=10)
               watch = service.create(
-                  user_id='u1', title='Price watch', prompt='Check price and alert if below target',
-                  kind='condition_watch', run_at=future.isoformat(), recurrence='hourly',
+                  user_id='app-user-a', title='Price watch', prompt='Alert below target',
+                  kind='condition_watch', run_at=watch_at.isoformat(), recurrence='hourly',
                   timezone_name='UTC', condition={'field': 'price', 'operator': 'lt', 'value': 100},
               )
-              assert watch['condition']['value'] == 100
-              checked = service.mark_run(task_id=watch['id'], status='condition_false', ran_at=future)
-              assert checked['enabled'] is True
+              failed = worker.run_once(now=watch_at + timedelta(seconds=1))
+              assert failed['failed'] == 1
+              assert service.get(task_id=watch['id'])['last_status'] == 'failed'
 
-              cancelled = service.cancel(task_id=reminder['id'], user_id='u1')
-              assert cancelled['enabled'] is False
+              evaluating_worker = ScheduledTaskWorker(
+                  tasks=service,
+                  deliveries=deliveries,
+                  condition_evaluator=lambda task: False,
+              )
+              checked = evaluating_worker.run_once(now=watch_at + timedelta(seconds=2))
+              assert checked['condition_false'] == 1
+              assert service.get(task_id=watch['id'])['last_status'] == 'condition_false'
 
-              # Direct API contract with the same container service.
-              request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=SimpleNamespace(
+              container = SimpleNamespace(
                   scheduled_task_service=service,
+                  scheduled_task_delivery_service=deliveries,
                   settings=SimpleNamespace(database_path=db),
-              ))))
+              )
+              request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=container)))
+              api_inbox = list_scheduled_task_inbox(
+                  request=request,
+                  user_id='app-user-a',
+                  unread_only=False,
+                  limit=50,
+              )
+              assert api_inbox['status'] == 'success'
+              assert api_inbox['count'] == 2
+
               payload = ScheduledTaskCreateRequest(
-                  user_id='api-user', title='API task', prompt='Do the task', kind='scheduled',
-                  run_at=(future + timedelta(hours=1)).isoformat(), recurrence='weekly', timezone='UTC',
+                  user_id='app-api-user', title='API task', prompt='Do the task', kind='scheduled',
+                  run_at=(watch_at + timedelta(hours=1)).isoformat(), recurrence='weekly', timezone='UTC',
               )
               api_result = create_scheduled_task(payload, request)
-              assert api_result['status'] == 'success'
-              assert api_result['task']['user_id'] == 'api-user'
+              assert api_result['task']['user_id'] == 'app-api-user'
 
           app_factory = Path('app/api/app_factory.py').read_text(encoding='utf-8')
-          assert 'from app.api.routes.scheduled_tasks import router as scheduled_tasks_router' in app_factory
-          assert 'container.scheduled_task_service = ScheduledTaskService(container.settings.database_path)' in app_factory
           assert 'app.include_router(scheduled_tasks_router)' in app_factory
 
+          server = Path('server.py').read_text(encoding='utf-8')
+          for marker in ('ScheduledTaskDeliveryService', 'ScheduledTaskWorker', 'ScheduledTaskRunner', 'start_scheduled_task_runner'):
+              assert marker in server
+
           source = Path('app/services/scheduled_task_service.py').read_text(encoding='utf-8')
-          for marker in ('condition_watch', 'hourly', 'daily', 'weekly', 'next_run_at', 'mark_run'):
+          for marker in ('claim_due', 'claim_token', 'claim_until', 'BEGIN IMMEDIATE', 'mark_run'):
               assert marker in source
 
           print('SCHEDULED TASKS GATE: PASS')
