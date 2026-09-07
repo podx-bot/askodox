@@ -11,29 +11,19 @@ class AppShell extends StatelessWidget {
     final isTe = Localizations.localeOf(context).languageCode == 'te';
     final destinations = <NavigationDestination>[
       NavigationDestination(
-        icon: const Icon(Icons.home_outlined),
-        selectedIcon: const Icon(Icons.home_rounded),
-        label: isTe ? 'హోమ్' : 'Home',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.smart_toy_outlined),
-        selectedIcon: Icon(Icons.smart_toy_rounded),
-        label: 'ASKODOX',
+        icon: const Icon(Icons.chat_bubble_outline_rounded),
+        selectedIcon: const Icon(Icons.chat_bubble_rounded),
+        label: isTe ? 'చాట్స్' : 'Chats',
       ),
       NavigationDestination(
-        icon: const Icon(Icons.history_rounded),
-        selectedIcon: const Icon(Icons.history_toggle_off_rounded),
-        label: isTe ? 'హిస్టరీ' : 'History',
+        icon: const Icon(Icons.auto_awesome_outlined),
+        selectedIcon: const Icon(Icons.auto_awesome_rounded),
+        label: isTe ? 'అడగండి' : 'Ask',
       ),
       NavigationDestination(
         icon: const Icon(Icons.notifications_none_rounded),
         selectedIcon: const Icon(Icons.notifications_rounded),
         label: isTe ? 'యాక్టివిటీ' : 'Activity',
-      ),
-      NavigationDestination(
-        icon: const Icon(Icons.person_outline_rounded),
-        selectedIcon: const Icon(Icons.person_rounded),
-        label: isTe ? 'ప్రొఫైల్' : 'Profile',
       ),
     ];
 
@@ -47,9 +37,9 @@ class AppShell extends StatelessWidget {
               child: NavigationRail(
                 backgroundColor: Colors.white,
                 extended: constraints.maxWidth >= 1080,
-                selectedIndex: shell.currentIndex,
-                onDestinationSelected: _go,
-                indicatorColor: const Color(0xFFE3F6E8),
+                selectedIndex: _visualIndex(shell.currentIndex),
+                onDestinationSelected: (index) => _goVisual(index),
+                indicatorColor: const Color(0xFFE8EAFB),
                 destinations: destinations
                     .map((item) => NavigationRailDestination(
                           icon: item.icon,
@@ -65,8 +55,9 @@ class AppShell extends StatelessWidget {
         );
       }
 
-      const navForeground = Color(0xFF17223B);
-      const navMuted = Color(0xFF667085);
+      const navBackground = Color(0xFF10162A);
+      const navForeground = Colors.white;
+      const navMuted = Color(0xFFD6DAE5);
 
       return Scaffold(
         backgroundColor: const Color(0xFFF7FAFF),
@@ -74,8 +65,8 @@ class AppShell extends StatelessWidget {
         bottomNavigationBar: NavigationBarTheme(
           data: NavigationBarThemeData(
             height: 76,
-            backgroundColor: Colors.white,
-            indicatorColor: const Color(0xFFE3F6E8),
+            backgroundColor: navBackground,
+            indicatorColor: const Color(0xFF1B2342),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
               return IconThemeData(
@@ -86,14 +77,14 @@ class AppShell extends StatelessWidget {
             labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((states) {
               return TextStyle(
                 color: states.contains(WidgetState.selected) ? navForeground : navMuted,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w600,
               );
             }),
           ),
           child: NavigationBar(
-            selectedIndex: shell.currentIndex,
-            onDestinationSelected: _go,
+            selectedIndex: _visualIndex(shell.currentIndex),
+            onDestinationSelected: (index) => _goVisual(index),
             destinations: destinations,
           ),
         ),
@@ -101,8 +92,24 @@ class AppShell extends StatelessWidget {
     });
   }
 
-  void _go(int index) => shell.goBranch(
-        index,
-        initialLocation: index == shell.currentIndex,
-      );
+  // Keep the existing router branches intact while presenting only the three
+  // primary ASKODOX actions. Secondary Home/History/Profile destinations move
+  // out of the primary navigation and remain reachable by routes/menu links.
+  int _visualIndex(int branchIndex) {
+    if (branchIndex == 1) return 1; // Ask (/search)
+    if (branchIndex == 3) return 2; // Activity (/alerts)
+    return 0; // Chats/default
+  }
+
+  void _goVisual(int visualIndex) {
+    final branchIndex = switch (visualIndex) {
+      1 => 1,
+      2 => 3,
+      _ => 0,
+    };
+    shell.goBranch(
+      branchIndex,
+      initialLocation: branchIndex == shell.currentIndex,
+    );
+  }
 }
