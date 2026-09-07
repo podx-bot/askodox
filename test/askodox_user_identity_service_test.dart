@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:askodox/services/askodox_user_identity_service.dart';
+import 'package:podx/services/askodox_user_identity_service.dart';
 
 void main() {
   const service = AskodoxUserIdentityService();
