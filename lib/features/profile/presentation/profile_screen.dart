@@ -2,345 +2,188 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/update/askodox_update_service.dart';
-import '../../../generated/l10n/app_localizations.dart';
-import '../../demo/presentation/demo_center_screen.dart';
-import '../../help/presentation/help_support_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
+
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  final AskodoxUpdateService _updateService = const AskodoxUpdateService();
-  AskodoxUpdateInfo? _updateInfo;
-  bool _checkingUpdate = false;
-  bool _installingUpdate = false;
-  double? _updateProgress;
-  String? _updateMessage;
+  final _roles = <String>{'Buyer'};
+  bool _checking = false;
+  bool _installing = false;
+  double? _progress;
+  AskodoxUpdateInfo? _update;
+  String? _message;
 
-  Future<void> _checkForUpdate() async {
-    if (_checkingUpdate || _installingUpdate) return;
+  bool get _te => Localizations.localeOf(context).languageCode == 'te';
+
+  Future<void> _checkUpdate() async {
+    if (_checking || _installing) return;
     if (!AskodoxUpdateService.enabled) {
-      setState(() {
-        _updateInfo = null;
-        _updateMessage = 'In-app updates are enabled in signed release builds.';
-      });
+      setState(() => _message = _te ? 'Signed live buildలో update feature పనిచేస్తుంది.' : 'Updates work in signed live builds.');
       return;
     }
-
     setState(() {
-      _checkingUpdate = true;
-      _updateMessage = null;
+      _checking = true;
+      _message = null;
     });
-
     try {
-      final result = await _updateService.checkForUpdate();
+      const service = AskodoxUpdateService();
+      final result = await service.checkForUpdate();
       if (!mounted) return;
       setState(() {
-        _checkingUpdate = false;
-        _updateInfo = result.update;
-        _updateMessage = result.update == null
-            ? 'ASKODOX is up to date. Installed build ${result.installedBuildNumber}; latest build ${result.latestBuildNumber}.'
-            : 'ASKODOX ${result.update!.version} (build ${result.update!.buildNumber}) is ready to install. Installed build: ${result.installedBuildNumber}.';
+        _update = result.update;
+        _message = result.update == null
+            ? (_te ? 'మీ ASKODOX ఇప్పటికే తాజా వెర్షన్‌లో ఉంది.' : 'ASKODOX is already up to date.')
+            : (_te ? 'కొత్త ASKODOX update సిద్ధంగా ఉంది.' : 'A new ASKODOX update is ready.');
       });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _checkingUpdate = false;
-        _updateInfo = null;
-        _updateMessage = 'Update check failed. ${error.toString()}';
-      });
+    } catch (e) {
+      if (mounted) setState(() => _message = 'Update check failed: $e');
+    } finally {
+      if (mounted) setState(() => _checking = false);
     }
   }
 
-  Future<void> _installUpdate() async {
-    final info = _updateInfo;
-    if (info == null || _installingUpdate) return;
+  Future<void> _install() async {
+    final update = _update;
+    if (update == null || _installing) return;
     setState(() {
-      _installingUpdate = true;
-      _updateProgress = 0;
-      _updateMessage = 'Downloading update…';
+      _installing = true;
+      _progress = 0;
     });
     try {
-      await _updateService.downloadAndInstall(
-        info,
-        onProgress: (p) {
-          if (!mounted) return;
-          setState(() => _updateProgress = p);
-        },
-      );
-      if (!mounted) return;
-      setState(() {
-        _installingUpdate = false;
-        _updateMessage =
-            'Update downloaded. Confirm the Android install prompt to finish.';
+      const service = AskodoxUpdateService();
+      await service.downloadAndInstall(update, onProgress: (value) {
+        if (mounted) setState(() => _progress = value);
       });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _installingUpdate = false;
-        _updateProgress = null;
-        _updateMessage = 'Update could not be installed. ${error.toString()}';
-      });
+      if (mounted) setState(() => _message = _te ? 'Android install promptను confirm చేయండి.' : 'Confirm the Android install prompt.');
+    } catch (e) {
+      if (mounted) setState(() => _message = 'Update failed: $e');
+    } finally {
+      if (mounted) setState(() => _installing = false);
     }
   }
-
-  Future<void> _pickVoicePreference(bool isTe) async {
-    final current = ref.read(appSettingsProvider).voicePreference;
-    final selected = await showModalBottomSheet<VoicePreference>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.record_voice_over_outlined),
-              title: Text(isTe ? 'వాయిస్ ప్రాధాన్యత' : 'Voice preference'),
-              subtitle: Text(
-                isTe
-                    ? 'ASKODOX మాట్లాడే వాయిస్‌ను ఎంచుకోండి. Auto మీ డివైస్‌కు సరిపోయే వాయిస్‌ను ఉపయోగిస్తుంది.'
-                    : 'Choose the voice ASKODOX uses. Auto picks a compatible device voice.',
-              ),
-            ),
-            for (final preference in VoicePreference.values)
-              RadioListTile<VoicePreference>(
-                value: preference,
-                groupValue: current,
-                title: Text(
-                  switch (preference) {
-                    VoicePreference.automatic => isTe ? 'ఆటోమేటిక్' : 'Automatic',
-                    VoicePreference.male => isTe ? 'పురుష వాయిస్' : 'Male voice',
-                    VoicePreference.female => isTe ? 'మహిళా వాయిస్' : 'Female voice',
-                  },
-                ),
-                onChanged: (value) => Navigator.pop(context, value),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    ref.read(appSettingsProvider.notifier).setVoicePreference(selected);
-  }
-
-  String _voiceLabel(VoicePreference preference, bool isTe) => switch (preference) {
-        VoicePreference.automatic => isTe ? 'ఆటోమేటిక్' : 'Automatic',
-        VoicePreference.male => isTe ? 'పురుష వాయిస్' : 'Male voice',
-        VoicePreference.female => isTe ? 'మహిళా వాయిస్' : 'Female voice',
-      };
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final isTe = Localizations.localeOf(context).languageCode == 'te';
-    final voicePreference = ref.watch(appSettingsProvider).voicePreference;
-    String t(String en, String te) => isTe ? te : en;
+    final te = _te;
+    String t(String en, String telugu) => te ? telugu : en;
     return Scaffold(
-      appBar: AppBar(title: Text(t('Profile', 'ప్రొఫైల్'))),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const CircleAvatar(radius: 42, child: Icon(Icons.person, size: 42)),
-              const SizedBox(height: 24),
-              Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(18),
-                  leading: Icon(Icons.storefront,
-                      size: 34, color: Theme.of(context).colorScheme.primary),
-                  title: Text(t('ASKODOX for sellers', 'విక్రేతల కోసం ASKODOX'),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(t(
-                      'Create your shop and manage products, prices and stock.',
-                      'మీ షాప్‌ను సృష్టించి ఉత్పత్తులు, ధరలు, స్టాక్‌ను నిర్వహించండి.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/seller/login'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                color: Theme.of(context)
-                    .colorScheme
-                    .secondaryContainer
-                    .withValues(alpha: 0.55),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(18),
-                  leading: const Icon(Icons.science_outlined, size: 34),
-                  title: Text(t('ASKODOX Demo Center', 'ASKODOX డెమో సెంటర్'),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(t(
-                      'Party A + Party B test accounts, sample activity and one-tap demo reset.',
-                      'Party A + Party B టెస్ట్ అకౌంట్లు, sample activity మరియు ఒక్క ట్యాప్ demo reset.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                        builder: (_) => const DemoCenterScreen()),
+      backgroundColor: const Color(0xFFF8FBFF),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const SizedBox(height: 10),
+          const CircleAvatar(radius: 42, child: Icon(Icons.person_rounded, size: 42)),
+          const SizedBox(height: 10),
+          Text(t('Your ASKODOX profile', 'మీ ASKODOX ప్రొఫైల్'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 20),
+          Card(
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t('Your roles', 'మీ పాత్రలు'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 6),
+                  Text(t('One person can be a buyer, seller, service provider or more at the same time.', 'ఒకే వ్యక్తి Buyer, Seller, Service Provider లేదా ఇతర పాత్రల్లో ఒకేసారి ఉండవచ్చు.')),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ['Buyer', 'Seller', 'Service Provider', 'Job Seeker', 'Delivery Partner'].map((role) {
+                      final selected = _roles.contains(role);
+                      return FilterChip(
+                        selected: selected,
+                        label: Text(role),
+                        onSelected: (value) {
+                          setState(() {
+                            if (value) {
+                              _roles.add(role);
+                            } else if (_roles.length > 1) {
+                              _roles.remove(role);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_roles.contains('Seller'))
+            Card(
+              elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.storefront_rounded),
+                title: Text(t('Seller dashboard', 'Seller dashboard')),
+                subtitle: Text(t('Manage your shop, products, prices and requests.', 'మీ షాప్, ప్రోడక్ట్స్, ధరలు, requests నిర్వహించండి.')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/seller/login'),
+              ),
+            ),
+          if (_roles.contains('Delivery Partner'))
+            Card(
+              elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.delivery_dining_rounded),
+                title: Text(t('Delivery opportunities', 'డెలివరీ అవకాశాలు')),
+                subtitle: Text(t('See nearby delivery requests you can choose to accept.', 'మీ దగ్గరలో ఉన్న delivery requests చూసి accept చేయవచ్చు.')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/alerts'),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.system_update_alt_rounded),
-                        title: Text(t('App update', 'యాప్ అప్‌డేట్')),
-                        subtitle: Text(t(
-                            'Check and install the latest signed ASKODOX build from inside the app.',
-                            'యాప్ నుంచే తాజా signed ASKODOX build‌ను చెక్ చేసి ఇన్‌స్టాల్ చేయండి.')),
-                        trailing: _checkingUpdate
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2.5),
-                              )
-                            : IconButton(
-                                tooltip: t('Check for updates', 'అప్‌డేట్ చెక్ చేయండి'),
-                                onPressed: _checkForUpdate,
-                                icon: const Icon(Icons.refresh_rounded),
-                              ),
-                      ),
-                      if (_updateMessage != null) ...[
-                        const SizedBox(height: 4),
-                        Text(_updateMessage!,
-                            style: Theme.of(context).textTheme.bodyMedium),
-                      ],
-                      if (_installingUpdate) ...[
-                        const SizedBox(height: 10),
-                        LinearProgressIndicator(value: _updateProgress),
-                        const SizedBox(height: 6),
-                        Text(
-                          _updateProgress == null
-                              ? t('Downloading…', 'డౌన్‌లోడ్ అవుతోంది…')
-                              : '${(_updateProgress! * 100).round()}%',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                      if (_updateInfo != null && !_installingUpdate) ...[
-                        const SizedBox(height: 10),
-                        FilledButton.icon(
-                          onPressed: _installUpdate,
-                          icon: const Icon(Icons.download_done_rounded),
-                          label: Text(t('Download & install update',
-                              'అప్‌డేట్ డౌన్‌లోడ్ చేసి ఇన్‌స్టాల్ చేయండి')),
-                        ),
-                      ],
+                      const Icon(Icons.system_update_alt_rounded, color: Color(0xFF1769FF)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(t('App Update', 'యాప్ అప్డేట్'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.insights_outlined),
-                  title: Text(t('Buyer insights', 'కొనుగోలుదారుల విశ్లేషణలు')),
-                  subtitle: Text(t('Review your private, local activity summaries.',
-                      'మీ వ్యక్తిగత లోకల్ యాక్టివిటీ సమరీలను చూడండి.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/analytics/buyer'),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined),
-                  title: Text(t('Analytics privacy', 'అనలిటిక్స్ గోప్యత')),
-                  subtitle: Text(t('Control privacy-safe local analytics.',
-                      'గోప్యతను కాపాడే లోకల్ అనలిటిక్స్‌ను నియంత్రించండి.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/analytics/privacy'),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.shield_outlined),
-                  title: Text(l.privacyCenter),
-                  subtitle: Text(l.privacyIntro),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/privacy'),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.rate_review_outlined),
-                  title: Text(t('Beta feedback', 'బీటా ఫీడ్‌బ్యాక్')),
-                  subtitle: Text(t('Report a beta issue or share a suggestion locally.',
-                      'బీటా సమస్యను రిపోర్ట్ చేయండి లేదా సూచనను షేర్ చేయండి.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/beta-feedback'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.forum_outlined),
-                  title: Text(t('Communication center', 'కమ్యూనికేషన్ కేంద్రం')),
-                  subtitle: Text(t(
-                      'Notifications, product requests, followed shops and preferences.',
-                      'నోటిఫికేషన్లు, ఉత్పత్తి అభ్యర్థనలు, ఫాలో అవుతున్న షాపులు మరియు ప్రాధాన్యతలు.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/communications'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.map_outlined),
-                  title: Text(t('Location & nearby shops', 'లొకేషన్ & దగ్గరలోని షాపులు')),
-                  subtitle: Text(t(
-                      'Manage saved locations, privacy and search radius.',
-                      'సేవ్ చేసిన లొకేషన్లు, గోప్యత మరియు సెర్చ్ పరిధిని నిర్వహించండి.')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/location'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.settings_outlined),
-                      title: Text(t('Settings', 'సెట్టింగ్స్')),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      key: const Key('askodoxVoicePreferenceSetting'),
-                      leading: const Icon(Icons.record_voice_over_outlined),
-                      title: Text(t('Voice preference', 'వాయిస్ ప్రాధాన్యత')),
-                      subtitle: Text(_voiceLabel(voicePreference, isTe)),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _pickVoicePreference(isTe),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.help_outline),
-                      title: Text(t('Help & support', 'సహాయం & సపోర్ట్')),
-                      subtitle: Text(t(
-                          'FAQs by module and ASKODOX support fallback.',
-                          'ప్రతి మాడ్యూల్ FAQs మరియు ASKODOX సపోర్ట్.')),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const HelpSupportScreen()),
-                      ),
-                    ),
+                  const SizedBox(height: 8),
+                  Text(t('Check and install the latest signed ASKODOX build without reinstalling manually.', 'Manual reinstall లేకుండా తాజా signed ASKODOX buildని చెక్ చేసి install చేయండి.')),
+                  if (_message != null) ...[
+                    const SizedBox(height: 10),
+                    Text(_message!),
                   ],
-                ),
+                  if (_installing) ...[
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(value: _progress),
+                  ],
+                  const SizedBox(height: 12),
+                  if (_update == null)
+                    FilledButton.icon(
+                      onPressed: _checking ? null : _checkUpdate,
+                      icon: _checking ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.refresh_rounded),
+                      label: Text(t('Check for Update', 'అప్డేట్ చెక్ చేయండి')),
+                    )
+                  else
+                    FilledButton.icon(onPressed: _installing ? null : _install, icon: const Icon(Icons.download_rounded), label: Text(t('Download & Install', 'డౌన్‌లోడ్ & ఇన్‌స్టాల్'))),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Card(elevation: 0, child: ListTile(leading: const Icon(Icons.location_on_outlined), title: Text(t('Location', 'లొకేషన్')), subtitle: const Text('Vuyyuru, AP'), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => context.push('/location'))),
+          Card(elevation: 0, child: ListTile(leading: const Icon(Icons.settings_outlined), title: Text(t('Settings', 'సెట్టింగ్స్')), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => context.push('/notification-preferences'))),
+          Card(elevation: 0, child: ListTile(leading: const Icon(Icons.support_agent_rounded), title: Text(t('Support', 'సపోర్ట్')), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => context.push('/communications'))),
+          Card(elevation: 0, child: ListTile(leading: const Icon(Icons.privacy_tip_outlined), title: Text(t('Privacy', 'ప్రైవసీ')), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => context.push('/privacy'))),
+        ],
       ),
     );
   }
