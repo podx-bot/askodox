@@ -58,12 +58,12 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     }
     setState(() {
       _active = true;
-      _turns.add(ConversationTurnRecord(role: 'user', text: text));
+      _turns.add(ConversationTurnRecord(text: text, isUser: true));
       _turns.add(ConversationTurnRecord(
-        role: 'assistant',
         text: _te
             ? 'సరే. మీ అవసరాన్ని అర్థం చేసుకున్నాను. దగ్గరలో ఉన్న సరైన ఎంపికలను చూపిస్తున్నాను.'
             : 'Got it. I understand what you need. Here are the best nearby options.',
+        isUser: false,
       ));
     });
     _controller.clear();
@@ -169,17 +169,17 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
         const SizedBox(height: 6),
         for (final turn in _turns) ...[
           Align(
-            alignment: turn.role == 'user' ? Alignment.centerRight : Alignment.centerLeft,
+            alignment: turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 330),
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: turn.role == 'user' ? _blue : Colors.white,
+                color: turn.isUser ? _blue : Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: turn.role == 'user' ? null : Border.all(color: const Color(0xFFE1E8F2)),
+                border: turn.isUser ? null : Border.all(color: const Color(0xFFE1E8F2)),
               ),
-              child: Text(turn.text, style: TextStyle(color: turn.role == 'user' ? Colors.white : _ink, height: 1.35)),
+              child: Text(turn.text, style: TextStyle(color: turn.isUser ? Colors.white : _ink, height: 1.35)),
             ),
           ),
         ],
