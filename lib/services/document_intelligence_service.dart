@@ -72,15 +72,13 @@ class DocumentIntelligenceService {
 
   Future<DocumentIntelligenceResult?> pickAndAnalyze() async {
     try {
-      final picked = await FilePicker().pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: const ['pdf', 'docx', 'xlsx', 'csv', 'txt', 'json'],
-        withData: true,
       );
-      if (picked == null || picked.files.isEmpty) return null;
-      final file = picked.files.single;
-      final bytes = file.bytes;
-      if (bytes == null || bytes.isEmpty) return null;
+      if (file == null) return null;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return null;
       return await analyzeBytes(
         bytes: bytes,
         filename: file.name,
