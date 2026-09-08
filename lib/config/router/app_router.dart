@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/route_guard.dart';
 import '../../core/providers/backend_providers.dart';
-import '../../features/home/presentation/home_screen.dart';
+import '../../features/home/presentation/chat_first_home_host.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
-import '../../features/catalog/presentation/search_screen.dart';
 import '../../features/search/domain/search_models.dart';
 import '../../features/search/presentation/product_discovery_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -70,8 +69,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(path: '/performance-monitor', builder: (context, state) => const PerformanceMonitorScreen()),
       ],
       StatefulShellRoute.indexedStack(builder: (context, state, shell) => AppShell(shell: shell), branches: [
-        StatefulShellBranch(routes: [GoRoute(path: '/', builder: (context, state) => const HomeScreen())]),
-        StatefulShellBranch(routes: [GoRoute(path: '/search', builder: (context, state) => const SearchScreen())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/', builder: (context, state) => const ChatFirstHomeHost())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/search', redirect: (context, state) => '/')]),
         StatefulShellBranch(routes: [GoRoute(path: '/watchlist', builder: (context, state) => const WatchlistScreen())]),
         StatefulShellBranch(routes: [GoRoute(path: '/alerts', builder: (context, state) => const AlertsScreen())]),
         StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen())]),
