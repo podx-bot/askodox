@@ -148,7 +148,7 @@ class _PrimaryBottomBar extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(index == selected ? selectedIcon : icon, color: index == selected ? const Color(0xFF4F46FF) : const Color(0xFF203056)), size: 24),
+              Icon(index == selected ? selectedIcon : icon, color: index == selected ? const Color(0xFF4F46FF) : const Color(0xFF203056), size: 24),
               const SizedBox(height: 4),
               Text(label, style: TextStyle(fontSize: 11, fontWeight: index == selected ? FontWeight.w800 : FontWeight.w600, color: index == selected ? const Color(0xFF4F46FF) : const Color(0xFF203056))),
             ],
