@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
+import 'askodox_orb.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF6B7280);
@@ -102,11 +103,9 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       children: [
         _promo(),
         const SizedBox(height: 18),
-        const Center(
-          child: CircleAvatar(
-            radius: 48,
-            backgroundColor: Color(0xFFEAF1FF),
-            child: Icon(Icons.smart_toy_rounded, size: 58, color: _blue),
+        Center(
+          child: AskodoxVoiceOrb(
+            onTap: () => context.push('/discover/voice'),
           ),
         ),
         const SizedBox(height: 12),
