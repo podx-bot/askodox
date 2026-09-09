@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/update/askodox_update_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _message;
 
   bool get _te => Localizations.localeOf(context).languageCode == 'te';
+
+  String _voiceLabel(VoicePreference preference, bool te) => switch (preference) {
+        VoicePreference.automatic => te ? 'ఆటోమేటిక్' : 'Automatic',
+        VoicePreference.male => te ? 'పురుష వాయిస్' : 'Male voice',
+        VoicePreference.female => te ? 'మహిళా వాయిస్' : 'Female voice',
+      };
+
+  Future<void> _pickVoicePreference(bool te) async {
+    final current = ref.read(appSettingsProvider).voicePreference;
+    final selected = await showModalBottomSheet<VoicePreference>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.record_voice_over_outlined),
+              title: Text(te ? 'వాయిస్ ప్రాధాన్యత' : 'Voice preference'),
+              subtitle: Text(
+                te
+                    ? 'ASKODOX మాట్లాడే వాయిస్‌ను ఎంచుకోండి. Automatic మీ డివైస్‌కు సరిపోయే వాయిస్‌ను ఉపయోగిస్తుంది.'
+                    : 'Choose the voice ASKODOX uses. Automatic picks a compatible device voice.',
+              ),
+            ),
+            for (final preference in VoicePreference.values)
+              RadioListTile<VoicePreference>(
+                value: preference,
+                groupValue: current,
+                title: Text(_voiceLabel(preference, te)),
+                onChanged: (value) => Navigator.pop(context, value),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    ref.read(appSettingsProvider.notifier).setVoicePreference(selected);
+  }
 
   Future<void> _checkUpdate() async {
     if (_checking || _installing) return;
@@ -71,6 +112,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final te = _te;
+    final voicePreference = ref.watch(appSettingsProvider).voicePreference;
     String t(String en, String telugu) => te ? telugu : en;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -140,6 +182,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onTap: () => context.push('/alerts'),
               ),
             ),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            child: ListTile(
+              leading: const Icon(Icons.record_voice_over_outlined, color: Color(0xFF1769FF)),
+              title: Text(t('Voice preference', 'వాయిస్ ప్రాధాన్యత'), style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(_voiceLabel(voicePreference, te)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _pickVoicePreference(te),
+            ),
+          ),
           const SizedBox(height: 12),
           Card(
             elevation: 0,
