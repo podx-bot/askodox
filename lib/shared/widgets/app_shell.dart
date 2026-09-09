@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/update/askodox_update_service.dart';
+import '../../features/location/application/location_controller.dart';
 
 const _navInk = Color(0xFF10204A);
 const _navMuted = Color(0xFF667085);
@@ -16,6 +17,8 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isTe = Localizations.localeOf(context).languageCode == 'te';
+    final locationState = ref.watch(locationControllerProvider);
+    final locationLabel = locationState.displayLocation ?? (isTe ? 'లొకేషన్ ఎంచుకోండి' : 'Choose location');
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
       appBar: AppBar(
@@ -29,13 +32,21 @@ class AppShell extends ConsumerWidget {
           InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: () => context.push('/location'),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              child: Row(children: [
-                Icon(Icons.location_on_rounded, size: 20, color: Color(0xFF1769FF)),
-                SizedBox(width: 3),
-                Text('Vuyyuru, AP', style: TextStyle(color: _navInk, fontSize: 12, fontWeight: FontWeight.w800)),
-                Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: _navInk),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.location_on_rounded, size: 20, color: Color(0xFF1769FF)),
+                const SizedBox(width: 3),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    locationLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _navInk, fontSize: 12, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: _navInk),
               ]),
             ),
           ),
