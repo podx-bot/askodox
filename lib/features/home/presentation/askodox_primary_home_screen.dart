@@ -82,16 +82,6 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     });
   }
 
-  Future<void> _newChat() async {
-    ref.read(universalDealControllerProvider.notifier).reset();
-    await _store.clear();
-    if (!mounted) return;
-    setState(() {
-      _turns.clear();
-      _active = false;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final te = _te;
@@ -159,14 +149,6 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
       children: [
-        Row(
-          children: [
-            Text(te ? 'చాట్' : 'Chat', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
-            const Spacer(),
-            TextButton.icon(onPressed: _newChat, icon: const Icon(Icons.add_rounded), label: Text(te ? 'కొత్త చాట్' : 'New')),
-          ],
-        ),
-        const SizedBox(height: 6),
         for (final turn in _turns) ...[
           Align(
             alignment: turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -184,6 +166,7 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
           ),
         ],
         if (_turns.isNotEmpty) ...[
+          const SizedBox(height: 4),
           Text(te ? 'దగ్గరలో ఉన్న ఎంపికలు' : 'Nearby matches', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: _ink)),
           const SizedBox(height: 10),
           SizedBox(
