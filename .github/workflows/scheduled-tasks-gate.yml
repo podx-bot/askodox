@@ -10,6 +10,9 @@ on:
       - 'backend/app/services/scheduled_task_service.py'
       - 'backend/app/services/scheduled_task_delivery_service.py'
       - 'backend/app/services/scheduled_task_worker.py'
+      - 'backend/app/services/scheduled_task_condition_evaluator.py'
+      - 'backend/app/services/oasat_live_research_service.py'
+      - 'backend/app/services/brave_web_search_provider.py'
       - '.github/workflows/scheduled-tasks-gate.yml'
   pull_request:
     paths:
@@ -19,6 +22,9 @@ on:
       - 'backend/app/services/scheduled_task_service.py'
       - 'backend/app/services/scheduled_task_delivery_service.py'
       - 'backend/app/services/scheduled_task_worker.py'
+      - 'backend/app/services/scheduled_task_condition_evaluator.py'
+      - 'backend/app/services/oasat_live_research_service.py'
+      - 'backend/app/services/brave_web_search_provider.py'
       - '.github/workflows/scheduled-tasks-gate.yml'
   workflow_dispatch:
 
@@ -34,8 +40,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install gate dependencies
-        run: pip install fastapi pydantic
-      - name: Verify scheduler worker delivery retry and isolation
+        run: pip install fastapi pydantic httpx
+      - name: Verify scheduler worker delivery retry isolation and live conditions
         run: |
           python - <<'PY'
           import tempfile
@@ -48,9 +54,50 @@ jobs:
               create_scheduled_task,
               list_scheduled_task_inbox,
           )
+          from app.services.scheduled_task_condition_evaluator import ScheduledTaskConditionEvaluator
           from app.services.scheduled_task_delivery_service import ScheduledTaskDeliveryService
           from app.services.scheduled_task_service import ScheduledTaskService
           from app.services.scheduled_task_worker import ScheduledTaskWorker
+
+          class FakeResearch:
+              def __init__(self, sources):
+                  self.sources = sources
+              def research(self, query, *, limit=8, max_age_days=7):
+                  assert query
+                  assert limit == 8
+                  assert max_age_days == 7
+                  return {'sources': self.sources}
+
+          fresh_price = FakeResearch([
+              {'title': 'Current local rate', 'snippet': 'price ₹89 today'},
+          ])
+          evaluator = ScheduledTaskConditionEvaluator(fresh_price)
+          assert evaluator({
+              'title': 'Price watch', 'prompt': 'check current price',
+              'condition': {'field': 'price', 'operator': 'lt', 'value': 100},
+          }) is True
+          assert evaluator({
+              'title': 'Price watch', 'prompt': 'check current price',
+              'condition': {'field': 'price', 'operator': 'gt', 'value': 100},
+          }) is False
+
+          text_evaluator = ScheduledTaskConditionEvaluator(FakeResearch([
+              {'title': 'Weather alert', 'snippet': 'Heavy rain warning issued for district'},
+          ]))
+          assert text_evaluator({
+              'prompt': 'check weather warning',
+              'condition': {'operator': 'contains', 'value': 'rain warning'},
+          }) is True
+
+          try:
+              ScheduledTaskConditionEvaluator(FakeResearch([]))({
+                  'prompt': 'check price',
+                  'condition': {'field': 'price', 'operator': 'lt', 'value': 100},
+              })
+          except RuntimeError:
+              pass
+          else:
+              raise AssertionError('missing evidence must be retryable failure')
 
           with tempfile.TemporaryDirectory() as directory:
               db = Path(directory) / 'tasks.db'
@@ -108,7 +155,7 @@ jobs:
 
               watch_at = daily_at + timedelta(minutes=10)
               watch = service.create(
-                  user_id='app-user-a', title='Price watch', prompt='Alert below target',
+                  user_id='app-user-a', title='Price watch', prompt='check current price',
                   kind='condition_watch', run_at=watch_at.isoformat(), recurrence='hourly',
                   timezone_name='UTC', condition={'field': 'price', 'operator': 'lt', 'value': 100},
               )
@@ -119,11 +166,11 @@ jobs:
               evaluating_worker = ScheduledTaskWorker(
                   tasks=service,
                   deliveries=deliveries,
-                  condition_evaluator=lambda task: False,
+                  condition_evaluator=evaluator,
               )
               checked = evaluating_worker.run_once(now=watch_at + timedelta(seconds=2))
-              assert checked['condition_false'] == 1
-              assert service.get(task_id=watch['id'])['last_status'] == 'condition_false'
+              assert checked['delivered'] == 1
+              assert service.get(task_id=watch['id'])['last_status'] == 'delivered'
 
               container = SimpleNamespace(
                   scheduled_task_service=service,
@@ -138,7 +185,7 @@ jobs:
                   limit=50,
               )
               assert api_inbox['status'] == 'success'
-              assert api_inbox['count'] == 2
+              assert api_inbox['count'] == 3
 
               payload = ScheduledTaskCreateRequest(
                   user_id='app-api-user', title='API task', prompt='Do the task', kind='scheduled',
@@ -151,7 +198,7 @@ jobs:
           assert 'app.include_router(scheduled_tasks_router)' in app_factory
 
           server = Path('server.py').read_text(encoding='utf-8')
-          for marker in ('ScheduledTaskDeliveryService', 'ScheduledTaskWorker', 'ScheduledTaskRunner', 'start_scheduled_task_runner'):
+          for marker in ('ScheduledTaskConditionEvaluator', 'oasat_live_research_service', 'condition_evaluator=container.scheduled_task_condition_evaluator', 'ScheduledTaskRunner'):
               assert marker in server
 
           source = Path('app/services/scheduled_task_service.py').read_text(encoding='utf-8')
