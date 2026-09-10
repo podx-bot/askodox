@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
+import '../../location/application/location_controller.dart';
 import '../../matching/data/demo_natural_match_catalog.dart';
 import '../../matching/data/universal_match_repository.dart';
 import 'askodox_orb.dart';
@@ -62,6 +63,20 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       notifier.start(text);
     } else {
       notifier.answer(text);
+    }
+
+    final locationState = ref.read(locationControllerProvider);
+    final selectedLocation = locationState.defaultLocation;
+    if (selectedLocation != null) {
+      final label = selectedLocation.address.trim().isNotEmpty
+          ? selectedLocation.address.trim()
+          : selectedLocation.name.trim();
+      notifier.applySelectedLocation(
+        label: label,
+        latitude: selectedLocation.point.latitude,
+        longitude: selectedLocation.point.longitude,
+        radiusKm: locationState.radiusMetres / 1000,
+      );
     }
 
     final deal = ref.read(universalDealControllerProvider).deal;
