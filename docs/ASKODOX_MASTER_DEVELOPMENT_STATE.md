@@ -81,6 +81,34 @@ Do not ask the owner to repeatedly update/install APKs during intermediate block
 - Sandbox/test records must never leak into LIVE results.
 - Keep reusable sandbox fixtures for regression testing.
 
+## Requirement / complaint / rejection decision workflow — LOCKED
+Every owner requirement, complaint, rejected implementation, correction, and final approval is part of the living ASKODOX architecture and must not be treated as disposable chat context.
+
+For each meaningful decision, follow this sequence:
+1. Capture the requirement/complaint/rejection precisely.
+2. Check the existing architecture and prior locked decisions before changing code.
+3. Record why the old behavior/design was rejected when relevant.
+4. Define the final approved rule/flow and the behavior that must not recur.
+5. Implement by extending/reusing existing architecture; avoid duplicate systems.
+6. Add or update tests/regression gates where the decision can be tested.
+7. Verify CI/runtime as applicable before marking GREEN.
+8. Update this Master Development State after the verified block so a later chat can resume without repeating or contradicting the decision.
+
+Anti-repeat rules:
+- A rejected UI/flow must not silently return in a later implementation.
+- A completed feature must not be rebuilt merely because chat context was lost.
+- A pending feature must retain its dependency and next-action context.
+- If a new request conflicts with a locked decision, identify the conflict before implementation rather than guessing.
+- Owner corrections override earlier assumptions; preserve the correction as the new source-of-truth rule.
+- ChatGPT Memory is a convenience layer only. GitHub Master Development State plus verified repository code/CI is the project continuity source of truth.
+
+Examples already locked:
+- Brand is ASKODOX; historical/internal names are not substitutes.
+- Ecommerce-style UI was rejected; approved direction is AI-app/local-commerce UI.
+- Wrong-category and same-side matching are prohibited.
+- Category questionnaires are dynamic/category-specific, not one generic form.
+- Sandbox/demo data must not leak into LIVE.
+
 ## Verified development checkpoint — 2026-09-10
 Latest verified checkpoint before this master-state document:
 - `c2b429d6e2e3d6b01f5f1d566d292247e6246e74` — `test(demo): lock investor sandbox catalog coverage`.
