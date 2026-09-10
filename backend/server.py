@@ -3,6 +3,7 @@ from app.api.routes.connected_actions import router as connected_actions_router
 from app.api.routes.public_home import router as public_home_router
 from app.api.routes.universal_deals import router as universal_deals_router
 from app.services.connected_action_service import ConnectedActionService
+from app.services.scheduled_task_condition_evaluator import ScheduledTaskConditionEvaluator
 from app.services.scheduled_task_delivery_service import ScheduledTaskDeliveryService
 from app.services.scheduled_task_worker import ScheduledTaskRunner, ScheduledTaskWorker
 
@@ -16,9 +17,13 @@ container.connected_action_service = ConnectedActionService(container.settings.d
 container.scheduled_task_delivery_service = ScheduledTaskDeliveryService(
     container.settings.database_path
 )
+container.scheduled_task_condition_evaluator = ScheduledTaskConditionEvaluator(
+    container.oasat_live_research_service
+)
 container.scheduled_task_worker = ScheduledTaskWorker(
     tasks=container.scheduled_task_service,
     deliveries=container.scheduled_task_delivery_service,
+    condition_evaluator=container.scheduled_task_condition_evaluator,
 )
 container.scheduled_task_runner = ScheduledTaskRunner(container.scheduled_task_worker)
 
