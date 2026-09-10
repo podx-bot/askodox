@@ -19,6 +19,8 @@ void main() {
             intent: intent,
             subject: subject,
             category: category,
+            quantity: 10,
+            unit: 'kg',
             fulfilment: 'pickup',
             location: DealLocation(
               label: 'Vijayawada',
