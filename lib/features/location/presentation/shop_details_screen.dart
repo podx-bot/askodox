@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../application/location_controller.dart';
 
 const _ink = Color(0xFF10204A);
 const _blue = Color(0xFF1769FF);
 const _muted = Color(0xFF6B7280);
 
-class ShopDetailsScreen extends StatelessWidget {
+class ShopDetailsScreen extends ConsumerWidget {
   const ShopDetailsScreen({required this.shopId, super.key});
   final String shopId;
 
@@ -15,7 +18,15 @@ class ShopDetailsScreen extends StatelessWidget {
       };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locationState = ref.watch(locationControllerProvider);
+    final selectedLocation = locationState.defaultLocation;
+    final locationLabel = selectedLocation == null
+        ? 'Selected area'
+        : selectedLocation.address.trim().isNotEmpty
+            ? selectedLocation.address.trim()
+            : selectedLocation.name.trim();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
       appBar: AppBar(title: const Text('ASKODOX'), actions: const [Icon(Icons.more_vert_rounded)]),
@@ -39,7 +50,7 @@ class ShopDetailsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text('★ 4.6 (98)   •   1.2 km   •   Vuyyuru, AP', style: TextStyle(color: _muted)),
+                Text('★ 4.6 (98)   •   1.2 km   •   $locationLabel', style: const TextStyle(color: _muted)),
                 const SizedBox(height: 8),
                 const Text('Fresh & Hygienic Chicken', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _ink)),
                 const SizedBox(height: 10),
@@ -369,8 +380,8 @@ class _DeliveryFlowScreenState extends State<DeliveryFlowScreen> {
         title: 'Payment confirmed',
         subtitle: 'The seller can now prepare your order.',
         children: [
-          _StatusRow(done: true, text: 'Delivery accepted'),
-          _StatusRow(done: true, text: 'Seller payment confirmed'),
+          const _StatusRow(done: true, text: 'Delivery accepted'),
+          const _StatusRow(done: true, text: 'Seller payment confirmed'),
           const SizedBox(height: 18),
           FilledButton(onPressed: () => setState(() => step = 4), child: const Text('Continue')),
         ],
@@ -419,7 +430,24 @@ class _DeliveryFlowScreenState extends State<DeliveryFlowScreen> {
         title: 'Self Pickup',
         subtitle: 'You chose to collect the order yourself. No delivery person is required.',
         children: [
-          Card(child: ListTile(leading: const Icon(Icons.location_on_rounded), title: Text(widget.shopName), subtitle: const Text('Vuyyuru, AP • Open in Maps'))),
+          Consumer(
+            builder: (context, ref, _) {
+              final locationState = ref.watch(locationControllerProvider);
+              final selectedLocation = locationState.defaultLocation;
+              final locationLabel = selectedLocation == null
+                  ? 'Selected area'
+                  : selectedLocation.address.trim().isNotEmpty
+                      ? selectedLocation.address.trim()
+                      : selectedLocation.name.trim();
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.location_on_rounded),
+                  title: Text(widget.shopName),
+                  subtitle: Text('$locationLabel • Open in Maps'),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 12),
           FilledButton(onPressed: () => setState(() => step = 2), child: const Text('Pay Seller QR')),
         ],
