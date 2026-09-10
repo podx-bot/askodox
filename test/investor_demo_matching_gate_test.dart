@@ -22,6 +22,13 @@ void main() {
             quantity: 10,
             unit: 'kg',
             fulfilment: 'pickup',
+            dynamicFields: subject.toLowerCase() == 'chicken'
+                ? const {
+                    'freshness': 'fresh',
+                    'cut': 'curry cut',
+                    'chickenPreference': 'no preference',
+                  }
+                : const {},
             location: DealLocation(
               label: 'Vijayawada',
               latitude: lat,
