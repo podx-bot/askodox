@@ -150,6 +150,27 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(next));
   }
 
+  void applySelectedLocation({
+    required String label,
+    required double latitude,
+    required double longitude,
+    double? radiusKm,
+  }) {
+    final current = state.deal;
+    if (current == null || current.location.isKnown) return;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
+    final cleanLabel = label.trim();
+    final next = current.copyWith(
+      location: DealLocation(
+        label: cleanLabel.isEmpty ? null : cleanLabel,
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: radiusKm,
+      ),
+    );
+    _setSession(_sessionFor(next));
+  }
+
   void ingestSellerQuote({
     required String sellerId,
     required String text,
