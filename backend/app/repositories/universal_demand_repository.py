@@ -164,6 +164,42 @@ class UniversalDemandRepository:
             ).fetchone()
         return self._row(row) if row else None
 
+    def update_active_fields(self, demand_id: int, fields: Dict[str, Any]) -> bool:
+        """Revise one ACTIVE record in place without changing its demand id.
+
+        Empty values are ignored so a partial follow-up cannot erase previously
+        known facts. This preserves one authoritative active state for revisions.
+        """
+        allowed = {
+            "side", "domain", "subject", "quantity", "unit", "price", "currency",
+            "when_text", "latitude", "longitude", "location_text", "constraints",
+            "source", "media_ref",
+        }
+        assignments: list[str] = []
+        params: list[Any] = []
+        for key, value in (fields or {}).items():
+            if key not in allowed or value in (None, "", [], {}):
+                continue
+            column = "constraints_json" if key == "constraints" else key
+            stored_value = json.dumps(value, ensure_ascii=False) if key == "constraints" else value
+            if key in {"side", "domain"}:
+                stored_value = str(stored_value).upper()
+            elif key == "subject":
+                stored_value = str(stored_value).strip()
+            assignments.append(f"{column} = ?")
+            params.append(stored_value)
+        if not assignments:
+            return False
+        now = datetime.now(timezone.utc).isoformat()
+        assignments.append("updated_at = ?")
+        params.extend([now, int(demand_id)])
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"UPDATE {self.TABLE} SET {', '.join(assignments)} WHERE id = ? AND status = 'ACTIVE'",
+                params,
+            )
+            return bool(cur.rowcount)
+
     def update_location_text(self, demand_id: int, location_text: str) -> None:
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as conn:
