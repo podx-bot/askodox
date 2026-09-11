@@ -17,7 +17,7 @@ class SandboxInvestorFlowCoordinator {
   final SandboxDealLifecycleStore lifecycleStore;
 
   String transactionKey({required String dealId, required String matchId}) =>
-      SandboxPartyGateStore.transactionKey(dealId: dealId, matchId: matchId);
+      '$dealId::$matchId';
 
   SandboxPartyGateState acceptPartyA({required String dealId, required String matchId}) =>
       partyGateStore.accept(
@@ -54,13 +54,13 @@ class SandboxInvestorFlowCoordinator {
     required double charge,
   }) {
     _requireBilateralAcceptance(dealId: dealId, matchId: matchId);
-    return lifecycleStore.confirmFulfilment(
-      dealId,
+    final fulfilment = SandboxFulfilmentConfirmation(
       mode: mode,
-      location: location,
-      timing: timing,
-      charge: charge,
+      locationConfirmed: location.trim().isNotEmpty,
+      timingConfirmed: timing.trim().isNotEmpty,
+      chargeConfirmed: charge >= 0,
     );
+    return lifecycleStore.confirmFulfilment(dealId, fulfilment);
   }
 
   SandboxDealLifecycleState setPayment({
