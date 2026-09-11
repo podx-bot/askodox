@@ -169,6 +169,15 @@ class UniversalLiveCaptureService:
             "Exact distance ranking కోసం కావాలంటే Current Location కూడా share చేయండి."
         )
 
+    def _update_latest_active(self, previous: Dict[str, Any], fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        updater = getattr(self.demands, "update_active_fields", None)
+        if not callable(updater):
+            return None
+        demand_id = int(previous["id"])
+        if not updater(demand_id, fields):
+            return None
+        return self.demands.get(demand_id) or {**previous, **fields, "id": demand_id}
+
     def _revise_latest_quantity(self, sender_mobile: str, quantity: float, unit: str) -> Optional[str]:
         latest = getattr(self.demands, "latest_active_for_user", None)
         if not callable(latest):
@@ -177,27 +186,13 @@ class UniversalLiveCaptureService:
         if previous is None:
             return None
 
-        revised = {
-            "user_id": str(sender_mobile),
-            "side": previous.get("side"),
-            "domain": previous.get("domain"),
-            "subject": previous.get("subject"),
+        stored = self._update_latest_active(previous, {
             "quantity": float(quantity),
             "unit": unit,
-            "price": previous.get("price"),
-            "currency": previous.get("currency"),
-            "when_text": previous.get("when_text"),
-            "latitude": previous.get("latitude"),
-            "longitude": previous.get("longitude"),
-            "location_text": previous.get("location_text"),
-            "constraints": previous.get("constraints") or {},
             "source": "text",
-            "media_ref": None,
-            "status": "ACTIVE",
-        }
-        request_id = self.demands.create(revised)
-        self.demands.update_status(int(previous["id"]), "REVISED")
-        stored = self.demands.get(request_id) or {**revised, "id": request_id}
+        })
+        if stored is None:
+            return None
         subject = str(stored.get("subject") or "మీ requirement")
         quantity_text = f"{float(quantity):g} {unit}"
 
@@ -228,27 +223,12 @@ class UniversalLiveCaptureService:
             constraints = {}
         constraints[str(key)] = str(value)
 
-        revised = {
-            "user_id": str(sender_mobile),
-            "side": previous.get("side"),
-            "domain": previous.get("domain"),
-            "subject": previous.get("subject"),
-            "quantity": previous.get("quantity"),
-            "unit": previous.get("unit"),
-            "price": previous.get("price"),
-            "currency": previous.get("currency"),
-            "when_text": previous.get("when_text"),
-            "latitude": previous.get("latitude"),
-            "longitude": previous.get("longitude"),
-            "location_text": previous.get("location_text"),
+        stored = self._update_latest_active(previous, {
             "constraints": constraints,
             "source": "text",
-            "media_ref": None,
-            "status": "ACTIVE",
-        }
-        request_id = self.demands.create(revised)
-        self.demands.update_status(int(previous["id"]), "REVISED")
-        stored = self.demands.get(request_id) or {**revised, "id": request_id}
+        })
+        if stored is None:
+            return None
         subject = str(stored.get("subject") or "మీ requirement")
 
         if stored.get("latitude") is None or stored.get("longitude") is None:
@@ -279,140 +259,62 @@ class UniversalLiveCaptureService:
         if not user or not int(user.get("registration_complete") or 0):
             return False
         session = self.sessions.get(sender_mobile)
-        step_name = str(getattr(getattr(session, "step", None), "name", ""))
-        return not step_name or step_name in {"MAIN_MENU", "REGISTERED"}
+        step_name = getattr(getattr(session, "step", None), "name", "")
+        return step_name == "MAIN_MENU"
 
-    @staticmethod
-    def _is_app_request(request: Dict[str, Any]) -> bool:
-        return str(request.get("user_id") or "").strip().casefold().startswith("app-")
+    def _skip_text(self, text: str) -> bool:
+        lowered = text.casefold()
+        if lowered in self.GREETINGS:
+            return True
+        return any(lowered.startswith(prefix) for prefix in self.COMMAND_PREFIXES)
 
-    def _match_target_notify(self, request: Dict[str, Any], location_saved: bool = False) -> str:
-        prefix = "📍 Location save అయింది. " if location_saved else ""
-        app_request = self._is_app_request(request)
-        matches = self.matcher.find_matches(request, limit=10)
-        if matches:
-            targets = [{"user_id": str(item.get("user_id") or ""), "score": item.get("score"),
-                        "distance_km": item.get("distance_km")}
-                       for item in matches if item.get("user_id") and str(item.get("user_id")) != str(request.get("user_id"))]
-            side = str(request.get("side") or "").upper()
-
-            # App-originated requests use an internal app-* identity, not a WhatsApp
-            # phone number. Never send buyer match cards to Meta using that identity.
-            # The app receives the match result in this response; seller WhatsApp
-            # outreach belongs to the later explicit interest/confirmation stage.
-            if app_request:
-                if side == "NEED":
-                    return (
-                        f"{prefix}✅ {len(targets)} seller match{'es' if len(targets) != 1 else ''} దొరికాయి. "
-                        "Match result ASKODOX appలో readyగా ఉంది. నచ్చిన sellerపై Interested ఎంచుకున్న తర్వాత sellerకి notification వెళ్తుంది."
-                    )
-                return (
-                    f"{prefix}✅ {len(targets)} buyer match{'es' if len(targets) != 1 else ''} దొరికాయి. "
-                    "Match result ASKODOX appలో readyగా ఉంది. Buyer selection తర్వాత next notification flow కొనసాగుతుంది."
-                )
-
-            plan = {"status": "TARGETED", "request_id": request.get("id"), "total_targets": len(targets),
-                    "waves": [{"wave": 1, "radius_km": None, "targets": targets}]}
-            delivery = self.notifications.dispatch_plan(request, plan)
-            sent = int(delivery.get("sent") or 0)
-            failed = int(delivery.get("failed") or 0)
-            skipped = int(delivery.get("skipped_duplicate") or 0)
-            if sent > 0:
-                if side == "NEED":
-                    return (f"{prefix}✅ {len(matches)} seller match{'es' if len(matches) != 1 else ''} దొరికాయి. "
-                            f"{sent} notification option{'s' if sent != 1 else ''} మీకు పంపాను. నచ్చిన sellerపై 'ఆసక్తి ఉంది' నొక్కండి.")
-                return (f"{prefix}✅ {len(matches)} buyer match{'es' if len(matches) != 1 else ''} దొరికాయి. "
-                        f"{sent} buyer notification{'s' if sent != 1 else ''}కి మీ offer పంపాను. Buyer ఆసక్తి చూపితే మీకు Confirm వస్తుంది.")
-            if failed > 0:
-                return (f"{prefix}✅ సరైన match దొరికింది, కానీ WhatsApp notification delivery ప్రస్తుతం fail అయింది. "
-                        "మీ request ACTIVEగా ఉంది; deliveryని మళ్లీ ప్రయత్నించవచ్చు.")
-            if skipped > 0:
-                return (f"{prefix}✅ ఈ match options ఇప్పటికే పంపబడ్డాయి. "
-                        "మీ request ACTIVEగా ఉంది; response కోసం చూస్తున్నాను.")
-            return (f"{prefix}మీ request ACTIVEగా ఉంచాను. Match record ఉంది కానీ కొత్త eligible recipient లేదు. "
-                    "కొత్త match దొరికిన వెంటనే WhatsAppలో చెప్తాను.")
-
-        already = self.notification_repository.contacted_user_ids(int(request["id"]))
-        plan = self.targeting.build_plan(request=request, already_contacted_user_ids=already, per_wave_limit=25)
-        total_targets = int(plan.get("total_targets") or 0)
-        if total_targets > 0:
-            if app_request:
-                return (
-                    f"{prefix}Direct match ఇప్పుడే లేదు. కానీ {total_targets} relevant candidate"
-                    f"{'s' if total_targets != 1 else ''} దొరికారు. ASKODOX appలో request ACTIVEగా ఉంది; "
-                    "exact match/availability confirm అయిన వెంటనే result update అవుతుంది."
-                )
-
-            delivery = self.notifications.dispatch_plan(request, plan)
-            sent = int(delivery.get("sent") or 0)
-            failed = int(delivery.get("failed") or 0)
-            if sent > 0:
-                side = str(request.get("side") or "").upper()
-                if side == "NEED":
-                    return (f"{prefix}Direct match ఇప్పుడే లేదు. కానీ {sent} relevant seller notification option{'s' if sent != 1 else ''} "
-                            "మీకు పంపాను. Interested sellerని select చేయండి.")
-                return (f"{prefix}Direct match ఇప్పుడే లేదు. కానీ సంబంధిత {sent} buyer notification{'s' if sent != 1 else ''}కి "
-                        "మీ offer పంపాను. Response వచ్చిన వెంటనే మీకు చెప్తాను.")
-            if failed > 0:
-                return (f"{prefix}సంబంధిత users దొరికారు, కానీ WhatsApp delivery ప్రస్తుతం fail అయింది. "
-                        "మీ request ACTIVEగా ఉంచాను.")
-
-        channel = "ASKODOX appలో" if app_request else "WhatsAppలో"
-        return (f"{prefix}మీ request ACTIVEగా ఉంచాను. ఇప్పుడు direct match లేదు. "
-                f"సంబంధిత వ్యక్తి/product/service దొరికిన వెంటనే మీకు {channel} చెప్తాను.")
-
-    @classmethod
-    def _quantity_followup(cls, text: str) -> Optional[tuple[float, str]]:
-        match = cls.QUANTITY_FOLLOWUP_RE.search(str(text or ""))
+    def _quantity_followup(self, text: str) -> Optional[tuple[float, str]]:
+        match = self.QUANTITY_FOLLOWUP_RE.search(text)
         if match is None:
             return None
-        remaining = f"{text[:match.start()]} {text[match.end():]}"
-        remaining = " ".join(remaining.casefold().split()).strip(" .,!?:;")
-        allowed = {item.casefold().strip(" .,!?:;") for item in cls.QUANTITY_FOLLOWUP_FILLERS}
-        if remaining not in allowed:
+        remaining = (text[:match.start()] + " " + text[match.end():]).strip().casefold()
+        remaining = " ".join(remaining.split())
+        if remaining not in self.QUANTITY_FOLLOWUP_FILLERS:
             return None
-        quantity = float(match.group("quantity"))
-        if quantity <= 0:
-            return None
-        return quantity, "kg"
+        return float(match.group("quantity")), str(match.group("unit")).strip()
 
-    @classmethod
-    def _variant_followup(cls, text: str) -> Optional[str]:
-        normalized = " ".join(str(text or "").casefold().split()).strip(" .,!?:;")
-        allowed_fillers = {
-            item.casefold().strip(" .,!?:;") for item in cls.VARIANT_FOLLOWUP_FILLERS
-        }
-        for phrase, canonical in sorted(cls.VARIANT_FOLLOWUPS.items(), key=lambda item: len(item[0]), reverse=True):
-            phrase_low = phrase.casefold()
-            if phrase_low not in normalized:
+    def _variant_followup(self, text: str) -> Optional[str]:
+        lowered = " ".join(text.casefold().split())
+        for token, normalized in self.VARIANT_FOLLOWUPS.items():
+            if token not in lowered:
                 continue
-            remaining = normalized.replace(phrase_low, " ", 1)
-            remaining = " ".join(remaining.split()).strip(" .,!?:;")
-            if remaining in allowed_fillers:
-                return canonical
+            remaining = lowered.replace(token, " ", 1)
+            remaining = " ".join(remaining.split())
+            if remaining in self.VARIANT_FOLLOWUP_FILLERS:
+                return normalized
         return None
 
-    @classmethod
-    def _location_text_followup(cls, text: str) -> Optional[str]:
-        value = " ".join(str(text or "").strip().split()).strip(" .,!?:;")
-        if not value or len(value) > 80 or any(ch.isdigit() for ch in value):
+    def _location_text_followup(self, text: str) -> Optional[str]:
+        cleaned = " ".join(str(text or "").strip().split())
+        if not cleaned or len(cleaned) > 80:
             return None
-        lowered = value.casefold()
-        for prefix in cls.LOCATION_PREFIXES:
+        lowered = cleaned.casefold()
+        for prefix in self.LOCATION_PREFIXES:
             if lowered.startswith(prefix):
-                value = value[len(prefix):].strip(" .,!?:;")
-                lowered = value.casefold()
-                break
-        if not value or len(value.split()) > 6:
-            return None
-        tokens = set(re.findall(r"[\w]+", lowered, flags=re.UNICODE))
-        if tokens & cls.LOCATION_BLOCK_WORDS:
-            return None
-        return value
+                candidate = cleaned[len(prefix):].strip(" ,.-")
+                return candidate if self._looks_like_location(candidate) else None
+        if self._looks_like_location(cleaned):
+            return cleaned
+        return None
 
-    @classmethod
-    def _skip_text(cls, text: str) -> bool:
-        lowered = text.casefold().strip()
-        if lowered in cls.GREETINGS:
-            return True
-        return any(lowered.startswith(prefix) for prefix in cls.COMMAND_PREFIXES)
+    def _looks_like_location(self, value: str) -> bool:
+        candidate = " ".join(str(value or "").strip().split())
+        if not candidate or len(candidate) < 2 or len(candidate) > 60:
+            return False
+        lowered = candidate.casefold()
+        if any(word in lowered.split() for word in self.LOCATION_BLOCK_WORDS):
+            return False
+        if any(ch.isdigit() for ch in candidate):
+            return False
+        return len(candidate.split()) <= 5
+
+    def _match_target_notify(self, stored: Dict[str, Any], location_saved: bool = False) -> str:
+        matches = self.matcher.find_matches(stored, limit=10)
+        if matches:
+            return self.notifications.notify_matches(stored, matches, location_saved=location_saved)
+        return self.targeting.handle_no_match(stored)
