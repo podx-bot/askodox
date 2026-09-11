@@ -35,6 +35,24 @@ Rules:
 - Contact details are shared only after the required acceptance/chat gate.
 - Reviews are allowed after a completed deal.
 
+## Dynamic Party A / Party B conversation lock — 2026-09-11
+- Party A and Party B are **dynamic transaction sides**, not permanent user types.
+- Party A = the need/request side for the current transaction.
+- Party B = the offer/fulfilment side for the current transaction.
+- Do **not** hard-code Party A as Buyer or Party B as Seller. The same architecture must support Buyer ↔ Seller, Customer ↔ Service Provider, Employer ↔ Job Seeker, Passenger ↔ Driver, Sender ↔ Delivery Partner, Patient ↔ Doctor, and future categories/roles.
+- The same person may be Party A in one transaction and Party B in another.
+- Matching remains intent/category/opposite-side/location/radius/requirements based.
+
+Conversation behavior:
+- Category-specific mandatory questions remain structured and are used to collect the minimum data required for a valid match/deal.
+- After matching, Party A is **not restricted to a fixed question list**. Party A may ask any relevant natural-language question about the current product/service/deal.
+- ASKODOX may answer from Party B's verified/profile/catalog/service/deal data when the requested fact is available.
+- Examples include price, availability, size, quantity, delivery/fulfilment, warranty, location, timing, customization and other category-relevant details.
+- If the answer is not present in trusted Party B/deal data, AI must **not invent or guess it**. Mark/route it as requiring Party B confirmation and continue the conversation when Party B responds.
+- Mandatory structured questionnaire + open natural conversation are complementary; neither replaces the other.
+- Contact sharing remains behind the required acceptance/chat gate.
+- Add regression coverage so future implementations cannot reduce Party A/B chat to fixed canned questions or hard-code Buyer/Seller roles.
+
 ## UI lock
 - AI-app feel, not ecommerce-store appearance.
 - Bright/white, readable visual direction.
@@ -108,6 +126,7 @@ Examples already locked:
 - Wrong-category and same-side matching are prohibited.
 - Category questionnaires are dynamic/category-specific, not one generic form.
 - Sandbox/demo data must not leak into LIVE.
+- Party A/B roles are transaction-dynamic, and open relevant questions must not be limited to canned/fixed questions.
 
 ## Verified development checkpoint — 2026-09-10
 Latest verified checkpoint before this master-state document:
@@ -123,7 +142,7 @@ Important preceding verified work:
 
 ## Current development target
 **IN PROGRESS:**
-`Party A/B acceptance → chat/contact gate → deal lifecycle → sandbox payment/billing → invoice → completion/review → TEST/LIVE isolation → investor E2E verification`.
+`Party A/B acceptance → dynamic open chat + Party B confirmation fallback → contact gate → deal lifecycle → sandbox payment/billing → invoice → completion/review → TEST/LIVE isolation → investor E2E verification`.
 
 Known architectural facts to preserve:
 - `UniversalMatchRepository` already separates mock/demo matching from live backend matching.
