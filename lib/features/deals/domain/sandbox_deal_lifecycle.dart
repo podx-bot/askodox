@@ -1,12 +1,38 @@
 enum SandboxPaymentStatus { notStarted, pending, success, failed, refunded }
 
-enum SandboxDealStatus { negotiating, confirmed, readyForPickup, outForDelivery, completed, cancelled }
+enum SandboxDealStatus {
+  negotiating,
+  confirmed,
+  readyForPickup,
+  outForDelivery,
+  completed,
+  cancelled,
+}
+
+enum SandboxFulfilmentMode { delivery, pickup }
+
+class SandboxFulfilmentConfirmation {
+  const SandboxFulfilmentConfirmation({
+    required this.mode,
+    required this.locationConfirmed,
+    required this.timingConfirmed,
+    required this.chargeConfirmed,
+  });
+
+  final SandboxFulfilmentMode mode;
+  final bool locationConfirmed;
+  final bool timingConfirmed;
+  final bool chargeConfirmed;
+
+  bool get isComplete => locationConfirmed && timingConfirmed && chargeConfirmed;
+}
 
 class SandboxDealLifecycleState {
   const SandboxDealLifecycleState({
     required this.dealId,
     this.dealStatus = SandboxDealStatus.negotiating,
     this.paymentStatus = SandboxPaymentStatus.notStarted,
+    this.fulfilment,
     this.invoiceCreated = false,
     this.reviewAllowed = false,
   });
@@ -14,29 +40,40 @@ class SandboxDealLifecycleState {
   final String dealId;
   final SandboxDealStatus dealStatus;
   final SandboxPaymentStatus paymentStatus;
+  final SandboxFulfilmentConfirmation? fulfilment;
   final bool invoiceCreated;
   final bool reviewAllowed;
 
+  bool get fulfilmentConfirmed => fulfilment?.isComplete ?? false;
   bool get paymentSettled => paymentStatus == SandboxPaymentStatus.success;
-  bool get canCreateInvoice => paymentSettled && dealStatus != SandboxDealStatus.cancelled;
-  bool get canComplete => paymentSettled && invoiceCreated && dealStatus != SandboxDealStatus.cancelled;
+  bool get canStartPayment =>
+      fulfilmentConfirmed && dealStatus != SandboxDealStatus.cancelled;
+  bool get canCreateInvoice =>
+      fulfilmentConfirmed && paymentSettled && dealStatus != SandboxDealStatus.cancelled;
+  bool get canComplete => fulfilmentConfirmed &&
+      paymentSettled &&
+      invoiceCreated &&
+      dealStatus != SandboxDealStatus.cancelled;
 
   SandboxDealLifecycleState copyWith({
     SandboxDealStatus? dealStatus,
     SandboxPaymentStatus? paymentStatus,
+    SandboxFulfilmentConfirmation? fulfilment,
     bool? invoiceCreated,
     bool? reviewAllowed,
   }) => SandboxDealLifecycleState(
         dealId: dealId,
         dealStatus: dealStatus ?? this.dealStatus,
         paymentStatus: paymentStatus ?? this.paymentStatus,
+        fulfilment: fulfilment ?? this.fulfilment,
         invoiceCreated: invoiceCreated ?? this.invoiceCreated,
         reviewAllowed: reviewAllowed ?? this.reviewAllowed,
       );
 }
 
 class SandboxDealLifecycleStore {
-  final Map<String, SandboxDealLifecycleState> _states = <String, SandboxDealLifecycleState>{};
+  final Map<String, SandboxDealLifecycleState> _states =
+      <String, SandboxDealLifecycleState>{};
 
   SandboxDealLifecycleState stateFor(String dealId) =>
       _states[dealId] ?? SandboxDealLifecycleState(dealId: dealId);
@@ -44,10 +81,34 @@ class SandboxDealLifecycleStore {
   SandboxDealLifecycleState confirm(String dealId) =>
       _save(stateFor(dealId).copyWith(dealStatus: SandboxDealStatus.confirmed));
 
-  SandboxDealLifecycleState setPayment(String dealId, SandboxPaymentStatus status) {
+  SandboxDealLifecycleState confirmFulfilment(
+    String dealId,
+    SandboxFulfilmentConfirmation fulfilment,
+  ) {
+    final current = stateFor(dealId);
+    if (current.dealStatus == SandboxDealStatus.cancelled) {
+      throw StateError('Cancelled sandbox deal cannot confirm fulfilment.');
+    }
+    if (!fulfilment.isComplete) {
+      throw StateError(
+        'Location, timing and delivery/pickup charge must be confirmed before payment.',
+      );
+    }
+    return _save(current.copyWith(fulfilment: fulfilment));
+  }
+
+  SandboxDealLifecycleState setPayment(
+    String dealId,
+    SandboxPaymentStatus status,
+  ) {
     final current = stateFor(dealId);
     if (current.dealStatus == SandboxDealStatus.cancelled) {
       throw StateError('Cancelled sandbox deal cannot accept a payment change.');
+    }
+    if (status != SandboxPaymentStatus.notStarted && !current.canStartPayment) {
+      throw StateError(
+        'Delivery or pickup fulfilment must be confirmed before payment.',
+      );
     }
     return _save(current.copyWith(paymentStatus: status));
   }
@@ -55,7 +116,9 @@ class SandboxDealLifecycleStore {
   SandboxDealLifecycleState markInvoiceCreated(String dealId) {
     final current = stateFor(dealId);
     if (!current.canCreateInvoice) {
-      throw StateError('Successful sandbox payment is required before invoice creation.');
+      throw StateError(
+        'Confirmed fulfilment and successful sandbox payment are required before invoice creation.',
+      );
     }
     return _save(current.copyWith(invoiceCreated: true));
   }
@@ -63,7 +126,9 @@ class SandboxDealLifecycleStore {
   SandboxDealLifecycleState complete(String dealId) {
     final current = stateFor(dealId);
     if (!current.canComplete) {
-      throw StateError('Payment and invoice must be complete before deal completion.');
+      throw StateError(
+        'Fulfilment, payment and invoice must be complete before deal completion.',
+      );
     }
     return _save(current.copyWith(
       dealStatus: SandboxDealStatus.completed,
@@ -71,7 +136,8 @@ class SandboxDealLifecycleStore {
     ));
   }
 
-  SandboxDealLifecycleState cancel(String dealId) => _save(stateFor(dealId).copyWith(
+  SandboxDealLifecycleState cancel(String dealId) =>
+      _save(stateFor(dealId).copyWith(
         dealStatus: SandboxDealStatus.cancelled,
         reviewAllowed: false,
       ));
