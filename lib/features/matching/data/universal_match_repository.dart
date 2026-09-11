@@ -9,6 +9,23 @@ import 'demo_natural_match_catalog.dart';
 String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
 final String _guestAppUserId = 'app-guest-${DateTime.now().microsecondsSinceEpoch}';
 
+final String _acceptanceKey(String dealId, String matchId) => '$dealId::$matchId';
+
+class SandboxMatchAcceptanceStore {
+  final Set<String> _accepted = <String>{};
+
+  void accept({required String dealId, required String matchId}) {
+    _accepted.add(_acceptanceKey(dealId, matchId));
+  }
+
+  bool isAccepted({required String dealId, required String matchId}) =>
+      _accepted.contains(_acceptanceKey(dealId, matchId));
+
+  void clear({required String dealId, required String matchId}) {
+    _accepted.remove(_acceptanceKey(dealId, matchId));
+  }
+}
+
 final universalMatchRepositoryProvider = Provider<UniversalMatchRepository>((ref) {
   final user = ref.watch(authSessionProvider).user;
   return ApiUniversalMatchRepository(
@@ -98,9 +115,15 @@ abstract interface class UniversalMatchRepository {
 }
 
 class ApiUniversalMatchRepository implements UniversalMatchRepository {
-  ApiUniversalMatchRepository(this._client, {required this.appUserId});
+  ApiUniversalMatchRepository(
+    this._client, {
+    required this.appUserId,
+    SandboxMatchAcceptanceStore? sandboxAcceptanceStore,
+  }) : sandboxAcceptanceStore = sandboxAcceptanceStore ?? SandboxMatchAcceptanceStore();
+
   final ApiClient _client;
   final String? appUserId;
+  final SandboxMatchAcceptanceStore sandboxAcceptanceStore;
 
   static const _createOptions = ApiRequestOptions(
     timeout: Duration(seconds: 30),
@@ -183,7 +206,10 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   @override
   Future<void> acceptMatch({required String dealId, required String matchId}) async {
-    if (dealId.startsWith('local-') || matchId.startsWith('demo-')) return;
+    if (dealId.startsWith('local-') || matchId.startsWith('demo-')) {
+      sandboxAcceptanceStore.accept(dealId: dealId, matchId: matchId);
+      return;
+    }
 
     final result = await _client.post<Map<String, Object?>>(
       '/deals/$dealId/accept-match',
