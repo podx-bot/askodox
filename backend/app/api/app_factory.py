@@ -43,6 +43,7 @@ from app.services.universal_correction_service import UniversalCorrectionService
 from app.services.universal_document_service import UniversalDocumentService
 from app.services.universal_profile_summary_service import UniversalProfileSummaryService
 from app.services.user_memory_service import UserMemoryService
+from app.services.whatsapp_support_only_gate import WhatsAppSupportOnlyGate
 
 
 def create_app() -> FastAPI:
@@ -192,7 +193,7 @@ def create_app() -> FastAPI:
         ledger_repository=conversation_os_ledger,
         request_extractor=None,
         user_memory_service=user_memory_service,
-        channel="whatsapp",
+        channel="in_app",
     )
     container.conversation_turn_ledger_repository = conversation_os_ledger
     container.conversation_os_runtime_service = conversation_os
@@ -203,6 +204,14 @@ def create_app() -> FastAPI:
     )
     container.customer_facing_response_policy = customer_response_policy
     container.conversation_service = customer_response_policy
+
+    # WhatsApp is a secondary support-only channel. The webhook's first text
+    # dispatch is easy_job_command_service; replacing that one webhook-only
+    # dependency with a deterministic support gate prevents WhatsApp from
+    # entering job, insurance, commerce, ride, or general ASKODOX AI flows.
+    # Full support Case ID/admin-history sync remains a Point 51 requirement.
+    container.whatsapp_support_only_gate = WhatsAppSupportOnlyGate()
+    container.easy_job_command_service = container.whatsapp_support_only_gate
 
     app.state.container = container
     app.add_middleware(RequestObservabilityMiddleware)
