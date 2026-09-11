@@ -4,7 +4,7 @@ import 'package:podx/features/deals/domain/sandbox_investor_flow.dart';
 import 'package:podx/features/matching/domain/sandbox_party_gate.dart';
 
 void main() {
-  test('investor sandbox flow enforces bilateral acceptance before payment', () {
+  test('investor sandbox flow requires bilateral acceptance and fulfilment before payment', () {
     final flow = SandboxInvestorFlow();
     const dealId = 'local-investor-e2e';
     const matchId = 'demo-party-b-1';
@@ -35,6 +35,29 @@ void main() {
     );
 
     flow.confirmDeal(dealId: dealId, matchId: matchId);
+    expect(
+      flow.stateFor(dealId: dealId, matchId: matchId).paymentReady,
+      isFalse,
+    );
+    expect(
+      () => flow.setPayment(
+        dealId: dealId,
+        matchId: matchId,
+        status: SandboxPaymentStatus.success,
+      ),
+      throwsStateError,
+    );
+
+    flow.confirmFulfilment(
+      dealId: dealId,
+      matchId: matchId,
+      fulfilment: const SandboxFulfilmentConfirmation(
+        mode: SandboxFulfilmentMode.delivery,
+        locationConfirmed: true,
+        timingConfirmed: true,
+        chargeConfirmed: true,
+      ),
+    );
     expect(
       flow.stateFor(dealId: dealId, matchId: matchId).paymentReady,
       isTrue,
