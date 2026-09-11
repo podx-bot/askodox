@@ -58,8 +58,12 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
 
     final notifier = ref.read(universalDealControllerProvider.notifier);
     final session = ref.read(universalDealControllerProvider);
-    if (session.deal == null || session.completed) {
-      if (session.deal != null) notifier.reset();
+    if (session.deal == null) {
+      notifier.start(text);
+    } else if (session.completed) {
+      // Let UniversalDealController decide whether this is a same-context
+      // revision or a genuinely new request. Resetting here would destroy the
+      // one-active-deal continuity required across text, voice and image input.
       notifier.start(text);
     } else {
       notifier.answer(text);
