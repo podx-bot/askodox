@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.repositories.purchase_history_repository import PurchaseHistoryRepository
 from app.services.deal_completion_memory_service import DealCompletionMemoryService
+from app.services.party_conversation_answer_service import PartyConversationAnswerService
 
 router = APIRouter(prefix="/debug", tags=["Debug"])
 
@@ -97,7 +98,7 @@ def _ensure_messages_table(db) -> None:
     )
 
 
-def _ensure_thread(db, request_id: int, buyer: str, seller: str) -> None:
+def _ensure_thread(db, request_id: int, party_a: str, party_b: str) -> None:
     _ensure_messages_table(db)
     db.execute(
         """
@@ -105,11 +106,11 @@ def _ensure_thread(db, request_id: int, buyer: str, seller: str) -> None:
             request_id,buyer_user_id,seller_user_id,deal_status
         ) VALUES(?,?,?,'NEGOTIATING')
         """,
-        (request_id, buyer, seller),
+        (request_id, party_a, party_b),
     )
 
 
-def _notify(db, request_id: int, buyer: str, seller: str, recipient: str,
+def _notify(db, request_id: int, party_a: str, party_b: str, recipient: str,
             notification_type: str, title: str, body: str, source_message_id: int | None = None) -> None:
     db.execute(
         """
@@ -118,7 +119,7 @@ def _notify(db, request_id: int, buyer: str, seller: str, recipient: str,
             source_message_id,notification_type,title,body
         ) VALUES(?,?,?,?,?,?,?,?)
         """,
-        (request_id, buyer, seller, recipient, source_message_id, notification_type, title, body),
+        (request_id, party_a, party_b, recipient, source_message_id, notification_type, title, body),
     )
 
 
@@ -126,25 +127,37 @@ def _accepted_interest(container, request_id: int, user_a: str, user_b: str):
     demand = container.universal_demand_repository.get(request_id)
     if not demand:
         raise HTTPException(status_code=404, detail="request not found")
-    buyer = str(demand.get("user_id") or "")
-    if buyer not in {user_a, user_b}:
+    party_a = str(demand.get("user_id") or "")
+    if party_a not in {user_a, user_b}:
         raise HTTPException(status_code=403, detail="user is not a participant in this deal")
-    seller = user_b if user_a == buyer else user_a
-    interest = container.universal_notification_repository.get_interest(request_id, seller)
-    if not interest or str(interest.get("requester_user_id") or "") != buyer:
+    party_b = user_b if user_a == party_a else user_a
+    interest = container.universal_notification_repository.get_interest(request_id, party_b)
+    if not interest or str(interest.get("requester_user_id") or "") != party_a:
         raise HTTPException(status_code=404, detail="deal interest not found")
     if str(interest.get("requester_status") or "").upper() != "ACCEPTED":
         raise HTTPException(status_code=409, detail="deal is not accepted yet")
-    return demand, interest, buyer, seller
+    return demand, interest, party_a, party_b
 
 
-def _record_completed_purchase_memory(container, demand: dict, buyer: str, seller: str, request_id: int) -> dict:
-    """Persist one structured purchase-memory row after a real in-app completion.
+def _looks_like_question(text: str) -> bool:
+    normalized = " ".join(str(text or "").strip().lower().split())
+    if not normalized:
+        return False
+    if "?" in normalized:
+        return True
+    hints = (
+        "what", "how", "when", "where", "which", "is it", "can you", "do you",
+        "price", "rate", "available", "stock", "size", "quantity", "delivery",
+        "pickup", "warranty", "location", "timing", "custom",
+        "ఎలా", "ఏం", "ఎప్పుడు", "ఎక్కడ", "ఎంత", "ఉందా", "దొరుక", "ధర", "రేట్",
+        "డెలివరీ", "పికప్", "వారంటీ", "సైజ్", "ఎన్ని",
+        "कैसे", "क्या", "कब", "कहाँ", "कितना", "कीमत", "डिलीवरी",
+    )
+    return any(hint in normalized for hint in hints)
 
-    The demand row remains authoritative for item/quantity/price. DealCompletionMemoryService
-    applies the commerce/BUY guard and the stable request id makes repeated COMPLETED callbacks
-    idempotent instead of duplicating History/OASAT memory.
-    """
+
+def _record_completed_purchase_memory(container, demand: dict, party_a: str, party_b: str, request_id: int) -> dict:
+    """Persist structured purchase memory while retaining legacy buyer/seller storage compatibility."""
     service = getattr(container, "deal_completion_memory_service", None)
     if service is None:
         purchases = PurchaseHistoryRepository(container.settings.database_path)
@@ -157,8 +170,8 @@ def _record_completed_purchase_memory(container, demand: dict, buyer: str, selle
             "status": "COMPLETED",
             "domain": demand.get("domain"),
             "intent": "BUY" if side == "NEED" else "OFFER",
-            "buyer_id": buyer,
-            "seller_id": seller,
+            "buyer_id": party_a,
+            "seller_id": party_b,
             "subject": demand.get("subject"),
             "quantity": demand.get("quantity"),
             "unit": demand.get("unit"),
@@ -169,7 +182,7 @@ def _record_completed_purchase_memory(container, demand: dict, buyer: str, selle
 
 @router.post("/interest-action")
 def interest_action(payload: InterestDecisionRequest, request: Request) -> dict:
-    """Requester accepts or declines a seller's in-app interest card."""
+    """Party A accepts or declines Party B's in-app interest."""
     container = request.app.state.container
     requester = _app_user(payload.user_id)
     responder = _app_user(payload.responder_user_id, "responder_user_id")
@@ -204,12 +217,12 @@ def interest_action(payload: InterestDecisionRequest, request: Request) -> dict:
             ) VALUES(?,?,?,?,?,'SYSTEM')
             """,
             (payload.request_id, requester, responder, "system",
-             "Deal accepted. You can continue this conversation inside ASKODOX."),
+             "Deal accepted. Party A and Party B can continue inside ASKODOX."),
         )
         _notify(
             db, payload.request_id, requester, responder, responder,
             "DEAL_ACCEPTED", "Deal accepted",
-            "Buyer accepted your interest. Open ASKODOX to continue the deal.",
+            "Party A accepted your interest. Open ASKODOX to continue the deal.",
             int(cursor.lastrowid),
         )
         return {
@@ -218,8 +231,8 @@ def interest_action(payload: InterestDecisionRequest, request: Request) -> dict:
             "conversation_ready": True,
             "thread": {
                 "request_id": payload.request_id,
-                "buyer_user_id": requester,
-                "seller_user_id": responder,
+                "party_a_user_id": requester,
+                "party_b_user_id": responder,
                 "deal_status": "NEGOTIATING",
             },
         }
@@ -229,36 +242,79 @@ def interest_action(payload: InterestDecisionRequest, request: Request) -> dict:
 
 @router.post("/deal-message")
 def deal_message(payload: DealMessageRequest, request: Request) -> dict:
-    """Send one message inside an accepted ASKODOX buyer/seller deal thread."""
+    """Send free-text deal chat and let ASKODOX assist from trusted Party A/B deal data."""
     container = request.app.state.container
     sender = _app_user(payload.user_id)
     other = _app_user(payload.other_user_id, "other_user_id")
-    _demand, _interest, buyer, seller = _accepted_interest(container, payload.request_id, sender, other)
+    demand, interest, party_a, party_b = _accepted_interest(container, payload.request_id, sender, other)
     body = " ".join(payload.message.strip().split())
     if not body:
         raise HTTPException(status_code=400, detail="message is required")
 
     db = container.database
-    _ensure_thread(db, payload.request_id, buyer, seller)
+    _ensure_thread(db, payload.request_id, party_a, party_b)
     cursor = db.execute(
         """
         INSERT INTO in_app_deal_messages(
             request_id,buyer_user_id,seller_user_id,sender_user_id,message_text,message_type
         ) VALUES(?,?,?,?,?,'USER')
         """,
-        (payload.request_id, buyer, seller, sender, body),
+        (payload.request_id, party_a, party_b, sender, body),
     )
     message_id = int(cursor.lastrowid)
     _notify(
-        db, payload.request_id, buyer, seller, other,
+        db, payload.request_id, party_a, party_b, other,
         "MESSAGE", "New deal message", body, message_id,
     )
+
+    askodox_assistance = None
+    if sender == party_a and _looks_like_question(body):
+        service = getattr(container, "party_conversation_answer_service", None)
+        if service is None:
+            service = PartyConversationAnswerService()
+        answer = service.answer(
+            body,
+            trusted_party_b_data=interest,
+            trusted_deal_data=demand,
+        )
+        askodox_assistance = answer.as_dict()
+
+        if answer.status == "ANSWERED_FROM_TRUSTED_DATA" and answer.answer:
+            db.execute(
+                """
+                INSERT INTO in_app_deal_messages(
+                    request_id,buyer_user_id,seller_user_id,sender_user_id,message_text,message_type
+                ) VALUES(?,?,?,?,?,'ASSISTANT')
+                """,
+                (payload.request_id, party_a, party_b, "askodox", answer.answer),
+            )
+        elif answer.requires_party_b_confirmation:
+            confirmation_text = (
+                "ASKODOX needs Party B confirmation for this detail. "
+                "The question has been routed to Party B."
+            )
+            assistant_cursor = db.execute(
+                """
+                INSERT INTO in_app_deal_messages(
+                    request_id,buyer_user_id,seller_user_id,sender_user_id,message_text,message_type
+                ) VALUES(?,?,?,?,?,'ASSISTANT')
+                """,
+                (payload.request_id, party_a, party_b, "askodox", confirmation_text),
+            )
+            _notify(
+                db, payload.request_id, party_a, party_b, party_b,
+                "PARTY_B_CONFIRMATION_REQUIRED",
+                "ASKODOX needs your confirmation",
+                body,
+                int(assistant_cursor.lastrowid),
+            )
+
     db.execute(
         """
         UPDATE in_app_deal_threads SET updated_at=CURRENT_TIMESTAMP
         WHERE request_id=? AND buyer_user_id=? AND seller_user_id=?
         """,
-        (payload.request_id, buyer, seller),
+        (payload.request_id, party_a, party_b),
     )
     return {
         "status": "SENT",
@@ -268,6 +324,7 @@ def deal_message(payload: DealMessageRequest, request: Request) -> dict:
         "sender_user_id": sender,
         "recipient_user_id": other,
         "message": body,
+        "askodox_assistance": askodox_assistance,
     }
 
 
@@ -277,9 +334,9 @@ def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Requ
     container = request.app.state.container
     viewer = _app_user(user_id)
     other = _app_user(other_user_id, "other_user_id")
-    demand, interest, buyer, seller = _accepted_interest(container, request_id, viewer, other)
+    demand, interest, party_a, party_b = _accepted_interest(container, request_id, viewer, other)
     db = container.database
-    _ensure_thread(db, request_id, buyer, seller)
+    _ensure_thread(db, request_id, party_a, party_b)
     rows = db.fetchall(
         """
         SELECT id,sender_user_id,message_text,message_type,created_at
@@ -287,7 +344,7 @@ def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Requ
         WHERE request_id=? AND buyer_user_id=? AND seller_user_id=?
         ORDER BY id ASC LIMIT 200
         """,
-        (request_id, buyer, seller),
+        (request_id, party_a, party_b),
     )
     db.execute(
         """
@@ -302,7 +359,7 @@ def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Requ
         FROM in_app_deal_threads
         WHERE request_id=? AND buyer_user_id=? AND seller_user_id=?
         """,
-        (request_id, buyer, seller),
+        (request_id, party_a, party_b),
     )
     return {
         "status": "OPEN",
@@ -310,6 +367,8 @@ def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Requ
         "request_id": request_id,
         "viewer_user_id": viewer,
         "other_user_id": other,
+        "party_a_user_id": party_a,
+        "party_b_user_id": party_b,
         "deal": {
             "subject": demand.get("subject"),
             "quantity": demand.get("quantity"),
@@ -325,7 +384,7 @@ def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Requ
 
 @router.get("/deal-inbox/{user_id}")
 def deal_inbox(user_id: str, request: Request) -> dict:
-    """List ASKODOX accepted deal threads with unread counts and latest activity."""
+    """List ASKODOX accepted Party A/B deal threads with unread counts and latest activity."""
     user = _app_user(user_id)
     db = request.app.state.container.database
     _ensure_messages_table(db)
@@ -348,7 +407,9 @@ def deal_inbox(user_id: str, request: Request) -> dict:
     total_unread = 0
     for row in rows:
         item = dict(row)
-        item["other_user_id"] = item["seller_user_id"] if item["buyer_user_id"] == user else item["buyer_user_id"]
+        item["party_a_user_id"] = item.pop("buyer_user_id")
+        item["party_b_user_id"] = item.pop("seller_user_id")
+        item["other_user_id"] = item["party_b_user_id"] if item["party_a_user_id"] == user else item["party_a_user_id"]
         item["unread_count"] = int(item.get("unread_count") or 0)
         total_unread += item["unread_count"]
         threads.append(item)
@@ -367,7 +428,7 @@ def deal_status(payload: DealStatusRequest, request: Request) -> dict:
     container = request.app.state.container
     actor = _app_user(payload.user_id)
     other = _app_user(payload.other_user_id, "other_user_id")
-    demand, _interest, buyer, seller = _accepted_interest(container, payload.request_id, actor, other)
+    demand, _interest, party_a, party_b = _accepted_interest(container, payload.request_id, actor, other)
     status = payload.status.strip().upper().replace(" ", "_")
     allowed = {
         "NEGOTIATING", "CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY",
@@ -377,14 +438,14 @@ def deal_status(payload: DealStatusRequest, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="unsupported deal status")
 
     db = container.database
-    _ensure_thread(db, payload.request_id, buyer, seller)
+    _ensure_thread(db, payload.request_id, party_a, party_b)
     db.execute(
         """
         UPDATE in_app_deal_threads
         SET deal_status=?,status_updated_by=?,updated_at=CURRENT_TIMESTAMP
         WHERE request_id=? AND buyer_user_id=? AND seller_user_id=?
         """,
-        (status, actor, payload.request_id, buyer, seller),
+        (status, actor, payload.request_id, party_a, party_b),
     )
     cursor = db.execute(
         """
@@ -392,16 +453,16 @@ def deal_status(payload: DealStatusRequest, request: Request) -> dict:
             request_id,buyer_user_id,seller_user_id,sender_user_id,message_text,message_type
         ) VALUES(?,?,?,?,?,'STATUS')
         """,
-        (payload.request_id, buyer, seller, actor, f"Deal status changed to {status}."),
+        (payload.request_id, party_a, party_b, actor, f"Deal status changed to {status}."),
     )
     _notify(
-        db, payload.request_id, buyer, seller, other,
+        db, payload.request_id, party_a, party_b, other,
         "DEAL_STATUS", "Deal status updated", f"Deal is now {status}.", int(cursor.lastrowid),
     )
     memory = None
     if status == "COMPLETED":
         container.universal_demand_repository.update_status(payload.request_id, "COMPLETED")
-        memory = _record_completed_purchase_memory(container, demand, buyer, seller, payload.request_id)
+        memory = _record_completed_purchase_memory(container, demand, party_a, party_b, payload.request_id)
     elif status == "CANCELLED":
         container.universal_demand_repository.update_status(payload.request_id, "CANCELLED")
 
