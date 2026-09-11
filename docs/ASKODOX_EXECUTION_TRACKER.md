@@ -86,28 +86,38 @@ Acceptance criteria:
 7. Relevant smoke/integration tests pass and CI/build evidence is attached before VERIFIED GREEN.
 8. Real in-app end-to-end verification is completed before VERIFIED GREEN.
 
-Code evidence found:
-- `backend/app/services/universal_ai_assistant_service.py` implements an OASAT GENERAL path and explicitly tells ASKODOX to answer naturally, use the user's language, avoid forced shopping/local-commerce flows, avoid fake live-web claims, and avoid inventing actions.
-- `backend/app/api/app_factory.py` wires live/deep research, universal AI, user memory, ConversationOS, and a customer-facing response policy into the conversation stack.
-- User memory repository/service is instantiated and supplied to ConversationOS.
+Code evidence:
+- `backend/app/services/universal_ai_assistant_service.py` implements the OASAT GENERAL path and safe/honest general-assistant prompt rules.
+- `backend/app/api/app_factory.py` wires research, universal AI, user memory, ConversationOS, and customer response policy.
+- User memory repository/service is supplied to ConversationOS.
+- Commit `dd93b5fc1c09b506d69f3a13783f3a4024a63c5f` added `backend/app/services/whatsapp_support_only_gate.py`, a deterministic WhatsApp support-only guard that does not falsely claim Case ID creation.
+- Commit `f825240a6821e51c20775a1ff9bb28f78f51e738` changed the canonical ConversationOS channel to `in_app` and placed the support-only gate in the WhatsApp webhook's first text-dispatch dependency, preventing normal text messages from falling through into job, insurance, commerce, ride, or general AI routing.
 
-Test evidence found:
-- `.github/workflows/universal-ai-assistant-smoke.yml` exercises GENERAL routing, same-language prompt behavior, commerce delegation, provider failure fallback, and readiness checks.
-- `.github/workflows/user-memory-smoke.yml` exists for the user-memory / ConversationOS path.
+Test evidence:
+- `.github/workflows/universal-ai-assistant-smoke.yml` covers GENERAL routing, same-language prompt behavior, commerce delegation, provider failure fallback, and readiness checks.
+- `.github/workflows/user-memory-smoke.yml` exists for user-memory / ConversationOS behavior.
+- Commit `48889f4e201d7aca0a78edc91da84285272a8eda` added `.github/workflows/whatsapp-support-channel-smoke.yml`.
+- GitHub Actions run `34616415480` for `whatsapp-support-channel-smoke` completed successfully on commit `48889f4e201d7aca0a78edc91da84285272a8eda`.
+
+CI/build evidence:
+- WhatsApp support-channel smoke: SUCCESS on run `34616415480`.
+- Flutter CI run `34616415459` for the same head commit was still PENDING at the last verification check; therefore Point 1 is not GREEN yet.
+- Railway/deployment combined status was also still pending at the last verification check.
 
 Known gaps / blockers to GREEN:
-- `backend/app/api/app_factory.py` currently constructs `ConversationOSRuntimeService(... channel="whatsapp")`. This conflicts with Point 51, where WhatsApp is support-only and the ASKODOX app/in-app experience is the core channel.
-- The universal assistant service covers the GENERAL path, but this audit has not yet proved the full friend-like decision loop (understand → remember → clarify only missing → compare → advise → action → help until done) end-to-end across in-app routing.
-- Current CI/build result for this exact audited state has not yet been attached to this point.
-- Real in-app E2E verification has not yet been attached.
+- Full friend-like decision loop (understand → remember → clarify only missing → compare → advise → action → help until done) is not yet proven end-to-end across the real in-app route.
+- Real in-app E2E verification is not yet attached.
+- Full CI/build/deploy evidence for the current head is not yet fully green.
+- WhatsApp media/location legacy paths still contain historical operational behavior; the new text gate prevents normal text fall-through, but Point 51 cannot be GREEN until support case IDs/admin sync and the remaining media/location behavior are fully audited and separated.
 
 Next action:
-- Separate the core ConversationOS channel from WhatsApp support routing; make the in-app conversation path the canonical core path while preserving WhatsApp for support/escalation only.
-- Add/adjust regression tests proving the core identity is not commerce-forced and that WhatsApp support cannot become the main business/AI route.
-- Re-run/verify relevant CI and real in-app flow, then reassess Point 1 for VERIFIED GREEN.
+- Verify Flutter CI and deployment for commit `48889f4e201d7aca0a78edc91da84285272a8eda`.
+- Audit WhatsApp audio/image/document/location paths so none can bypass support-only policy.
+- Verify a real in-app conversation E2E path and the full friend-like decision loop.
+- Reassess Point 1 only after all evidence is green.
 
 Regression impact:
-Potentially affects onboarding, memory/history, notifications, customer desk, WhatsApp support-only routing, and any runtime handlers that assume `channel="whatsapp"`. These must be checked before the channel change is declared complete.
+Potentially affects onboarding, memory/history, notifications, customer desk, WhatsApp support routing, job/ride legacy WhatsApp behavior, and any runtime handlers that previously assumed WhatsApp was the canonical channel.
 
 ## Point 44 — Testing / Demo Environment
 Status: REQUIREMENT LOCKED; reusable demo-data implementation verification pending.
@@ -145,9 +155,21 @@ Regression impact:
 This point ultimately validates all user-facing and admin flows and therefore depends on many earlier points. It should be built incrementally during development, then used as the final full-system regression gate.
 
 ## Point 51 — WhatsApp Support-Only Channel
-Status: REQUIREMENT LOCKED; implementation verification pending.
+Status: IN PROGRESS — text gate implemented; support-case/admin-sync and remaining media/location route verification pending.
 
 WhatsApp is NOT the core ASKODOX business, matching, commerce, deal, or AI workflow. It is a secondary support channel for customer care, complaints, HR, admin support, verification assistance, unresolved issue escalation, and support follow-up. WhatsApp support interactions should create or link a Case ID, retain resolution status/history, and sync relevant outcomes into ASKODOX admin/audit records.
+
+Implementation evidence:
+- `whatsapp_support_only_gate.py` now blocks normal WhatsApp text from entering primary ASKODOX flows and routes users toward app-first usage or approved support categories.
+- `app_factory.py` now makes ConversationOS `channel="in_app"` canonical.
+- Support-channel smoke run `34616415480` passed.
+
+Remaining requirements before Point 51 can be GREEN:
+- Real support Case ID repository/creation.
+- Admin/customer-care queue/history and closure status.
+- Sync important WhatsApp support outcomes back into ASKODOX history/audit.
+- Audit/separate audio, image, document, and location paths so no legacy business flow bypasses the support-only policy.
+- E2E support escalation verification.
 
 ## Point 52 — Automatic Point-by-Point Execution Protocol
 Status: ACTIVE PROCESS RULE.
@@ -196,4 +218,4 @@ For each point, maintain:
 - Regression impact:
 
 ## Current Overall Status
-52 top-level points are tracked. Point 1 audit has started and is IN PROGRESS with concrete code/test evidence plus a verified channel-architecture gap. Point 44 now has locked reusable dummy/demo account and final E2E regression requirements. Requirements/process are defined, but this does NOT mean all 52 are implemented or GREEN. Actual implementation status must be audited from repository and CI evidence point by point before any completion percentage is claimed.
+52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.
