@@ -4,6 +4,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../deal_brain/domain/universal_deal.dart';
+import '../domain/sandbox_party_gate.dart';
 import 'demo_natural_match_catalog.dart';
 
 String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
@@ -112,6 +113,13 @@ class UniversalMatchResult {
 abstract interface class UniversalMatchRepository {
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal);
   Future<void> acceptMatch({required String dealId, required String matchId});
+
+  /// Explicit Party B acknowledgement for production-like sandbox flows.
+  /// Live flows continue to use the backend acceptance/interest endpoints.
+  Future<void> acceptSandboxPartyB({required String dealId, required String matchId});
+
+  bool sandboxConversationReady({required String dealId, required String matchId});
+  bool sandboxContactSharingAllowed({required String dealId, required String matchId});
 }
 
 class ApiUniversalMatchRepository implements UniversalMatchRepository {
@@ -119,11 +127,14 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     this._client, {
     required this.appUserId,
     SandboxMatchAcceptanceStore? sandboxAcceptanceStore,
-  }) : sandboxAcceptanceStore = sandboxAcceptanceStore ?? SandboxMatchAcceptanceStore();
+    SandboxPartyGateStore? sandboxPartyGateStore,
+  })  : sandboxAcceptanceStore = sandboxAcceptanceStore ?? SandboxMatchAcceptanceStore(),
+        sandboxPartyGateStore = sandboxPartyGateStore ?? SandboxPartyGateStore();
 
   final ApiClient _client;
   final String? appUserId;
   final SandboxMatchAcceptanceStore sandboxAcceptanceStore;
+  final SandboxPartyGateStore sandboxPartyGateStore;
 
   static const _createOptions = ApiRequestOptions(
     timeout: Duration(seconds: 30),
@@ -133,6 +144,9 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     timeout: Duration(seconds: 30),
     retryCount: 1,
   );
+
+  bool _isSandbox(String dealId, String matchId) =>
+      dealId.startsWith('local-') || matchId.startsWith('demo-');
 
   @override
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal) async {
@@ -206,8 +220,14 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   @override
   Future<void> acceptMatch({required String dealId, required String matchId}) async {
-    if (dealId.startsWith('local-') || matchId.startsWith('demo-')) {
+    if (_isSandbox(dealId, matchId)) {
+      // This action is Party A accepting the selected Party B match.
       sandboxAcceptanceStore.accept(dealId: dealId, matchId: matchId);
+      sandboxPartyGateStore.accept(
+        dealId: dealId,
+        matchId: matchId,
+        side: SandboxPartySide.partyA,
+      );
       return;
     }
 
@@ -218,6 +238,36 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     if (result is ApiError<Map<String, Object?>>) {
       throw StateError(result.failure.message ?? 'Unable to accept this match.');
     }
+  }
+
+  @override
+  Future<void> acceptSandboxPartyB({
+    required String dealId,
+    required String matchId,
+  }) async {
+    if (!_isSandbox(dealId, matchId)) {
+      throw StateError('Party B sandbox acceptance is only available in TEST/SANDBOX.');
+    }
+    if (!sandboxAcceptanceStore.isAccepted(dealId: dealId, matchId: matchId)) {
+      throw StateError('Party A must accept the match before Party B can confirm it.');
+    }
+    sandboxPartyGateStore.accept(
+      dealId: dealId,
+      matchId: matchId,
+      side: SandboxPartySide.partyB,
+    );
+  }
+
+  @override
+  bool sandboxConversationReady({required String dealId, required String matchId}) {
+    if (!_isSandbox(dealId, matchId)) return false;
+    return sandboxPartyGateStore.canOpenConversation(dealId: dealId, matchId: matchId);
+  }
+
+  @override
+  bool sandboxContactSharingAllowed({required String dealId, required String matchId}) {
+    if (!_isSandbox(dealId, matchId)) return false;
+    return sandboxPartyGateStore.canShareContact(dealId: dealId, matchId: matchId);
   }
 
   Map<String, Object?> _payload(UniversalDeal deal, String userId) => {
