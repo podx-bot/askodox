@@ -6,6 +6,7 @@ on:
       - 'backend/app/services/whatsapp_support_only_gate.py'
       - 'backend/app/api/app_factory.py'
       - 'backend/app/api/routes/webhook.py'
+      - 'backend/app/whatsapp/payload_parser.py'
       - '.github/workflows/whatsapp-support-channel-smoke.yml'
   workflow_dispatch:
 
@@ -26,6 +27,7 @@ jobs:
           from pathlib import Path
 
           from app.services.whatsapp_support_only_gate import WhatsAppSupportOnlyGate
+          from app.whatsapp.payload_parser import extract_location_messages
 
           gate = WhatsAppSupportOnlyGate()
 
@@ -49,5 +51,23 @@ jobs:
           main_ai = webhook.index('container.conversation_service.process')
           assert easy < lifecycle < main_ai
 
-          print('WhatsApp support-only gate smoke passed')
+          # Audio transcripts are sent through _process_user_text, so the
+          # support-only text gate also protects voice messages.
+          assert 'reply_text = _process_user_text(container, incoming.sender_mobile, transcript)' in webhook
+
+          # Image/document extractors are not imported by the active webhook,
+          # so they cannot currently enter legacy business flows. Locations
+          # historically could; the parser now suppresses them until support
+          # case attachment handling exists.
+          assert 'extract_image_messages' not in webhook
+          assert 'extract_document_messages' not in webhook
+          location_payload = {
+              'entry': [{'changes': [{'value': {'messages': [{
+                  'id': 'loc-1', 'from': 'u3', 'type': 'location',
+                  'location': {'latitude': 16.5, 'longitude': 80.6},
+              }]}}]}]
+          }
+          assert extract_location_messages(location_payload) == []
+
+          print('WhatsApp support-only gate and media routing smoke passed')
           PY
