@@ -109,6 +109,41 @@ Next action:
 Regression impact:
 Potentially affects onboarding, memory/history, notifications, customer desk, WhatsApp support-only routing, and any runtime handlers that assume `channel="whatsapp"`. These must be checked before the channel change is declared complete.
 
+## Point 44 — Testing / Demo Environment
+Status: REQUIREMENT LOCKED; reusable demo-data implementation verification pending.
+Requirement version/date: 2026-09-11
+
+Requirement:
+ASKODOX must have reusable dummy/demo accounts and seed data for realistic final end-to-end testing. These accounts must be prepared during development and reused for regression testing, not created only at the last minute.
+
+Required demo roles / fixtures:
+- Dummy general user / buyer.
+- Dummy seller / business.
+- Dummy service provider.
+- Dummy employer and worker/job seeker.
+- Dummy driver / rider / courier.
+- Dummy admin / customer-care agent.
+- Domain-specific fixtures when relevant, including BFSI, travel, expert/provider, catalog/products/services, locations, and offers.
+
+Acceptance criteria:
+1. Demo identities are clearly non-production and cannot be confused with real users.
+2. Seed/reset mechanism can recreate a known clean demo state without manually rebuilding every account.
+3. Test data covers registration/onboarding, AI conversation, category/need understanding, matching, accept/reject, contact/consent, chat, order/deal flow, delivery/courier/pickup, payment simulation, cancellation/refund/return/replacement, disputes, reviews/trust, notifications, and admin actions as applicable.
+4. Support testing includes unresolved in-app issue → support case creation → admin/customer-care handling → optional WhatsApp support communication → status/resolution written back to ASKODOX history/audit.
+5. Failure/edge fixtures cover no-match, wrong/partial input, duplicate account, failed payment simulation, delivery failure, timeout/retry, network interruption, language change, location change, app restart/session recovery, provider/API failure, and permission denial where relevant.
+6. Multi-language demo coverage includes Telugu plus representative additional languages; language persistence across relaunch is verified.
+7. Role isolation, permissions, privacy, and admin/audit records are testable with the demo identities.
+8. Final regression run uses the reusable fixtures and records pass/fail evidence for each master point before release.
+9. Demo/reset tooling must not wipe or modify production data.
+10. Point 44 cannot be VERIFIED GREEN until seeded accounts/data, reset flow, automated tests where practical, and a real full-flow demo have all been verified.
+
+Next action:
+- Audit the repository for any existing demo seed/reset utilities, dummy fixtures, test users, and E2E scripts before creating new ones.
+- Reuse existing fixtures where safe; add missing roles/scenarios instead of duplicating test infrastructure.
+
+Regression impact:
+This point ultimately validates all user-facing and admin flows and therefore depends on many earlier points. It should be built incrementally during development, then used as the final full-system regression gate.
+
 ## Point 51 — WhatsApp Support-Only Channel
 Status: REQUIREMENT LOCKED; implementation verification pending.
 
@@ -161,4 +196,4 @@ For each point, maintain:
 - Regression impact:
 
 ## Current Overall Status
-52 top-level points are tracked. Point 1 audit has started and is IN PROGRESS with concrete code/test evidence plus a verified channel-architecture gap. Requirements/process are defined, but this does NOT mean all 52 are implemented or GREEN. Actual implementation status must be audited from repository and CI evidence point by point before any completion percentage is claimed.
+52 top-level points are tracked. Point 1 audit has started and is IN PROGRESS with concrete code/test evidence plus a verified channel-architecture gap. Point 44 now has locked reusable dummy/demo account and final E2E regression requirements. Requirements/process are defined, but this does NOT mean all 52 are implemented or GREEN. Actual implementation status must be audited from repository and CI evidence point by point before any completion percentage is claimed.
