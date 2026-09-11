@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
+from app.services.active_deal_context_resolver import ActiveDealContextResolver
+
 
 class UniversalLiveCaptureService:
     GREETINGS = {"hi", "hello", "hey", "హాయ్", "హలో", "నమస్తే", "menu", "మెనూ"}
@@ -124,6 +126,21 @@ class UniversalLiveCaptureService:
             request["latitude"] = user.get("latitude")
             request["longitude"] = user.get("longitude")
             request["location_text"] = request.get("location_text") or user.get("location_name") or user.get("area")
+
+        latest = getattr(self.demands, "latest_active_for_user", None)
+        active = latest(sender_mobile) if callable(latest) else None
+        if ActiveDealContextResolver.same_context(active, request):
+            merged_fields = ActiveDealContextResolver.merge_fields(active, request)
+            stored = self._update_latest_active(active, merged_fields)
+            if stored is not None:
+                if stored.get("latitude") is None or stored.get("longitude") is None:
+                    subject = stored.get("subject") or "మీ requirement"
+                    return (
+                        f"🔄 '{subject}' requirementని కొత్త {request['source']} detailsతో update చేశాను. "
+                        "ముందు చెప్పిన details అలాగే ఉంచాను. Match కోసం Current Location share చేయండి."
+                    )
+                self._trigger_demand_intelligence(stored)
+                return self._match_target_notify(stored)
 
         request_id = self.demands.create(request)
         stored = self.demands.get(request_id) or {**request, "id": request_id}
