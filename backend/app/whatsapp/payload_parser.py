@@ -91,28 +91,16 @@ def extract_document_messages(payload: dict[str, Any]) -> list[IncomingDocumentM
 
 
 def extract_location_messages(payload: dict[str, Any]) -> list[IncomingLocationMessage]:
-    results = []
-    for message in _message_values(payload):
-        if message.get("type") != "location":
-            continue
-        sender = str(message.get("from", "")).strip()
-        provider_id = str(message.get("id", "")).strip()
-        location = message.get("location", {}) or {}
-        lat = location.get("latitude")
-        lon = location.get("longitude")
-        if not sender or not provider_id or lat is None or lon is None:
-            continue
-        try:
-            lat = float(lat)
-            lon = float(lon)
-        except (TypeError, ValueError):
-            continue
-        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-            continue
-        name = location.get("name")
-        address = location.get("address")
-        results.append(IncomingLocationMessage(provider_id, sender, lat, lon, str(name).strip() if name is not None else None, str(address).strip() if address is not None else None))
-    return results
+    """Do not feed WhatsApp locations into legacy business/job flows.
+
+    ASKODOX now treats WhatsApp as a support-only channel. The historical
+    webhook still contains worker/employer/job location handlers, so returning
+    parsed locations here would let a non-text message bypass the support-only
+    text gate. Until Point 51 has a real support-case repository and approved
+    support attachment handling, location payloads are intentionally ignored.
+    The in-app location flow is unaffected.
+    """
+    return []
 
 
 def _format_delivery_error(error: Any) -> str | None:
