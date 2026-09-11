@@ -12,7 +12,10 @@ class SandboxInvestorFlowState {
 
   bool get conversationReady => partyGate.conversationReady;
   bool get contactSharingAllowed => partyGate.contactSharingAllowed;
-  bool get paymentReady => partyGate.conversationReady && lifecycle.dealStatus == SandboxDealStatus.confirmed;
+  bool get paymentReady =>
+      partyGate.conversationReady &&
+      lifecycle.dealStatus == SandboxDealStatus.confirmed &&
+      lifecycle.canStartPayment;
   bool get reviewAllowed => lifecycle.reviewAllowed;
 }
 
@@ -55,6 +58,22 @@ class SandboxInvestorFlow {
     return stateFor(dealId: dealId, matchId: matchId);
   }
 
+  SandboxInvestorFlowState confirmFulfilment({
+    required String dealId,
+    required String matchId,
+    required SandboxFulfilmentConfirmation fulfilment,
+  }) {
+    final state = stateFor(dealId: dealId, matchId: matchId);
+    if (!state.partyGate.conversationReady ||
+        state.lifecycle.dealStatus != SandboxDealStatus.confirmed) {
+      throw StateError(
+        'Sandbox deal must be mutually accepted and confirmed before fulfilment.',
+      );
+    }
+    lifecycleStore.confirmFulfilment(dealId, fulfilment);
+    return stateFor(dealId: dealId, matchId: matchId);
+  }
+
   SandboxInvestorFlowState setPayment({
     required String dealId,
     required String matchId,
@@ -62,7 +81,9 @@ class SandboxInvestorFlow {
   }) {
     final state = stateFor(dealId: dealId, matchId: matchId);
     if (!state.paymentReady) {
-      throw StateError('Sandbox deal must be mutually accepted and confirmed before payment.');
+      throw StateError(
+        'Sandbox fulfilment must be confirmed before payment can start.',
+      );
     }
     lifecycleStore.setPayment(dealId, status);
     return stateFor(dealId: dealId, matchId: matchId);
