@@ -69,6 +69,46 @@ A point may be marked VERIFIED GREEN only when code exists, integration exists, 
 51. WhatsApp Support-Only Channel
 52. Automatic Point-by-Point Execution Protocol
 
+## Point 1 — Core Identity
+Status: IN PROGRESS
+Requirement version/date: 2026-09-11
+
+Requirement:
+ASKODOX must operate as an Everyday AI Friend + Helping Mind + Decision Partner + Action Assistant. It must not force a marketplace/local-commerce flow on general needs. It should understand the actual request, preserve context, ask only missing information, think/compare/advise, route to appropriate actions when useful, and remain honest about actions/research actually performed. USER BENEFIT FIRST.
+
+Acceptance criteria:
+1. General requests route through the universal AI assistant rather than forced commerce/category forms.
+2. Same-language response behavior is preserved.
+3. Existing memory/context is available to the conversation runtime.
+4. General assistant does not falsely claim live research, bookings, messages, reminders, sources, or completed actions.
+5. Domain-specific transactional flows can still delegate to deterministic/runtime handlers.
+6. Core app channel is in-app first; WhatsApp is support-only and must not remain the canonical core conversation channel.
+7. Relevant smoke/integration tests pass and CI/build evidence is attached before VERIFIED GREEN.
+8. Real in-app end-to-end verification is completed before VERIFIED GREEN.
+
+Code evidence found:
+- `backend/app/services/universal_ai_assistant_service.py` implements an OASAT GENERAL path and explicitly tells ASKODOX to answer naturally, use the user's language, avoid forced shopping/local-commerce flows, avoid fake live-web claims, and avoid inventing actions.
+- `backend/app/api/app_factory.py` wires live/deep research, universal AI, user memory, ConversationOS, and a customer-facing response policy into the conversation stack.
+- User memory repository/service is instantiated and supplied to ConversationOS.
+
+Test evidence found:
+- `.github/workflows/universal-ai-assistant-smoke.yml` exercises GENERAL routing, same-language prompt behavior, commerce delegation, provider failure fallback, and readiness checks.
+- `.github/workflows/user-memory-smoke.yml` exists for the user-memory / ConversationOS path.
+
+Known gaps / blockers to GREEN:
+- `backend/app/api/app_factory.py` currently constructs `ConversationOSRuntimeService(... channel="whatsapp")`. This conflicts with Point 51, where WhatsApp is support-only and the ASKODOX app/in-app experience is the core channel.
+- The universal assistant service covers the GENERAL path, but this audit has not yet proved the full friend-like decision loop (understand → remember → clarify only missing → compare → advise → action → help until done) end-to-end across in-app routing.
+- Current CI/build result for this exact audited state has not yet been attached to this point.
+- Real in-app E2E verification has not yet been attached.
+
+Next action:
+- Separate the core ConversationOS channel from WhatsApp support routing; make the in-app conversation path the canonical core path while preserving WhatsApp for support/escalation only.
+- Add/adjust regression tests proving the core identity is not commerce-forced and that WhatsApp support cannot become the main business/AI route.
+- Re-run/verify relevant CI and real in-app flow, then reassess Point 1 for VERIFIED GREEN.
+
+Regression impact:
+Potentially affects onboarding, memory/history, notifications, customer desk, WhatsApp support-only routing, and any runtime handlers that assume `channel="whatsapp"`. These must be checked before the channel change is declared complete.
+
 ## Point 51 — WhatsApp Support-Only Channel
 Status: REQUIREMENT LOCKED; implementation verification pending.
 
@@ -121,4 +161,4 @@ For each point, maintain:
 - Regression impact:
 
 ## Current Overall Status
-52 top-level points are now tracked. Requirements/process are defined, but this does NOT mean all 52 are implemented or GREEN. Actual implementation status must be audited from the repository and CI evidence point by point before any completion percentage is claimed.
+52 top-level points are tracked. Point 1 audit has started and is IN PROGRESS with concrete code/test evidence plus a verified channel-architecture gap. Requirements/process are defined, but this does NOT mean all 52 are implemented or GREEN. Actual implementation status must be audited from repository and CI evidence point by point before any completion percentage is claimed.
