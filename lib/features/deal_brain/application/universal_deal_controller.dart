@@ -11,6 +11,7 @@ import '../domain/rfq_quote_pipeline.dart';
 import '../domain/rfq_request.dart';
 import '../domain/universal_deal.dart';
 import 'universal_deal_brain.dart';
+import 'universal_deal_context_resolver.dart';
 
 class UniversalDealSession {
   const UniversalDealSession({
@@ -59,6 +60,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   static const _storageKey = 'askodox.active_universal_deal.v1';
   final UniversalDealBrain _brain = const UniversalDealBrain();
+  final UniversalDealContextResolver _contextResolver = const UniversalDealContextResolver();
 
   void start(String text) {
     final value = text.trim();
@@ -68,7 +70,12 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
       answer(value);
       return;
     }
-    _setSession(_sessionFor(_brain.capture(value)));
+    final incoming = _brain.capture(value);
+    if (current != null && _contextResolver.sameContext(current, incoming)) {
+      _setSession(_sessionFor(_contextResolver.merge(current, incoming)));
+      return;
+    }
+    _setSession(_sessionFor(incoming));
   }
 
   void answer(String text) {
