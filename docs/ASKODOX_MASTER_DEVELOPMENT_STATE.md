@@ -53,6 +53,36 @@ Conversation behavior:
 - Contact sharing remains behind the required acceptance/chat gate.
 - Add regression coverage so future implementations cannot reduce Party A/B chat to fixed canned questions or hard-code Buyer/Seller roles.
 
+## Universal Party A/B AI assistance lock — 2026-09-11
+ASKODOX must act as the intelligent assistant/mediator for **both transaction sides throughout the journey**, not only as a matcher or buyer Q&A bot.
+
+Party A assistance includes, according to the transaction/category:
+- understanding the need in natural language;
+- explaining how/where/when to buy, book, request, receive, pick up or use a service;
+- collecting only the missing information needed to progress;
+- comparing/matching appropriate local offers/providers;
+- explaining availability, price, quantity, size, timing, fulfilment and next steps from trusted data;
+- continuing the conversation through matching, deal, fulfilment and completion.
+
+Party B assistance includes, according to the transaction/category:
+- explaining how to sell, offer or fulfil a product/service;
+- guiding product/service upload, photo capture, catalog creation, pricing inputs, availability and fulfilment information;
+- answering Party B questions such as how to upload, what information is required, how to title/describe the listing, and what to do next;
+- helping Party B respond to Party A questions and confirmation requests;
+- continuing assistance through acceptance, chat, deal, fulfilment, completion and review.
+
+Auto-catalog behavior:
+- A seller/provider may provide a product/service photo plus natural voice/text details instead of manually filling a long catalog form.
+- ASKODOX should transform the supplied facts into structured fields such as title, description, category, price/rate, size/variants, quantity/stock, color where applicable, availability and fulfilment/location details.
+- When the owner does not specify a title or description, ASKODOX may generate useful default title/description copy **only from the supplied/verified facts**.
+- Explicit seller/provider instructions for title, description or other editable listing fields take priority over generated defaults.
+- ASKODOX must never invent factual attributes such as warranty, stock, size, price, certification or delivery promise when they were not supplied or verified.
+- Generated/structured catalog data should remain reviewable/editable before final publication/save where confirmation is appropriate.
+- The same principle applies to service-provider listings, with category-relevant fields such as service name, rate, service area, timing, availability and experience where supplied.
+
+Universal assistant principle:
+**The user tells ASKODOX what they are trying to accomplish; ASKODOX understands the context, asks only what is needed, explains the next action and helps carry the transaction forward.** This intelligence layer must work for Party A and Party B across products, services, jobs, rides, delivery, appointments and future categories.
+
 ## UI lock
 - AI-app feel, not ecommerce-store appearance.
 - Bright/white, readable visual direction.
@@ -73,7 +103,7 @@ Conversation behavior:
 Investor demo readiness has priority over side-feature expansion.
 
 Required demo story:
-`Buyer request → category/location match → seller accept → chat → deal/order → sandbox payment → invoice/bill → completion → review`
+`Party A request → category/location match → Party B accept → chat → deal/order → sandbox payment → invoice/bill → completion → review`
 
 Also demonstrate at least one Service Provider flow.
 
@@ -127,29 +157,41 @@ Examples already locked:
 - Category questionnaires are dynamic/category-specific, not one generic form.
 - Sandbox/demo data must not leak into LIVE.
 - Party A/B roles are transaction-dynamic, and open relevant questions must not be limited to canned/fixed questions.
+- ASKODOX assists both Party A and Party B through the transaction rather than forcing users to understand every screen/form themselves.
+- Product/service catalog creation should be photo + natural voice/text first where possible, with structured fields/default copy generated from trusted facts and no invented factual attributes.
 
-## Verified development checkpoint — 2026-09-10
-Latest verified checkpoint before this master-state document:
-- `c2b429d6e2e3d6b01f5f1d566d292247e6246e74` — `test(demo): lock investor sandbox catalog coverage`.
-- Flutter CI #661: SUCCESS.
-- Bootstrap Android Runner #513: SUCCESS.
+## Verified development checkpoint — 2026-09-11
+Verified recent blocks:
+- `db82445a2793c5a0783289516974493538ebd668` — regression gate for trusted Party B/deal answers and unknown-fact Party B confirmation; deployment status SUCCESS.
+- `60e571cb357314fa5f5252267e8a1e2bb8e29152` — trusted Party B/deal data answer routing service.
+- `75d7c1d01b4a18a31d53134562fefed9d31425ad` — bilateral sandbox Party A/B contact-sharing gate regression; deployment status SUCCESS.
+- `516643df25cccbb7d016bc0580b0bb83d591c9b4` — bilateral sandbox Party A/B gate domain logic.
+- `8b4ff5d64ac26fce01e53f3f330189391428a860` — sandbox match acceptance regression.
+- `32d0b5a445443ce13e87d1288c688685d6177689` — persist sandbox/local match acceptance instead of silently no-oping.
 
-Important preceding verified work:
-- `0f6751817c59019f3b66009b330cf7cc91a4516d` — expanded investor sandbox profile catalog (~20–30 fixture choices across product/service/job/ride/parcel/appointment/catering/retail branches).
+Earlier verified demo checkpoint:
+- `c2b429d6e2e3d6b01f5f1d566d292247e6246e74` — investor sandbox catalog coverage; Flutter CI #661 SUCCESS and Bootstrap Android Runner #513 SUCCESS.
+- `0f6751817c59019f3b66009b330cf7cc91a4516d` — expanded investor sandbox profile catalog.
 - `6b7f96077e6895bfd0147e5e7972b5941b985ef7` — strict chicken investor matching requirements; Flutter CI #659 SUCCESS and signed update publish succeeded.
 - `44ff694509bcbd69954423baffebb460ae33c5a9` — selected coordinates fed into local matching; associated CI verified green.
 - `fd1bf899` — compatible TTS voice selection/safe fallback checkpoint; language/STT/TTS synchronization verified at that checkpoint.
 
+Important integration status:
+- Trusted-answer/Party B-confirmation domain/service logic and regression coverage exist.
+- Bilateral sandbox gate domain logic and regression coverage exist.
+- These blocks are **not yet full app-wide integration GREEN** until wired through the existing in-app deal endpoint/UI and verified E2E.
+
 ## Current development target
 **IN PROGRESS:**
-`Party A/B acceptance → dynamic open chat + Party B confirmation fallback → contact gate → deal lifecycle → sandbox payment/billing → invoice → completion/review → TEST/LIVE isolation → investor E2E verification`.
+`Wire dynamic Party A/B trusted-answer + Party B confirmation into existing in-app deal chat → enforce bilateral contact gate in sandbox path → neutralize remaining hard-coded Buyer/Seller user-facing semantics → deal lifecycle → sandbox payment/billing → invoice → completion/review → TEST/LIVE isolation → investor E2E verification`.
 
 Known architectural facts to preserve:
 - `UniversalMatchRepository` already separates mock/demo matching from live backend matching.
 - Demo catalog is enabled through the mock-client path; do not allow fake matches to hide live backend failures/no-match.
 - Existing `DealLifecycleEngine` and lifecycle tests cover negotiation/completion/dispute rules and should be reused.
 - Existing monetization screens/routes include order review, payment and invoice history; extend/reuse rather than duplicate.
-- Local/demo `acceptMatch` was previously a no-op and therefore needs realistic sandbox acceptance state for production-like E2E behavior.
+- Existing backend in-app deal thread supports free-text messaging and lifecycle status; reuse it rather than creating a duplicate chat system.
+- Legacy backend/database identifiers may still use buyer/seller internally for compatibility, but generic user-facing behavior and new architecture must remain dynamic Party A/B semantics.
 
 ## Development discipline
 - Verify repository state before every continuation.
