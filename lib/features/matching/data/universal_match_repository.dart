@@ -10,7 +10,7 @@ import 'demo_natural_match_catalog.dart';
 String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
 final String _guestAppUserId = 'app-guest-${DateTime.now().microsecondsSinceEpoch}';
 
-final String _acceptanceKey(String dealId, String matchId) => '$dealId::$matchId';
+String _acceptanceKey(String dealId, String matchId) => '$dealId::$matchId';
 
 class SandboxMatchAcceptanceStore {
   final Set<String> _accepted = <String>{};
