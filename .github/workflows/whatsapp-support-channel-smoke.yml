@@ -1,0 +1,53 @@
+name: whatsapp-support-channel-smoke
+
+on:
+  push:
+    paths:
+      - 'backend/app/services/whatsapp_support_only_gate.py'
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/api/routes/webhook.py'
+      - '.github/workflows/whatsapp-support-channel-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify in-app primary and WhatsApp support-only gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          from app.services.whatsapp_support_only_gate import WhatsAppSupportOnlyGate
+
+          gate = WhatsAppSupportOnlyGate()
+
+          support = gate.process_text('u1', 'customer care complaint issue')
+          assert 'support' in support.lower()
+          assert 'Case ID' in support
+          assert 'implementation' in support
+
+          blocked = gate.process_text('u2', 'find chicken seller near me')
+          assert 'app' in blocked.lower()
+          assert 'support' in blocked.lower()
+          assert 'seller' not in blocked.lower()
+
+          app_factory = Path('app/api/app_factory.py').read_text()
+          assert 'channel="in_app"' in app_factory
+          assert 'container.easy_job_command_service = container.whatsapp_support_only_gate' in app_factory
+
+          webhook = Path('app/api/routes/webhook.py').read_text()
+          easy = webhook.index('container.easy_job_command_service.process_text')
+          lifecycle = webhook.index('container.job_lifecycle_service.process_text')
+          main_ai = webhook.index('container.conversation_service.process')
+          assert easy < lifecycle < main_ai
+
+          print('WhatsApp support-only gate smoke passed')
+          PY
