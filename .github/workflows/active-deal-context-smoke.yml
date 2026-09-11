@@ -4,12 +4,16 @@ on:
   push:
     paths:
       - 'backend/app/services/active_deal_context_resolver.py'
+      - 'backend/app/services/universal_live_capture_service.py'
       - 'backend/tests/test_active_deal_context_resolver.py'
+      - 'backend/tests/test_universal_live_capture_active_merge.py'
       - '.github/workflows/active-deal-context-smoke.yml'
   pull_request:
     paths:
       - 'backend/app/services/active_deal_context_resolver.py'
+      - 'backend/app/services/universal_live_capture_service.py'
       - 'backend/tests/test_active_deal_context_resolver.py'
+      - 'backend/tests/test_universal_live_capture_active_merge.py'
       - '.github/workflows/active-deal-context-smoke.yml'
   workflow_dispatch:
 
@@ -19,37 +23,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Verify active deal context resolver
+      - name: Verify active deal resolver and live-capture merge
         shell: bash
         run: |
           set -euo pipefail
-          PYTHONPATH=backend python3 - <<'PY'
-          from app.services.active_deal_context_resolver import ActiveDealContextResolver as R
-
-          active = {
-              'side': 'NEED',
-              'domain': 'PRODUCT',
-              'subject': 'Chicken Boneless',
-              'quantity': 10,
-              'unit': 'kg',
-              'location_text': 'Vijayawada',
-              'constraints': {'quality': 'fresh', 'variant': 'with bone'},
-          }
-          same = {
-              'side': 'need',
-              'domain': 'product',
-              'subject': ' chicken boneless! ',
-              'quantity': 12,
-              'constraints': {'variant': 'boneless'},
-              'source': 'image',
-          }
-          assert R.same_context(active, same)
-          assert not R.same_context(active, {**same, 'subject': 'mutton'})
-          assert not R.same_context(active, {**same, 'side': 'OFFER'})
-          merged = R.merge_fields(active, same)
-          assert merged['quantity'] == 12
-          assert merged['constraints'] == {'quality': 'fresh', 'variant': 'boneless'}
-          assert 'location_text' not in merged
-          assert merged['source'] == 'image'
-          print('active deal context resolver smoke: PASS')
-          PY
+          python3 -m pip install -q pytest
+          PYTHONPATH=backend python3 -m pytest -q \
+            backend/tests/test_active_deal_context_resolver.py \
+            backend/tests/test_universal_live_capture_active_merge.py
