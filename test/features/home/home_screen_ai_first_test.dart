@@ -43,59 +43,28 @@ void main() {
     expect(finder, findsOneWidget);
   }
 
-  Future<void> revealBottomNavigation(WidgetTester tester) async {
-    final navigation = find.byType(NavigationBar);
-    for (var i = 0; i < 12 && navigation.evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(navigation, findsOneWidget);
-  }
-
-  List<String> navigationLabels(WidgetTester tester) => tester
-      .widgetList<NavigationDestination>(find.byType(NavigationDestination))
-      .map((destination) => destination.label)
-      .toList(growable: false);
-
-  testWidgets('Home keeps one AI-first ask entry point and minimal navigation',
-      (tester) async {
+  testWidgets('Home opens on locked ASKODOX home, not a second chat page', (tester) async {
     await pumpHome(tester);
 
     expect(find.text('ASKODOX'), findsOneWidget);
-    expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxPlusButton')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
-
-    expect(find.text('In Progress'), findsOneWidget);
-    expect(find.text('Continue your conversations'), findsOneWidget);
-    await revealBottomNavigation(tester);
-    expect(navigationLabels(tester), ['Chats', 'Ask', 'Activity']);
-  });
-
-  testWidgets('Telugu Home remains readable and keeps the same AI-first hierarchy',
-      (tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'askodox.locale': 'te',
-    });
-
-    await pumpHome(tester);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('ASKODOX'), findsOneWidget);
-    expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
-    expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
-    expect(find.text('మీ సంభాషణలను కొనసాగించండి'), findsOneWidget);
-    await revealBottomNavigation(tester);
-    expect(navigationLabels(tester), ['చాట్స్', 'అడగండి', 'యాక్టివిటీ']);
-
+    expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxHomeOrb')), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Home language picker exposes catalog languages beyond legacy four',
-      (tester) async {
+  testWidgets('Telugu Home keeps locked home hierarchy', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{'askodox.locale': 'te'});
+    await pumpHome(tester);
+    await tester.pump();
+
+    expect(find.text('ASKODOX'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxHomeOrb')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home language picker exposes catalog languages beyond legacy four', (tester) async {
     await pumpHome(tester);
     await openLanguagePicker(tester);
 
@@ -106,21 +75,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Tamil Home selection persists while untranslated Home copy falls back safely',
-      (tester) async {
+  testWidgets('Tamil Home selection persists with safe fallback', (tester) async {
     await pumpHome(tester);
     await openLanguagePicker(tester);
     await revealLanguage(tester, 'Tamil');
     await tester.tap(find.text('Tamil'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('askodox.locale'), 'ta');
     expect(find.text('Tamil'), findsOneWidget);
-    expect(find.text('In Progress'), findsOneWidget);
-    expect(find.text('Continue your conversations'), findsOneWidget);
+    expect(find.text('ASKODOX'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
