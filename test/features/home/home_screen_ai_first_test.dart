@@ -46,10 +46,14 @@ void main() {
   testWidgets('Home opens on locked ASKODOX home, not a second chat page', (tester) async {
     await pumpHome(tester);
 
+    expect(find.byType(AppBar), findsOneWidget);
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxHomeOrb')), findsOneWidget);
-    expect(find.byType(AppBar), findsNothing);
+    expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxMicButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -61,6 +65,7 @@ void main() {
     expect(find.text('ASKODOX'), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxHomeOrb')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
