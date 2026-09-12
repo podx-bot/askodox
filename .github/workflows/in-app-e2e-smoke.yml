@@ -64,7 +64,7 @@ jobs:
 
               rows = container.database.fetchall(
                   '''
-                  SELECT channel,user_id,user_message,assistant_message
+                  SELECT channel,user_id,user_message,bot_message
                   FROM conversation_os_turns
                   WHERE user_id=?
                   ORDER BY id ASC
@@ -74,7 +74,7 @@ jobs:
               assert len(rows) >= 2, rows
               assert all(str(row['channel']) == 'in_app' for row in rows), rows
               assert str(rows[-1]['user_message']).strip()
-              assert str(rows[-1]['assistant_message']).strip()
+              assert str(rows[-1]['bot_message']).strip()
 
               inbox = client.get(f'/debug/inbox/{sender}')
               assert inbox.status_code == 200, inbox.text
