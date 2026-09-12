@@ -1,0 +1,84 @@
+name: in-app-e2e-smoke
+
+on:
+  push:
+    paths:
+      - 'backend/app/api/app_factory.py'
+      - 'backend/app/api/routes/debug.py'
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - 'backend/app/services/customer_facing_response_policy.py'
+      - 'backend/app/services/universal_ai_assistant_service.py'
+      - 'backend/app/services/user_memory_service.py'
+      - '.github/workflows/in-app-e2e-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+      - name: Verify real ASKODOX in-app HTTP conversation path
+        env:
+          DATABASE_PATH: /tmp/askodox-in-app-e2e.db
+          GEMINI_API_KEY: ''
+          BRAVE_SEARCH_API_KEY: ''
+        run: |
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+
+          from app.api.app_factory import create_app
+
+          app = create_app()
+          sender = 'app-e2e-point1'
+
+          with TestClient(app) as client:
+              first = client.post('/debug/message', json={
+                  'sender_mobile': sender,
+                  'message': 'Hi, help me plan my day.',
+              })
+              assert first.status_code == 200, first.text
+              body = first.json()
+              assert body['sender_mobile'] == sender
+              assert isinstance(body.get('reply'), str) and body['reply'].strip(), body
+
+              second = client.post('/debug/message', json={
+                  'sender_mobile': sender,
+                  'message': 'Continue from what I just asked and tell me the next step.',
+              })
+              assert second.status_code == 200, second.text
+              second_body = second.json()
+              assert isinstance(second_body.get('reply'), str) and second_body['reply'].strip(), second_body
+
+              container = app.state.container
+              user = container.user_repository.find_by_whatsapp_mobile(sender)
+              assert user is not None
+              assert int(user.get('registration_complete') or 0) == 1
+
+              rows = container.database.fetchall(
+                  '''
+                  SELECT channel,user_id,user_message,assistant_message
+                  FROM conversation_os_turns
+                  WHERE user_id=?
+                  ORDER BY id ASC
+                  ''',
+                  (sender,),
+              )
+              assert len(rows) >= 2, rows
+              assert all(str(row['channel']) == 'in_app' for row in rows), rows
+              assert str(rows[-1]['user_message']).strip()
+              assert str(rows[-1]['assistant_message']).strip()
+
+              inbox = client.get(f'/debug/inbox/{sender}')
+              assert inbox.status_code == 200, inbox.text
+              assert inbox.json()['channel'] == 'in_app'
+
+          print('ASKODOX real in-app E2E smoke passed')
+          PY
