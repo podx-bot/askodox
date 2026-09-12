@@ -34,7 +34,7 @@ void main() {
     expect(askodoxGreetingForHour(22, 'or'), 'ଶୁଭ ରାତ୍ରି 👋');
   });
 
-  testWidgets('renders ASKODOX bright AI-first home structure', (tester) async {
+  testWidgets('renders locked ASKODOX same-screen home structure', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen()));
     await tester.pump();
 
@@ -47,25 +47,12 @@ void main() {
     expect(find.byKey(const Key('askodoxSendButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLanguageButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxHomeOrb')), findsOneWidget);
-    expect(find.text('In Progress'), findsOneWidget);
 
     expect(find.text('Buy & Local'), findsNothing);
     expect(find.text('Products nearby'), findsNothing);
     expect(find.text('Jobs'), findsNothing);
     expect(find.text('Rides'), findsNothing);
     expect(find.text('Business'), findsNothing);
-
-    await tester.scrollUntilVisible(
-      find.text('Continue your conversations'),
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
-    expect(find.text('Continue your conversations'), findsOneWidget);
-
-    expect(find.text('Chats'), findsOneWidget);
-    expect(find.text('Ask'), findsOneWidget);
-    expect(find.text('Activity'), findsWidgets);
   });
 
   testWidgets('opens multimodal actions from ASKODOX plus button', (tester) async {
@@ -83,7 +70,7 @@ void main() {
     expect(find.text('Use voice'), findsOneWidget);
   });
 
-  testWidgets('renders Telugu AI-first home without layout regressions', (tester) async {
+  testWidgets('renders Telugu locked home without layout regressions', (tester) async {
     await tester.pumpWidget(_screen(const HomeScreen(), locale: const Locale('te')));
     await tester.pump();
 
@@ -92,19 +79,6 @@ void main() {
     expect(find.byKey(const Key('askodoxAskField')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPlusButton')), findsOneWidget);
     expect(find.byKey(const Key('askodoxImageButton')), findsOneWidget);
-    expect(find.text('ప్రస్తుతం జరుగుతున్నవి'), findsOneWidget);
-    expect(find.text('యాక్టివిటీ'), findsWidgets);
-
-    await tester.scrollUntilVisible(
-      find.text('మీ సంభాషణలను కొనసాగించండి'),
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
-
-    expect(find.text('మీ సంభాషణలను కొనసాగించండి'), findsOneWidget);
-    expect(find.text('చాట్స్'), findsOneWidget);
-    expect(find.text('అడగండి'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -118,38 +92,5 @@ void main() {
     expect(find.textContaining('No forms.'), findsOneWidget);
     expect(find.text('I want chicken nearby'), findsOneWidget);
     expect(find.text('I need a job'), findsOneWidget);
-    expect(find.text('I need a ride to Vijayawada'), findsOneWidget);
-  });
-
-  testWidgets('restores visible ASKODOX conversation turns after recreation', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'askodox.active_universal_deal.v1': jsonEncode({
-        'deal': {
-          'rawText': 'I want chicken nearby',
-          'intent': 'buy',
-          'partyA': {'side': 'demand', 'role': 'buyer', 'action': 'buy'},
-          'partyB': {'side': 'supply', 'role': 'seller', 'action': 'sell'},
-          'subject': 'chicken',
-          'category': 'food',
-          'location': {'label': 'Vijayawada', 'radiusKm': 10},
-          'dynamicFields': <String, Object?>{},
-          'status': 'collecting',
-        },
-        'quotes': <Object?>[],
-      }),
-      'askodox.active_conversation_turns.v1': jsonEncode([
-        {'text': '5 kg', 'isUser': true},
-        {'text': 'Do you want pickup or delivery?', 'isUser': false},
-      ]),
-    });
-
-    await tester.pumpWidget(_screen(const SearchScreen()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-
-    expect(find.text('I want chicken nearby'), findsOneWidget);
-    expect(find.text('5 kg'), findsOneWidget);
-    expect(find.text('Do you want pickup or delivery?'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }
