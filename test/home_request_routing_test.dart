@@ -24,12 +24,34 @@ void main() {
       expect(AskodoxHomeRequestRouting.kindOf('నాకు ఉద్యోగం కావాలి'), AskodoxHomeRequestKind.job);
       expect(AskodoxHomeRequestRouting.kindOf('Send a parcel'), AskodoxHomeRequestKind.parcel);
       expect(AskodoxHomeRequestRouting.kindOf('delivery job kavali'), AskodoxHomeRequestKind.deliveryJob);
+      expect(
+        AskodoxHomeRequestRouting.kindOf('need staff naku delivery boys kavali na shop ki'),
+        AskodoxHomeRequestKind.staffing,
+      );
+      expect(
+        AskodoxHomeRequestRouting.kindOf('need staff catering boys kavali repu 11 am ki 10 members'),
+        AskodoxHomeRequestKind.staffing,
+      );
     });
 
     test('starts fresh when user switches category', () {
       expect(AskodoxHomeRequestRouting.shouldStartFresh('చికెన్ కొనాలి', 'AC repair కావాలి'), isTrue);
       expect(AskodoxHomeRequestRouting.shouldStartFresh('job kavali', 'delivery job kavali'), isTrue);
       expect(AskodoxHomeRequestRouting.shouldStartFresh('parcel పంపాలి', 'parcel today'), isFalse);
+      expect(
+        AskodoxHomeRequestRouting.shouldStartFresh(
+          'send parcel delivery package',
+          'need staff naku delivery boys kavali na shop ki',
+        ),
+        isTrue,
+      );
+      expect(
+        AskodoxHomeRequestRouting.shouldStartFresh(
+          'need staff delivery boys kavali',
+          'send parcel parcel pampali',
+        ),
+        isTrue,
+      );
     });
   });
 }
