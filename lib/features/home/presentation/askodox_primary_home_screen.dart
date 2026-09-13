@@ -10,6 +10,7 @@ import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../location/application/location_controller.dart';
 import '../../matching/data/demo_natural_match_catalog.dart';
 import '../../matching/data/universal_match_repository.dart';
+import '../domain/home_request_routing.dart';
 import 'askodox_orb.dart';
 
 const _ink = Color(0xFF10204A);
@@ -47,7 +48,11 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     setState(() {
       _turns.addAll(records);
       _active = true;
-      if (deal != null) _matches = DemoNaturalMatchCatalog.forDeal(deal, enabled: true);
+      if (deal != null && AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
+        _matches = DemoNaturalMatchCatalog.forDeal(deal, enabled: true);
+      } else {
+        _matches = const [];
+      }
     });
     _scrollBottom();
   }
@@ -56,35 +61,43 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     final text = (preset ?? _controller.text).trim();
     if (text.isEmpty) return;
 
+    final transactional = AskodoxHomeRequestRouting.isTransactional(text);
     final notifier = ref.read(universalDealControllerProvider.notifier);
-    final session = ref.read(universalDealControllerProvider);
-    if (session.deal == null) {
-      notifier.start(text);
-    } else if (session.completed) {
-      notifier.start(text);
+    List<UniversalMatch> matches = const [];
+
+    if (transactional) {
+      final session = ref.read(universalDealControllerProvider);
+      if (session.deal == null) {
+        notifier.start(text);
+      } else if (session.completed) {
+        notifier.start(text);
+      } else {
+        notifier.answer(text);
+      }
+
+      final locationState = ref.read(locationControllerProvider);
+      final selectedLocation = locationState.defaultLocation;
+      if (selectedLocation != null) {
+        final label = selectedLocation.address.trim().isNotEmpty
+            ? selectedLocation.address.trim()
+            : selectedLocation.name.trim();
+        notifier.applySelectedLocation(
+          label: label,
+          latitude: selectedLocation.point.latitude,
+          longitude: selectedLocation.point.longitude,
+          radiusKm: locationState.radiusMetres / 1000,
+        );
+      }
+
+      final deal = ref.read(universalDealControllerProvider).deal;
+      matches = deal == null
+          ? const <UniversalMatch>[]
+          : DemoNaturalMatchCatalog.forDeal(deal, enabled: true)
+            ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
     } else {
-      notifier.answer(text);
+      // A general assistant request must not inherit a stale commerce/service deal.
+      notifier.reset();
     }
-
-    final locationState = ref.read(locationControllerProvider);
-    final selectedLocation = locationState.defaultLocation;
-    if (selectedLocation != null) {
-      final label = selectedLocation.address.trim().isNotEmpty
-          ? selectedLocation.address.trim()
-          : selectedLocation.name.trim();
-      notifier.applySelectedLocation(
-        label: label,
-        latitude: selectedLocation.point.latitude,
-        longitude: selectedLocation.point.longitude,
-        radiusKm: locationState.radiusMetres / 1000,
-      );
-    }
-
-    final deal = ref.read(universalDealControllerProvider).deal;
-    final matches = deal == null
-        ? const <UniversalMatch>[]
-        : DemoNaturalMatchCatalog.forDeal(deal, enabled: true)
-          ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
 
     setState(() {
       _active = true;
@@ -99,22 +112,27 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
 
   String _assistantReply(String text, bool te) {
     final q = text.toLowerCase();
-    if (_has(q, ['job', 'work', 'ఉద్యోగం', 'జాబ్', 'computer operator'])) {
+    if (_has(q, ['job', 'jobs', 'ఉద్యోగం', 'జాబ్', 'computer operator'])) {
       return te ? 'మీరు ఉద్యోగం కోసం చూస్తున్నారు. మీ అవసరానికి సరిపోయే స్థానిక ఉద్యోగ అవకాశాలను చూపిస్తున్నాను.' : 'You’re looking for a job. I’m showing local openings that match your request.';
     }
-    if (_has(q, ['ac repair', 'repair', 'service', 'plumber', 'electrician', 'మెకానిక్'])) {
+    if (_has(q, ['ac repair', 'repair', 'service provider', 'plumber', 'electrician', 'మెకానిక్', 'రిపేర్', 'సర్వీస్ కావాలి'])) {
       return te ? 'మీకు సర్వీస్ ప్రొవైడర్ కావాలి. దగ్గరలో అందుబాటులో ఉన్న సరైన ప్రొవైడర్లను చూపిస్తున్నాను.' : 'You need a service provider. Here are relevant nearby providers available to help.';
     }
     if (_has(q, ['ride', 'carpool', 'driver', 'passenger', 'రైడ్'])) {
       return te ? 'మీ రైడ్ అవసరాన్ని అర్థం చేసుకున్నాను. సరిపోయే డ్రైవర్ లేదా రైడ్ ఆప్షన్లను చూపిస్తున్నాను.' : 'I understand your ride request. Here are matching driver and ride options.';
     }
-    if (_has(q, ['parcel', 'delivery', 'courier', 'పార్సెల్'])) {
+    if (_has(q, ['parcel', 'delivery', 'courier', 'పార్సెల్', 'డెలివరీ'])) {
       return te ? 'మీ పార్సెల్ లేదా డెలివరీ అవసరానికి సరిపోయే ఆప్షన్లను చూపిస్తున్నాను.' : 'Here are delivery and courier options that match your request.';
     }
     if (_has(q, ['chicken', 'చికెన్', 'కోడి', 'mutton', 'మటన్', 'meat'])) {
       return te ? 'మీకు చికెన్ లేదా మాంసం కావాలి. దగ్గరలో ఉన్న సంబంధిత విక్రేతలను మాత్రమే చూపిస్తున్నాను.' : 'You’re looking for chicken or meat. I’m showing only relevant nearby sellers.';
     }
-    return te ? 'మీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన సరైన స్థానిక ఎంపికలను చూపిస్తున్నాను.' : 'I understand your request. Here are the most relevant local options.';
+    if (AskodoxHomeRequestRouting.isTransactional(text)) {
+      return te ? 'మీ లావాదేవీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన ఎంపికలను మాత్రమే చూపిస్తున్నాను.' : 'I understand your transactional request. I’m showing only relevant options.';
+    }
+    return te
+        ? 'సరే. దీనిలో నేను మీకు సహాయం చేస్తాను. ముందుగా మీకు ముఖ్యమైన లక్ష్యం లేదా చేయాల్సిన పనులు ఏమిటో చెప్పండి; తెలిసిన విషయాలను మళ్లీ అడగకుండా కలిసి ప్లాన్ చేద్దాం.'
+        : 'Sure. I can help with that. Tell me the main goal or tasks you want to handle, and we’ll plan it together without forcing a shopping or local-matching flow.';
   }
 
   bool _has(String text, List<String> words) => words.any(text.contains);
