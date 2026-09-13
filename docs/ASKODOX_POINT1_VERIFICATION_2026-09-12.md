@@ -1,54 +1,72 @@
-# ASKODOX Point 1 Verification Evidence — 2026-09-12
+# ASKODOX Point 1 Verification Evidence — 2026-09-13
 
-Status: VERIFIED GREEN
+Status: IN PROGRESS — reopened after live-device regression findings
 
 ## Scope
 This checkpoint records verified evidence for the current ASKODOX master repo only: `podx-bot/askodox`.
 
-## Verified acceptance coverage
-Point 1 — Core Identity (Everyday AI Friend + Helping Mind + Decision Partner + Action Assistant) is VERIFIED GREEN for its defined scope.
+## Point 1 — Core Identity
+ASKODOX must behave as an Everyday AI Friend + Helping Mind + Decision Partner + Action Assistant. It must understand the user's actual request, preserve context, ask only relevant missing information, avoid forcing commerce on general requests, and route transactional needs to the correct domain without stale-category leakage.
 
-Verified behavior:
-- GENERAL requests route through the universal AI assistant instead of being forced into commerce/category forms.
-- Same-language behavior is preserved by the universal assistant prompt contract.
-- Durable user memory is available to ConversationOS and is carried into the planned prompt/context.
-- Continuation turns preserve the original request, known details, and previous ASKODOX reply context.
-- The assistant contract explicitly forbids invented live research, bookings, messages, reminders, sources, or completed actions.
-- Domain-specific transactional requests still delegate deterministically; the representative `Buy chicken nearby` case correctly routes to FOOD rather than GENERAL.
-- The canonical core channel is `in_app`; WhatsApp remains support-only.
-- Real in-app persistence/ledger behavior has been exercised through the app debug HTTP route.
+## Previously verified evidence that still stands
+- Backend GENERAL routing exists through the universal AI assistant.
+- Same-language prompt behavior is covered by automated tests.
+- ConversationOS memory/ledger infrastructure exists.
+- In-app is the canonical core channel; WhatsApp remains support-only.
+- Transactional requests can delegate to deterministic handlers.
+- Flutter CI/release and signed APK publishing have passed on the latest verified release path.
 
-## Code evidence
-- `backend/app/services/universal_ai_assistant_service.py`
-- `backend/app/services/conversation_os_runtime_service.py`
-- `backend/app/repositories/conversation_turn_ledger_repository.py`
-- `backend/app/api/app_factory.py`
-- `backend/app/services/whatsapp_support_only_gate.py`
+## Live-device findings that invalidate the old GREEN decision
+The previous VERIFIED GREEN decision is revoked because real-device testing found user-visible failures that automated tests did not catch.
 
-## Test / workflow evidence
-- `.github/workflows/universal-ai-assistant-smoke.yml`
-- `.github/workflows/user-memory-smoke.yml`
-- `.github/workflows/in-app-e2e-smoke.yml`
-- `.github/workflows/point1-friend-loop-smoke.yml`
-- `.github/workflows/whatsapp-support-channel-smoke.yml`
+1. GENERAL request card leakage — FIXED and live-verified
+   - Request: `ఈ రోజు నా పనులు ప్లాన్ చేసుకోవడానికి సహాయం చేయి.`
+   - Earlier failure: local provider/demo cards were shown for a general planning request.
+   - Client routing guard was added and the updated APK was live-tested.
+   - Current result: planning response appears without local provider/demo cards.
 
-Verified runs/checkpoints:
-- Real in-app E2E smoke passed after schema alignment in commit `a0603aa0...`.
-- Point-1 friend-loop integration gate added in commit `1a902179...`.
-- The first Point-1 friend-loop run exposed a false test expectation: `Buy chicken nearby` was expected as COMMERCE even though the source router correctly classified it as FOOD.
-- Commit `8ee09a5cf0b0008551fc0363bf74c4cbac5580f0` aligned the test with actual FOOD routing.
-- `point1-friend-loop-smoke` run #2 on `8ee09a5c` completed SUCCESS.
-- Flutter CI run #739 on `8ee09a5c` completed SUCCESS.
-- Android bootstrap for the same checkpoint also completed SUCCESS.
+2. Conversation continuation — OPEN BUG
+   - Follow-up: `అదే ప్లాన్ కొనసాగించు, ఇప్పుడు తర్వాత ఏం చేయాలి?`
+   - Live result repeated essentially the same generic response instead of using prior context and giving the next useful step.
+   - Point 1 cannot be GREEN until contextual continuation is corrected and live-verified.
 
-## Point-1 completion decision
-All Point-1 acceptance criteria now have implementation, integration, deterministic test, CI/build, and real in-app E2E evidence for the Point-1 scope. Therefore Point 1 is VERIFIED GREEN.
+3. Category switching / stale match state — OPEN BUG
+   - Live testing showed an AC-repair request could temporarily display chicken seller results after a prior chicken flow, while a later AC test routed correctly.
+   - Intent/category changes must clear or replace stale match state deterministically.
 
-This does NOT mean all categories are complete. Category-specific need understanding, dynamic forms/questions, and full category regression remain tracked under Points 5, 6, and 7 and must be verified separately.
+4. Job sub-intent specificity — OPEN / cross-point dependency
+   - `job kavali` correctly routes to Jobs.
+   - `delivery job kavali` was initially shown generic office/back-office jobs rather than delivery-specific jobs.
+   - Delivery-job specific demo classification/matching has been added in the current fix batch, but requires CI + updated APK + live-device verification.
+   - Full category depth ultimately belongs to Points 5/6/7, but Point 1 must at minimum avoid incorrect/stale routing during domain switching.
 
-## Related items that remain open
-- Point 51 remains IN PROGRESS until real support Case ID persistence, admin/customer-care queue/history, outcome sync, and E2E escalation are implemented and verified.
-- Dynamic category coverage is not implied by Point-1 GREEN.
+## Current retouch / re-audit gate
+Point 1 must be rechecked end-to-end instead of trusting the old automated GREEN result.
 
-## Next execution target
-Proceed to Point 2 using the approved batch-verification mode: group related implementation/tests, run targeted checks during the batch, then require consolidated CI/E2E evidence at the point/integration gate before GREEN.
+Required retouch checklist:
+1. GENERAL requests never force local-commerce/results cards.
+2. General conversation gives a useful answer, not only a generic acknowledgement.
+3. Follow-up turns use previous context and advance the conversation rather than repeat.
+4. Same-language behavior remains correct.
+5. Memory/context survives normal continuation and app/session restoration where applicable.
+6. Intent switching clears stale deal/match state.
+7. Transactional requests route to the correct top-level domain.
+8. Closely related sub-intents do not silently fall back to unrelated results.
+9. Assistant never falsely claims actions/research/bookings/messages completed when they were not.
+10. In-app remains the core conversation channel.
+11. Automated regression coverage includes the live bugs found by the owner.
+12. Flutter tests + CI + signed release + in-app update publish must pass on the final Point-1 fix head.
+13. A short live-device regression set must pass after the final update.
+
+## Live regression set before GREEN
+Minimum owner-device verification after the final Point-1 update:
+- General planning request.
+- General planning follow-up/continuation.
+- Chicken → AC category switch.
+- Job → delivery-job refinement.
+- Parcel request.
+
+Expected result: no repeated generic answers, no stale cards, no unrelated category results, and no forced commerce for general conversation.
+
+## Completion decision
+Point 1 is IN PROGRESS. The old VERIFIED GREEN statement is no longer valid. Point 2 must not be treated as unblocked by Point 1 until the above retouch checklist, CI/release, and final live-device regression pass.
