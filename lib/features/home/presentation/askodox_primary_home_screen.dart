@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../services/in_app_assistant_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../location/application/location_controller.dart';
@@ -29,9 +30,11 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
   final _store = ConversationTurnStore();
+  final _assistant = const InAppAssistantService();
   final List<ConversationTurnRecord> _turns = [];
   List<UniversalMatch> _matches = const [];
   bool _active = false;
+  bool _sending = false;
 
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
 
@@ -59,9 +62,34 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
 
   Future<void> _send([String? preset]) async {
     final text = (preset ?? _controller.text).trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _sending) return;
 
-    final transactional = AskodoxHomeRequestRouting.isTransactional(text);
+    setState(() {
+      _sending = true;
+      _active = true;
+      _turns.add(ConversationTurnRecord(text: text, isUser: true));
+    });
+    _controller.clear();
+    _scrollBottom();
+
+    final history = _turns
+        .take(_turns.length - 1)
+        .map((turn) => InAppAssistantTurn(
+              role: turn.isUser ? 'user' : 'assistant',
+              text: turn.text,
+            ))
+        .toList(growable: false);
+
+    final decision = await _assistant.decide(
+      message: text,
+      locale: _te ? 'te' : 'en',
+      history: history,
+    );
+    final aiUsable = decision?.usable == true;
+    final transactional = aiUsable
+        ? decision!.transactional
+        : AskodoxHomeRequestRouting.isTransactional(text);
+    final routedText = aiUsable ? _dealInputForDecision(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
     List<UniversalMatch> matches = const [];
 
@@ -69,18 +97,16 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       final session = ref.read(universalDealControllerProvider);
       final shouldStartFresh = AskodoxHomeRequestRouting.shouldStartFresh(
         session.deal?.rawText,
-        text,
+        routedText,
       );
 
       if (shouldStartFresh && session.deal != null) {
-        // A category switch (for example chicken -> AC repair) must not reuse
-        // the previous deal's missing fields or result cards.
         notifier.reset();
-        notifier.start(text);
+        notifier.start(routedText);
       } else if (session.deal == null || session.completed) {
-        notifier.start(text);
+        notifier.start(routedText);
       } else {
-        notifier.answer(text);
+        notifier.answer(routedText);
       }
 
       final locationState = ref.read(locationControllerProvider);
@@ -103,22 +129,37 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
           : DemoNaturalMatchCatalog.forDeal(deal, enabled: true)
             ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
     } else {
-      // A general assistant request must not inherit a stale commerce/service deal.
       notifier.reset();
     }
 
+    final reply = aiUsable
+        ? decision!.reply.trim()
+        : _fallbackAssistantReply(text, _te);
+
+    if (!mounted) return;
     setState(() {
-      _active = true;
       _matches = matches;
-      _turns.add(ConversationTurnRecord(text: text, isUser: true));
-      _turns.add(ConversationTurnRecord(text: _assistantReply(text, _te), isUser: false));
+      _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+      _sending = false;
     });
-    _controller.clear();
     await _store.save(_turns);
     _scrollBottom();
   }
 
-  String _assistantReply(String text, bool te) {
+  String _dealInputForDecision(String text, InAppAssistantDecision decision) {
+    return switch (decision.domain) {
+      'STAFFING' => 'need staff $text',
+      'JOB_SEEKER' => 'need a job $text',
+      'SERVICE' => 'need service $text',
+      'PARCEL' => 'send parcel $text',
+      'RIDE' => 'need a ride $text',
+      'PRODUCT' || 'FOOD' => 'i want to buy $text',
+      'APPOINTMENT' => 'book appointment $text',
+      _ => text,
+    };
+  }
+
+  String _fallbackAssistantReply(String text, bool te) {
     final q = text.toLowerCase();
     if (_has(q, ['job', 'jobs', 'ఉద్యోగం', 'జాబ్', 'computer operator'])) {
       return te ? 'మీరు ఉద్యోగం కోసం చూస్తున్నారు. మీ అవసరానికి సరిపోయే స్థానిక ఉద్యోగ అవకాశాలను చూపిస్తున్నాను.' : 'You’re looking for a job. I’m showing local openings that match your request.';
@@ -265,7 +306,7 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
         side: const BorderSide(color: Color(0xFFD7E3F5)),
         avatar: Icon(icon, size: 18, color: _blue),
         label: Text(text, style: const TextStyle(color: _ink, fontWeight: FontWeight.w800)),
-        onPressed: () => _send(text),
+        onPressed: _sending ? null : () => _send(text),
       );
 
   Widget _chat(bool te) => ListView(
@@ -281,6 +322,14 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(color: turn.isUser ? _blue : Colors.white, borderRadius: BorderRadius.circular(18), border: turn.isUser ? null : Border.all(color: const Color(0xFFE1E8F2))),
                 child: Text(turn.text, style: TextStyle(color: turn.isUser ? Colors.white : _ink, height: 1.35, fontWeight: FontWeight.w500)),
+              ),
+            ),
+          if (_sending)
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(left: 8, bottom: 12),
+                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
               ),
             ),
           if (_matches.isNotEmpty) ...[
@@ -301,6 +350,7 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
           Expanded(child: TextField(
             controller: _controller,
             focusNode: _focusNode,
+            enabled: !_sending,
             textInputAction: TextInputAction.send,
             onSubmitted: (_) => _send(),
             cursorColor: const Color(0xFF5B4BFF),
@@ -316,7 +366,7 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
             ),
           )),
           IconButton(onPressed: () => context.push('/discover/image'), icon: const Icon(Icons.image_outlined, color: _ink)),
-          IconButton.filled(onPressed: _send, style: IconButton.styleFrom(backgroundColor: _blue), icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
+          IconButton.filled(onPressed: _sending ? null : _send, style: IconButton.styleFrom(backgroundColor: _blue), icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
         ]),
       );
 
