@@ -67,9 +67,17 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
 
     if (transactional) {
       final session = ref.read(universalDealControllerProvider);
-      if (session.deal == null) {
+      final shouldStartFresh = AskodoxHomeRequestRouting.shouldStartFresh(
+        session.deal?.rawText,
+        text,
+      );
+
+      if (shouldStartFresh && session.deal != null) {
+        // A category switch (for example chicken -> AC repair) must not reuse
+        // the previous deal's missing fields or result cards.
+        notifier.reset();
         notifier.start(text);
-      } else if (session.completed) {
+      } else if (session.deal == null || session.completed) {
         notifier.start(text);
       } else {
         notifier.answer(text);
