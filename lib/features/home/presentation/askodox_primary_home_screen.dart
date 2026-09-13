@@ -130,9 +130,51 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     if (AskodoxHomeRequestRouting.isTransactional(text)) {
       return te ? 'మీ లావాదేవీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన ఎంపికలను మాత్రమే చూపిస్తున్నాను.' : 'I understand your transactional request. I’m showing only relevant options.';
     }
+
+    if (_isContinuation(q)) {
+      final previous = _previousUserTurn();
+      if (previous != null && previous.trim().isNotEmpty) {
+        return te
+            ? 'అవును, అదే కొనసాగిద్దాం. మీరు ముందు “${_shortContext(previous)}” అన్నారు. ఇప్పుడు తదుపరి దశగా ఒకే ముఖ్యమైన పనిని ఎంచుకుని పూర్తి చేద్దాం; అది పూర్తయ్యాక వెంటనే తర్వాత పనికి వెళ్దాం.'
+            : 'Yes, let’s continue from there. You previously said “${_shortContext(previous)}”. The next step is to pick the single most important task and finish it first, then move directly to the next one.';
+      }
+    }
+
     return te
         ? 'సరే. దీనిలో నేను మీకు సహాయం చేస్తాను. ముందుగా మీకు ముఖ్యమైన లక్ష్యం లేదా చేయాల్సిన పనులు ఏమిటో చెప్పండి; తెలిసిన విషయాలను మళ్లీ అడగకుండా కలిసి ప్లాన్ చేద్దాం.'
         : 'Sure. I can help with that. Tell me the main goal or tasks you want to handle, and we’ll plan it together without forcing a shopping or local-matching flow.';
+  }
+
+  bool _isContinuation(String text) => _has(text, [
+        'continue',
+        'continue it',
+        'next',
+        'same plan',
+        'అదే',
+        'కొనసాగించు',
+        'కొనసాగిద్దాం',
+        'తర్వాత',
+        'తదుపరి',
+      ]);
+
+  String? _previousUserTurn() {
+    var currentUserSeen = false;
+    for (var i = _turns.length - 1; i >= 0; i--) {
+      final turn = _turns[i];
+      if (!turn.isUser) continue;
+      if (!currentUserSeen) {
+        currentUserSeen = true;
+        continue;
+      }
+      return turn.text;
+    }
+    return null;
+  }
+
+  String _shortContext(String text) {
+    final compact = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.length <= 72) return compact;
+    return '${compact.substring(0, 69)}…';
   }
 
   bool _has(String text, List<String> words) => words.any(text.contains);
