@@ -1,7 +1,7 @@
 # ASKODOX Continuity Lock
 
 Status: LOCKED
-Date: 2026-09-12
+Date: 2026-09-13
 
 ## Single source of development truth
 - The only active development repository is `podx-bot/askodox`.
@@ -29,6 +29,17 @@ Before implementing, fixing, reporting status, or resuming work:
 - Never report active work, a commit, CI success, release, APK readiness, or SPRINT COMPLETE unless it is actually verified from the active ASKODOX repository or its verified build/test evidence.
 - `IN PROGRESS` means there is an identified unfinished target; it does not imply background coding is occurring when no verified execution is happening.
 - Mark a feature GREEN only after implementation, integration, testing, and verification.
+
+## Batch verification mode — LOCKED 2026-09-13
+To reduce unnecessary waiting without weakening quality:
+- Group related implementation changes and tests within the same master point or tightly coupled point batch.
+- Use targeted deterministic tests during implementation instead of running and waiting for full CI after every tiny edit.
+- Create a consolidated meaningful commit/checkpoint when the batch is ready.
+- Run targeted CI for the changed area and require the necessary full build/E2E verification at the point, integration, or release gate.
+- The completion standard does not change: no point becomes VERIFIED GREEN without the implementation, integration, relevant tests, required CI/build, and real E2E evidence defined for that point.
+- Reuse common engines across multiple points/categories instead of duplicating the same implementation point-by-point.
+- Point tracking remains explicit even when implementation is done in parallel/batches, so no category or requirement is silently skipped.
+- If the same method fails twice, change/reassess the method before trying a third time.
 
 ## Owner intent
 The owner should not need to re-explain the project on every new chat. The system must retrieve and review the saved ASKODOX project state first, then continue from that state with one clear repository and one continuous history.
