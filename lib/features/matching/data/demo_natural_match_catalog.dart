@@ -10,6 +10,11 @@ class DemoNaturalMatchCatalog {
   }) {
     if (!enabled) return <UniversalMatch>[];
 
+    // Presentation gate: ASKODOX must finish understanding the request before
+    // showing sellers/providers/workers. This keeps partial requirements from
+    // leaking premature or misleading profile cards into the conversation.
+    if (!deal.readyToMatch) return <UniversalMatch>[];
+
     final text = '${deal.rawText} ${deal.subject ?? ''} ${deal.category ?? ''}'.toLowerCase();
     final location = deal.location.label?.trim();
 
