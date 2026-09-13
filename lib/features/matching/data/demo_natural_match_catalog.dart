@@ -13,6 +13,32 @@ class DemoNaturalMatchCatalog {
     final text = '${deal.rawText} ${deal.subject ?? ''} ${deal.category ?? ''}'.toLowerCase();
     final location = deal.location.label?.trim();
 
+    // Employer-side staffing is a work request, not parcel delivery. Check the
+    // structured deal intent before keyword-based demo catalog fallbacks so
+    // phrases such as "delivery boys కావాలి" cannot leak into courier cards.
+    if (deal.intent == DealIntent.needWorker) {
+      final eventStaff = _hasAny(text, const ['catering', 'function', 'event', 'server', 'helper', 'కేటరింగ్', 'ఫంక్షన్']);
+      final deliveryStaff = _hasAny(text, const ['delivery', 'courier', 'డెలివరీ']);
+      if (eventStaff) {
+        return [
+          _match('demo-event-staff-1', 'Local Catering Staff Team', location, 'Sandbox verified temporary staff • servers/helpers • event shift availability', 97, 1.8, null, 94, 96),
+          _match('demo-event-staff-2', 'Event Helpers & Service Team', location, 'Sandbox verified workforce • function support • group booking', 93, 2.7, null, 91, 94),
+          _match('demo-event-staff-3', 'Local Function Staff Pool', location, 'Sandbox workers • short shift and day work • quantity confirmation in chat', 88, 3.9, null, 87, 91),
+        ];
+      }
+      if (deliveryStaff) {
+        return [
+          _match('demo-delivery-staff-1', 'Delivery Staff Candidates', location, 'Sandbox verified workers • shop delivery roles • available to join', 97, 1.5, null, 94, 96),
+          _match('demo-delivery-staff-2', 'Local Delivery Workforce', location, 'Sandbox verified rider candidates • full-time/shift options', 93, 2.4, null, 91, 94),
+          _match('demo-delivery-staff-3', 'Nearby Rider Candidates', location, 'Sandbox workers • local shop delivery • contact after mutual acceptance', 88, 3.6, null, 87, 90),
+        ];
+      }
+      return [
+        _match('demo-staff-1', 'Local Worker Candidates', location, 'Sandbox verified workers • availability and skill confirmation in chat', 94, 1.9, null, 91, 94),
+        _match('demo-staff-2', 'Nearby Staff Pool', location, 'Sandbox verified candidates • temporary and regular work options', 89, 3.0, null, 88, 91),
+      ];
+    }
+
     if (_hasAny(text, const ['chicken', 'చికెన్', 'కోడి', 'meat', 'mutton', 'మటన్'])) {
       return [
         _match('demo-chicken-1', 'Fresh Chicken Center', location, 'Sandbox verified seller • fresh cut chicken • ready now • pickup/delivery', 96, 1.2, 220, 92, 96),
