@@ -1,0 +1,104 @@
+name: point1-friend-loop-smoke
+
+on:
+  push:
+    paths:
+      - 'backend/app/services/conversation_os_runtime_service.py'
+      - 'backend/app/services/universal_ai_assistant_service.py'
+      - 'backend/app/services/oasat_domain_router.py'
+      - 'backend/app/services/oasat_domain_reasoning_service.py'
+      - 'backend/app/repositories/conversation_turn_ledger_repository.py'
+      - '.github/workflows/point1-friend-loop-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+      - name: Verify Point 1 memory, continuity, domain routing and honesty contract
+        run: |
+          python - <<'PY'
+          import os
+          import tempfile
+
+          from app.repositories.conversation_turn_ledger_repository import ConversationTurnLedgerRepository
+          from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
+
+          class SpyDelegate:
+              def __init__(self):
+                  self.messages = []
+              def process(self, sender_mobile, message):
+                  self.messages.append((sender_mobile, message))
+                  return 'సరే. మీ అవసరాన్ని బట్టి తదుపరి ఉపయోగకరమైన అడుగు చెబుతాను.'
+
+          class Memory:
+              def process(self, user_id, message):
+                  return None
+              def context(self, user_id, limit=10):
+                  return [
+                      {'memory_value': 'User prefers Telugu for explanations'},
+                      {'memory_value': 'User wants concise, practical next steps'},
+                  ]
+
+          fd, db_path = tempfile.mkstemp(prefix='askodox-point1-', suffix='.db')
+          os.close(fd)
+          try:
+              ledger = ConversationTurnLedgerRepository(db_path)
+              delegate = SpyDelegate()
+              service = ConversationOSRuntimeService(
+                  delegate=delegate,
+                  ledger_repository=ledger,
+                  user_memory_service=Memory(),
+                  channel='in_app',
+              )
+
+              first = service.process('app-point1-friend', 'నా రోజు ప్లాన్ చేయడంలో సహాయం చేయి')
+              assert first.strip()
+              assert len(delegate.messages) == 1
+              first_prompt = delegate.messages[-1][1]
+              assert 'OASAT domain=GENERAL' in first_prompt, first_prompt
+              assert 'Ask only relevant missing questions' in first_prompt, first_prompt
+              assert 'Do not force commerce/seller logic into non-commerce domains' in first_prompt, first_prompt
+              assert 'Durable user memory=' in first_prompt, first_prompt
+              assert 'User prefers Telugu for explanations' in first_prompt, first_prompt
+
+              second = service.process('app-point1-friend', 'అదే ప్లాన్ కొనసాగించు, ఇప్పుడు తర్వాత ఏం చేయాలి?')
+              assert second.strip()
+              assert len(delegate.messages) == 2
+              followup_prompt = delegate.messages[-1][1]
+              assert 'Continue the existing current request.' in followup_prompt, followup_prompt
+              assert 'Original user request: నా రోజు ప్లాన్ చేయడంలో సహాయం చేయి' in followup_prompt, followup_prompt
+              assert "User's new message: అదే ప్లాన్ కొనసాగించు, ఇప్పుడు తర్వాత ఏం చేయాలి?" in followup_prompt, followup_prompt
+              assert 'Previous ASKODOX reply context:' in followup_prompt, followup_prompt
+
+              state = ledger.load_state('app-point1-friend')
+              assert state is not None
+              assert state['channel'] == 'in_app'
+              known = state.get('known_fields') or {}
+              assert known.get('request_text') == 'నా రోజు ప్లాన్ చేయడంలో సహాయం చేయి', known
+              assert 'User prefers Telugu for explanations' in (known.get('oasat_user_memory') or []), known
+              turns = ledger.recent_turns('app-point1-friend', limit=5)
+              assert len(turns) >= 2, turns
+              assert all(t.get('channel') == 'in_app' for t in turns), turns
+
+              service.process('app-point1-commerce', 'Buy chicken nearby')
+              commerce_prompt = delegate.messages[-1][1]
+              assert 'OASAT domain=COMMERCE' in commerce_prompt, commerce_prompt
+              assert 'adapter=commerce' in commerce_prompt, commerce_prompt
+
+              print('ASKODOX Point 1 friend-loop integration smoke passed')
+          finally:
+              try:
+                  os.remove(db_path)
+              except FileNotFoundError:
+                  pass
+          PY
