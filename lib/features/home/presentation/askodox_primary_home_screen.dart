@@ -131,13 +131,11 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       return te ? 'మీ లావాదేవీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన ఎంపికలను మాత్రమే చూపిస్తున్నాను.' : 'I understand your transactional request. I’m showing only relevant options.';
     }
 
-    if (_isContinuation(q)) {
-      final previous = _previousUserTurn();
-      if (previous != null && previous.trim().isNotEmpty) {
-        return te
-            ? 'అవును, అదే కొనసాగిద్దాం. మీరు ముందు “${_shortContext(previous)}” అన్నారు. ఇప్పుడు తదుపరి దశగా ఒకే ముఖ్యమైన పనిని ఎంచుకుని పూర్తి చేద్దాం; అది పూర్తయ్యాక వెంటనే తర్వాత పనికి వెళ్దాం.'
-            : 'Yes, let’s continue from there. You previously said “${_shortContext(previous)}”. The next step is to pick the single most important task and finish it first, then move directly to the next one.';
-      }
+    final previous = _previousUserTurn();
+    if (previous != null && previous.trim().isNotEmpty && (_isContinuation(q) || _looksLikeGeneralFollowUp(q))) {
+      return te
+          ? 'అవును, అదే కొనసాగిద్దాం. మీరు ముందు “${_shortContext(previous)}” అన్నారు. ఇప్పుడు మొదటి ముఖ్యమైన పని ఏదో నిర్ణయించి దానిని పూర్తి చేద్దాం; అది పూర్తయ్యాక వెంటనే తర్వాత పనికి వెళ్దాం.'
+          : 'Yes, let’s continue from there. You previously said “${_shortContext(previous)}”. Let’s decide the first priority now, finish it, and then move straight to the next task.';
     }
 
     return te
@@ -156,6 +154,25 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
         'తర్వాత',
         'తదుపరి',
       ]);
+
+  bool _looksLikeGeneralFollowUp(String text) {
+    final compact = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.isEmpty || compact.length > 140) return false;
+    return _has(compact, [
+      'now',
+      'what next',
+      'what should i do',
+      'then',
+      'after that',
+      'ఇప్పుడు',
+      'ఏం చేయాలి',
+      'ఏమి చేయాలి',
+      'తర్వాత ఏం',
+      'మరి',
+      'అప్పుడు',
+      'ఎలా',
+    ]);
+  }
 
   String? _previousUserTurn() {
     var currentUserSeen = false;
