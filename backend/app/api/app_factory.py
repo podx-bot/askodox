@@ -6,6 +6,7 @@ from app.api.routes.debug import router as debug_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
+from app.api.routes.in_app_assistant import router as in_app_assistant_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
 from app.api.routes.onboarding_auth import router as onboarding_auth_router
 from app.api.routes.scheduled_tasks import router as scheduled_tasks_router
@@ -220,6 +221,7 @@ def create_app() -> FastAPI:
     app.include_router(onboarding_auth_router)
     app.include_router(webhook_router)
     app.include_router(debug_router)
+    app.include_router(in_app_assistant_router)
     app.include_router(in_app_deal_router)
     app.include_router(vision_router)
     app.include_router(documents_router)
