@@ -186,6 +186,22 @@ jobs:
             exit 0
           fi
 
+          retry() {
+            local attempts=0
+            local max_attempts=5
+            local delay=3
+            until "$@"; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge "$max_attempts" ]; then
+                echo "Command failed after $attempts attempts: $*" >&2
+                return 1
+              fi
+              echo "Transient publish failure; retry $attempts/$max_attempts in ${delay}s..." >&2
+              sleep "$delay"
+              delay=$((delay * 2))
+            done
+          }
+
           VERSION="1.0.${GITHUB_RUN_NUMBER}"
           VERSIONED_APK="askodox-${GITHUB_RUN_NUMBER}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "$VERSIONED_APK"
@@ -206,14 +222,14 @@ jobs:
           Stable development channel for ASKODOX in-app updates."
 
           if ! gh release view askodox-latest >/dev/null 2>&1; then
-            gh release create askodox-latest --prerelease --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
+            retry gh release create askodox-latest --prerelease --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
           else
-            gh release edit askodox-latest --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
+            retry gh release edit askodox-latest --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
           fi
 
-          gh release delete-asset askodox-latest askodox-latest.apk -y >/dev/null 2>&1 || true
-          gh release delete-asset askodox-latest latest.json -y >/dev/null 2>&1 || true
-          gh release delete-asset askodox-latest "$VERSIONED_APK" -y >/dev/null 2>&1 || true
+          retry gh release delete-asset askodox-latest askodox-latest.apk -y >/dev/null 2>&1 || true
+          retry gh release delete-asset askodox-latest latest.json -y >/dev/null 2>&1 || true
+          retry gh release delete-asset askodox-latest "$VERSIONED_APK" -y >/dev/null 2>&1 || true
 
-          gh release upload askodox-latest "$VERSIONED_APK" askodox-latest.apk latest.json
-          gh release view askodox-latest --json tagName,url,name,body >/dev/null
+          retry gh release upload askodox-latest "$VERSIONED_APK" askodox-latest.apk latest.json --clobber
+          retry gh release view askodox-latest --json tagName,url,name,body >/dev/null
