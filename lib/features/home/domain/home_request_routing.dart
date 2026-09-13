@@ -2,6 +2,7 @@ enum AskodoxHomeRequestKind {
   general,
   job,
   deliveryJob,
+  staffing,
   service,
   ride,
   parcel,
@@ -21,6 +22,15 @@ class AskodoxHomeRequestRouting {
     final hasDelivery = _has(q, const ['delivery', 'courier', 'డెలివరీ']);
     if (hasJob && hasDelivery) return AskodoxHomeRequestKind.deliveryJob;
     if (hasJob) return AskodoxHomeRequestKind.job;
+
+    // Universal AI canonicalizes employer-side worker requests with a staffing
+    // marker before they reach this deterministic routing layer. Staffing must
+    // win before generic delivery/courier detection so a shop asking for
+    // delivery workers cannot reuse an active parcel session.
+    if (_has(q, const [
+      'need staff', 'need worker', 'need workers', 'hiring staff', 'hire staff',
+      'staffing request',
+    ])) return AskodoxHomeRequestKind.staffing;
 
     if (_has(q, const [
       'ac repair', 'repair', 'service provider', 'plumber', 'electrician',
