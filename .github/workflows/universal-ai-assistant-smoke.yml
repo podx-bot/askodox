@@ -7,6 +7,7 @@ on:
       - 'backend/app/services/runtime_readiness_service.py'
       - 'backend/app/core/settings.py'
       - 'backend/app/api/app_factory.py'
+      - 'backend/app/api/routes/in_app_assistant.py'
       - 'backend/app/api/routes/health.py'
       - '.github/workflows/universal-ai-assistant-smoke.yml'
   workflow_dispatch:
@@ -24,9 +25,10 @@ jobs:
           python-version: '3.11'
       - name: Install backend dependencies
         run: pip install -r requirements.txt
-      - name: Verify general AI routing and safe fallback
+      - name: Verify structured AI routing and safe fallback
         run: |
           python - <<'PY'
+          import json
           from types import SimpleNamespace
 
           from app.services.runtime_readiness_service import RuntimeReadinessService
@@ -40,22 +42,28 @@ jobs:
                   return 'DELEGATE:' + message
 
           class Models:
-              def __init__(self, text='AI ANSWER', fail=False):
-                  self.text = text
+              def __init__(self, payload=None, fail=False):
+                  self.payload = payload or {
+                      'reply': 'మీకు 10 మంది catering staff కావాలి.',
+                      'domain': 'STAFFING',
+                      'transactional': True,
+                      'action': 'find_temporary_staff',
+                      'confidence': 0.97,
+                  }
                   self.fail = fail
                   self.calls = []
               def generate_content(self, **kwargs):
                   self.calls.append(kwargs)
                   if self.fail:
                       raise RuntimeError('provider down')
-                  return SimpleNamespace(text=self.text)
+                  return SimpleNamespace(text=json.dumps(self.payload, ensure_ascii=False))
 
           class Client:
               def __init__(self, models):
                   self.models = models
 
           delegate = Delegate()
-          models = Models(text='తెలుగులో సహాయం')
+          models = Models()
           service = UniversalAIAssistantService(
               delegate,
               api_key='test-key',
@@ -63,20 +71,44 @@ jobs:
               client=Client(models),
           )
 
-          general = 'OASAT domain=GENERAL; adapter=general; intent=ASSIST; User request: జీవిత లక్ష్యం ఎలా ప్లాన్ చేయాలి?'
-          answer = service.process('u1', general)
-          assert answer == 'తెలుగులో సహాయం'
+          decision = service.decide(
+              'catering boys kavali repu 11 am ki 10 members',
+              history=[{'role': 'user', 'text': 'repu function undi'}],
+              locale='te',
+          )
+          assert decision['domain'] == 'STAFFING'
+          assert decision['transactional'] is True
+          assert decision['action'] == 'find_temporary_staff'
+          assert decision['confidence'] == 0.97
           assert len(models.calls) == 1
           call = models.calls[0]
           assert call['model'] == 'gemini-text-test'
-          assert 'same language' in call['contents']
-          assert 'Do not pretend you checked live/current web information' in call['contents']
+          assert 'keyword matching' in call['contents']
+          assert 'delivery job kavali' in call['contents']
+          assert 'delivery boys/staff kavali na shop ki' in call['contents']
+          assert call['config'].response_mime_type == 'application/json'
 
-          commerce = 'OASAT domain=COMMERCE; adapter=commerce; User request: Buy chicken nearby'
+          general_models = Models({
+              'reply': 'సరే, మీ రోజు ప్లాన్ చేద్దాం.',
+              'domain': 'GENERAL',
+              'transactional': False,
+              'action': 'plan_day',
+              'confidence': 0.96,
+          })
+          general_service = UniversalAIAssistantService(
+              delegate,
+              api_key='test-key',
+              model='gemini-text-test',
+              client=Client(general_models),
+          )
+          general = 'OASAT domain=GENERAL; User request: ఈ రోజు పనులు ప్లాన్ చేయి'
+          assert general_service.process('u1', general) == 'సరే, మీ రోజు ప్లాన్ చేద్దాం.'
+
+          commerce = 'OASAT domain=COMMERCE; User request: Buy chicken nearby'
           assert service.process('u1', commerce).startswith('DELEGATE:')
-          assert len(models.calls) == 1
 
           fallback = UniversalAIAssistantService(delegate, api_key='', model='gemini-text-test')
+          assert fallback.decide('hello') is None
           assert fallback.process('u2', general).startswith('DELEGATE:')
 
           failing = UniversalAIAssistantService(
@@ -85,6 +117,7 @@ jobs:
               model='gemini-text-test',
               client=Client(Models(fail=True)),
           )
+          assert failing.decide('hello') is None
           assert failing.process('u3', general).startswith('DELEGATE:')
 
           ready_settings = SimpleNamespace(
@@ -99,5 +132,5 @@ jobs:
           assert degraded.universal_ai_ready is False
           assert any('Universal AI assistant' in warning for warning in degraded.warnings)
 
-          print('universal AI assistant smoke passed')
+          print('structured universal AI routing smoke passed')
           PY
