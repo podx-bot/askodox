@@ -18,11 +18,18 @@ void main() {
       );
     });
 
-    test('routes explicit transactional requests to matching', () {
-      expect(AskodoxHomeRequestRouting.isTransactional('చికెన్ కొనాలి'), isTrue);
-      expect(AskodoxHomeRequestRouting.isTransactional('I need AC repair'), isTrue);
-      expect(AskodoxHomeRequestRouting.isTransactional('నాకు ఉద్యోగం కావాలి'), isTrue);
-      expect(AskodoxHomeRequestRouting.isTransactional('Send a parcel'), isTrue);
+    test('classifies explicit transactional requests', () {
+      expect(AskodoxHomeRequestRouting.kindOf('చికెన్ కొనాలి'), AskodoxHomeRequestKind.food);
+      expect(AskodoxHomeRequestRouting.kindOf('I need AC repair'), AskodoxHomeRequestKind.service);
+      expect(AskodoxHomeRequestRouting.kindOf('నాకు ఉద్యోగం కావాలి'), AskodoxHomeRequestKind.job);
+      expect(AskodoxHomeRequestRouting.kindOf('Send a parcel'), AskodoxHomeRequestKind.parcel);
+      expect(AskodoxHomeRequestRouting.kindOf('delivery job kavali'), AskodoxHomeRequestKind.deliveryJob);
+    });
+
+    test('starts fresh when user switches category', () {
+      expect(AskodoxHomeRequestRouting.shouldStartFresh('చికెన్ కొనాలి', 'AC repair కావాలి'), isTrue);
+      expect(AskodoxHomeRequestRouting.shouldStartFresh('job kavali', 'delivery job kavali'), isTrue);
+      expect(AskodoxHomeRequestRouting.shouldStartFresh('parcel పంపాలి', 'parcel today'), isFalse);
     });
   });
 }
