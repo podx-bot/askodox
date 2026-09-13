@@ -11,7 +11,16 @@ void main() {
         intent: DealIntent.buy,
         subject: subject,
         category: category,
+        quantity: 1,
+        unit: 'unit',
+        size: 'standard',
+        fulfilment: 'pickup',
         location: const DealLocation(label: 'Vijayawada'),
+        dynamicFields: const {
+          'freshness': 'fresh',
+          'cut': 'curry cut',
+          'chickenPreference': 'no preference',
+        },
       );
 
   test('sandbox catalog is opt-in and never leaks when disabled', () {
@@ -19,10 +28,23 @@ void main() {
     expect(DemoNaturalMatchCatalog.forDeal(request), isEmpty);
   });
 
+  test('provider cards stay hidden while request still has missing details', () {
+    final request = brain.capture('I want chicken').copyWith(
+      intent: DealIntent.buy,
+      subject: 'chicken',
+      category: 'fresh_food',
+      location: const DealLocation(label: 'Vijayawada'),
+    );
+
+    expect(request.readyToMatch, isFalse);
+    expect(DemoNaturalMatchCatalog.forDeal(request, enabled: true), isEmpty);
+  });
+
   test('investor product flow has multiple realistic seller choices', () {
     final request = deal('Need chicken', subject: 'chicken', category: 'fresh_food');
     final matches = DemoNaturalMatchCatalog.forDeal(request, enabled: true);
 
+    expect(request.readyToMatch, isTrue);
     expect(matches.length, greaterThanOrEqualTo(4));
     expect(matches.every((item) => item.id.startsWith('demo-chicken-')), isTrue);
     expect(matches.every((item) => item.providerId?.startsWith('demo-provider-') ?? false), isTrue);
