@@ -88,6 +88,61 @@ def test_model_supplied_location_is_kept_over_the_known_default():
     assert decision["entities"]["location"] == "Guntur"
 
 
+def test_location_question_is_stripped_even_if_model_still_asks():
+    # Live testing showed the model doesn't always follow the "don't ask for
+    # location" instruction -- the same known-location input sometimes still
+    # produced a location question. The deterministic safety net must remove
+    # any residual location question regardless of what the model returns.
+    service, _ = _service(
+        {
+            "reply": "5 kilos chicken kavali ante, mee location ekkada cheppagalara?",
+            "domain": "FOOD",
+            "transactional": True,
+            "action": "buy",
+            "confidence": 0.9,
+            "entities": {"subject": "chicken", "quantity": 5, "unit": "kg"},
+        }
+    )
+
+    decision = service.decide(
+        "నాకు 5 కిలోల చికెన్ కావాలి",
+        history=[],
+        locale="te",
+        location="Vijayawada",
+    )
+
+    assert decision is not None
+    assert "location" not in decision["reply"].lower()
+    assert "ekkada" not in decision["reply"].lower()
+    assert decision["entities"]["location"] == "Vijayawada"
+
+
+def test_location_question_stripped_but_other_sentence_kept():
+    # Only the offending sentence should be removed -- a genuine follow-up
+    # question about something else (like product variant) must survive.
+    service, _ = _service(
+        {
+            "reply": "Meeku skinless kavala tho patu vastundi. Mee exact location cheppagalara?",
+            "domain": "FOOD",
+            "transactional": True,
+            "action": "buy",
+            "confidence": 0.9,
+            "entities": {"subject": "chicken", "quantity": 5, "unit": "kg"},
+        }
+    )
+
+    decision = service.decide(
+        "నాకు 5 కిలోల చికెన్ కావాలి",
+        history=[],
+        locale="te",
+        location="Vijayawada",
+    )
+
+    assert decision is not None
+    assert "skinless" in decision["reply"].lower()
+    assert "location" not in decision["reply"].lower()
+
+
 def test_no_known_location_leaves_prompt_and_entities_unaffected():
     service, client = _service(
         {
