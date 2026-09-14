@@ -7,11 +7,14 @@ remain the source of truth for payments, bookings, matching and safety checks.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
 from google import genai
 from google.genai import types
+
+logger = logging.getLogger(__name__)
 
 
 class UniversalAIAssistantService:
@@ -213,6 +216,16 @@ class UniversalAIAssistantService:
                 "entities": entities,
             }
         except Exception:
+            # Previously silent -- this made every AI-call failure (bad API
+            # response, quota, malformed JSON, network hiccup) indistinguishable
+            # from "model unavailable" in production, with no way to diagnose
+            # why a given request fell back to the app's generic reply.
+            logger.exception(
+                "universal_ai_assistant.decide failed; falling back to deterministic reply "
+                "(message_len=%d, has_known_location=%s)",
+                len(clean),
+                bool(clean_location),
+            )
             return None
 
     def process(self, sender_mobile: str, message: str) -> str:
