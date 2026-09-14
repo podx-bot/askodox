@@ -12,6 +12,7 @@ import '../../location/application/location_controller.dart';
 import '../../matching/data/demo_natural_match_catalog.dart';
 import '../../matching/data/universal_match_repository.dart';
 import '../domain/home_request_routing.dart';
+import '../domain/semantic_deal_input.dart';
 import 'askodox_orb.dart';
 
 const _ink = Color(0xFF10204A);
@@ -89,7 +90,9 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     final transactional = aiUsable
         ? decision!.transactional
         : AskodoxHomeRequestRouting.isTransactional(text);
-    final routedText = aiUsable ? _dealInputForDecision(text, decision!) : text;
+    final routedText = aiUsable
+        ? AskodoxSemanticDealInput.build(text, decision!)
+        : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
     List<UniversalMatch> matches = const [];
 
@@ -144,19 +147,6 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     });
     await _store.save(_turns);
     _scrollBottom();
-  }
-
-  String _dealInputForDecision(String text, InAppAssistantDecision decision) {
-    return switch (decision.domain) {
-      'STAFFING' => 'need staff $text',
-      'JOB_SEEKER' => 'need a job $text',
-      'SERVICE' => 'need service $text',
-      'PARCEL' => 'send parcel $text',
-      'RIDE' => 'need a ride $text',
-      'PRODUCT' || 'FOOD' => 'i want to buy $text',
-      'APPOINTMENT' => 'book appointment $text',
-      _ => text,
-    };
   }
 
   String _fallbackAssistantReply(String text, bool te) {
