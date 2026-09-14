@@ -110,10 +110,26 @@ Known gaps / blockers to GREEN:
 - Full CI/build/deploy evidence for the current head is not yet fully green.
 - WhatsApp media/location legacy paths still contain historical operational behavior; the new text gate prevents normal text fall-through, but Point 51 cannot be GREEN until support case IDs/admin sync and the remaining media/location behavior are fully audited and separated.
 
+### Real device GPS integration (2026-09-14, code change, not yet CI/device-verified)
+Forensic finding: `lib/features/location/application/location_controller.dart`'s `requestPermission()` never called any real OS/GPS API — it unconditionally set in-memory `permission` state to `granted` with no `geolocator`/`permission_handler` dependency in `pubspec.yaml`. This is why tapping "లొకేషన్ అనుమతి ఇవ్వండి" in the app did nothing observable and every user was forced onto manual location selection with no way to auto-detect a default location. Confirmed live by the product owner via screenshots on 2026-09-14 (asked for "5 kilala chicken" with no default location set → app correctly asked for delivery details; then opened location setup → "Location permission granted" banner appeared with no real detection happening).
+
+Fix applied (uncommitted at time of writing, staged on the owner's machine only):
+- Added `lib/features/location/domain/device_location_gateway.dart` (`DeviceLocationGateway` interface) and `lib/features/location/data/geolocator_location_gateway.dart` (real implementation using the `geolocator` package, added to `pubspec.yaml` as `geolocator: ^14.0.3`).
+- `LocationController` now takes a `DeviceLocationGateway` and its `requestPermission()`/`retryLocation()` call `ensurePermission()` + `getCurrentPosition()` for real, saving a `SavedLocationType.currentLocation` default location only when a real GPS fix is obtained; a missing fix now surfaces an honest "could not be read" message instead of a false "granted" state.
+- Android manifest already declared `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` (no manifest change needed); no iOS project exists in this repo (Android + web only).
+- Added `test/features/location/fakes/fake_device_location_gateway.dart` and 2 new regression tests in `test/features/location/location_controller_test.dart` covering (a) granted permission + real fix → becomes the default location, and (b) granted permission + no fix → honest failure message, no default silently fabricated. Updated the pre-existing `permission denied flow` test and `location_widget_test.dart` construction site to the new two-argument `LocationController` constructor.
+
+NOT yet verified:
+- `flutter pub get` / `flutter analyze` / `flutter test` have not been run against this change — no Flutter SDK is reachable from this forensic/audit environment, and no local shell access exists on the owner's device from here either. Manual brace/paren-balance and import-consistency review only.
+- Real device GPS behavior (actual permission dialog, actual coordinate fix, `deniedForever`/service-disabled device flows) is unverified — needs a real Android build/run.
+- GitHub Actions `Flutter CI` has not yet run against this change.
+- `lib/features/location/application/location_controller.dart`'s `geoRepositoryProvider` still uses `MockGeoRepository` for nearby-shop search — this fix only makes the *default location itself* real; nearby-shop discovery against a real backend is a separate, not-yet-scoped gap.
+
 Next action:
 - Verify Flutter CI and deployment for commit `48889f4e201d7aca0a78edc91da84285272a8eda`.
 - Audit WhatsApp audio/image/document/location paths so none can bypass support-only policy.
 - Verify a real in-app conversation E2E path and the full friend-like decision loop.
+- Commit + push the real-GPS-integration change above on a dedicated branch, verify Flutter CI, then verify on a real Android device before marking any part of this GREEN.
 - Reassess Point 1 only after all evidence is green.
 
 Regression impact:
@@ -164,11 +180,19 @@ Implementation evidence:
 - `app_factory.py` now makes ConversationOS `channel="in_app"` canonical.
 - Support-channel smoke run `34616415480` passed.
 
+Media/location path audit (2026-09-14, forensic pass, code-read not CI-verified):
+- Text: gated. `webhook.py` routes every text message through `easy_job_command_service` (the gate), which always returns a reply, so `job_lifecycle_service`/`insurance_router`/`conversation_service` can never run from WhatsApp text.
+- Audio: already effectively gated. The audio path transcribes the voice note and feeds the transcript through the same `_process_user_text` helper as text, so it hits the same gate.
+- Location: **was bypassing the gate** — a location share drove `WORKER_LOCATION`/`EMPLOYER_LOCATION` session-step business logic directly (`save_location`, `complete_worker_registration`, `save_employer_job_location` + `job_matching_service.match_and_notify`, `job_lifecycle_service.handle_location`), fully independent of the text gate. Fixed in working tree: `webhook.py`'s location loop now calls a new `WhatsAppSupportOnlyGate.process_location()` (deterministic, stateless redirect reply) instead of touching session/user/job state. Unit tests added: `backend/tests/test_whatsapp_support_only_gate.py`. **Not yet committed, not yet CI-verified** — do not mark this bullet GREEN until a real commit/CI/E2E pass confirms it.
+- Image/document: `payload_parser.py` has `extract_image_messages`/`extract_document_messages`, but `webhook.py` never calls them — image/document messages are silently dropped (no reply, but also no business-flow bypass since nothing runs). This is a separate UX gap, not a support-only policy bypass; still open.
+
 Remaining requirements before Point 51 can be GREEN:
 - Real support Case ID repository/creation.
 - Admin/customer-care queue/history and closure status.
 - Sync important WhatsApp support outcomes back into ASKODOX history/audit.
-- Audit/separate audio, image, document, and location paths so no legacy business flow bypasses the support-only policy.
+- Commit + CI-verify the location-gate fix above (implemented but unverified as of 2026-09-14).
+- Decide and implement image/document handling (currently silently dropped) — at minimum give the user a reply pointing to the app, matching the text/location gate behavior.
+- E2E support escalation verification.
 - E2E support escalation verification.
 
 ## Point 52 — Automatic Point-by-Point Execution Protocol
