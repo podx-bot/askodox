@@ -19,6 +19,13 @@ class UniversalAIAssistantService:
         "GENERAL", "JOB_SEEKER", "STAFFING", "SERVICE", "PARCEL", "RIDE",
         "PRODUCT", "FOOD", "EVENT", "APPOINTMENT", "LEDGER", "UNKNOWN",
     }
+    ALLOWED_ENTITY_KEYS = {
+        "subject", "category", "role", "skill", "quantity", "unit", "headcount",
+        "date", "time", "timing", "location", "from", "to", "budget", "price",
+        "salary", "pay", "pay_basis", "duration", "shift", "context", "variant",
+        "quality", "size", "model", "fulfilment", "availability", "specialist",
+        "service_type", "job_type", "seats", "notes",
+    }
 
     def __init__(self, delegate, *, api_key: str, model: str, client: Any | None = None) -> None:
         self.delegate = delegate
@@ -30,12 +37,35 @@ class UniversalAIAssistantService:
     def configured(self) -> bool:
         return bool(self.client or self.api_key)
 
+    @classmethod
+    def _clean_entities(cls, raw: Any) -> dict[str, Any]:
+        """Keep only portable semantic values safe for deterministic app logic."""
+        if not isinstance(raw, dict):
+            return {}
+        result: dict[str, Any] = {}
+        for key, value in raw.items():
+            clean_key = str(key or "").strip().lower()
+            if clean_key not in cls.ALLOWED_ENTITY_KEYS or value is None:
+                continue
+            if isinstance(value, bool):
+                result[clean_key] = value
+            elif isinstance(value, (int, float)):
+                result[clean_key] = value
+            elif isinstance(value, str):
+                clean_value = value.strip()
+                if clean_value:
+                    result[clean_key] = clean_value[:500]
+            elif isinstance(value, list):
+                items = [str(item).strip()[:200] for item in value if str(item).strip()]
+                if items:
+                    result[clean_key] = items[:20]
+        return result
+
     def decide(self, message: str, *, history: list[dict[str, str]] | None = None, locale: str = "") -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
-        This deliberately distinguishes a person seeking a delivery job, an employer
-        seeking delivery workers, and a parcel/courier request. New user wording should
-        be handled by the model rather than by adding phrase-specific app rules.
+        The AI extracts reusable semantic entities so downstream business logic does
+        not need to re-infer the primary intent from keyword-prefixed text.
         """
         clean = str(message or "").strip()
         if not clean or not self.configured:
@@ -51,13 +81,16 @@ class UniversalAIAssistantService:
         prompt = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
-            "reply, domain, transactional, action, confidence. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
+            "reply, domain, transactional, action, confidence, entities. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
             "PARCEL, RIDE, PRODUCT, FOOD, EVENT, APPOINTMENT, LEDGER, UNKNOWN. transactional is boolean. action is a short snake_case string. "
-            "reply must answer naturally in the user's language or language mix. Do not claim a booking, payment, message, search or match happened. "
+            "entities must be a JSON object containing only facts actually supplied or unambiguously inherited from the conversation. "
+            "Useful entity keys include subject, category, role, skill, quantity, unit, headcount, date, time, timing, location, from, to, budget, price, salary, pay, pay_basis, duration, shift, context, variant, quality, size, model, fulfilment, availability, specialist, service_type, job_type, seats, notes. "
+            "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
+            "Do not claim a booking, payment, message, search or match happened. "
             "Important distinction: 'delivery job kavali' is JOB_SEEKER; 'delivery boys/staff kavali na shop ki' is STAFFING; "
             "'parcel/courier pampali' is PARCEL; temporary catering/function workers are STAFFING. General planning/chat is GENERAL. "
             "Conversation continuity rule: if the current message supplies a missing detail, correction, quantity, date, time, location, budget, salary, "
-            "price or other parameter for the immediately preceding transactional request, KEEP the same transactional domain and action family. "
+            "price or other parameter for the immediately preceding transactional request, KEEP the same transactional domain and action family and return the new entity in entities. "
             "Do not downgrade a short follow-up such as 'salary 800 estha', '10 members', 'repu 11 am', 'Vijayawada', or 'one person' to GENERAL when the prior context is staffing or another transaction. "
             "If a new request clearly changes intent, switch domains. Example: staffing follow-up -> parcel request must switch from STAFFING to PARCEL. "
             "Use previous turns as authoritative context for ellipsis and follow-ups.\n"
@@ -72,7 +105,7 @@ class UniversalAIAssistantService:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.15,
-                    max_output_tokens=700,
+                    max_output_tokens=900,
                     response_mime_type="application/json",
                 ),
             )
@@ -88,6 +121,7 @@ class UniversalAIAssistantService:
             confidence = float(data.get("confidence", 0.0) or 0.0)
             confidence = max(0.0, min(1.0, confidence))
             transactional = bool(data.get("transactional", domain not in {"GENERAL", "UNKNOWN"}))
+            entities = self._clean_entities(data.get("entities"))
             if not reply:
                 return None
             return {
@@ -96,6 +130,7 @@ class UniversalAIAssistantService:
                 "transactional": transactional,
                 "action": action,
                 "confidence": confidence,
+                "entities": entities,
             }
         except Exception:
             return None
