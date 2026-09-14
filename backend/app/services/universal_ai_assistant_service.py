@@ -9,9 +9,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Any
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 logger = logging.getLogger(__name__)
@@ -108,6 +110,32 @@ class UniversalAIAssistantService:
         # honest continuation rather than showing the user an empty bubble.
         return cls._LOCATION_FALLBACK_REPLY["te" if locale == "te" else "en"]
 
+    def _generate_with_retry(
+        self, client: Any, prompt: str, config: Any, *, attempts: int = 3, base_delay: float = 0.6
+    ) -> Any:
+        """Call generate_content with a short retry for transient server overload.
+
+        Production logs showed Gemini occasionally answering with a 503
+        ServerError ("This model is currently experiencing high demand ...
+        usually temporary") that clears within a second or two -- the very
+        next identical request often succeeds. The SDK's own internal retry
+        already exhausts before raising, so this adds one more short,
+        ASKODOX-side retry for that specific transient case instead of
+        immediately giving up and showing the user a generic fallback reply.
+        Any other exception type is not retried here; it propagates to the
+        caller's exception handler as before.
+        """
+        last_error: Exception | None = None
+        for attempt in range(attempts):
+            try:
+                return client.models.generate_content(model=self.model, contents=prompt, config=config)
+            except genai_errors.ServerError as exc:
+                last_error = exc
+                if attempt < attempts - 1:
+                    time.sleep(base_delay * (attempt + 1))
+                    continue
+        raise last_error
+
     def decide(
         self,
         message: str,
@@ -173,15 +201,12 @@ class UniversalAIAssistantService:
         )
         try:
             client = self.client or genai.Client(api_key=self.api_key)
-            response = client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.15,
-                    max_output_tokens=900,
-                    response_mime_type="application/json",
-                ),
+            config = types.GenerateContentConfig(
+                temperature=0.15,
+                max_output_tokens=900,
+                response_mime_type="application/json",
             )
+            response = self._generate_with_retry(client, prompt, config)
             raw = str(getattr(response, "text", "") or "").strip()
             data = json.loads(raw)
             if not isinstance(data, dict):

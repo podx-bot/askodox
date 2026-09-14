@@ -1,5 +1,7 @@
 import json
 
+from google.genai import errors as genai_errors
+
 from app.services.universal_ai_assistant_service import UniversalAIAssistantService
 
 
@@ -18,6 +20,28 @@ class _FakeModels:
         return _FakeResponse(json.dumps(self._reply_json))
 
 
+class _FlakyThenSuccessModels:
+    """Raises a Gemini 503 ServerError a fixed number of times, then succeeds.
+
+    Mirrors what production logs actually showed: 'This model is currently
+    experiencing high demand ... usually temporary' followed shortly after
+    by a normal successful response for the same kind of request.
+    """
+
+    def __init__(self, reply_json: dict, *, fail_times: int) -> None:
+        self._reply_json = reply_json
+        self._fail_times = fail_times
+        self.call_count = 0
+
+    def generate_content(self, *, model, contents, config):
+        self.call_count += 1
+        if self.call_count <= self._fail_times:
+            raise genai_errors.ServerError(
+                503, {"error": {"code": 503, "status": "UNAVAILABLE"}}
+            )
+        return _FakeResponse(json.dumps(self._reply_json))
+
+
 class _FakeGenaiClient:
     def __init__(self, reply_json: dict) -> None:
         self.models = _FakeModels(reply_json)
@@ -32,6 +56,58 @@ def _service(reply_json: dict) -> tuple[UniversalAIAssistantService, _FakeGenaiC
         client=client,
     )
     return service, client
+
+
+def _flaky_service(reply_json: dict, *, fail_times: int):
+    client = type("Client", (), {})()
+    client.models = _FlakyThenSuccessModels(reply_json, fail_times=fail_times)
+    service = UniversalAIAssistantService(
+        delegate=None,
+        api_key="test-key",
+        model="gemini-test",
+        client=client,
+    )
+    return service, client
+
+
+def test_transient_503_is_retried_and_succeeds(monkeypatch):
+    # Production logs showed Gemini returning a 503 "high demand" ServerError
+    # that cleared a moment later. The service must retry instead of
+    # immediately falling back to the generic reply on the first 503.
+    monkeypatch.setattr(
+        "app.services.universal_ai_assistant_service.time.sleep", lambda _seconds: None
+    )
+    service, client = _flaky_service(
+        {
+            "reply": "Sure, checking chicken sellers nearby.",
+            "domain": "FOOD",
+            "transactional": True,
+            "action": "buy",
+            "confidence": 0.9,
+            "entities": {"subject": "chicken", "quantity": 5, "unit": "kg"},
+        },
+        fail_times=2,
+    )
+
+    decision = service.decide("నాకు 5 కిలోల చికెన్ కావాలి", history=[], locale="te", location="")
+
+    assert decision is not None
+    assert decision["reply"] == "Sure, checking chicken sellers nearby."
+    assert client.models.call_count == 3
+
+
+def test_persistent_503_exhausts_retries_and_falls_back(monkeypatch):
+    # If Gemini stays unavailable for all retry attempts, decide() must still
+    # degrade to None (the app's safe fallback path) rather than raising.
+    monkeypatch.setattr(
+        "app.services.universal_ai_assistant_service.time.sleep", lambda _seconds: None
+    )
+    service, client = _flaky_service({"reply": "unused"}, fail_times=99)
+
+    decision = service.decide("నాకు 5 కిలోల చికెన్ కావాలి", history=[], locale="te", location="")
+
+    assert decision is None
+    assert client.models.call_count == 3
 
 
 def test_known_location_is_not_asked_for_again_and_is_filled_into_entities():
