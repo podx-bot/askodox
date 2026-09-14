@@ -20,6 +20,7 @@ class InAppAssistantDecision {
     required this.action,
     required this.confidence,
     required this.source,
+    this.entities = const <String, Object?>{},
   });
 
   final String reply;
@@ -29,9 +30,25 @@ class InAppAssistantDecision {
   final double confidence;
   final String source;
 
+  /// Semantic facts extracted by the Universal AI layer. These are deliberately
+  /// separate from the natural reply so deterministic business modules can use
+  /// meaning directly instead of re-parsing keyword-prefixed text.
+  final Map<String, Object?> entities;
+
   bool get usable => source == 'universal_ai' && reply.trim().isNotEmpty;
 
   factory InAppAssistantDecision.fromJson(Map<String, dynamic> json) {
+    final rawEntities = json['entities'];
+    final entities = <String, Object?>{};
+    if (rawEntities is Map) {
+      for (final entry in rawEntities.entries) {
+        final key = entry.key.toString().trim().toLowerCase();
+        if (key.isNotEmpty && entry.value != null) {
+          entities[key] = entry.value;
+        }
+      }
+    }
+
     return InAppAssistantDecision(
       reply: (json['reply'] ?? '').toString(),
       domain: (json['domain'] ?? 'UNKNOWN').toString().toUpperCase(),
@@ -39,7 +56,21 @@ class InAppAssistantDecision {
       action: (json['action'] ?? '').toString(),
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       source: (json['source'] ?? 'fallback').toString(),
+      entities: Map.unmodifiable(entities),
     );
+  }
+
+  String? entityText(String key) {
+    final value = entities[key.trim().toLowerCase()];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  num? entityNumber(String key) {
+    final value = entities[key.trim().toLowerCase()];
+    if (value is num) return value;
+    return num.tryParse(value?.toString() ?? '');
   }
 }
 
