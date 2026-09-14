@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../services/sponsored_ads_service.dart';
 import '../application/location_controller.dart';
 import '../domain/geo_models.dart';
 
@@ -36,6 +37,7 @@ class NearbyShopsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          const _SponsoredAdStrip(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -280,6 +282,102 @@ class _ShopCard extends ConsumerWidget {
               ),
             ]),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SponsoredAdStrip extends StatefulWidget {
+  const _SponsoredAdStrip();
+
+  @override
+  State<_SponsoredAdStrip> createState() => _SponsoredAdStripState();
+}
+
+class _SponsoredAdStripState extends State<_SponsoredAdStrip> {
+  late final Future<List<SponsoredAdItem>> _future = const SponsoredAdsService().fetch(placement: 'explore_top');
+
+  @override
+  Widget build(BuildContext context) {
+    final te = Localizations.localeOf(context).languageCode == 'te';
+    return FutureBuilder<List<SponsoredAdItem>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <SponsoredAdItem>[];
+        if (items.isEmpty) return const SizedBox.shrink();
+        return SizedBox(
+          height: 132,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, index) => _SponsoredAdCard(item: items[index], te: te),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SponsoredAdCard extends StatelessWidget {
+  const _SponsoredAdCard({required this.item, required this.te});
+  final SponsoredAdItem item;
+  final bool te;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = item.route;
+    return SizedBox(
+      width: 200,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: route == null ? null : () => context.push(route),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    item.imageUrl.isEmpty
+                        ? Container(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: const Icon(Icons.storefront, size: 32),
+                          )
+                        : Image.network(
+                            item.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.storefront, size: 32),
+                          ),
+                    Positioned(
+                      left: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        color: Colors.black54,
+                        child: Text(
+                          te ? 'ప్రకటన' : 'AD',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                child: Text(
+                  item.subtitle.isEmpty ? item.title : '${item.title}\n${item.subtitle}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -12,6 +12,7 @@ import re
 import time
 from typing import Any
 
+import httpx
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
@@ -45,11 +46,24 @@ class UniversalAIAssistantService:
         "en": "Got it — continuing with your saved location.",
     }
 
-    def __init__(self, delegate, *, api_key: str, model: str, client: Any | None = None) -> None:
+    def __init__(
+        self,
+        delegate,
+        *,
+        api_key: str,
+        model: str,
+        client: Any | None = None,
+        openai_api_key: str = "",
+        openai_model: str = "gpt-5",
+        http_client: Any | None = None,
+    ) -> None:
         self.delegate = delegate
         self.api_key = str(api_key or "").strip()
         self.model = str(model or "gemini-3.6-flash").strip()
         self.client = client or (genai.Client(api_key=self.api_key) if self.api_key else None)
+        self.openai_api_key = str(openai_api_key or "").strip()
+        self.openai_model = str(openai_model or "gpt-5").strip()
+        self.http = http_client or httpx.Client(timeout=20.0)
 
     @property
     def configured(self) -> bool:
@@ -136,6 +150,52 @@ class UniversalAIAssistantService:
                     continue
         raise last_error
 
+    def _call_openai(self, prompt: str) -> dict[str, Any]:
+        response = self.http.post(
+            "https://api.openai.com/v1/responses",
+            headers={
+                "Authorization": f"Bearer {self.openai_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": self.openai_model,
+                "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            },
+        )
+        response.raise_for_status()
+        return self._parse_json(self._openai_output_text(response.json()))
+
+    @staticmethod
+    def _openai_output_text(data: dict[str, Any]) -> str:
+        direct = data.get("output_text")
+        if isinstance(direct, str) and direct.strip():
+            return direct.strip()
+        chunks: list[str] = []
+        for item in data.get("output") or []:
+            if not isinstance(item, dict):
+                continue
+            for content in item.get("content") or []:
+                if isinstance(content, dict) and content.get("type") == "output_text" and content.get("text"):
+                    chunks.append(str(content["text"]))
+        return "\n".join(chunks).strip()
+
+    @staticmethod
+    def _parse_json(raw: str) -> dict[str, Any]:
+        text = str(raw or "").strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
+            text = re.sub(r"\s*```$", "", text)
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            start, end = text.find("{"), text.rfind("}")
+            if start < 0 or end <= start:
+                raise ValueError("no json object found in model reply")
+            data = json.loads(text[start : end + 1])
+        if not isinstance(data, dict):
+            raise ValueError("model reply JSON was not an object")
+        return data
+
     def decide(
         self,
         message: str,
@@ -154,7 +214,7 @@ class UniversalAIAssistantService:
         satisfied and must not ask the user for it again.
         """
         clean = str(message or "").strip()
-        if not clean or not self.configured:
+        if not clean or not (self.configured or self.openai_api_key):
             return None
         clean_location = str(location or "").strip()[:300]
 
@@ -199,16 +259,37 @@ class UniversalAIAssistantService:
             )
             + f"Current user message: {clean}"
         )
+        data: dict[str, Any] | None = None
+        if self.configured:
+            try:
+                client = self.client or genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    temperature=0.15,
+                    max_output_tokens=900,
+                    response_mime_type="application/json",
+                )
+                response = self._generate_with_retry(client, prompt, config)
+                data = self._parse_json(str(getattr(response, "text", "") or "").strip())
+            except Exception:
+                logger.exception(
+                    "universal_ai_assistant.decide: gemini call failed%s (message_len=%d, has_known_location=%s)",
+                    "; trying openai fallback" if self.openai_api_key else "; no openai fallback configured",
+                    len(clean),
+                    bool(clean_location),
+                )
+        if data is None and self.openai_api_key:
+            try:
+                data = self._call_openai(prompt)
+            except Exception:
+                logger.exception(
+                    "universal_ai_assistant.decide: openai fallback also failed "
+                    "(message_len=%d, has_known_location=%s)",
+                    len(clean),
+                    bool(clean_location),
+                )
+        if not isinstance(data, dict):
+            return None
         try:
-            client = self.client or genai.Client(api_key=self.api_key)
-            config = types.GenerateContentConfig(
-                temperature=0.15,
-                max_output_tokens=900,
-                response_mime_type="application/json",
-            )
-            response = self._generate_with_retry(client, prompt, config)
-            raw = str(getattr(response, "text", "") or "").strip()
-            data = json.loads(raw)
             if not isinstance(data, dict):
                 return None
             domain = str(data.get("domain", "UNKNOWN") or "UNKNOWN").upper().strip()
