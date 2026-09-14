@@ -6,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 
 void main() {
-  test('parses structured universal AI decision and sends history', () async {
+  test('parses structured universal AI decision, entities and sends history', () async {
     late Map<String, dynamic> body;
     final client = MockClient((request) async {
       body = jsonDecode(request.body) as Map<String, dynamic>;
@@ -19,6 +19,13 @@ void main() {
           'action': 'find_staff',
           'confidence': 0.96,
           'source': 'universal_ai',
+          'entities': {
+            'role': 'delivery boy',
+            'headcount': 10,
+            'timing': 'tomorrow 11 AM',
+            'salary': 800,
+            'location': 'Vijayawada',
+          },
         }),
         200,
         headers: {'content-type': 'application/json'},
@@ -39,8 +46,27 @@ void main() {
     expect(decision!.domain, 'STAFFING');
     expect(decision.transactional, isTrue);
     expect(decision.usable, isTrue);
+    expect(decision.entityText('role'), 'delivery boy');
+    expect(decision.entityNumber('headcount'), 10);
+    expect(decision.entityNumber('salary'), 800);
+    expect(decision.entityText('location'), 'Vijayawada');
     expect(body['message'], 'naku delivery boys kavali na shop ki');
     expect((body['history'] as List).length, 2);
+  });
+
+  test('missing or malformed entities safely become an empty map', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'సరే',
+      'domain': 'GENERAL',
+      'transactional': false,
+      'action': 'chat',
+      'confidence': 0.8,
+      'source': 'universal_ai',
+      'entities': 'not-a-map',
+    });
+
+    expect(decision.entities, isEmpty);
+    expect(decision.entityText('role'), isNull);
   });
 
   test('returns null on backend failure instead of inventing an action', () async {
