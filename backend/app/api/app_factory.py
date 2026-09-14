@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.appointment_location_middleware import AppointmentLocationMiddleware
 from app.api.request_observability_middleware import RequestObservabilityMiddleware
 from app.api.routes.debug import router as debug_router
+from app.api.routes.discover import router as discover_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
@@ -180,6 +181,8 @@ def create_app() -> FastAPI:
         delegate=research_aware,
         api_key=container.settings.gemini_api_key,
         model=container.settings.gemini_text_model,
+        openai_api_key=container.settings.openai_api_key,
+        openai_model=container.settings.openai_text_model,
     )
     container.universal_ai_assistant_service = universal_ai
 
@@ -226,6 +229,7 @@ def create_app() -> FastAPI:
     app.include_router(vision_router)
     app.include_router(documents_router)
     app.include_router(scheduled_tasks_router)
+    app.include_router(discover_router)
 
     @app.on_event("shutdown")
     def shutdown_event() -> None:
