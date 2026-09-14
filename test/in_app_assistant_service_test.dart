@@ -54,6 +54,65 @@ void main() {
     expect((body['history'] as List).length, 2);
   });
 
+  test('sends the known/default location so the backend does not re-ask for it', () async {
+    late Map<String, dynamic> body;
+    final client = MockClient((request) async {
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode({
+          'reply': 'i want to buy 5 kg chicken in Vijayawada',
+          'domain': 'FOOD',
+          'transactional': true,
+          'action': 'buy',
+          'confidence': 0.95,
+          'source': 'universal_ai',
+          'entities': {'subject': 'chicken', 'quantity': 5, 'unit': 'kg', 'location': 'Vijayawada'},
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = InAppAssistantService(client: client);
+    await service.decide(
+      message: 'నాకు 5 కిలోల చికెన్ కావాలి',
+      locale: 'te',
+      history: const [],
+      location: 'Vijayawada',
+    );
+
+    expect(body['location'], 'Vijayawada');
+  });
+
+  test('omits location from the request when none is known yet', () async {
+    late Map<String, dynamic> body;
+    final client = MockClient((request) async {
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode({
+          'reply': 'Where should ASKODOX find the match?',
+          'domain': 'FOOD',
+          'transactional': true,
+          'action': 'buy',
+          'confidence': 0.9,
+          'source': 'universal_ai',
+          'entities': {'subject': 'chicken'},
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = InAppAssistantService(client: client);
+    await service.decide(
+      message: 'నాకు చికెన్ కావాలి',
+      locale: 'te',
+      history: const [],
+    );
+
+    expect(body.containsKey('location'), isFalse);
+  });
+
   test('missing or malformed entities safely become an empty map', () {
     final decision = InAppAssistantDecision.fromJson({
       'reply': 'సరే',
