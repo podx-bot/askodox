@@ -267,84 +267,14 @@ async def receive_webhook(request: Request) -> dict:
                 message_text=f"LOCATION:{incoming.latitude:.7f},{incoming.longitude:.7f}",
             )
 
-            session = container.session_registry.get(incoming.sender_mobile)
-            if session.step == ConversationStep.WORKER_LOCATION:
-                worker_category = session.data.get("category")
-                worker_experience = session.data.get("experience")
-                worker_availability = session.data.get("availability")
-                container.user_repository.save_location(
-                    whatsapp_mobile=incoming.sender_mobile,
-                    latitude=incoming.latitude,
-                    longitude=incoming.longitude,
-                    location_name=incoming.name,
-                    location_address=incoming.address,
-                )
-                container.user_repository.complete_worker_registration(incoming.sender_mobile)
-                session.step = ConversationStep.MAIN_MENU
-                session.data.clear()
-                container.session_registry.save(incoming.sender_mobile)
-                reply_text = (
-                    "🎉 Worker Registration పూర్తైంది!\n\n"
-                    f"పని: {worker_category}\nExperience: {worker_experience}\n"
-                    f"Availability: {worker_availability}\n📍 Location కూడా save అయింది.\n\n"
-                    "ఇప్పటి నుండి మీకు దగ్గరలో వచ్చే Jobs WhatsAppలో పంపబడతాయి."
-                )
-            elif session.step == ConversationStep.EMPLOYER_LOCATION:
-                job = container.user_repository.save_employer_job_location(
-                    whatsapp_mobile=incoming.sender_mobile,
-                    latitude=incoming.latitude,
-                    longitude=incoming.longitude,
-                    location_name=incoming.name,
-                    location_address=incoming.address,
-                )
-                session.step = ConversationStep.MAIN_MENU
-                session.data.clear()
-                container.session_registry.save(incoming.sender_mobile)
-                if job is None:
-                    visible_log(f"JOB MATCHING SKIPPED: sender={incoming.sender_mobile} reason=no_draft_job")
-                    reply_text = "⚠️ Job details దొరకలేదు. Hi పంపి Employer workflowను మళ్లీ ప్రారంభించండి."
-                else:
-                    match_result = container.job_matching_service.match_and_notify(job)
-                    visible_log(
-                        "JOB MATCHING RESULT: "
-                        f"job_id={job['id']} service={job['service']} "
-                        f"candidates={match_result['candidate_count']} matched={match_result['matched_count']} "
-                        f"notified={match_result['notified_count']} skipped_self={match_result['skipped_self_count']}"
-                    )
-                    reply_text = (
-                        "✅ మీ Job Location save అయింది.\n\n"
-                        f"Job ID: #{job['id']}\nపని: {job['service']}\n"
-                        f"Requirement: {job['requirement']}\nWorkers required: {job.get('required_workers') or 1}\n"
-                        f"📍 Nearby matches: {match_result['matched_count']}\n"
-                        f"🔔 Notifications sent: {match_result['notified_count']}\n\n"
-                        f"Live status చూడడానికి: STATUS {job['id']}"
-                    )
-            else:
-                container.user_repository.save_location(
-                    whatsapp_mobile=incoming.sender_mobile,
-                    latitude=incoming.latitude,
-                    longitude=incoming.longitude,
-                    location_name=incoming.name,
-                    location_address=incoming.address,
-                )
-                tracking_reply = container.job_lifecycle_service.handle_location(
-                    worker_mobile=incoming.sender_mobile,
-                    latitude=incoming.latitude,
-                    longitude=incoming.longitude,
-                )
-                if tracking_reply is not None:
-                    visible_log(
-                        f"JOB TRACKING LOCATION: worker={incoming.sender_mobile} "
-                        f"latitude={incoming.latitude} longitude={incoming.longitude}"
-                    )
-                    reply_text = tracking_reply
-                else:
-                    reply_text = (
-                        "✅ మీ location విజయవంతంగా save అయింది.\n"
-                        f"📍 Latitude: {incoming.latitude:.6f}\n"
-                        f"📍 Longitude: {incoming.longitude:.6f}\n\n"
-                        "Nearby jobs మరియు workers matching కోసం ఈ location ఉపయోగిస్తాం."
-                    )
+            # Point 51 (WhatsApp support-only): a shared location must never
+            # drive worker/employer registration completion, job-location
+            # tracking, or job matching on WhatsApp. Those are primary
+            # business flows and belong in the ASKODOX app. Deterministically
+            # redirect instead of touching session/user/job state.
+            reply_text = container.easy_job_command_service.process_location(
+                incoming.sender_mobile,
+            )
 
             send_result = container.whatsapp_service.send_text_message(
                 recipient_mobile=incoming.sender_mobile,

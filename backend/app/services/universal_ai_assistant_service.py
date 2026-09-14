@@ -61,15 +61,27 @@ class UniversalAIAssistantService:
                     result[clean_key] = items[:20]
         return result
 
-    def decide(self, message: str, *, history: list[dict[str, str]] | None = None, locale: str = "") -> dict[str, Any] | None:
+    def decide(
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        locale: str = "",
+        location: str = "",
+    ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
         The AI extracts reusable semantic entities so downstream business logic does
         not need to re-infer the primary intent from keyword-prefixed text.
+
+        ``location`` is the user's saved/default location, when the app already
+        knows one. When supplied, the model must treat location as already
+        satisfied and must not ask the user for it again.
         """
         clean = str(message or "").strip()
         if not clean or not self.configured:
             return None
+        clean_location = str(location or "").strip()[:300]
 
         compact_history = []
         for turn in (history or [])[-12:]:
@@ -93,8 +105,14 @@ class UniversalAIAssistantService:
             "price or other parameter for the immediately preceding transactional request, KEEP the same transactional domain and action family and return the new entity in entities. "
             "Do not downgrade a short follow-up such as 'salary 800 estha', '10 members', 'repu 11 am', 'Vijayawada', or 'one person' to GENERAL when the prior context is staffing or another transaction. "
             "If a new request clearly changes intent, switch domains. Example: staffing follow-up -> parcel request must switch from STAFFING to PARCEL. "
-            "Use previous turns as authoritative context for ellipsis and follow-ups.\n"
+            "Use previous turns as authoritative context for ellipsis and follow-ups. "
+            "Known user location rule: if a known location is given below, treat the location "
+            "requirement as already satisfied for this request. Do NOT ask the user for their "
+            "location again, and do not include a location question in reply. Only ask about "
+            "location if the user is explicitly asking to use a different/new location than the "
+            "known one. You may still copy the known location into entities.location when relevant.\n"
             f"Locale hint: {locale or 'auto'}\n"
+            f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
             f"Current user message: {clean}"
         )
@@ -122,6 +140,10 @@ class UniversalAIAssistantService:
             confidence = max(0.0, min(1.0, confidence))
             transactional = bool(data.get("transactional", domain not in {"GENERAL", "UNKNOWN"}))
             entities = self._clean_entities(data.get("entities"))
+            # Defensive fallback: guarantee the known location survives even if the
+            # model's JSON omits it, so downstream capture never re-asks for it.
+            if clean_location and not entities.get("location"):
+                entities["location"] = clean_location
             if not reply:
                 return None
             return {

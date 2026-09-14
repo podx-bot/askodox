@@ -17,6 +17,9 @@ class AssistantRequest(BaseModel):
     message: str = Field(min_length=1, max_length=6000)
     locale: str = ""
     history: list[AssistantTurn] = Field(default_factory=list)
+    # Saved/default location the app already knows for this user, if any.
+    # When present, the assistant must not ask the user for location again.
+    location: str = Field(default="", max_length=300)
 
 
 class AssistantDecision(BaseModel):
@@ -33,7 +36,12 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     container: Any = request.app.state.container
     service = container.universal_ai_assistant_service
     history = [{"role": turn.role, "text": turn.text} for turn in payload.history[-12:]]
-    decision = service.decide(payload.message, history=history, locale=payload.locale)
+    decision = service.decide(
+        payload.message,
+        history=history,
+        locale=payload.locale,
+        location=payload.location,
+    )
 
     if decision is None:
         # Safe degradation: do not invent an AI action when the model is unavailable.

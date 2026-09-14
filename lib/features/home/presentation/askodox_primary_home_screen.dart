@@ -81,10 +81,21 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
             ))
         .toList(growable: false);
 
+    // Resolve the saved/default location before asking the AI so it can be
+    // told a location is already known and should not be asked for again.
+    final locationState = ref.read(locationControllerProvider);
+    final selectedLocation = locationState.defaultLocation;
+    final knownLocationLabel = selectedLocation == null
+        ? null
+        : (selectedLocation.address.trim().isNotEmpty
+            ? selectedLocation.address.trim()
+            : selectedLocation.name.trim());
+
     final decision = await _assistant.decide(
       message: text,
       locale: _te ? 'te' : 'en',
       history: history,
+      location: knownLocationLabel,
     );
     final aiUsable = decision?.usable == true;
     final transactional = aiUsable
@@ -112,14 +123,9 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
         notifier.answer(routedText);
       }
 
-      final locationState = ref.read(locationControllerProvider);
-      final selectedLocation = locationState.defaultLocation;
       if (selectedLocation != null) {
-        final label = selectedLocation.address.trim().isNotEmpty
-            ? selectedLocation.address.trim()
-            : selectedLocation.name.trim();
         notifier.applySelectedLocation(
-          label: label,
+          label: knownLocationLabel ?? '',
           latitude: selectedLocation.point.latitude,
           longitude: selectedLocation.point.longitude,
           radiusKm: locationState.radiusMetres / 1000,

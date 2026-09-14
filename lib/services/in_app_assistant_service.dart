@@ -90,9 +90,11 @@ class InAppAssistantService {
     required String message,
     required String locale,
     required List<InAppAssistantTurn> history,
+    String? location,
   }) async {
     final clean = message.trim();
     if (clean.isEmpty) return null;
+    final cleanLocation = location?.trim();
 
     final ownClient = _client == null;
     final client = _client ?? http.Client();
@@ -108,6 +110,7 @@ class InAppAssistantService {
               'message': clean,
               'locale': locale,
               'history': history.takeLast(12).map((turn) => turn.toJson()).toList(),
+              if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
             }),
           )
           .timeout(const Duration(seconds: 15));
