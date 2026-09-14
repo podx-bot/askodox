@@ -243,3 +243,164 @@ def test_no_known_location_leaves_prompt_and_entities_unaffected():
 
     prompt_sent = client.models.calls[0]
     assert "Known user location: none" in prompt_sent
+
+
+class _AlwaysFailingModels:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def generate_content(self, *, model, contents, config):
+        self.call_count += 1
+        raise genai_errors.ServerError(503, {"error": {"code": 503, "status": "UNAVAILABLE"}})
+
+
+class _FakeModelsCapturingConfig:
+    def __init__(self, reply_json: dict) -> None:
+        self._reply_json = reply_json
+        self.configs: list = []
+
+    def generate_content(self, *, model, contents, config):
+        self.configs.append(config)
+        return _FakeResponse(json.dumps(self._reply_json))
+
+
+class _FakeOpenAIHttpResponse:
+    def __init__(self, output_text: str, *, status_code: int = 200) -> None:
+        self._output_text = output_text
+        self.status_code = status_code
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"openai http error {self.status_code}")
+
+    def json(self) -> dict:
+        return {"output_text": self._output_text}
+
+
+class _FakeOpenAIHttpClient:
+    def __init__(self, output_text: str, *, status_code: int = 200) -> None:
+        self._output_text = output_text
+        self._status_code = status_code
+        self.calls: list[dict] = []
+
+    def post(self, url, *, headers, json):
+        self.calls.append({"url": url, "headers": headers, "json": json})
+        return _FakeOpenAIHttpResponse(self._output_text, status_code=self._status_code)
+
+
+def test_openai_is_used_when_gemini_not_configured():
+    http = _FakeOpenAIHttpClient(json.dumps({
+        "reply": "Sure, checking chicken sellers nearby.",
+        "domain": "FOOD",
+        "transactional": True,
+        "action": "buy",
+        "confidence": 0.9,
+        "entities": {"subject": "chicken", "quantity": 5, "unit": "kg"},
+    }))
+    service = UniversalAIAssistantService(
+        delegate=None,
+        api_key="",
+        model="gemini-test",
+        client=None,
+        openai_api_key="test-openai-key",
+        openai_model="gpt-5",
+        http_client=http,
+    )
+
+    decision = service.decide("నాకు 5 కిలోల చికెన్ కావాలి", history=[], locale="te", location="")
+
+    assert decision is not None
+    assert decision["reply"] == "Sure, checking chicken sellers nearby."
+    assert len(http.calls) == 1
+    assert http.calls[0]["headers"]["Authorization"] == "Bearer test-openai-key"
+
+
+def test_openai_fallback_used_when_gemini_exhausts_retries(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.universal_ai_assistant_service.time.sleep", lambda _seconds: None
+    )
+    client = type("Client", (), {})()
+    client.models = _AlwaysFailingModels()
+    http = _FakeOpenAIHttpClient(json.dumps({
+        "reply": "Sure, checking chicken sellers nearby.",
+        "domain": "FOOD",
+        "transactional": True,
+        "action": "buy",
+        "confidence": 0.9,
+        "entities": {"subject": "chicken", "quantity": 5, "unit": "kg"},
+    }))
+    service = UniversalAIAssistantService(
+        delegate=None,
+        api_key="test-key",
+        model="gemini-test",
+        client=client,
+        openai_api_key="test-openai-key",
+        http_client=http,
+    )
+
+    decision = service.decide("నాకు 5 కిలోల చికెన్ కావాలి", history=[], locale="te", location="")
+
+    assert decision is not None
+    assert client.models.call_count == 3
+    assert len(http.calls) == 1
+
+
+def test_gemini_config_disables_thinking_with_a_generous_output_budget():
+    client = type("Client", (), {})()
+    client.models = _FakeModelsCapturingConfig({
+        "reply": "Sure, planning that for you.",
+        "domain": "FOOD",
+        "transactional": True,
+        "action": "buy",
+        "confidence": 0.9,
+        "entities": {"subject": "chicken biryani", "headcount": 10},
+    })
+    service = UniversalAIAssistantService(
+        delegate=None, api_key="test-key", model="gemini-test", client=client,
+    )
+
+    decision = service.decide(
+        "repu maa intiki 10 member lunch ki vasthu naru valaki chicken birayni chayali",
+        history=[],
+        locale="te",
+        location="",
+    )
+
+    assert decision is not None
+    config = client.models.configs[0]
+    assert config.thinking_config.thinking_budget == 0
+    assert config.max_output_tokens >= 2048
+
+
+def test_truncated_gemini_json_falls_back_to_openai():
+    client = type("Client", (), {})()
+    client.models = type("Models", (), {
+        "generate_content": lambda self, **kwargs: _FakeResponse('{"reply": "'),
+    })()
+    http = _FakeOpenAIHttpClient(json.dumps({
+        "reply": "Sure, planning that for you.",
+        "domain": "GENERAL",
+        "transactional": False,
+        "action": "chat",
+        "confidence": 0.9,
+        "entities": {},
+    }))
+    service = UniversalAIAssistantService(
+        delegate=None,
+        api_key="test-key",
+        model="gemini-test",
+        client=client,
+        openai_api_key="test-openai-key",
+        http_client=http,
+    )
+
+    decision = service.decide(
+        "repu maa intiki 10 member lunch ki vasthu naru valaki chicken birayni chayali",
+        history=[],
+        locale="te",
+        location="",
+    )
+
+    assert decision is not None
+    assert decision["reply"] == "Sure, planning that for you."
+    assert len(http.calls) == 1

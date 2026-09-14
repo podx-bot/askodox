@@ -265,8 +265,11 @@ class UniversalAIAssistantService:
                 client = self.client or genai.Client(api_key=self.api_key)
                 config = types.GenerateContentConfig(
                     temperature=0.15,
-                    max_output_tokens=900,
+                    max_output_tokens=2048,
                     response_mime_type="application/json",
+                    # Structured extraction does not need deep reasoning. Keep
+                    # thinking from consuming the visible JSON response budget.
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 )
                 response = self._generate_with_retry(client, prompt, config)
                 data = self._parse_json(str(getattr(response, "text", "") or "").strip())
