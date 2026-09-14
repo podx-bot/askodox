@@ -22,6 +22,9 @@ dependencies:
   file_picker: ^12.2.0
   pdf: ^3.11.3
   qr_flutter: ^4.1.0
+  # Real device GPS location (permission request + current position).
+  # Backs lib/features/location/data/geolocator_location_gateway.dart.
+  geolocator: ^14.0.3
   # flutter_localizations pins the compatible intl release for the active
   # Flutter SDK. Keeping this unconstrained avoids dependency-solver failures
   # when the SDK updates that pin.

@@ -3,13 +3,21 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/geolocator_location_gateway.dart';
 import '../data/mock_geo_repository.dart';
+import '../domain/device_location_gateway.dart';
 import '../domain/geo_models.dart';
 import '../domain/geo_repository.dart';
 
 final geoRepositoryProvider = Provider<GeoRepository>((ref) => MockGeoRepository());
+final deviceLocationGatewayProvider = Provider<DeviceLocationGateway>(
+  (ref) => const GeolocatorLocationGateway(),
+);
 final locationControllerProvider = StateNotifierProvider<LocationController, LocationState>(
-  (ref) => LocationController(ref.read(geoRepositoryProvider))..restoreAndRefresh(),
+  (ref) => LocationController(
+    ref.read(geoRepositoryProvider),
+    ref.read(deviceLocationGatewayProvider),
+  )..restoreAndRefresh(),
 );
 
 class LocationState {
@@ -77,26 +85,53 @@ class LocationState {
 }
 
 class LocationController extends StateNotifier<LocationState> {
-  LocationController(this._repository) : super(const LocationState());
+  LocationController(this._repository, this._deviceLocation) : super(const LocationState());
 
   static const _storageKey = 'askodox.selected_location.v1';
   final GeoRepository _repository;
+  final DeviceLocationGateway _deviceLocation;
 
   Future<void> restoreAndRefresh() async {
     await _restore();
     await refresh();
   }
 
-  void requestPermission({LocationPermissionStatus result = LocationPermissionStatus.granted}) {
+  /// Requests real device location permission and, once granted, reads the
+  /// device's current GPS position and saves it as the default location.
+  ///
+  /// Point 51/location-gap fix: this used to just mark `permission` as
+  /// granted without ever touching real GPS or the OS permission dialog,
+  /// so tapping the button never actually gave the user a default location.
+  Future<void> requestPermission() async {
+    final status = await _deviceLocation.ensurePermission();
     state = state.copyWith(
-      permission: result,
-      message: result == LocationPermissionStatus.granted
-          ? 'Location access granted'
-          : 'Location access was not granted',
+      permission: status,
+      message: status == LocationPermissionStatus.granted ? null : 'Location access was not granted',
+      clearMessage: status == LocationPermissionStatus.granted,
+    );
+    if (status != LocationPermissionStatus.granted) return;
+
+    final point = await _deviceLocation.getCurrentPosition();
+    if (point == null) {
+      state = state.copyWith(
+        message: 'Location access granted, but the device position could not be read. '
+            'Please retry or choose a location manually.',
+      );
+      return;
+    }
+
+    await selectManualLocation(
+      BuyerSavedLocation(
+        id: 'current-location',
+        name: 'Current location',
+        address: '',
+        point: point,
+        type: SavedLocationType.currentLocation,
+      ),
     );
   }
 
-  void retryLocation() => requestPermission();
+  Future<void> retryLocation() => requestPermission();
 
   Future<bool> selectManualLocation(BuyerSavedLocation location) async {
     if (!location.point.isValid) {
