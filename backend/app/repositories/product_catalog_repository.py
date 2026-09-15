@@ -151,6 +151,28 @@ class ProductCatalogRepository:
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
 
+    def list_active_for_seller(self, seller_user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """All of one seller's own active listings, most recently updated first.
+
+        Added 2026-09-15 (round 5) for the new self-service "my listings"
+        endpoint -- lets a real seller see everything they've listed via the
+        real seller_products table (as opposed to the old, disconnected
+        mock seller dashboard). Deliberately simple, same style as
+        search_active().
+        """
+        safe_limit = max(1, min(int(limit or 100), 200))
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM seller_products WHERE seller_user_id=? AND active=1 ORDER BY updated_at DESC LIMIT ?",
+                (str(seller_user_id or "").strip(), safe_limit),
+            ).fetchall()
+        results = []
+        for row in rows:
+            data = dict(row)
+            data["features"] = json.loads(data.pop("features_json") or "[]")
+            results.append(data)
+        return results
+
     def find_active(self, seller_user_id: str, subject: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             row = conn.execute(

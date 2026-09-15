@@ -10,7 +10,9 @@ from app.api.routes.health import router as health_router
 from app.api.routes.in_app_assistant import router as in_app_assistant_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
 from app.api.routes.onboarding_auth import router as onboarding_auth_router
+from app.api.routes.orders import router as orders_router
 from app.api.routes.product_catalog_admin import router as product_catalog_admin_router
+from app.api.routes.product_catalog_self_service import router as product_catalog_self_service_router
 from app.api.routes.product_search import router as product_search_router
 from app.api.routes.scheduled_tasks import router as scheduled_tasks_router
 from app.api.routes.vision import router as vision_router
@@ -234,6 +236,8 @@ def create_app() -> FastAPI:
     app.include_router(discover_router)
     app.include_router(product_search_router)
     app.include_router(product_catalog_admin_router)
+    app.include_router(product_catalog_self_service_router)
+    app.include_router(orders_router)
 
     @app.on_event("shutdown")
     def shutdown_event() -> None:

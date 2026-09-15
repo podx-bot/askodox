@@ -58,7 +58,8 @@ void main() {
     });
 
     expect(
-      AskodoxSemanticDealInput.build('I want to sell homemade mango pickle', decision),
+      AskodoxSemanticDealInput.build(
+          'I want to sell homemade mango pickle', decision),
       'i want to sell Homemade Mango Pickle',
     );
   });
