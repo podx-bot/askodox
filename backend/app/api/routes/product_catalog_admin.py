@@ -56,6 +56,21 @@ button{{margin-top:20px;padding:12px;width:100%;font-size:16px;background:#5B4BF
 <option value="UNKNOWN" selected>Unknown</option>
 </select></label>
 <label>Location (area/city)<input name="location_label"></label>
+<label>Category
+<select name="category_tag">
+<option value="">-- select --</option>
+<option value="Groceries & Food">Groceries & Food</option>
+<option value="Home Services">Home Services</option>
+<option value="Electronics & Mobiles">Electronics & Mobiles</option>
+<option value="Fashion & Apparel">Fashion & Apparel</option>
+<option value="Health & Wellness">Health & Wellness</option>
+<option value="Automobile">Automobile</option>
+<option value="Jobs">Jobs</option>
+<option value="Rides & Delivery">Rides & Delivery</option>
+<option value="Other">Other</option>
+</select></label>
+<label>Service area / delivery radius (e.g. "5 km around Vuyyuru")<input name="service_area"></label>
+<label>Working hours / availability (e.g. "7 AM - 9 PM, all days")<input name="working_hours"></label>
 <label>Contact phone (not shown to buyers yet)<input name="contact_phone"></label>
 <button type="submit">Save</button>
 </form>
@@ -76,6 +91,9 @@ def add_product_form(
     stock_status: str = "UNKNOWN",
     location_label: str = "",
     contact_phone: str = "",
+    category_tag: str = "",
+    service_area: str = "",
+    working_hours: str = "",
 ) -> HTMLResponse:
     container: Any = request.app.state.container
     _check_key(container, key)
@@ -97,6 +115,9 @@ def add_product_form(
             seller_name=seller_name.strip() or None,
             location_label=location_label.strip() or None,
             contact_phone=contact_phone.strip() or None,
+            category_tag=category_tag.strip() or None,
+            service_area=service_area.strip() or None,
+            working_hours=working_hours.strip() or None,
         )
         success_banner = (
             f'<div class="success">Saved &quot;{html.escape(subject.strip())}&quot; '

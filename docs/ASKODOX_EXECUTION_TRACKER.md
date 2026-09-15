@@ -289,55 +289,14 @@ For each point, maintain:
 - Next action:
 - Regression impact:
 
+### 2026-09-15 — Seller listing schema extended
+
+The real seller listing bootstrap now persists and exposes `category_tag`,
+`service_area`, and `working_hours`. The protected manual seed form accepts
+these fields, backend search includes category matches, and buyer-facing
+match subtitles display the supplied category, service area, and hours.
+This remains bootstrap metadata rather than a full ranking or seller-onboarding
+system.
+
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.
-
-
-STEP 3 — dependency check (కొత్త dependency ఏమీ అవసరం లేదు)
---------------------------------------------------------------
-ఈ ఫీచర్‌కి backend/requirements.txt లో కొత్తగా ఏమీ యాడ్ చెయ్యనవసరం లేదు (python-multipart లాంటిది కూడా అవసరం లేదు — admin form GET-based గా డిజైన్ చేశాను కావాలనే). lib/pubspec.yaml లో కూడా కొత్త package అవసరం లేదు (http package ఇప్పటికే వాడుతున్నాం, SponsoredAdsService లాగే).
-
-STEP 4 — verify & test (వీలైతే)
----------------------------------
-    cd backend
-    python -m pytest tests/test_product_catalog_search.py -v
-
-Flutter వైపు:
-    flutter analyze
-    (ఏమైనా error వస్తే నాకు screenshot పంపు, నేను చూస్తాను)
-
-STEP 5 — commit మరియు push చెయ్యి
-------------------------------------
-    git add backend/app/repositories/product_catalog_repository.py backend/tests/test_product_catalog_search.py backend/app/api/routes/product_search.py backend/app/api/routes/product_catalog_admin.py backend/app/core/settings.py backend/app/api/app_factory.py backend/.env.example lib/services/real_product_match_service.dart lib/features/home/presentation/askodox_primary_home_screen.dart docs/ASKODOX_MASTER_ARCHITECTURE.md docs/ASKODOX_EXECUTION_TRACKER.md
-
-    git commit -m "Add real seller-backed product matching bootstrap; replace fake DEMO match cards with real search"
-
-    git push -u origin feature/real-product-matching-bootstrap
-
-STEP 6 — GitHub లో Pull Request క్రియేట్ చేసి, main కి merge చెయ్యి
-----------------------------------------------------------------------
-GitHub Copilot/git tool నుండి ఈ బ్రాంచ్ కోసం Pull Request క్రియేట్ చెయ్యి (base: main, compare: feature/real-product-matching-bootstrap), review చేసి, merge చెయ్యి.
-
-merge అయిన తర్వాత నాకు "Done" అని చెప్పు — నేను Railway లో deploy సరిగ్గా అయ్యిందో లేదో చెక్ చేస్తాను.
-
-STEP 7 — Railway లో ఒక కొత్త Environment Variable యాడ్ చెయ్యాలి (చాలా ముఖ్యం)
--------------------------------------------------------------------------------
-ఈ ఫీచర్ పని చేయాలంటే Railway production లో ఈ variable యాడ్ చెయ్యాలి:
-
-    ADMIN_SEED_KEY=yrUGU38JNhJLhWSYipjs2Hmc
-
-(ఇది నేను రాండమ్‌గా జనరేట్ చేసిన సీక్రెట్ కీ — ఇది తెలిసిన వాళ్ళు మాత్రమే ప్రొడక్ట్స్ యాడ్ చేయగలరు.) నువ్వు Railway dashboard లో పెట్టొచ్చు, లేదా "Railway లో ఈ variable పెట్టు" అని నాకు చెప్తే నేనే పెడతాను.
-
-STEP 8 — నిజమైన ప్రొడక్ట్స్ యాడ్ చేయడం ఎలా (deploy అయిన తర్వాత)
---------------------------------------------------------------------
-Deploy అయ్యి, ADMIN_SEED_KEY పెట్టిన తర్వాత, ఈ లింక్ (మీ Railway URL + /admin/products/new?key=... ) బ్రౌజర్‌లో ఓపెన్ చెయ్యి:
-
-    https://podx-ai-connect-production-3279.up.railway.app/admin/products/new?key=yrUGU38JNhJLhWSYipjs2Hmc
-
-అందులో ఒక ఫారమ్ కనిపిస్తుంది — సెల్లర్ పేరు, ఏమి అమ్ముతున్నారు (subject), ధర, లొకేషన్ లాంటి వివరాలు నింపి "Save" నొక్కితే, ఆ ప్రొడక్ట్ నిజంగా డేటాబేస్‌లో సేవ్ అవుతుంది. ఈ లింక్‌ను (key తో సహా) బుక్‌మార్క్ చేసుకోండి — మనం కలిసి కొన్ని రియల్ ప్రొడక్ట్స్/సర్వీసులను ఇలా యాడ్ చేసుకోవచ్చు (ఉదాహరణకు: చికెన్ సెల్లర్, AC రిపేర్ వ్యక్తి, మొబైల్ షాప్ మొదలైనవి).
-
-యాడ్ చేసిన తర్వాత, బయ్యర్ యాప్‌లో ఆ సబ్జెక్ట్‌కి సంబంధించిన మాట (ఉదా. "చికెన్ కావాలి") టైప్ చేస్తే, ఆ నిజమైన ప్రొడక్ట్ "సంబంధిత ఎంపికలు" కార్డులో కనిపించాలి — DEMO లేబుల్ లేకుండా, నిజమైన సెల్లర్ పేరు/ధర/లొకేషన్‌తో.
-
-గమనిక: ఇప్పటికి ఇన్సూరెన్స్ లాంటి BFSI ప్రొడక్ట్స్ కోసం ప్రత్యేక స్కీమా లేదు (అది తర్వాతి ప్రయారిటీ) — కానీ ఇప్పుడు నిజమైన సెర్చ్ వాడుతున్నందున, సరిపోయే రియల్ డేటా లేకపోతే ఖాళీగా ఉంటుంది తప్ప, ఇంతకుముందులా తప్పు/సంబంధం లేని fake కార్డులు ఇక కనిపించవు.
-
-ఏదైనా స్టెప్‌లో స్టక్ అయితే, ఎక్కడ స్టక్ అయ్యావో స్క్రీన్‌షాట్ పంపు, నేను హెల్ప్ చేస్తాను.

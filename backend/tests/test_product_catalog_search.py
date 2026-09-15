@@ -62,3 +62,51 @@ def test_upsert_product_reuses_row_for_same_seller_and_subject(repo):
 
     assert first_id == second_id
     assert repo.get(first_id)["price"] == 210
+
+
+def test_upsert_product_persists_seller_operating_fields(repo):
+    product_id = repo.upsert_product(
+        "seller-1",
+        "AC repair",
+        category_tag="Home Services",
+        service_area="5 km around Vuyyuru",
+        working_hours="7 AM - 9 PM, all days",
+    )
+
+    product = repo.get(product_id)
+    assert product["category_tag"] == "Home Services"
+    assert product["service_area"] == "5 km around Vuyyuru"
+    assert product["working_hours"] == "7 AM - 9 PM, all days"
+
+
+def test_search_active_matches_category(repo):
+    repo.upsert_product("seller-1", "Fresh produce", category_tag="Groceries & Food")
+
+    assert len(repo.search_active("groceries")) == 1
+
+
+def test_search_active_falls_back_to_token_match_for_descriptive_queries(repo):
+    repo.upsert_product(
+        "VMM2424",
+        "CHICKEN & MUTTON",
+        price=200,
+        unit="kg",
+        stock_status="in_stock",
+        seller_name="Murali Manohar chicken & Mutton Shop",
+        location_label="vuyyuru",
+    )
+
+    results = repo.search_active("curry cut skinless chicken")
+
+    assert len(results) == 1
+    assert results[0]["seller_name"] == "Murali Manohar chicken & Mutton Shop"
+
+
+def test_search_active_does_not_false_positive_on_conversational_filler(repo):
+    repo.upsert_product("VMM2424", "CHICKEN & MUTTON", price=200)
+
+    assert repo.search_active("2.25 not curry cut it biryani cut 80 grmas each pices") == []
+    assert repo.search_active("rate please") == []
+    assert repo.search_active("first confirm price") == []
+    assert repo.search_active("yes") == []
+    assert repo.search_active("show nearby") == []
