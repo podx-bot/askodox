@@ -71,7 +71,19 @@ button{{margin-top:20px;padding:12px;width:100%;font-size:16px;background:#5B4BF
 </select></label>
 <label>Service area / delivery radius (e.g. "5 km around Vuyyuru")<input name="service_area"></label>
 <label>Working hours / availability (e.g. "7 AM - 9 PM, all days")<input name="working_hours"></label>
+<label>Precise location (GPS "lat,long" or a landmark note, e.g. "16.4419,80.6423" or "Near Vuyyuru bus stand")<input name="precise_location"></label>
+<label>Cancellation / return policy (shown to nobody yet, kept for the record)<input name="cancellation_policy"></label>
 <label>Contact phone (not shown to buyers yet)<input name="contact_phone"></label>
+<p class="note" style="margin-top:20px">Trust &amp; compliance (optional). We never store an Aadhaar or other national ID number here -- only a plain verified/not-verified status.</p>
+<label>Payout reference (their UPI ID or bank a/c -- for your records only, no payment is processed here)<input name="payout_reference"></label>
+<label>GSTIN (if registered)<input name="gstin"></label>
+<label>PAN<input name="pan"></label>
+<label>ID verification status
+<select name="id_verification_status">
+<option value="" selected>Not checked yet</option>
+<option value="UNVERIFIED">Checked -- not verified</option>
+<option value="VERIFIED">Verified (you saw a valid ID in person)</option>
+</select></label>
 <button type="submit">Save</button>
 </form>
 <p class="note">This saves directly into the real seller_products table used by ASKODOX's AI search. Bookmark this exact link (with your key) to add more items any time.</p>
@@ -94,6 +106,12 @@ def add_product_form(
     category_tag: str = "",
     service_area: str = "",
     working_hours: str = "",
+    precise_location: str = "",
+    cancellation_policy: str = "",
+    payout_reference: str = "",
+    gstin: str = "",
+    pan: str = "",
+    id_verification_status: str = "",
 ) -> HTMLResponse:
     container: Any = request.app.state.container
     _check_key(container, key)
@@ -118,6 +136,12 @@ def add_product_form(
             category_tag=category_tag.strip() or None,
             service_area=service_area.strip() or None,
             working_hours=working_hours.strip() or None,
+            precise_location=precise_location.strip() or None,
+            cancellation_policy=cancellation_policy.strip() or None,
+            payout_reference=payout_reference.strip() or None,
+            gstin=gstin.strip() or None,
+            pan=pan.strip() or None,
+            id_verification_status=id_verification_status.strip() or None,
         )
         success_banner = (
             f'<div class="success">Saved &quot;{html.escape(subject.strip())}&quot; '
