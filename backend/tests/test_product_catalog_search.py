@@ -146,3 +146,25 @@ def test_upsert_product_leaves_trust_fields_unset_by_default(repo):
     assert product["id_verification_status"] is None
     assert product["gstin"] is None
     assert product["pan"] is None
+
+
+def test_list_active_for_seller_returns_only_that_sellers_active_listings(repo):
+    repo.upsert_product("seller-1", "Mango Pickle", price=250, unit="kg")
+    repo.upsert_product("seller-1", "Lime Pickle", price=200, unit="kg")
+    repo.upsert_product("seller-2", "Chicken", price=220, unit="kg")
+
+    listings = repo.list_active_for_seller("seller-1")
+
+    assert len(listings) == 2
+    assert {row["subject"] for row in listings} == {"Mango Pickle", "Lime Pickle"}
+    assert all(row["seller_user_id"] == "seller-1" for row in listings)
+
+
+def test_list_active_for_seller_orders_most_recently_updated_first(repo):
+    repo.upsert_product("seller-1", "First Item")
+    repo.upsert_product("seller-1", "Second Item")
+
+    listings = repo.list_active_for_seller("seller-1")
+
+    assert listings[0]["subject"] == "Second Item"
+    assert listings[1]["subject"] == "First Item"
