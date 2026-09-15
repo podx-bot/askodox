@@ -11,7 +11,18 @@ class ProductCatalogRepository:
     # (guarded against "duplicate column" on repeat startup) rather than a
     # CREATE TABLE change, since CREATE TABLE IF NOT EXISTS never alters an
     # already-existing table on Railway's persistent volume.
-    _ADDED_COLUMNS = ("seller_name", "location_label", "contact_phone")
+    _ADDED_COLUMNS = (
+        "seller_name", "location_label", "contact_phone",
+        "category_tag", "service_area", "working_hours",
+    )
+
+    _SEARCH_STOPWORDS = frozenset({
+        "the", "and", "not", "for", "with", "each", "please", "show", "rate",
+        "confirm", "yes", "no", "ok", "okay", "first", "it", "price", "cost",
+        "check", "quantity", "shop", "shops", "option", "options", "order",
+        "buy", "need", "want", "budget", "rupees", "available", "availability",
+        "proceed", "place", "ready", "nearby", "near", "sure",
+    })
 
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
@@ -92,16 +103,19 @@ class ProductCatalogRepository:
                 "seller_name": fields.get("seller_name"),
                 "location_label": fields.get("location_label"),
                 "contact_phone": fields.get("contact_phone"),
+                "category_tag": fields.get("category_tag"),
+                "service_area": fields.get("service_area"),
+                "working_hours": fields.get("working_hours"),
             }
             if row:
                 product_id = int(row["id"])
                 conn.execute(
-                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,seller_name=COALESCE(?,seller_name),location_label=COALESCE(?,location_label),contact_phone=COALESCE(?,contact_phone),updated_at=? WHERE id=?""",
+                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,seller_name=COALESCE(?,seller_name),location_label=COALESCE(?,location_label),contact_phone=COALESCE(?,contact_phone),category_tag=COALESCE(?,category_tag),service_area=COALESCE(?,service_area),working_hours=COALESCE(?,working_hours),updated_at=? WHERE id=?""",
                     (*values.values(), now, product_id),
                 )
                 return product_id
             cur = conn.execute(
-                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,seller_name,location_label,contact_phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,seller_name,location_label,contact_phone,category_tag,service_area,working_hours,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
                 (seller, name, *values.values(), now, now),
             )
             return int(cur.lastrowid)
@@ -130,6 +144,10 @@ class ProductCatalogRepository:
     def search_active(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Case-insensitive substring search across subject/brand/variant.
 
+        Tries the complete query first, then falls back to significant tokens
+        so descriptive follow-ups can still match a shorter listing without
+        allowing conversational filler to produce false positives.
+
         Deliberately simple (no ranking beyond most-recently-updated first):
         this is a bootstrap real-data search over a handful of manually
         seeded rows, not the eventual full matching engine (Master
@@ -146,11 +164,34 @@ class ProductCatalogRepository:
             rows = conn.execute(
                 """SELECT * FROM seller_products
                    WHERE active=1 AND (
-                       lower(subject) LIKE ? OR lower(COALESCE(brand,'')) LIKE ? OR lower(COALESCE(variant,'')) LIKE ?
+                       lower(subject) LIKE ? OR lower(COALESCE(brand,'')) LIKE ? OR lower(COALESCE(variant,'')) LIKE ? OR lower(COALESCE(category_tag,'')) LIKE ?
                    )
                    ORDER BY updated_at DESC LIMIT ?""",
-                (pattern, pattern, pattern, safe_limit),
+                (pattern, pattern, pattern, pattern, safe_limit),
             ).fetchall()
+            if not rows:
+                tokens = [
+                    token
+                    for token in clean.lower().split()
+                    if len(token) >= 3
+                    and token not in self._SEARCH_STOPWORDS
+                    and not token.isdigit()
+                ]
+                if tokens:
+                    clause = " OR ".join(
+                        "lower(subject) LIKE ? OR lower(COALESCE(brand,'')) LIKE ? OR lower(COALESCE(variant,'')) LIKE ? OR lower(COALESCE(category_tag,'')) LIKE ?"
+                        for _ in tokens
+                    )
+                    params: List[Any] = []
+                    for token in tokens:
+                        token_pattern = f"%{token}%"
+                        params.extend([token_pattern, token_pattern, token_pattern, token_pattern])
+                    rows = conn.execute(
+                        f"""SELECT * FROM seller_products
+                            WHERE active=1 AND ({clause})
+                            ORDER BY updated_at DESC LIMIT ?""",
+                        (*params, safe_limit),
+                    ).fetchall()
         results = []
         for row in rows:
             data = dict(row)

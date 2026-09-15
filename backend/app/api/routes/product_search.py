@@ -43,6 +43,15 @@ def _subtitle(row: dict[str, Any]) -> str:
     location = str(row.get("location_label") or "").strip()
     if location:
         parts.append(location)
+    category_tag = str(row.get("category_tag") or "").strip()
+    if category_tag:
+        parts.append(category_tag)
+    service_area = str(row.get("service_area") or "").strip()
+    if service_area:
+        parts.append(f"Serves: {service_area}")
+    working_hours = str(row.get("working_hours") or "").strip()
+    if working_hours:
+        parts.append(working_hours)
     seller_name = str(row.get("seller_name") or "").strip()
     if seller_name:
         parts.append(seller_name)

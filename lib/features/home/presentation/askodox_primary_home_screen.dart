@@ -38,6 +38,30 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
   bool _active = false;
   bool _sending = false;
 
+  String? _lastGoodProductQuery;
+
+  static const _searchQueryStopwords = {
+    'yes', 'no', 'ok', 'okay', 'please', 'show', 'rate', 'confirm', 'nearby',
+    'sure', 'yeah', 'yep', 'nope', 'first', 'it', 'each', 'not', 'and', 'the',
+    'price', 'cost', 'check', 'quantity', 'shop', 'shops', 'option', 'options',
+    'order', 'buy', 'need', 'want', 'budget', 'rupees', 'rs', 'available',
+    'availability', 'proceed', 'place', 'kavali', 'ready', 'go', 'ahead',
+  };
+
+  bool _looksLikeProductSubject(String value) {
+    if (RegExp(r'\d').hasMatch(value)) return false;
+    final words = value.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty || words.length > 6) return false;
+    return words.any((w) => !_searchQueryStopwords.contains(w.toLowerCase()));
+  }
+
+  void _trackSearchQuery(String? candidate) {
+    final trimmed = (candidate ?? '').trim();
+    if (trimmed.isNotEmpty && _looksLikeProductSubject(trimmed)) {
+      _lastGoodProductQuery = trimmed;
+    }
+  }
+
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
 
   @override
@@ -56,10 +80,13 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     // required details). `readyToMatch` keeps the same "don't show anything
     // until the request is actually understood" gate the demo catalog used.
     var matches = const <UniversalMatch>[];
-    if (deal != null && deal.readyToMatch && AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
-      final query = (deal.subject ?? deal.category ?? '').trim();
-      if (query.isNotEmpty) {
-        matches = await _realMatches.search(query);
+    if (deal != null) {
+      _trackSearchQuery(deal.subject ?? deal.category);
+      if (deal.readyToMatch && AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
+        final query = _lastGoodProductQuery ?? '';
+        if (query.isNotEmpty) {
+          matches = await _realMatches.search(query);
+        }
       }
     }
     if (!mounted) return;
@@ -125,9 +152,11 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       );
 
       if (shouldStartFresh && session.deal != null) {
+        _lastGoodProductQuery = null;
         notifier.reset();
         notifier.start(routedText);
       } else if (session.deal == null || session.completed) {
+        _lastGoodProductQuery = null;
         notifier.start(routedText);
       } else {
         notifier.answer(routedText);
@@ -147,8 +176,11 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
       // until the request is actually understood" gate the demo catalog
       // used internally, now applied explicitly here.
       final deal = ref.read(universalDealControllerProvider).deal;
+      if (deal != null) {
+        _trackSearchQuery(deal.subject ?? deal.category);
+      }
       if (deal != null && deal.readyToMatch) {
-        final query = (deal.subject ?? deal.category ?? '').trim();
+        final query = _lastGoodProductQuery ?? '';
         if (query.isNotEmpty) {
           matches = await _realMatches.search(query)
             ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
