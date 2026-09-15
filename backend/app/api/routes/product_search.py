@@ -35,7 +35,7 @@ def _subtitle(row: dict[str, Any]) -> str:
     price = row.get("price")
     unit = str(row.get("unit") or "").strip()
     if price is not None:
-        price_text = f"â‚¹{price:g}"
+        price_text = f"₹{price:g}"
         parts.append(f"{price_text}/{unit}" if unit else price_text)
     stock = str(row.get("stock_status") or "").strip().upper()
     if stock and stock != "UNKNOWN":
@@ -50,7 +50,7 @@ def _subtitle(row: dict[str, Any]) -> str:
     # 2026-09-15 (round 2): a plain "ID Verified" trust badge -- never the
     # underlying ID number itself (see product_catalog_repository.py).
     if str(row.get("id_verification_status") or "").strip().upper() == "VERIFIED":
-        parts.append("âœ“ ID Verified")
+        parts.append("✓ ID Verified")
     category_tag = str(row.get("category_tag") or "").strip()
     if category_tag:
         parts.append(category_tag)
@@ -63,13 +63,13 @@ def _subtitle(row: dict[str, Any]) -> str:
     seller_name = str(row.get("seller_name") or "").strip()
     if seller_name:
         parts.append(seller_name)
-    return " â€¢ ".join(parts)
+    return " • ".join(parts)
 
 
 def _title(row: dict[str, Any]) -> str:
     subject = str(row.get("subject") or "").strip()
     variant = str(row.get("variant") or "").strip()
-    return f"{subject} â€” {variant}" if variant else subject
+    return f"{subject} — {variant}" if variant else subject
 
 
 @router.get("/search", response_model=ProductSearchResponse)
