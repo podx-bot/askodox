@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional
 
 
 class ProductCatalogRepository:
+    # Columns added after the original schema shipped. Added via ALTER TABLE
+    # (guarded against "duplicate column" on repeat startup) rather than a
+    # CREATE TABLE change, since CREATE TABLE IF NOT EXISTS never alters an
+    # already-existing table on Railway's persistent volume.
+    _ADDED_COLUMNS = ("seller_name", "location_label", "contact_phone")
+
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
         self._ensure_schema()
@@ -58,6 +64,11 @@ class ProductCatalogRepository:
                 );
                 """
             )
+            for column in self._ADDED_COLUMNS:
+                try:
+                    conn.execute(f"ALTER TABLE seller_products ADD COLUMN {column} TEXT")
+                except sqlite3.OperationalError:
+                    pass  # column already exists from a previous startup
 
     def upsert_product(self, seller_user_id: str, subject: str, **fields: Any) -> int:
         now = self._now()
@@ -78,16 +89,19 @@ class ProductCatalogRepository:
                 "pickup_available": 0 if fields.get("pickup_available") is False else 1,
                 "image_media_id": fields.get("image_media_id"), "video_media_id": fields.get("video_media_id"),
                 "features_json": json.dumps(fields.get("features") or [], ensure_ascii=False),
+                "seller_name": fields.get("seller_name"),
+                "location_label": fields.get("location_label"),
+                "contact_phone": fields.get("contact_phone"),
             }
             if row:
                 product_id = int(row["id"])
                 conn.execute(
-                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,updated_at=? WHERE id=?""",
+                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,seller_name=COALESCE(?,seller_name),location_label=COALESCE(?,location_label),contact_phone=COALESCE(?,contact_phone),updated_at=? WHERE id=?""",
                     (*values.values(), now, product_id),
                 )
                 return product_id
             cur = conn.execute(
-                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,seller_name,location_label,contact_phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
                 (seller, name, *values.values(), now, now),
             )
             return int(cur.lastrowid)
@@ -112,6 +126,37 @@ class ProductCatalogRepository:
         data = dict(row)
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
+
+    def search_active(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Case-insensitive substring search across subject/brand/variant.
+
+        Deliberately simple (no ranking beyond most-recently-updated first):
+        this is a bootstrap real-data search over a handful of manually
+        seeded rows, not the eventual full matching engine (Master
+        Architecture Point 7), which will need real ranking/location/
+        availability signals once there is a meaningful volume of real
+        seller data.
+        """
+        clean = " ".join(str(query or "").strip().split())
+        if not clean:
+            return []
+        safe_limit = max(1, min(int(limit or 10), 50))
+        pattern = f"%{clean.lower()}%"
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT * FROM seller_products
+                   WHERE active=1 AND (
+                       lower(subject) LIKE ? OR lower(COALESCE(brand,'')) LIKE ? OR lower(COALESCE(variant,'')) LIKE ?
+                   )
+                   ORDER BY updated_at DESC LIMIT ?""",
+                (pattern, pattern, pattern, safe_limit),
+            ).fetchall()
+        results = []
+        for row in rows:
+            data = dict(row)
+            data["features"] = json.loads(data.pop("features_json") or "[]")
+            results.append(data)
+        return results
 
     def save_faq(self, product_id: int, question_key: str, answer: str, source: str = "SELLER_CONFIRMED") -> None:
         now = self._now()

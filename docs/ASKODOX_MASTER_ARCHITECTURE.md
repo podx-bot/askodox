@@ -210,3 +210,41 @@ For every feature change, explicitly review:
 
 ## 50. Master Principle
 Do not depend on chat memory as the canonical specification. This GitHub document is the persistent source of truth. Future detailed requirements should be appended/updated here (or in linked versioned docs) before they are considered locked.
+
+## Addendum — AI Companion Positioning & Engineering Layer Breakdown (2026-09-14)
+Status: REAFFIRMS Point 1 (Core Identity), Point 2 (Eight Master Layers), Point 7 (Matching Engine), Point 9 (Affiliate Neutrality), Point 11 (BFSI), Point 12 (Life & Business Ecosystems), Point 41 (UI Core Rules), Point 47 (Historical/Superseded Positioning). Does not conflict with or replace any locked point; per the Change-Control Rule (Point 46) it is captured here rather than only in chat.
+
+The product owner restated and sharpened the Core Identity in these explicit terms:
+
+Do NOT position ASKODOX as: "Local First", "Local Shopping App", "Local Seller Finder", "Ecommerce Marketplace", "Service Directory", "Affiliate Shopping App", or a collection of separate utilities. Local sellers, online stores, service providers, affiliate links, bookings, payments and other sources are BACKEND solution channels only — never the user's primary experience or identity.
+
+Success test (add to Point 45 Completion Gate review criteria for any user-facing feature): a new user should never describe ASKODOX as "an ecommerce app", "a local search app", or "a services directory." The intended reaction is "This is my AI assistant — I just tell it what I need, it understands me, helps me decide, finds suitable options and stays with me until the next step."
+
+### Engineering layer breakdown (maps onto the existing Eight Master Layers in Point 2; this is the implementation-architecture view, not a replacement)
+1. AI Experience Layer — the conversational surface the user actually sees/feels.
+2. Intent / Understanding Layer — today's `UniversalAIAssistantService.decide()`.
+3. Decision / Advisor Layer — explains trade-offs ("best overall / best value / fastest / closest"), not just a list; must only claim distinctions genuinely supported by real data.
+4. Structured Business State — `UniversalDeal` / deal-brain state machine.
+5. Universal Matching / Solution Engine — Party A <-> Party B, source-neutral (local/nearby/online/affiliate/BFSI/professional), never hard-coded local-first or online-first.
+6. Provider / Search / Affiliate Sources — backend channels only, never exposed as the identity.
+7. Transaction / Handoff Layer — booking/payment/consent handoff once a decision is made.
+8. Memory / Continuity — known facts (location, budget, quantity, language) are never re-asked.
+9. Voice / Language — same journey/state across text and voice, across supported languages.
+10. UI Presentation — chat/AI interaction gets the dominant share of screen space; supporting elements (history, current journeys, suggestions) support the conversation, never overpower it into an ecommerce-grid feel.
+
+### 2026-09-14 audit against this positioning (real findings from today's production debugging, not a fresh full audit of all 52 points)
+- CONFIRMS existing direction is correct: the real production home screen (`askodox_primary_home_screen.dart`) is already chat-first with a single free-text entry point — it does not force a Shopping/Services/Jobs category picker before conversation starts. This already matches the "ONE SIMPLE ENTRY POINT" requirement above.
+- VIOLATION FOUND AND FIXED: the "Relevant matches" card (`DemoNaturalMatchCatalog`) was shown to the user labelled "DEMO" as soon as `deal.readyToMatch` was true, which for the generic `needService`/`offerService` intent only requires `subject` + `location`. For a health-insurance request this fired while the AI was still asking for budget/coverage/headcount, and showed generic home-service placeholder businesses completely unrelated to insurance. This is exactly the "search-results dump instead of a genuinely-ready AI recommendation" anti-pattern this addendum calls out, and directly violates Point 39 (AI Self-Gap Detection — a required gate, "final terms"/completeness, was missing but the flow proceeded anyway) and Point 40 (Recommendation Quality). Fix shipped 2026-09-14: `enabled: true` -> `enabled: false` on both `DemoNaturalMatchCatalog.forDeal` call sites in `askodox_primary_home_screen.dart`, so no fake/mismatched match card is shown until real seller-backed matching (Point 7/Point 11) exists. This is a containment fix, not the underlying solution — see Known gaps below.
+- GAP CONFIRMED: `UniversalAIAssistantService.ALLOWED_DOMAINS` (the AI's domain classifier) has no BFSI/insurance/investment domain at all (`GENERAL, JOB_SEEKER, STAFFING, SERVICE, PARCEL, RIDE, PRODUCT, FOOD, EVENT, APPOINTMENT, LEDGER, UNKNOWN`). Insurance requests are currently absorbed into the generic `SERVICE` domain, so Point 11 (BFSI / Financial Products) has no dedicated routing, required-fields schema, or compliance/disclosure handling yet — it is effectively NOT STARTED at the domain-routing level even though the AI can converse about it in general terms.
+- GAP CONFIRMED: `UniversalDeal.missingForMatch` (the deterministic "ready to match" gate) only has cases for ride/worker/service/appointment/buy-sell intents. There is no per-domain required-fields schema for BFSI/insurance-type requests, which is the root cause of the violation above. Extending this schema properly (Point 6: Dynamic Categories, Point 11: BFSI) is real, non-trivial follow-up work and was intentionally not attempted in a rushed fix.
+
+Next action (not yet started, needs product-owner prioritization): decide whether to (a) build a proper BFSI/insurance category schema + real provider-matching before re-enabling any match card for that domain, or (b) tackle a different Point 6-52 item first. Do not re-enable `DemoNaturalMatchCatalog` for any domain until its `missingForMatch` requirements are actually correct for that domain.
+
+### 2026-09-15 update — Superseded by a real (non-demo) matching bootstrap, per explicit product-owner direction
+Product owner chose, of the remaining priorities, to do real seller matching first, then BFSI/insurance, then more reliability testing (in that order). When asked how to bootstrap real matching given there is no seller-onboarding pipeline yet, the product owner's explicit instruction was: add a handful of real products/sellers manually together, and show them to the buyer ("మేము కలిసి కొన్ని ప్రొడక్ట్స్ మాన్యువల్‌గా పెట్టి, బయ్యర్‌కి చూపిద్దాం").
+
+Implemented accordingly:
+- `askodox_primary_home_screen.dart` no longer references `DemoNaturalMatchCatalog` at all (both call sites replaced, not just disabled) — so the 2026-09-14 `enabled: false` containment fix above is superseded, not just applied. The same `deal.readyToMatch` gate is kept, but now feeds a real backend search instead of fake data.
+- New `RealProductMatchService` (Flutter, mirrors `SponsoredAdsService`'s pattern) calls a new backend endpoint `GET /api/products/search` which searches the existing real `seller_products` table (`ProductCatalogRepository.search_active`, extended with `seller_name`/`location_label`/`contact_phone`) and returns rows shaped for `UniversalMatch.fromJson` — zero Flutter match-card UI changes needed.
+- A temporary, low-tech manual seed tool (`GET /admin/products/new?key=...`, shared-secret protected, no new dependency) lets the product owner and this assistant add real seller rows together, per the explicit instruction above.
+- Side effect worth recording: because real search now naturally returns an empty list for domains with no seeded real data (e.g. insurance, until Point 11 ships), the domain-mismatched-card symptom from the 2026-09-14 finding cannot recur even before the BFSI schema gap is closed. The underlying gaps (no BFSI required-fields schema in `UniversalDeal.missingForMatch`; no real seller-onboarding pipeline, only manual seeding) are unchanged and still tracked as open work below and in Point 7/Point 11.

@@ -6,10 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../services/in_app_assistant_service.dart';
+import '../../../services/real_product_match_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../location/application/location_controller.dart';
-import '../../matching/data/demo_natural_match_catalog.dart';
 import '../../matching/data/universal_match_repository.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
@@ -32,6 +32,7 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
   final _scrollController = ScrollController();
   final _store = ConversationTurnStore();
   final _assistant = const InAppAssistantService();
+  final _realMatches = const RealProductMatchService();
   final List<ConversationTurnRecord> _turns = [];
   List<UniversalMatch> _matches = const [];
   bool _active = false;
@@ -49,14 +50,23 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
     final records = await _store.load();
     if (!mounted || records.isEmpty) return;
     final deal = ref.read(universalDealControllerProvider).deal;
+    // Real seller-backed search replaces the old DemoNaturalMatchCatalog
+    // sandbox data (which showed fake, sometimes domain-mismatched
+    // placeholder businesses before the app had even finished asking for
+    // required details). `readyToMatch` keeps the same "don't show anything
+    // until the request is actually understood" gate the demo catalog used.
+    var matches = const <UniversalMatch>[];
+    if (deal != null && deal.readyToMatch && AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
+      final query = (deal.subject ?? deal.category ?? '').trim();
+      if (query.isNotEmpty) {
+        matches = await _realMatches.search(query);
+      }
+    }
+    if (!mounted) return;
     setState(() {
       _turns.addAll(records);
       _active = true;
-      if (deal != null && AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
-        _matches = DemoNaturalMatchCatalog.forDeal(deal, enabled: true);
-      } else {
-        _matches = const [];
-      }
+      _matches = matches;
     });
     _scrollBottom();
   }
@@ -132,11 +142,18 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
         );
       }
 
+      // Real seller-backed search replaces the old DemoNaturalMatchCatalog
+      // sandbox data. `readyToMatch` keeps the same "don't show anything
+      // until the request is actually understood" gate the demo catalog
+      // used internally, now applied explicitly here.
       final deal = ref.read(universalDealControllerProvider).deal;
-      matches = deal == null
-          ? const <UniversalMatch>[]
-          : DemoNaturalMatchCatalog.forDeal(deal, enabled: true)
+      if (deal != null && deal.readyToMatch) {
+        final query = (deal.subject ?? deal.category ?? '').trim();
+        if (query.isNotEmpty) {
+          matches = await _realMatches.search(query)
             ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+        }
+      }
     } else {
       notifier.reset();
     }
@@ -330,7 +347,7 @@ class _AskodoxPrimaryHomeScreenState extends ConsumerState<AskodoxPrimaryHomeScr
             ),
           if (_matches.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Row(children: [Text(te ? 'సంబంధిత ఎంపికలు' : 'Relevant matches', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: _ink)), const Spacer(), const Text('DEMO', style: TextStyle(color: _muted, fontSize: 10, fontWeight: FontWeight.w800))]),
+            Row(children: [Text(te ? 'సంబంధిత ఎంపికలు' : 'Relevant matches', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: _ink))]),
             const SizedBox(height: 10),
             ..._matches.map((match) => _MatchCard(match: match, te: te)),
           ],

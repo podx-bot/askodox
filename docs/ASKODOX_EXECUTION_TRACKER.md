@@ -135,6 +135,14 @@ Next action:
 Regression impact:
 Potentially affects onboarding, memory/history, notifications, customer desk, WhatsApp support routing, job/ride legacy WhatsApp behavior, and any runtime handlers that previously assumed WhatsApp was the canonical channel.
 
+### 2026-09-14 — Gemini reliability chain + AI Companion Positioning reaffirmation
+Three real production reliability failures were found and fixed in sequence via live user testing (screenshots) + Railway log forensics, all in the "general assistant falls back to a hardcoded canned Dart reply instead of a real answer" failure family that this point's acceptance criteria (item 4: no false claims; the wider friend-like decision loop) depend on:
+1. Gemini 503 "high demand" transient errors — fixed earlier with a short in-service retry (`_generate_with_retry`).
+2. Gemini free-tier daily quota (`429 RESOURCE_EXHAUSTED`, 20 requests/day) exhausted by combined testing volume — resolved by the product owner enabling pay-as-you-go billing on the Gemini API key (OpenAI kept as a configured-but-unfunded secondary fallback for now, by owner's choice).
+3. NEW finding: for longer/multi-detail messages, Gemini's "thinking" tokens were deducted from the same `max_output_tokens` budget as the visible JSON reply, truncating the response to a bare `{"reply": "` fragment and causing a parse failure (`no json object found in model reply`). Fixed by disabling thinking (`thinking_config=types.ThinkingConfig(thinking_budget=0)`) and raising `max_output_tokens` to 2048. Shipped in PR #46 (`fix/gemini-thinking-budget`), deployed and confirmed clean in Railway logs plus a real re-test by the product owner.
+
+Separately, the product owner restated the Core Identity positioning in sharper, explicit terms (see `docs/ASKODOX_MASTER_ARCHITECTURE.md`, "Addendum — AI Companion Positioning & Engineering Layer Breakdown (2026-09-14)"). This reaffirms rather than changes this point's requirement; the addendum also records a related Point 7 violation found the same day (see Point 7 below).
+
 ## Point 44 — Testing / Demo Environment
 Status: REQUIREMENT LOCKED; reusable demo-data implementation verification pending.
 Requirement version/date: 2026-09-11
@@ -224,6 +232,46 @@ For every point, work in this exact order:
 ## Execution Order
 Default: Point 1 → Point 52 sequentially. A dependent technical subtask may be done earlier when necessary, but the tracker must show the dependency explicitly and the parent point cannot be marked GREEN until all its gates pass.
 
+
+## Point 7 — Matching Engine
+Status: IN PROGRESS (containment fix shipped 2026-09-14; underlying per-domain schema gap still open)
+Requirement version/date: 2026-09-14 (see Master Architecture Point 7 and the 2026-09-14 Addendum)
+
+Requirement:
+Rank matches by relevant location/budget/availability/quality/verification/trust/preferences and show reasons. Local is a useful source, not a mandatory identity. A match must only be shown once the request is actually understood (see Point 39 — AI Self-Gap Detection) — never a placeholder/demo result presented as if it were a real, ready recommendation.
+
+### 2026-09-14 — Forensic finding: DEMO match cards shown before request understood, and domain-mismatched
+Live test: "naku insurance kavali" -> "health" produced a "Relevant matches" card (visibly labelled DEMO) showing "QuickFix Local Services" / "Nearby Home Service Pro" — generic home-service placeholder businesses with zero relevance to insurance — WHILE the assistant was still asking for budget/sum-assured/headcount. Root cause: `askodox_primary_home_screen.dart` calls `DemoNaturalMatchCatalog.forDeal(deal, enabled: true)` whenever `transactional` is true and a deal exists; the gate meant to prevent this (`UniversalDeal.missingForMatch` / `readyToMatch`, in `lib/features/deal_brain/domain/universal_deal.dart`) only defines required-field sets for ride/worker/service/appointment/buy-sell intents. An insurance request is absorbed into the generic `needService`/`offerService` case, whose only required fields are `subject` + `location` — so `readyToMatch` went true far too early, and the demo catalog has no insurance-specific card set anyway (it fell through to generic service placeholders).
+
+This is also a confirmed instance of the never-shipped "DemoNaturalMatchCatalog is fake, not real seller data" gap already known from earlier this session (chicken-order flow investigation) — every domain, not just insurance, is currently shown fake/demo matches, clearly labelled "DEMO" in the UI but not gated correctly on actual completeness.
+
+Code evidence (containment fix, not the underlying fix):
+- `lib/features/home/presentation/askodox_primary_home_screen.dart`: both `DemoNaturalMatchCatalog.forDeal(deal, enabled: true)` call sites changed to `enabled: false`, so the "Relevant matches" section (`if (_matches.isNotEmpty)`) never renders until real seller-backed matching exists. Pushed on branch `fix/hide-demo-match-cards`.
+
+Known gaps / next action:
+- `UniversalDeal.missingForMatch` has no case for BFSI/insurance (or several other Point 12 life/business ecosystems) — needs a real per-domain required-fields schema before any match card for those domains is safe to re-enable (see Point 6, Point 11).
+- No real seller/provider database is wired into this AI chat matching path for ANY domain yet — `DemoNaturalMatchCatalog` is 100% hardcoded sandbox data. Real matching (Point 7 proper, backed by `ProductCatalogRepository`/`seller_products` or an equivalent per-domain provider table) is a distinct, larger, not-yet-scoped project.
+- Not yet re-verified with `flutter analyze`/tests beyond the 2-line change review (no Flutter SDK reachable from this audit environment).
+
+Next action: product-owner decision needed on priority — build a real BFSI/insurance schema + matching next, or a different backlog item first. Do not set `enabled: true` again for any domain until its `missingForMatch` requirements are verified correct for that domain.
+
+### 2026-09-15 — Real (non-demo) matching bootstrap started, per explicit product-owner direction
+Status update: IN PROGRESS -> containment fix above superseded by a real bootstrap (still not the full Point 7 ranking engine).
+
+Product owner's explicit priority order for the remaining backlog: (1) real seller matching, (2) BFSI/insurance category, (3) more reliability testing. For (1), given no seller-onboarding pipeline exists yet, the product owner's explicit instruction was to add a handful of real products/sellers manually together and show them to the buyer.
+
+Shipped this round:
+- `askodox_primary_home_screen.dart`: both former `DemoNaturalMatchCatalog.forDeal(...)` call sites replaced (not merely disabled) with calls to a new `RealProductMatchService.search(query)`, gated by the same `deal.readyToMatch` check.
+- New Flutter service `lib/services/real_product_match_service.dart`, same pattern as `SponsoredAdsService`.
+- Backend: `ProductCatalogRepository` (`backend/app/repositories/product_catalog_repository.py`) extended with `seller_name`/`location_label`/`contact_phone` columns and a new `search_active(query, limit)` method; new route `GET /api/products/search` (`backend/app/api/routes/product_search.py`) returns results shaped for `UniversalMatch.fromJson`; new temporary manual-seed tool `GET /admin/products/new?key=...` (`backend/app/api/routes/product_catalog_admin.py`), protected by a new `ADMIN_SEED_KEY` setting, so the product owner and this assistant can add real seller rows together without needing the full seller-onboarding UI first.
+- New backend tests: `backend/tests/test_product_catalog_search.py` (6 cases covering search matching, brand/variant search, inactive/limit handling, blank-query and no-match behavior, and upsert dedup-by-seller+subject).
+
+Known gaps still open (unchanged by this bootstrap):
+- No BFSI/insurance required-fields schema in `UniversalDeal.missingForMatch` yet (Point 11, next in the product owner's stated priority order).
+- No real seller-onboarding pipeline — `MockSellerRepository` is still hardwired in the Flutter app; the manual seed tool is a deliberate, explicitly-chosen bootstrap, not a replacement for that larger future project.
+- `search_active` is a simple case-insensitive substring match with no ranking (location/budget/trust/availability) yet — the real Point 7 ranking engine is still a distinct, larger follow-up once there is meaningful real-data volume.
+- Not yet re-verified with `flutter analyze`/`pytest` beyond manual review, `py_compile`, and standalone script-equivalent test runs (no Flutter SDK or `pytest`/`google-genai` package reachable from this audit environment).
+
 ## Per-Point Record Template
 For each point, maintain:
 - Status:
@@ -243,3 +291,53 @@ For each point, maintain:
 
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.
+
+
+STEP 3 — dependency check (కొత్త dependency ఏమీ అవసరం లేదు)
+--------------------------------------------------------------
+ఈ ఫీచర్‌కి backend/requirements.txt లో కొత్తగా ఏమీ యాడ్ చెయ్యనవసరం లేదు (python-multipart లాంటిది కూడా అవసరం లేదు — admin form GET-based గా డిజైన్ చేశాను కావాలనే). lib/pubspec.yaml లో కూడా కొత్త package అవసరం లేదు (http package ఇప్పటికే వాడుతున్నాం, SponsoredAdsService లాగే).
+
+STEP 4 — verify & test (వీలైతే)
+---------------------------------
+    cd backend
+    python -m pytest tests/test_product_catalog_search.py -v
+
+Flutter వైపు:
+    flutter analyze
+    (ఏమైనా error వస్తే నాకు screenshot పంపు, నేను చూస్తాను)
+
+STEP 5 — commit మరియు push చెయ్యి
+------------------------------------
+    git add backend/app/repositories/product_catalog_repository.py backend/tests/test_product_catalog_search.py backend/app/api/routes/product_search.py backend/app/api/routes/product_catalog_admin.py backend/app/core/settings.py backend/app/api/app_factory.py backend/.env.example lib/services/real_product_match_service.dart lib/features/home/presentation/askodox_primary_home_screen.dart docs/ASKODOX_MASTER_ARCHITECTURE.md docs/ASKODOX_EXECUTION_TRACKER.md
+
+    git commit -m "Add real seller-backed product matching bootstrap; replace fake DEMO match cards with real search"
+
+    git push -u origin feature/real-product-matching-bootstrap
+
+STEP 6 — GitHub లో Pull Request క్రియేట్ చేసి, main కి merge చెయ్యి
+----------------------------------------------------------------------
+GitHub Copilot/git tool నుండి ఈ బ్రాంచ్ కోసం Pull Request క్రియేట్ చెయ్యి (base: main, compare: feature/real-product-matching-bootstrap), review చేసి, merge చెయ్యి.
+
+merge అయిన తర్వాత నాకు "Done" అని చెప్పు — నేను Railway లో deploy సరిగ్గా అయ్యిందో లేదో చెక్ చేస్తాను.
+
+STEP 7 — Railway లో ఒక కొత్త Environment Variable యాడ్ చెయ్యాలి (చాలా ముఖ్యం)
+-------------------------------------------------------------------------------
+ఈ ఫీచర్ పని చేయాలంటే Railway production లో ఈ variable యాడ్ చెయ్యాలి:
+
+    ADMIN_SEED_KEY=yrUGU38JNhJLhWSYipjs2Hmc
+
+(ఇది నేను రాండమ్‌గా జనరేట్ చేసిన సీక్రెట్ కీ — ఇది తెలిసిన వాళ్ళు మాత్రమే ప్రొడక్ట్స్ యాడ్ చేయగలరు.) నువ్వు Railway dashboard లో పెట్టొచ్చు, లేదా "Railway లో ఈ variable పెట్టు" అని నాకు చెప్తే నేనే పెడతాను.
+
+STEP 8 — నిజమైన ప్రొడక్ట్స్ యాడ్ చేయడం ఎలా (deploy అయిన తర్వాత)
+--------------------------------------------------------------------
+Deploy అయ్యి, ADMIN_SEED_KEY పెట్టిన తర్వాత, ఈ లింక్ (మీ Railway URL + /admin/products/new?key=... ) బ్రౌజర్‌లో ఓపెన్ చెయ్యి:
+
+    https://podx-ai-connect-production-3279.up.railway.app/admin/products/new?key=yrUGU38JNhJLhWSYipjs2Hmc
+
+అందులో ఒక ఫారమ్ కనిపిస్తుంది — సెల్లర్ పేరు, ఏమి అమ్ముతున్నారు (subject), ధర, లొకేషన్ లాంటి వివరాలు నింపి "Save" నొక్కితే, ఆ ప్రొడక్ట్ నిజంగా డేటాబేస్‌లో సేవ్ అవుతుంది. ఈ లింక్‌ను (key తో సహా) బుక్‌మార్క్ చేసుకోండి — మనం కలిసి కొన్ని రియల్ ప్రొడక్ట్స్/సర్వీసులను ఇలా యాడ్ చేసుకోవచ్చు (ఉదాహరణకు: చికెన్ సెల్లర్, AC రిపేర్ వ్యక్తి, మొబైల్ షాప్ మొదలైనవి).
+
+యాడ్ చేసిన తర్వాత, బయ్యర్ యాప్‌లో ఆ సబ్జెక్ట్‌కి సంబంధించిన మాట (ఉదా. "చికెన్ కావాలి") టైప్ చేస్తే, ఆ నిజమైన ప్రొడక్ట్ "సంబంధిత ఎంపికలు" కార్డులో కనిపించాలి — DEMO లేబుల్ లేకుండా, నిజమైన సెల్లర్ పేరు/ధర/లొకేషన్‌తో.
+
+గమనిక: ఇప్పటికి ఇన్సూరెన్స్ లాంటి BFSI ప్రొడక్ట్స్ కోసం ప్రత్యేక స్కీమా లేదు (అది తర్వాతి ప్రయారిటీ) — కానీ ఇప్పుడు నిజమైన సెర్చ్ వాడుతున్నందున, సరిపోయే రియల్ డేటా లేకపోతే ఖాళీగా ఉంటుంది తప్ప, ఇంతకుముందులా తప్పు/సంబంధం లేని fake కార్డులు ఇక కనిపించవు.
+
+ఏదైనా స్టెప్‌లో స్టక్ అయితే, ఎక్కడ స్టక్ అయ్యావో స్క్రీన్‌షాట్ పంపు, నేను హెల్ప్ చేస్తాను.
