@@ -1,4 +1,4 @@
-# ASKODOX Execution Tracker — 52-Point Completion Ledger
+# ASKODOX Execution Tracker â€” 52-Point Completion Ledger
 
 Status: ACTIVE EXECUTION LEDGER
 Date: 2026-09-11
@@ -16,7 +16,7 @@ This tracker prevents lost requirements, rework, silent gaps, and false completi
 A point may be marked VERIFIED GREEN only when code exists, integration exists, relevant tests pass, CI/build passes, the real end-to-end flow is verified, edge/failure cases are checked, and admin/audit behavior is checked where relevant.
 
 ## 52 Top-Level Points
-1. Core Identity — Everyday AI Friend + Helping Mind + Decision Partner + Action Assistant
+1. Core Identity â€” Everyday AI Friend + Helping Mind + Decision Partner + Action Assistant
 2. Eight Master Layers
 3. Universal Roles
 4. Registration / Identity
@@ -69,7 +69,7 @@ A point may be marked VERIFIED GREEN only when code exists, integration exists, 
 51. WhatsApp Support-Only Channel
 52. Automatic Point-by-Point Execution Protocol
 
-## Point 1 — Core Identity
+## Point 1 â€” Core Identity
 Status: IN PROGRESS
 Requirement version/date: 2026-09-11
 
@@ -105,25 +105,25 @@ CI/build evidence:
 - Railway/deployment combined status was also still pending at the last verification check.
 
 Known gaps / blockers to GREEN:
-- Full friend-like decision loop (understand → remember → clarify only missing → compare → advise → action → help until done) is not yet proven end-to-end across the real in-app route.
+- Full friend-like decision loop (understand â†’ remember â†’ clarify only missing â†’ compare â†’ advise â†’ action â†’ help until done) is not yet proven end-to-end across the real in-app route.
 - Real in-app E2E verification is not yet attached.
 - Full CI/build/deploy evidence for the current head is not yet fully green.
 - WhatsApp media/location legacy paths still contain historical operational behavior; the new text gate prevents normal text fall-through, but Point 51 cannot be GREEN until support case IDs/admin sync and the remaining media/location behavior are fully audited and separated.
 
 ### Real device GPS integration (2026-09-14, code change, not yet CI/device-verified)
-Forensic finding: `lib/features/location/application/location_controller.dart`'s `requestPermission()` never called any real OS/GPS API — it unconditionally set in-memory `permission` state to `granted` with no `geolocator`/`permission_handler` dependency in `pubspec.yaml`. This is why tapping "లొకేషన్ అనుమతి ఇవ్వండి" in the app did nothing observable and every user was forced onto manual location selection with no way to auto-detect a default location. Confirmed live by the product owner via screenshots on 2026-09-14 (asked for "5 kilala chicken" with no default location set → app correctly asked for delivery details; then opened location setup → "Location permission granted" banner appeared with no real detection happening).
+Forensic finding: `lib/features/location/application/location_controller.dart`'s `requestPermission()` never called any real OS/GPS API â€” it unconditionally set in-memory `permission` state to `granted` with no `geolocator`/`permission_handler` dependency in `pubspec.yaml`. This is why tapping "à°²à±Šà°•à±‡à°·à°¨à± à°…à°¨à±à°®à°¤à°¿ à°‡à°µà±à°µà°‚à°¡à°¿" in the app did nothing observable and every user was forced onto manual location selection with no way to auto-detect a default location. Confirmed live by the product owner via screenshots on 2026-09-14 (asked for "5 kilala chicken" with no default location set â†’ app correctly asked for delivery details; then opened location setup â†’ "Location permission granted" banner appeared with no real detection happening).
 
 Fix applied (uncommitted at time of writing, staged on the owner's machine only):
 - Added `lib/features/location/domain/device_location_gateway.dart` (`DeviceLocationGateway` interface) and `lib/features/location/data/geolocator_location_gateway.dart` (real implementation using the `geolocator` package, added to `pubspec.yaml` as `geolocator: ^14.0.3`).
 - `LocationController` now takes a `DeviceLocationGateway` and its `requestPermission()`/`retryLocation()` call `ensurePermission()` + `getCurrentPosition()` for real, saving a `SavedLocationType.currentLocation` default location only when a real GPS fix is obtained; a missing fix now surfaces an honest "could not be read" message instead of a false "granted" state.
 - Android manifest already declared `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` (no manifest change needed); no iOS project exists in this repo (Android + web only).
-- Added `test/features/location/fakes/fake_device_location_gateway.dart` and 2 new regression tests in `test/features/location/location_controller_test.dart` covering (a) granted permission + real fix → becomes the default location, and (b) granted permission + no fix → honest failure message, no default silently fabricated. Updated the pre-existing `permission denied flow` test and `location_widget_test.dart` construction site to the new two-argument `LocationController` constructor.
+- Added `test/features/location/fakes/fake_device_location_gateway.dart` and 2 new regression tests in `test/features/location/location_controller_test.dart` covering (a) granted permission + real fix â†’ becomes the default location, and (b) granted permission + no fix â†’ honest failure message, no default silently fabricated. Updated the pre-existing `permission denied flow` test and `location_widget_test.dart` construction site to the new two-argument `LocationController` constructor.
 
 NOT yet verified:
-- `flutter pub get` / `flutter analyze` / `flutter test` have not been run against this change — no Flutter SDK is reachable from this forensic/audit environment, and no local shell access exists on the owner's device from here either. Manual brace/paren-balance and import-consistency review only.
-- Real device GPS behavior (actual permission dialog, actual coordinate fix, `deniedForever`/service-disabled device flows) is unverified — needs a real Android build/run.
+- `flutter pub get` / `flutter analyze` / `flutter test` have not been run against this change â€” no Flutter SDK is reachable from this forensic/audit environment, and no local shell access exists on the owner's device from here either. Manual brace/paren-balance and import-consistency review only.
+- Real device GPS behavior (actual permission dialog, actual coordinate fix, `deniedForever`/service-disabled device flows) is unverified â€” needs a real Android build/run.
 - GitHub Actions `Flutter CI` has not yet run against this change.
-- `lib/features/location/application/location_controller.dart`'s `geoRepositoryProvider` still uses `MockGeoRepository` for nearby-shop search — this fix only makes the *default location itself* real; nearby-shop discovery against a real backend is a separate, not-yet-scoped gap.
+- `lib/features/location/application/location_controller.dart`'s `geoRepositoryProvider` still uses `MockGeoRepository` for nearby-shop search â€” this fix only makes the *default location itself* real; nearby-shop discovery against a real backend is a separate, not-yet-scoped gap.
 
 Next action:
 - Verify Flutter CI and deployment for commit `48889f4e201d7aca0a78edc91da84285272a8eda`.
@@ -135,15 +135,15 @@ Next action:
 Regression impact:
 Potentially affects onboarding, memory/history, notifications, customer desk, WhatsApp support routing, job/ride legacy WhatsApp behavior, and any runtime handlers that previously assumed WhatsApp was the canonical channel.
 
-### 2026-09-14 — Gemini reliability chain + AI Companion Positioning reaffirmation
+### 2026-09-14 â€” Gemini reliability chain + AI Companion Positioning reaffirmation
 Three real production reliability failures were found and fixed in sequence via live user testing (screenshots) + Railway log forensics, all in the "general assistant falls back to a hardcoded canned Dart reply instead of a real answer" failure family that this point's acceptance criteria (item 4: no false claims; the wider friend-like decision loop) depend on:
-1. Gemini 503 "high demand" transient errors — fixed earlier with a short in-service retry (`_generate_with_retry`).
-2. Gemini free-tier daily quota (`429 RESOURCE_EXHAUSTED`, 20 requests/day) exhausted by combined testing volume — resolved by the product owner enabling pay-as-you-go billing on the Gemini API key (OpenAI kept as a configured-but-unfunded secondary fallback for now, by owner's choice).
+1. Gemini 503 "high demand" transient errors â€” fixed earlier with a short in-service retry (`_generate_with_retry`).
+2. Gemini free-tier daily quota (`429 RESOURCE_EXHAUSTED`, 20 requests/day) exhausted by combined testing volume â€” resolved by the product owner enabling pay-as-you-go billing on the Gemini API key (OpenAI kept as a configured-but-unfunded secondary fallback for now, by owner's choice).
 3. NEW finding: for longer/multi-detail messages, Gemini's "thinking" tokens were deducted from the same `max_output_tokens` budget as the visible JSON reply, truncating the response to a bare `{"reply": "` fragment and causing a parse failure (`no json object found in model reply`). Fixed by disabling thinking (`thinking_config=types.ThinkingConfig(thinking_budget=0)`) and raising `max_output_tokens` to 2048. Shipped in PR #46 (`fix/gemini-thinking-budget`), deployed and confirmed clean in Railway logs plus a real re-test by the product owner.
 
-Separately, the product owner restated the Core Identity positioning in sharper, explicit terms (see `docs/ASKODOX_MASTER_ARCHITECTURE.md`, "Addendum — AI Companion Positioning & Engineering Layer Breakdown (2026-09-14)"). This reaffirms rather than changes this point's requirement; the addendum also records a related Point 7 violation found the same day (see Point 7 below).
+Separately, the product owner restated the Core Identity positioning in sharper, explicit terms (see `docs/ASKODOX_MASTER_ARCHITECTURE.md`, "Addendum â€” AI Companion Positioning & Engineering Layer Breakdown (2026-09-14)"). This reaffirms rather than changes this point's requirement; the addendum also records a related Point 7 violation found the same day (see Point 7 below).
 
-## Point 44 — Testing / Demo Environment
+## Point 44 â€” Testing / Demo Environment
 Status: REQUIREMENT LOCKED; reusable demo-data implementation verification pending.
 Requirement version/date: 2026-09-11
 
@@ -163,7 +163,7 @@ Acceptance criteria:
 1. Demo identities are clearly non-production and cannot be confused with real users.
 2. Seed/reset mechanism can recreate a known clean demo state without manually rebuilding every account.
 3. Test data covers registration/onboarding, AI conversation, category/need understanding, matching, accept/reject, contact/consent, chat, order/deal flow, delivery/courier/pickup, payment simulation, cancellation/refund/return/replacement, disputes, reviews/trust, notifications, and admin actions as applicable.
-4. Support testing includes unresolved in-app issue → support case creation → admin/customer-care handling → optional WhatsApp support communication → status/resolution written back to ASKODOX history/audit.
+4. Support testing includes unresolved in-app issue â†’ support case creation â†’ admin/customer-care handling â†’ optional WhatsApp support communication â†’ status/resolution written back to ASKODOX history/audit.
 5. Failure/edge fixtures cover no-match, wrong/partial input, duplicate account, failed payment simulation, delivery failure, timeout/retry, network interruption, language change, location change, app restart/session recovery, provider/API failure, and permission denial where relevant.
 6. Multi-language demo coverage includes Telugu plus representative additional languages; language persistence across relaunch is verified.
 7. Role isolation, permissions, privacy, and admin/audit records are testable with the demo identities.
@@ -178,8 +178,8 @@ Next action:
 Regression impact:
 This point ultimately validates all user-facing and admin flows and therefore depends on many earlier points. It should be built incrementally during development, then used as the final full-system regression gate.
 
-## Point 51 — WhatsApp Support-Only Channel
-Status: IN PROGRESS — text gate implemented; support-case/admin-sync and remaining media/location route verification pending.
+## Point 51 â€” WhatsApp Support-Only Channel
+Status: IN PROGRESS â€” text gate implemented; support-case/admin-sync and remaining media/location route verification pending.
 
 WhatsApp is NOT the core ASKODOX business, matching, commerce, deal, or AI workflow. It is a secondary support channel for customer care, complaints, HR, admin support, verification assistance, unresolved issue escalation, and support follow-up. WhatsApp support interactions should create or link a Case ID, retain resolution status/history, and sync relevant outcomes into ASKODOX admin/audit records.
 
@@ -191,34 +191,34 @@ Implementation evidence:
 Media/location path audit (2026-09-14, forensic pass, code-read not CI-verified):
 - Text: gated. `webhook.py` routes every text message through `easy_job_command_service` (the gate), which always returns a reply, so `job_lifecycle_service`/`insurance_router`/`conversation_service` can never run from WhatsApp text.
 - Audio: already effectively gated. The audio path transcribes the voice note and feeds the transcript through the same `_process_user_text` helper as text, so it hits the same gate.
-- Location: **was bypassing the gate** — a location share drove `WORKER_LOCATION`/`EMPLOYER_LOCATION` session-step business logic directly (`save_location`, `complete_worker_registration`, `save_employer_job_location` + `job_matching_service.match_and_notify`, `job_lifecycle_service.handle_location`), fully independent of the text gate. Fixed in working tree: `webhook.py`'s location loop now calls a new `WhatsAppSupportOnlyGate.process_location()` (deterministic, stateless redirect reply) instead of touching session/user/job state. Unit tests added: `backend/tests/test_whatsapp_support_only_gate.py`. **Not yet committed, not yet CI-verified** — do not mark this bullet GREEN until a real commit/CI/E2E pass confirms it.
-- Image/document: `payload_parser.py` has `extract_image_messages`/`extract_document_messages`, but `webhook.py` never calls them — image/document messages are silently dropped (no reply, but also no business-flow bypass since nothing runs). This is a separate UX gap, not a support-only policy bypass; still open.
+- Location: **was bypassing the gate** â€” a location share drove `WORKER_LOCATION`/`EMPLOYER_LOCATION` session-step business logic directly (`save_location`, `complete_worker_registration`, `save_employer_job_location` + `job_matching_service.match_and_notify`, `job_lifecycle_service.handle_location`), fully independent of the text gate. Fixed in working tree: `webhook.py`'s location loop now calls a new `WhatsAppSupportOnlyGate.process_location()` (deterministic, stateless redirect reply) instead of touching session/user/job state. Unit tests added: `backend/tests/test_whatsapp_support_only_gate.py`. **Not yet committed, not yet CI-verified** â€” do not mark this bullet GREEN until a real commit/CI/E2E pass confirms it.
+- Image/document: `payload_parser.py` has `extract_image_messages`/`extract_document_messages`, but `webhook.py` never calls them â€” image/document messages are silently dropped (no reply, but also no business-flow bypass since nothing runs). This is a separate UX gap, not a support-only policy bypass; still open.
 
 Remaining requirements before Point 51 can be GREEN:
 - Real support Case ID repository/creation.
 - Admin/customer-care queue/history and closure status.
 - Sync important WhatsApp support outcomes back into ASKODOX history/audit.
 - Commit + CI-verify the location-gate fix above (implemented but unverified as of 2026-09-14).
-- Decide and implement image/document handling (currently silently dropped) — at minimum give the user a reply pointing to the app, matching the text/location gate behavior.
+- Decide and implement image/document handling (currently silently dropped) â€” at minimum give the user a reply pointing to the app, matching the text/location gate behavior.
 - E2E support escalation verification.
 - E2E support escalation verification.
 
-## Point 52 — Automatic Point-by-Point Execution Protocol
+## Point 52 â€” Automatic Point-by-Point Execution Protocol
 Status: ACTIVE PROCESS RULE.
 
 For every point, work in this exact order:
-1. READ — Load the Master Architecture and current tracker entry before work.
-2. GAP CHECK — Compare the requirement against current code, tests, admin, UX, security, payments/delivery implications, analytics, localization, and failure cases.
-3. DEFINE ACCEPTANCE — Write exact acceptance criteria before marking implementation complete.
-4. IMPLEMENT — Make the code/config/schema/UI/backend changes needed for that point.
-5. INTEGRATE — Connect dependent modules; do not leave isolated code.
-6. TEST — Unit/integration/UI/E2E/failure tests as relevant.
-7. VERIFY — Verify CI/build plus the real user flow.
-8. SAVE EVIDENCE — Record commit/PR/test/build evidence in this ledger.
-9. STATUS — Mark VERIFIED GREEN only if the Master Completion Gate is satisfied; otherwise IN PROGRESS or BLOCKED.
-10. DEPENDENCY CHECK — Confirm the completed point did not break an already-green point.
-11. GAP SWEEP — Run a short self-gap check against the Master Architecture before moving on.
-12. NEXT POINT — Continue to the next point only after the current status/evidence is saved.
+1. READ â€” Load the Master Architecture and current tracker entry before work.
+2. GAP CHECK â€” Compare the requirement against current code, tests, admin, UX, security, payments/delivery implications, analytics, localization, and failure cases.
+3. DEFINE ACCEPTANCE â€” Write exact acceptance criteria before marking implementation complete.
+4. IMPLEMENT â€” Make the code/config/schema/UI/backend changes needed for that point.
+5. INTEGRATE â€” Connect dependent modules; do not leave isolated code.
+6. TEST â€” Unit/integration/UI/E2E/failure tests as relevant.
+7. VERIFY â€” Verify CI/build plus the real user flow.
+8. SAVE EVIDENCE â€” Record commit/PR/test/build evidence in this ledger.
+9. STATUS â€” Mark VERIFIED GREEN only if the Master Completion Gate is satisfied; otherwise IN PROGRESS or BLOCKED.
+10. DEPENDENCY CHECK â€” Confirm the completed point did not break an already-green point.
+11. GAP SWEEP â€” Run a short self-gap check against the Master Architecture before moving on.
+12. NEXT POINT â€” Continue to the next point only after the current status/evidence is saved.
 
 ## Rework-Prevention Rules
 - Never rely on ChatGPT conversational memory as the canonical specification.
@@ -230,32 +230,32 @@ For every point, work in this exact order:
 - Keep requirement evidence and implementation evidence separate.
 
 ## Execution Order
-Default: Point 1 → Point 52 sequentially. A dependent technical subtask may be done earlier when necessary, but the tracker must show the dependency explicitly and the parent point cannot be marked GREEN until all its gates pass.
+Default: Point 1 â†’ Point 52 sequentially. A dependent technical subtask may be done earlier when necessary, but the tracker must show the dependency explicitly and the parent point cannot be marked GREEN until all its gates pass.
 
 
-## Point 7 — Matching Engine
+## Point 7 â€” Matching Engine
 Status: IN PROGRESS (containment fix shipped 2026-09-14; underlying per-domain schema gap still open)
 Requirement version/date: 2026-09-14 (see Master Architecture Point 7 and the 2026-09-14 Addendum)
 
 Requirement:
-Rank matches by relevant location/budget/availability/quality/verification/trust/preferences and show reasons. Local is a useful source, not a mandatory identity. A match must only be shown once the request is actually understood (see Point 39 — AI Self-Gap Detection) — never a placeholder/demo result presented as if it were a real, ready recommendation.
+Rank matches by relevant location/budget/availability/quality/verification/trust/preferences and show reasons. Local is a useful source, not a mandatory identity. A match must only be shown once the request is actually understood (see Point 39 â€” AI Self-Gap Detection) â€” never a placeholder/demo result presented as if it were a real, ready recommendation.
 
-### 2026-09-14 — Forensic finding: DEMO match cards shown before request understood, and domain-mismatched
-Live test: "naku insurance kavali" -> "health" produced a "Relevant matches" card (visibly labelled DEMO) showing "QuickFix Local Services" / "Nearby Home Service Pro" — generic home-service placeholder businesses with zero relevance to insurance — WHILE the assistant was still asking for budget/sum-assured/headcount. Root cause: `askodox_primary_home_screen.dart` calls `DemoNaturalMatchCatalog.forDeal(deal, enabled: true)` whenever `transactional` is true and a deal exists; the gate meant to prevent this (`UniversalDeal.missingForMatch` / `readyToMatch`, in `lib/features/deal_brain/domain/universal_deal.dart`) only defines required-field sets for ride/worker/service/appointment/buy-sell intents. An insurance request is absorbed into the generic `needService`/`offerService` case, whose only required fields are `subject` + `location` — so `readyToMatch` went true far too early, and the demo catalog has no insurance-specific card set anyway (it fell through to generic service placeholders).
+### 2026-09-14 â€” Forensic finding: DEMO match cards shown before request understood, and domain-mismatched
+Live test: "naku insurance kavali" -> "health" produced a "Relevant matches" card (visibly labelled DEMO) showing "QuickFix Local Services" / "Nearby Home Service Pro" â€” generic home-service placeholder businesses with zero relevance to insurance â€” WHILE the assistant was still asking for budget/sum-assured/headcount. Root cause: `askodox_primary_home_screen.dart` calls `DemoNaturalMatchCatalog.forDeal(deal, enabled: true)` whenever `transactional` is true and a deal exists; the gate meant to prevent this (`UniversalDeal.missingForMatch` / `readyToMatch`, in `lib/features/deal_brain/domain/universal_deal.dart`) only defines required-field sets for ride/worker/service/appointment/buy-sell intents. An insurance request is absorbed into the generic `needService`/`offerService` case, whose only required fields are `subject` + `location` â€” so `readyToMatch` went true far too early, and the demo catalog has no insurance-specific card set anyway (it fell through to generic service placeholders).
 
-This is also a confirmed instance of the never-shipped "DemoNaturalMatchCatalog is fake, not real seller data" gap already known from earlier this session (chicken-order flow investigation) — every domain, not just insurance, is currently shown fake/demo matches, clearly labelled "DEMO" in the UI but not gated correctly on actual completeness.
+This is also a confirmed instance of the never-shipped "DemoNaturalMatchCatalog is fake, not real seller data" gap already known from earlier this session (chicken-order flow investigation) â€” every domain, not just insurance, is currently shown fake/demo matches, clearly labelled "DEMO" in the UI but not gated correctly on actual completeness.
 
 Code evidence (containment fix, not the underlying fix):
 - `lib/features/home/presentation/askodox_primary_home_screen.dart`: both `DemoNaturalMatchCatalog.forDeal(deal, enabled: true)` call sites changed to `enabled: false`, so the "Relevant matches" section (`if (_matches.isNotEmpty)`) never renders until real seller-backed matching exists. Pushed on branch `fix/hide-demo-match-cards`.
 
 Known gaps / next action:
-- `UniversalDeal.missingForMatch` has no case for BFSI/insurance (or several other Point 12 life/business ecosystems) — needs a real per-domain required-fields schema before any match card for those domains is safe to re-enable (see Point 6, Point 11).
-- No real seller/provider database is wired into this AI chat matching path for ANY domain yet — `DemoNaturalMatchCatalog` is 100% hardcoded sandbox data. Real matching (Point 7 proper, backed by `ProductCatalogRepository`/`seller_products` or an equivalent per-domain provider table) is a distinct, larger, not-yet-scoped project.
+- `UniversalDeal.missingForMatch` has no case for BFSI/insurance (or several other Point 12 life/business ecosystems) â€” needs a real per-domain required-fields schema before any match card for those domains is safe to re-enable (see Point 6, Point 11).
+- No real seller/provider database is wired into this AI chat matching path for ANY domain yet â€” `DemoNaturalMatchCatalog` is 100% hardcoded sandbox data. Real matching (Point 7 proper, backed by `ProductCatalogRepository`/`seller_products` or an equivalent per-domain provider table) is a distinct, larger, not-yet-scoped project.
 - Not yet re-verified with `flutter analyze`/tests beyond the 2-line change review (no Flutter SDK reachable from this audit environment).
 
-Next action: product-owner decision needed on priority — build a real BFSI/insurance schema + matching next, or a different backlog item first. Do not set `enabled: true` again for any domain until its `missingForMatch` requirements are verified correct for that domain.
+Next action: product-owner decision needed on priority â€” build a real BFSI/insurance schema + matching next, or a different backlog item first. Do not set `enabled: true` again for any domain until its `missingForMatch` requirements are verified correct for that domain.
 
-### 2026-09-15 — Real (non-demo) matching bootstrap started, per explicit product-owner direction
+### 2026-09-15 â€” Real (non-demo) matching bootstrap started, per explicit product-owner direction
 Status update: IN PROGRESS -> containment fix above superseded by a real bootstrap (still not the full Point 7 ranking engine).
 
 Product owner's explicit priority order for the remaining backlog: (1) real seller matching, (2) BFSI/insurance category, (3) more reliability testing. For (1), given no seller-onboarding pipeline exists yet, the product owner's explicit instruction was to add a handful of real products/sellers manually together and show them to the buyer.
@@ -268,8 +268,8 @@ Shipped this round:
 
 Known gaps still open (unchanged by this bootstrap):
 - No BFSI/insurance required-fields schema in `UniversalDeal.missingForMatch` yet (Point 11, next in the product owner's stated priority order).
-- No real seller-onboarding pipeline — `MockSellerRepository` is still hardwired in the Flutter app; the manual seed tool is a deliberate, explicitly-chosen bootstrap, not a replacement for that larger future project.
-- `search_active` is a simple case-insensitive substring match with no ranking (location/budget/trust/availability) yet — the real Point 7 ranking engine is still a distinct, larger follow-up once there is meaningful real-data volume.
+- No real seller-onboarding pipeline â€” `MockSellerRepository` is still hardwired in the Flutter app; the manual seed tool is a deliberate, explicitly-chosen bootstrap, not a replacement for that larger future project.
+- `search_active` is a simple case-insensitive substring match with no ranking (location/budget/trust/availability) yet â€” the real Point 7 ranking engine is still a distinct, larger follow-up once there is meaningful real-data volume.
 - Not yet re-verified with `flutter analyze`/`pytest` beyond manual review, `py_compile`, and standalone script-equivalent test runs (no Flutter SDK or `pytest`/`google-genai` package reachable from this audit environment).
 
 ## Per-Point Record Template
@@ -289,7 +289,7 @@ For each point, maintain:
 - Next action:
 - Regression impact:
 
-### 2026-09-15 — Seller listing schema extended
+### 2026-09-15 â€” Seller listing schema extended
 
 The real seller listing bootstrap now persists and exposes `category_tag`,
 `service_area`, and `working_hours`. The protected manual seed form accepts
@@ -297,6 +297,42 @@ these fields, backend search includes category matches, and buyer-facing
 match subtitles display the supplied category, service area, and hours.
 This remains bootstrap metadata rather than a full ranking or seller-onboarding
 system.
+
+### 2026-09-15 (round 2) â€” Role-segmented research (Seller / Service Provider / Buyer / Service Taker) and a further trust/compliance schema extension
+
+Following the first round above, the product owner asked for a deeper, role-by-role check against real top platforms (not just a flat field list): what do real apps require specifically from a Seller, a Service Provider, a Buyer, and a Service Taker to actually close a deal. A research pass grounded in Amazon/Flipkart/Etsy/IndiaMART/Meesho (seller), Urban Company/TaskRabbit/Upwork/Fiverr/Google Business Profile (service provider), and Amazon/Flipkart/Etsy checkout plus Urban Company/Swiggy/Zomato/Uber/Ola (buyer and service-taker) surfaced 6 gaps that mattered for at least 2 of the 4 roles:
+
+1. Precise/structured location (GPS pin + landmark) -- our `location_label` is a plain text area/city only.
+2. Payment/payout details -- every platform researched collects this.
+3. Identity/trust verification (GSTIN/PAN for Seller; Aadhaar/police check for Service Provider).
+4. Real scheduling (date/time slot booking) -- we only have static `working_hours`.
+5. Ratings/reviews history -- a universal trust signal, currently absent.
+6. Cancellation/return/refund policy.
+
+Product owner's decision: implement all 6 now for the parts that are a straightforward schema/admin-form extension of the existing seller-side bootstrap (same pattern as the round-1 fields); explicitly defer (4) real scheduling and (5) ratings/reviews until after the BFSI/insurance domain is built, matching the product owner's own original priority order (1. real seller matching [done], 2. BFSI/insurance, 3. reliability testing) -- these two need real subsystems (a booking/slot calendar; a reviews store and UI) that don't yet exist and shouldn't be improvised as bare columns.
+
+Shipped this round (Seller/Service-Provider side only -- see "known gap" below for Buyer/Service-Taker):
+- `product_catalog_repository.py`: `_ADDED_COLUMNS` extended with `precise_location`, `cancellation_policy`, `payout_reference`, `gstin`, `pan`, `id_verification_status`.
+- **Deliberate compliance decision**: `id_verification_status` stores only a plain status string (e.g. `VERIFIED`/`UNVERIFIED`) -- it and no other field ever stores a raw Aadhaar (or other national ID) number. Storing raw Aadhaar numbers outside a UIDAI-authorized flow is both a legal exposure (Aadhaar Act) and a security risk for a bootstrap tool with no encryption-at-rest story. GSTIN and PAN ARE stored as given, since these are business/tax identifiers that real e-commerce platforms (Amazon, Flipkart) already collect and store the same way for KYC/TDS purposes -- a materially different risk profile from a biometric national ID.
+- `payout_reference` (e.g. a UPI VPA) is informational-only metadata for the product owner's own records -- there is still no real payment processing (Master Architecture Point 21 remains not built), so this is not wired to any money movement.
+- `product_search.py`: buyer-facing match subtitle now shows a plain "âœ“ ID Verified" trust badge when `id_verification_status` is `VERIFIED` (never the underlying number), and falls back to `precise_location` when no `location_label` was given.
+- `product_catalog_admin.py`: manual seed form gets 6 new inputs (Precise location, Cancellation/return policy, Payout reference, GSTIN, PAN, ID verification status dropdown), with an explicit on-page note that no Aadhaar/national-ID number is ever collected here.
+- `test_product_catalog_search.py`: 2 new tests (`test_upsert_product_persists_trust_and_compliance_fields`, `test_upsert_product_leaves_trust_fields_unset_by_default`) -- 12 tests total now.
+
+Verified via standalone script execution (12/12 pass), `py_compile`, and template-render smoke tests of both the admin form and the search subtitle (no `pytest`/Flutter SDK reachable from this audit environment).
+
+Known gap, explicitly not started this round: the Buyer-side and Service-Taker-side fields the same research surfaced (structured delivery address, GPS pin-drop, saved payment method, alternate contact for Buyer; job-spec attributes, date/time slot, access instructions, OTP handshake for Service Taker) are NOT a column addition to `seller_products` -- there is currently no buyer/service-taker profile persistence at all in ASKODOX. Building that is a separate, materially larger project (new table/repository, wiring into the deal-brain/chat flow, real address+geo capture UX) overlapping Master Architecture Points 4 (Registration/Identity), 21 (Payment Architecture) and 26 (Location/Maps). Flagged for a future dedicated round rather than silently built into this bootstrap-form change.
+
+### 2026-09-15 (round 2, requirement recorded) â€” Future direction: AI-conversational registration (chat or voice), both Seller/Provider and Buyer/Service-Taker
+
+Product owner's explicit new requirement, recorded here per the project's own Rework-Prevention Rule ("every new user requirement must be recorded ... before implementation is considered locked") even though implementation is deferred: today, filling in any of the fields above (round 1 or round 2) is a manual step -- either this assistant and the product owner typing into the `/admin/products/new` web form together, or (once real onboarding exists) a person filling a form themselves. The product owner instead wants the AI itself to conduct registration/onboarding as a natural conversation, over in-app chat or voice, for **both** sides -- Seller/Service-Provider **and** Buyer/Service-Taker:
+
+- The AI asks for each required field conversationally (not a static form) and fills them in from the person's natural-language answers as the conversation goes.
+- Answers are saved (persisted) as they come in, not only at the end, so a partially-completed registration is not lost.
+- The AI tracks which required fields are still missing and proactively asks the person directly for exactly what's missing, rather than silently leaving a gap or making up a value.
+- This applies to both the round-1 fields (category, service area, working hours) and the round-2 fields (precise location, cancellation policy, payout reference, GSTIN, PAN, ID verification status) documented above, plus whatever Buyer/Service-Taker fields are scoped when that side is built (see the known gap immediately above).
+
+This is a genuinely large feature (a conversational registration/intake flow driven by the deal-brain/AI-assistant layer, with per-field extraction, partial-save, and gap-detection logic across two different role types) and overlaps Master Architecture Point 4 (Registration/Identity) directly, plus Points 15/16 (Seller/Business Module, AI Catalog) for the seller side. **Explicitly deferred**: product owner confirmed this should be taken up after the BFSI/insurance domain (Point 11), matching the standing priority order (1. real seller matching [done], 2. BFSI/insurance, 3. reliability testing). No implementation has started. This entry exists so the requirement is not lost between now and when that work begins.
 
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.

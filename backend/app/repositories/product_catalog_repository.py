@@ -14,6 +14,22 @@ class ProductCatalogRepository:
     _ADDED_COLUMNS = (
         "seller_name", "location_label", "contact_phone",
         "category_tag", "service_area", "working_hours",
+        # 2026-09-15 (round 2): added after a role-by-role research pass
+        # (Seller / Service Provider / Buyer / Service Taker) into what real
+        # top platforms collect. `precise_location` and `id_verification_status`
+        # deliberately never hold a raw Aadhaar number or any other national
+        # ID number -- only a plain verification-status string (e.g.
+        # "VERIFIED"/"UNVERIFIED") plus a free-text note about how it was
+        # verified, since storing raw Aadhaar numbers outside a UIDAI-
+        # authorized flow is both a legal and a security risk. GSTIN/PAN are
+        # business/tax identifiers already commonly collected and stored by
+        # real e-commerce platforms (Amazon, Flipkart) for the same purpose,
+        # so those are stored as given. `payout_reference` is informational
+        # metadata only (e.g. a UPI VPA) -- there is still no real payment
+        # processing wired up (Master Architecture Point 21). See
+        # docs/ASKODOX_EXECUTION_TRACKER.md for the full research summary.
+        "precise_location", "cancellation_policy", "payout_reference",
+        "gstin", "pan", "id_verification_status",
     )
 
     _SEARCH_STOPWORDS = frozenset({
@@ -106,16 +122,22 @@ class ProductCatalogRepository:
                 "category_tag": fields.get("category_tag"),
                 "service_area": fields.get("service_area"),
                 "working_hours": fields.get("working_hours"),
+                "precise_location": fields.get("precise_location"),
+                "cancellation_policy": fields.get("cancellation_policy"),
+                "payout_reference": fields.get("payout_reference"),
+                "gstin": fields.get("gstin"),
+                "pan": fields.get("pan"),
+                "id_verification_status": (str(fields["id_verification_status"]).upper() if fields.get("id_verification_status") else None),
             }
             if row:
                 product_id = int(row["id"])
                 conn.execute(
-                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,seller_name=COALESCE(?,seller_name),location_label=COALESCE(?,location_label),contact_phone=COALESCE(?,contact_phone),category_tag=COALESCE(?,category_tag),service_area=COALESCE(?,service_area),working_hours=COALESCE(?,working_hours),updated_at=? WHERE id=?""",
+                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,seller_name=COALESCE(?,seller_name),location_label=COALESCE(?,location_label),contact_phone=COALESCE(?,contact_phone),category_tag=COALESCE(?,category_tag),service_area=COALESCE(?,service_area),working_hours=COALESCE(?,working_hours),precise_location=COALESCE(?,precise_location),cancellation_policy=COALESCE(?,cancellation_policy),payout_reference=COALESCE(?,payout_reference),gstin=COALESCE(?,gstin),pan=COALESCE(?,pan),id_verification_status=COALESCE(?,id_verification_status),updated_at=? WHERE id=?""",
                     (*values.values(), now, product_id),
                 )
                 return product_id
             cur = conn.execute(
-                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,seller_name,location_label,contact_phone,category_tag,service_area,working_hours,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,seller_name,location_label,contact_phone,category_tag,service_area,working_hours,precise_location,cancellation_policy,payout_reference,gstin,pan,id_verification_status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
                 (seller, name, *values.values(), now, now),
             )
             return int(cur.lastrowid)

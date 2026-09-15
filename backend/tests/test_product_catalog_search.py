@@ -110,3 +110,39 @@ def test_search_active_does_not_false_positive_on_conversational_filler(repo):
     assert repo.search_active("first confirm price") == []
     assert repo.search_active("yes") == []
     assert repo.search_active("show nearby") == []
+
+
+def test_upsert_product_persists_trust_and_compliance_fields(repo):
+    """2026-09-15 (round 2): after a role-by-role (Seller/Provider/Buyer/
+    Service-taker) research pass, added precise_location, cancellation_policy,
+    payout_reference, gstin, pan, and id_verification_status. None of these
+    ever store a raw national-ID number (e.g. Aadhaar) -- only a plain
+    verification-status string.
+    """
+    product_id = repo.upsert_product(
+        "VMM2424",
+        "CHICKEN & MUTTON",
+        precise_location="16.4419,80.6423 (near Vuyyuru bus stand)",
+        cancellation_policy="No cancellation after order is packed.",
+        payout_reference="murali@upi",
+        gstin="37ABCDE1234F1Z5",
+        pan="ABCDE1234F",
+        id_verification_status="verified",
+    )
+
+    product = repo.get(product_id)
+    assert product["precise_location"] == "16.4419,80.6423 (near Vuyyuru bus stand)"
+    assert product["cancellation_policy"] == "No cancellation after order is packed."
+    assert product["payout_reference"] == "murali@upi"
+    assert product["gstin"] == "37ABCDE1234F1Z5"
+    assert product["pan"] == "ABCDE1234F"
+    assert product["id_verification_status"] == "VERIFIED"
+
+
+def test_upsert_product_leaves_trust_fields_unset_by_default(repo):
+    product_id = repo.upsert_product("seller-1", "Tailoring")
+
+    product = repo.get(product_id)
+    assert product["id_verification_status"] is None
+    assert product["gstin"] is None
+    assert product["pan"] is None
