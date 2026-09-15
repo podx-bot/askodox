@@ -22,16 +22,81 @@ class AskodoxSemanticDealInput {
     }
 
     final payload = parts.isEmpty ? original.trim() : parts.join(' ').trim();
+    final offering = _isOfferingSide(original, decision);
     return switch (decision.domain) {
       'STAFFING' => 'need staff $payload',
       'JOB_SEEKER' => 'need a job $payload',
-      'SERVICE' => 'need service $payload',
+      'SERVICE' => offering ? 'offer service $payload' : 'need service $payload',
       'PARCEL' => 'send parcel $payload',
-      'RIDE' => 'need a ride $payload',
-      'PRODUCT' || 'FOOD' => 'i want to buy $payload',
+      'RIDE' => offering ? 'offer ride $payload' : 'need a ride $payload',
+      'PRODUCT' || 'FOOD' => offering ? 'i want to sell $payload' : 'i want to buy $payload',
       'APPOINTMENT' => 'book appointment $payload',
       _ => payload,
     };
+  }
+
+  static bool _isOfferingSide(String original, InAppAssistantDecision decision) {
+    final action = decision.action.toLowerCase();
+    if (action.isNotEmpty) {
+      const offeringActionHints = [
+        'sell',
+        'list_product',
+        'list_item',
+        'list_my',
+        'create_listing',
+        'add_listing',
+        'add_product',
+        'publish_listing',
+        'publish_product',
+        'offer_product',
+        'offer_service',
+        'offer_ride',
+        'provide_service',
+        'become_seller',
+        'register_seller',
+      ];
+      if (offeringActionHints.any(action.contains)) return true;
+      const requestingActionHints = ['buy', 'purchase', 'order', 'need_', 'find_', 'search_', 'request_'];
+      if (requestingActionHints.any(action.contains)) return false;
+    }
+
+    final text = original.trim().toLowerCase();
+    if (text.isEmpty) return false;
+    const offeringPhrases = [
+      'i want to sell',
+      'want to sell',
+      'i want sell',
+      'i wanna sell',
+      'looking to sell',
+      'need to sell',
+      'planning to sell',
+      'for sale',
+      'i am selling',
+      'i m selling',
+      'selling my',
+      'sell my',
+      'sell some',
+      'list my',
+      'listing my',
+      'i have to sell',
+      'i offer',
+      'we offer',
+      'i provide',
+      'we provide',
+      'offer service',
+      'provide service',
+      'service provider',
+      'seats available',
+      'ride available',
+      'carpool available',
+      'offer ride',
+      'అమ్మాలి',
+      'అమ్మకం',
+      'అమ్ముతున్నాను',
+      'అమ్మాలనుకుంటున్నాను',
+      'నేను అమ్ముతున్నా',
+    ];
+    return offeringPhrases.any(text.contains);
   }
 
   static String? _firstText(InAppAssistantDecision decision, List<String> keys) {
