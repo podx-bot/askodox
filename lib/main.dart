@@ -56,9 +56,15 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
     final mobile = prefs.getString('askodox.profile.mobile')?.trim() ?? '';
     final name = prefs.getString('askodox.profile.name')?.trim() ?? '';
     if (mobile.isEmpty || name.isEmpty) return;
+    // Added 2026-09-16 (round 10): the real signed session token saved by
+    // onboarding_screen.dart's _finish() after OTP verification -- see
+    // AuthController.completeOnboarding for why this replaces the old
+    // fabricated 'OTP_VERIFIED' placeholder.
+    final token = prefs.getString('askodox.auth.token')?.trim();
     await ref.read(authSessionProvider.notifier).completeOnboarding(
           mobile: mobile,
           displayName: name,
+          token: (token == null || token.isEmpty) ? null : token,
         );
     _sessionTimer?.cancel();
   }

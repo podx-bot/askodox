@@ -1,3 +1,4 @@
+import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +34,7 @@ class Settings:
     brave_search_api_key: str
     brave_search_timeout_seconds: int
     admin_seed_key: str
+    session_token_secret: str
 
 
 def _database_path() -> str:
@@ -79,6 +81,27 @@ def _bool_env(name: str, default: bool) -> bool:
     if raw in {"0", "false", "no", "off"}:
         return False
     return default
+
+
+def _session_token_secret() -> str:
+    """Resolve the secret used to sign/verify session tokens (see session_tokens.py).
+
+    Added 2026-09-16 (round 10) to fix the identity-spoofing gap from the
+    full audit. Prefers a dedicated SESSION_TOKEN_SECRET so it can be
+    rotated independently of ADMIN_SEED_KEY. Falls back to a value derived
+    from ADMIN_SEED_KEY (already configured in every real deployment --
+    see .env.example) so this fix needs zero new required configuration to
+    work correctly in production immediately. Only falls all the way back
+    to a fixed string when neither is set, which only happens in a local
+    dev environment with no .env at all -- never in a real deployment.
+    """
+    explicit = os.getenv("SESSION_TOKEN_SECRET", "").strip()
+    if explicit:
+        return explicit
+    admin_seed_key = os.getenv("ADMIN_SEED_KEY", "").strip()
+    if admin_seed_key:
+        return hashlib.sha256(f"askodox-session-token:{admin_seed_key}".encode()).hexdigest()
+    return "askodox-dev-only-insecure-session-secret-set-SESSION_TOKEN_SECRET"
 
 
 def load_settings() -> Settings:
@@ -128,4 +151,5 @@ def load_settings() -> Settings:
         brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY", "").strip(),
         brave_search_timeout_seconds=_positive_int_env("BRAVE_SEARCH_TIMEOUT_SECONDS", 8),
         admin_seed_key=os.getenv("ADMIN_SEED_KEY", "").strip(),
+        session_token_secret=_session_token_secret(),
     )
