@@ -8,11 +8,19 @@ ASKODOX (Master Architecture Point 21); settling payment between buyer and
 seller (cash, UPI to the seller's own payout_reference, etc.) still happens
 outside the app, same as it always has.
 
-Identity: reuses the exact same "app-" prefixed user id convention already
-used by the real /deals endpoints (see universal_deals.py's `_app_user`),
-which itself comes from the phone-number-OTP-verified identity already
-wired up in the Flutter app (AuthController -> 'app-phone-<digits>'). No
-new auth system was introduced for this.
+Identity: 2026-09-16 (round 10) -- the "app-phone-<digits>" convention
+described below is now only ever *proposed* by the client; every endpoint
+here re-derives who is really calling from a signed session token (see
+session_tokens.py) issued at OTP-verify time (onboarding_auth.py), and
+rejects the request if the client's proposed id does not match it. Before
+this round, every endpoint below simply trusted whatever buyer_user_id/
+seller_user_id the client sent with zero proof -- the full repository audit
+(2026-09-16) flagged this as a critical identity-spoofing gap, since these
+ids are literally the other party's phone number once an order is accepted
+(see order_contact_visibility.py) and this endpoint also gates who can
+accept/reject someone else's order. universal_deals.py's own `_app_user`
+still has the same gap and is intentionally not fixed in this round -- see
+the round-10 tracker entry in docs/ASKODOX_EXECUTION_TRACKER.md for why.
 """
 from __future__ import annotations
 
@@ -23,15 +31,49 @@ from pydantic import BaseModel, Field
 
 from app.repositories.order_repository import VALID_STATUSES
 from app.services.order_contact_visibility import mask_contact_for_viewer
+from app.services.session_tokens import verify_token
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
-def _app_user(value: str) -> str:
-    user_id = str(value or "").strip()
-    if not user_id.lower().startswith("app-"):
-        raise HTTPException(status_code=400, detail="ASKODOX app user_id required")
+def _authenticated_app_user(request: Request) -> str:
+    """Return the app_user_id proven by this request's bearer token.
+
+    Added 2026-09-16 (round 10). Raises 401 if no token was sent, or if the
+    token is missing/malformed/expired/forged -- see session_tokens.py for
+    exactly what "forged" catches (wrong secret, tampered payload, wrong
+    signature). This is now the *only* source of truth for identity on
+    every route below; a client-supplied buyer_user_id/seller_user_id field
+    is only ever checked against this, never trusted on its own.
+    """
+    container: Any = request.app.state.container
+    header = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign in required -- no session token was sent")
+    user_id = verify_token(token, container.settings.session_token_secret)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Session expired or invalid -- please sign in again")
     return user_id
+
+
+def _matching_app_user(claimed_value: str, authenticated_user_id: str) -> str:
+    """Reconcile a client-supplied identity field with the token-proven one.
+
+    The client-supplied field is kept (rather than dropped) so an already
+    -deployed app build's request body shape keeps working unchanged -- it
+    is simply no longer trusted by itself. A blank claimed value (an older
+    or simplified client that stops sending it) is fine and just uses the
+    authenticated identity outright. A non-blank value that disagrees with
+    the token is rejected outright: that only happens if a client is
+    confused about who is signed in, or is actively trying to act as
+    someone else, and either way the token-proven identity is what should
+    be trusted, not the claim.
+    """
+    claimed = str(claimed_value or "").strip()
+    if claimed and claimed != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="This session is not signed in as that user")
+    return authenticated_user_id
 
 
 class PlaceOrderRequest(BaseModel):
@@ -80,7 +122,7 @@ def _to_response(row: dict[str, Any], *, viewer: str) -> OrderResponse:
 @router.post("", response_model=OrderResponse)
 def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
     container: Any = request.app.state.container
-    buyer_user_id = _app_user(payload.buyer_user_id)
+    buyer_user_id = _matching_app_user(payload.buyer_user_id, _authenticated_app_user(request))
 
     product = container.product_catalog_repository.get(payload.product_id)
     if not product or not product.get("active", True):
@@ -114,7 +156,7 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
 @router.get("/mine", response_model=OrderListResponse)
 def my_orders(request: Request, buyer_user_id: str = "", limit: int = 50) -> OrderListResponse:
     container: Any = request.app.state.container
-    user_id = _app_user(buyer_user_id)
+    user_id = _matching_app_user(buyer_user_id, _authenticated_app_user(request))
     rows = container.order_repository.list_for_buyer(user_id, limit=limit)
     return OrderListResponse(items=[_to_response(row, viewer="buyer") for row in rows])
 
@@ -122,7 +164,7 @@ def my_orders(request: Request, buyer_user_id: str = "", limit: int = 50) -> Ord
 @router.get("/incoming", response_model=OrderListResponse)
 def incoming_orders(request: Request, seller_user_id: str = "", limit: int = 50) -> OrderListResponse:
     container: Any = request.app.state.container
-    user_id = _app_user(seller_user_id)
+    user_id = _matching_app_user(seller_user_id, _authenticated_app_user(request))
     rows = container.order_repository.list_for_seller(user_id, limit=limit)
     return OrderListResponse(items=[_to_response(row, viewer="seller") for row in rows])
 
@@ -130,7 +172,7 @@ def incoming_orders(request: Request, seller_user_id: str = "", limit: int = 50)
 @router.post("/{order_id}/status", response_model=OrderResponse)
 def update_order_status(order_id: int, payload: UpdateOrderStatusRequest, request: Request) -> OrderResponse:
     container: Any = request.app.state.container
-    seller_user_id = _app_user(payload.seller_user_id)
+    seller_user_id = _matching_app_user(payload.seller_user_id, _authenticated_app_user(request))
 
     order = container.order_repository.get(order_id)
     if not order:

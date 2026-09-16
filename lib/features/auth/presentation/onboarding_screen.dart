@@ -21,11 +21,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const _mobileKey = 'askodox.profile.mobile';
   static const _nameKey = 'askodox.profile.name';
   static const _localeKey = 'askodox.locale';
+  // Added 2026-09-16 (round 10). See AuthController.completeOnboarding and
+  // main.dart's _restoreOnboardingIdentity for how this is read back out.
+  static const _tokenKey = 'askodox.auth.token';
 
   final _mobile = TextEditingController(text: '+91');
   final _otp = TextEditingController();
   final _name = TextEditingController();
   final _nameFocus = FocusNode(debugLabel: 'askodox-name-focus');
+  // Added 2026-09-16 (round 10): the real signed session token returned by
+  // POST /onboarding/otp/verify, captured here and persisted in _finish().
+  String? _verifiedToken;
 
   int _step = 0;
   bool _loading = true;
@@ -163,6 +169,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
+      // Added 2026-09-16 (round 10): capture the real signed session token
+      // the backend just issued (see session_tokens.py) so _finish() below
+      // can persist it -- this is what closes the identity-spoofing gap
+      // from the full audit.
+      _verifiedToken = result.data['token']?.toString();
       FocusScope.of(context).unfocus();
       setState(() => _step = 3);
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -186,6 +197,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_mobileKey, _mobile.text.trim());
     await prefs.setString(_nameKey, _name.text.trim());
+    // Added 2026-09-16 (round 10). See main.dart's _restoreOnboardingIdentity
+    // for where this is read back and AuthController.completeOnboarding for
+    // where it becomes the app's real Authorization: Bearer token.
+    final token = _verifiedToken?.trim();
+    if (token != null && token.isNotEmpty) {
+      await prefs.setString(_tokenKey, token);
+    }
     await prefs.setBool(_completeKey, true);
     if (mounted) context.go('/');
   }

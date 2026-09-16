@@ -120,25 +120,37 @@ abstract interface class OrderRepository {
 }
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
-  final user = ref.watch(authSessionProvider).user;
+  final session = ref.watch(authSessionProvider);
+  final user = session.user;
   return ApiOrderRepository(
     ref.watch(apiClientProvider),
     appUserId: user == null ? _guestOrderUserId : _appUser(user.id),
+    // Added 2026-09-16 (round 10): the real signed session token from
+    // POST /onboarding/otp/verify (see session_tokens.py on the backend).
+    // Every order endpoint now requires this instead of trusting the
+    // *_user_id fields alone -- see orders.py's _authenticated_app_user. A
+    // guest (user == null) has no token; those calls now correctly get a
+    // 401 from the backend rather than silently acting as a fake identity.
+    authToken: user == null ? null : session.tokenPlaceholder,
   );
 });
 
 class ApiOrderRepository implements OrderRepository {
-  ApiOrderRepository(this._client, {required this.appUserId});
+  ApiOrderRepository(this._client, {required this.appUserId, this.authToken});
 
   final ApiClient _client;
   final String appUserId;
+  final String? authToken;
 
   // Placing an order is a POST and is never auto-retried, to avoid risking
   // a duplicate order on a flaky connection. Railway can need more than the
   // global default timeout while a service is waking up, same reasoning as
   // ApiUniversalMatchRepository's _createOptions.
-  static const _mutateOptions =
-      ApiRequestOptions(timeout: Duration(seconds: 30));
+  //
+  // Changed from a static const to an instance getter in round 10 so it can
+  // carry this instance's authToken.
+  ApiRequestOptions get _mutateOptions =>
+      ApiRequestOptions(timeout: const Duration(seconds: 30), authToken: authToken);
 
   // Listing lookups are safe GETs, so one retry is allowed after a
   // cold-start/network timeout, same as ApiUniversalMatchRepository's
@@ -196,6 +208,7 @@ class ApiOrderRepository implements OrderRepository {
         timeout: _readTimeout,
         retryCount: _readRetryCount,
         query: {'buyer_user_id': appUserId, 'limit': limit},
+        authToken: authToken,
       ),
     );
     if (result is ApiError<Map<String, Object?>>) {
@@ -212,6 +225,7 @@ class ApiOrderRepository implements OrderRepository {
         timeout: _readTimeout,
         retryCount: _readRetryCount,
         query: {'seller_user_id': appUserId, 'limit': limit},
+        authToken: authToken,
       ),
     );
     if (result is ApiError<Map<String, Object?>>) {
