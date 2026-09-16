@@ -35,21 +35,36 @@ abstract interface class SellerListingRepository {
 
 final sellerListingRepositoryProvider =
     Provider<SellerListingRepository>((ref) {
-  final user = ref.watch(authSessionProvider).user;
+  final session = ref.watch(authSessionProvider);
+  final user = session.user;
   return ApiSellerListingRepository(
     ref.watch(apiClientProvider),
     appUserId: user == null ? _guestSellerUserId : _appUser(user.id),
+    // Added 2026-09-16 (round 12): the real signed session token from
+    // POST /onboarding/otp/verify (see session_tokens.py on the backend).
+    // The self-service listing endpoint now requires this instead of
+    // trusting seller_user_id alone -- see
+    // product_catalog_self_service.py's _authenticated_app_user (mirrors
+    // orders.py's round-10 fix). A guest (user == null) has no token; that
+    // call now correctly gets a 401 from the backend rather than silently
+    // creating a listing under a fake, throwaway identity.
+    authToken: user == null ? null : session.tokenPlaceholder,
   );
 });
 
 class ApiSellerListingRepository implements SellerListingRepository {
-  ApiSellerListingRepository(this._client, {required this.appUserId});
+  ApiSellerListingRepository(this._client,
+      {required this.appUserId, this.authToken});
 
   final ApiClient _client;
   final String appUserId;
+  final String? authToken;
 
-  static const _mutateOptions =
-      ApiRequestOptions(timeout: Duration(seconds: 30));
+  // Added 2026-09-16 (round 12): no longer `static const` since it must
+  // carry this instance's authToken (mirrors order_repository.dart's
+  // identical change in round 10).
+  ApiRequestOptions get _mutateOptions => ApiRequestOptions(
+      timeout: const Duration(seconds: 30), authToken: authToken);
 
   @override
   Future<SellerListingResult> createListing(UniversalDeal deal) async {
