@@ -9,6 +9,7 @@ class AskodoxSemanticDealInput {
     final quantity = decision.entityNumber('quantity');
     final unit = _canonicalUnit(decision.entityText('unit'));
     final location = decision.entityText('location');
+    final price = decision.entityNumber('price');
 
     final parts = <String>[];
     if (quantity != null) {
@@ -22,6 +23,11 @@ class AskodoxSemanticDealInput {
       parts
         ..add('in')
         ..add(location);
+    }
+    if (price != null) {
+      parts.add(
+        '₹${price == price.roundToDouble() ? price.toInt() : price}',
+      );
     }
 
     final payload = parts.isEmpty ? original.trim() : parts.join(' ').trim();

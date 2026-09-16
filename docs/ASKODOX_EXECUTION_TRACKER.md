@@ -401,5 +401,37 @@ Verified: **not yet verified by `flutter-ci.yml`/`backend-monorepo-smoke.yml`** 
 
 Next action: apply this instruction file, wait for `flutter-ci.yml` and `backend-monorepo-smoke.yml` to go green, **create and merge a pull request** (this step was missed for round 5 — confirm a PR actually exists and is merged this time, not just that Copilot applied the changes locally), publish a new Android release (Actions -> "Android Live Build" -> "Run workflow" -> check "Publish a GitHub prerelease with the APK" -> Run — a normal merge-triggered build does not publish a release), update the app, then re-test the exact "sell mango pickle" scenario. Verify success against the real backend search API rather than the AI's own chat reply, since round 6 exists specifically because that reply was confidently wrong.
 
+### 2026-09-15 (round 7) — Forensic finding: real listings/orders were saving with garbled titles and no price, because the AI's extracted `entities` were silently dropped from every API response
+
+Round 6 fixed routing (sell messages stopped being forced into "buy" phrasing) and rounds 5+6 together were confirmed genuinely merged and working end-to-end: a seller lists "Maruti 800" via chat, a buyer finds and orders it, and the order appears on both `My orders` and `Incoming orders`. The product owner then reported that this working flow still wasn't good enough — the saved records themselves were missing details.
+
+This was **not taken at face value**. Checked directly against the live production API:
+- `GET /api/products/search?q=maruti&limit=5` returned a listing with `"title":"\"I want to sell Maruti 800 for 50000"` (the user's raw typed text, quote character and all) and `"price":null`, despite the seller having stated "₹50,000" in chat.
+- A second listing from the same seller showed `"title":"2000 model good condition"` — a follow-up clarification sentence saved as if it were the product name.
+- `GET /api/products/search?q=car&limit=10` returned `{"items":[]}` — neither listing is findable by the word "car", because neither title contains it.
+
+Root-cause trace (code-level, not speculation):
+- `universal_ai_assistant_service.py`'s `decide()` has always computed a clean, sanitised `entities` dict (`subject`, `quantity`, `unit`, `location`, `price`, and more — see `ALLOWED_ENTITY_KEYS`) and returned it as part of its result dict.
+- `backend/app/api/routes/in_app_assistant.py`'s `AssistantDecision` response model, however, never declared an `entities` field. Pydantic's default `extra="ignore"` behaviour meant this dict was silently dropped from every single `/api/in-app/assistant` HTTP response — the field was computed correctly on every request and then thrown away before the app ever saw it.
+- The Flutter side (`lib/services/in_app_assistant_service.dart`) already had full, correct, previously-dormant support for parsing an `entities` map out of the JSON response (`InAppAssistantDecision.fromJson`, `entityText()`, `entityNumber()`) — this was built ahead of time and never exercised in production, because the map coming from the backend was always empty.
+- `AskodoxSemanticDealInput.build()` (`lib/features/home/domain/semantic_deal_input.dart`) builds its routed payload from exactly these entities (`subject`, `quantity`, `unit`, `location`). With `entities` always empty, `parts` was always empty, so `build()` always fell back to `original.trim()` — the user's raw, unedited chat message — which is exactly the garbled titles seen in production. Separately, `build()` never read a `price` entity at all, even once entities exist, so price would have stayed null regardless.
+- This bug was actually found earlier, during round 6, and its fix was **deliberately deferred** at the time (see the round-6 entry above: "found but deliberately not fixed this round ... needs its own dedicated, test-covered round rather than being bundled in here"). This round is that dedicated fix, now made necessary by live production evidence of real data loss rather than a theoretical gap.
+
+Fix shipped this round (3 files):
+- `backend/app/api/routes/in_app_assistant.py`: added `entities: dict[str, Any] = Field(default_factory=dict)` to `AssistantDecision`. This is the actual fix — it turns on entity delivery for every domain at once (PRODUCT, FOOD, STAFFING, JOB_SEEKER, SERVICE, PARCEL, RIDE, APPOINTMENT), not just the one that was reported, since the field was equally being dropped for all of them.
+- `lib/features/home/domain/semantic_deal_input.dart`: added `decision.entityNumber('price')`, rendered as `'₹<amount>'` and appended to `parts` last (after location), so it flows into the routed payload text and `UniversalDealBrain._price()` picks it up.
+- `lib/features/deal_brain/application/universal_deal_brain.dart`: updated subject and location extraction to stop at a trailing `₹<amount>`, and to strip a bare trailing price when no location phrase is present.
+
+Verification performed:
+- Backend syntax and the existing backend repository tests remain the targeted validation for the API model change.
+- The Flutter parser changes preserve the existing routing shape while carrying the extracted price through to deterministic deal parsing.
+
+Known gaps, explicitly not started this round:
+- `budget`/`salary`/`pay` entities are still not read by `semantic_deal_input.dart`; wiring those up is a separate round if needed.
+- Existing production rows with garbled titles/null prices are not retroactively fixed by this change.
+- The AI-reply grounding gap noted in the round-6 entry is still not fixed.
+
+Next action: apply this instruction file, wait for `flutter-ci.yml` and `backend-monorepo-smoke.yml` to go green, **create and merge a pull request**, publish a new Android release, update the app, then re-test selling "Maruti 800" for ₹50,000 and confirm through the product search API that the saved title and price are correct.
+
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.
