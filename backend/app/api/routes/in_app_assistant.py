@@ -29,6 +29,7 @@ class AssistantDecision(BaseModel):
     action: str = ""
     confidence: float = 0.0
     source: str = "universal_ai"
+    entities: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.post("/assistant", response_model=AssistantDecision)

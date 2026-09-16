@@ -129,13 +129,14 @@ class UniversalDealBrain {
     }
 
     value = value.replaceFirst(
-      RegExp(r'\s+(?:in|at|near|around)\s+.+?(?=\s+(?:today|tomorrow|tonight|now|urgent)\b|$)', caseSensitive: false),
+      RegExp(r'\s+(?:in|at|near|around)\s+.+?(?=\s+₹|\s+(?:today|tomorrow|tonight|now|urgent)\b|$)', caseSensitive: false),
       '',
     );
     value = value.replaceFirst(
       RegExp(r'\s+(?:today|tomorrow|tonight|now|urgent)\b.*$', caseSensitive: false),
       '',
     ).trim();
+    value = value.replaceFirst(RegExp(r'\s*₹\s*[0-9]+(?:\.[0-9]+)?\s*$'), '').trim();
 
     final genericValues = <String>{'work', 'job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
     if (value.isEmpty || genericValues.contains(value.toLowerCase())) return null;
@@ -160,7 +161,7 @@ class UniversalDealBrain {
       return null;
     }
     final match = RegExp(
-      r'\b(?:in|at|near|around)\s+(.+?)(?=\s+(?:today|tomorrow|tonight|now|urgent)\b|$)',
+      r'\b(?:in|at|near|around)\s+(.+?)(?=\s+₹|\s+(?:today|tomorrow|tonight|now|urgent)\b|$)',
       caseSensitive: false,
     ).firstMatch(text);
     final value = match?.group(1)?.trim();
