@@ -140,4 +140,44 @@ void main() {
 
     expect(decision, isNull);
   });
+
+  // Added 2026-09-16 (round 9, roadmap Phase 1). See buyer_guide_gate.py on
+  // the backend for when buying_guide is actually filled in -- this test
+  // only covers that the Flutter side parses it correctly when present.
+  test('parses a buying guide when the backend attaches one', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'ఏం రకం కారు కావాలి?',
+      'domain': 'PRODUCT',
+      'transactional': true,
+      'action': 'buy_product',
+      'confidence': 0.9,
+      'source': 'universal_ai',
+      'entities': {'subject': 'car'},
+      'buying_guide': {
+        'subject': 'car',
+        'questions': ['ఎందుకు కొనాలి / main use ఏమిటి?', 'Budget range ఎంత?'],
+        'decision_framework': ['WHAT_TO_BUY', 'FAIR_PRICE'],
+        'context': {'location': 'Vijayawada'},
+      },
+    });
+
+    expect(decision.buyingGuide, isNotNull);
+    expect(decision.buyingGuide!.subject, 'car');
+    expect(decision.buyingGuide!.questions, hasLength(2));
+    expect(decision.buyingGuide!.decisionFramework, contains('FAIR_PRICE'));
+  });
+
+  test('buying guide is null when the backend does not attach one', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'సరే',
+      'domain': 'GENERAL',
+      'transactional': false,
+      'action': 'chat',
+      'confidence': 0.8,
+      'source': 'universal_ai',
+      'entities': <String, Object?>{},
+    });
+
+    expect(decision.buyingGuide, isNull);
+  });
 }
