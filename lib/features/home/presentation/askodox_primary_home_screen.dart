@@ -802,8 +802,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       _orderFailed = !result.success;
       _orderStatusMessage = result.success
           ? (_te
-              ? 'ఆర్డర్ ప్లేస్ అయ్యింది! విక్రేత దీన్ని ఇప్పుడు చూడగలరు.'
-              : 'Order placed! The seller can now see it.')
+              ? 'ఆర్డర్ పంపబడింది. విక్రేత అంగీకరించి తప్ప పక్కన పడే సహచరుడి తర్వాత మాత్రమే ఇది నిర్ధారిత డీల్ అవుతుంది.'
+              : 'Order request sent. The seller must accept it before it becomes a confirmed deal.')
           : (result.message ??
               (_te
                   ? 'ఆర్డర్ చేయడం సాధ్యం కాలేదు.'
@@ -893,8 +893,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                         strokeWidth: 2, color: Colors.white))
                 : Text(
                     placed
-                        ? (te ? 'ఆర్డర్ ప్లేస్ చేయబడింది' : 'Order placed')
-                        : (te ? 'ఆర్డర్ చేయండి' : 'Place order'),
+                        ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
+                        : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
                     style: const TextStyle(
                         color: Colors.white, fontWeight: FontWeight.w800),
                   ),

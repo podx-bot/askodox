@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/order_repository.dart';
@@ -16,15 +17,20 @@ bool _te(BuildContext context) =>
     Localizations.localeOf(context).languageCode == 'te';
 String _t(BuildContext context, String en, String te) => _te(context) ? te : en;
 
+// Updated 2026-09-16 (round 8): PLACED now reads "Requested" everywhere --
+// not "Placed" -- because tapping the buyer-facing button no longer closes
+// a deal by itself; it only sends a request the seller must still accept.
+// Rewritten to use _t() consistently for both languages (previously English
+// fell back to a raw enum-derived string while only Telugu had real
+// wording).
 String _statusLabel(BuildContext context, String raw) {
   final value = raw.toUpperCase();
-  if (!_te(context)) return value.replaceAll('_', ' ');
   return switch (value) {
-    'PLACED' => 'ప్లేస్ చేయబడింది',
-    'ACCEPTED' => 'ఆమోదించబడింది',
-    'REJECTED' => 'తిరస్కరించబడింది',
-    'FULFILLED' => 'పూర్తైంది',
-    'CANCELLED' => 'రద్దు చేయబడింది',
+    'PLACED' => _t(context, 'Requested', 'అభ్యర్థించారు'),
+    'ACCEPTED' => _t(context, 'Accepted', 'ఆమోదించబడింది'),
+    'REJECTED' => _t(context, 'Declined', 'తిరస్కరించబడింది'),
+    'FULFILLED' => _t(context, 'Completed', 'పూర్తైంది'),
+    'CANCELLED' => _t(context, 'Cancelled', 'రద్దు చేయబడింది'),
     _ => raw.replaceAll('_', ' '),
   };
 }
@@ -85,8 +91,8 @@ class _MyOrdersScreenState extends ConsumerState<MyOrdersScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  _t(context, 'You have not placed any orders yet.',
-                      'మీరు ఇంకా ఎలాంటి ఆర్డర్లు పెట్టలేదు.'),
+                  _t(context, 'You have not sent any requests yet.',
+                      'మీరు ఇంకా ఎలాంటి అభ్యర్థనలు పంపలేదు.'),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -98,8 +104,8 @@ class _MyOrdersScreenState extends ConsumerState<MyOrdersScreen> {
               padding: const EdgeInsets.all(14),
               itemCount: orders.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) =>
-                  _OrderCard(order: orders[index], isSeller: false),
+              itemBuilder: (context, index) => _OrderCard(
+                  order: orders[index], isSeller: false, onChanged: _reload),
             ),
           );
         },
@@ -161,8 +167,8 @@ class _IncomingOrdersScreenState extends ConsumerState<IncomingOrdersScreen> {
                 child: Text(
                   _t(
                     context,
-                    'No orders yet. Once a buyer orders one of your listings, it will show up here.',
-                    'ఇంకా ఆర్డర్లు లేవు. మీ లిస్టింగ్‌లలో ఏదైనా ఒకటి కొనుగోలుదారు ఆర్డర్ చేస్తే అది ఇక్కడ కనిపిస్తుంది.',
+                    'No requests yet. Once a buyer sends a request for one of your listings, it will show up here.',
+                    'ఇంకా అభ్యర్థనలు లేవు. మీ లిస్టింగ్‌లలో ఏదైనా ఒకటి కొనుగోలుదారు అభ్యర్థిస్తే అది ఇక్కడ కనిపిస్తుంది.',
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -175,8 +181,8 @@ class _IncomingOrdersScreenState extends ConsumerState<IncomingOrdersScreen> {
               padding: const EdgeInsets.all(14),
               itemCount: orders.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) =>
-                  _OrderCard(order: orders[index], isSeller: true),
+              itemBuilder: (context, index) => _OrderCard(
+                  order: orders[index], isSeller: true, onChanged: _reload),
             ),
           );
         },
@@ -185,13 +191,60 @@ class _IncomingOrdersScreenState extends ConsumerState<IncomingOrdersScreen> {
   }
 }
 
-class _OrderCard extends StatelessWidget {
-  const _OrderCard({required this.order, required this.isSeller});
+// Updated 2026-09-16 (round 8). Converted from a plain StatelessWidget to a
+// ConsumerStatefulWidget so it can call respondToOrder() itself and show a
+// small in-flight/error state around that call -- mirroring how other
+// action buttons in this app behave (e.g. deal_screens.dart's accept/decline
+// pattern). `onChanged` lets the parent screen refresh its list after a
+// successful accept/decline, without this card needing to know how its
+// parent loads data.
+class _OrderCard extends ConsumerStatefulWidget {
+  const _OrderCard(
+      {required this.order, required this.isSeller, this.onChanged});
   final Order order;
   final bool isSeller;
+  final VoidCallback? onChanged;
+
+  @override
+  ConsumerState<_OrderCard> createState() => _OrderCardState();
+}
+
+class _OrderCardState extends ConsumerState<_OrderCard> {
+  bool _responding = false;
+  String? _actionError;
+
+  Future<void> _respond(String status) async {
+    setState(() {
+      _responding = true;
+      _actionError = null;
+    });
+    final result = await ref
+        .read(orderRepositoryProvider)
+        .respondToOrder(orderId: widget.order.id, status: status);
+    if (!mounted) return;
+    setState(() => _responding = false);
+    if (result.success) {
+      widget.onChanged?.call();
+    } else {
+      setState(() => _actionError = result.message ??
+          _t(context, 'Unable to update this request.',
+              'ఈ అభ్యర్థనను నవీకరించడం సాధ్యం కాలేదు.'));
+    }
+  }
+
+  void _copyContact(String phone) {
+    Clipboard.setData(ClipboardData(text: phone));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(_t(context, 'Number copied: $phone',
+          'నంబర్ కాపీ చేయబడింది: $phone')),
+      duration: const Duration(seconds: 2),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final order = widget.order;
+    final isSeller = widget.isSeller;
     final amount = order.totalAmount ?? order.price;
     final amountLabel = amount == null ? null : '₹${amount.toStringAsFixed(0)}';
     final quantity = order.quantity;
@@ -199,6 +252,13 @@ class _OrderCard extends StatelessWidget {
         ? null
         : '${quantity.toStringAsFixed(quantity == quantity.roundToDouble() ? 0 : 2)}${order.unit != null ? ' ${order.unit}' : ''}';
     final statusColor = _statusColor(order.status);
+    final status = order.status.toUpperCase();
+    // Added 2026-09-16 (round 8). See order_contact_visibility.py: the
+    // backend only fills in the *other* party's contact once the order is
+    // ACCEPTED/FULFILLED -- so whichever of these is non-null here is
+    // already safe to show.
+    final contact = isSeller ? order.buyerContact : order.sellerContact;
+    final canRespond = isSeller && status == 'PLACED';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -259,6 +319,74 @@ class _OrderCard extends StatelessWidget {
                 fontSize: 12.5,
                 fontStyle: FontStyle.italic),
           ),
+        ],
+        // Added 2026-09-16 (round 8): contact only ever appears once the
+        // backend itself has revealed it -- there is no client-side
+        // override, so this row simply reflects what accepting unlocked.
+        if (contact != null) ...[
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () => _copyContact(contact),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6EE),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.call, size: 16, color: Color(0xFF1B8A3B)),
+                const SizedBox(width: 8),
+                Text(
+                  isSeller
+                      ? _t(context, 'Buyer: $contact', 'కొనుగోలుదారు: $contact')
+                      : _t(context, 'Seller: $contact', 'విక్రేత: $contact'),
+                  style: const TextStyle(
+                      color: Color(0xFF1B8A3B),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.copy, size: 14, color: Color(0xFF1B8A3B)),
+              ]),
+            ),
+          ),
+        ],
+        // Added 2026-09-16 (round 8): the actual Accept/Decline step this
+        // whole round exists to add -- see Master Architecture Point 13.
+        // Only the seller sees these, and only while the request is still
+        // PLACED (i.e. neither accepted nor declined yet).
+        if (canRespond) ...[
+          const SizedBox(height: 10),
+          if (_actionError != null) ...[
+            Text(_actionError!,
+                style: const TextStyle(
+                    color: Color(0xFFB3261E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+          ],
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _responding ? null : () => _respond('REJECTED'),
+                child: Text(_t(context, 'Decline', 'తిరస్కరించు')),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton(
+                onPressed: _responding ? null : () => _respond('ACCEPTED'),
+                child: _responding
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(_t(context, 'Accept', 'ఆమోదించు')),
+              ),
+            ),
+          ]),
         ],
       ]),
     );

@@ -72,6 +72,22 @@ class Order {
         createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
         updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''),
       );
+
+  // Added 2026-09-16 (round 8). The backend now withholds
+  // buyer_user_id/seller_user_id (each is literally "app-phone-<digits>",
+  // the other party's phone number) until the order is ACCEPTED/FULFILLED
+  // -- see backend/app/services/order_contact_visibility.py. These two
+  // getters turn whichever id the backend did choose to reveal into a
+  // plain phone number for display, and return null both when it's
+  // withheld (blank string) and when the other party is a guest with no
+  // real phone on record ("app-guest-...").
+  String? get sellerContact => _phoneFrom(sellerUserId);
+  String? get buyerContact => _phoneFrom(buyerUserId);
+
+  static String? _phoneFrom(String userId) {
+    final match = RegExp(r'^app-phone-(\d+)$').firstMatch(userId);
+    return match?.group(1);
+  }
 }
 
 class OrderActionResult {
@@ -90,6 +106,17 @@ abstract interface class OrderRepository {
 
   Future<List<Order>> myOrders({int limit = 50});
   Future<List<Order>> incomingOrders({int limit = 50});
+
+  // Added 2026-09-16 (round 8). Wires the seller-facing Accept/Decline
+  // action to the already-existing (but previously unused by any screen)
+  // POST /api/orders/{id}/status endpoint. Only a seller can call this --
+  // enforced server-side by checking payload.seller_user_id against the
+  // order's own seller_user_id (see orders.py's update_order_status).
+  Future<OrderActionResult> respondToOrder({
+    required String orderId,
+    required String status, // 'ACCEPTED' or 'REJECTED'
+    String? sellerNote,
+  });
 }
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
@@ -192,6 +219,42 @@ class ApiOrderRepository implements OrderRepository {
           result.failure.message ?? 'Unable to load incoming orders.');
     }
     return _parseItems((result as ApiSuccess<Map<String, Object?>>).data);
+  }
+
+  @override
+  Future<OrderActionResult> respondToOrder({
+    required String orderId,
+    required String status,
+    String? sellerNote,
+  }) async {
+    final numericOrderId = int.tryParse(orderId);
+    if (numericOrderId == null) {
+      return const OrderActionResult(
+          success: false, message: 'This request cannot be updated right now.');
+    }
+
+    final result = await _client.post<Map<String, Object?>>(
+      '/api/orders/$numericOrderId/status',
+      body: {
+        'seller_user_id': appUserId,
+        'status': status,
+        if (sellerNote != null && sellerNote.trim().isNotEmpty)
+          'seller_note': sellerNote.trim(),
+      },
+      options: _mutateOptions,
+    );
+    if (result is ApiError<Map<String, Object?>>) {
+      return OrderActionResult(
+          success: false,
+          message: result.failure.message ?? 'Unable to update this request.');
+    }
+
+    final data = (result as ApiSuccess<Map<String, Object?>>).data;
+    if (data['id'] == null) {
+      // Same MockApiClient allowance as placeOrder above.
+      return const OrderActionResult(success: true);
+    }
+    return OrderActionResult(success: true, order: Order.fromJson(data));
   }
 
   List<Order> _parseItems(Map<String, Object?> data) {

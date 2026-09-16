@@ -22,6 +22,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.repositories.order_repository import VALID_STATUSES
+from app.services.order_contact_visibility import mask_contact_for_viewer
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -68,8 +69,12 @@ class UpdateOrderStatusRequest(BaseModel):
     seller_note: str | None = None
 
 
-def _to_response(row: dict[str, Any]) -> OrderResponse:
-    return OrderResponse(**row)
+# Added 2026-09-16 (round 8): see order_contact_visibility.py for why this
+# masking exists. Contact (phone number) is withheld from each party until
+# both have agreed -- i.e. until the order is ACCEPTED (or later,
+# FULFILLED).
+def _to_response(row: dict[str, Any], *, viewer: str) -> OrderResponse:
+    return OrderResponse(**mask_contact_for_viewer(row, viewer=viewer))
 
 
 @router.post("", response_model=OrderResponse)
@@ -103,7 +108,7 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
     order = container.order_repository.get(order_id)
     if not order:
         raise HTTPException(status_code=500, detail="Order was not saved")
-    return _to_response(order)
+    return _to_response(order, viewer="buyer")
 
 
 @router.get("/mine", response_model=OrderListResponse)
@@ -111,7 +116,7 @@ def my_orders(request: Request, buyer_user_id: str = "", limit: int = 50) -> Ord
     container: Any = request.app.state.container
     user_id = _app_user(buyer_user_id)
     rows = container.order_repository.list_for_buyer(user_id, limit=limit)
-    return OrderListResponse(items=[_to_response(row) for row in rows])
+    return OrderListResponse(items=[_to_response(row, viewer="buyer") for row in rows])
 
 
 @router.get("/incoming", response_model=OrderListResponse)
@@ -119,7 +124,7 @@ def incoming_orders(request: Request, seller_user_id: str = "", limit: int = 50)
     container: Any = request.app.state.container
     user_id = _app_user(seller_user_id)
     rows = container.order_repository.list_for_seller(user_id, limit=limit)
-    return OrderListResponse(items=[_to_response(row) for row in rows])
+    return OrderListResponse(items=[_to_response(row, viewer="seller") for row in rows])
 
 
 @router.post("/{order_id}/status", response_model=OrderResponse)
@@ -141,4 +146,4 @@ def update_order_status(order_id: int, payload: UpdateOrderStatusRequest, reques
 
     container.order_repository.update_status(order_id, clean_status, seller_note=payload.seller_note)
     updated = container.order_repository.get(order_id)
-    return _to_response(updated)
+    return _to_response(updated, viewer="seller")
