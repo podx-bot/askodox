@@ -1,3 +1,32 @@
+"""Real Party A / Party B in-app deal negotiation, chat and status tracking.
+
+Despite this router's `/debug` prefix (a pre-existing naming choice, not
+changed here to avoid moving live endpoints -- see the round-13 tracker
+entry), every endpoint here is a genuine, live production feature:
+`lib/features/deals/presentation/deal_screens.dart` is a real Flutter
+screen that calls `/debug/deal-inbox/...`, `/debug/deal-thread/...`,
+`/debug/deal-message`, and `/debug/deal-status` directly. This is the real
+in-app conversation a buyer and seller have after a deal is accepted (see
+`order_contact_visibility.py`/round 8's contact-exchange gate, and
+`universal_deals.py`, which also calls `interest_action` below directly).
+
+Identity: 2026-09-16 (round 13) -- every handler here used to trust
+whatever `user_id` the client sent (via `_app_user()`, a `.startswith(
+"app-")` check with zero proof) as the caller's own identity: the exact
+same gap the 2026-09-16 audit found and round 10 fixed in `orders.py`, and
+round 12 fixed in `product_catalog_self_service.py`. It is fixed here the
+same way for the caller's own identity field on every handler -- see
+`_authenticated_app_user`/`_matching_app_user` below.
+
+The *other* party's id on each request (`responder_user_id`/
+`other_user_id`) is deliberately left checked by `_app_user()` (format
+only), not against the caller's own token -- it is not a claim about the
+caller, it names a counterparty. Its safety comes from a different,
+already-existing check: `_accepted_interest()` independently verifies the
+caller is genuinely one of the two parties on record for that specific
+deal before any message/status data for it is read or written. That check
+is unchanged this round.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
@@ -6,6 +35,7 @@ from pydantic import BaseModel, Field
 from app.repositories.purchase_history_repository import PurchaseHistoryRepository
 from app.services.deal_completion_memory_service import DealCompletionMemoryService
 from app.services.party_conversation_answer_service import PartyConversationAnswerService
+from app.services.session_tokens import verify_token
 
 router = APIRouter(prefix="/debug", tags=["Debug"])
 
@@ -36,6 +66,39 @@ def _app_user(value: str, field: str = "user_id") -> str:
     if not user_id.lower().startswith("app-"):
         raise HTTPException(status_code=400, detail=f"ASKODOX app {field} required")
     return user_id
+
+
+def _authenticated_app_user(request: Request) -> str:
+    """Return the app_user_id proven by this request's bearer token.
+
+    Added 2026-09-16 (round 13), mirroring orders.py's helper of the same
+    name (round 10) and product_catalog_self_service.py's (round 12).
+    Raises 401 if no token was sent, or if the token is
+    missing/malformed/expired/forged.
+    """
+    container = request.app.state.container
+    header = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign in required -- no session token was sent")
+    user_id = verify_token(token, container.settings.session_token_secret)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Session expired or invalid -- please sign in again")
+    return user_id
+
+
+def _matching_app_user(claimed_value: str, authenticated_user_id: str) -> str:
+    """Reconcile a client-supplied identity field with the token-proven one.
+
+    Mirrors orders.py's helper of the same name (round 10). The
+    client-supplied field is kept, not dropped, so an already-deployed app
+    build's request/path shape keeps working unchanged -- it is simply no
+    longer trusted by itself.
+    """
+    claimed = str(claimed_value or "").strip()
+    if claimed and claimed != authenticated_user_id:
+        raise HTTPException(status_code=403, detail="This session is not signed in as that user")
+    return authenticated_user_id
 
 
 def _ensure_messages_table(db) -> None:
@@ -184,7 +247,7 @@ def _record_completed_purchase_memory(container, demand: dict, party_a: str, par
 def interest_action(payload: InterestDecisionRequest, request: Request) -> dict:
     """Party A accepts or declines Party B's in-app interest."""
     container = request.app.state.container
-    requester = _app_user(payload.user_id)
+    requester = _matching_app_user(payload.user_id, _authenticated_app_user(request))
     responder = _app_user(payload.responder_user_id, "responder_user_id")
     action = payload.action.strip().upper()
     if action not in {"ACCEPT", "DECLINE"}:
@@ -244,7 +307,7 @@ def interest_action(payload: InterestDecisionRequest, request: Request) -> dict:
 def deal_message(payload: DealMessageRequest, request: Request) -> dict:
     """Send free-text deal chat and let ASKODOX assist from trusted Party A/B deal data."""
     container = request.app.state.container
-    sender = _app_user(payload.user_id)
+    sender = _matching_app_user(payload.user_id, _authenticated_app_user(request))
     other = _app_user(payload.other_user_id, "other_user_id")
     demand, interest, party_a, party_b = _accepted_interest(container, payload.request_id, sender, other)
     body = " ".join(payload.message.strip().split())
@@ -332,7 +395,7 @@ def deal_message(payload: DealMessageRequest, request: Request) -> dict:
 def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Request) -> dict:
     """Read the accepted ASKODOX deal conversation and mark its notifications read."""
     container = request.app.state.container
-    viewer = _app_user(user_id)
+    viewer = _matching_app_user(user_id, _authenticated_app_user(request))
     other = _app_user(other_user_id, "other_user_id")
     demand, interest, party_a, party_b = _accepted_interest(container, request_id, viewer, other)
     db = container.database
@@ -385,7 +448,7 @@ def deal_thread(request_id: int, user_id: str, other_user_id: str, request: Requ
 @router.get("/deal-inbox/{user_id}")
 def deal_inbox(user_id: str, request: Request) -> dict:
     """List ASKODOX accepted Party A/B deal threads with unread counts and latest activity."""
-    user = _app_user(user_id)
+    user = _matching_app_user(user_id, _authenticated_app_user(request))
     db = request.app.state.container.database
     _ensure_messages_table(db)
     rows = db.fetchall(
@@ -426,7 +489,7 @@ def deal_inbox(user_id: str, request: Request) -> dict:
 def deal_status(payload: DealStatusRequest, request: Request) -> dict:
     """Progress an accepted ASKODOX deal and notify the other participant."""
     container = request.app.state.container
-    actor = _app_user(payload.user_id)
+    actor = _matching_app_user(payload.user_id, _authenticated_app_user(request))
     other = _app_user(payload.other_user_id, "other_user_id")
     demand, _interest, party_a, party_b = _accepted_interest(container, payload.request_id, actor, other)
     status = payload.status.strip().upper().replace(" ", "_")

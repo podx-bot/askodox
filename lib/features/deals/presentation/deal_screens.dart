@@ -23,12 +23,15 @@ String _statusLabel(BuildContext context, String raw) {
   };
 }
 
-Future<Map<String, Object?>> _getMap(ApiClient client, String path) async {
+Future<Map<String, Object?>> _getMap(ApiClient client, String path, {String? authToken}) async {
   // Read as Object? first. The local/mock API intentionally returns null for
   // endpoints that have no seeded data yet; asking it for a non-null Map<T>
   // caused a runtime `Null` -> `Map<String, Object?>` cast before this screen
   // could show the normal empty-deals state.
-  final result = await client.get<Object?>(path);
+  final result = await client.get<Object?>(
+    path,
+    options: ApiRequestOptions(authToken: authToken),
+  );
   if (result is ApiSuccess<Object?>) {
     final data = result.data;
     if (data == null) return const <String, Object?>{};
@@ -39,8 +42,17 @@ Future<Map<String, Object?>> _getMap(ApiClient client, String path) async {
   throw StateError(failure.message ?? 'Unable to load deal data');
 }
 
-Future<Map<String, Object?>> _postMap(ApiClient client, String path, Map<String, Object?> body) async {
-  final result = await client.post<Map<String, Object?>>(path, body: body);
+Future<Map<String, Object?>> _postMap(
+  ApiClient client,
+  String path,
+  Map<String, Object?> body, {
+  String? authToken,
+}) async {
+  final result = await client.post<Map<String, Object?>>(
+    path,
+    body: body,
+    options: ApiRequestOptions(authToken: authToken),
+  );
   if (result is ApiSuccess<Map<String, Object?>>) return result.data;
   final failure = (result as ApiError<Map<String, Object?>>).failure;
   throw StateError(failure.message ?? 'Unable to update deal');
@@ -61,11 +73,24 @@ class _DealInboxScreenState extends ConsumerState<DealInboxScreen> {
     return user == null ? null : _appUser(user.id);
   }
 
+  // Added 2026-09-16 (round 13): the real signed session token from
+  // POST /onboarding/otp/verify (see session_tokens.py on the backend).
+  // Every /debug/deal-* endpoint now requires this instead of trusting
+  // user_id alone -- see in_app_deal.py's _authenticated_app_user (mirrors
+  // orders.py's round-10 fix and product_catalog_self_service.py's
+  // round-12 fix). A guest (user == null) has no token; those calls now
+  // correctly get a 401 from the backend rather than silently acting as a
+  // throwaway identity.
+  String? get _authToken {
+    final session = ref.read(authSessionProvider);
+    return session.user == null ? null : session.tokenPlaceholder;
+  }
+
   void _reload() {
     final id = _userId;
     if (id == null) return;
     setState(() {
-      _future = _getMap(ref.read(apiClientProvider), '/debug/deal-inbox/$id');
+      _future = _getMap(ref.read(apiClientProvider), '/debug/deal-inbox/$id', authToken: _authToken);
     });
   }
 
@@ -74,7 +99,7 @@ class _DealInboxScreenState extends ConsumerState<DealInboxScreen> {
     super.didChangeDependencies();
     _future ??= _userId == null
         ? Future<Map<String, Object?>>.error(StateError('Sign in to view deals'))
-        : _getMap(ref.read(apiClientProvider), '/debug/deal-inbox/${_userId!}');
+        : _getMap(ref.read(apiClientProvider), '/debug/deal-inbox/${_userId!}', authToken: _authToken);
   }
 
   @override
@@ -185,9 +210,17 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
 
   ApiClient get _client => ref.read(apiClientProvider);
 
+  // Added 2026-09-16 (round 13): see the identical getter/comment on
+  // _DealInboxScreenState above -- same reasoning, same fix.
+  String? get _authToken {
+    final session = ref.read(authSessionProvider);
+    return session.user == null ? null : session.tokenPlaceholder;
+  }
+
   Future<Map<String, Object?>> _load() => _getMap(
         _client,
         '/debug/deal-thread/${widget.requestId}/${Uri.encodeComponent(widget.userId)}/${Uri.encodeComponent(widget.otherUserId)}',
+        authToken: _authToken,
       );
 
   void _refresh() => setState(() => _future = _load());
@@ -209,12 +242,17 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await _postMap(_client, '/debug/deal-message', {
-        'user_id': widget.userId,
-        'request_id': widget.requestId,
-        'other_user_id': widget.otherUserId,
-        'message': text,
-      });
+      await _postMap(
+        _client,
+        '/debug/deal-message',
+        {
+          'user_id': widget.userId,
+          'request_id': widget.requestId,
+          'other_user_id': widget.otherUserId,
+          'message': text,
+        },
+        authToken: _authToken,
+      );
       _message.clear();
       _refresh();
     } catch (error) {
@@ -226,12 +264,17 @@ class _DealThreadScreenState extends ConsumerState<DealThreadScreen> {
 
   Future<void> _setStatus(String status) async {
     try {
-      await _postMap(_client, '/debug/deal-status', {
-        'user_id': widget.userId,
-        'request_id': widget.requestId,
-        'other_user_id': widget.otherUserId,
-        'status': status,
-      });
+      await _postMap(
+        _client,
+        '/debug/deal-status',
+        {
+          'user_id': widget.userId,
+          'request_id': widget.requestId,
+          'other_user_id': widget.otherUserId,
+          'status': status,
+        },
+        authToken: _authToken,
+      );
       _refresh();
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));

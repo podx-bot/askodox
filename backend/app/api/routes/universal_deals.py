@@ -4,7 +4,13 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.routes.debug import _prepare_askodox_app_identity
-from app.api.routes.in_app_deal import InterestDecisionRequest, interest_action
+from app.api.routes.in_app_deal import (
+    InterestDecisionRequest,
+    _app_user,
+    _authenticated_app_user,
+    _matching_app_user,
+    interest_action,
+)
 from app.core.default_intent_rules import build_default_intent_router
 from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing_fields
 from app.core.intent_domain_router import IntentRouteNotFoundError
@@ -41,13 +47,6 @@ class UniversalDealCreateRequest(BaseModel):
 
 class AcceptMatchRequest(BaseModel):
     match_id: str = Field(min_length=1)
-
-
-def _app_user(value: str) -> str:
-    user_id = str(value or "").strip()
-    if not user_id.lower().startswith("app-"):
-        raise HTTPException(status_code=400, detail="ASKODOX app user_id required")
-    return user_id
 
 
 def _latest_created_deal(container, user_id: str):
@@ -240,7 +239,7 @@ def _demo_discovery_matches(container, demand: dict, existing_ids: set[str]) -> 
 @router.post("")
 def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     container = request.app.state.container
-    user_id = _app_user(payload.user_id)
+    user_id = _matching_app_user(payload.user_id, _authenticated_app_user(request))
     _prepare_askodox_app_identity(container, user_id)
     intent_context = _intent_context(
         payload,
@@ -354,7 +353,19 @@ def accept_match(deal_id: int, payload: AcceptMatchRequest, request: Request) ->
     demand = container.universal_demand_repository.get(deal_id)
     if not demand:
         raise HTTPException(status_code=404, detail="deal not found")
-    requester = _app_user(str(demand.get("user_id") or ""))
+
+    # 2026-09-16 (round 13): before this, `requester` was read straight from
+    # the stored deal record with no check at all on who was actually
+    # calling -- anyone who knew a deal_id and a match_id could accept a
+    # match *on behalf of the deal's real owner*. This is a more serious
+    # bug than ordinary identity spoofing (there was no claim to check in
+    # the first place); it is fixed by requiring the caller's own proven
+    # token identity to match the deal's real owner before proceeding.
+    demand_owner = _app_user(str(demand.get("user_id") or ""))
+    authenticated_user = _authenticated_app_user(request)
+    if authenticated_user != demand_owner:
+        raise HTTPException(status_code=403, detail="Only this deal's owner can accept a match for it")
+    requester = demand_owner
     responder = _app_user(payload.match_id)
 
     result = interest_action(
