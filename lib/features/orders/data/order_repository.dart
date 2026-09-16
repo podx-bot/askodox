@@ -13,6 +13,15 @@ String _appUser(String raw) => raw.startsWith('app-') ? raw : 'app-$raw';
 final String _guestOrderUserId =
     'app-guest-${DateTime.now().microsecondsSinceEpoch}';
 
+String? _visiblePhoneHint(String? raw) {
+  final value = raw?.trim() ?? '';
+  if (value.isEmpty || value.startsWith('app-guest-')) return null;
+  final digits = RegExp(r'\d+').stringMatch(value);
+  if (digits == null || digits.length < 4) return null;
+  final suffix = digits.substring(digits.length - 4);
+  return '••••$suffix';
+}
+
 /// A real, persisted order against a real seller_products listing.
 ///
 /// Added 2026-09-15 (round 5) so that "placing an order" in the app is a
@@ -54,6 +63,9 @@ class Order {
   final String? sellerNote;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  String? get buyerPhoneHint => _visiblePhoneHint(buyerUserId);
+  String? get sellerPhoneHint => _visiblePhoneHint(sellerUserId);
 
   factory Order.fromJson(Map<String, Object?> json) => Order(
         id: '${json['id'] ?? ''}',
