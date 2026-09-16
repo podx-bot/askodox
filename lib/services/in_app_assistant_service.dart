@@ -12,6 +12,37 @@ class InAppAssistantTurn {
   Map<String, String> toJson() => {'role': role, 'text': text};
 }
 
+// Added 2026-09-16 (round 9, roadmap Phase 1: "Reconnect what already
+// works"). Mirrors backend/app/services/buyer_intelligence_service.py's
+// build_buying_guide() output, now attached to the in-app assistant's
+// response (see backend/app/api/routes/in_app_assistant.py) instead of only
+// ever being computed for the WhatsApp pipeline. Parsed here so the data is
+// available to the app rather than silently dropped -- the same mistake
+// round 7 found and fixed for `entities`. No screen renders this yet; that
+// UI is a deliberately separate next step (see
+// docs/ASKODOX_EXECUTION_TRACKER.md's round-9 entry).
+class BuyingGuide {
+  const BuyingGuide({
+    required this.subject,
+    required this.questions,
+    required this.decisionFramework,
+  });
+
+  final String subject;
+  final List<String> questions;
+  final List<String> decisionFramework;
+
+  factory BuyingGuide.fromJson(Map<String, dynamic> json) => BuyingGuide(
+        subject: (json['subject'] ?? '').toString(),
+        questions: _stringList(json['questions']),
+        decisionFramework: _stringList(json['decision_framework']),
+      );
+
+  static List<String> _stringList(Object? raw) => raw is List
+      ? [for (final item in raw) item.toString()]
+      : const <String>[];
+}
+
 class InAppAssistantDecision {
   const InAppAssistantDecision({
     required this.reply,
@@ -21,6 +52,7 @@ class InAppAssistantDecision {
     required this.confidence,
     required this.source,
     this.entities = const <String, Object?>{},
+    this.buyingGuide,
   });
 
   final String reply;
@@ -34,6 +66,10 @@ class InAppAssistantDecision {
   /// separate from the natural reply so deterministic business modules can use
   /// meaning directly instead of re-parsing keyword-prefixed text.
   final Map<String, Object?> entities;
+
+  /// Present only for a genuine buy-side PRODUCT/FOOD message with a known
+  /// subject -- see buyer_guide_gate.py on the backend. Null otherwise.
+  final BuyingGuide? buyingGuide;
 
   bool get usable => source == 'universal_ai' && reply.trim().isNotEmpty;
 
@@ -49,6 +85,8 @@ class InAppAssistantDecision {
       }
     }
 
+    final rawGuide = json['buying_guide'];
+
     return InAppAssistantDecision(
       reply: (json['reply'] ?? '').toString(),
       domain: (json['domain'] ?? 'UNKNOWN').toString().toUpperCase(),
@@ -57,6 +95,8 @@ class InAppAssistantDecision {
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       source: (json['source'] ?? 'fallback').toString(),
       entities: Map.unmodifiable(entities),
+      buyingGuide:
+          rawGuide is Map ? BuyingGuide.fromJson(Map<String, dynamic>.from(rawGuide)) : null,
     );
   }
 
