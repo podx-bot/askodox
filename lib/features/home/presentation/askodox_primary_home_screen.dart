@@ -893,8 +893,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                         strokeWidth: 2, color: Colors.white))
                 : Text(
                     placed
-                        ? (te ? 'ఆర్డర్ ప్లేస్ చేయబడింది' : 'Order placed')
-                        : (te ? 'ఆర్డర్ చేయండి' : 'Place order'),
+                        ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
+                        : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
                     style: const TextStyle(
                         color: Colors.white, fontWeight: FontWeight.w800),
                   ),
