@@ -1,3 +1,24 @@
+"""Decide when an order's counterpart contact details may be shown.
+
+Added 2026-09-16 (round 8). ASKODOX's own Master Architecture Point 13
+requires "contact details are not shared before both parties accept" -- but
+buyer_user_id/seller_user_id are literally the other side's phone number
+(e.g. "app-phone-919876543210", see lib/core/auth/auth_controller.dart),
+and the order API was returning both, in every status, including the
+instant a buyer merely requests an item nobody has agreed to yet.
+
+Live testing of the round 5/7 order flow (a buyer requesting a used car)
+is what surfaced this: a one-tap "order" with no negotiation step is the
+wrong model for anything that needs a look, a question, or a price
+discussion first, and freely handing out phone numbers before either side
+has agreed compounds that problem. This module is the fix for the contact
+side of it; app/api/routes/orders.py's Accept/Decline plumbing and the
+Flutter "Send request" relabelling are the rest.
+
+Kept dependency-free (no FastAPI/pydantic import) on purpose, so the rule
+can be unit-tested directly in any environment, including one where
+FastAPI/pydantic are not installable.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -5,37 +26,23 @@ from typing import Any
 CONTACT_VISIBLE_STATUSES = {"ACCEPTED", "FULFILLED"}
 
 
-def mask_contact_for_viewer(row: dict[str, Any] | None, viewer_user_id: str | None) -> dict[str, Any]:
-    """Return a copy of the order row with only the viewer's own contact visible.
+def mask_contact_for_viewer(row: dict[str, Any], *, viewer: str) -> dict[str, Any]:
+    """Return a copy of `row` with the *other* party's id withheld pre-accept.
 
-    Before the seller has explicitly accepted the order, the counterpart's
-    identity must be hidden. Once the order status is ACCEPTED or FULFILLED,
-    the counterpart's app-phone ID becomes visible to the matching viewer.
-    Untrusted or unrelated viewers see neither side.
+    `viewer` is "buyer" or "seller": a buyer never needs their own id
+    withheld from themselves, only the seller's contact info before
+    acceptance -- and vice versa for a seller looking at incoming requests.
+    Any other `viewer` value is treated as untrusted and gets both sides
+    masked, rather than silently leaking contact details by default.
     """
-    if not row:
-        return {}
-
-    masked = dict(row)
-    buyer_user_id = str(row.get("buyer_user_id") or "").strip()
-    seller_user_id = str(row.get("seller_user_id") or "").strip()
-    viewer = str(viewer_user_id or "").strip()
-    status = str(row.get("status") or "").strip().upper()
-
-    if viewer in {buyer_user_id, seller_user_id} and status in CONTACT_VISIBLE_STATUSES:
-        return masked
-
-    if viewer not in {buyer_user_id, seller_user_id}:
-        masked["buyer_user_id"] = ""
-        masked["seller_user_id"] = ""
-        return masked
-
-    if viewer == buyer_user_id:
-        masked["seller_user_id"] = ""
-    elif viewer == seller_user_id:
-        masked["buyer_user_id"] = ""
-    else:
-        masked["buyer_user_id"] = ""
-        masked["seller_user_id"] = ""
-
-    return masked
+    data = dict(row)
+    visible = str(data.get("status") or "").upper() in CONTACT_VISIBLE_STATUSES
+    if not visible:
+        if viewer == "buyer":
+            data["seller_user_id"] = ""
+        elif viewer == "seller":
+            data["buyer_user_id"] = ""
+        else:
+            data["seller_user_id"] = ""
+            data["buyer_user_id"] = ""
+    return data
