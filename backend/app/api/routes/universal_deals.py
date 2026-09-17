@@ -289,6 +289,17 @@ def get_matches(deal_id: int, request: Request) -> dict:
     if not demand:
         raise HTTPException(status_code=404, detail="deal not found")
 
+    # 2026-09-16 (round 15): before this, anyone who knew a deal_id could
+    # see who was interested in it -- no identity check of any kind. Fixed
+    # the same way accept_match was fixed in round 13: the caller's own
+    # proven token identity must equal the deal's recorded owner. 403
+    # (not a 404-masking response) to stay consistent with accept_match's
+    # choice in this same file.
+    demand_owner = _app_user(str(demand.get("user_id") or ""))
+    authenticated_user = _authenticated_app_user(request)
+    if authenticated_user != demand_owner:
+        raise HTTPException(status_code=403, detail="Only this deal's owner can view its matches")
+
     rows = container.database.fetchall(
         """
         SELECT i.responder_user_id,i.qualification_status,i.responder_status,
