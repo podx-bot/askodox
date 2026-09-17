@@ -37,7 +37,7 @@ jobs:
           python - <<'PY'
           from fastapi.testclient import TestClient
 
-          from app.api.app_factory import create_app
+          from server import app, container
           from app.services.session_tokens import issue_token
 
           # 2026-09-17 (round 15): this test used to call /debug/message and
@@ -52,8 +52,15 @@ jobs:
           # itself uses to publish a requirement and see interested matches,
           # including the real bearer-token authentication those endpoints
           # require.
-          app = create_app()
-          container = app.state.container
+          #
+          # Fixed post-review: /deals (universal_deals_router) is mounted only
+          # in server.py, not in app.api.app_factory.create_app() alone -- the
+          # first version of this test imported create_app() directly and got
+          # a 404 on every /deals call, confirmed both locally and in a real
+          # CI run. server.py is what actually runs in production (see the
+          # Dockerfile CMD), so importing its already-built app/container here
+          # is what makes this test exercise the real, fully-wired app instead
+          # of a partial one.
 
           # /deals classifies the raw message with container.universal_request_extractor,
           # which calls the real Gemini API -- unavailable in CI (GEMINI_API_KEY is
