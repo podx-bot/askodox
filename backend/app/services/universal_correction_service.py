@@ -56,8 +56,19 @@ class UniversalCorrectionService:
                 return applied
         return self.delegate.process(sender_mobile=sender, message=clean)
 
+    # Prefix ConversationOSRuntimeService._planned_message() puts on its
+    # internal, LLM-facing domain-routing prompts (see
+    # conversation_os_runtime_service.py). A real user never types this --
+    # it is only ever machine-generated instruction text that gets forwarded
+    # down the legacy delegate chain when the domain isn't GENERAL (see
+    # UniversalAIAssistantService.process()'s GENERAL_MARKER check), so it
+    # must never be treated as a literal user reply here.
+    _OASAT_PLANNED_MESSAGE_PREFIX = "OASAT domain="
+
     def detect(self, message: str, sender_mobile: Optional[str] = None) -> Optional[CorrectionIntent]:
         clean = " ".join(str(message or "").strip().split())
+        if clean.startswith(self._OASAT_PLANNED_MESSAGE_PREFIX):
+            return None
         low = clean.casefold()
         if not clean or not any(marker in low for marker in self.MARKERS):
             return None
