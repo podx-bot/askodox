@@ -83,7 +83,7 @@ class UniversalCorrectionService:
 
     def _explicit_target(self, clean: str, low: str) -> Optional[CorrectionIntent]:
         role_value = self._role_value(clean)
-        if role_value and any(w in low for w in ("role", "roles", "buyer", "seller", "worker", "employer", "service", "all", "అన్నీ", "అన్ని")):
+        if role_value and self._contains_word(low, ("role", "roles", "buyer", "seller", "worker", "employer", "service", "all", "అన్నీ", "అన్ని")):
             return CorrectionIntent("roles", role_value, clean)
         if any(w in low for w in ("language", "భాష", "भाषा")):
             value = self._extract_language(low)
@@ -115,6 +115,21 @@ class UniversalCorrectionService:
             return "roles" if data.get("registration_capabilities") is not None else None
         except Exception:
             return None
+
+    @staticmethod
+    def _contains_word(low: str, keywords) -> bool:
+        """Match each keyword as a whole word, not a bare substring.
+
+        Added 2026-09-17 (round 16). Plain `word in low` matching let short
+        keywords misfire inside unrelated words -- e.g. "all" (one of the
+        role-keyword gate's own trigger words) matched inside "actually" (a
+        correction MARKERS word), so a message like "actually 2 people are
+        coming" was misread as an explicit role-change command purely
+        because it contained both "actually" and a bare 1-6 digit, with no
+        real role keyword anywhere in it. Mirrors the word-boundary
+        approach `_role_value` already uses for its own "ALL" match.
+        """
+        return any(re.search(rf"(?:^|\W){re.escape(word)}(?:\W|$)", low) for word in keywords)
 
     def _role_value(self, clean: str) -> Optional[str]:
         low = clean.casefold()
