@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - 'backend/app/api/app_factory.py'
-      - 'backend/app/api/routes/debug.py'
+      - 'backend/app/api/routes/universal_deals.py'
+      - 'backend/app/api/routes/in_app_deal.py'
+      - 'backend/app/services/session_tokens.py'
+      - 'backend/app/services/universal_live_capture_service.py'
       - 'backend/app/services/conversation_os_runtime_service.py'
       - 'backend/app/services/customer_facing_response_policy.py'
       - 'backend/app/services/universal_ai_assistant_service.py'
@@ -35,30 +38,84 @@ jobs:
           from fastapi.testclient import TestClient
 
           from app.api.app_factory import create_app
+          from app.services.session_tokens import issue_token
 
+          # 2026-09-17 (round 15): this test used to call /debug/message and
+          # /debug/inbox/{user_id} -- two endpoints that took a client-supplied
+          # identity with zero proof (the exact spoofing gap the rest of the
+          # backend was already fixed against). Round 15 deletes those 4 unused
+          # handlers instead of authenticating them, since a repo-wide search
+          # found zero real callers -- but this CI test was, unexpectedly, the
+          # one real "caller" left. So this test now exercises the actual
+          # production path instead: POST /deals and GET /deals/{id}/matches
+          # (see universal_deals.py), the same real endpoints the ASKODOX app
+          # itself uses to publish a requirement and see interested matches,
+          # including the real bearer-token authentication those endpoints
+          # require.
           app = create_app()
-          sender = 'app-e2e-point1'
+          container = app.state.container
+
+          # /deals classifies the raw message with container.universal_request_extractor,
+          # which calls the real Gemini API -- unavailable in CI (GEMINI_API_KEY is
+          # intentionally blank above, same as before this round). Standing in for
+          # just this one method keeps every other line of the real request --
+          # authentication, live-capture persistence, the HTTP response contract --
+          # on the genuine code path, the same way the previous version of this test
+          # never depended on real WhatsApp/Gemini delivery either.
+          def _fake_extract(message):
+              return {
+                  'success': True,
+                  'status': 'EXTRACTED',
+                  'request': {
+                      'side': 'NEED',
+                      'domain': 'PRODUCT',
+                      'subject': 'rice',
+                      'quantity': 2.0,
+                      'unit': 'kg',
+                      'price': None,
+                      'currency': None,
+                      'when_text': None,
+                      'location_text': 'Vijayawada',
+                      'location_required': True,
+                      'constraints': [],
+                      'confidence': 0.9,
+                      'source_text': message,
+                  },
+              }
+
+          container.universal_request_extractor.extract = _fake_extract
+
+          owner = 'app-e2e-point1'
+          other = 'app-e2e-point2'
+          owner_headers = {
+              'Authorization': f"Bearer {issue_token(owner, container.settings.session_token_secret)}",
+          }
+          other_headers = {
+              'Authorization': f"Bearer {issue_token(other, container.settings.session_token_secret)}",
+          }
 
           with TestClient(app) as client:
-              first = client.post('/debug/message', json={
-                  'sender_mobile': sender,
-                  'message': 'Hi, help me plan my day.',
+              no_token = client.post('/deals', json={
+                  'user_id': owner,
+                  'raw_text': 'I need 2kg rice delivered to Vijayawada',
               })
-              assert first.status_code == 200, first.text
-              body = first.json()
-              assert body['sender_mobile'] == sender
+              assert no_token.status_code == 401, no_token.text
+
+              created = client.post(
+                  '/deals',
+                  json={
+                      'user_id': owner,
+                      'raw_text': 'I need 2kg rice delivered to Vijayawada',
+                  },
+                  headers=owner_headers,
+              )
+              assert created.status_code == 200, created.text
+              body = created.json()
+              deal_id = body['deal_id']
+              assert deal_id
               assert isinstance(body.get('reply'), str) and body['reply'].strip(), body
 
-              second = client.post('/debug/message', json={
-                  'sender_mobile': sender,
-                  'message': 'Continue from what I just asked and tell me the next step.',
-              })
-              assert second.status_code == 200, second.text
-              second_body = second.json()
-              assert isinstance(second_body.get('reply'), str) and second_body['reply'].strip(), second_body
-
-              container = app.state.container
-              user = container.user_repository.find_by_whatsapp_mobile(sender)
+              user = container.user_repository.find_by_whatsapp_mobile(owner)
               assert user is not None
               assert int(user.get('registration_complete') or 0) == 1
 
@@ -69,16 +126,28 @@ jobs:
                   WHERE user_id=?
                   ORDER BY id ASC
                   ''',
-                  (sender,),
+                  (owner,),
               )
-              assert len(rows) >= 2, rows
+              assert len(rows) >= 1, rows
               assert all(str(row['channel']) == 'in_app' for row in rows), rows
               assert str(rows[-1]['user_message']).strip()
               assert str(rows[-1]['bot_message']).strip()
 
-              inbox = client.get(f'/debug/inbox/{sender}')
-              assert inbox.status_code == 200, inbox.text
-              assert inbox.json()['channel'] == 'in_app'
+              demand = container.universal_demand_repository.get(deal_id)
+              assert demand is not None, 'the deal created via POST /deals was not persisted'
+              assert str(demand.get('user_id')) == owner
+
+              own_matches = client.get(f'/deals/{deal_id}/matches', headers=owner_headers)
+              assert own_matches.status_code == 200, own_matches.text
+
+              matches_no_token = client.get(f'/deals/{deal_id}/matches')
+              assert matches_no_token.status_code == 401, matches_no_token.text
+
+              # Round 15's other fix: before it, anyone who knew a deal_id could
+              # see who was interested in it. A second, differently-authenticated
+              # user must be refused.
+              other_matches = client.get(f'/deals/{deal_id}/matches', headers=other_headers)
+              assert other_matches.status_code == 403, other_matches.text
 
           print('ASKODOX real in-app E2E smoke passed')
           PY
