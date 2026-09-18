@@ -36,8 +36,15 @@ void main() {
 
   Future<void> revealLanguage(WidgetTester tester, String language) async {
     final finder = find.text(language);
-    for (var i = 0; i < 12 && finder.evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+    final list = find.byType(ListView).last;
+    for (var i = 0; i < 12; i++) {
+      final rect = tester.getRect(finder);
+        final viewportHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+        if (rect.top >= 0 && rect.bottom <= viewportHeight) {
+        break;
+      }
+      await tester.drag(list, const Offset(0, -300));
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(finder, findsOneWidget);

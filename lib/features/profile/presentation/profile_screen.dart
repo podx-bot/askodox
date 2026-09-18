@@ -110,10 +110,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await service.downloadAndInstall(update, onProgress: (value) {
         if (mounted) setState(() => _progress = value);
       });
-      if (mounted)
+      if (mounted) {
         setState(() => _message = _te
             ? 'Android install promptను confirm చేయండి.'
             : 'Confirm the Android install prompt.');
+      }
     } catch (e) {
       if (mounted) setState(() => _message = 'Update failed: $e');
     } finally {
