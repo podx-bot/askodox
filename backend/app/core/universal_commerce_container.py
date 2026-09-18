@@ -55,6 +55,8 @@ class UniversalCommerceAppContainer(AppContainer):
             buyer_decision_assistant=self.buyer_decision_assistant_service,
             affiliate_provider_config=self.affiliate_provider_config,
             party_ai_orchestrator=self.party_ai_orchestrator,
+            profile_source=self._universal_profiles,
+            catalog_repository=self.product_catalog_repository,
         )
 
         # One application-level entry point: profile onboarding first, then any
