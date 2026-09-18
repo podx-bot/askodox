@@ -45,4 +45,39 @@ void main() {
       'i want to buy 1 pieces TV in Vijayawada',
     );
   });
+
+  test('preserves seller intent for product listings', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'ok',
+      'domain': 'PRODUCT',
+      'transactional': true,
+      'action': 'create_listing',
+      'confidence': 0.99,
+      'source': 'universal_ai',
+      'entities': {'subject': 'Homemade Mango Pickle'},
+    });
+
+    expect(
+      AskodoxSemanticDealInput.build(
+          'I want to sell homemade mango pickle', decision),
+      'i want to sell Homemade Mango Pickle',
+    );
+  });
+
+  test('uses offer phrasing for a service provider', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'ok',
+      'domain': 'SERVICE',
+      'transactional': true,
+      'action': 'provide_service',
+      'confidence': 0.99,
+      'source': 'universal_ai',
+      'entities': {'service': 'AC repair'},
+    });
+
+    expect(
+      AskodoxSemanticDealInput.build('I provide AC repair', decision),
+      'offer service AC repair',
+    );
+  });
 }

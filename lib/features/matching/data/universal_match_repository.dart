@@ -28,10 +28,24 @@ class SandboxMatchAcceptanceStore {
 }
 
 final universalMatchRepositoryProvider = Provider<UniversalMatchRepository>((ref) {
-  final user = ref.watch(authSessionProvider).user;
+  final session = ref.watch(authSessionProvider);
+  final user = session.user;
   return ApiUniversalMatchRepository(
     ref.watch(apiClientProvider),
     appUserId: user == null ? _guestAppUserId : _appUser(user.id),
+    // Added 2026-09-16 (round 14): the real signed session token from
+    // POST /onboarding/otp/verify (see session_tokens.py on the backend).
+    // This is an urgent fix -- round 13 required this same token on
+    // POST /deals and POST /deals/{id}/accept-match (see universal_deals.py),
+    // but this repository (the app's main "publish a request and get
+    // matched" flow, used by universal_match_screen.dart and
+    // home_screen.dart) was never updated to send it, so every real
+    // signed-in user's request/accept calls started failing with "Sign in
+    // required" the moment round 13 merged. A guest (user == null) still
+    // has no token; that call now correctly gets a 401 instead of
+    // silently acting as a throwaway identity, matching every other
+    // repository's fix (orders, self-service listings, deal chat).
+    authToken: user == null ? null : session.tokenPlaceholder,
   );
 });
 
@@ -126,6 +140,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
   ApiUniversalMatchRepository(
     this._client, {
     required this.appUserId,
+    this.authToken,
     SandboxMatchAcceptanceStore? sandboxAcceptanceStore,
     SandboxPartyGateStore? sandboxPartyGateStore,
   })  : sandboxAcceptanceStore = sandboxAcceptanceStore ?? SandboxMatchAcceptanceStore(),
@@ -133,17 +148,26 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   final ApiClient _client;
   final String? appUserId;
+  final String? authToken;
   final SandboxMatchAcceptanceStore sandboxAcceptanceStore;
   final SandboxPartyGateStore sandboxPartyGateStore;
 
-  static const _createOptions = ApiRequestOptions(
-    timeout: Duration(seconds: 30),
-  );
+  // Added 2026-09-16 (round 14): no longer `static const` since these must
+  // carry this instance's authToken (mirrors order_repository.dart's,
+  // seller_listing_repository.dart's, and deal_screens.dart's identical
+  // round-10/12/13 changes).
+  ApiRequestOptions get _createOptions => ApiRequestOptions(
+        timeout: const Duration(seconds: 30),
+        authToken: authToken,
+      );
 
-  static const _matchOptions = ApiRequestOptions(
-    timeout: Duration(seconds: 30),
-    retryCount: 1,
-  );
+  ApiRequestOptions get _matchOptions => ApiRequestOptions(
+        timeout: const Duration(seconds: 30),
+        retryCount: 1,
+        authToken: authToken,
+      );
+
+  ApiRequestOptions get _acceptOptions => ApiRequestOptions(authToken: authToken);
 
   bool _isSandbox(String dealId, String matchId) =>
       dealId.startsWith('local-') || matchId.startsWith('demo-');
@@ -234,6 +258,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     final result = await _client.post<Map<String, Object?>>(
       '/deals/$dealId/accept-match',
       body: {'match_id': matchId},
+      options: _acceptOptions,
     );
     if (result is ApiError<Map<String, Object?>>) {
       throw StateError(result.failure.message ?? 'Unable to accept this match.');

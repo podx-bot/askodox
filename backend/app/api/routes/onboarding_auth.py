@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from app.services.session_tokens import issue_token
+
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
 
@@ -105,7 +107,7 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
 
 
 @router.post("/otp/verify")
-def verify_otp(payload: VerifyOtpRequest) -> dict:
+def verify_otp(payload: VerifyOtpRequest, request: Request) -> dict:
     mobile = _mobile(payload.mobile)
     otp = "".join(ch for ch in str(payload.otp or "") if ch.isdigit())
     if len(otp) != 6:
@@ -127,4 +129,18 @@ def verify_otp(payload: VerifyOtpRequest) -> dict:
             raise HTTPException(status_code=400, detail="Incorrect OTP.")
         _otps.pop(mobile, None)
 
-    return {"status": "verified", "mobile": mobile}
+    # Added 2026-09-16 (round 10): this is the fix for the "identity
+    # spoofing" gap the full audit found. Until now, verifying an OTP
+    # proved the mobile number was real but nothing was ever issued to
+    # carry that proof forward -- every later request (placing an order,
+    # seeing someone else's phone number once an order is accepted, etc.)
+    # just trusted a client-supplied "app-phone-<digits>" string. This
+    # signs the verified identity into an opaque bearer token (see
+    # session_tokens.py) that the Flutter app now stores and sends as
+    # `Authorization: Bearer <token>` on every request that needs to know
+    # who is really acting -- see orders.py's `_authenticated_app_user`.
+    app_user_id = f"app-phone-{mobile}"
+    settings = request.app.state.container.settings
+    token = issue_token(app_user_id, settings.session_token_secret)
+
+    return {"status": "verified", "mobile": mobile, "app_user_id": app_user_id, "token": token}

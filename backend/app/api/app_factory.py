@@ -3,12 +3,17 @@ from fastapi import FastAPI
 from app.api.appointment_location_middleware import AppointmentLocationMiddleware
 from app.api.request_observability_middleware import RequestObservabilityMiddleware
 from app.api.routes.debug import router as debug_router
+from app.api.routes.discover import router as discover_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
 from app.api.routes.in_app_assistant import router as in_app_assistant_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
 from app.api.routes.onboarding_auth import router as onboarding_auth_router
+from app.api.routes.orders import router as orders_router
+from app.api.routes.product_catalog_admin import router as product_catalog_admin_router
+from app.api.routes.product_catalog_self_service import router as product_catalog_self_service_router
+from app.api.routes.product_search import router as product_search_router
 from app.api.routes.scheduled_tasks import router as scheduled_tasks_router
 from app.api.routes.vision import router as vision_router
 from app.core.universal_commerce_container import UniversalCommerceAppContainer
@@ -180,6 +185,8 @@ def create_app() -> FastAPI:
         delegate=research_aware,
         api_key=container.settings.gemini_api_key,
         model=container.settings.gemini_text_model,
+        openai_api_key=container.settings.openai_api_key,
+        openai_model=container.settings.openai_text_model,
     )
     container.universal_ai_assistant_service = universal_ai
 
@@ -226,6 +233,11 @@ def create_app() -> FastAPI:
     app.include_router(vision_router)
     app.include_router(documents_router)
     app.include_router(scheduled_tasks_router)
+    app.include_router(discover_router)
+    app.include_router(product_search_router)
+    app.include_router(product_catalog_admin_router)
+    app.include_router(product_catalog_self_service_router)
+    app.include_router(orders_router)
 
     @app.on_event("shutdown")
     def shutdown_event() -> None:

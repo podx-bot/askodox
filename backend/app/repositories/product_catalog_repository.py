@@ -7,6 +7,39 @@ from typing import Any, Dict, List, Optional
 
 
 class ProductCatalogRepository:
+    # Columns added after the original schema shipped. Added via ALTER TABLE
+    # (guarded against "duplicate column" on repeat startup) rather than a
+    # CREATE TABLE change, since CREATE TABLE IF NOT EXISTS never alters an
+    # already-existing table on Railway's persistent volume.
+    _ADDED_COLUMNS = (
+        "seller_name", "location_label", "contact_phone",
+        "category_tag", "service_area", "working_hours",
+        # 2026-09-15 (round 2): added after a role-by-role research pass
+        # (Seller / Service Provider / Buyer / Service Taker) into what real
+        # top platforms collect. `precise_location` and `id_verification_status`
+        # deliberately never hold a raw Aadhaar number or any other national
+        # ID number -- only a plain verification-status string (e.g.
+        # "VERIFIED"/"UNVERIFIED") plus a free-text note about how it was
+        # verified, since storing raw Aadhaar numbers outside a UIDAI-
+        # authorized flow is both a legal and a security risk. GSTIN/PAN are
+        # business/tax identifiers already commonly collected and stored by
+        # real e-commerce platforms (Amazon, Flipkart) for the same purpose,
+        # so those are stored as given. `payout_reference` is informational
+        # metadata only (e.g. a UPI VPA) -- there is still no real payment
+        # processing wired up (Master Architecture Point 21). See
+        # docs/ASKODOX_EXECUTION_TRACKER.md for the full research summary.
+        "precise_location", "cancellation_policy", "payout_reference",
+        "gstin", "pan", "id_verification_status",
+    )
+
+    _SEARCH_STOPWORDS = frozenset({
+        "the", "and", "not", "for", "with", "each", "please", "show", "rate",
+        "confirm", "yes", "no", "ok", "okay", "first", "it", "price", "cost",
+        "check", "quantity", "shop", "shops", "option", "options", "order",
+        "buy", "need", "want", "budget", "rupees", "available", "availability",
+        "proceed", "place", "ready", "nearby", "near", "sure",
+    })
+
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
         self._ensure_schema()
@@ -58,6 +91,11 @@ class ProductCatalogRepository:
                 );
                 """
             )
+            for column in self._ADDED_COLUMNS:
+                try:
+                    conn.execute(f"ALTER TABLE seller_products ADD COLUMN {column} TEXT")
+                except sqlite3.OperationalError:
+                    pass  # column already exists from a previous startup
 
     def upsert_product(self, seller_user_id: str, subject: str, **fields: Any) -> int:
         now = self._now()
@@ -78,16 +116,28 @@ class ProductCatalogRepository:
                 "pickup_available": 0 if fields.get("pickup_available") is False else 1,
                 "image_media_id": fields.get("image_media_id"), "video_media_id": fields.get("video_media_id"),
                 "features_json": json.dumps(fields.get("features") or [], ensure_ascii=False),
+                "seller_name": fields.get("seller_name"),
+                "location_label": fields.get("location_label"),
+                "contact_phone": fields.get("contact_phone"),
+                "category_tag": fields.get("category_tag"),
+                "service_area": fields.get("service_area"),
+                "working_hours": fields.get("working_hours"),
+                "precise_location": fields.get("precise_location"),
+                "cancellation_policy": fields.get("cancellation_policy"),
+                "payout_reference": fields.get("payout_reference"),
+                "gstin": fields.get("gstin"),
+                "pan": fields.get("pan"),
+                "id_verification_status": (str(fields["id_verification_status"]).upper() if fields.get("id_verification_status") else None),
             }
             if row:
                 product_id = int(row["id"])
                 conn.execute(
-                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,updated_at=? WHERE id=?""",
+                    """UPDATE seller_products SET brand=?,variant=?,quantity=?,unit=?,price=?,currency=?,stock_status=?,delivery_available=?,pickup_available=?,image_media_id=COALESCE(?,image_media_id),video_media_id=COALESCE(?,video_media_id),features_json=?,seller_name=COALESCE(?,seller_name),location_label=COALESCE(?,location_label),contact_phone=COALESCE(?,contact_phone),category_tag=COALESCE(?,category_tag),service_area=COALESCE(?,service_area),working_hours=COALESCE(?,working_hours),precise_location=COALESCE(?,precise_location),cancellation_policy=COALESCE(?,cancellation_policy),payout_reference=COALESCE(?,payout_reference),gstin=COALESCE(?,gstin),pan=COALESCE(?,pan),id_verification_status=COALESCE(?,id_verification_status),updated_at=? WHERE id=?""",
                     (*values.values(), now, product_id),
                 )
                 return product_id
             cur = conn.execute(
-                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+                """INSERT INTO seller_products(seller_user_id,subject,brand,variant,quantity,unit,price,currency,stock_status,delivery_available,pickup_available,image_media_id,video_media_id,features_json,seller_name,location_label,contact_phone,category_tag,service_area,working_hours,precise_location,cancellation_policy,payout_reference,gstin,pan,id_verification_status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
                 (seller, name, *values.values(), now, now),
             )
             return int(cur.lastrowid)
@@ -101,6 +151,63 @@ class ProductCatalogRepository:
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
 
+    def list_active_for_seller(self, seller_user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """All of one seller's own active listings, most recently updated first.
+
+        Added 2026-09-15 (round 5) for the new self-service "my listings"
+        endpoint -- lets a real seller see everything they've listed via the
+        real seller_products table (as opposed to the old, disconnected
+        mock seller dashboard). Deliberately simple, same style as
+        search_active().
+        """
+        safe_limit = max(1, min(int(limit or 100), 200))
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM seller_products WHERE seller_user_id=? AND active=1 ORDER BY updated_at DESC LIMIT ?",
+                (str(seller_user_id or "").strip(), safe_limit),
+            ).fetchall()
+        results = []
+        for row in rows:
+            data = dict(row)
+            data["features"] = json.loads(data.pop("features_json") or "[]")
+            results.append(data)
+        return results
+
+    @staticmethod
+    def _listing_fingerprint(value: str) -> str:
+        """Normalize punctuation/spacing so cosmetic rewrites cannot evade duplicate checks."""
+        return "".join(ch for ch in str(value or "").casefold() if ch.isalnum())
+
+    def find_near_duplicate_for_seller(
+        self,
+        seller_user_id: str,
+        subject: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Return an active near-duplicate whose subject differs only cosmetically.
+
+        Exact case-insensitive subject matches are intentionally excluded:
+        upsert_product uses those as the existing listing's update path.
+        """
+        seller = str(seller_user_id or "").strip()
+        clean = " ".join(str(subject or "").strip().split())
+        fingerprint = self._listing_fingerprint(clean)
+        if not seller or not fingerprint:
+            return None
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM seller_products WHERE seller_user_id=? AND active=1",
+                (seller,),
+            ).fetchall()
+        for row in rows:
+            existing = str(row["subject"] or "")
+            if existing.casefold() == clean.casefold():
+                continue
+            if self._listing_fingerprint(existing) == fingerprint:
+                data = dict(row)
+                data["features"] = json.loads(data.pop("features_json") or "[]")
+                return data
+        return None
+
     def find_active(self, seller_user_id: str, subject: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             row = conn.execute(
@@ -112,6 +219,64 @@ class ProductCatalogRepository:
         data = dict(row)
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
+
+    def search_active(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Case-insensitive substring search across subject/brand/variant.
+
+        Tries the complete query first, then falls back to significant tokens
+        so descriptive follow-ups can still match a shorter listing without
+        allowing conversational filler to produce false positives.
+
+        Deliberately simple (no ranking beyond most-recently-updated first):
+        this is a bootstrap real-data search over a handful of manually
+        seeded rows, not the eventual full matching engine (Master
+        Architecture Point 7), which will need real ranking/location/
+        availability signals once there is a meaningful volume of real
+        seller data.
+        """
+        clean = " ".join(str(query or "").strip().split())
+        if not clean:
+            return []
+        safe_limit = max(1, min(int(limit or 10), 50))
+        pattern = f"%{clean.lower()}%"
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT * FROM seller_products
+                   WHERE active=1 AND (
+                       lower(subject) LIKE ? OR lower(COALESCE(brand,'')) LIKE ? OR lower(COALESCE(variant,'')) LIKE ? OR lower(COALESCE(category_tag,'')) LIKE ?
+                   )
+                   ORDER BY updated_at DESC LIMIT ?""",
+                (pattern, pattern, pattern, pattern, safe_limit),
+            ).fetchall()
+            if not rows:
+                tokens = [
+                    token
+                    for token in clean.lower().split()
+                    if len(token) >= 3
+                    and token not in self._SEARCH_STOPWORDS
+                    and not token.isdigit()
+                ]
+                if tokens:
+                    clause = " OR ".join(
+                        "lower(subject) LIKE ? OR lower(COALESCE(brand,'')) LIKE ? OR lower(COALESCE(variant,'')) LIKE ? OR lower(COALESCE(category_tag,'')) LIKE ?"
+                        for _ in tokens
+                    )
+                    params: List[Any] = []
+                    for token in tokens:
+                        token_pattern = f"%{token}%"
+                        params.extend([token_pattern, token_pattern, token_pattern, token_pattern])
+                    rows = conn.execute(
+                        f"""SELECT * FROM seller_products
+                            WHERE active=1 AND ({clause})
+                            ORDER BY updated_at DESC LIMIT ?""",
+                        (*params, safe_limit),
+                    ).fetchall()
+        results = []
+        for row in rows:
+            data = dict(row)
+            data["features"] = json.loads(data.pop("features_json") or "[]")
+            results.append(data)
+        return results
 
     def save_faq(self, product_id: int, question_key: str, answer: str, source: str = "SELLER_CONFIRMED") -> None:
         now = self._now()

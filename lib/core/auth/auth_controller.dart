@@ -11,9 +11,24 @@ class AuthController extends StateNotifier<AuthSession> {
 
   Future<void> restore() async => state = await manager.restore();
 
-  Future<void> completeOnboarding({required String mobile, required String displayName}) async {
+  // Added 2026-09-16 (round 10): `token` now carries the REAL signed
+  // session token returned by POST /onboarding/otp/verify (see
+  // session_tokens.py on the backend) -- not a fabricated placeholder.
+  // Callers (see main.dart's _restoreOnboardingIdentity) read it back out
+  // of SharedPreferences (saved by onboarding_screen.dart's _finish()) and
+  // pass it through here. It is optional only so this method still
+  // compiles against any old caller; a null/blank token falls back to the
+  // old 'OTP_VERIFIED' placeholder, which the backend will now correctly
+  // reject with 401 on every order endpoint -- see orders.py's
+  // _authenticated_app_user.
+  Future<void> completeOnboarding({
+    required String mobile,
+    required String displayName,
+    String? token,
+  }) async {
     final digits = mobile.replaceAll(RegExp(r'\D'), '');
     final stableId = digits.isEmpty ? 'onboarding-user' : 'phone-$digits';
+    final realToken = token?.trim();
     final session = AuthSession(
       user: AuthUser(
         id: stableId,
@@ -21,7 +36,7 @@ class AuthController extends StateNotifier<AuthSession> {
         displayName: displayName.trim(),
       ),
       status: AuthStatus.loggedIn,
-      tokenPlaceholder: 'OTP_VERIFIED',
+      tokenPlaceholder: (realToken != null && realToken.isNotEmpty) ? realToken : 'OTP_VERIFIED',
       expiresAt: DateTime.now().add(const Duration(days: 30)),
     );
     await manager.save(session);
