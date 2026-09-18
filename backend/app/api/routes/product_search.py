@@ -24,6 +24,8 @@ class ProductMatch(BaseModel):
     subtitle: str = ""
     price: float | None = None
     provider_id: str = ""
+    match_score: float = 0
+    match_reasons: list[str] = []
 
 
 class ProductSearchResponse(BaseModel):
@@ -73,10 +75,11 @@ def _title(row: dict[str, Any]) -> str:
 
 
 @router.get("/search", response_model=ProductSearchResponse)
-def search_products(request: Request, q: str = "", limit: int = 10) -> ProductSearchResponse:
+def search_products(request: Request, q: str = "", limit: int = 10, location: str = "", budget: float | None = None) -> ProductSearchResponse:
     container: Any = request.app.state.container
     repository = container.product_catalog_repository
-    rows = repository.search_active(q, limit=limit)
+    rows = repository.search_active(q, limit=max(limit * 3, limit))
+    rows = container.product_match_ranking_service.rank(q, rows, location=location, budget=budget)[:max(1, min(limit, 50))]
     return ProductSearchResponse(
         items=[
             ProductMatch(
@@ -85,6 +88,8 @@ def search_products(request: Request, q: str = "", limit: int = 10) -> ProductSe
                 subtitle=_subtitle(row),
                 price=(float(row["price"]) if row.get("price") is not None else None),
                 provider_id=str(row.get("seller_user_id") or ""),
+                match_score=float(row.get("match_score") or 0),
+                match_reasons=list(row.get("match_reasons") or []),
             )
             for row in rows
         ]
