@@ -51,6 +51,10 @@ class UniversalCommerceAppContainer(AppContainer):
             event_runtime=self.event_master_runtime_service,
             event_provider_runtime=self.event_provider_runtime_service,
             ride_runtime=self.ride_runtime_service,
+            service_decision_assistant=self.service_decision_assistant_service,
+            buyer_decision_assistant=self.buyer_decision_assistant_service,
+            affiliate_provider_config=self.affiliate_provider_config,
+            party_ai_orchestrator=self.party_ai_orchestrator,
         )
 
         # One application-level entry point: profile onboarding first, then any

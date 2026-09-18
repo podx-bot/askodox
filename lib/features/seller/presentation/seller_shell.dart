@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../generated/l10n/app_localizations.dart';
+import '../../../l10n_generated/app_localizations.dart';
 
 class SellerShell extends StatelessWidget {
   const SellerShell({required this.child, super.key});

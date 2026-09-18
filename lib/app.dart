@@ -9,7 +9,7 @@ import 'config/theme/askodox_design_tokens.dart';
 import 'core/providers/app_settings_provider.dart';
 import 'core/offline/offline_models.dart';
 import 'core/providers/offline_providers.dart';
-import 'generated/l10n/app_localizations.dart';
+import 'l10n_generated/app_localizations.dart';
 import 'shared/widgets/connectivity_banner.dart';
 
 Locale askodoxUiLocale(Locale? requested, Iterable<Locale> supportedLocales) {

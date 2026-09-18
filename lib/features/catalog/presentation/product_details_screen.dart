@@ -150,7 +150,7 @@ class _Comparison extends ConsumerWidget {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<SearchSortOption>(
-                                  value: sort,
+                                  initialValue: sort,
                                   decoration: InputDecoration(labelText: _t(context, 'Sort by', 'క్రమపరచండి')),
                                   items: SearchSortOption.values
                                       .map((e) => DropdownMenuItem(value: e, child: Text(_sortName(context, e))))
@@ -228,7 +228,7 @@ class _Comparison extends ConsumerWidget {
                     SwitchListTile(title: Text(_t(context, 'Verified sellers only', 'వెరిఫైడ్ సెల్లర్లు మాత్రమే')), value: f.verifiedOnly, onChanged: (v) => set(f.copyWith(verifiedOnly: v))),
                     DropdownButtonFormField<String?>(
                       decoration: InputDecoration(labelText: _t(context, 'Shop category', 'షాప్ కేటగిరీ')),
-                      value: f.shopCategory,
+                      initialValue: f.shopCategory,
                       items: [
                         DropdownMenuItem(value: null, child: Text(_t(context, 'All categories', 'అన్ని కేటగిరీలు'))),
                         const DropdownMenuItem(value: 'Kirana', child: Text('Kirana')),

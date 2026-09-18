@@ -19,3 +19,8 @@ ios/Flutter/ephemeral/
 .env
 .env.*
 !.env.example
+
+# Python cache and test artifacts
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/

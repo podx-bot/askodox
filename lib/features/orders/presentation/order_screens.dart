@@ -275,7 +275,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.12),
+                color: statusColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10)),
             child: Text(_statusLabel(context, order.status),
                 style: TextStyle(

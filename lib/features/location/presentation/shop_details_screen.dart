@@ -318,7 +318,7 @@ class _DeliveryFlowScreenState extends State<DeliveryFlowScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           const SizedBox(height: 35),
-          CircleAvatar(radius: 42, backgroundColor: color.withOpacity(.12), child: Icon(icon, size: 48, color: color)),
+          CircleAvatar(radius: 42, backgroundColor: color.withValues(alpha: .12), child: Icon(icon, size: 48, color: color)),
           const SizedBox(height: 18),
           Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: _ink)),
           const SizedBox(height: 8),

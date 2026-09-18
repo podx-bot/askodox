@@ -131,7 +131,9 @@ class AskodoxSemanticDealInput {
 
   static String? _canonicalUnit(String? raw) {
     final value = raw?.trim().toLowerCase();
-    if (value == null || value.isEmpty) return null;
+    if (value == null || value.isEmpty) {
+      return null;
+    }
     if ({
       'kg',
       'kgs',
@@ -142,9 +144,13 @@ class AskodoxSemanticDealInput {
       'కిలో',
       'కిలోలు',
       'కిలోల'
-    }.contains(value)) return 'kg';
+    }.contains(value)) {
+      return 'kg';
+    }
     if ({'g', 'gm', 'gram', 'grams', 'గ్రాము', 'గ్రాములు', 'గ్రాముల'}
-        .contains(value)) return 'g';
+        .contains(value)) {
+      return 'g';
+    }
     if ({
       'l',
       'lt',
@@ -155,11 +161,17 @@ class AskodoxSemanticDealInput {
       'లీటర్',
       'లీటర్లు',
       'లీటర్ల'
-    }.contains(value)) return 'litre';
+    }.contains(value)) {
+      return 'litre';
+    }
     if ({'ml', 'millilitre', 'millilitres', 'milliliter', 'milliliters'}
-        .contains(value)) return 'ml';
+        .contains(value)) {
+      return 'ml';
+    }
     if ({'piece', 'pieces', 'pc', 'pcs', 'పీస్', 'పీసులు', 'పీసుల'}
-        .contains(value)) return 'pieces';
+        .contains(value)) {
+      return 'pieces';
+    }
     return value;
   }
 }

@@ -1,4 +1,3 @@
-import 'rfq_schema.dart';
 import 'universal_deal.dart';
 
 class RfqRequest {

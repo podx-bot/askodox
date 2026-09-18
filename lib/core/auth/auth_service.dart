@@ -12,21 +12,19 @@ abstract interface class AuthenticationService {
 }
 
 class MockAuthenticationService implements AuthenticationService {
-  AuthSession _session = AuthSession.loggedOut;
-
   @override
   Future<AuthSession> requestMobileOtp(String mobile) async =>
-      _session = const AuthSession(status: AuthStatus.otpRequested);
+      const AuthSession(status: AuthStatus.otpRequested);
 
   @override
   Future<AuthSession> verifyOtp(String requestId, String otp) async =>
-      _session = const AuthSession(status: AuthStatus.otpVerified);
+      const AuthSession(status: AuthStatus.otpVerified);
 
   @override
   Future<AuthSession> loginWithEmail(String email, String password) async {
     final demo = DemoAccounts.byLoginId(email);
     if (demo != null && password == DemoAccounts.demoPassword) {
-      return _session = AuthSession(
+      return AuthSession(
         user: demo.user,
         status: AuthStatus.loggedIn,
         tokenPlaceholder: 'DEMO_ONLY',
@@ -35,7 +33,7 @@ class MockAuthenticationService implements AuthenticationService {
     }
 
     // Preserve the generic mock login used by existing development tests.
-    return _session = AuthSession(
+    return AuthSession(
       user: const AuthUser(
         id: 'demo',
         role: UserRole.buyer,
@@ -52,15 +50,13 @@ class MockAuthenticationService implements AuthenticationService {
 
   @override
   Future<AuthSession> refresh(AuthSession session) async =>
-      _session = session.copyWith(
+      session.copyWith(
         status: AuthStatus.loggedIn,
         expiresAt: DateTime.now().add(const Duration(hours: 1)),
       );
 
   @override
-  Future<void> logout() async {
-    _session = AuthSession.loggedOut;
-  }
+  Future<void> logout() async {}
 
   @override
   Future<void> deleteAccount() => logout();

@@ -253,6 +253,18 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     )
     created = _latest_created_deal(container, user_id)
     if not _deal_progressed(before, created):
+        # Conversation OS owns the in-app reply, while the /deals contract also
+        # requires a persisted universal demand for matching and later retrieval.
+        # Use the existing live-capture pipeline only when the conversational
+        # path did not create or update that demand.
+        live_capture = getattr(container, "universal_live_capture_service", None)
+        process_text = getattr(live_capture, "process_text", None)
+        if callable(process_text):
+            capture_reply = process_text(user_id, payload.raw_text)
+            if capture_reply:
+                reply = capture_reply
+            created = _latest_created_deal(container, user_id)
+    if not _deal_progressed(before, created):
         headers = None
         if intent_context is not None:
             headers = {

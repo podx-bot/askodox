@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:podx/core/api/api_models.dart';import 'package:podx/core/auth/auth_models.dart';import 'package:podx/core/auth/auth_service.dart';import 'package:podx/core/auth/route_guard.dart';import 'package:podx/core/auth/session_manager.dart';import 'package:podx/core/config/environment.dart';
-import 'package:podx/core/data/data_state.dart';import 'package:podx/core/pagination/pagination.dart';import 'package:podx/core/persistence/local_store.dart';import 'package:podx/core/providers/backend_providers.dart';import 'package:podx/core/sync/sync_models.dart';
+import 'package:podx/core/pagination/pagination.dart';import 'package:podx/core/persistence/local_store.dart';import 'package:podx/core/providers/backend_providers.dart';import 'package:podx/core/sync/sync_models.dart';
 void main(){
  test('configuration validates remote providers',(){expect(()=>AppConfig.fromEnvironment({'APP_ENV':'staging','BACKEND_PROVIDER':'rest'}),throwsFormatException);expect(AppConfig.development().backendProvider,BackendProvider.mock);});
  test('role guard allows public profile and rejects cross-module guest routes',(){const guard=RouteGuard();const guest=AuthSession.loggedOut;final buyer=AuthSession(user:const AuthUser(id:'b',role:UserRole.buyer),status:AuthStatus.loggedIn);final seller=AuthSession(user:const AuthUser(id:'s',role:UserRole.seller),status:AuthStatus.loggedIn);expect(guard.redirect(guest,'/profile'),isNull);expect(guard.redirect(buyer,'/admin/dashboard'),'/forbidden');expect(guard.redirect(seller,'/admin/super/users'),'/forbidden');expect(guard.redirect(seller,'/seller/dashboard'),isNull);});

@@ -46,12 +46,25 @@ class _SellerLoginScreenState extends ConsumerState<SellerLoginScreen> {
 
   Future<void> _send() async {
     if (!RegExp(r'^\d{10}$').hasMatch(mobile.text)) return _message(t('Enter a valid 10-digit mobile number', 'సరైన 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి'));
-    setState(() => busy = true); await ref.read(sellerProvider.notifier).sendOtp(mobile.text); if (mounted) setState(() => busy = false);
+    setState(() => busy = true);
+    await ref.read(sellerProvider.notifier).sendOtp(mobile.text);
+    if (mounted) {
+      setState(() => busy = false);
+    }
   }
 
   Future<void> _verify() async {
-    setState(() => busy = true); final valid = await ref.read(sellerProvider.notifier).verifyOtp(otp.text); if (!mounted) return; setState(() => busy = false);
-    if (valid) context.go('/seller/dashboard'); else _message(t('Incorrect OTP. Use 123456', 'OTP తప్పు. 123456 ఉపయోగించండి'));
+    setState(() => busy = true);
+    final valid = await ref.read(sellerProvider.notifier).verifyOtp(otp.text);
+    if (!mounted) {
+      return;
+    }
+    setState(() => busy = false);
+    if (valid) {
+      context.go('/seller/dashboard');
+    } else {
+      _message(t('Incorrect OTP. Use 123456', 'OTP తప్పు. 123456 ఉపయోగించండి'));
+    }
   }
 
   void _message(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));

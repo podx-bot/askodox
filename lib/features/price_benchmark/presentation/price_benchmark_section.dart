@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../generated/l10n/app_localizations.dart';
+import '../../../l10n_generated/app_localizations.dart';
 import '../application/price_benchmark_providers.dart';
 import '../domain/price_benchmark_models.dart';
 import '../domain/price_benchmark_services.dart';

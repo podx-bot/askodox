@@ -57,14 +57,23 @@ class _AddSellerProductScreenState extends ConsumerState<AddSellerProductScreen>
                 error: (error, _) => Text(t('Could not load catalog', 'కేటలాగ్ లోడ్ కాలేదు')),
                 data: (data) {
                   final products = data.products.where((item) => query.isEmpty || item.name.toLowerCase().contains(query) || item.brand.name.toLowerCase().contains(query)).toList();
-                  return Column(children: [
+                  return RadioGroup<String>(
+                    groupValue: selected?.id,
+                    onChanged: (id) {
+                      if (id == null) return;
+                      final product = products.firstWhere((item) => item.id == id);
+                      setState(() {
+                        selected = product;
+                        price.text = product.price.toStringAsFixed(0);
+                      });
+                    },
+                    child: Column(children: [
                     for (final product in products)
                       Card(
                         color: selected?.id == product.id ? Theme.of(context).colorScheme.primaryContainer : null,
                         child: RadioListTile<String>(
                           value: product.id,
-                          groupValue: selected?.id,
-                          onChanged: existing.contains(product.id) ? null : (_) => setState(() { selected = product; price.text = product.price.toStringAsFixed(0); }),
+                          enabled: !existing.contains(product.id),
                           secondary: CircleAvatar(child: Text(product.icon)),
                           title: Text(product.name),
                           subtitle: Text(existing.contains(product.id) ? t('Already in your shop', 'ఇప్పటికే మీ షాప్‌లో ఉంది') : '${t('Suggested', 'సూచించిన ధర')} ₹${product.price.toStringAsFixed(0)}'),
@@ -78,7 +87,7 @@ class _AddSellerProductScreenState extends ConsumerState<AddSellerProductScreen>
                           TextButton.icon(onPressed: () => context.push('/seller/products/request'), icon: const Icon(Icons.add_circle_outline), label: Text(t('Request New Product', 'కొత్త ఉత్పత్తిని అభ్యర్థించండి'))),
                         ]),
                       ),
-                  ]);
+                  ]));
                 },
               ),
               if (selected != null) ...[
@@ -117,7 +126,15 @@ class _AddSellerProductScreenState extends ConsumerState<AddSellerProductScreen>
 
   Future<void> _pickDate(bool start) async {
     final picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (picked != null) setState(() { if (start) offerStart = picked; else offerExpiry = picked; });
+    if (picked != null) {
+      setState(() {
+        if (start) {
+          offerStart = picked;
+        } else {
+          offerExpiry = picked;
+        }
+      });
+    }
   }
 
   void _add() {

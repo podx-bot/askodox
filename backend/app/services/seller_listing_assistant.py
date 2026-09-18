@@ -50,10 +50,16 @@ class SellerListingAssistant:
         price = None
         unit = None
         match = self._PRICE.search(subject)
+        remove_price_from_subject = match is not None
+        if match is None:
+            # Telugu seller phrasing keeps the price after the sell verb, while
+            # subject extraction intentionally keeps only the product text.
+            match = self._PRICE.search(raw)
         if match:
             price = float(match.group(1))
             unit = (match.group(2) or "").lower() or None
-            subject = (subject[:match.start()] + subject[match.end():]).strip(" ,-₹")
+            if remove_price_from_subject:
+                subject = (subject[:match.start()] + subject[match.end():]).strip(" ,-₹")
 
         subject = re.sub(r"\b(?:at|for|price)\s*$", "", subject, flags=re.I).strip(" ,-")
         category = self.category_repository.match(raw) if self.category_repository else None

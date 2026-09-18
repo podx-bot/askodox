@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/offline/offline_models.dart';
 import '../../../core/providers/offline_providers.dart';
-import '../../../generated/l10n/app_localizations.dart';
+import '../../../l10n_generated/app_localizations.dart';
 
 class StorageUsageScreen extends ConsumerStatefulWidget { const StorageUsageScreen({super.key}); @override ConsumerState<StorageUsageScreen> createState() => _StorageUsageScreenState(); }
 class _StorageUsageScreenState extends ConsumerState<StorageUsageScreen> {

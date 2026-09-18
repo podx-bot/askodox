@@ -3,7 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/features/seller/presentation/seller_shell.dart';
-import 'package:podx/generated/l10n/app_localizations.dart';
+import 'package:podx/l10n_generated/app_localizations.dart';
 
 void main() {
   testWidgets('seller navigation uses Telugu translations', (tester) async {

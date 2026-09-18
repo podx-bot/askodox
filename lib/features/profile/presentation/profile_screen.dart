@@ -46,12 +46,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ? 'ASKODOX మాట్లాడే వాయిస్‌ను ఎంచుకోండి. Automatic మీ డివైస్‌కు సరిపోయే వాయిస్‌ను ఉపయోగిస్తుంది.'
                   : 'Choose the voice ASKODOX uses. Automatic picks a compatible device voice.'),
             ),
-            for (final preference in VoicePreference.values)
-              RadioListTile<VoicePreference>(
-                  value: preference,
-                  groupValue: current,
-                  title: Text(_voiceLabel(preference, te)),
-                  onChanged: (value) => Navigator.pop(context, value)),
+            RadioGroup<VoicePreference>(
+              groupValue: current,
+              onChanged: (value) => Navigator.pop(context, value),
+              child: Column(
+                children: [
+                  for (final preference in VoicePreference.values)
+                    RadioListTile<VoicePreference>(value: preference, title: Text(_voiceLabel(preference, te))),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -106,10 +110,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await service.downloadAndInstall(update, onProgress: (value) {
         if (mounted) setState(() => _progress = value);
       });
-      if (mounted)
+      if (mounted) {
         setState(() => _message = _te
             ? 'Android install promptను confirm చేయండి.'
             : 'Confirm the Android install prompt.');
+      }
     } catch (e) {
       if (mounted) setState(() => _message = 'Update failed: $e');
     } finally {
