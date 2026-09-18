@@ -3,6 +3,7 @@ from app.services.seller_tiers import (
     TIER_BUSINESS,
     TIER_CASUAL,
     TIER_REGULAR,
+    TIER_SERVICE_PROVIDER,
     compute_tier,
 )
 
@@ -33,3 +34,11 @@ def test_gstin_means_business_even_past_the_regular_threshold():
 
 def test_negative_listing_count_is_clamped_to_zero_not_rejected():
     assert compute_tier(-3, has_gstin=False) == TIER_CASUAL
+
+
+def test_service_signal_means_service_provider_without_gstin():
+    assert compute_tier(1, has_gstin=False, is_service_provider=True) == TIER_SERVICE_PROVIDER
+
+
+def test_gstin_takes_precedence_over_service_provider():
+    assert compute_tier(1, has_gstin=True, is_service_provider=True) == TIER_BUSINESS
