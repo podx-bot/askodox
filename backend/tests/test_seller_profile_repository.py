@@ -1,7 +1,8 @@
 import pytest
 
+from app.repositories.product_catalog_repository import ProductCatalogRepository
 from app.repositories.seller_profile_repository import SellerProfileRepository
-from app.services.seller_tiers import REGULAR_LISTING_THRESHOLD, TIER_BUSINESS, TIER_CASUAL, TIER_REGULAR
+from app.services.seller_tiers import REGULAR_LISTING_THRESHOLD, TIER_BUSINESS, TIER_CASUAL, TIER_REGULAR, TIER_SERVICE_PROVIDER
 
 
 def test_unknown_seller_has_no_profile(tmp_path):
@@ -61,3 +62,38 @@ def test_blank_seller_user_id_raises(tmp_path):
     repo = SellerProfileRepository(str(tmp_path / "test.db"))
     with pytest.raises(ValueError):
         repo.record_listing_created("   ", has_gstin=False)
+
+
+def test_backfill_creates_profile_for_preexisting_seller(tmp_path):
+    db = str(tmp_path / "test.db")
+    catalog = ProductCatalogRepository(db)
+    catalog.upsert_product(
+        seller_user_id="app-phone-933333333333",
+        subject="AC repair",
+        category_tag="home service",
+        service_area="Vijayawada",
+    )
+    repo = SellerProfileRepository(db)
+    profile = repo.get("app-phone-933333333333")
+    assert profile["total_listing_count"] == 1
+    assert profile["is_service_provider"] == 1
+    assert profile["tier"] == TIER_SERVICE_PROVIDER
+
+
+def test_backfill_does_not_double_count_exact_listing_updates(tmp_path):
+    db = str(tmp_path / "test.db")
+    catalog = ProductCatalogRepository(db)
+    catalog.upsert_product(
+        seller_user_id="app-phone-944444444444",
+        subject="Mango pickle",
+        price=100,
+    )
+    repo = SellerProfileRepository(db)
+    assert repo.get("app-phone-944444444444")["total_listing_count"] == 1
+    catalog.upsert_product(
+        seller_user_id="app-phone-944444444444",
+        subject="Mango pickle",
+        price=120,
+    )
+    repo.backfill_from_catalog()
+    assert repo.get("app-phone-944444444444")["total_listing_count"] == 1

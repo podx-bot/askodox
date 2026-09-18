@@ -135,6 +135,18 @@ def create_my_listing(payload: CreateMyListingRequest, request: Request) -> MyLi
 
     gstin = (payload.gstin or "").strip() or None
 
+    duplicate = container.product_catalog_repository.find_near_duplicate_for_seller(
+        seller_user_id, subject
+    )
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "A very similar active listing already exists",
+                "existing_listing_id": duplicate["id"],
+            },
+        )
+
     product_id = container.product_catalog_repository.upsert_product(
         seller_user_id=seller_user_id,
         subject=subject,
@@ -153,9 +165,11 @@ def create_my_listing(payload: CreateMyListingRequest, request: Request) -> MyLi
         payout_reference=(payload.payout_reference or "").strip() or None,
         gstin=gstin,
     )
-    profile = container.seller_profile_repository.record_listing_created(
-        seller_user_id, has_gstin=bool(gstin)
-    )
+    # Recompute from the real catalog rather than incrementing a counter.
+    # This keeps exact-subject updates from inflating listing volume and also
+    # upgrades pre-round-12 sellers/service providers on the same code path.
+    container.seller_profile_repository.backfill_from_catalog()
+    profile = container.seller_profile_repository.get(seller_user_id)
     return MyListingResponse(id=product_id, seller_tier=profile["tier"])
 
 

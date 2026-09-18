@@ -1,19 +1,4 @@
-"""Per-seller-account profile: tier classification and listing history.
-
-Added 2026-09-16 (round 12) -- roadmap Phase 2 ("Seller tiers & verification
-foundation": https://claude.ai/artifact/TWUnjbA2TTubwczT9Lxg4n). Before this,
-ASKODOX had no table keyed by seller_user_id at all: gstin/pan/
-id_verification_status (see product_catalog_repository.py) live per
-*listing*, not per seller, and driver_kyc_repository.py's DRAFT/SUBMITTED/
-APPROVED/REJECTED state machine is specific to driver/vehicle KYC. This is
-the first real per-seller-account record.
-
-Deliberately mirrors the schema-evolution style already used elsewhere in
-this codebase (ProductCatalogRepository, DriverKYCRepository): CREATE TABLE
-IF NOT EXISTS now, plus guarded ALTER TABLE for any columns added later,
-since CREATE TABLE IF NOT EXISTS never alters an already-existing table on
-Railway's persistent volume.
-"""
+"""Per-seller-account profile, tier classification, and catalog backfill."""
 from __future__ import annotations
 
 import sqlite3
@@ -27,6 +12,7 @@ class SellerProfileRepository:
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
         self._ensure_schema()
+        self.backfill_from_catalog()
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -46,11 +32,19 @@ class SellerProfileRepository:
                     tier TEXT NOT NULL DEFAULT 'casual',
                     total_listing_count INTEGER NOT NULL DEFAULT 0,
                     has_gstin INTEGER NOT NULL DEFAULT 0,
+                    is_service_provider INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
                 """
             )
+            try:
+                conn.execute(
+                    "ALTER TABLE seller_profiles ADD COLUMN "
+                    "is_service_provider INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass
 
     def get(self, seller_user_id: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
@@ -60,18 +54,13 @@ class SellerProfileRepository:
             ).fetchone()
         return dict(row) if row else None
 
-    def record_listing_created(self, seller_user_id: str, *, has_gstin: bool = False) -> Dict[str, Any]:
-        """Update (or create) a seller's profile after they publish a listing.
-
-        total_listing_count counts every successful self-service listing
-        creation, not just currently-active ones -- see the round-12
-        tracker entry: a seller who later deactivates a listing has still
-        genuinely demonstrated the activity level that earned their tier,
-        so tier is not walked back on deactivation. has_gstin is sticky
-        once true: a seller who supplies a GSTIN on any one listing is
-        treated as a verified business from then on, even if a later
-        listing omits it.
-        """
+    def record_listing_created(
+        self,
+        seller_user_id: str,
+        *,
+        has_gstin: bool = False,
+        is_service_provider: bool = False,
+    ) -> Dict[str, Any]:
         seller = str(seller_user_id or "").strip()
         if not seller:
             raise ValueError("seller_user_id required")
@@ -83,22 +72,125 @@ class SellerProfileRepository:
             ).fetchone()
             existing_count = int(row["total_listing_count"]) if row else 0
             existing_has_gstin = bool(row["has_gstin"]) if row else False
+            existing_service = bool(row["is_service_provider"]) if row else False
             new_count = existing_count + 1
             new_has_gstin = existing_has_gstin or bool(has_gstin)
-            new_tier = compute_tier(new_count, new_has_gstin)
+            new_service = existing_service or bool(is_service_provider)
+            new_tier = compute_tier(new_count, new_has_gstin, new_service)
             if row:
                 conn.execute(
-                    "UPDATE seller_profiles SET tier=?, total_listing_count=?, has_gstin=?, updated_at=? WHERE seller_user_id=?",
-                    (new_tier, new_count, 1 if new_has_gstin else 0, now, seller),
+                    """UPDATE seller_profiles
+                       SET tier=?, total_listing_count=?, has_gstin=?,
+                           is_service_provider=?, updated_at=?
+                       WHERE seller_user_id=?""",
+                    (
+                        new_tier,
+                        new_count,
+                        1 if new_has_gstin else 0,
+                        1 if new_service else 0,
+                        now,
+                        seller,
+                    ),
                 )
             else:
                 conn.execute(
-                    "INSERT INTO seller_profiles(seller_user_id, tier, total_listing_count, has_gstin, created_at, updated_at) VALUES(?,?,?,?,?,?)",
-                    (seller, new_tier, new_count, 1 if new_has_gstin else 0, now, now),
+                    """INSERT INTO seller_profiles(
+                           seller_user_id,tier,total_listing_count,has_gstin,
+                           is_service_provider,created_at,updated_at
+                       ) VALUES(?,?,?,?,?,?,?)""",
+                    (
+                        seller,
+                        new_tier,
+                        new_count,
+                        1 if new_has_gstin else 0,
+                        1 if new_service else 0,
+                        now,
+                        now,
+                    ),
                 )
         return {
             "seller_user_id": seller,
             "tier": new_tier,
             "total_listing_count": new_count,
             "has_gstin": new_has_gstin,
+            "is_service_provider": new_service,
         }
+
+    def backfill_from_catalog(self) -> int:
+        """Create/update profiles for listings that pre-date seller profiles.
+
+        ProductCatalogRepository is initialized first in the application
+        container, so seller_products is available in normal startup. Tests
+        that instantiate this repository alone simply have nothing to backfill.
+        Existing profile counts are never reduced.
+        """
+        now = self._now()
+        with self._connect() as conn:
+            table = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='seller_products'"
+            ).fetchone()
+            if not table:
+                return 0
+            rows = conn.execute(
+                """SELECT seller_user_id,
+                          COUNT(*) AS listing_count,
+                          MAX(CASE WHEN TRIM(COALESCE(gstin,'')) <> '' THEN 1 ELSE 0 END) AS has_gstin,
+                          MAX(CASE WHEN TRIM(COALESCE(service_area,'')) <> ''
+                                        OR TRIM(COALESCE(working_hours,'')) <> ''
+                                        OR lower(TRIM(COALESCE(category_tag,''))) LIKE '%service%'
+                                   THEN 1 ELSE 0 END) AS is_service_provider
+                   FROM seller_products
+                   WHERE TRIM(COALESCE(seller_user_id,'')) <> ''
+                   GROUP BY seller_user_id"""
+            ).fetchall()
+            changed = 0
+            for item in rows:
+                seller = str(item["seller_user_id"]).strip()
+                catalog_count = int(item["listing_count"] or 0)
+                catalog_gstin = bool(item["has_gstin"])
+                catalog_service = bool(item["is_service_provider"])
+                current = conn.execute(
+                    "SELECT * FROM seller_profiles WHERE seller_user_id=?",
+                    (seller,),
+                ).fetchone()
+                count = max(catalog_count, int(current["total_listing_count"]) if current else 0)
+                has_gstin = catalog_gstin or (bool(current["has_gstin"]) if current else False)
+                is_service = catalog_service or (
+                    bool(current["is_service_provider"]) if current else False
+                )
+                tier = compute_tier(count, has_gstin, is_service)
+                if current:
+                    desired = (tier, count, int(has_gstin), int(is_service))
+                    actual = (
+                        current["tier"],
+                        int(current["total_listing_count"]),
+                        int(current["has_gstin"]),
+                        int(current["is_service_provider"]),
+                    )
+                    if desired == actual:
+                        continue
+                    conn.execute(
+                        """UPDATE seller_profiles
+                           SET tier=?, total_listing_count=?, has_gstin=?,
+                               is_service_provider=?, updated_at=?
+                           WHERE seller_user_id=?""",
+                        (*desired, now, seller),
+                    )
+                else:
+                    conn.execute(
+                        """INSERT INTO seller_profiles(
+                               seller_user_id,tier,total_listing_count,has_gstin,
+                               is_service_provider,created_at,updated_at
+                           ) VALUES(?,?,?,?,?,?,?)""",
+                        (
+                            seller,
+                            tier,
+                            count,
+                            int(has_gstin),
+                            int(is_service),
+                            now,
+                            now,
+                        ),
+                    )
+                changed += 1
+        return changed

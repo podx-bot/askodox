@@ -168,3 +168,20 @@ def test_list_active_for_seller_orders_most_recently_updated_first(repo):
 
     assert listings[0]["subject"] == "Second Item"
     assert listings[1]["subject"] == "First Item"
+
+def test_near_duplicate_detection_ignores_cosmetic_punctuation(tmp_path):
+    repo = ProductCatalogRepository(str(tmp_path / "test.db"))
+    repo.upsert_product("app-phone-955555555555", "AC Repair")
+    duplicate = repo.find_near_duplicate_for_seller(
+        "app-phone-955555555555", "AC-Repair"
+    )
+    assert duplicate is not None
+    assert duplicate["subject"] == "AC Repair"
+
+
+def test_exact_subject_is_update_path_not_near_duplicate(tmp_path):
+    repo = ProductCatalogRepository(str(tmp_path / "test.db"))
+    repo.upsert_product("app-phone-966666666666", "Mango Pickle", price=100)
+    assert repo.find_near_duplicate_for_seller(
+        "app-phone-966666666666", "mango pickle"
+    ) is None
