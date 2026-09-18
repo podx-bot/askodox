@@ -173,6 +173,41 @@ class ProductCatalogRepository:
             results.append(data)
         return results
 
+    @staticmethod
+    def _listing_fingerprint(value: str) -> str:
+        """Normalize punctuation/spacing so cosmetic rewrites cannot evade duplicate checks."""
+        return "".join(ch for ch in str(value or "").casefold() if ch.isalnum())
+
+    def find_near_duplicate_for_seller(
+        self,
+        seller_user_id: str,
+        subject: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Return an active near-duplicate whose subject differs only cosmetically.
+
+        Exact case-insensitive subject matches are intentionally excluded:
+        upsert_product uses those as the existing listing's update path.
+        """
+        seller = str(seller_user_id or "").strip()
+        clean = " ".join(str(subject or "").strip().split())
+        fingerprint = self._listing_fingerprint(clean)
+        if not seller or not fingerprint:
+            return None
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM seller_products WHERE seller_user_id=? AND active=1",
+                (seller,),
+            ).fetchall()
+        for row in rows:
+            existing = str(row["subject"] or "")
+            if existing.casefold() == clean.casefold():
+                continue
+            if self._listing_fingerprint(existing) == fingerprint:
+                data = dict(row)
+                data["features"] = json.loads(data.pop("features_json") or "[]")
+                return data
+        return None
+
     def find_active(self, seller_user_id: str, subject: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             row = conn.execute(
