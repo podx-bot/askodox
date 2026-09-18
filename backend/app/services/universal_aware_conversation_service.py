@@ -39,6 +39,8 @@ class UniversalAwareConversationService:
         buyer_decision_assistant=None,
         affiliate_provider_config=None,
         party_ai_orchestrator=None,
+        profile_source=None,
+        catalog_repository=None,
     ) -> None:
         self.response_commands = response_commands
         self.live_capture = live_capture
@@ -58,6 +60,8 @@ class UniversalAwareConversationService:
         self.buyer_decision_assistant = buyer_decision_assistant
         self.affiliate_provider_config = affiliate_provider_config
         self.party_ai_orchestrator = party_ai_orchestrator
+        self.profile_source = profile_source
+        self.catalog_repository = catalog_repository or getattr(product_runtime, "catalog", None)
         self.ledger_runtime = ledger_runtime or self._auto_ledger_runtime()
         self.creator_runtime = creator_runtime or self._auto_creator_runtime()
         self.alert_preference_runtime = alert_preference_runtime or self._auto_alert_preference_runtime()
@@ -122,56 +126,64 @@ class UniversalAwareConversationService:
         if response is not None:
             return response
         if self.service_decision_assistant is not None and self._looks_like_service_request(clean):
-            service_plan = self.service_decision_assistant.decide(
-                {
-                    "request": clean,
-                    "category": self._infer_service_category(clean),
-                    "location": self._infer_location(clean),
-                    "budget": self._infer_budget(clean),
-                    "urgency": "urgent" if any(token in clean.lower() for token in ("urgent", "today", "asap", "today", "పెద్దవాడు", "ఇప్పుడే")) else "normal",
-                },
-                [
-                    {"name": "Local service provider", "distance_km": 3.0, "price": 1200, "verified": True, "available": True, "rating": 4.8, "location": self._infer_location(clean) or "local area"},
-                    {"name": "Secondary provider", "distance_km": 18.0, "price": 1500, "verified": False, "available": True, "rating": 4.4, "location": "nearby"},
-                ],
-            )
+            category = self._infer_service_category(clean)
+            candidates = self._service_candidates(category)
+            if candidates:
+                service_plan = self.service_decision_assistant.decide(
+                    {
+                        "request": clean,
+                        "category": category,
+                        "location": self._infer_location(clean),
+                        "budget": self._infer_budget(clean),
+                        "urgency": "urgent" if any(token in clean.lower() for token in ("urgent", "today", "asap", "today", "పెద్దవాడు", "ఇప్పుడే")) else "normal",
+                    },
+                    candidates,
+                )
+            else:
+                service_plan = {}
             if service_plan.get("best"):
                 best = service_plan["best"]
-                return f"ASKODOX AI recommendation: {best['name']} matches your {best.get('category', 'service')} request. Why: {best.get('why', 'best fit')}"
+                flow = self._orchestrate(
+                    local_matches=[best],
+                    category=category,
+                )
+                return f"ASKODOX AI recommendation: {best['name']} matches your {best.get('category', 'service')} request. Why: {best.get('why', 'best fit')}{self._flow_suffix(flow)}"
         if self.buyer_decision_assistant is not None and self._looks_like_buyer_intent(clean):
-            buying_plan = self.buyer_decision_assistant.decide(
-                {
-                    "category": self._infer_buyer_category(clean),
-                    "budget": self._infer_budget(clean),
-                    "location": self._infer_location(clean),
-                    "urgency": "urgent" if any(token in clean.lower() for token in ("urgent", "today", "asap", "ఇప్పుడే")) else "normal",
-                    "must_have": ["warranty", "delivery"],
-                },
-                [{
-                    "name": "Local stock option",
-                    "channel": "local",
-                    "price": self._infer_budget(clean) if self._infer_budget(clean) else 22000,
-                    "verified": True,
-                    "warranty": True,
-                    "returns": True,
-                    "exact_variant": True,
-                    "service_available": True,
-                    "delivery_minutes": 60,
-                }, {
-                    "name": "Online alternative",
-                    "channel": "online",
-                    "price": (self._infer_budget(clean) if self._infer_budget(clean) else 22000) + 1500,
-                    "verified": True,
-                    "warranty": True,
-                    "returns": True,
-                    "exact_variant": True,
-                    "service_available": False,
-                    "delivery_minutes": 240,
-                }],
-            )
+            category = self._infer_buyer_category(clean)
+            options = self._buyer_options(category)
+            affiliate_matches = self._affiliate_matches(category)
+            if options:
+                buying_plan = self.buyer_decision_assistant.decide(
+                    {
+                        "category": category,
+                        "budget": self._infer_budget(clean),
+                        "location": self._infer_location(clean),
+                        "urgency": "urgent" if any(token in clean.lower() for token in ("urgent", "today", "asap", "ఇప్పుడే")) else "normal",
+                        "must_have": ["warranty", "delivery"],
+                    },
+                    options,
+                )
+            else:
+                buying_plan = {}
+            if not buying_plan.get("best") and affiliate_matches:
+                flow = self._orchestrate(
+                    local_matches=[],
+                    affiliate_matches=affiliate_matches,
+                    category=category,
+                )
+                providers = ", ".join(
+                    str(provider.get("provider_id") or provider.get("name") or "external provider")
+                    for provider in affiliate_matches[:3]
+                )
+                return f"No confirmed local match is available yet. Verified external options: {providers}. I will show them only after both parties confirm.{self._flow_suffix(flow)}"
             if buying_plan.get("best"):
                 best = buying_plan["best"]
-                return f"ASKODOX buyer guide: {best['name']} is the best fit. Reasoning: {', '.join(best.get('reasoning', []))}."
+                flow = self._orchestrate(
+                    local_matches=[best] if best.get("channel") == "local" else [],
+                    affiliate_matches=affiliate_matches,
+                    category=category,
+                )
+                return f"ASKODOX buyer guide: {best['name']} is the best fit. Reasoning: {', '.join(best.get('reasoning', []))}.{self._flow_suffix(flow)}"
         if self.product_runtime is not None:
             intelligent = self.product_runtime.process(sender_mobile=sender_mobile, message=clean)
             if intelligent is not None:
@@ -246,6 +258,72 @@ class UniversalAwareConversationService:
         if match:
             return float(match.group(1))
         return 0.0
+
+    def _service_candidates(self, category: str) -> list[dict]:
+        source = self.profile_source
+        if source is None and self.live_capture is not None:
+            source = getattr(getattr(self.live_capture, "targeting", None), "profile_source", None)
+        if not callable(source):
+            return []
+        candidates = []
+        wanted = str(category or "service").casefold()
+        for profile in source() or []:
+            role = str(profile.get("role") or profile.get("profile_type") or "").upper()
+            service = str(profile.get("service") or profile.get("category") or profile.get("skill") or "")
+            if role not in {"SERVICE_PROVIDER", "PROVIDER", "BUSINESS", "BOTH"} or wanted not in service.casefold():
+                continue
+            candidates.append({
+                "name": str(profile.get("name") or profile.get("user_id") or "Service provider"),
+                "location": str(profile.get("location") or profile.get("area") or "local area"),
+                "distance_km": profile.get("distance_km"),
+                "price": profile.get("price"),
+                "verified": str(profile.get("id_verification_status") or "").upper() == "VERIFIED",
+                "available": bool(profile.get("available", True)),
+                "rating": profile.get("rating", 0),
+            })
+        return candidates
+
+    def _buyer_options(self, category: str) -> list[dict]:
+        search = getattr(self.catalog_repository, "search_active", None)
+        if not callable(search):
+            return []
+        options = []
+        for product in search(category, limit=10) or []:
+            options.append({
+                "name": str(product.get("seller_name") or product.get("subject") or "Local seller"),
+                "channel": "local",
+                "price": product.get("price"),
+                "verified": str(product.get("id_verification_status") or "").upper() == "VERIFIED",
+                "warranty": bool(product.get("warranty")),
+                "returns": bool(product.get("cancellation_policy")),
+                "exact_variant": bool(product.get("variant")),
+                "service_available": bool(product.get("delivery_available")),
+                "delivery_minutes": product.get("delivery_minutes", 100000),
+            })
+        return options
+
+    def _affiliate_matches(self, category: str) -> list[dict]:
+        if self.affiliate_provider_config is None:
+            return []
+        return self.affiliate_provider_config.active_for_category(category)
+
+    def _orchestrate(self, *, local_matches: list[dict], affiliate_matches: list[dict] | None = None, category: str) -> dict:
+        if self.party_ai_orchestrator is None:
+            return {}
+        return self.party_ai_orchestrator.orchestrate({
+            "intent": "buy" if local_matches and local_matches[0].get("channel") == "local" else "service",
+            "category": category,
+            "local_matches": local_matches,
+            "affiliate_matches": affiliate_matches or [],
+        })
+
+    @staticmethod
+    def _flow_suffix(flow: dict) -> str:
+        if not flow:
+            return ""
+        if any(step.get("kind") == "affiliate_fallback" for step in flow.get("steps", [])):
+            return " ASKODOX can also show verified external options; both parties confirm before contact sharing."
+        return " Both parties confirm before contact sharing."
 
     def _database_path(self) -> str:
         try:
