@@ -49,7 +49,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<DemoModule>(
-                value: _module,
+                initialValue: _module,
                 decoration: const InputDecoration(
                   labelText: 'Help topic',
                   border: OutlineInputBorder(),

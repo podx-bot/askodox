@@ -16,12 +16,18 @@ class AskodoxHomeRequestRouting {
 
   static AskodoxHomeRequestKind kindOf(String text) {
     final q = text.toLowerCase().trim();
-    if (q.isEmpty) return AskodoxHomeRequestKind.general;
+    if (q.isEmpty) {
+      return AskodoxHomeRequestKind.general;
+    }
 
     final hasJob = _has(q, const ['job', 'jobs', 'ఉద్యోగం', 'జాబ్', 'vacancy', 'computer operator']);
     final hasDelivery = _has(q, const ['delivery', 'courier', 'డెలివరీ']);
-    if (hasJob && hasDelivery) return AskodoxHomeRequestKind.deliveryJob;
-    if (hasJob) return AskodoxHomeRequestKind.job;
+    if (hasJob && hasDelivery) {
+      return AskodoxHomeRequestKind.deliveryJob;
+    }
+    if (hasJob) {
+      return AskodoxHomeRequestKind.job;
+    }
 
     // Universal AI canonicalizes employer-side worker requests with a staffing
     // marker before they reach this deterministic routing layer. Staffing must
@@ -30,12 +36,16 @@ class AskodoxHomeRequestRouting {
     if (_has(q, const [
       'need staff', 'need worker', 'need workers', 'hiring staff', 'hire staff',
       'staffing request',
-    ])) return AskodoxHomeRequestKind.staffing;
+    ])) {
+      return AskodoxHomeRequestKind.staffing;
+    }
 
     if (_has(q, const [
       'ac repair', 'repair', 'service provider', 'plumber', 'electrician',
       'mechanic', 'మెకానిక్', 'రిపేర్', 'సర్వీస్ కావాలి',
-    ])) return AskodoxHomeRequestKind.service;
+    ])) {
+      return AskodoxHomeRequestKind.service;
+    }
 
     if (_has(q, const ['ride', 'carpool', 'driver', 'passenger', 'రైడ్'])) {
       return AskodoxHomeRequestKind.ride;
@@ -49,11 +59,15 @@ class AskodoxHomeRequestRouting {
     if (_has(q, const [
       'buy ', 'buy\n', 'purchase', 'nearby seller', 'local seller', 'కొనాలి',
       'కొనుగోలు', 'mobile phone', 'మొబైల్', 'tv', 'television', 'furniture', 'sofa',
-    ])) return AskodoxHomeRequestKind.retail;
+    ])) {
+      return AskodoxHomeRequestKind.retail;
+    }
     if (_has(q, const [
       'sell ', 'seller', 'buyer', 'book ', 'appointment', 'order ',
       'అమ్మాలి', 'బుక్ చేయాలి', 'ఆర్డర్',
-    ])) return AskodoxHomeRequestKind.transaction;
+    ])) {
+      return AskodoxHomeRequestKind.transaction;
+    }
 
     return AskodoxHomeRequestKind.general;
   }

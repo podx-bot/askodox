@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/offline/offline_models.dart';
 import '../../core/providers/offline_providers.dart';
-import '../../generated/l10n/app_localizations.dart';
+import '../../l10n_generated/app_localizations.dart';
 
 class ConnectivityBanner extends ConsumerStatefulWidget {
   const ConnectivityBanner({required this.child, super.key});

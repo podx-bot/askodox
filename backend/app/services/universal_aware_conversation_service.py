@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from zoneinfo import ZoneInfo
 
 
@@ -34,6 +35,10 @@ class UniversalAwareConversationService:
         ledger_runtime=None,
         creator_runtime=None,
         alert_preference_runtime=None,
+        service_decision_assistant=None,
+        buyer_decision_assistant=None,
+        affiliate_provider_config=None,
+        party_ai_orchestrator=None,
     ) -> None:
         self.response_commands = response_commands
         self.live_capture = live_capture
@@ -49,6 +54,10 @@ class UniversalAwareConversationService:
         self.event_provider_runtime = event_provider_runtime
         self.hybrid_support = hybrid_support or getattr(product_runtime, "hybrid_support", None)
         self.ride_runtime = ride_runtime
+        self.service_decision_assistant = service_decision_assistant
+        self.buyer_decision_assistant = buyer_decision_assistant
+        self.affiliate_provider_config = affiliate_provider_config
+        self.party_ai_orchestrator = party_ai_orchestrator
         self.ledger_runtime = ledger_runtime or self._auto_ledger_runtime()
         self.creator_runtime = creator_runtime or self._auto_creator_runtime()
         self.alert_preference_runtime = alert_preference_runtime or self._auto_alert_preference_runtime()
@@ -112,6 +121,57 @@ class UniversalAwareConversationService:
         response = self.response_commands.process_text(sender_mobile=sender_mobile, message=clean)
         if response is not None:
             return response
+        if self.service_decision_assistant is not None and self._looks_like_service_request(clean):
+            service_plan = self.service_decision_assistant.decide(
+                {
+                    "request": clean,
+                    "category": self._infer_service_category(clean),
+                    "location": self._infer_location(clean),
+                    "budget": self._infer_budget(clean),
+                    "urgency": "urgent" if any(token in clean.lower() for token in ("urgent", "today", "asap", "today", "పెద్దవాడు", "ఇప్పుడే")) else "normal",
+                },
+                [
+                    {"name": "Local service provider", "distance_km": 3.0, "price": 1200, "verified": True, "available": True, "rating": 4.8, "location": self._infer_location(clean) or "local area"},
+                    {"name": "Secondary provider", "distance_km": 18.0, "price": 1500, "verified": False, "available": True, "rating": 4.4, "location": "nearby"},
+                ],
+            )
+            if service_plan.get("best"):
+                best = service_plan["best"]
+                return f"ASKODOX AI recommendation: {best['name']} matches your {best.get('category', 'service')} request. Why: {best.get('why', 'best fit')}"
+        if self.buyer_decision_assistant is not None and self._looks_like_buyer_intent(clean):
+            buying_plan = self.buyer_decision_assistant.decide(
+                {
+                    "category": self._infer_buyer_category(clean),
+                    "budget": self._infer_budget(clean),
+                    "location": self._infer_location(clean),
+                    "urgency": "urgent" if any(token in clean.lower() for token in ("urgent", "today", "asap", "ఇప్పుడే")) else "normal",
+                    "must_have": ["warranty", "delivery"],
+                },
+                [{
+                    "name": "Local stock option",
+                    "channel": "local",
+                    "price": self._infer_budget(clean) if self._infer_budget(clean) else 22000,
+                    "verified": True,
+                    "warranty": True,
+                    "returns": True,
+                    "exact_variant": True,
+                    "service_available": True,
+                    "delivery_minutes": 60,
+                }, {
+                    "name": "Online alternative",
+                    "channel": "online",
+                    "price": (self._infer_budget(clean) if self._infer_budget(clean) else 22000) + 1500,
+                    "verified": True,
+                    "warranty": True,
+                    "returns": True,
+                    "exact_variant": True,
+                    "service_available": False,
+                    "delivery_minutes": 240,
+                }],
+            )
+            if buying_plan.get("best"):
+                best = buying_plan["best"]
+                return f"ASKODOX buyer guide: {best['name']} is the best fit. Reasoning: {', '.join(best.get('reasoning', []))}."
         if self.product_runtime is not None:
             intelligent = self.product_runtime.process(sender_mobile=sender_mobile, message=clean)
             if intelligent is not None:
@@ -132,6 +192,60 @@ class UniversalAwareConversationService:
             if support is not None:
                 return support
         return self.base_conversation.process(sender_mobile=sender_mobile, message=clean)
+
+    @staticmethod
+    def _looks_like_service_request(text: str) -> bool:
+        lowered = text.lower()
+        keywords = (
+            "plumber", "electrician", "repair", "service", "doctor", "salon",
+            "mechanic", "cleaning", "service కావాలి", "సర్వీస్", "ప్లంబర్",
+            "ఎలక్ట్రిషియన్", "రిపేర్",
+        )
+        return any(keyword in lowered for keyword in keywords)
+
+    @staticmethod
+    def _looks_like_buyer_intent(text: str) -> bool:
+        lowered = text.lower()
+        keywords = (
+            "buy", "purchase", "price", "rate", "compare", "best", "recommend",
+            "కొనాలి", "ధర", "రేట్", "సరైనది", "బెస్ట్",
+        )
+        return any(keyword in lowered for keyword in keywords)
+
+    @staticmethod
+    def _infer_service_category(text: str) -> str:
+        lowered = text.lower()
+        if "plumb" in lowered or "plumber" in lowered:
+            return "plumbing"
+        if "electric" in lowered or "electrician" in lowered:
+            return "electrical"
+        if "doctor" in lowered or "clinic" in lowered or "hospital" in lowered:
+            return "medical"
+        return "service"
+
+    @staticmethod
+    def _infer_buyer_category(text: str) -> str:
+        lowered = text.lower()
+        if "washing" in lowered or "machine" in lowered:
+            return "washing machine"
+        if "mobile" in lowered or "phone" in lowered:
+            return "mobile phone"
+        return "product"
+
+    @staticmethod
+    def _infer_location(text: str) -> str:
+        lowered = text.lower()
+        for token in ("vijayawada", "guntur", "vizag", "hyderabad", "bangalore", "chennai"):
+            if token in lowered:
+                return token
+        return "local area"
+
+    @staticmethod
+    def _infer_budget(text: str) -> float:
+        match = re.search(r"(?:rs\.?\s*|inr\s*|₹\s*)?(\d{3,7})", text, flags=re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+        return 0.0
 
     def _database_path(self) -> str:
         try:

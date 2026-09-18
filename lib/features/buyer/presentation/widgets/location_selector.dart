@@ -34,6 +34,7 @@ class LocationSelector extends ConsumerWidget {
   Future<void> _resolveLocation(BuildContext context, WidgetRef ref) async {
     try {
       final value = await _deviceChannel.invokeMapMethod<String, dynamic>('getCurrentLocation');
+      if (!context.mounted) return;
       final lat = (value?['latitude'] as num?)?.toDouble();
       final lng = (value?['longitude'] as num?)?.toDouble();
       final accuracy = (value?['accuracy'] as num?)?.toDouble();

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../generated/l10n/app_localizations.dart';
+import '../../../l10n_generated/app_localizations.dart';
 
 class PrivacyCenterScreen extends StatelessWidget {
   const PrivacyCenterScreen({super.key});

@@ -43,8 +43,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               title: Text(te ? 'వాయిస్ ప్రాధాన్యత' : 'Voice preference'),
               subtitle: Text(te ? 'ASKODOX మాట్లాడే వాయిస్‌ను ఎంచుకోండి. Automatic మీ డివైస్‌కు సరిపోయే వాయిస్‌ను ఉపయోగిస్తుంది.' : 'Choose the voice ASKODOX uses. Automatic picks a compatible device voice.'),
             ),
-            for (final preference in VoicePreference.values)
-              RadioListTile<VoicePreference>(value: preference, groupValue: current, title: Text(_voiceLabel(preference, te)), onChanged: (value) => Navigator.pop(context, value)),
+            RadioGroup<VoicePreference>(
+              groupValue: current,
+              onChanged: (value) => Navigator.pop(context, value),
+              child: Column(
+                children: [
+                  for (final preference in VoicePreference.values)
+                    RadioListTile<VoicePreference>(value: preference, title: Text(_voiceLabel(preference, te))),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
           ],
         ),

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/offline_providers.dart';
 import '../../../core/sync/sync_models.dart';
-import '../../../generated/l10n/app_localizations.dart';
+import '../../../l10n_generated/app_localizations.dart';
 
 class SyncStatusScreen extends ConsumerStatefulWidget { const SyncStatusScreen({super.key}); @override ConsumerState<SyncStatusScreen> createState() => _State(); }
 class _State extends ConsumerState<SyncStatusScreen> {
@@ -14,5 +14,5 @@ class _State extends ConsumerState<SyncStatusScreen> {
 class ConflictResolutionScreen extends StatefulWidget { const ConflictResolutionScreen({required this.itemId, super.key}); final String itemId; @override State<ConflictResolutionScreen> createState() => _ConflictResolutionScreenState(); }
 class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
   ConflictResolutionStrategy strategy = ConflictResolutionStrategy.keepLocal;
-  @override Widget build(BuildContext context) { final l = AppLocalizations.of(context)!; return Scaffold(appBar: AppBar(title: Text(l.resolveConflict)), body: ListView(padding: const EdgeInsets.all(20), children: [Text(l.priceConflictExample, style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 16), Card(child: ListTile(title: Text(l.localValue), subtitle: const Text('₹120 • 10:30'))), Card(child: ListTile(title: Text(l.remoteValue), subtitle: const Text('₹125 • 10:32'))), ListTile(title: Text(l.recommendedAction), subtitle: Text(l.keepLatestValue)), DropdownButtonFormField(value: strategy, items: ConflictResolutionStrategy.values.map((value) => DropdownMenuItem(value: value, child: Text(value.name))).toList(), onChanged: (value) => setState(() => strategy = value!), decoration: InputDecoration(labelText: l.resolution)), const SizedBox(height: 20), FilledButton(onPressed: () => Navigator.pop(context), child: Text(l.applyResolution))])); }
+  @override Widget build(BuildContext context) { final l = AppLocalizations.of(context)!; return Scaffold(appBar: AppBar(title: Text(l.resolveConflict)), body: ListView(padding: const EdgeInsets.all(20), children: [Text(l.priceConflictExample, style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 16), Card(child: ListTile(title: Text(l.localValue), subtitle: const Text('₹120 • 10:30'))), Card(child: ListTile(title: Text(l.remoteValue), subtitle: const Text('₹125 • 10:32'))), ListTile(title: Text(l.recommendedAction), subtitle: Text(l.keepLatestValue)), DropdownButtonFormField(initialValue: strategy, items: ConflictResolutionStrategy.values.map((value) => DropdownMenuItem(value: value, child: Text(value.name))).toList(), onChanged: (value) => setState(() => strategy = value!), decoration: InputDecoration(labelText: l.resolution)), const SizedBox(height: 20), FilledButton(onPressed: () => Navigator.pop(context), child: Text(l.applyResolution))])); }
 }

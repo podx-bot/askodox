@@ -422,22 +422,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Expanded(
                 child: ListView(
                   children: [
-                    RadioListTile<String>(
-                      value: 'system',
+                    RadioGroup<String>(
                       groupValue: selected,
-                      activeColor: _blue,
                       onChanged: (value) => Navigator.pop(context, value),
-                      title: const Text('Auto / Device language'),
-                    ),
-                    for (final language in AskodoxLanguageCatalog.all)
-                      RadioListTile<String>(
-                        value: language.code,
-                        groupValue: selected,
-                        activeColor: _blue,
-                        onChanged: (value) => Navigator.pop(context, value),
-                        title: Text(language.name),
-                        subtitle: Text(language.code.toUpperCase()),
+                      child: Column(
+                        children: [
+                          const RadioListTile<String>(
+                            value: 'system',
+                            activeColor: _blue,
+                            title: Text('Auto / Device language'),
+                          ),
+                          for (final language in AskodoxLanguageCatalog.all)
+                            RadioListTile<String>(
+                              value: language.code,
+                              activeColor: _blue,
+                              title: Text(language.name),
+                              subtitle: Text(language.code.toUpperCase()),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),

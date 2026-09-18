@@ -7,6 +7,7 @@ remain the source of truth for payments, bookings, matching and safety checks.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from google import genai
@@ -25,6 +26,18 @@ class UniversalAIAssistantService:
         "salary", "pay", "pay_basis", "duration", "shift", "context", "variant",
         "quality", "size", "model", "fulfilment", "availability", "specialist",
         "service_type", "job_type", "seats", "notes",
+    }
+    # Phrases that indicate the model's reply is asking the user for their
+    # location/address, in the language mixes ASKODOX users actually type in.
+    _LOCATION_ASK_KEYWORDS = (
+        "location", "your address", "delivery address", "delivery location",
+        "which area", "which place",
+        "లొకేషన్", "లొకేషన", "చిరునామా", "ఎక్కడ ఉన్నారు", "ఎక్కడ నుండి",
+        "ఎక్కడ తెలియ", "ఎక్కడ చెప్ప", "ఎక్కడో", "పిన్ కోడ్", "పిన్‌కోడ్",
+    )
+    _LOCATION_FALLBACK_REPLY = {
+        "te": "సరే, మీ సేవ్ చేసిన లొకేషన్ ఉపయోగించి కొనసాగిస్తున్నాను.",
+        "en": "Got it — continuing with your saved location.",
     }
 
     def __init__(self, delegate, *, api_key: str, model: str, client: Any | None = None) -> None:
@@ -60,6 +73,37 @@ class UniversalAIAssistantService:
                 if items:
                     result[clean_key] = items[:20]
         return result
+
+    @classmethod
+    def _reply_asks_for_location(cls, sentence: str) -> bool:
+        """True if a sentence looks like it is asking the user for a location.
+
+        Only a sentence that both mentions a location-ish keyword AND reads
+        as a question is treated as an ask -- this avoids stripping a
+        sentence that merely mentions "location" in passing.
+        """
+        if "?" not in sentence and "గలరా" not in sentence and "చెప్పగలరా" not in sentence:
+            return False
+        lowered = sentence.lower()
+        return any(keyword.lower() in lowered for keyword in cls._LOCATION_ASK_KEYWORDS)
+
+    @classmethod
+    def _strip_location_question(cls, reply: str, locale: str) -> str:
+        """Deterministically remove any location question from a reply.
+
+        The prompt instructs the model never to re-ask for a known location,
+        but LLM instruction-following is probabilistic, not guaranteed --
+        live testing showed the same known-location input sometimes still
+        produced a location question. This code-level guard makes the
+        behaviour deterministic regardless of what the model does.
+        """
+        sentences = re.split(r"(?<=[.?!])\s+", reply.strip())
+        kept = [s for s in sentences if s.strip() and not cls._reply_asks_for_location(s)]
+        if kept:
+            return " ".join(kept).strip()
+        # The whole reply was a location question -- fall back to a short,
+        # honest continuation rather than showing the user an empty bubble.
+        return cls._LOCATION_FALLBACK_REPLY["te" if locale == "te" else "en"]
 
     def decide(
         self,
@@ -114,7 +158,15 @@ class UniversalAIAssistantService:
             f"Locale hint: {locale or 'auto'}\n"
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
-            f"Current user message: {clean}"
+            + (
+                f"FINAL REMINDER (highest priority, overrides anything above if in conflict): the "
+                f"user's location is already known as '{clean_location}'. Your reply text must NOT "
+                f"contain any question asking for location, address, or delivery place. Skip that "
+                f"topic entirely and move to the next missing detail (such as product variant, "
+                f"quantity, date or budget) instead.\n"
+                if clean_location else ""
+            )
+            + f"Current user message: {clean}"
         )
         try:
             client = self.client or genai.Client(api_key=self.api_key)
@@ -144,6 +196,12 @@ class UniversalAIAssistantService:
             # model's JSON omits it, so downstream capture never re-asks for it.
             if clean_location and not entities.get("location"):
                 entities["location"] = clean_location
+            # Deterministic safety net: the prompt instructs the model to never
+            # re-ask for a known location, but that instruction is probabilistic.
+            # Strip any location question the model asked anyway so the user
+            # never sees the re-ask regardless of the model's behaviour.
+            if clean_location:
+                reply = self._strip_location_question(reply, locale)
             if not reply:
                 return None
             return {
