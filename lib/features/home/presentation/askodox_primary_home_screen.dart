@@ -30,6 +30,19 @@ const _muted = Color(0xFF667085);
 const _accent = Color(0xFFFFC928);
 const _blue = Color(0xFF1769FF);
 
+String askodoxContinuationReply({
+  required String previousUserTurn,
+  required bool telugu,
+}) {
+  final context = previousUserTurn.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final shortContext = context.length <= 72
+      ? context
+      : '${context.substring(0, 69)}…';
+  return telugu
+      ? 'మనం “$shortContext” నుంచి కొనసాగిద్దాం. ఇప్పుడు మొదటి పని: ఆ ప్లాన్‌లో ఇంకా పూర్తికాని మొదటి అంశాన్ని ఎంచుకుని దానికి కావాల్సిన ఒక చిన్న చర్యను పూర్తి చేద్దాం. అది పూర్తయ్యాక తదుపరి అంశానికి వెళ్దాం.'
+      : 'Let’s continue from “$shortContext”. Next step: choose the first unfinished item in that plan and complete one small action for it. Then we’ll move to the next item.';
+}
+
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
   const AskodoxPrimaryHomeScreen({super.key});
   @override
@@ -516,9 +529,10 @@ class _AskodoxPrimaryHomeScreenState
     if (previous != null &&
         previous.trim().isNotEmpty &&
         (_isContinuation(q) || _looksLikeGeneralFollowUp(q))) {
-      return te
-          ? 'అవును, అదే కొనసాగిద్దాం. మీరు ముందు “${_shortContext(previous)}” అన్నారు. ఇప్పుడు మొదటి ముఖ్యమైన పని ఏదో నిర్ణయించి దానిని పూర్తి చేద్దాం; అది పూర్తయ్యాక వెంటనే తర్వాత పనికి వెళ్దాం.'
-          : 'Yes, let’s continue from there. You previously said “${_shortContext(previous)}”. Let’s decide the first priority now, finish it, and then move straight to the next task.';
+      return askodoxContinuationReply(
+        previousUserTurn: previous,
+        telugu: te,
+      );
     }
 
     return te
