@@ -108,6 +108,13 @@ class ConversationOSRuntimeService:
                 known_patch["oasat_commerce_evidence"] = commerce_evidence
             if memory_context:
                 known_patch["oasat_user_memory"] = memory_context
+            else:
+                # A clear/forget command must remove stale memory from the
+                # Conversation OS ledger instead of re-injecting old facts.
+                state_dict = dict(state_dict)
+                known_fields = dict(state_dict.get("known_fields") or {})
+                known_fields.pop("oasat_user_memory", None)
+                state_dict["known_fields"] = known_fields
             state_dict = self.merge_engine.merge_state(state_dict, {"known_fields": known_patch})
             routed_message = self._planned_message(clean, state_dict, decision.kind, oasat_plan, reasoning)
             reply = self._delegate(user_id, routed_message)
