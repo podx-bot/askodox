@@ -15,3 +15,9 @@ def test_category_schema_changes_required_fields_and_result_kind():
     assert service.result_kind == "service"
     assert job.result_kind == "job"
     assert UniversalCategorySchemaRegistry.missing("DELIVERY", {"from_location": "A"}) == ("to_location",)
+
+
+def test_category_metadata_covers_result_party_types():
+    assert UniversalCategorySchemaRegistry.resolve("JOBS").result_kind == "job"
+    assert UniversalCategorySchemaRegistry.resolve("DELIVERY").provider_capability == "DELIVERY_PARTNER"
+    assert UniversalCategorySchemaRegistry.resolve("APPOINTMENT").seeker_capability == "SERVICE_CUSTOMER"

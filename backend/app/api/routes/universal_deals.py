@@ -16,6 +16,7 @@ from app.api.routes.in_app_deal import (
 from app.core.default_intent_rules import build_default_intent_router
 from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing_fields
 from app.core.intent_domain_router import IntentRouteNotFoundError
+from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
@@ -208,9 +209,13 @@ def _readiness(created: dict | None, intent_context: dict | None) -> dict:
             constraints = json.loads(constraints)
         except json.JSONDecodeError:
             constraints = {"raw": constraints}
+    schema = UniversalCategorySchemaRegistry.resolve(item.get("domain"))
     return {
         "ready_to_match": bool(item) and not missing,
         "missing_fields": missing,
+        "result_kind": schema.result_kind,
+        "seeker_capability": schema.seeker_capability,
+        "provider_capability": schema.provider_capability,
         "canonical": {
             "deal_id": item.get("id"),
             "side": item.get("side"),
