@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -53,7 +55,7 @@ def _latest_created_deal(container, user_id: str):
     return container.database.fetchone(
         """
         SELECT id,user_id,side,domain,subject,quantity,unit,price,currency,
-               when_text,location_text,latitude,longitude,status,created_at
+             when_text,location_text,latitude,longitude,constraints_json,status,created_at
         FROM universal_need_offer_records
         WHERE user_id=?
         ORDER BY id DESC
@@ -87,6 +89,7 @@ def _deal_progressed(before, after) -> bool:
         "location_text",
         "latitude",
         "longitude",
+        "constraints_json",
         "status",
     )
     return any(before_item.get(field) != after_item.get(field) for field in mutable_fields)
@@ -195,6 +198,35 @@ def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict
     }
 
 
+def _readiness(created: dict | None, intent_context: dict | None) -> dict:
+    """Expose one backend readiness contract without changing capture behavior."""
+    item = dict(created or {})
+    missing = list((intent_context or {}).get("missing_fields") or [])
+    constraints = item.get("constraints") or item.get("constraints_json") or {}
+    if isinstance(constraints, str):
+        try:
+            constraints = json.loads(constraints)
+        except json.JSONDecodeError:
+            constraints = {"raw": constraints}
+    return {
+        "ready_to_match": bool(item) and not missing,
+        "missing_fields": missing,
+        "canonical": {
+            "deal_id": item.get("id"),
+            "side": item.get("side"),
+            "domain": item.get("domain"),
+            "subject": item.get("subject"),
+            "quantity": item.get("quantity"),
+            "unit": item.get("unit"),
+            "price": item.get("price"),
+            "location": item.get("location_text"),
+            "latitude": item.get("latitude"),
+            "longitude": item.get("longitude"),
+            "constraints": constraints,
+        },
+    }
+
+
 def _demo_discovery_matches(container, demand: dict, existing_ids: set[str]) -> list[dict]:
     """Expose matcher candidates only for isolated TEST/DEMO records.
 
@@ -280,6 +312,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
 
     item = dict(created)
     deal_id = int(item["id"])
+    readiness = _readiness(item, intent_context)
     return {
         "id": deal_id,
         "deal_id": deal_id,
@@ -291,6 +324,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
         "subject": item.get("subject"),
         "reply": reply,
         "intent_context": intent_context,
+        "readiness": readiness,
     }
 
 

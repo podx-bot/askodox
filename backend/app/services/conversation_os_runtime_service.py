@@ -19,6 +19,7 @@ class ConversationOSRuntimeService:
                  oasat_router: OASATDomainRouter | None = None,
                  oasat_reasoning: OASATDomainReasoningService | None = None,
                  oasat_commerce=None, user_memory_service=None,
+                 live_lead_service=None,
                  channel: str = "whatsapp") -> None:
         self.delegate = delegate
         self.ledger = ledger_repository
@@ -30,11 +31,17 @@ class ConversationOSRuntimeService:
         self.oasat_reasoning = oasat_reasoning or OASATDomainReasoningService()
         self.oasat_commerce = oasat_commerce
         self.user_memory_service = user_memory_service
+        self.live_lead_service = live_lead_service
         self.channel = str(channel or "whatsapp")
 
     def process(self, sender_mobile: str, message: str) -> str:
         user_id = str(sender_mobile)
         clean = " ".join(str(message or "").strip().split())
+
+        if self.live_lead_service is not None:
+            live_lead_reply = self.live_lead_service.process(user_id, clean)
+            if live_lead_reply is not None:
+                return live_lead_reply
 
         # Memory management must happen before OASAT prompt decoration, otherwise
         # explicit commands such as "remember that ..." stop matching the durable

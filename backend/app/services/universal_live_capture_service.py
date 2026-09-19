@@ -275,6 +275,10 @@ class UniversalLiveCaptureService:
         user = self.users.find_by_whatsapp_mobile(sender_mobile) or {}
         if not user or not int(user.get("registration_complete") or 0):
             return False
+        # App users are already inside the in-app conversation flow; their
+        # session step is not the legacy WhatsApp MAIN_MENU state.
+        if str(sender_mobile or "").casefold().startswith("app-"):
+            return True
         session = self.sessions.get(sender_mobile)
         step_name = getattr(getattr(session, "step", None), "name", "")
         return step_name == "MAIN_MENU"

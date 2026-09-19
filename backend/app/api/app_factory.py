@@ -201,6 +201,7 @@ def create_app() -> FastAPI:
         ledger_repository=conversation_os_ledger,
         request_extractor=None,
         user_memory_service=user_memory_service,
+        live_lead_service=getattr(container, "local_live_lead_service", None),
         channel="in_app",
     )
     container.conversation_turn_ledger_repository = conversation_os_ledger
