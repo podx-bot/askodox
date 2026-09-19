@@ -203,7 +203,9 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
 
   void _refreshStatus() {
     setState(() {
-      if (_stage == 3) {
+      if (_stage == 2 && !_presentation.supportsPayment) {
+        _stage = 5;
+      } else if (_stage == 3) {
         _stage = 4;
       } else if (_stage == 4) {
         _stage = 5;

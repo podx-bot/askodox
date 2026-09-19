@@ -73,4 +73,12 @@ void main() {
     expect(presentations.last.supportsPayment, isTrue);
     expect(presentations.map((item) => item.resultKind).toSet().length, greaterThan(3));
   });
+
+  test('non-commerce lifecycle policy requires no payment or invoice transition', () {
+    final service = UniversalMatchPresentationPolicy.forDeal(deal(DealIntent.needService));
+
+    expect(service.supportsPayment, isFalse);
+    expect(service.supportsInvoice, isFalse);
+    expect(service.confirmLabel, 'Confirm provider');
+  });
 }
