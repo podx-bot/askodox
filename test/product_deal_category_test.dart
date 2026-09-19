@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/deal_brain/application/universal_deal_controller.dart';
+import 'package:podx/features/deal_brain/application/universal_deal_brain.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -34,5 +35,14 @@ void main() {
     expect(controller.state.deal?.productProfile, 'wholesale_packaged_goods'); expect(controller.state.lastQuestion, 'How many packs, bags, cartons or units do you need?');
     controller.answer('10 bags'); expect(controller.state.deal?.quantity, 10); expect(controller.state.deal?.unit, 'bags'); expect(controller.state.lastQuestion, 'What pack or bag size do you need?');
     controller.answer('25 kg'); expect(controller.state.deal?.dynamicFields['packSize'], '25 kg'); expect(controller.state.completed, isTrue); controller.dispose();
+  });
+
+  test('food and property requests receive explicit categories', () {
+    const brain = UniversalDealBrain();
+    final food = brain.capture('I want to buy biryani nearby');
+    final property = brain.capture('I want to buy a house near Vijayawada');
+
+    expect(food.category, 'food');
+    expect(property.category, 'property');
   });
 }

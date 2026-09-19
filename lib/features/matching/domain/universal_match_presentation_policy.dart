@@ -24,6 +24,12 @@ class UniversalMatchPresentation {
 
 class UniversalMatchPresentationPolicy {
   static UniversalMatchPresentation forDeal(UniversalDeal deal) {
+    if (deal.category == 'food') {
+      return _service('food provider', 'Ask food provider', 'Choose food option');
+    }
+    if (deal.category == 'property') {
+      return _nonCommerce('property option', 'Ask property provider', 'Choose property');
+    }
     switch (deal.intent) {
       case DealIntent.needService:
         return _service('provider', 'Ask provider', 'Confirm provider');
