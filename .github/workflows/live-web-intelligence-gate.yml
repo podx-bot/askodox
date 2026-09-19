@@ -37,6 +37,7 @@ jobs:
         run: |
           python - <<'PY'
           from types import SimpleNamespace
+          from datetime import datetime, timedelta, timezone
           import httpx
 
           from app.services.brave_web_search_provider import BraveWebSearchProvider
@@ -54,13 +55,13 @@ jobs:
                                   'title': 'Official update',
                                   'url': 'https://example.gov.in/update',
                                   'description': 'Primary government evidence',
-                                  'page_age': '2026-09-06T08:00:00Z',
+                                  'page_age': (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
                               },
                               {
                                   'title': 'Independent report',
                                   'url': 'https://example.com/report',
                                   'description': 'Independent supporting evidence',
-                                  'page_age': '2026-09-05T08:00:00Z',
+                                  'page_age': (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
                               },
                           ]
                       }
