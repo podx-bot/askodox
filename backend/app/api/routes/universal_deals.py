@@ -18,6 +18,7 @@ from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing
 from app.core.intent_domain_router import IntentRouteNotFoundError
 from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 from app.services.universal_action_contract import build_action_result
+from app.services.universal_external_result_service import UniversalExternalResultService
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
@@ -414,6 +415,24 @@ def get_matches(deal_id: int, request: Request) -> dict:
         )
 
     matches.extend(_demo_discovery_matches(container, demand, existing_ids))
+
+    affiliate_config = getattr(container, "affiliate_provider_config", None)
+    if affiliate_config is not None:
+        category = str(demand.get("domain") or "").strip().lower()
+        subject = str(demand.get("subject") or "").strip()
+        providers = []
+        for key in (category, subject):
+            if key:
+                providers.extend(affiliate_config.active_for_category(key))
+        external = UniversalExternalResultService.resolve(
+            category=category,
+            subject=subject,
+            providers=providers,
+        )
+        matches.extend(
+            item for item in external
+            if item.get("id") not in existing_ids
+        )
 
     return {
         "deal_id": deal_id,
