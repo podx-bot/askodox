@@ -20,6 +20,7 @@ class ConversationOSRuntimeService:
                  oasat_reasoning: OASATDomainReasoningService | None = None,
                  oasat_commerce=None, user_memory_service=None,
                  live_lead_service=None,
+                 decision_discovery_service=None,
                  channel: str = "whatsapp") -> None:
         self.delegate = delegate
         self.ledger = ledger_repository
@@ -32,11 +33,17 @@ class ConversationOSRuntimeService:
         self.oasat_commerce = oasat_commerce
         self.user_memory_service = user_memory_service
         self.live_lead_service = live_lead_service
+        self.decision_discovery_service = decision_discovery_service
         self.channel = str(channel or "whatsapp")
 
     def process(self, sender_mobile: str, message: str) -> str:
         user_id = str(sender_mobile)
         clean = " ".join(str(message or "").strip().split())
+
+        if self.decision_discovery_service is not None:
+            discovery_question = self.decision_discovery_service.question_for(clean)
+            if discovery_question is not None:
+                return discovery_question
 
         if self.live_lead_service is not None:
             live_lead_reply = self.live_lead_service.process(user_id, clean)
