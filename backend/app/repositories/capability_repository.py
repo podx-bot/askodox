@@ -7,6 +7,7 @@ class CapabilityRepository:
         "WORKER",
         "EMPLOYER",
         "DELIVERY_PARTNER",
+        "DELIVERY_CUSTOMER",
     }
 
     def __init__(self, database) -> None:

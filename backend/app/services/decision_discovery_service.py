@@ -31,3 +31,11 @@ class DecisionDiscoveryService:
         if category == "DELIVERY":
             return "I can compare delivery options. What matters most: speed, price, or vehicle/capacity?"
         return "I can help you decide. What outcome matters most for this request?"
+
+    @staticmethod
+    def start_state(message: str, question: str) -> dict:
+        return {
+            "original_request": " ".join(str(message or "").split()),
+            "question": str(question),
+            "attempts": 1,
+        }

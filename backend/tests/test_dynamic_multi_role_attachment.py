@@ -51,6 +51,7 @@ def test_one_account_accumulates_capabilities_from_current_intent():
         "I provide AC repair service",
         "I need a job",
         "I can deliver parcels",
+        "I need this parcel delivered",
     ):
         assert service.process("app-multi-role", message) == "continued"
 
@@ -61,4 +62,5 @@ def test_one_account_accumulates_capabilities_from_current_intent():
         "SERVICE_PROVIDER",
         "WORKER",
         "DELIVERY_PARTNER",
+        "DELIVERY_CUSTOMER",
     }

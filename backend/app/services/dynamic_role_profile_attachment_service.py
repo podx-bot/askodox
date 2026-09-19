@@ -21,6 +21,7 @@ class DynamicRoleProfileAttachmentService:
         ("JOBS", "SEEKER"): "WORKER",
         ("JOBS", "PROVIDER"): "EMPLOYER",
         ("DELIVERY", "PROVIDER"): "DELIVERY_PARTNER",
+        ("DELIVERY", "SEEKER"): "DELIVERY_CUSTOMER",
     }
 
     def __init__(self, delegate, category_brain, user_repository, min_confidence: float = 0.75, profile_essentials=None, session_registry=None, smart_job_message_service=None) -> None:
