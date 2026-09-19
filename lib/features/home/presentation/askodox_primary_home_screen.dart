@@ -43,6 +43,17 @@ String askodoxContinuationReply({
       : 'Let’s continue from “$shortContext”. Next step: choose the first unfinished item in that plan and complete one small action for it. Then we’ll move to the next item.';
 }
 
+    bool askodoxIsGenericAssistantReply(String reply) {
+      final normalized = reply.trim().toLowerCase();
+      return normalized.isEmpty ||
+      normalized == 'understood' ||
+      normalized == 'got it' ||
+      normalized == 'okay' ||
+      normalized == 'ok' ||
+      normalized == 'continuing your request.' ||
+      normalized == 'understood. continuing your request.';
+    }
+
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
   const AskodoxPrimaryHomeScreen({super.key});
   @override
@@ -441,13 +452,25 @@ class _AskodoxPrimaryHomeScreenState
       notifier.reset();
     }
 
-    final reply = aiUsable
+    final previous = _previousUserTurn();
+    final isGeneralContinuation = !transactional &&
+      previous != null &&
+      (_isContinuation(text.toLowerCase()) ||
+        _looksLikeGeneralFollowUp(text.toLowerCase()));
+    final reply = aiUsable &&
+        !(isGeneralContinuation &&
+          askodoxIsGenericAssistantReply(decision!.reply))
       ? decision!.reply.trim()
-      : _fallbackAssistantReply(
-        text,
-        _te,
-        hasMatches: matches.isNotEmpty,
-        );
+      : isGeneralContinuation
+        ? askodoxContinuationReply(
+          previousUserTurn: previous!,
+          telugu: _te,
+          )
+        : _fallbackAssistantReply(
+          text,
+          _te,
+          hasMatches: matches.isNotEmpty,
+          );
 
     if (!mounted) return;
     setState(() {

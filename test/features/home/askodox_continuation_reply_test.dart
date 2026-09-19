@@ -2,6 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 
 void main() {
+  test('generic acknowledgements are identified for continuation repair', () {
+    expect(askodoxIsGenericAssistantReply('Understood'), isTrue);
+    expect(askodoxIsGenericAssistantReply('Got it'), isTrue);
+    expect(askodoxIsGenericAssistantReply('Here is the next step.'), isFalse);
+  });
+
   test('continuation reply advances to a concrete next action in English', () {
     final reply = askodoxContinuationReply(
       previousUserTurn: 'Plan my tasks for today',
