@@ -130,7 +130,7 @@ class _AskodoxPrimaryHomeScreenState
         'languageCode': _te ? 'te' : 'en',
       });
       final text = spoken?.trim() ?? '';
-      if (text.isNotEmpty && mounted) await _send(text);
+      if (text.isNotEmpty && mounted) await _send(text, speakResponse: true);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -280,7 +280,7 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
-  Future<void> _send([String? preset]) async {
+  Future<void> _send(String? preset, {bool speakResponse = false}) async {
     final attachment = _attachment;
     var text = (preset ?? _controller.text).trim();
     if (_sending ||
@@ -416,6 +416,22 @@ class _AskodoxPrimaryHomeScreenState
     });
     await _store.save(_turns);
     _scrollBottom();
+    if (speakResponse) await _speakReply(reply);
+  }
+
+  Future<void> _speakReply(String reply) async {
+    try {
+      await const MethodChannel('com.askodox.app/device').invokeMethod<bool>(
+        'speakReply',
+        <String, Object?>{
+          'text': reply,
+          'languageCode': _te ? 'te' : 'en',
+          'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
+        },
+      );
+    } catch (_) {
+      // The text reply remains available when device TTS is unavailable.
+    }
   }
 
   String _fallbackAssistantReply(String text, bool te) {
