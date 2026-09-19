@@ -1,0 +1,31 @@
+from app.services.universal_action_contract import actions_for, build_action_result
+from app.services.universal_category_schema import UniversalCategorySchemaRegistry
+
+
+def test_category_aliases_normalize_to_shared_schema():
+    assert UniversalCategorySchemaRegistry.resolve("PRODUCT").category == "COMMERCE"
+    assert UniversalCategorySchemaRegistry.resolve("SERVICE").category == "SERVICES"
+    assert UniversalCategorySchemaRegistry.resolve("JOB").category == "JOBS"
+    assert UniversalCategorySchemaRegistry.resolve("RIDE").category == "MOBILITY"
+
+
+def test_action_result_preserves_raw_status_and_category_actions():
+    result = build_action_result(
+        raw_status="IN_APP_WAITING_SELLER_CONFIRM",
+        request_id=42,
+        category="SERVICE",
+        side="NEED",
+        channel="in_app",
+        consent={"required": True, "state": "PENDING"},
+    )
+    data = result.to_dict()
+    assert data["raw_status"] == "IN_APP_WAITING_SELLER_CONFIRM"
+    assert data["category"] == "SERVICES"
+    assert data["result_kind"] == "service"
+    assert data["next_actions"][0]["requires_consent"] is True
+
+
+def test_completed_and_unknown_states_do_not_expose_unsafe_actions():
+    assert actions_for("PRODUCT", "NEED", "CONVERTED") == ()
+    result = build_action_result(raw_status="UNKNOWN", category="future_category")
+    assert result.result_kind == "general"

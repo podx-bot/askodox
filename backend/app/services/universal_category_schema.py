@@ -53,13 +53,28 @@ class UniversalCategorySchemaRegistry:
         ),
     }
 
+    _ALIASES = {
+        "PRODUCT": "COMMERCE",
+        "PRODUCTS": "COMMERCE",
+        "SERVICE": "SERVICES",
+        "JOB": "JOBS",
+        "WORK": "JOBS",
+        "RIDE": "MOBILITY",
+        "TAXI": "MOBILITY",
+    }
+
     @classmethod
     def resolve(cls, category: str | None) -> CategorySchema:
-        key = str(category or "").strip().upper()
+        key = cls.normalize(category)
         return cls._SCHEMAS.get(key, CategorySchema(
             key or "GENERAL", ("subject",), ("location", "timing"),
             "general", "BUYER", "SELLER", ("fit", "availability", "value"),
         ))
+
+    @classmethod
+    def normalize(cls, category: str | None) -> str:
+        key = str(category or "").strip().upper()
+        return cls._ALIASES.get(key, key)
 
     @classmethod
     def all(cls) -> tuple[CategorySchema, ...]:
