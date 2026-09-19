@@ -53,4 +53,24 @@ void main() {
       expect(presentation.questionChips, isNotEmpty);
     }
   });
+
+  test('cross-category result matrix keeps non-commerce flows out of payment UI', () {
+    final cases = <DealIntent>[
+      DealIntent.needService,
+      DealIntent.seekWork,
+      DealIntent.sendParcel,
+      DealIntent.bookAppointment,
+      DealIntent.rent,
+      DealIntent.needRide,
+      DealIntent.buy,
+    ];
+
+    final presentations = cases
+        .map((intent) => UniversalMatchPresentationPolicy.forDeal(deal(intent)))
+        .toList();
+
+    expect(presentations.take(6).every((item) => !item.supportsPayment), isTrue);
+    expect(presentations.last.supportsPayment, isTrue);
+    expect(presentations.map((item) => item.resultKind).toSet().length, greaterThan(3));
+  });
 }
