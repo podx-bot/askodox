@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +9,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../services/in_app_assistant_service.dart';
+import '../../../services/document_intelligence_service.dart';
 import '../../../services/real_product_match_service.dart';
+import '../../../services/vision_api_service.dart';
+import '../../../services/multimodal_capture_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
@@ -42,6 +48,9 @@ class _AskodoxPrimaryHomeScreenState
   List<UniversalMatch> _matches = const [];
   bool _active = false;
   bool _sending = false;
+  bool _voiceBusy = false;
+  XFile? _attachment;
+  String? _attachmentLabel;
 
   // Shown instead of `_matches` when the completed deal is a "sell" listing
   // rather than a buyer-side search -- see `_createRealListing`.
@@ -111,6 +120,84 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
+
+  Future<void> _startVoice() async {
+    if (_voiceBusy || _sending) return;
+    setState(() => _voiceBusy = true);
+    try {
+      final spoken = await const MethodChannel('com.askodox.app/device')
+          .invokeMethod<String>('startVoiceSearch', <String, Object?>{
+        'languageCode': _te ? 'te' : 'en',
+      });
+      final text = spoken?.trim() ?? '';
+      if (text.isNotEmpty && mounted) await _send(text);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'వాయిస్ ప్రారంభం కాలేదు. Microphone permission చూసి మళ్లీ ప్రయత్నించండి.'
+              : 'Voice could not start. Check microphone permission and try again.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _voiceBusy = false);
+    }
+  }
+
+  Future<void> _showAttachmentMenu() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined),
+            title: Text(_te ? 'కెమెరా' : 'Camera'),
+            onTap: () => Navigator.pop(context, 'camera'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: Text(_te ? 'ఫోటోలు' : 'Photos'),
+            onTap: () => Navigator.pop(context, 'photos'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.attach_file_rounded),
+            title: Text(_te ? 'ఫైల్స్' : 'Files'),
+            onTap: () => Navigator.pop(context, 'files'),
+          ),
+        ]),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'camera' || choice == 'photos') {
+      final capture = MultimodalCaptureService();
+      final file = choice == 'camera'
+          ? await capture.captureCamera()
+          : await capture.chooseGallery();
+      if (file != null && mounted) {
+        setState(() {
+          _attachment = file;
+          _attachmentLabel = file.name;
+        });
+      }
+      return;
+    }
+    final picked = await FilePicker.pickFiles();
+    if (picked.isEmpty) return;
+    final file = picked.first;
+    if (mounted) {
+      final analyzed = await const DocumentIntelligenceService().analyzeBytes(
+        bytes: await file.readAsBytes(),
+        filename: file.name,
+        mimeType: 'application/octet-stream',
+      );
+      if (!mounted) return;
+      setState(() => _attachmentLabel = file.name);
+      if (analyzed != null) {
+        setState(() => _controller.text = analyzed.conversationSeed());
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -194,15 +281,37 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   Future<void> _send([String? preset]) async {
-    final text = (preset ?? _controller.text).trim();
-    if (text.isEmpty || _sending) return;
+    final attachment = _attachment;
+    var text = (preset ?? _controller.text).trim();
+    if (_sending ||
+        (text.isEmpty && attachment == null && _attachmentLabel == null)) {
+      return;
+    }
+    text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
+
+    if (attachment != null) {
+      final analysis = await const VisionApiService().analyze(
+        image: attachment,
+        userText: text,
+        language: _te ? 'te' : 'en',
+      );
+      final facts = analysis?['summary'] ?? analysis?['text'] ?? '';
+      if (facts.toString().trim().isNotEmpty) {
+        text = '$text\nAttachment facts: ${facts.toString().trim()}';
+      }
+    }
 
     setState(() {
       _sending = true;
       _active = true;
-      _turns.add(ConversationTurnRecord(text: text, isUser: true));
+      _turns.add(ConversationTurnRecord(
+        text: _attachmentLabel == null ? text : '$text\n[Attachment: $_attachmentLabel]',
+        isUser: true,
+      ));
     });
     _controller.clear();
+    _attachment = null;
+    _attachmentLabel = null;
     _scrollBottom();
 
     final history = _turns
@@ -608,7 +717,7 @@ class _AskodoxPrimaryHomeScreenState
             border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
         child: Row(children: [
           IconButton.filled(
-              onPressed: () => context.push('/discover/voice'),
+              onPressed: _startVoice,
               style: IconButton.styleFrom(backgroundColor: _accent),
               icon: const Icon(Icons.mic_rounded, color: _ink)),
           const SizedBox(width: 6),
@@ -641,9 +750,10 @@ class _AskodoxPrimaryHomeScreenState
                       const BorderSide(color: Color(0xFF6C4DFF), width: 2)),
             ),
           )),
-          IconButton(
-              onPressed: () => context.push('/discover/image'),
-              icon: const Icon(Icons.image_outlined, color: _ink)),
+            IconButton(
+              onPressed: _showAttachmentMenu,
+              tooltip: te ? 'జోడించండి' : 'Add attachment',
+              icon: const Icon(Icons.add_circle_outline_rounded, color: _ink)),
           IconButton.filled(
               onPressed: _sending ? null : _send,
               style: IconButton.styleFrom(backgroundColor: _blue),
