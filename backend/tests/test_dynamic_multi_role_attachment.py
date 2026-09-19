@@ -72,3 +72,18 @@ def test_one_account_accumulates_capabilities_from_current_intent():
 def test_role_guidance_is_available_without_blocking_request():
     assert "Optional" in ProgressiveRoleProfileEssentialsService.guidance_for("SELLER")
     assert "delivery" in ProgressiveRoleProfileEssentialsService.guidance_for("DELIVERY_PARTNER").lower()
+
+
+def test_profile_guidance_requires_explicit_opt_in():
+    users = FakeUsers()
+    sessions = FakeSessionRegistry()
+    service = DynamicRoleProfileAttachmentService(
+        delegate=FakeDelegate(),
+        category_brain=UniversalCategoryFlowBrain(),
+        user_repository=users,
+        session_registry=sessions,
+    )
+    service.process("app-guidance", "I need a job")
+    assert sessions.session.data.get("role_profile_onboarding_requested") is None
+    service.process("app-guidance", "complete profile")
+    assert sessions.session.data["role_profile_onboarding_requested"] is True

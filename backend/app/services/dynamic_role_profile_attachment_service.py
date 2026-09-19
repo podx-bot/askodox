@@ -36,11 +36,30 @@ class DynamicRoleProfileAttachmentService:
     def process(self, sender_mobile: str, message: str) -> str:
         clean = str(message or "").strip()
         intent_context = self._attach_for_intent(sender_mobile, clean)
+        self._accept_optional_guidance(sender_mobile, clean)
         self._prefill_worker_slots(sender_mobile, clean, intent_context)
         resume_prompt = self._resume_missing_profile(sender_mobile, intent_context)
         if resume_prompt is not None:
             return resume_prompt
         return self._call_delegate(sender_mobile, clean)
+
+    def _accept_optional_guidance(self, sender_mobile: str, message: str) -> None:
+        if self.session_registry is None:
+            return
+        lowered = str(message or "").casefold()
+        if not any(marker in lowered for marker in ("complete profile", "setup profile", "finish profile", "ప్రొఫైల్ పూర్తి")):
+            return
+        try:
+            session = self.session_registry.get(sender_mobile)
+            data = getattr(session, "data", None)
+            if isinstance(data, dict):
+                data["role_profile_onboarding_requested"] = True
+                data["role_profile_guidance_pending"] = False
+                save = getattr(self.session_registry, "save", None)
+                if callable(save):
+                    save(sender_mobile)
+        except Exception:
+            return
 
     def _attach_for_intent(self, sender_mobile: str, message: str):
         try:
