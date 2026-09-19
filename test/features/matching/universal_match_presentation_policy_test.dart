@@ -74,6 +74,21 @@ void main() {
     expect(presentations.map((item) => item.resultKind).toSet().length, greaterThan(3));
   });
 
+  test('food, property and provider-side intents retain category-specific actions', () {
+    final food = UniversalMatchPresentationPolicy.forDeal(deal(DealIntent.buy, category: 'food'));
+    final property = UniversalMatchPresentationPolicy.forDeal(deal(DealIntent.buy, category: 'property'));
+    final serviceOffer = UniversalMatchPresentationPolicy.forDeal(deal(DealIntent.offerService, category: 'service'));
+    final workerRequest = UniversalMatchPresentationPolicy.forDeal(deal(DealIntent.needWorker, category: 'work'));
+
+    expect(food.resultKind, 'service');
+    expect(property.resultKind, 'property option');
+    expect(serviceOffer.partyLabel, 'customer');
+    expect(serviceOffer.confirmLabel, 'Accept customer');
+    expect(workerRequest.confirmLabel, 'Apply');
+    expect(food.supportsPayment, isFalse);
+    expect(property.supportsInvoice, isFalse);
+  });
+
   test('non-commerce lifecycle policy requires no payment or invoice transition', () {
     final service = UniversalMatchPresentationPolicy.forDeal(deal(DealIntent.needService));
 
