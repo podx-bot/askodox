@@ -425,8 +425,13 @@ class _AskodoxPrimaryHomeScreenState
       notifier.reset();
     }
 
-    final reply =
-        aiUsable ? decision!.reply.trim() : _fallbackAssistantReply(text, _te);
+    final reply = aiUsable
+      ? decision!.reply.trim()
+      : _fallbackAssistantReply(
+        text,
+        _te,
+        hasMatches: matches.isNotEmpty,
+        );
 
     if (!mounted) return;
     setState(() {
@@ -456,7 +461,11 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
-  String _fallbackAssistantReply(String text, bool te) {
+  String _fallbackAssistantReply(
+    String text,
+    bool te, {
+    bool? hasMatches,
+  }) {
     final q = text.toLowerCase();
     if (_has(q, ['job', 'jobs', 'ఉద్యోగం', 'జాబ్', 'computer operator'])) {
       return te
@@ -493,6 +502,11 @@ class _AskodoxPrimaryHomeScreenState
           : 'You’re looking for chicken or meat. I’m showing only relevant nearby sellers.';
     }
     if (AskodoxHomeRequestRouting.isTransactional(text)) {
+      if (hasMatches == false) {
+        return te
+            ? 'ఈ అభ్యర్థనకు ప్రస్తుతం ధృవీకరించిన match దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను; సరైన అవకాశం లభిస్తే ASKODOX మీకు తెలియజేస్తుంది.'
+            : 'I could not find a verified match for this request yet. I saved your need and ASKODOX will notify you when a suitable option becomes available.';
+      }
       return te
           ? 'మీ లావాదేవీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన ఎంపికలను మాత్రమే చూపిస్తున్నాను.'
           : 'I understand your transactional request. I’m showing only relevant options.';
