@@ -1,4 +1,4 @@
-from app.services.universal_action_contract import actions_for, build_action_result
+from app.services.universal_action_contract import actions_for, build_action_result, normalize_lifecycle_result
 from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 
 
@@ -29,3 +29,13 @@ def test_completed_and_unknown_states_do_not_expose_unsafe_actions():
     assert actions_for("PRODUCT", "NEED", "CONVERTED") == ()
     result = build_action_result(raw_status="UNKNOWN", category="future_category")
     assert result.result_kind == "general"
+
+
+def test_lifecycle_adapter_preserves_legacy_status_and_adds_envelope():
+    normalized = normalize_lifecycle_result(
+        {"id": 9, "domain": "SERVICE", "side": "NEED"},
+        {"status": "IN_APP_WAITING_SELLER_CONFIRM", "request_id": 9, "channel": "in_app"},
+    )
+    assert normalized["status"] == "IN_APP_WAITING_SELLER_CONFIRM"
+    assert normalized["action_result"]["result_kind"] == "service"
+    assert normalized["action_result"]["raw_status"] == "IN_APP_WAITING_SELLER_CONFIRM"

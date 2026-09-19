@@ -75,3 +75,18 @@ def build_action_result(*, raw_status: str, request_id: Any = None, category: st
         channel=channel,
         result=result or {},
     )
+
+
+def normalize_lifecycle_result(request: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    """Add a stable envelope while preserving the existing result dictionary."""
+    if not isinstance(result, dict):
+        return result
+    envelope = build_action_result(
+        raw_status=str(result.get("status") or "UNKNOWN"),
+        request_id=result.get("request_id") or request.get("id"),
+        category=request.get("domain"),
+        side=request.get("side"),
+        channel=result.get("channel"),
+        result={key: value for key, value in result.items() if key not in {"status", "request_id"}},
+    ).to_dict()
+    return {**result, "action_result": envelope}
