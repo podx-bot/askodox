@@ -23,6 +23,25 @@ void main() {
       expect(deal.missingForMatch, ['subject', 'location']);
     });
 
+    test('one-time used-item seller is not treated as a buyer', () {
+      final seller = brain.capture('I have a used phone to sell in Guntur');
+      final buyer = brain.capture('I want to buy a phone in Guntur');
+
+      expect(seller.intent, DealIntent.sell);
+      expect(seller.partyA.role, 'seller');
+      expect(seller.subject, contains('used phone'));
+      expect(buyer.intent, DealIntent.buy);
+      expect(buyer.partyA.role, 'buyer');
+    });
+
+    test('natural car listing language remains transaction-dynamic', () {
+      final deal = brain.capture("I'm selling my car");
+
+      expect(deal.intent, DealIntent.sell);
+      expect(deal.partyA.side, DealSide.supply);
+      expect(deal.partyB.role, 'buyer');
+    });
+
     test('Find work asks for real skill before location', () {
       final deal = brain.capture('Find work');
 
