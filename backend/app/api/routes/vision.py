@@ -16,6 +16,13 @@ class VisionAnalyzeRequest(BaseModel):
     language: str = Field(default="en", min_length=1, max_length=32)
 
 
+class VideoAnalyzeRequest(BaseModel):
+    video_base64: str = Field(min_length=1)
+    mime_type: str = Field(default="video/mp4", min_length=1, max_length=100)
+    user_text: str = Field(default="", max_length=4000)
+    language: str = Field(default="en", min_length=1, max_length=32)
+
+
 @router.post("/analyze")
 def analyze_vision(payload: VisionAnalyzeRequest, request: Request) -> dict:
     """Analyze an app camera/gallery image with the production multimodal brain.
@@ -59,3 +66,30 @@ def analyze_vision(payload: VisionAnalyzeRequest, request: Request) -> dict:
         "analysis": analysis,
         "language": payload.language.strip(),
     }
+
+
+@router.post("/analyze-video")
+def analyze_video(payload: VideoAnalyzeRequest, request: Request) -> dict:
+    mime_type = payload.mime_type.strip().lower()
+    if not mime_type.startswith("video/"):
+        raise HTTPException(status_code=400, detail="video mime_type required")
+    try:
+        video_bytes = base64.b64decode(payload.video_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="invalid video_base64")
+    if not video_bytes:
+        raise HTTPException(status_code=400, detail="empty video")
+    if len(video_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="video too large")
+
+    image_service = getattr(request.app.state.container, "universal_image_service", None)
+    if image_service is None:
+        raise HTTPException(status_code=503, detail="vision service unavailable")
+    analysis = image_service.analyze_video(
+        video_bytes=video_bytes,
+        mime_type=mime_type,
+        caption=payload.user_text.strip() or None,
+    )
+    if not analysis:
+        raise HTTPException(status_code=422, detail="video could not be understood")
+    return {"status": "success", "analysis": analysis, "language": payload.language.strip()}

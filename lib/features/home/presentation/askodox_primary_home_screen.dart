@@ -357,7 +357,16 @@ class _AskodoxPrimaryHomeScreenState
         text = '$text\nAttachment facts: ${facts.toString().trim()}';
       }
     } else if (attachment != null) {
-      text = const VideoAnalysisService().combinedRequest(userText: text);
+      final analysis = await const VideoAnalysisService().analyze(
+        video: attachment,
+        userText: text,
+        language: _te ? 'te' : 'en',
+      );
+      text = const VideoAnalysisService().combinedRequest(
+        userText: text,
+        visualSummary: analysis?['visual_summary']?.toString(),
+        spokenTranscript: analysis?['spoken_transcript']?.toString(),
+      );
     }
 
     setState(() {
