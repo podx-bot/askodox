@@ -137,16 +137,16 @@ def test_universal_ai_connect_route_returns_flutter_decision_contract():
     previous = container.universal_ai_assistant_service
     container.universal_ai_assistant_service = FakeUniversalAI()
     try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/in-app/assistant",
-                json={
-                    "message": "I need a washing machine nearby",
-                    "locale": "en",
-                    "location": "Vijayawada",
-                    "history": [],
-                },
-            )
+        client = TestClient(app)
+        response = client.post(
+            "/api/in-app/assistant",
+            json={
+                "message": "I need a washing machine nearby",
+                "locale": "en",
+                "location": "Vijayawada",
+                "history": [],
+            },
+        )
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["source"] == "universal_ai"

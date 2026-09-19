@@ -35,26 +35,26 @@ def test_deals_response_exposes_canonical_readiness_contract_and_same_followup(m
     user_id = f"app-readiness-user-{uuid.uuid4().hex}"
     headers = {"Authorization": f"Bearer {issue_token(user_id, container.settings.session_token_secret)}"}
     try:
-        with TestClient(app) as client:
-            first = client.post(
-                "/deals",
-                json={"user_id": user_id, "raw_text": "I need rice near Vijayawada"},
-                headers=headers,
-            )
-            assert first.status_code == 200, first.text
-            first_body = first.json()
-            assert first_body["readiness"]["canonical"]["subject"] == "rice"
-            first_id = first_body["deal_id"]
+        client = TestClient(app)
+        first = client.post(
+            "/deals",
+            json={"user_id": user_id, "raw_text": "I need rice near Vijayawada"},
+            headers=headers,
+        )
+        assert first.status_code == 200, first.text
+        first_body = first.json()
+        assert first_body["readiness"]["canonical"]["subject"] == "rice"
+        first_id = first_body["deal_id"]
 
-            followup = client.post(
-                "/deals",
-                json={"user_id": user_id, "raw_text": "2kg"},
-                headers=headers,
-            )
-            assert followup.status_code == 200, followup.text
-            body = followup.json()
-            assert body["deal_id"] == first_id
-            assert body["readiness"]["canonical"]["quantity"] == 2.0
-            assert body["readiness"]["canonical"]["location"] == "Vijayawada"
+        followup = client.post(
+            "/deals",
+            json={"user_id": user_id, "raw_text": "2kg"},
+            headers=headers,
+        )
+        assert followup.status_code == 200, followup.text
+        body = followup.json()
+        assert body["deal_id"] == first_id
+        assert body["readiness"]["canonical"]["quantity"] == 2.0
+        assert body["readiness"]["canonical"]["location"] == "Vijayawada"
     finally:
         container.universal_request_extractor.extract = previous_extract
