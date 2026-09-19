@@ -5,6 +5,7 @@ from app.core.container import AppContainer
 from app.repositories.receipt_aware_delivery_log_repository import ReceiptAwareDeliveryLogRepository
 from app.services.end_to_end_app_flow_service import EndToEndAppFlowService
 from app.services.in_app_universal_notification_service import InAppUniversalNotificationService
+from app.services.local_live_lead_service import LocalLiveLeadService
 from app.services.reliable_universal_commerce_response_command_service import ReliableUniversalCommerceResponseCommandService
 from app.services.universal_aware_conversation_service import UniversalAwareConversationService
 
@@ -36,6 +37,16 @@ class UniversalCommerceAppContainer(AppContainer):
             notification_service=self.universal_notification_service,
             notification_repository=self.universal_notification_repository,
         )
+        self.local_live_lead_service = LocalLiveLeadService(
+            demand_repository=self.universal_demand_repository,
+            notification_repository=self.universal_notification_repository,
+            notification_service=self.universal_notification_service,
+            targeting_service=self.universal_targeting_service,
+            catalog_repository=self.product_catalog_repository,
+            affiliate_provider_config=self.affiliate_provider_config,
+            profile_source=self._universal_profiles,
+            signal_repository=self.demand_signal_repository,
+        )
 
         universal_conversation = UniversalAwareConversationService(
             response_commands=self.universal_response_command_service,
@@ -57,6 +68,7 @@ class UniversalCommerceAppContainer(AppContainer):
             party_ai_orchestrator=self.party_ai_orchestrator,
             profile_source=self._universal_profiles,
             catalog_repository=self.product_catalog_repository,
+            live_lead_service=self.local_live_lead_service,
         )
 
         # One application-level entry point: profile onboarding first, then any

@@ -54,11 +54,18 @@ class UniversalNotificationRepository:
                 );
                 """
             )
+            notification_cols = {row["name"] for row in conn.execute("PRAGMA table_info(universal_notifications)")}
+            if "lead_message" not in notification_cols:
+                conn.execute("ALTER TABLE universal_notifications ADD COLUMN lead_message TEXT")
             cols = {row["name"] for row in conn.execute("PRAGMA table_info(universal_interests)")}
             for name, sql in (
                 ("qualification_status", "TEXT NOT NULL DEFAULT 'NEW'"),
                 ("delivery_address", "TEXT"),
                 ("converted_at", "TEXT"),
+                ("response_model", "TEXT"),
+                ("response_price", "REAL"),
+                ("response_availability", "TEXT"),
+                ("response_details", "TEXT"),
             ):
                 if name not in cols:
                     conn.execute(f"ALTER TABLE universal_interests ADD COLUMN {name} {sql}")
@@ -71,6 +78,7 @@ class UniversalNotificationRepository:
         wave=1,
         distance_km=None,
         relevance_score=None,
+        lead_message=None,
     ):
         try:
             with self._connect() as conn:
@@ -78,8 +86,8 @@ class UniversalNotificationRepository:
                     """
                     INSERT INTO universal_notifications(
                         request_id,requester_user_id,target_user_id,wave,distance_km,relevance_score,
-                        status,created_at,updated_at
-                    ) VALUES(?,?,?,?,?,?,'PENDING',?,?)
+                        status,lead_message,created_at,updated_at
+                    ) VALUES(?,?,?,?,?,?,'PENDING',?,?,?)
                     """,
                     (
                         request_id,
@@ -88,6 +96,7 @@ class UniversalNotificationRepository:
                         wave,
                         distance_km,
                         relevance_score,
+                        lead_message,
                         self._now(),
                         self._now(),
                     ),
@@ -220,6 +229,39 @@ class UniversalNotificationRepository:
             ).fetchone()
             return dict(row) if row else None
 
+    def record_seller_response(self, request_id, seller, model, price, availability, details):
+        now = self._now()
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO universal_interests(
+                    request_id,requester_user_id,responder_user_id,responder_status,
+                    requester_status,contact_shared,qualification_status,response_model,
+                    response_price,response_availability,response_details,created_at,updated_at
+                ) SELECT id AS request_id,user_id AS requester_user_id,?, 'INTERESTED','PENDING',0,
+                    'SELLER_RESPONDED',?,?,?,?,created_at,?
+                FROM universal_need_offer_records WHERE id=?
+                ON CONFLICT(request_id,responder_user_id) DO UPDATE SET
+                    responder_status='INTERESTED', qualification_status='SELLER_RESPONDED',
+                    response_model=excluded.response_model, response_price=excluded.response_price,
+                    response_availability=excluded.response_availability,
+                    response_details=excluded.response_details, updated_at=excluded.updated_at""",
+                (str(seller), str(model or "").strip(), price, str(availability or "").strip(),
+                 str(details or "").strip(), now, int(request_id)),
+            )
+
+    def list_seller_responses_for_buyer(self, buyer, request_id=None):
+        where = "requester_user_id=? AND qualification_status='SELLER_RESPONDED'"
+        args = [str(buyer)]
+        if request_id is not None:
+            where += " AND request_id=?"
+            args.append(int(request_id))
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM universal_interests WHERE " + where + " ORDER BY id ASC",
+                args,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def was_targeted(self, request_id, target):
         with self._connect() as conn:
             return (
@@ -237,10 +279,12 @@ class UniversalNotificationRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT request_id,requester_user_id,target_user_id,created_at
-                FROM universal_notifications
-                WHERE target_user_id=? AND status='SENT'
-                ORDER BY id DESC LIMIT 1
+                SELECT n.request_id,n.requester_user_id,n.target_user_id,n.lead_message,
+                       d.subject,d.price,d.location_text,n.created_at
+                FROM universal_notifications n
+                LEFT JOIN universal_need_offer_records d ON d.id=n.request_id
+                WHERE n.target_user_id=? AND n.status='SENT'
+                ORDER BY n.id DESC LIMIT 1
                 """,
                 (str(target),),
             ).fetchone()
