@@ -32,6 +32,19 @@ class ProgressiveRoleProfileEssentialsService:
         "SERVICE_PROVIDER": (),
         "WORKER": ("job_category", "experience", "availability", "location"),
         "EMPLOYER": (),
+        "DELIVERY_PARTNER": (),
+        "DELIVERY_CUSTOMER": (),
+    }
+
+    GUIDANCE = {
+        "SELLER": "Optional: add products, prices, availability and location so relevant local demand can reach you.",
+        "SERVICE_PROVIDER": "Optional: add services, area, timings and quote preferences so nearby requests can reach you.",
+        "WORKER": "Optional: add skills, experience, availability and location so suitable opportunities can reach you.",
+        "EMPLOYER": "Optional: add the roles, location and schedule you hire for so suitable workers can find your request.",
+        "DELIVERY_PARTNER": "Optional: add service area, vehicle and availability so relevant delivery requests can reach you.",
+        "BUYER": "Optional: save preferences and location to improve future recommendations.",
+        "SERVICE_CUSTOMER": "Optional: save location and service preferences to improve future provider matches.",
+        "DELIVERY_CUSTOMER": "Optional: save common pickup/drop areas and timing preferences for faster delivery requests.",
     }
 
     def __init__(self, user_repository) -> None:
@@ -50,6 +63,10 @@ class ProgressiveRoleProfileEssentialsService:
 
         missing = tuple(field for field in required if self._missing(user, field))
         return RoleProfilePlan(role, missing, not missing)
+
+    @classmethod
+    def guidance_for(cls, capability: str) -> str:
+        return cls.GUIDANCE.get(str(capability or "").upper(), "Optional: add relevant preferences to improve future ASKODOX matches.")
 
     @staticmethod
     def _missing(user: dict, field: str) -> bool:

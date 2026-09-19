@@ -61,6 +61,15 @@ class DynamicRoleProfileAttachmentService:
             if not already_attached:
                 self.user_repository.add_capability(sender_mobile, capability, source="intent_auto_attach")
             plan = self._record_profile_plan(sender_mobile, capability)
+            if self.session_registry is not None:
+                session = self.session_registry.get(sender_mobile)
+                data = getattr(session, "data", None)
+                if isinstance(data, dict):
+                    data["optional_role_guidance"] = self.profile_essentials.guidance_for(capability) if self.profile_essentials else None
+                    data["role_profile_guidance_pending"] = True
+                    save = getattr(self.session_registry, "save", None)
+                    if callable(save):
+                        save(sender_mobile)
             return {"capability": capability, "user": user, "plan": plan}
         except Exception:
             return None

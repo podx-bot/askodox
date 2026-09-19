@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from app.services.dynamic_role_profile_attachment_service import DynamicRoleProfileAttachmentService
+from app.services.progressive_role_profile_essentials_service import ProgressiveRoleProfileEssentialsService
 from app.services.universal_category_flow_brain import UniversalCategoryFlowBrain
 
 
@@ -66,3 +67,8 @@ def test_one_account_accumulates_capabilities_from_current_intent():
         "DELIVERY_PARTNER",
         "DELIVERY_CUSTOMER",
     }
+
+
+def test_role_guidance_is_available_without_blocking_request():
+    assert "Optional" in ProgressiveRoleProfileEssentialsService.guidance_for("SELLER")
+    assert "delivery" in ProgressiveRoleProfileEssentialsService.guidance_for("DELIVERY_PARTNER").lower()
