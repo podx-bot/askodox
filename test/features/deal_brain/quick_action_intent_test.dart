@@ -130,5 +130,19 @@ void main() {
       expect(deal.timing, 'tomorrow');
       expect(deal.missingForMatch, isEmpty);
     });
+
+    test('agriculture requests ask only for the missing crop', () {
+      final deal = brain.capture('I need fertilizer in Guntur');
+
+      expect(deal.productProfile, 'agriculture');
+      expect(deal.missingForMatch, ['crop']);
+    });
+
+    test('insurance requests retain supplied coverage details', () {
+      final deal = brain.capture('I need health insurance in Guntur');
+
+      expect(deal.productProfile, 'insurance');
+      expect(deal.missingForMatch, ['coverageType']);
+    });
   });
 }

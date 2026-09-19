@@ -111,6 +111,24 @@ class ProductCategorySchemas {
       questions: {'condition': 'Do you want new or used?'},
     ),
     ProductCategorySchema(
+      id: 'agriculture',
+      keywords: [
+        'farmer', 'farmers', 'agriculture', 'agri', 'crop', 'seed', 'seeds',
+        'fertilizer', 'pesticide', 'వ్యవసాయం', 'రైతు', 'పంట',
+      ],
+      requiredFields: ['crop'],
+      questions: {'crop': 'Which crop is this for?'},
+    ),
+    ProductCategorySchema(
+      id: 'insurance',
+      keywords: [
+        'insurance', 'policy', 'health insurance', 'life insurance',
+        'car insurance', 'బీమా',
+      ],
+      requiredFields: ['coverageType'],
+      questions: {'coverageType': 'What coverage or policy type do you need?'},
+    ),
+    ProductCategorySchema(
       id: 'fashion',
       keywords: ['shirt', 'dress', 'saree', 'shoe', 'shoes', 'clothing', 'fashion'],
       requiredFields: ['size'],
