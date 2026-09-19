@@ -17,6 +17,10 @@ void main() {
 
   testWidgets('primary home orb starts voice inside Main Chat', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(1440, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -27,7 +31,9 @@ void main() {
 
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(home: AskodoxPrimaryHomeScreen()),
+        child: MaterialApp(
+          home: Scaffold(body: AskodoxPrimaryHomeScreen()),
+        ),
       ),
     );
     await tester.pump();

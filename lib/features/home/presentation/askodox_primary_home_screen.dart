@@ -132,7 +132,7 @@ class _AskodoxPrimaryHomeScreenState
         'languageCode': _te ? 'te' : 'en',
       });
       final text = spoken?.trim() ?? '';
-      if (text.isNotEmpty && mounted) await _send(text, speakResponse: true);
+      if (text.isNotEmpty && mounted) await _send(text, true);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -304,7 +304,7 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
-  Future<void> _send(String? preset, {bool speakResponse = false}) async {
+  Future<void> _send([String? preset, bool speakResponse = false]) async {
     final attachment = _attachment;
     var text = (preset ?? _controller.text).trim();
     if (_sending ||
@@ -772,7 +772,10 @@ class _AskodoxPrimaryHomeScreenState
         Row(children: [
         IconButton.filled(
           onPressed: _startVoice,
-          style: IconButton.styleFrom(backgroundColor: _accent),
+          style: IconButton.styleFrom(
+            backgroundColor: _accent,
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero),
           icon: const Icon(Icons.mic_rounded, color: _ink)),
         const SizedBox(width: 6),
         Expanded(
@@ -806,11 +809,16 @@ class _AskodoxPrimaryHomeScreenState
         )),
         IconButton(
           onPressed: _showAttachmentMenu,
+          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+          padding: EdgeInsets.zero,
           tooltip: te ? 'జోడించండి' : 'Add attachment',
           icon: const Icon(Icons.add_circle_outline_rounded, color: _ink)),
         IconButton.filled(
           onPressed: _sending ? null : _send,
-          style: IconButton.styleFrom(backgroundColor: _blue),
+          style: IconButton.styleFrom(
+            backgroundColor: _blue,
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero),
           icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
         ]),
       ]),
