@@ -50,6 +50,7 @@ def test_one_account_accumulates_capabilities_from_current_intent():
         "I need an electrician",
         "I provide AC repair service",
         "I need a job",
+        "I need staff for my shop",
         "I can deliver parcels",
         "I need this parcel delivered",
     ):
@@ -61,6 +62,7 @@ def test_one_account_accumulates_capabilities_from_current_intent():
         "SERVICE_CUSTOMER",
         "SERVICE_PROVIDER",
         "WORKER",
+        "EMPLOYER",
         "DELIVERY_PARTNER",
         "DELIVERY_CUSTOMER",
     }
