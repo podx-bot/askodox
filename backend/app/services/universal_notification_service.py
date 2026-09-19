@@ -66,6 +66,7 @@ class UniversalNotificationService:
                     wave_number,
                     target.get("distance_km"),
                     target.get("score"),
+                    self._lead_message(request, target),
                 )
                 if notification_id is None:
                     skipped += 1
@@ -105,6 +106,16 @@ class UniversalNotificationService:
             "skipped_duplicate": skipped,
             "results": results,
         }
+
+    @staticmethod
+    def _lead_message(request, target):
+        subject = str(request.get("subject") or "product")
+        subject = subject[:1].upper() + subject[1:]
+        budget = request.get("price") or request.get("budget")
+        budget_text = f" under ₹{float(budget):,.0f}" if budget else ""
+        distance = target.get("distance_km")
+        distance_text = f"{float(distance):g} km away" if distance is not None else "nearby"
+        return f"A customer {distance_text} is looking for {subject}{budget_text}. Respond with model, price and availability if you can supply it."
 
     def register_interest(self, request, buyer_user_id, seller_user_id=None):
         """Register V3 buyer interest, or legacy responder interest when seller_user_id is omitted."""

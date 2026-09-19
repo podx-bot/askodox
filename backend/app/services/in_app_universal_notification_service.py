@@ -36,6 +36,7 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
                     wave_number,
                     target.get("distance_km"),
                     target.get("score"),
+                    self._lead_message(request, target),
                 )
                 if notification_id is None:
                     skipped += 1

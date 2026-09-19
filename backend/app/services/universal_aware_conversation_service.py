@@ -41,6 +41,7 @@ class UniversalAwareConversationService:
         party_ai_orchestrator=None,
         profile_source=None,
         catalog_repository=None,
+        live_lead_service=None,
     ) -> None:
         self.response_commands = response_commands
         self.live_capture = live_capture
@@ -62,6 +63,7 @@ class UniversalAwareConversationService:
         self.party_ai_orchestrator = party_ai_orchestrator
         self.profile_source = profile_source
         self.catalog_repository = catalog_repository or getattr(product_runtime, "catalog", None)
+        self.live_lead_service = live_lead_service
         self.ledger_runtime = ledger_runtime or self._auto_ledger_runtime()
         self.creator_runtime = creator_runtime or self._auto_creator_runtime()
         self.alert_preference_runtime = alert_preference_runtime or self._auto_alert_preference_runtime()
@@ -69,6 +71,10 @@ class UniversalAwareConversationService:
     def process(self, sender_mobile: str, message: str) -> str:
         clean = str(message or "").strip()
         normalized = clean.casefold()
+        if self.live_lead_service is not None:
+            live_lead = self.live_lead_service.process(sender_mobile, clean)
+            if live_lead is not None:
+                return live_lead
         if self.alert_preference_runtime is not None:
             alert_reply = self.alert_preference_runtime.process(sender_mobile, clean)
             if alert_reply is not None:
