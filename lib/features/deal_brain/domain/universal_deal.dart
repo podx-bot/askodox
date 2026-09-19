@@ -1,5 +1,6 @@
 import 'product_category_schema.dart';
 import 'rfq_schema.dart';
+import 'deal_category_schema.dart';
 
 enum DealIntent {
   buy,
@@ -205,6 +206,24 @@ class UniversalDeal {
   /// requirements come from ProductCategorySchemas instead of hard-coded flows.
   List<String> get missingForMatch {
     final missing = <String>[];
+    final schema = DealCategorySchemas.forDeal(this);
+
+    if (schema.category != 'commerce' && schema.category != 'food' && schema.category != 'property') {
+      for (final field in schema.requiredFields) {
+        if (field == 'location' && !location.isKnown) {
+          missing.add(field);
+        } else if (field == 'subject' && (subject == null || subject!.trim().isEmpty)) {
+          missing.add(field);
+        } else if (field == 'timing' && (timing == null || timing!.trim().isEmpty)) {
+          missing.add(field);
+        } else if (field == 'skill' && (dynamicFields['skill']?.toString().trim().isEmpty ?? true)) {
+          missing.add(field);
+        } else if ((field == 'from' || field == 'to') && dynamicFields[field] == null) {
+          missing.add(field);
+        }
+      }
+      return missing;
+    }
 
     switch (intent) {
       case DealIntent.needRide:
