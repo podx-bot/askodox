@@ -39,48 +39,46 @@ class ConversationOSRuntimeService:
     def process(self, sender_mobile: str, message: str) -> str:
         user_id = str(sender_mobile)
         clean = " ".join(str(message or "").strip().split())
-        state_dict = self.ledger.load_state(user_id) or self._blank_state(user_id)
+        try:
+            state_dict = self.ledger.load_state(user_id) or self._blank_state(user_id)
 
-        if self.decision_discovery_service is not None:
-            pending = dict(state_dict.get("decision_discovery") or {})
-            if pending:
-                state_dict = self.merge_engine.merge_state(
-                    state_dict,
-                    {
-                        "decision_discovery": {},
-                        "known_fields": {
-                            "decision_discovery_answer": clean,
-                            "decision_discovery_original": pending.get("original_request"),
-                        },
-                    },
-                )
-            else:
-                discovery_question = self.decision_discovery_service.question_for(clean)
-                if discovery_question is not None:
+            if self.decision_discovery_service is not None:
+                pending = dict(state_dict.get("decision_discovery") or {})
+                if pending:
                     state_dict = self.merge_engine.merge_state(
                         state_dict,
                         {
-                            "active_flow": "DECISION_DISCOVERY",
-                            "active_entity": "decision discovery",
-                            "decision_discovery": self.decision_discovery_service.start_state(clean, discovery_question),
+                            "decision_discovery": {},
+                            "known_fields": {
+                                "decision_discovery_answer": clean,
+                                "decision_discovery_original": pending.get("original_request"),
+                            },
                         },
                     )
-                    self.ledger.save_state(user_id, state_dict, channel=self.channel)
-                    return discovery_question
+                else:
+                    discovery_question = self.decision_discovery_service.question_for(clean)
+                    if discovery_question is not None:
+                        state_dict = self.merge_engine.merge_state(
+                            state_dict,
+                            {
+                                "active_flow": "DECISION_DISCOVERY",
+                                "active_entity": "decision discovery",
+                                "decision_discovery": self.decision_discovery_service.start_state(clean, discovery_question),
+                            },
+                        )
+                        self.ledger.save_state(user_id, state_dict, channel=self.channel)
+                        return discovery_question
 
-        if self.live_lead_service is not None:
-            live_lead_reply = self.live_lead_service.process(user_id, clean)
-            if live_lead_reply is not None:
-                return live_lead_reply
+            if self.live_lead_service is not None:
+                live_lead_reply = self.live_lead_service.process(user_id, clean)
+                if live_lead_reply is not None:
+                    return live_lead_reply
 
-        # Memory management must happen before OASAT prompt decoration, otherwise
-        # explicit commands such as "remember that ..." stop matching the durable
-        # memory command grammar once instructions are prepended to the message.
-        memory_reply = self._memory_command(user_id, clean)
-        if memory_reply is not None:
-            return memory_reply
+            # Memory management must happen before OASAT prompt decoration.
+            memory_reply = self._memory_command(user_id, clean)
+            if memory_reply is not None:
+                return memory_reply
 
-        try:
             state = self._state_from_dict(user_id, state_dict)
             topic = self.topic_resolver.resolve(state.active_entity, clean, None)
             decision = self.kernel.resolve(user_id, clean, state)
@@ -110,6 +108,13 @@ class ConversationOSRuntimeService:
                 known_patch["oasat_commerce_evidence"] = commerce_evidence
             if memory_context:
                 known_patch["oasat_user_memory"] = memory_context
+            else:
+                # A clear/forget command must remove stale memory from the
+                # Conversation OS ledger instead of re-injecting old facts.
+                state_dict = dict(state_dict)
+                known_fields = dict(state_dict.get("known_fields") or {})
+                known_fields.pop("oasat_user_memory", None)
+                state_dict["known_fields"] = known_fields
             state_dict = self.merge_engine.merge_state(state_dict, {"known_fields": known_patch})
             routed_message = self._planned_message(clean, state_dict, decision.kind, oasat_plan, reasoning)
             reply = self._delegate(user_id, routed_message)
