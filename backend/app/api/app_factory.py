@@ -44,6 +44,7 @@ from app.services.ride_settlement_runtime_service import RideSettlementRuntimeSe
 from app.services.runtime_complaint_prevention_service import RuntimeComplaintPreventionService
 from app.services.scheduled_task_service import ScheduledTaskService
 from app.services.universal_ai_assistant_service import UniversalAIAssistantService
+from app.services.decision_discovery_service import DecisionDiscoveryService
 from app.services.universal_category_flow_brain import UniversalCategoryFlowBrain
 from app.services.universal_correction_service import UniversalCorrectionService
 from app.services.universal_document_service import UniversalDocumentService
@@ -201,6 +202,8 @@ def create_app() -> FastAPI:
         ledger_repository=conversation_os_ledger,
         request_extractor=None,
         user_memory_service=user_memory_service,
+        live_lead_service=getattr(container, "local_live_lead_service", None),
+        decision_discovery_service=DecisionDiscoveryService(container.universal_category_flow_brain),
         channel="in_app",
     )
     container.conversation_turn_ledger_repository = conversation_os_ledger

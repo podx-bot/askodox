@@ -144,6 +144,14 @@ class UniversalDealBrain {
   }
 
   String? _category(String text, DealIntent intent) {
+    if (RegExp(r'\b(?:food|meal|biryani|restaurant|tiffin|lunch|dinner|chicken|rice)\b').hasMatch(text) ||
+        text.contains('ఫుడ్') || text.contains('బిర్యానీ') || text.contains('చికెన్')) {
+      return 'food';
+    }
+    if (RegExp(r'\b(?:house|flat|apartment|plot|property|furniture)\b').hasMatch(text) ||
+        text.contains('ఇల్లు') || text.contains('ఫ్లాట్') || text.contains('ప్లాట్')) {
+      return 'property';
+    }
     if (intent == DealIntent.seekWork || intent == DealIntent.needWorker) return 'work';
     if (intent == DealIntent.needRide || intent == DealIntent.offerRide) return 'ride';
     if (intent == DealIntent.needService || intent == DealIntent.offerService) return 'service';

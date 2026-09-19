@@ -112,3 +112,21 @@ def test_budget_followup_reuses_buyer_context_and_unmet_demand_is_logged(tmp_pat
     assert request["price"] == 15000
     assert "No verified local or online match" in followup
     assert service.signals.count() == 1
+
+
+def test_material_request_change_invalidates_previous_acceptance(tmp_path):
+    service, demand, notifications, affiliates, profiles = build(tmp_path)
+    request_id = demand.create({
+        "user_id": "app-buyer", "side": "NEED", "domain": "PRODUCT", "subject": "mobile",
+        "location_text": "Vijayawada", "source": "text",
+    })
+    notifications.record_interest(request_id, "app-buyer", "app-seller")
+    notifications.set_seller_decision(request_id, "app-seller", True)
+    notifications.mark_contact_shared(request_id, "app-seller")
+
+    assert notifications.get_interest(request_id, "app-seller")["contact_shared"] == 1
+    service.demands.update_active_fields(request_id, {"price": 15000})
+    notifications.invalidate_for_request_change(request_id, {"price": 15000})
+    interest = notifications.get_interest(request_id, "app-seller")
+    assert interest["requester_status"] == "PENDING"
+    assert interest["contact_shared"] == 0

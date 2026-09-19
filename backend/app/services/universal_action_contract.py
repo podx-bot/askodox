@@ -1,0 +1,112 @@
+"""Stable category-aware action/result envelope over existing lifecycle services."""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+from app.services.universal_category_schema import UniversalCategorySchemaRegistry
+
+
+@dataclass(frozen=True)
+class ActionDescriptor:
+    id: str
+    label: str
+    role: str
+    requires_consent: bool = False
+
+
+@dataclass(frozen=True)
+class ActionResult:
+    status: str
+    raw_status: str
+    request_id: Any = None
+    category: str = "GENERAL"
+    result_kind: str = "general"
+    side: str | None = None
+    role: str | None = None
+    lifecycle_state: str = "UNKNOWN"
+    next_actions: tuple[ActionDescriptor, ...] = ()
+    required_fields: tuple[str, ...] = ()
+    missing_fields: tuple[str, ...] = ()
+    consent: dict[str, Any] = field(default_factory=dict)
+    channel: str | None = None
+    result: dict[str, Any] = field(default_factory=dict)
+    error: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def actions_for(category: str | None, side: str | None, lifecycle_state: str) -> tuple[ActionDescriptor, ...]:
+    schema = UniversalCategorySchemaRegistry.resolve(category)
+    normalized_side = str(side or "NEED").upper()
+    state = str(lifecycle_state or "").upper()
+    if state in {"CONVERTED", "COMPLETED"}:
+        return (ActionDescriptor("submit_review", "Leave a review", schema.seeker_capability),)
+    if state in {"CANCELLED", "DECLINED"}:
+        return ()
+    if state in {"WAITING_SELLER_CONFIRM", "IN_APP_WAITING_SELLER_CONFIRM", "INTEREST_PENDING"}:
+        return (ActionDescriptor("confirm_interest", f"Confirm {schema.result_kind} interest", schema.provider_capability, True),)
+    if normalized_side == "NEED":
+        action_ids = {
+            "COMMERCE": ("ask_seller", "Ask seller"),
+            "SERVICES": ("request_quote", "Request quote"),
+            "JOBS": ("apply", "Apply"),
+            "DELIVERY": ("request_delivery", "Request delivery"),
+            "APPOINTMENT": ("request_slot", "Request slot"),
+            "PROPERTY": ("schedule_viewing", "Schedule viewing"),
+            "FOOD": ("place_food_request", "Place food request"),
+            "MOBILITY": ("request_ride", "Request ride"),
+        }
+        action_id, action_label = action_ids.get(schema.category, ("ask_counterparty", "Ask provider"))
+        return (
+            ActionDescriptor(action_id, action_label, schema.seeker_capability),
+            ActionDescriptor(f"confirm_{schema.result_kind}", f"Confirm {schema.result_kind}", schema.seeker_capability, True),
+        )
+    provider_actions = {
+        "COMMERCE": ("review_buyer_request", "Review buyer request"),
+        "SERVICES": ("review_customer_request", "Review customer request"),
+        "JOBS": ("review_worker_request", "Review worker request"),
+        "DELIVERY": ("review_delivery_request", "Review delivery request"),
+    }
+    action_id, action_label = provider_actions.get(schema.category, ("review_request", "Review request"))
+    return (ActionDescriptor(action_id, action_label, schema.provider_capability),)
+
+
+def build_action_result(*, raw_status: str, request_id: Any = None, category: str | None = None,
+                        side: str | None = None, role: str | None = None, channel: str | None = None,
+                        missing_fields: tuple[str, ...] = (), result: dict[str, Any] | None = None,
+                        consent: dict[str, Any] | None = None) -> ActionResult:
+    schema = UniversalCategorySchemaRegistry.resolve(category)
+    lifecycle = str(raw_status or "UNKNOWN").upper()
+    return ActionResult(
+        status=lifecycle,
+        raw_status=str(raw_status or "UNKNOWN"),
+        request_id=request_id,
+        category=schema.category,
+        result_kind=schema.result_kind,
+        side=side,
+        role=role,
+        lifecycle_state=lifecycle,
+        next_actions=actions_for(schema.category, side, lifecycle),
+        required_fields=schema.required_fields,
+        missing_fields=missing_fields,
+        consent=consent or {},
+        channel=channel,
+        result=result or {},
+    )
+
+
+def normalize_lifecycle_result(request: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    """Add a stable envelope while preserving the existing result dictionary."""
+    if not isinstance(result, dict):
+        return result
+    envelope = build_action_result(
+        raw_status=str(result.get("status") or "UNKNOWN"),
+        request_id=result.get("request_id") or request.get("id"),
+        category=request.get("domain"),
+        side=request.get("side"),
+        channel=result.get("channel"),
+        result={key: value for key, value in result.items() if key not in {"status", "request_id"}},
+    ).to_dict()
+    return {**result, "action_result": envelope}

@@ -193,6 +193,9 @@ class UniversalLiveCaptureService:
         demand_id = int(previous["id"])
         if not updater(demand_id, fields):
             return None
+        invalidate = getattr(self.notifications, "invalidate_for_request_change", None)
+        if callable(invalidate):
+            invalidate(demand_id, fields)
         return self.demands.get(demand_id) or {**previous, **fields, "id": demand_id}
 
     def _revise_latest_quantity(self, sender_mobile: str, quantity: float, unit: str) -> Optional[str]:
@@ -275,6 +278,10 @@ class UniversalLiveCaptureService:
         user = self.users.find_by_whatsapp_mobile(sender_mobile) or {}
         if not user or not int(user.get("registration_complete") or 0):
             return False
+        # App users are already inside the in-app conversation flow; their
+        # session step is not the legacy WhatsApp MAIN_MENU state.
+        if str(sender_mobile or "").casefold().startswith("app-"):
+            return True
         session = self.sessions.get(sender_mobile)
         step_name = getattr(getattr(session, "step", None), "name", "")
         return step_name == "MAIN_MENU"

@@ -43,10 +43,12 @@ class ConversationStateMergeEngine:
         for key in (
             "goal", "active_flow", "active_entity", "pending_action",
             "last_bot_message", "last_bot_intent", "expected_reply_type",
-            "last_user_message",
+            "last_user_message", "decision_discovery",
         ):
             value = patch.get(key)
-            if not self._is_empty(value):
+            if key == "decision_discovery" and key in patch:
+                result[key] = deepcopy(value or {})
+            elif not self._is_empty(value):
                 result[key] = value
         if "missing_fields" in patch and patch.get("missing_fields") is not None:
             result["missing_fields"] = list(dict.fromkeys(patch.get("missing_fields") or []))

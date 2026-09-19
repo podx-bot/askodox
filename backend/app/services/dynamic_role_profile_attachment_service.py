@@ -20,6 +20,8 @@ class DynamicRoleProfileAttachmentService:
         ("SERVICES", "PROVIDER"): "SERVICE_PROVIDER",
         ("JOBS", "SEEKER"): "WORKER",
         ("JOBS", "PROVIDER"): "EMPLOYER",
+        ("DELIVERY", "PROVIDER"): "DELIVERY_PARTNER",
+        ("DELIVERY", "SEEKER"): "DELIVERY_CUSTOMER",
     }
 
     def __init__(self, delegate, category_brain, user_repository, min_confidence: float = 0.75, profile_essentials=None, session_registry=None, smart_job_message_service=None) -> None:
@@ -34,11 +36,30 @@ class DynamicRoleProfileAttachmentService:
     def process(self, sender_mobile: str, message: str) -> str:
         clean = str(message or "").strip()
         intent_context = self._attach_for_intent(sender_mobile, clean)
+        self._accept_optional_guidance(sender_mobile, clean)
         self._prefill_worker_slots(sender_mobile, clean, intent_context)
         resume_prompt = self._resume_missing_profile(sender_mobile, intent_context)
         if resume_prompt is not None:
             return resume_prompt
         return self._call_delegate(sender_mobile, clean)
+
+    def _accept_optional_guidance(self, sender_mobile: str, message: str) -> None:
+        if self.session_registry is None:
+            return
+        lowered = str(message or "").casefold()
+        if not any(marker in lowered for marker in ("complete profile", "setup profile", "finish profile", "ప్రొఫైల్ పూర్తి")):
+            return
+        try:
+            session = self.session_registry.get(sender_mobile)
+            data = getattr(session, "data", None)
+            if isinstance(data, dict):
+                data["role_profile_onboarding_requested"] = True
+                data["role_profile_guidance_pending"] = False
+                save = getattr(self.session_registry, "save", None)
+                if callable(save):
+                    save(sender_mobile)
+        except Exception:
+            return
 
     def _attach_for_intent(self, sender_mobile: str, message: str):
         try:
@@ -59,6 +80,15 @@ class DynamicRoleProfileAttachmentService:
             if not already_attached:
                 self.user_repository.add_capability(sender_mobile, capability, source="intent_auto_attach")
             plan = self._record_profile_plan(sender_mobile, capability)
+            if self.session_registry is not None:
+                session = self.session_registry.get(sender_mobile)
+                data = getattr(session, "data", None)
+                if isinstance(data, dict):
+                    data["optional_role_guidance"] = self.profile_essentials.guidance_for(capability) if self.profile_essentials else None
+                    data["role_profile_guidance_pending"] = True
+                    save = getattr(self.session_registry, "save", None)
+                    if callable(save):
+                        save(sender_mobile)
             return {"capability": capability, "user": user, "plan": plan}
         except Exception:
             return None
@@ -130,6 +160,10 @@ class DynamicRoleProfileAttachmentService:
             session = self.session_registry.get(sender_mobile)
             data = getattr(session, "data", None)
             if not isinstance(data, dict):
+                return None
+            # Role setup is optional. Only resume its prompts after an explicit
+            # onboarding action; never interrupt the user's original request.
+            if not data.get("role_profile_onboarding_requested"):
                 return None
             user = intent_context.get("user") or {}
             data["role"] = "WORKER"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -14,6 +16,8 @@ from app.api.routes.in_app_deal import (
 from app.core.default_intent_rules import build_default_intent_router
 from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing_fields
 from app.core.intent_domain_router import IntentRouteNotFoundError
+from app.services.universal_category_schema import UniversalCategorySchemaRegistry
+from app.services.universal_action_contract import build_action_result
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
@@ -49,11 +53,17 @@ class AcceptMatchRequest(BaseModel):
     match_id: str = Field(min_length=1)
 
 
+class ReviewRequest(BaseModel):
+    reviewed_user_id: str = Field(min_length=1)
+    rating: int = Field(ge=1, le=5)
+    review_text: str = Field(default="", max_length=2000)
+
+
 def _latest_created_deal(container, user_id: str):
     return container.database.fetchone(
         """
         SELECT id,user_id,side,domain,subject,quantity,unit,price,currency,
-               when_text,location_text,latitude,longitude,status,created_at
+             when_text,location_text,latitude,longitude,constraints_json,status,created_at
         FROM universal_need_offer_records
         WHERE user_id=?
         ORDER BY id DESC
@@ -87,6 +97,7 @@ def _deal_progressed(before, after) -> bool:
         "location_text",
         "latitude",
         "longitude",
+        "constraints_json",
         "status",
     )
     return any(before_item.get(field) != after_item.get(field) for field in mutable_fields)
@@ -195,6 +206,49 @@ def _intent_context(payload: UniversalDealCreateRequest, extractor=None) -> dict
     }
 
 
+def _readiness(created: dict | None, intent_context: dict | None) -> dict:
+    """Expose one backend readiness contract without changing capture behavior."""
+    item = dict(created or {})
+    missing = list((intent_context or {}).get("missing_fields") or [])
+    constraints = item.get("constraints") or item.get("constraints_json") or {}
+    if isinstance(constraints, str):
+        try:
+            constraints = json.loads(constraints)
+        except json.JSONDecodeError:
+            constraints = {"raw": constraints}
+    schema = UniversalCategorySchemaRegistry.resolve(item.get("domain"))
+    action_result = build_action_result(
+        raw_status=str(item.get("status") or "ACTIVE"),
+        request_id=item.get("id"),
+        category=item.get("domain"),
+        side=item.get("side"),
+        channel="in_app",
+        missing_fields=tuple(missing),
+        result={"subject": item.get("subject"), "location": item.get("location_text")},
+    )
+    return {
+        "ready_to_match": bool(item) and not missing,
+        "missing_fields": missing,
+        "result_kind": schema.result_kind,
+        "seeker_capability": schema.seeker_capability,
+        "provider_capability": schema.provider_capability,
+        "lifecycle": action_result.to_dict(),
+        "canonical": {
+            "deal_id": item.get("id"),
+            "side": item.get("side"),
+            "domain": item.get("domain"),
+            "subject": item.get("subject"),
+            "quantity": item.get("quantity"),
+            "unit": item.get("unit"),
+            "price": item.get("price"),
+            "location": item.get("location_text"),
+            "latitude": item.get("latitude"),
+            "longitude": item.get("longitude"),
+            "constraints": constraints,
+        },
+    }
+
+
 def _demo_discovery_matches(container, demand: dict, existing_ids: set[str]) -> list[dict]:
     """Expose matcher candidates only for isolated TEST/DEMO records.
 
@@ -280,6 +334,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
 
     item = dict(created)
     deal_id = int(item["id"])
+    readiness = _readiness(item, intent_context)
     return {
         "id": deal_id,
         "deal_id": deal_id,
@@ -291,6 +346,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
         "subject": item.get("subject"),
         "reply": reply,
         "intent_context": intent_context,
+        "readiness": readiness,
     }
 
 
@@ -367,7 +423,38 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "match_count": len(matches),
         "matches": matches,
         "waiting_for_interest": len(matches) == 0,
+        "action_result": build_action_result(
+            raw_status="MATCHES_AVAILABLE" if matches else "WAITING_FOR_INTEREST",
+            request_id=deal_id,
+            category=demand.get("domain"),
+            side=demand.get("side"),
+            channel="in_app",
+            result={"match_count": len(matches)},
+        ).to_dict(),
     }
+
+
+@router.post("/{deal_id}/review")
+def submit_review(deal_id: int, payload: ReviewRequest, request: Request) -> dict:
+    container = request.app.state.container
+    authenticated = _authenticated_app_user(request)
+    demand = container.universal_demand_repository.get(deal_id)
+    if not demand:
+        raise HTTPException(status_code=404, detail="deal not found")
+    if authenticated != _app_user(str(demand.get("user_id") or "")):
+        raise HTTPException(status_code=403, detail="Only the deal owner can review it")
+    interest = container.universal_notification_repository.get_interest(deal_id, payload.reviewed_user_id)
+    if not interest or interest.get("qualification_status") != "CONVERTED":
+        raise HTTPException(status_code=409, detail="Review is available after deal completion")
+    result = container.universal_review_repository.create(
+        deal_id,
+        authenticated,
+        payload.reviewed_user_id,
+        demand.get("domain"),
+        payload.rating,
+        payload.review_text,
+    )
+    return {"request_id": deal_id, **result}
 
 
 @router.post("/{deal_id}/accept-match")
@@ -400,10 +487,20 @@ def accept_match(deal_id: int, payload: AcceptMatchRequest, request: Request) ->
         ),
         request,
     )
-    return {
+    result = {
         **result,
         "deal_id": deal_id,
         "request_id": deal_id,
         "contract_version": 1,
         "match_id": responder,
     }
+    result["action_result"] = build_action_result(
+        raw_status=str(result.get("status") or "MATCH_ACCEPTED"),
+        request_id=deal_id,
+        category=demand.get("domain"),
+        side=demand.get("side"),
+        channel="in_app",
+        consent={"required": True, "state": "PENDING"},
+        result={"match_id": responder},
+    ).to_dict()
+    return result

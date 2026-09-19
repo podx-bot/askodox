@@ -10,6 +10,7 @@ class LocalLiveLeadService:
 
     _BUDGET_RE = re.compile(r"(?:₹|rs\.?|inr\s*)\s*([\d,]+)|([\d,]+)\s*(?:లోపు|లో|under|below)", re.I)
     _PRICE_RE = re.compile(r"(?:₹|rs\.?|inr\s*)\s*([\d,]+)", re.I)
+    _QUANTITY_RE = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(kg|kgs|kilo(?:gram)?s?|కిలోలు?|కిలో|కేజీలు?|కేజీ)\b", re.I)
     _BRANDS = ("samsung", "apple", "oneplus", "xiaomi", "redmi", "vivo", "oppo", "realme", "motorola", "google")
     _BUYER_HINTS = ("buy", "want", "need", "show", "compare", "price", "recommend", "కావాలి", "చూపించు", "కొనాలి", "ధర")
 
@@ -120,8 +121,9 @@ class LocalLiveLeadService:
         budget_text = next((value for value in budget_match.groups() if value), None) if budget_match else None
         brand = next((brand for brand in self._BRANDS if brand in text.casefold()), None)
         category = "mobile phone" if any(term in text.casefold() for term in ("mobile", "phone", "ఫోన్")) else "product"
+        quantity_match = self._QUANTITY_RE.search(text)
         location = self._profile_location(buyer_id)
-        return {"subject": " ".join(x for x in (brand, category) if x), "category": category, "brand": brand or "", "price": float(budget_text.replace(",", "")) if budget_text else None, "budget": float(budget_text.replace(",", "")) if budget_text else None, "location_text": location.get("label", ""), "latitude": location.get("latitude"), "longitude": location.get("longitude"), "constraints": {"brand": brand or "", "buyer_message": text}}
+        return {"subject": " ".join(x for x in (brand, category) if x), "category": category, "brand": brand or "", "quantity": float(quantity_match.group(1)) if quantity_match else None, "unit": quantity_match.group(2) if quantity_match else None, "price": float(budget_text.replace(",", "")) if budget_text else None, "budget": float(budget_text.replace(",", "")) if budget_text else None, "location_text": location.get("label", ""), "latitude": location.get("latitude"), "longitude": location.get("longitude"), "constraints": {"brand": brand or "", "buyer_message": text}}
 
     def _profile_location(self, buyer_id):
         for profile in self.profile_source() or []:
@@ -143,7 +145,7 @@ class LocalLiveLeadService:
         if not existing or str(existing.get("domain") or "").upper() != "PRODUCT":
             return False
         lowered = text.casefold()
-        return bool(cls._PRICE_RE.search(text) or any(term in lowered for term in ("under", "below", "లోపు", "budget", "brand", "near", "దగ్గర")))
+        return bool(cls._PRICE_RE.search(text) or cls._QUANTITY_RE.search(text) or any(term in lowered for term in ("under", "below", "లోపు", "budget", "brand", "near", "దగ్గర")))
 
     @staticmethod
     def _looks_like_response(text):

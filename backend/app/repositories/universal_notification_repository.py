@@ -221,6 +221,22 @@ class UniversalNotificationRepository:
                 (self._now(), request_id, str(seller)),
             )
 
+    def invalidate_for_request_change(self, request_id, fields):
+        """Require fresh acceptance after material deal terms change."""
+        material = {"subject", "quantity", "unit", "price", "currency", "when_text", "location_text", "constraints"}
+        if not material.intersection(set(fields or {})):
+            return 0
+        with self._connect() as conn:
+            cur = conn.execute(
+                """UPDATE universal_interests
+                   SET requester_status='PENDING', contact_shared=0,
+                       qualification_status='NEW', delivery_address=NULL,
+                       converted_at=NULL, updated_at=?
+                   WHERE request_id=? AND responder_status='INTERESTED'""",
+                (self._now(), int(request_id)),
+            )
+            return int(cur.rowcount or 0)
+
     def get_interest(self, request_id, seller):
         with self._connect() as conn:
             row = conn.execute(

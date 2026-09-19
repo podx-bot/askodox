@@ -7,9 +7,14 @@ for legacy non-app flows elsewhere in the backend.
 from __future__ import annotations
 
 from app.services.receipt_aware_universal_notification_service import ReceiptAwareUniversalNotificationService
+from app.services.universal_action_contract import normalize_lifecycle_result
 
 
 class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService):
+    @staticmethod
+    def _result(request, result):
+        return normalize_lifecycle_result(request, result)
+
     @staticmethod
     def _is_app_user(user_id) -> bool:
         return str(user_id or "").strip().casefold().startswith("app-")
@@ -71,32 +76,32 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
             responder = str(buyer_user_id)
             requester = str(request.get("user_id") or "")
             self.repository.record_interest(request_id, requester, responder)
-            return {
+            return self._result(request, {
                 "status": "IN_APP_WAITING_REQUESTER_CONSENT",
                 "request_id": request_id,
                 "responder_user_id": responder,
                 "channel": "in_app",
-            }
+            })
 
         buyer = str(buyer_user_id)
         seller = str(seller_user_id)
         opposite = seller if str(request.get("side") or "NEED").upper() == "NEED" else buyer
         if (buyer, seller) != self.resolve_roles(request, opposite):
-            return {"status": "ROLE_MISMATCH", "request_id": request_id}
+            return self._result(request, {"status": "ROLE_MISMATCH", "request_id": request_id})
         if not self._is_app_user(seller):
-            return {
+            return self._result(request, {
                 "status": "APP_PARTICIPANT_REQUIRED",
                 "request_id": request_id,
                 "channel": "in_app",
-            }
+            })
         self.repository.record_interest(request_id, buyer, seller)
-        return {
+        return self._result(request, {
             "status": "IN_APP_WAITING_SELLER_CONFIRM",
             "request_id": request_id,
             "buyer_user_id": buyer,
             "seller_user_id": seller,
             "channel": "in_app",
-        }
+        })
 
     def confirm_lead(self, request, buyer_user_id, seller_user_id, accepted):
         if not self._is_app_user(buyer_user_id):
@@ -105,13 +110,13 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
         buyer, seller = str(buyer_user_id), str(seller_user_id)
         interest = self.repository.get_interest(request_id, seller)
         if not interest or str(interest.get("requester_user_id")) != buyer:
-            return {"status": "INTEREST_NOT_FOUND", "request_id": request_id}
+            return self._result(request, {"status": "INTEREST_NOT_FOUND", "request_id": request_id})
         self.repository.set_seller_decision(request_id, seller, accepted)
-        return {
+        return self._result(request, {
             "status": "IN_APP_READY_FOR_BUYER" if accepted else "DECLINED",
             "request_id": request_id,
             "channel": "in_app",
-        }
+        })
 
     def start_order(self, request, buyer_user_id, seller_user_id):
         if not self._is_app_user(buyer_user_id):
@@ -124,15 +129,15 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
             or str(interest.get("requester_user_id")) != buyer
             or interest.get("requester_status") != "ACCEPTED"
         ):
-            return {"status": "SELLER_NOT_CONFIRMED", "request_id": request_id}
+            return self._result(request, {"status": "SELLER_NOT_CONFIRMED", "request_id": request_id})
         if str(request.get("side") or "").upper() == "OFFER" and request.get("price") is None:
-            return {"status": "PRICE_REQUIRED", "request_id": request_id}
+            return self._result(request, {"status": "PRICE_REQUIRED", "request_id": request_id})
         self.repository.mark_waiting_address(request_id, seller)
-        return {
+        return self._result(request, {
             "status": "IN_APP_WAITING_BUYER_ADDRESS",
             "request_id": request_id,
             "channel": "in_app",
-        }
+        })
 
     def qualify_lead(self, request, buyer_user_id, seller_user_id, delivery_address):
         if not self._is_app_user(buyer_user_id):
@@ -141,7 +146,7 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
         buyer, seller = str(buyer_user_id), str(seller_user_id)
         address = " ".join(str(delivery_address or "").strip().split())
         if len(address) < 8:
-            return {"status": "ADDRESS_TOO_SHORT", "request_id": request_id}
+            return self._result(request, {"status": "ADDRESS_TOO_SHORT", "request_id": request_id})
         interest = self.repository.get_interest(request_id, seller)
         if (
             not interest
@@ -149,14 +154,14 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
             or interest.get("requester_status") != "ACCEPTED"
             or interest.get("qualification_status") != "WAITING_ADDRESS"
         ):
-            return {"status": "LEAD_NOT_CONFIRMED", "request_id": request_id}
+            return self._result(request, {"status": "LEAD_NOT_CONFIRMED", "request_id": request_id})
         self.repository.save_delivery_address(request_id, seller, address)
-        return {
+        return self._result(request, {
             "status": "IN_APP_WAITING_FINAL_CONFIRM",
             "request_id": request_id,
             "delivery_address": address,
             "channel": "in_app",
-        }
+        })
 
     def final_confirm(self, request, buyer_user_id, seller_user_id, accepted=True):
         if not self._is_app_user(buyer_user_id):
@@ -169,12 +174,12 @@ class InAppUniversalNotificationService(ReceiptAwareUniversalNotificationService
             or str(interest.get("requester_user_id")) != buyer
             or interest.get("qualification_status") != "WAITING_FINAL_CONFIRM"
         ):
-            return {"status": "FINAL_CONFIRM_NOT_READY", "request_id": request_id}
+            return self._result(request, {"status": "FINAL_CONFIRM_NOT_READY", "request_id": request_id})
         if not accepted:
             self.repository.cancel_order(request_id, seller)
-            return {"status": "CANCELLED", "request_id": request_id, "channel": "in_app"}
+            return self._result(request, {"status": "CANCELLED", "request_id": request_id, "channel": "in_app"})
         self.repository.confirm_order(request_id, seller)
-        return {"status": "CONVERTED", "request_id": request_id, "channel": "in_app"}
+        return self._result(request, {"status": "CONVERTED", "request_id": request_id, "channel": "in_app"})
 
     def share_contacts_after_confirmation(self, request, buyer_user_id, seller_user_id):
         if not self._is_app_user(buyer_user_id):
