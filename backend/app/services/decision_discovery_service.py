@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.services.universal_category_flow_brain import UniversalCategoryFlowBrain
+from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 
 
 class DecisionDiscoveryService:
@@ -21,16 +22,9 @@ class DecisionDiscoveryService:
         if not text or not any(marker in lowered for marker in self.UNCERTAINTY_MARKERS):
             return None
         decision = self.category_brain.classify(text)
-        category = str(decision.category or "GENERAL").upper()
-        if category == "COMMERCE":
-            return "I can compare suitable options. What matters most here: lower price, better quality, or longer-term value?"
-        if category in {"SERVICES", "APPOINTMENT"}:
-            return "I can compare suitable providers. What matters most: fastest availability, lower cost, or strongest experience?"
-        if category == "JOBS":
-            return "I can compare suitable opportunities. What matters most: the role, location, schedule, or pay?"
-        if category == "DELIVERY":
-            return "I can compare delivery options. What matters most: speed, price, or vehicle/capacity?"
-        return "I can help you decide. What outcome matters most for this request?"
+        schema = UniversalCategorySchemaRegistry.resolve(decision.category)
+        focus = ", ".join(schema.decision_focus[:3])
+        return f"I can compare suitable {schema.result_kind} options. What matters most here: {focus}?"
 
     @staticmethod
     def start_state(message: str, question: str) -> dict:
