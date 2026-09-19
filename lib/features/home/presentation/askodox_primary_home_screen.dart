@@ -237,10 +237,7 @@ class _AskodoxPrimaryHomeScreenState
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          final query = _lastGoodProductQuery ?? '';
-          if (query.isNotEmpty) {
-            matches = await _realMatches.search(query);
-          }
+          matches = await _findUniversalMatches(deal);
         }
       }
     }
@@ -286,6 +283,24 @@ class _AskodoxPrimaryHomeScreenState
             : 'Unable to save this listing.',
         true
       );
+    }
+  }
+
+  Future<List<UniversalMatch>> _findUniversalMatches(
+    UniversalDeal deal,
+  ) async {
+    try {
+      final result = await ref
+          .read(universalMatchRepositoryProvider)
+          .createAndMatch(deal);
+      return result.matches;
+    } catch (_) {
+      // Keep the real seller catalog useful for signed-out commerce searches
+      // while universal backend matching is unavailable.
+      if (deal.intent != DealIntent.buy) return const [];
+      final query = _lastGoodProductQuery ?? '';
+      if (query.isEmpty) return const [];
+      return _realMatches.search(query);
     }
   }
 
@@ -402,11 +417,8 @@ class _AskodoxPrimaryHomeScreenState
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          final query = _lastGoodProductQuery ?? '';
-          if (query.isNotEmpty) {
-            matches = await _realMatches.search(query)
-              ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
-          }
+          matches = await _findUniversalMatches(deal)
+            ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
         }
       }
     } else {
