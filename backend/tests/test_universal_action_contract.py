@@ -31,6 +31,22 @@ def test_completed_and_unknown_states_do_not_expose_unsafe_actions():
     assert result.result_kind == "general"
 
 
+def test_category_action_catalog_is_specific_for_each_supported_family():
+    expected = {
+        "COMMERCE": "ask_seller",
+        "SERVICES": "request_quote",
+        "JOBS": "apply",
+        "DELIVERY": "request_delivery",
+        "APPOINTMENT": "request_slot",
+        "PROPERTY": "schedule_viewing",
+        "FOOD": "place_food_request",
+        "MOBILITY": "request_ride",
+    }
+    for category, action_id in expected.items():
+        actions = actions_for(category, "NEED", "ACTIVE")
+        assert actions[0].id == action_id
+
+
 def test_lifecycle_adapter_preserves_legacy_status_and_adds_envelope():
     normalized = normalize_lifecycle_result(
         {"id": 9, "domain": "SERVICE", "side": "NEED"},

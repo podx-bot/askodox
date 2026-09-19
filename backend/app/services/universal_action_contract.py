@@ -44,13 +44,31 @@ def actions_for(category: str | None, side: str | None, lifecycle_state: str) ->
     if state in {"CONVERTED", "COMPLETED", "CANCELLED", "DECLINED"}:
         return ()
     if state in {"WAITING_SELLER_CONFIRM", "IN_APP_WAITING_SELLER_CONFIRM", "INTEREST_PENDING"}:
-        return (ActionDescriptor("confirm_interest", "Confirm interest", schema.provider_capability, True),)
+        return (ActionDescriptor("confirm_interest", f"Confirm {schema.result_kind} interest", schema.provider_capability, True),)
     if normalized_side == "NEED":
+        action_ids = {
+            "COMMERCE": ("ask_seller", "Ask seller"),
+            "SERVICES": ("request_quote", "Request quote"),
+            "JOBS": ("apply", "Apply"),
+            "DELIVERY": ("request_delivery", "Request delivery"),
+            "APPOINTMENT": ("request_slot", "Request slot"),
+            "PROPERTY": ("schedule_viewing", "Schedule viewing"),
+            "FOOD": ("place_food_request", "Place food request"),
+            "MOBILITY": ("request_ride", "Request ride"),
+        }
+        action_id, action_label = action_ids.get(schema.category, ("ask_counterparty", "Ask provider"))
         return (
-            ActionDescriptor("ask_counterparty", f"Ask {schema.provider_capability.lower()}", schema.seeker_capability),
-            ActionDescriptor("confirm", "Confirm", schema.seeker_capability, True),
+            ActionDescriptor(action_id, action_label, schema.seeker_capability),
+            ActionDescriptor(f"confirm_{schema.result_kind}", f"Confirm {schema.result_kind}", schema.seeker_capability, True),
         )
-    return (ActionDescriptor("review_request", "Review request", schema.provider_capability),)
+    provider_actions = {
+        "COMMERCE": ("review_buyer_request", "Review buyer request"),
+        "SERVICES": ("review_customer_request", "Review customer request"),
+        "JOBS": ("review_worker_request", "Review worker request"),
+        "DELIVERY": ("review_delivery_request", "Review delivery request"),
+    }
+    action_id, action_label = provider_actions.get(schema.category, ("review_request", "Review request"))
+    return (ActionDescriptor(action_id, action_label, schema.provider_capability),)
 
 
 def build_action_result(*, raw_status: str, request_id: Any = None, category: str | None = None,
