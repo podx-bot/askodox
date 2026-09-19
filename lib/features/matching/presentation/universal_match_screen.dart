@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deals/services/deal_invoice_service.dart';
 import '../data/universal_match_repository.dart';
+import '../domain/universal_match_presentation_policy.dart';
 
 const _ink = Color(0xFF14213D);
 const _mutedInk = Color(0xFF667085);
@@ -54,6 +55,11 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
 
   bool get _te => RegExp(r'[\u0C00-\u0C7F]').hasMatch(
         ref.read(universalDealControllerProvider).deal?.rawText ?? '',
+      );
+
+  UniversalMatchPresentation get _presentation =>
+      UniversalMatchPresentationPolicy.forDeal(
+        ref.read(universalDealControllerProvider).deal!,
       );
 
   void _returnToSearch() {
@@ -295,14 +301,15 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
       children: [
         _AssistantBubble(
           text: _te
-              ? 'మీ requirementకి ${result.matches.length} మంచి options దొరికాయి. Shop ఎంచుకున్న వెంటనే దాని కింద details, doubts, bargaining, confirmation కొనసాగుతాయి.'
-              : 'I found ${result.matches.length} good options. Choose one; details, questions, negotiation and confirmation continue directly below it.',
+              ? 'మీ requirementకి ${result.matches.length} ${_presentation.resultKind} options దొరికాయి. ${_presentation.partyLabel} ఎంచుకున్న వెంటనే details, questions, confirmation ఇక్కడే కొనసాగుతాయి.'
+              : 'I found ${result.matches.length} ${_presentation.resultKind} options. Choose one; details, questions and confirmation continue here.',
         ),
         const SizedBox(height: 16),
         for (final match in result.matches) ...[
           _MatchCard(
             match: match,
             te: _te,
+            actionLabel: _presentation.cardActionLabel,
             selected: selected?.id == match.id,
             onTap: () => _select(match),
           ),
@@ -346,24 +353,17 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              ActionChip(
-                label: Text(_te ? 'Final rate ఎంత?' : 'What is the final rate?'),
-                onPressed: () => _askQuestion(_te ? 'Final rate ఎంత?' : 'What is the final rate?'),
-              ),
-              ActionChip(
-                label: Text(_te ? 'Stock ఉందా?' : 'Is it in stock?'),
-                onPressed: () => _askQuestion(_te ? 'Stock ఉందా?' : 'Is it in stock?'),
-              ),
-              ActionChip(
-                label: Text(_te ? 'Rate తగ్గుతుందా?' : 'Can the price be lower?'),
-                onPressed: () => _askQuestion(_te ? 'Rate తగ్గుతుందా?' : 'Can the price be lower?'),
-              ),
-              ActionChip(
-                label: Text(_te ? 'Delivery / pickup?' : 'Delivery / pickup?'),
-                onPressed: () => _askQuestion(_te ? 'Delivery / pickup?' : 'Delivery / pickup?'),
-              ),
-            ]),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final chip in _presentation.questionChips)
+                  ActionChip(
+                    label: Text(chip),
+                    onPressed: () => _askQuestion(chip),
+                  ),
+              ],
+            ),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(
@@ -378,7 +378,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
                 child: FilledButton.icon(
                   onPressed: _busy ? null : _confirm,
                   icon: const Icon(Icons.check_circle_outline),
-                  label: Text(_te ? 'అన్నీ సరే — Confirm' : 'All clear — Confirm'),
+                  label: Text(_te ? _presentation.confirmLabel : _presentation.confirmLabel),
                 ),
               ),
             ]),
@@ -501,6 +501,7 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
       );
 
   String _selectedSummary(UniversalMatch match) {
+    final presentation = _presentation;
     final parts = <String>[];
     if (match.distanceKm != null) parts.add('${match.distanceKm!.toStringAsFixed(1)} km');
     if (match.price != null) parts.add('₹${match.price!.toStringAsFixed(0)}');
@@ -509,8 +510,8 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
       parts.add('Availability ${match.availabilityScore!.round()}%');
     }
     return _te
-        ? '${match.title} మీ requirementకి మంచి fit. ${parts.join(' • ')}. Deal confirm చేసే ముందు మీకు కావాల్సిన ఏ detail అయినా ఇక్కడే అడగండి.'
-        : '${match.title} is a good fit. ${parts.join(' • ')}. Ask anything you need before confirming the deal.';
+        ? '${match.title} మీ ${presentation.resultKind} requirementకి మంచి fit. ${parts.join(' • ')}. ${presentation.partyLabel}ని confirm చేసే ముందు details అడగండి.'
+        : '${match.title} is a good ${presentation.resultKind} fit. ${parts.join(' • ')}. Ask anything you need before confirming.';
   }
 }
 
@@ -539,12 +540,14 @@ class _MatchCard extends StatelessWidget {
     required this.te,
     required this.selected,
     required this.onTap,
+    required this.actionLabel,
   });
 
   final UniversalMatch match;
   final bool te;
   final bool selected;
   final VoidCallback onTap;
+  final String actionLabel;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -590,7 +593,7 @@ class _MatchCard extends StatelessWidget {
             ]),
             const SizedBox(height: 10),
             Text(
-              te ? 'దీని గురించి అడగండి →' : 'Ask about this option →',
+              '$actionLabel →',
               style: const TextStyle(color: _purple, fontWeight: FontWeight.w800),
             ),
           ]),
