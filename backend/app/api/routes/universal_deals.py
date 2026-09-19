@@ -417,6 +417,14 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "match_count": len(matches),
         "matches": matches,
         "waiting_for_interest": len(matches) == 0,
+        "action_result": build_action_result(
+            raw_status="MATCHES_AVAILABLE" if matches else "WAITING_FOR_INTEREST",
+            request_id=deal_id,
+            category=demand.get("domain"),
+            side=demand.get("side"),
+            channel="in_app",
+            result={"match_count": len(matches)},
+        ).to_dict(),
     }
 
 
@@ -450,10 +458,20 @@ def accept_match(deal_id: int, payload: AcceptMatchRequest, request: Request) ->
         ),
         request,
     )
-    return {
+    result = {
         **result,
         "deal_id": deal_id,
         "request_id": deal_id,
         "contract_version": 1,
         "match_id": responder,
     }
+    result["action_result"] = build_action_result(
+        raw_status=str(result.get("status") or "MATCH_ACCEPTED"),
+        request_id=deal_id,
+        category=demand.get("domain"),
+        side=demand.get("side"),
+        channel="in_app",
+        consent={"required": True, "state": "PENDING"},
+        result={"match_id": responder},
+    ).to_dict()
+    return result
