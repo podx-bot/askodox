@@ -26,7 +26,8 @@ def test_action_result_preserves_raw_status_and_category_actions():
 
 
 def test_completed_and_unknown_states_do_not_expose_unsafe_actions():
-    assert actions_for("PRODUCT", "NEED", "CONVERTED") == ()
+    assert actions_for("PRODUCT", "NEED", "CONVERTED")[0].id == "submit_review"
+    assert actions_for("PRODUCT", "NEED", "CANCELLED") == ()
     result = build_action_result(raw_status="UNKNOWN", category="future_category")
     assert result.result_kind == "general"
 

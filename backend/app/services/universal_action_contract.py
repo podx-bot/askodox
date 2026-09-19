@@ -41,7 +41,9 @@ def actions_for(category: str | None, side: str | None, lifecycle_state: str) ->
     schema = UniversalCategorySchemaRegistry.resolve(category)
     normalized_side = str(side or "NEED").upper()
     state = str(lifecycle_state or "").upper()
-    if state in {"CONVERTED", "COMPLETED", "CANCELLED", "DECLINED"}:
+    if state in {"CONVERTED", "COMPLETED"}:
+        return (ActionDescriptor("submit_review", "Leave a review", schema.seeker_capability),)
+    if state in {"CANCELLED", "DECLINED"}:
         return ()
     if state in {"WAITING_SELLER_CONFIRM", "IN_APP_WAITING_SELLER_CONFIRM", "INTEREST_PENDING"}:
         return (ActionDescriptor("confirm_interest", f"Confirm {schema.result_kind} interest", schema.provider_capability, True),)
