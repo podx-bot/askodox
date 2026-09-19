@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:podx/services/video_analysis_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -71,5 +72,17 @@ void main() {
     expect(find.text('Video'), findsOneWidget);
     expect(find.text('Files'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('video evidence uses the same request seed contract', () {
+    const service = VideoAnalysisService();
+    expect(
+      service.combinedRequest(
+        userText: 'Find help for this video',
+        visualSummary: 'A leaking pipe',
+        spokenTranscript: 'Water is coming from the joint',
+      ),
+      contains('Video spoken evidence: Water is coming from the joint'),
+    );
   });
 }

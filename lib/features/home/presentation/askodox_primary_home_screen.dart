@@ -15,6 +15,7 @@ import '../../../services/document_intelligence_service.dart';
 import '../../../services/real_product_match_service.dart';
 import '../../../services/vision_api_service.dart';
 import '../../../services/multimodal_capture_service.dart';
+import '../../../services/video_analysis_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
@@ -345,7 +346,7 @@ class _AskodoxPrimaryHomeScreenState
     }
     text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
 
-    if (attachment != null) {
+    if (attachment != null && !_isVideoAttachment(attachment)) {
       final analysis = await const VisionApiService().analyze(
         image: attachment,
         userText: text,
@@ -355,6 +356,8 @@ class _AskodoxPrimaryHomeScreenState
       if (facts.toString().trim().isNotEmpty) {
         text = '$text\nAttachment facts: ${facts.toString().trim()}';
       }
+    } else if (attachment != null) {
+      text = const VideoAnalysisService().combinedRequest(userText: text);
     }
 
     setState(() {
@@ -506,6 +509,16 @@ class _AskodoxPrimaryHomeScreenState
     } catch (_) {
       // The text reply remains available when device TTS is unavailable.
     }
+  }
+
+  bool _isVideoAttachment(XFile file) {
+    final mime = file.mimeType?.toLowerCase() ?? '';
+    final name = file.name.toLowerCase();
+    return mime.startsWith('video/') ||
+        name.endsWith('.mp4') ||
+        name.endsWith('.mov') ||
+        name.endsWith('.m4v') ||
+        name.endsWith('.webm');
   }
 
   String _fallbackAssistantReply(
