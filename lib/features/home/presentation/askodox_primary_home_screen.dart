@@ -552,7 +552,7 @@ class _AskodoxPrimaryHomeScreenState
           const SizedBox(height: 8),
           Center(
               child: AskodoxVoiceOrb(
-                  onTap: () => context.push('/discover/voice'))),
+                onTap: _startVoice)),
           const SizedBox(height: 16),
           Text(
               te ? 'మీకు ఏ విధంగా సహాయం చేయగలను?' : 'How can I help you today?',
