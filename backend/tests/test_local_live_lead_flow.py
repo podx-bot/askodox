@@ -72,6 +72,9 @@ def test_telugu_local_lead_targets_category_seller_and_renders_late_response(tmp
     assert "Samsung mobile phone" in row["lead_message"]
     assert "₹15,000" in row["lead_message"]
 
+    seller_prompt = service.process("app-seller", "hello")
+    assert "Respond with model, price and availability" in seller_prompt
+
     seller_reply = service.process("app-seller", "Samsung A15, ₹12,000, in stock")
     assert "Seller response saved" in seller_reply
     buyer_view = service.process("app-buyer", "show Samsung mobile")

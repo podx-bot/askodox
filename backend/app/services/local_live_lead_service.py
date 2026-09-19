@@ -63,6 +63,8 @@ class LocalLiveLeadService:
                 fields["availability"], fields["details"],
             )
             return "✅ Seller response saved. The buyer will see it in Local Seller Responses after consent remains satisfied."
+        if targeted and targeted.get("lead_message"):
+            return f"{targeted['lead_message']}\nReply with model, price and availability if you can supply it."
         responses = self.notifications.list_seller_responses_for_buyer(user_id)
         if responses:
             return "\n".join(self._response_line(row) for row in responses)

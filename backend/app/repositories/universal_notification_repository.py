@@ -279,10 +279,12 @@ class UniversalNotificationRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT request_id,requester_user_id,target_user_id,created_at
-                FROM universal_notifications
-                WHERE target_user_id=? AND status='SENT'
-                ORDER BY id DESC LIMIT 1
+                SELECT n.request_id,n.requester_user_id,n.target_user_id,n.lead_message,
+                       d.subject,d.price,d.location_text,n.created_at
+                FROM universal_notifications n
+                LEFT JOIN universal_need_offer_records d ON d.id=n.request_id
+                WHERE n.target_user_id=? AND n.status='SENT'
+                ORDER BY n.id DESC LIMIT 1
                 """,
                 (str(target),),
             ).fetchone()
