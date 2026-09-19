@@ -46,4 +46,30 @@ void main() {
     expect(calls.single.arguments, {'languageCode': 'en'});
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('primary home attachment menu includes universal video input',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(1440, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(body: AskodoxPrimaryHomeScreen()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Add attachment'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Camera'), findsOneWidget);
+    expect(find.text('Photos'), findsOneWidget);
+    expect(find.text('Video'), findsOneWidget);
+    expect(find.text('Files'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

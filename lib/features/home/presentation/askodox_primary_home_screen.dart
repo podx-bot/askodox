@@ -188,6 +188,11 @@ class _AskodoxPrimaryHomeScreenState
             onTap: () => Navigator.pop(context, 'photos'),
           ),
           ListTile(
+            leading: const Icon(Icons.video_library_outlined),
+            title: Text(_te ? 'వీడియో' : 'Video'),
+            onTap: () => Navigator.pop(context, 'video'),
+          ),
+          ListTile(
             leading: const Icon(Icons.attach_file_rounded),
             title: Text(_te ? 'ఫైల్స్' : 'Files'),
             onTap: () => Navigator.pop(context, 'files'),
@@ -196,11 +201,13 @@ class _AskodoxPrimaryHomeScreenState
       ),
     );
     if (!mounted || choice == null) return;
-    if (choice == 'camera' || choice == 'photos') {
+    if (choice == 'camera' || choice == 'photos' || choice == 'video') {
       final capture = MultimodalCaptureService();
       final file = choice == 'camera'
           ? await capture.captureCamera()
-          : await capture.chooseGallery();
+          : choice == 'video'
+              ? await capture.chooseVideo()
+              : await capture.chooseGallery();
       if (file != null && mounted) {
         final previewBytes = await file.readAsBytes();
         if (!mounted) return;
