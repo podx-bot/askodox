@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -50,6 +51,7 @@ class _AskodoxPrimaryHomeScreenState
   bool _sending = false;
   bool _voiceBusy = false;
   XFile? _attachment;
+  Uint8List? _attachmentPreviewBytes;
   String? _attachmentLabel;
 
   // Shown instead of `_matches` when the completed deal is a "sell" listing
@@ -175,8 +177,11 @@ class _AskodoxPrimaryHomeScreenState
           ? await capture.captureCamera()
           : await capture.chooseGallery();
       if (file != null && mounted) {
+        final previewBytes = await file.readAsBytes();
+        if (!mounted) return;
         setState(() {
           _attachment = file;
+          _attachmentPreviewBytes = previewBytes;
           _attachmentLabel = file.name;
         });
       }
@@ -185,14 +190,18 @@ class _AskodoxPrimaryHomeScreenState
     final picked = await FilePicker.pickFiles();
     if (picked.isEmpty) return;
     final file = picked.first;
+    final bytes = await file.readAsBytes();
     if (mounted) {
       final analyzed = await const DocumentIntelligenceService().analyzeBytes(
-        bytes: await file.readAsBytes(),
+        bytes: bytes,
         filename: file.name,
         mimeType: 'application/octet-stream',
       );
       if (!mounted) return;
-      setState(() => _attachmentLabel = file.name);
+      setState(() {
+        _attachmentPreviewBytes = null;
+        _attachmentLabel = file.name;
+      });
       if (analyzed != null) {
         setState(() => _controller.text = analyzed.conversationSeed());
       }
@@ -311,6 +320,7 @@ class _AskodoxPrimaryHomeScreenState
     });
     _controller.clear();
     _attachment = null;
+    _attachmentPreviewBytes = null;
     _attachmentLabel = null;
     _scrollBottom();
 
@@ -731,51 +741,92 @@ class _AskodoxPrimaryHomeScreenState
         decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
-        child: Row(children: [
-          IconButton.filled(
-              onPressed: _startVoice,
-              style: IconButton.styleFrom(backgroundColor: _accent),
-              icon: const Icon(Icons.mic_rounded, color: _ink)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            enabled: !_sending,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => _send(),
-            cursorColor: const Color(0xFF5B4BFF),
-            style: const TextStyle(
-                color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              hintText:
-                  te ? 'మీకు ఏమి కావాలో చెప్పండి…' : 'Tell me what you need…',
-              hintStyle: const TextStyle(
-                  color: Color(0xFF7B8496), fontWeight: FontWeight.w500),
-              filled: true,
-              fillColor: const Color(0xFFF8F9FC),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(26),
-                  borderSide:
-                      const BorderSide(color: Color(0xFFDDD9FF), width: 1.5)),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(26),
-                  borderSide:
-                      const BorderSide(color: Color(0xFF6C4DFF), width: 2)),
-            ),
-          )),
-            IconButton(
-              onPressed: _showAttachmentMenu,
-              tooltip: te ? 'జోడించండి' : 'Add attachment',
-              icon: const Icon(Icons.add_circle_outline_rounded, color: _ink)),
-          IconButton.filled(
-              onPressed: _sending ? null : _send,
-              style: IconButton.styleFrom(backgroundColor: _blue),
-              icon:
-                  const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (_attachmentLabel != null) _attachmentPreview(te),
+        Row(children: [
+        IconButton.filled(
+          onPressed: _startVoice,
+          style: IconButton.styleFrom(backgroundColor: _accent),
+          icon: const Icon(Icons.mic_rounded, color: _ink)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          enabled: !_sending,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _send(),
+          cursorColor: const Color(0xFF5B4BFF),
+          style: const TextStyle(
+            color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+          hintText:
+            te ? 'మీకు ఏమి కావాలో చెప్పండి…' : 'Tell me what you need…',
+          hintStyle: const TextStyle(
+            color: Color(0xFF7B8496), fontWeight: FontWeight.w500),
+          filled: true,
+          fillColor: const Color(0xFFF8F9FC),
+          contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(26),
+            borderSide: const BorderSide(
+              color: Color(0xFFDDD9FF), width: 1.5)),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(26),
+            borderSide: const BorderSide(
+              color: Color(0xFF6C4DFF), width: 2)),
+          ),
+        )),
+        IconButton(
+          onPressed: _showAttachmentMenu,
+          tooltip: te ? 'జోడించండి' : 'Add attachment',
+          icon: const Icon(Icons.add_circle_outline_rounded, color: _ink)),
+        IconButton.filled(
+          onPressed: _sending ? null : _send,
+          style: IconButton.styleFrom(backgroundColor: _blue),
+          icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
         ]),
+      ]),
+      );
+
+    Widget _attachmentPreview(bool te) => Container(
+      key: const Key('askodoxAttachmentPreview'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD7E3F5))),
+      child: Row(children: [
+        if (_attachmentPreviewBytes != null)
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(_attachmentPreviewBytes!,
+            width: 48, height: 48, fit: BoxFit.cover))
+        else
+        const SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(Icons.insert_drive_file_outlined, color: _blue)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(_attachmentLabel!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _ink, fontWeight: FontWeight.w700))),
+        IconButton(
+          tooltip: te ? 'తొలగించండి' : 'Remove attachment',
+          onPressed: _sending
+            ? null
+            : () => setState(() {
+              _attachment = null;
+              _attachmentPreviewBytes = null;
+              _attachmentLabel = null;
+              }),
+          icon: const Icon(Icons.close_rounded, color: _muted)),
+      ]),
       );
 
   @override
