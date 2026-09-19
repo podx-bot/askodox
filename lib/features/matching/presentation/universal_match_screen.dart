@@ -389,6 +389,19 @@ class _UniversalMatchScreenState extends ConsumerState<UniversalMatchScreen> {
                   : 'ASKODOX will not guess an unclear detail; it will verify with the seller before confirmation.',
               style: const TextStyle(color: _mutedInk, fontSize: 12.5),
             ),
+          ] else if (_stage == 2 && !_presentation.supportsPayment) ...[
+            const SizedBox(height: 10),
+            _AssistantBubble(
+              text: _te
+                  ? '${_presentation.resultKind} confirm అయింది. తదుపరి action కోసం ఈ conversationలోనే కొనసాగించండి.'
+                  : '${_presentation.resultKind} confirmed. Continue here for the next action.',
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: _busy ? null : _refreshStatus,
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(_te ? 'తదుపరి దశ' : 'Continue to next step'),
+            ),
           ] else if (_stage == 2) ...[
             const SizedBox(height: 10),
             _SellerBubble(
