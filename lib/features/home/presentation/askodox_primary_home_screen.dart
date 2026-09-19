@@ -893,17 +893,23 @@ class _AskodoxPrimaryHomeScreenState
         color: const Color(0xFFF2F6FF),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFD7E3F5))),
-      child: Row(children: [
-        if (_attachmentPreviewBytes != null)
+        child: Row(children: [
+        if (_attachmentPreviewBytes != null && !_isVideoName(_attachmentLabel))
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.memory(_attachmentPreviewBytes!,
             width: 48, height: 48, fit: BoxFit.cover))
         else
-        const SizedBox(
-          width: 48,
-          height: 48,
-          child: Icon(Icons.insert_drive_file_outlined, color: _blue)),
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(
+              _isVideoName(_attachmentLabel)
+                  ? Icons.video_file_outlined
+                  : Icons.insert_drive_file_outlined,
+              color: _blue,
+            ),
+          ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(_attachmentLabel!,
@@ -923,6 +929,14 @@ class _AskodoxPrimaryHomeScreenState
           icon: const Icon(Icons.close_rounded, color: _muted)),
       ]),
       );
+
+  bool _isVideoName(String? name) {
+    final value = (name ?? '').toLowerCase();
+    return value.endsWith('.mp4') ||
+        value.endsWith('.mov') ||
+        value.endsWith('.m4v') ||
+        value.endsWith('.webm');
+  }
 
   @override
   void dispose() {
