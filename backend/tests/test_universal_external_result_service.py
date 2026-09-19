@@ -49,3 +49,27 @@ def test_invalid_or_inactive_destinations_are_not_exposed():
     )
 
     assert rows == []
+
+
+def test_mapping_order_is_preserved_for_relevance():
+    rows = UniversalExternalResultService.resolve(
+        category="product",
+        subject="phone",
+        providers=[
+            {
+                "provider_id": "same",
+                "category": "product",
+                "normal_url": "https://first.example",
+            },
+            {
+                "provider_id": "same",
+                "category": "phone",
+                "normal_url": "https://duplicate.example",
+            },
+        ],
+    )
+
+    assert [row["destination_url"] for row in rows] == [
+        "https://first.example",
+        "https://duplicate.example",
+    ]

@@ -421,9 +421,16 @@ def get_matches(deal_id: int, request: Request) -> dict:
         category = str(demand.get("domain") or "").strip().lower()
         subject = str(demand.get("subject") or "").strip()
         providers = []
+        provider_ids = set()
         for key in (category, subject):
             if key:
-                providers.extend(affiliate_config.active_for_category(key))
+                for provider in affiliate_config.active_for_category(key):
+                    provider_id = str(provider.get("provider_id") or provider.get("name") or "")
+                    if provider_id and provider_id in provider_ids:
+                        continue
+                    if provider_id:
+                        provider_ids.add(provider_id)
+                    providers.append(provider)
         external = UniversalExternalResultService.resolve(
             category=category,
             subject=subject,
