@@ -77,6 +77,12 @@ class UniversalMatch {
     this.providerId,
     this.trustScore,
     this.availabilityScore,
+    this.source = 'local',
+    this.imageUrl,
+    this.locationLabel,
+    this.availability,
+    this.destinationUrl,
+    this.disclosure,
   });
 
   final String id;
@@ -88,6 +94,12 @@ class UniversalMatch {
   final String? providerId;
   final double? trustScore;
   final double? availabilityScore;
+  final String source;
+  final String? imageUrl;
+  final String? locationLabel;
+  final String? availability;
+  final String? destinationUrl;
+  final String? disclosure;
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -115,6 +127,12 @@ class UniversalMatch {
         trustScore: ((json['trust_score'] ?? json['trust']) as num?)?.toDouble(),
         availabilityScore:
             ((json['availability_score'] ?? json['availability_fit']) as num?)?.toDouble(),
+          source: '${json['source'] ?? json['match_source'] ?? json['channel'] ?? 'local'}',
+          imageUrl: json['image_url']?.toString() ?? json['image']?.toString(),
+          locationLabel: json['location_label']?.toString() ?? json['location']?.toString(),
+          availability: json['availability']?.toString() ?? json['stock_status']?.toString(),
+          destinationUrl: json['destination_url']?.toString() ?? json['normal_url']?.toString(),
+          disclosure: json['disclosure']?.toString(),
       );
 }
 

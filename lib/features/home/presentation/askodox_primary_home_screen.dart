@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1028,6 +1029,19 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   UniversalMatch get _match => widget.match;
   bool get _te => widget.te;
 
+  Future<void> _openDestination() async {
+    final raw = _match.destinationUrl?.trim();
+    if (raw == null || raw.isEmpty) return;
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te ? 'లింక్ తెరవడం సాధ్యం కాలేదు.' : 'This destination could not be opened.'),
+        ));
+      }
+    }
+  }
+
   Future<void> _placeOrder() async {
     if (_placing) return;
     setState(() {
@@ -1081,14 +1095,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           border: Border.all(color: const Color(0xFFE1E8F2))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFF0EFFF),
-                  borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.auto_awesome_rounded,
-                  color: Color(0xFF5B4BFF))),
+          SizedBox(
+            width: 64,
+            height: 64,
+            child: _match.imageUrl?.trim().isNotEmpty == true
+              ? ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(_match.imageUrl!, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _sourceIcon()))
+              : _sourceIcon()),
           const SizedBox(width: 12),
           Expanded(
               child: Column(
@@ -1109,10 +1124,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 ],
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 6, children: [
+                  _meta(_sourceLabel(_match.source)),
                   if (match.score != null)
                     _meta('★ ${match.score!.toStringAsFixed(0)}%'),
                   if (distance != null) _meta(distance),
                   if (price != null) _meta(price),
+                  if (match.locationLabel?.trim().isNotEmpty == true)
+                    _meta(match.locationLabel!),
+                  if (match.availability?.trim().isNotEmpty == true)
+                    _meta(match.availability!),
                 ]),
               ])),
         ]),
@@ -1151,9 +1171,43 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   ),
           ),
         ),
+        if (match.destinationUrl?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _openDestination,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: Text(_te ? 'వివరాలు చూడండి' : 'View details'),
+            ),
+          ),
+          if (match.disclosure?.trim().isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(match.disclosure!,
+                  style: const TextStyle(color: _muted, fontSize: 11)),
+            ),
+        ],
       ]),
     );
   }
+
+  Widget _sourceIcon() => Container(
+      decoration: BoxDecoration(
+          color: const Color(0xFFF0EFFF), borderRadius: BorderRadius.circular(14)),
+      child: Icon(
+          _match.source.toLowerCase() == 'online'
+              ? Icons.public_rounded
+              : _match.source.toLowerCase() == 'nearby'
+                  ? Icons.near_me_rounded
+                  : Icons.storefront_rounded,
+          color: const Color(0xFF5B4BFF)));
+
+  String _sourceLabel(String source) => switch (source.toLowerCase()) {
+        'online' => _te ? 'ఆన్‌లైన్' : 'Online',
+        'nearby' => _te ? 'దగ్గరలో' : 'Nearby',
+        _ => _te ? 'లోకల్' : 'Local',
+      };
 
   Widget _meta(String text) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
