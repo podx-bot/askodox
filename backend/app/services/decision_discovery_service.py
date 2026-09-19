@@ -9,7 +9,7 @@ class DecisionDiscoveryService:
     """Ask one category-relevant decision question only when the user is unsure."""
 
     UNCERTAINTY_MARKERS = (
-        "what should", "which should", "which one", "what is best", "best option",
+        "what should", "which should", "which one", "which job", "which service", "which mobile", "what is best", "best option",
         "should i", "ఏది మంచిది", "ఏది తీసుకోవాలి", "ఏది కొనాలి", "ఏది సరైనది",
     )
 
@@ -22,7 +22,13 @@ class DecisionDiscoveryService:
         if not text or not any(marker in lowered for marker in self.UNCERTAINTY_MARKERS):
             return None
         decision = self.category_brain.classify(text)
-        schema = UniversalCategorySchemaRegistry.resolve(decision.category)
+        category = decision.category
+        lowered = text.casefold()
+        if "job" in lowered or "work" in lowered:
+            category = "JOBS"
+        elif "service" in lowered or "electrician" in lowered or "plumber" in lowered:
+            category = "SERVICES"
+        schema = UniversalCategorySchemaRegistry.resolve(category)
         focus = ", ".join(schema.decision_focus[:3])
         return f"I can compare suitable {schema.result_kind} options. What matters most here: {focus}?"
 
