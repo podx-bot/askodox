@@ -193,6 +193,9 @@ class UniversalLiveCaptureService:
         demand_id = int(previous["id"])
         if not updater(demand_id, fields):
             return None
+        invalidate = getattr(self.notifications, "invalidate_for_request_change", None)
+        if callable(invalidate):
+            invalidate(demand_id, fields)
         return self.demands.get(demand_id) or {**previous, **fields, "id": demand_id}
 
     def _revise_latest_quantity(self, sender_mobile: str, quantity: float, unit: str) -> Optional[str]:
