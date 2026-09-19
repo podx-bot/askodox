@@ -53,6 +53,12 @@ class AcceptMatchRequest(BaseModel):
     match_id: str = Field(min_length=1)
 
 
+class ReviewRequest(BaseModel):
+    reviewed_user_id: str = Field(min_length=1)
+    rating: int = Field(ge=1, le=5)
+    review_text: str = Field(default="", max_length=2000)
+
+
 def _latest_created_deal(container, user_id: str):
     return container.database.fetchone(
         """
@@ -426,6 +432,29 @@ def get_matches(deal_id: int, request: Request) -> dict:
             result={"match_count": len(matches)},
         ).to_dict(),
     }
+
+
+@router.post("/{deal_id}/review")
+def submit_review(deal_id: int, payload: ReviewRequest, request: Request) -> dict:
+    container = request.app.state.container
+    authenticated = _authenticated_app_user(request)
+    demand = container.universal_demand_repository.get(deal_id)
+    if not demand:
+        raise HTTPException(status_code=404, detail="deal not found")
+    if authenticated != _app_user(str(demand.get("user_id") or "")):
+        raise HTTPException(status_code=403, detail="Only the deal owner can review it")
+    interest = container.universal_notification_repository.get_interest(deal_id, payload.reviewed_user_id)
+    if not interest or interest.get("qualification_status") != "CONVERTED":
+        raise HTTPException(status_code=409, detail="Review is available after deal completion")
+    result = container.universal_review_repository.create(
+        deal_id,
+        authenticated,
+        payload.reviewed_user_id,
+        demand.get("domain"),
+        payload.rating,
+        payload.review_text,
+    )
+    return {"request_id": deal_id, **result}
 
 
 @router.post("/{deal_id}/accept-match")
