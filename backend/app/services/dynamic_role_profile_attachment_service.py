@@ -20,6 +20,7 @@ class DynamicRoleProfileAttachmentService:
         ("SERVICES", "PROVIDER"): "SERVICE_PROVIDER",
         ("JOBS", "SEEKER"): "WORKER",
         ("JOBS", "PROVIDER"): "EMPLOYER",
+        ("DELIVERY", "PROVIDER"): "DELIVERY_PARTNER",
     }
 
     def __init__(self, delegate, category_brain, user_repository, min_confidence: float = 0.75, profile_essentials=None, session_registry=None, smart_job_message_service=None) -> None:
@@ -130,6 +131,10 @@ class DynamicRoleProfileAttachmentService:
             session = self.session_registry.get(sender_mobile)
             data = getattr(session, "data", None)
             if not isinstance(data, dict):
+                return None
+            # Role setup is optional. Only resume its prompts after an explicit
+            # onboarding action; never interrupt the user's original request.
+            if not data.get("role_profile_onboarding_requested"):
                 return None
             user = intent_context.get("user") or {}
             data["role"] = "WORKER"

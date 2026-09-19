@@ -98,7 +98,10 @@ class UniversalCategoryFlowBrain:
             "tailor", "alteration", "carpenter", "mechanic", "service కావాలి", "సర్వీస్ కావాలి",
             "ఎలక్ట్రిషియన్", "ప్లంబర్", "ఏసీ రిపేర్", "టైలర్", "కార్పెంటర్", "మెకానిక్",
         )
-        if any(term in text for term in service_provider):
+        if any(term in text for term in service_provider) or (
+            any(term in text for term in ("provide", "offer", "repair", "fix"))
+            and any(term in text for term in ("service", "ac", "electric", "plumb", "mechanic"))
+        ):
             return CategoryFlowDecision("SERVICES", "PROVIDER", "OFFER", 0.99)
         if any(term in text for term in service_seek):
             return CategoryFlowDecision("SERVICES", "SEEKER", "BOOK", 0.96)
@@ -136,6 +139,12 @@ class UniversalCategoryFlowBrain:
             "parcel", "courier", "delivery boy", "pickup parcel", "send parcel", "local delivery",
             "పార్సల్", "కూరియర్", "డెలివరీ చేయాలి", "పికప్ చేయాలి",
         )
+        delivery_provider_terms = (
+            "i can deliver", "i deliver parcels", "offer delivery", "delivery partner",
+            "నేను డెలివరీ చేస్తాను", "డెలివరీ ఇస్తాను", "పార్సల్స్ తీసుకెళ్తాను",
+        )
+        if any(term in text for term in delivery_provider_terms):
+            return CategoryFlowDecision("DELIVERY", "PROVIDER", "OFFER", 0.97)
         if any(term in text for term in delivery_terms):
             return CategoryFlowDecision("DELIVERY", "SEEKER", "BOOK", 0.94)
 
@@ -161,7 +170,7 @@ class UniversalCategoryFlowBrain:
             "కావాలి", "buy", "కొనాలి", "price", "ధర", "rate", "రేట్", "stock ఉందా",
             "available ఉందా", "order చేయాలి", "purchase", "need product",
         )
-        if any(term in text for term in sell_terms):
+        if any(term in text for term in sell_terms) or re.search(r"\bsell\b.*\b(my|old|used|product)\b", text):
             return CategoryFlowDecision("COMMERCE", "PROVIDER", "SELL", 0.93)
         if any(term in text for term in buy_terms):
             return CategoryFlowDecision("COMMERCE", "SEEKER", "BUY", 0.82)
