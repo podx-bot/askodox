@@ -341,6 +341,9 @@ class _AskodoxPrimaryHomeScreenState
     setState(() {
       _sending = true;
       _active = true;
+      _matches = const [];
+      _listingBanner = null;
+      _listingBannerIsError = false;
       _turns.add(ConversationTurnRecord(
         text: _attachmentLabel == null ? text : '$text\n[Attachment: $_attachmentLabel]',
         isUser: true,
