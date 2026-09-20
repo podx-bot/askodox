@@ -32,6 +32,21 @@ const _muted = Color(0xFF667085);
 const _accent = Color(0xFFFFC928);
 const _blue = Color(0xFF1769FF);
 
+String askodoxAttachmentMimeType(String filename) {
+  final extension = filename.toLowerCase().split('.').last;
+  return switch (extension) {
+    'pdf' => 'application/pdf',
+    'doc' => 'application/msword',
+    'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls' => 'application/vnd.ms-excel',
+    'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'csv' => 'text/csv',
+    'txt' => 'text/plain',
+    'json' => 'application/json',
+    _ => 'application/octet-stream',
+  };
+}
+
 String askodoxContinuationReply({
   required String previousUserTurn,
   required bool telugu,
@@ -173,10 +188,11 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   Future<void> _showAttachmentMenu() async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
+    try {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
             leading: const Icon(Icons.camera_alt_outlined),
@@ -199,10 +215,10 @@ class _AskodoxPrimaryHomeScreenState
             onTap: () => Navigator.pop(context, 'files'),
           ),
         ]),
-      ),
-    );
-    if (!mounted || choice == null) return;
-    if (choice == 'camera' || choice == 'photos' || choice == 'video') {
+        ),
+      );
+      if (!mounted || choice == null) return;
+      if (choice == 'camera' || choice == 'photos' || choice == 'video') {
       final capture = MultimodalCaptureService();
       final file = choice == 'camera'
           ? await capture.captureCamera()
@@ -218,17 +234,16 @@ class _AskodoxPrimaryHomeScreenState
           _attachmentLabel = file.name;
         });
       }
-      return;
-    }
-    final picked = await FilePicker.pickFiles();
-    if (picked.isEmpty) return;
-    final file = picked.first;
-    final bytes = await file.readAsBytes();
-    if (mounted) {
+        return;
+      }
+      final picked = await FilePicker.pickFiles();
+      if (picked.isEmpty) return;
+      final file = picked.first;
+      final bytes = await file.readAsBytes();
       final analyzed = await const DocumentIntelligenceService().analyzeBytes(
         bytes: bytes,
         filename: file.name,
-        mimeType: 'application/octet-stream',
+        mimeType: askodoxAttachmentMimeType(file.name),
       );
       if (!mounted) return;
       setState(() {
@@ -238,6 +253,13 @@ class _AskodoxPrimaryHomeScreenState
       if (analyzed != null) {
         setState(() => _controller.text = analyzed.conversationSeed());
       }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_te
+            ? 'అటాచ్‌మెంట్‌ను తెరవడం లేదా విశ్లేషించడం సాధ్యం కాలేదు.'
+            : 'The attachment could not be opened or analyzed. Please try again.'),
+      ));
     }
   }
 
