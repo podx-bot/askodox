@@ -29,7 +29,9 @@ Locale askodoxUiLocale(Locale? requested, Iterable<Locale> supportedLocales) {
 }
 
 class PodxApp extends ConsumerWidget {
-  const PodxApp({super.key});
+  const PodxApp({super.key, this.onReady});
+
+  final ValueChanged<BuildContext>? onReady;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,11 +54,40 @@ class PodxApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: ref.watch(appRouterProvider),
-      builder: (context, child) => _StartupGate(
-        child: ConnectivityBanner(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => _AppReadyCallback(
+        onReady: onReady,
+        child: _StartupGate(
+          child: ConnectivityBanner(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }
+}
+
+class _AppReadyCallback extends StatefulWidget {
+  const _AppReadyCallback({required this.onReady, required this.child});
+  final ValueChanged<BuildContext>? onReady;
+  final Widget child;
+
+  @override
+  State<_AppReadyCallback> createState() => _AppReadyCallbackState();
+}
+
+class _AppReadyCallbackState extends State<_AppReadyCallback> {
+  bool _called = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_called || widget.onReady == null) return;
+    _called = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onReady!(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _StartupGate extends ConsumerStatefulWidget {

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
-import 'config/router/app_router.dart';
 import 'core/providers/backend_providers.dart';
 import 'core/update/askodox_update_service.dart';
 import 'features/analytics/application/analytics_providers.dart';
@@ -13,12 +12,11 @@ import 'features/analytics/domain/analytics_models.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: _AnalyticsBootstrap(child: PodxApp())));
+  runApp(const ProviderScope(child: _AnalyticsBootstrap()));
 }
 
 class _AnalyticsBootstrap extends ConsumerStatefulWidget {
-  const _AnalyticsBootstrap({required this.child});
-  final Widget child;
+  const _AnalyticsBootstrap();
 
   @override
   ConsumerState<_AnalyticsBootstrap> createState() => _AnalyticsBootstrapState();
@@ -47,7 +45,6 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
       await _restoreOnboardingIdentity();
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
 
   Future<void> _restoreOnboardingIdentity() async {
@@ -70,19 +67,18 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
     _sessionTimer?.cancel();
   }
 
-  Future<void> _checkForUpdate() async {
+  Future<void> _checkForUpdate(BuildContext context) async {
     if (_updateChecked || !AskodoxUpdateService.enabled) return;
     _updateChecked = true;
     try {
       const service = AskodoxUpdateService();
       final result = await service.checkForUpdate();
       final update = result.update;
-      final navigatorContext = appNavigatorKey.currentContext;
-      if (!mounted || update == null || navigatorContext == null) return;
+      if (!mounted || !context.mounted || update == null) return;
 
-      final te = Localizations.localeOf(navigatorContext).languageCode == 'te';
+      final te = Localizations.localeOf(context).languageCode == 'te';
       final install = await showDialog<bool>(
-        context: navigatorContext,
+        context: context,
         barrierDismissible: !update.mandatory,
         builder: (dialogContext) => AlertDialog(
           title: Text(te ? 'ASKODOX అప్‌డేట్ అందుబాటులో ఉంది' : 'ASKODOX update available'),
@@ -105,7 +101,7 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
           ],
         ),
       );
-      if (install != true || !mounted) return;
+      if (install != true || !mounted || !context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(te ? 'అప్‌డేట్ డౌన్‌లోడ్ అవుతోంది…' : 'Downloading update…')),
@@ -123,5 +119,5 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) => PodxApp(onReady: _checkForUpdate);
 }
