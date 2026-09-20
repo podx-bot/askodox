@@ -65,7 +65,8 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byTooltip('Add attachment'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Camera'), findsOneWidget);
     expect(find.text('Photos'), findsOneWidget);
