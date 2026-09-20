@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      build_number:
+        description: Explicit Android build number for the release channel
+        required: false
+        default: '919'
+        type: string
   push:
     branches: [main]
     paths:
@@ -34,6 +39,7 @@ jobs:
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      BUILD_NUMBER: ${{ inputs.build_number || '919' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -79,12 +85,12 @@ jobs:
       - name: Build installable debug APK
         run: |
           flutter build apk --debug \
-            --build-number="${GITHUB_RUN_NUMBER}" \
+            --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=staging \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
-            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
 
       - name: Prepare release signing when configured
         id: signing
@@ -122,21 +128,21 @@ jobs:
         if: steps.signing.outputs.configured == 'true'
         run: |
           flutter build apk --release \
-            --build-number="${GITHUB_RUN_NUMBER}" \
+            --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=production \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
-            --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
 
       - name: Collect APKs
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-debug.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}-debug.apk"
+          cp build/app/outputs/flutter-apk/app-debug.apk "dist/askodox-live-${BUILD_NUMBER}-debug.apk"
           if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk"
+            cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${BUILD_NUMBER}.apk"
           fi
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
 
@@ -154,28 +160,28 @@ jobs:
         run: |
           set -euo pipefail
           TAG="askodox-latest"
-          VERSION="1.0.${GITHUB_RUN_NUMBER}"
-          cp "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk" "dist/askodox-${GITHUB_RUN_NUMBER}.apk"
-          cp "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk" dist/askodox-latest.apk
+          VERSION="1.0.${BUILD_NUMBER}"
+          cp "dist/askodox-live-${BUILD_NUMBER}.apk" "dist/askodox-${BUILD_NUMBER}.apk"
+          cp "dist/askodox-live-${BUILD_NUMBER}.apk" dist/askodox-latest.apk
           cat > dist/latest.json <<EOF
           {
             "version": "${VERSION}",
-            "build_number": ${GITHUB_RUN_NUMBER},
+            "build_number": ${BUILD_NUMBER},
             "mandatory": false,
             "notes": "Latest ASKODOX update",
-            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-${GITHUB_RUN_NUMBER}.apk"
+            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-${BUILD_NUMBER}.apk"
           }
           EOF
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "ASKODOX ${VERSION}" --notes "ASKODOX in-app update channel"
           fi
           gh release upload "$TAG" \
-            "dist/askodox-${GITHUB_RUN_NUMBER}.apk" \
+            "dist/askodox-${BUILD_NUMBER}.apk" \
             dist/askodox-latest.apk \
             dist/latest.json \
             --clobber
           cat > release-notes.txt <<EOF
-          ASKODOX_BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          ASKODOX_BUILD_NUMBER=${BUILD_NUMBER}
           ASKODOX_VERSION=${VERSION}
           Latest signed ASKODOX in-app update.
           EOF
@@ -188,5 +194,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="android-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" "dist/askodox-live-${GITHUB_RUN_NUMBER}.apk" dist/SHA256SUMS.txt --prerelease --title "ASKODOX Android ${GITHUB_RUN_NUMBER}" --notes "Live ASKODOX Android build. Existing installs can update only when the application ID and signing certificate match."
+          TAG="android-${BUILD_NUMBER}"
+          gh release create "$TAG" "dist/askodox-live-${BUILD_NUMBER}.apk" dist/SHA256SUMS.txt --prerelease --title "ASKODOX Android ${BUILD_NUMBER}" --notes "Live ASKODOX Android build. Existing installs can update only when the application ID and signing certificate match."
