@@ -69,6 +69,39 @@ class UniversalImageService:
             caption=caption,
         )
 
+    def analyze_video(
+        self,
+        video_bytes: bytes,
+        mime_type: str = "video/mp4",
+        caption: str | None = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Analyze short-video visual and spoken evidence with the same brain."""
+        if not video_bytes or not str(mime_type).lower().startswith("video/"):
+            return None
+        if self.client is None:
+            return None
+        prompt = self._prompt(caption) + (
+            "\nThis is a short video. Inspect visual frames and listen to spoken audio. "
+            "Return both visual evidence and a spoken transcript when present. "
+            "Keep the user's current request intent separate from observed facts."
+        )
+        try:
+            response = self.client.models.generate_content(
+                model=self.GEMINI_IMAGE_MODELS[0],
+                contents=[types.Part.from_bytes(data=video_bytes, mime_type=mime_type), prompt],
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            payload = self._parse_json(str(getattr(response, "text", "") or ""))
+            if not payload:
+                return None
+            return {
+                **payload,
+                "visual_summary": payload.get("visual_summary") or payload.get("summary"),
+                "spoken_transcript": payload.get("spoken_transcript") or payload.get("transcript"),
+            }
+        except Exception:
+            return None
+
     def process_image(
         self,
         sender_mobile: str,

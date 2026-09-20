@@ -32,7 +32,19 @@ class UniversalDealBrain {
     if (hasAny(['buy nearby', 'i want to buy', 'want to buy', 'need to buy', 'looking to buy', 'కొనాలి', 'కావాలి కొన'])) {
       return DealIntent.buy;
     }
-    if (hasAny(['sell something', 'i want to sell', 'want to sell', 'for sale', 'అమ్మాలి', 'అమ్మకం'])) {
+    if (hasAny([
+      'sell something',
+      'i want to sell',
+      'want to sell',
+      'i have a ',
+      'i am selling',
+      "i'm selling",
+      'selling ',
+      'for sale',
+      'అమ్మాలి',
+      'అమ్మకం',
+      'అమ్ముతున్నాను',
+    ])) {
       return DealIntent.sell;
     }
     if (hasAny(['need a job', 'looking for job', 'find work', 'need work', 'ఉద్యోగం కావాలి', 'పని కావాలి']) ||

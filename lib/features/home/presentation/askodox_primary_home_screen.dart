@@ -1,4 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +11,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../services/in_app_assistant_service.dart';
+import '../../../services/document_intelligence_service.dart';
 import '../../../services/real_product_match_service.dart';
+import '../../../services/vision_api_service.dart';
+import '../../../services/multimodal_capture_service.dart';
+import '../../../services/video_analysis_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
@@ -22,6 +31,45 @@ const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
 const _accent = Color(0xFFFFC928);
 const _blue = Color(0xFF1769FF);
+
+String askodoxAttachmentMimeType(String filename) {
+  final extension = filename.toLowerCase().split('.').last;
+  return switch (extension) {
+    'pdf' => 'application/pdf',
+    'doc' => 'application/msword',
+    'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls' => 'application/vnd.ms-excel',
+    'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'csv' => 'text/csv',
+    'txt' => 'text/plain',
+    'json' => 'application/json',
+    _ => 'application/octet-stream',
+  };
+}
+
+String askodoxContinuationReply({
+  required String previousUserTurn,
+  required bool telugu,
+}) {
+  final context = previousUserTurn.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final shortContext = context.length <= 72
+      ? context
+      : '${context.substring(0, 69)}…';
+  return telugu
+      ? 'మనం “$shortContext” నుంచి కొనసాగిద్దాం. ఇప్పుడు మొదటి పని: ఆ ప్లాన్‌లో ఇంకా పూర్తికాని మొదటి అంశాన్ని ఎంచుకుని దానికి కావాల్సిన ఒక చిన్న చర్యను పూర్తి చేద్దాం. అది పూర్తయ్యాక తదుపరి అంశానికి వెళ్దాం.'
+      : 'Let’s continue from “$shortContext”. Next step: choose the first unfinished item in that plan and complete one small action for it. Then we’ll move to the next item.';
+}
+
+    bool askodoxIsGenericAssistantReply(String reply) {
+      final normalized = reply.trim().toLowerCase();
+      return normalized.isEmpty ||
+      normalized == 'understood' ||
+      normalized == 'got it' ||
+      normalized == 'okay' ||
+      normalized == 'ok' ||
+      normalized == 'continuing your request.' ||
+      normalized == 'understood. continuing your request.';
+    }
 
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
   const AskodoxPrimaryHomeScreen({super.key});
@@ -42,6 +90,10 @@ class _AskodoxPrimaryHomeScreenState
   List<UniversalMatch> _matches = const [];
   bool _active = false;
   bool _sending = false;
+  bool _voiceBusy = false;
+  XFile? _attachment;
+  Uint8List? _attachmentPreviewBytes;
+  String? _attachmentLabel;
 
   // Shown instead of `_matches` when the completed deal is a "sell" listing
   // rather than a buyer-side search -- see `_createRealListing`.
@@ -112,6 +164,105 @@ class _AskodoxPrimaryHomeScreenState
 
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
 
+  Future<void> _startVoice() async {
+    if (_voiceBusy || _sending) return;
+    setState(() => _voiceBusy = true);
+    try {
+      final spoken = await const MethodChannel('com.askodox.app/device')
+          .invokeMethod<String>('startVoiceSearch', <String, Object?>{
+        'languageCode': _te ? 'te' : 'en',
+      });
+      final text = spoken?.trim() ?? '';
+      if (text.isNotEmpty && mounted) await _send(text, true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'వాయిస్ ప్రారంభం కాలేదు. Microphone permission చూసి మళ్లీ ప్రయత్నించండి.'
+              : 'Voice could not start. Check microphone permission and try again.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _voiceBusy = false);
+    }
+  }
+
+  Future<void> _showAttachmentMenu() async {
+    try {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined),
+            title: Text(_te ? 'కెమెరా' : 'Camera'),
+            onTap: () => Navigator.pop(context, 'camera'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: Text(_te ? 'ఫోటోలు' : 'Photos'),
+            onTap: () => Navigator.pop(context, 'photos'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.video_library_outlined),
+            title: Text(_te ? 'వీడియో' : 'Video'),
+            onTap: () => Navigator.pop(context, 'video'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.attach_file_rounded),
+            title: Text(_te ? 'ఫైల్స్' : 'Files'),
+            onTap: () => Navigator.pop(context, 'files'),
+          ),
+        ]),
+        ),
+      );
+      if (!mounted || choice == null) return;
+      if (choice == 'camera' || choice == 'photos' || choice == 'video') {
+      final capture = MultimodalCaptureService();
+      final file = choice == 'camera'
+          ? await capture.captureCamera()
+          : choice == 'video'
+              ? await capture.chooseVideo()
+              : await capture.chooseGallery();
+      if (file != null && mounted) {
+        final previewBytes = await file.readAsBytes();
+        if (!mounted) return;
+        setState(() {
+          _attachment = file;
+          _attachmentPreviewBytes = previewBytes;
+          _attachmentLabel = file.name;
+        });
+      }
+        return;
+      }
+      final picked = await FilePicker.pickFiles();
+      if (picked.isEmpty) return;
+      final file = picked.first;
+      final bytes = await file.readAsBytes();
+      final analyzed = await const DocumentIntelligenceService().analyzeBytes(
+        bytes: bytes,
+        filename: file.name,
+        mimeType: askodoxAttachmentMimeType(file.name),
+      );
+      if (!mounted) return;
+      setState(() {
+        _attachmentPreviewBytes = null;
+        _attachmentLabel = file.name;
+      });
+      if (analyzed != null) {
+        setState(() => _controller.text = analyzed.conversationSeed());
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_te
+            ? 'అటాచ్‌మెంట్‌ను తెరవడం లేదా విశ్లేషించడం సాధ్యం కాలేదు.'
+            : 'The attachment could not be opened or analyzed. Please try again.'),
+      ));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -141,10 +292,7 @@ class _AskodoxPrimaryHomeScreenState
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          final query = _lastGoodProductQuery ?? '';
-          if (query.isNotEmpty) {
-            matches = await _realMatches.search(query);
-          }
+          matches = await _findUniversalMatches(deal);
         }
       }
     }
@@ -193,16 +341,71 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
-  Future<void> _send([String? preset]) async {
-    final text = (preset ?? _controller.text).trim();
-    if (text.isEmpty || _sending) return;
+  Future<List<UniversalMatch>> _findUniversalMatches(
+    UniversalDeal deal,
+  ) async {
+    try {
+      final result = await ref
+          .read(universalMatchRepositoryProvider)
+          .createAndMatch(deal);
+      return result.matches;
+    } catch (_) {
+      // Keep the real seller catalog useful for signed-out commerce searches
+      // while universal backend matching is unavailable.
+      if (deal.intent != DealIntent.buy) return const [];
+      final query = _lastGoodProductQuery ?? '';
+      if (query.isEmpty) return const [];
+      return _realMatches.search(query);
+    }
+  }
+
+  Future<void> _send([String? preset, bool speakResponse = false]) async {
+    final attachment = _attachment;
+    var text = (preset ?? _controller.text).trim();
+    if (_sending ||
+        (text.isEmpty && attachment == null && _attachmentLabel == null)) {
+      return;
+    }
+    text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
+
+    if (attachment != null && !_isVideoAttachment(attachment)) {
+      final analysis = await const VisionApiService().analyze(
+        image: attachment,
+        userText: text,
+        language: _te ? 'te' : 'en',
+      );
+      final facts = analysis?['summary'] ?? analysis?['text'] ?? '';
+      if (facts.toString().trim().isNotEmpty) {
+        text = '$text\nAttachment facts: ${facts.toString().trim()}';
+      }
+    } else if (attachment != null) {
+      final analysis = await const VideoAnalysisService().analyze(
+        video: attachment,
+        userText: text,
+        language: _te ? 'te' : 'en',
+      );
+      text = const VideoAnalysisService().combinedRequest(
+        userText: text,
+        visualSummary: analysis?['visual_summary']?.toString(),
+        spokenTranscript: analysis?['spoken_transcript']?.toString(),
+      );
+    }
 
     setState(() {
       _sending = true;
       _active = true;
-      _turns.add(ConversationTurnRecord(text: text, isUser: true));
+      _matches = const [];
+      _listingBanner = null;
+      _listingBannerIsError = false;
+      _turns.add(ConversationTurnRecord(
+        text: _attachmentLabel == null ? text : '$text\n[Attachment: $_attachmentLabel]',
+        isUser: true,
+      ));
     });
     _controller.clear();
+    _attachment = null;
+    _attachmentPreviewBytes = null;
+    _attachmentLabel = null;
     _scrollBottom();
 
     final history = _turns
@@ -283,19 +486,33 @@ class _AskodoxPrimaryHomeScreenState
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          final query = _lastGoodProductQuery ?? '';
-          if (query.isNotEmpty) {
-            matches = await _realMatches.search(query)
-              ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
-          }
+          matches = await _findUniversalMatches(deal)
+            ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
         }
       }
     } else {
       notifier.reset();
     }
 
-    final reply =
-        aiUsable ? decision!.reply.trim() : _fallbackAssistantReply(text, _te);
+    final previous = _previousUserTurn();
+    final isGeneralContinuation = !transactional &&
+      previous != null &&
+      (_isContinuation(text.toLowerCase()) ||
+        _looksLikeGeneralFollowUp(text.toLowerCase()));
+    final reply = aiUsable &&
+        !(isGeneralContinuation &&
+          askodoxIsGenericAssistantReply(decision!.reply))
+      ? decision!.reply.trim()
+      : isGeneralContinuation
+        ? askodoxContinuationReply(
+          previousUserTurn: previous!,
+          telugu: _te,
+          )
+        : _fallbackAssistantReply(
+          text,
+          _te,
+          hasMatches: matches.isNotEmpty,
+          );
 
     if (!mounted) return;
     setState(() {
@@ -307,9 +524,39 @@ class _AskodoxPrimaryHomeScreenState
     });
     await _store.save(_turns);
     _scrollBottom();
+    if (speakResponse) await _speakReply(reply);
   }
 
-  String _fallbackAssistantReply(String text, bool te) {
+  Future<void> _speakReply(String reply) async {
+    try {
+      await const MethodChannel('com.askodox.app/device').invokeMethod<bool>(
+        'speakReply',
+        <String, Object?>{
+          'text': reply,
+          'languageCode': _te ? 'te' : 'en',
+          'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
+        },
+      );
+    } catch (_) {
+      // The text reply remains available when device TTS is unavailable.
+    }
+  }
+
+  bool _isVideoAttachment(XFile file) {
+    final mime = file.mimeType?.toLowerCase() ?? '';
+    final name = file.name.toLowerCase();
+    return mime.startsWith('video/') ||
+        name.endsWith('.mp4') ||
+        name.endsWith('.mov') ||
+        name.endsWith('.m4v') ||
+        name.endsWith('.webm');
+  }
+
+  String _fallbackAssistantReply(
+    String text,
+    bool te, {
+    bool? hasMatches,
+  }) {
     final q = text.toLowerCase();
     if (_has(q, ['job', 'jobs', 'ఉద్యోగం', 'జాబ్', 'computer operator'])) {
       return te
@@ -346,6 +593,11 @@ class _AskodoxPrimaryHomeScreenState
           : 'You’re looking for chicken or meat. I’m showing only relevant nearby sellers.';
     }
     if (AskodoxHomeRequestRouting.isTransactional(text)) {
+      if (hasMatches == false) {
+        return te
+            ? 'ఈ అభ్యర్థనకు ప్రస్తుతం ధృవీకరించిన match దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను; సరైన అవకాశం లభిస్తే ASKODOX మీకు తెలియజేస్తుంది.'
+            : 'I could not find a verified match for this request yet. I saved your need and ASKODOX will notify you when a suitable option becomes available.';
+      }
       return te
           ? 'మీ లావాదేవీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన ఎంపికలను మాత్రమే చూపిస్తున్నాను.'
           : 'I understand your transactional request. I’m showing only relevant options.';
@@ -355,9 +607,10 @@ class _AskodoxPrimaryHomeScreenState
     if (previous != null &&
         previous.trim().isNotEmpty &&
         (_isContinuation(q) || _looksLikeGeneralFollowUp(q))) {
-      return te
-          ? 'అవును, అదే కొనసాగిద్దాం. మీరు ముందు “${_shortContext(previous)}” అన్నారు. ఇప్పుడు మొదటి ముఖ్యమైన పని ఏదో నిర్ణయించి దానిని పూర్తి చేద్దాం; అది పూర్తయ్యాక వెంటనే తర్వాత పనికి వెళ్దాం.'
-          : 'Yes, let’s continue from there. You previously said “${_shortContext(previous)}”. Let’s decide the first priority now, finish it, and then move straight to the next task.';
+      return askodoxContinuationReply(
+        previousUserTurn: previous,
+        telugu: te,
+      );
     }
 
     return te
@@ -443,7 +696,7 @@ class _AskodoxPrimaryHomeScreenState
           const SizedBox(height: 8),
           Center(
               child: AskodoxVoiceOrb(
-                  onTap: () => context.push('/discover/voice'))),
+                onTap: _startVoice)),
           const SizedBox(height: 16),
           Text(
               te ? 'మీకు ఏ విధంగా సహాయం చేయగలను?' : 'How can I help you today?',
@@ -606,51 +859,115 @@ class _AskodoxPrimaryHomeScreenState
         decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
-        child: Row(children: [
-          IconButton.filled(
-              onPressed: () => context.push('/discover/voice'),
-              style: IconButton.styleFrom(backgroundColor: _accent),
-              icon: const Icon(Icons.mic_rounded, color: _ink)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            enabled: !_sending,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => _send(),
-            cursorColor: const Color(0xFF5B4BFF),
-            style: const TextStyle(
-                color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              hintText:
-                  te ? 'మీకు ఏమి కావాలో చెప్పండి…' : 'Tell me what you need…',
-              hintStyle: const TextStyle(
-                  color: Color(0xFF7B8496), fontWeight: FontWeight.w500),
-              filled: true,
-              fillColor: const Color(0xFFF8F9FC),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(26),
-                  borderSide:
-                      const BorderSide(color: Color(0xFFDDD9FF), width: 1.5)),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(26),
-                  borderSide:
-                      const BorderSide(color: Color(0xFF6C4DFF), width: 2)),
-            ),
-          )),
-          IconButton(
-              onPressed: () => context.push('/discover/image'),
-              icon: const Icon(Icons.image_outlined, color: _ink)),
-          IconButton.filled(
-              onPressed: _sending ? null : _send,
-              style: IconButton.styleFrom(backgroundColor: _blue),
-              icon:
-                  const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (_attachmentLabel != null) _attachmentPreview(te),
+        Row(children: [
+        IconButton.filled(
+          onPressed: _startVoice,
+          style: IconButton.styleFrom(
+            backgroundColor: _accent,
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero),
+          icon: const Icon(Icons.mic_rounded, color: _ink)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          enabled: !_sending,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _send(),
+          cursorColor: const Color(0xFF5B4BFF),
+          style: const TextStyle(
+            color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+          hintText:
+            te ? 'మీకు ఏమి కావాలో చెప్పండి…' : 'Tell me what you need…',
+          hintStyle: const TextStyle(
+            color: Color(0xFF7B8496), fontWeight: FontWeight.w500),
+          filled: true,
+          fillColor: const Color(0xFFF8F9FC),
+          contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(26),
+            borderSide: const BorderSide(
+              color: Color(0xFFDDD9FF), width: 1.5)),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(26),
+            borderSide: const BorderSide(
+              color: Color(0xFF6C4DFF), width: 2)),
+          ),
+        )),
+        IconButton(
+          onPressed: _showAttachmentMenu,
+          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+          padding: EdgeInsets.zero,
+          tooltip: te ? 'జోడించండి' : 'Add attachment',
+          icon: const Icon(Icons.add_circle_outline_rounded, color: _ink)),
+        IconButton.filled(
+          onPressed: _sending ? null : _send,
+          style: IconButton.styleFrom(
+            backgroundColor: _blue,
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero),
+          icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
         ]),
+      ]),
       );
+
+    Widget _attachmentPreview(bool te) => Container(
+      key: const Key('askodoxAttachmentPreview'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD7E3F5))),
+        child: Row(children: [
+        if (_attachmentPreviewBytes != null && !_isVideoName(_attachmentLabel))
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(_attachmentPreviewBytes!,
+            width: 48, height: 48, fit: BoxFit.cover))
+        else
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(
+              _isVideoName(_attachmentLabel)
+                  ? Icons.video_file_outlined
+                  : Icons.insert_drive_file_outlined,
+              color: _blue,
+            ),
+          ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(_attachmentLabel!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _ink, fontWeight: FontWeight.w700))),
+        IconButton(
+          tooltip: te ? 'తొలగించండి' : 'Remove attachment',
+          onPressed: _sending
+            ? null
+            : () => setState(() {
+              _attachment = null;
+              _attachmentPreviewBytes = null;
+              _attachmentLabel = null;
+              }),
+          icon: const Icon(Icons.close_rounded, color: _muted)),
+      ]),
+      );
+
+  bool _isVideoName(String? name) {
+    final value = (name ?? '').toLowerCase();
+    return value.endsWith('.mp4') ||
+        value.endsWith('.mov') ||
+        value.endsWith('.m4v') ||
+        value.endsWith('.webm');
+  }
 
   @override
   void dispose() {
@@ -777,6 +1094,19 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   UniversalMatch get _match => widget.match;
   bool get _te => widget.te;
 
+  Future<void> _openDestination() async {
+    final raw = _match.destinationUrl?.trim();
+    if (raw == null || raw.isEmpty) return;
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te ? 'లింక్ తెరవడం సాధ్యం కాలేదు.' : 'This destination could not be opened.'),
+        ));
+      }
+    }
+  }
+
   Future<void> _placeOrder() async {
     if (_placing) return;
     setState(() {
@@ -830,14 +1160,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           border: Border.all(color: const Color(0xFFE1E8F2))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFF0EFFF),
-                  borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.auto_awesome_rounded,
-                  color: Color(0xFF5B4BFF))),
+          SizedBox(
+            width: 64,
+            height: 64,
+            child: _match.imageUrl?.trim().isNotEmpty == true
+              ? ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(_match.imageUrl!, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _sourceIcon()))
+              : _sourceIcon()),
           const SizedBox(width: 12),
           Expanded(
               child: Column(
@@ -858,10 +1189,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 ],
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 6, children: [
+                  _meta(_sourceLabel(_match.source)),
                   if (match.score != null)
                     _meta('★ ${match.score!.toStringAsFixed(0)}%'),
                   if (distance != null) _meta(distance),
                   if (price != null) _meta(price),
+                  if (match.locationLabel?.trim().isNotEmpty == true)
+                    _meta(match.locationLabel!),
+                  if (match.availability?.trim().isNotEmpty == true)
+                    _meta(match.availability!),
                 ]),
               ])),
         ]),
@@ -900,9 +1236,43 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   ),
           ),
         ),
+        if (match.destinationUrl?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _openDestination,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: Text(_te ? 'వివరాలు చూడండి' : 'View details'),
+            ),
+          ),
+          if (match.disclosure?.trim().isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(match.disclosure!,
+                  style: const TextStyle(color: _muted, fontSize: 11)),
+            ),
+        ],
       ]),
     );
   }
+
+  Widget _sourceIcon() => Container(
+      decoration: BoxDecoration(
+          color: const Color(0xFFF0EFFF), borderRadius: BorderRadius.circular(14)),
+      child: Icon(
+          _match.source.toLowerCase() == 'online'
+              ? Icons.public_rounded
+              : _match.source.toLowerCase() == 'nearby'
+                  ? Icons.near_me_rounded
+                  : Icons.storefront_rounded,
+          color: const Color(0xFF5B4BFF)));
+
+  String _sourceLabel(String source) => switch (source.toLowerCase()) {
+        'online' => _te ? 'ఆన్‌లైన్' : 'Online',
+        'nearby' => _te ? 'దగ్గరలో' : 'Nearby',
+        _ => _te ? 'లోకల్' : 'Local',
+      };
 
   Widget _meta(String text) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),

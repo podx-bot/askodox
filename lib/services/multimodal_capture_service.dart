@@ -14,12 +14,25 @@ class MultimodalCaptureService {
 
   Future<XFile?> chooseGallery() => _pick(ImageSource.gallery);
 
+  Future<XFile?> chooseVideo() => _pickVideo(ImageSource.gallery);
+
   Future<XFile?> _pick(ImageSource source) async {
     try {
       return await _picker.pickImage(
         source: source,
         imageQuality: 85,
         maxWidth: 1600,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<XFile?> _pickVideo(ImageSource source) async {
+    try {
+      return await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: 60),
       );
     } catch (_) {
       return null;

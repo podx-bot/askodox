@@ -26,6 +26,7 @@ class MainActivity : FlutterActivity() {
     private val voiceRequestCode = 4301
     private val locationPermissionRequestCode = 4302
     private val acknowledgementUtteranceId = "askodox_voice_acknowledgement"
+    private val replyUtteranceId = "askodox_voice_reply"
     private var pendingVoiceResult: MethodChannel.Result? = null
     private var pendingLocationResult: MethodChannel.Result? = null
     private var pendingSpeechResult: MethodChannel.Result? = null
@@ -69,6 +70,13 @@ class MainActivity : FlutterActivity() {
                         call.argument("voicePreference"),
                         result,
                     )
+                    "speakReply" -> speakText(
+                        call.argument("text"),
+                        call.argument("languageCode"),
+                        call.argument("voicePreference"),
+                        replyUtteranceId,
+                        result,
+                    )
                     "getCurrentLocation" -> getCurrentLocation(result)
                     else -> result.notImplemented()
                 }
@@ -89,12 +97,12 @@ class MainActivity : FlutterActivity() {
                 override fun onStart(utteranceId: String?) = Unit
 
                 override fun onDone(utteranceId: String?) {
-                    if (utteranceId != acknowledgementUtteranceId) return
+                    if (utteranceId != acknowledgementUtteranceId && utteranceId != replyUtteranceId) return
                     runOnUiThread { finishSpeechResult(true) }
                 }
 
                 override fun onError(utteranceId: String?) {
-                    if (utteranceId != acknowledgementUtteranceId) return
+                    if (utteranceId != acknowledgementUtteranceId && utteranceId != replyUtteranceId) return
                     runOnUiThread { finishSpeechResult(false) }
                 }
             })
@@ -179,8 +187,25 @@ class MainActivity : FlutterActivity() {
         voicePreference: String?,
         result: MethodChannel.Result,
     ) {
+        val locale = localeFor(languageCode)
+        speakText(
+            acknowledgementText(locale.language),
+            languageCode,
+            voicePreference,
+            acknowledgementUtteranceId,
+            result,
+        )
+    }
+
+    private fun speakText(
+        text: String?,
+        languageCode: String?,
+        voicePreference: String?,
+        utteranceId: String,
+        result: MethodChannel.Result,
+    ) {
         val engine = textToSpeech
-        if (!ttsReady || engine == null) {
+        if (!ttsReady || engine == null || text.isNullOrBlank()) {
             result.success(false)
             return
         }
@@ -199,10 +224,10 @@ class MainActivity : FlutterActivity() {
         pendingSpeechResult = result
         engine.stop()
         val status = engine.speak(
-            acknowledgementText(locale.language),
+            text,
             TextToSpeech.QUEUE_FLUSH,
             null,
-            acknowledgementUtteranceId,
+            utteranceId,
         )
         if (status == TextToSpeech.ERROR) finishSpeechResult(false)
     }
