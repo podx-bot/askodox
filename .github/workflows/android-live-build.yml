@@ -174,7 +174,12 @@ jobs:
             dist/askodox-latest.apk \
             dist/latest.json \
             --clobber
-          gh release edit "$TAG" --title "ASKODOX ${VERSION}" --notes "ASKODOX_BUILD_NUMBER=${GITHUB_RUN_NUMBER}\nASKODOX_VERSION=${VERSION}\nLatest signed ASKODOX in-app update."
+          cat > release-notes.txt <<EOF
+          ASKODOX_BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          ASKODOX_VERSION=${VERSION}
+          Latest signed ASKODOX in-app update.
+          EOF
+          gh release edit "$TAG" --title "ASKODOX ${VERSION}" --notes-file release-notes.txt
           gh release view "$TAG" --json tagName,url,assets --jq '.tagName, .url, (.assets[].name)'
 
       - name: Publish prerelease download link

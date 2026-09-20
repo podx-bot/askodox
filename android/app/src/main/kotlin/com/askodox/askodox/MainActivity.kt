@@ -51,9 +51,16 @@ class MainActivity : FlutterActivity() {
                 try {
                     val apk = File(path)
                     val uri = FileProvider.getUriForFile(this, "$packageName.askodox.fileprovider", apk)
-                    startActivity(Intent(Intent.ACTION_VIEW).apply {
+                    startActivity(Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
                         setDataAndType(uri, "application/vnd.android.package-archive")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addCategory(Intent.CATEGORY_DEFAULT)
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+                        )
+                        putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
                     })
                     result.success(true)
                 } catch (e: Exception) {

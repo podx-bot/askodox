@@ -60,7 +60,7 @@ cp "$RES/drawable/launch_background.xml" "$RES/drawable-v21/launch_background.xm
 
 cat > "$RES/xml/askodox_update_paths.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="askodox_updates" path="." /></paths>
+<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="askodox_updates" path="." /><files-path name="askodox_files" path="." /></paths>
 EOF
 
 cat > "$KOTLIN_DIR/MainActivity.kt" <<'EOF'
