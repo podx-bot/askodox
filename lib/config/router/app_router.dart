@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -50,9 +51,12 @@ import '../../features/analytics/presentation/localized_analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
 
+final appNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
   return GoRouter(
+        navigatorKey: appNavigatorKey,
     errorBuilder: (context, state) => AuthMessageScreen(
         title: 'Page not found',
         message:

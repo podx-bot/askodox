@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'config/router/app_router.dart';
 import 'core/providers/backend_providers.dart';
 import 'core/update/askodox_update_service.dart';
 import 'features/analytics/application/analytics_providers.dart';
@@ -76,11 +77,12 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
       const service = AskodoxUpdateService();
       final result = await service.checkForUpdate();
       final update = result.update;
-      if (!mounted || update == null) return;
+      final navigatorContext = appNavigatorKey.currentContext;
+      if (!mounted || update == null || navigatorContext == null) return;
 
-      final te = Localizations.localeOf(context).languageCode == 'te';
+      final te = Localizations.localeOf(navigatorContext).languageCode == 'te';
       final install = await showDialog<bool>(
-        context: context,
+        context: navigatorContext,
         barrierDismissible: !update.mandatory,
         builder: (dialogContext) => AlertDialog(
           title: Text(te ? 'ASKODOX అప్‌డేట్ అందుబాటులో ఉంది' : 'ASKODOX update available'),
