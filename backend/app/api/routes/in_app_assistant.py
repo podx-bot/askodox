@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from app.services.buyer_guide_gate import wants_buying_guide
@@ -81,3 +81,28 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         )
 
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide)
+
+
+@router.post("/voice/transcribe")
+async def transcribe_in_app_voice(
+    request: Request,
+    audio: UploadFile = File(...),
+    locale: str = Form(default=""),
+) -> dict[str, Any]:
+    """Transcribe Main Chat microphone audio through the production Sarvam-first voice service."""
+    container: Any = request.app.state.container
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio upload")
+    result = container.voice_assistant_service.transcribe(
+        audio_bytes=audio_bytes,
+        mime_type=audio.content_type or "audio/m4a",
+    )
+    transcript = str((result or {}).get("transcript") or (result or {}).get("text") or "").strip()
+    if not transcript:
+        raise HTTPException(status_code=422, detail="Voice transcription failed")
+    return {
+        "transcript": transcript,
+        "locale": locale,
+        "provider": str((result or {}).get("provider") or "sarvam_first"),
+    }
