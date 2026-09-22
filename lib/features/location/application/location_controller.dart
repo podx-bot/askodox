@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/config/environment.dart';
 import '../../../core/providers/backend_providers.dart';
 
 import '../data/geolocator_location_gateway.dart';
