@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/update/askodox_update_service.dart';
+import '../../core/providers/backend_providers.dart';
+import '../../core/config/environment.dart';
 import '../../features/location/application/location_controller.dart';
 
 const _navInk = Color(0xFF10204A);
@@ -18,6 +20,8 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isTe = Localizations.localeOf(context).languageCode == 'te';
     final locationState = ref.watch(locationControllerProvider);
+    final config = ref.watch(appConfigProvider);
+    final liveBackend = config.backendProvider == BackendProvider.rest;
     final locationLabel = locationState.displayLocation ?? (isTe ? 'లొకేషన్ ఎంచుకోండి' : 'Choose location');
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -71,7 +75,22 @@ class AppShell extends ConsumerWidget {
             case 0: shell.goBranch(0, initialLocation: true); break;
             case 1: shell.goBranch(2, initialLocation: true); break;
             case 2: shell.goBranch(0, initialLocation: true); break;
-            case 3: context.go('/nearby'); break;
+            case 3:
+              if (liveBackend) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isTe
+                          ? 'నకిలీ Nearby ఫలితాలు నిలిపివేశాం. నిజమైన స్థానిక ఎంపికల కోసం ASKODOX చాట్‌ను ఉపయోగించండి.'
+                          : 'Mock Nearby results are disabled. Use ASKODOX chat for real local options.',
+                    ),
+                  ),
+                );
+                shell.goBranch(0, initialLocation: true);
+              } else {
+                context.go('/nearby');
+              }
+              break;
             case 4: shell.goBranch(4, initialLocation: true); break;
           }
         },
