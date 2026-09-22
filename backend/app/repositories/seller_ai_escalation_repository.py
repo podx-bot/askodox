@@ -1,7 +1,7 @@
 """Persistence for ask-seller-once product knowledge escalation."""
 from __future__ import annotations
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 
@@ -55,13 +55,26 @@ class SellerAIEscalationRepository:
             row = conn.execute("SELECT * FROM seller_ai_escalations WHERE id=?", (int(cur.lastrowid),)).fetchone()
             return {**dict(row), "created": True}
 
-    def latest_pending_for_seller(self, seller_user_id: str) -> Optional[Dict[str, Any]]:
+    def pending_for_seller(self, seller_user_id: str, max_age_hours: int = 24) -> list[Dict[str, Any]]:
+        """Return only fresh pending questions; stale rows are closed first."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).isoformat()
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM seller_ai_escalations WHERE seller_user_id=? AND status='PENDING' ORDER BY id DESC LIMIT 1",
-                (str(seller_user_id),),
-            ).fetchone()
-        return dict(row) if row else None
+            conn.execute(
+                "UPDATE seller_ai_escalations SET status='EXPIRED' "
+                "WHERE seller_user_id=? AND status='PENDING' AND created_at<?",
+                (str(seller_user_id), cutoff),
+            )
+            rows = conn.execute(
+                "SELECT * FROM seller_ai_escalations "
+                "WHERE seller_user_id=? AND status='PENDING' AND created_at>=? "
+                "ORDER BY id DESC",
+                (str(seller_user_id), cutoff),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def latest_pending_for_seller(self, seller_user_id: str) -> Optional[Dict[str, Any]]:
+        pending = self.pending_for_seller(seller_user_id)
+        return pending[0] if pending else None
 
     def answer(self, escalation_id: int, answer: str) -> Optional[Dict[str, Any]]:
         clean = str(answer or "").strip()
