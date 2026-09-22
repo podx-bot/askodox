@@ -3,13 +3,22 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/providers/backend_providers.dart';
+
 import '../data/geolocator_location_gateway.dart';
 import '../data/mock_geo_repository.dart';
 import '../domain/device_location_gateway.dart';
 import '../domain/geo_models.dart';
 import '../domain/geo_repository.dart';
 
-final geoRepositoryProvider = Provider<GeoRepository>((ref) => MockGeoRepository());
+final geoRepositoryProvider = Provider<GeoRepository?>((ref) {
+  final config = ref.watch(appConfigProvider);
+  // Never expose fictional nearby sellers in a real REST-backed build.
+  // Until a real geo seller repository is wired, Nearby intentionally returns
+  // no sellers rather than presenting mock shops as live commerce.
+  if (config.backendProvider == BackendProvider.rest) return null;
+  return MockGeoRepository();
+});
 final deviceLocationGatewayProvider = Provider<DeviceLocationGateway>(
   (ref) => const GeolocatorLocationGateway(),
 );
@@ -88,7 +97,7 @@ class LocationController extends StateNotifier<LocationState> {
   LocationController(this._repository, this._deviceLocation) : super(const LocationState());
 
   static const _storageKey = 'askodox.selected_location.v1';
-  final GeoRepository _repository;
+  final GeoRepository? _repository;
   final DeviceLocationGateway _deviceLocation;
 
   Future<void> restoreAndRefresh() async {
@@ -216,8 +225,17 @@ class LocationController extends StateNotifier<LocationState> {
       state = state.copyWith(message: 'Offline mode');
       return;
     }
+    final repository = _repository;
+    if (repository == null) {
+      state = state.copyWith(
+        loading: false,
+        shops: const [],
+        message: 'Nearby sellers are not available yet. Ask ASKODOX to find real local options.',
+      );
+      return;
+    }
     state = state.copyWith(loading: true);
-    final shops = await _repository.getNearbySellers(
+    final shops = await repository.getNearbySellers(
       GeoSearchQuery(centre: state.centre, radiusMetres: state.radiusMetres),
     );
     state = state.copyWith(
