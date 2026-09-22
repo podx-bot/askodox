@@ -266,7 +266,12 @@ class MainActivity : FlutterActivity() {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale.toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask ASKODOX")
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                // Give users enough time for natural Telugu/English/mixed requests.\n                // Some Android recognizers otherwise finalize after ~1–2 seconds of silence.\n                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)\n                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)\n                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)\n                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                // Give users enough time for natural Telugu/English/mixed requests.
+                // Some Android recognizers otherwise finalize after ~1–2 seconds of silence.
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             }
             startActivityForResult(intent, voiceRequestCode)
         } catch (e: Exception) {
