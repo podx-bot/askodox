@@ -30,9 +30,14 @@ class SellerAIEscalationService:
         return record
 
     def consume_seller_reply(self, sender_user_id: str, message: str) -> str | None:
-        pending = self.repository.latest_pending_for_seller(str(sender_user_id))
-        if not pending:
+        pending_records = self.repository.pending_for_seller(str(sender_user_id))
+        if not pending_records:
             return None
+        # A plain WhatsApp reply carries no product/question identifier. Never
+        # guess which buyer question it answers when more than one is pending.
+        if len(pending_records) != 1:
+            return None
+        pending = pending_records[0]
         answer = str(message or "").strip()
         if not answer:
             return None
