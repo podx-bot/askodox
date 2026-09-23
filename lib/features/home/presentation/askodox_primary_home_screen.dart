@@ -225,15 +225,14 @@ class _AskodoxPrimaryHomeScreenState
           : choice == 'video'
               ? await capture.chooseVideo()
               : await capture.chooseGallery();
-      if (file != null && mounted) {
-        final previewBytes = await file.readAsBytes();
-        if (!mounted) return;
-        setState(() {
-          _attachment = file;
-          _attachmentPreviewBytes = previewBytes;
-          _attachmentLabel = file.name;
-        });
-      }
+      if (file == null || !mounted) return;
+      final previewBytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _attachment = file;
+        _attachmentPreviewBytes = previewBytes;
+        _attachmentLabel = file.name;
+      });
         return;
       }
       final picked = await FilePicker.pickFiles();
@@ -250,9 +249,15 @@ class _AskodoxPrimaryHomeScreenState
         _attachmentPreviewBytes = null;
         _attachmentLabel = file.name;
       });
-      if (analyzed != null) {
-        setState(() => _controller.text = analyzed.conversationSeed());
+      if (analyzed == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'ఫైల్ తెరుచుకుంది, కానీ దాన్ని విశ్లేషించలేకపోయాం. మళ్లీ ప్రయత్నించండి.'
+              : 'The file opened, but analysis failed. Please try again.'),
+        ));
+        return;
       }
+      setState(() => _controller.text = analyzed.conversationSeed());
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
