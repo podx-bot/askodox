@@ -379,7 +379,16 @@ class _AskodoxPrimaryHomeScreenState
         userText: text,
         language: _te ? 'te' : 'en',
       );
-      final facts = analysis?['summary'] ?? analysis?['text'] ?? '';
+      if (analysis == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'ఫోటోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
+              : 'Photo analysis failed. The attachment is still here; please try again.'),
+        ));
+        return;
+      }
+      final facts = analysis['summary'] ?? analysis['text'] ?? '';
       if (facts.toString().trim().isNotEmpty) {
         text = '$text\nAttachment facts: ${facts.toString().trim()}';
       }
@@ -389,10 +398,19 @@ class _AskodoxPrimaryHomeScreenState
         userText: text,
         language: _te ? 'te' : 'en',
       );
+      if (analysis == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'వీడియోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
+              : 'Video analysis failed. The attachment is still here; please try again.'),
+        ));
+        return;
+      }
       text = const VideoAnalysisService().combinedRequest(
         userText: text,
-        visualSummary: analysis?['visual_summary']?.toString(),
-        spokenTranscript: analysis?['spoken_transcript']?.toString(),
+        visualSummary: analysis['visual_summary']?.toString(),
+        spokenTranscript: analysis['spoken_transcript']?.toString(),
       );
     }
 
