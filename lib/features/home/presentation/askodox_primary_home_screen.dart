@@ -225,15 +225,14 @@ class _AskodoxPrimaryHomeScreenState
           : choice == 'video'
               ? await capture.chooseVideo()
               : await capture.chooseGallery();
-      if (file != null && mounted) {
-        final previewBytes = await file.readAsBytes();
-        if (!mounted) return;
-        setState(() {
-          _attachment = file;
-          _attachmentPreviewBytes = previewBytes;
-          _attachmentLabel = file.name;
-        });
-      }
+      if (file == null || !mounted) return;
+      final previewBytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _attachment = file;
+        _attachmentPreviewBytes = previewBytes;
+        _attachmentLabel = file.name;
+      });
         return;
       }
       final picked = await FilePicker.pickFiles();
@@ -250,9 +249,15 @@ class _AskodoxPrimaryHomeScreenState
         _attachmentPreviewBytes = null;
         _attachmentLabel = file.name;
       });
-      if (analyzed != null) {
-        setState(() => _controller.text = analyzed.conversationSeed());
+      if (analyzed == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'ఫైల్ తెరుచుకుంది, కానీ దాన్ని విశ్లేషించలేకపోయాం. మళ్లీ ప్రయత్నించండి.'
+              : 'The file opened, but analysis failed. Please try again.'),
+        ));
+        return;
       }
+      setState(() => _controller.text = analyzed.conversationSeed());
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -374,7 +379,16 @@ class _AskodoxPrimaryHomeScreenState
         userText: text,
         language: _te ? 'te' : 'en',
       );
-      final facts = analysis?['summary'] ?? analysis?['text'] ?? '';
+      if (analysis == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'ఫోటోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
+              : 'Photo analysis failed. The attachment is still here; please try again.'),
+        ));
+        return;
+      }
+      final facts = analysis['summary'] ?? analysis['text'] ?? '';
       if (facts.toString().trim().isNotEmpty) {
         text = '$text\nAttachment facts: ${facts.toString().trim()}';
       }
@@ -384,10 +398,19 @@ class _AskodoxPrimaryHomeScreenState
         userText: text,
         language: _te ? 'te' : 'en',
       );
+      if (analysis == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'వీడియోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
+              : 'Video analysis failed. The attachment is still here; please try again.'),
+        ));
+        return;
+      }
       text = const VideoAnalysisService().combinedRequest(
         userText: text,
-        visualSummary: analysis?['visual_summary']?.toString(),
-        spokenTranscript: analysis?['spoken_transcript']?.toString(),
+        visualSummary: analysis['visual_summary']?.toString(),
+        spokenTranscript: analysis['spoken_transcript']?.toString(),
       );
     }
 
