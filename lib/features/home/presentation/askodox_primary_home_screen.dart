@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../services/in_app_assistant_service.dart';
@@ -528,7 +526,7 @@ class _AskodoxPrimaryHomeScreenState
       ? decision!.reply.trim()
       : isGeneralContinuation
         ? askodoxContinuationReply(
-          previousUserTurn: previous!,
+          previousUserTurn: previous,
           telugu: _te,
           )
         : _fallbackAssistantReply(
@@ -686,11 +684,6 @@ class _AskodoxPrimaryHomeScreenState
     return null;
   }
 
-  String _shortContext(String text) {
-    final compact = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (compact.length <= 72) return compact;
-    return '${compact.substring(0, 69)}…';
-  }
 
   bool _has(String text, List<String> words) => words.any(text.contains);
 
