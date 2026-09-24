@@ -172,7 +172,11 @@ jobs:
             "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-${BUILD_NUMBER}.apk"
           }
           EOF
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
+          # Harden the moving update channel against a stale/dangling tag.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --target "$GITHUB_SHA" --title "ASKODOX ${VERSION}" --notes "ASKODOX in-app update channel"
+          else
+            git push origin ":refs/tags/$TAG" >/dev/null 2>&1 || true
             gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "ASKODOX ${VERSION}" --notes "ASKODOX in-app update channel"
           fi
           gh release upload "$TAG" \
