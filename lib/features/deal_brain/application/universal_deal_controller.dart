@@ -88,6 +88,15 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     }
     final missing = current.missingForMatch;
     if (missing.isEmpty) return;
+    // Short answers often arrive out of question order ("curry cut" while
+    // ASKODOX asked for quantity) or several at once ("1 kg skinless").
+    // Fill every missing detail the answer clearly describes; only when it
+    // describes none of them fall back to the next pending question.
+    final semantic = _semanticAnswer(current, missing, value);
+    if (semantic != null) {
+      _setSession(_sessionFor(semantic));
+      return;
+    }
     final field = missing.first;
     final fields = Map<String, Object?>.from(current.dynamicFields);
     var next = current;
@@ -295,6 +304,86 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     if (amount == null) return null;
     return (amount, match?.group(2) ?? 'unit');
   }
+
+  static const _cutWords = [
+    'curry', 'biryani', 'boneless', 'bone less', 'with bone', 'whole bird',
+    'whole chicken', 'small pieces', 'big pieces', 'medium pieces', 'keema',
+    'kheema', 'mince', 'breast', 'leg piece', 'drumstick', 'wings', 'fry cut',
+    'cut', 'కర్రీ', 'బిర్యానీ', 'బోన్‌లెస్', 'బోన్లెస్', 'ముక్కలు', 'కీమా',
+  ];
+  static const _preferenceWords = [
+    'skinless', 'skin less', 'with skin', 'without skin', 'no skin', 'skin',
+    'liver', 'gizzard', 'no preference', 'స్కిన్', 'లివర్',
+  ];
+  static const _freshnessWords = [
+    'fresh', 'live', 'chilled', 'frozen', 'తాజా', 'ఫ్రెష్',
+  ];
+
+  // ASCII keywords match whole words only ("live" must not match inside
+  // "delivery"); Telugu keywords match as substrings (suffixes attach).
+  bool _mentions(String lower, List<String> words) => words.any((word) {
+        if (!RegExp(r'^[a-z ]+$').hasMatch(word)) return lower.contains(word);
+        return RegExp('(^|[^a-z])${RegExp.escape(word)}(\$|[^a-z])')
+            .hasMatch(lower);
+      });
+
+  UniversalDeal? _semanticAnswer(
+    UniversalDeal current,
+    List<String> missing,
+    String value,
+  ) {
+    final lower = value.toLowerCase();
+    // "live-cut" names freshness, not the cut style.
+    final cutText = lower.replaceAll(RegExp(r'live[\s-]?cut'), ' ');
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    var next = current;
+    var filled = false;
+    for (final field in missing) {
+      switch (field) {
+        case 'quantity':
+          final parsed = _quantity(_normalizeTeluguUnits(lower));
+          if (parsed != null && parsed.$2 != 'unit') {
+            next = next.copyWith(quantity: parsed.$1, unit: parsed.$2);
+            filled = true;
+          }
+        case 'cut':
+          if (_mentions(cutText, _cutWords)) {
+            fields['cut'] = value;
+            filled = true;
+          }
+        case 'chickenPreference':
+          if (_mentions(lower, _preferenceWords)) {
+            fields['chickenPreference'] = value;
+            filled = true;
+          }
+        case 'freshness':
+          if (_mentions(lower, _freshnessWords)) {
+            fields['freshness'] = value;
+            filled = true;
+          }
+        case 'size':
+          final size = UniversalDealBrain.screenSizeIn(lower);
+          if (size != null) {
+            next = next.copyWith(size: size);
+            filled = true;
+          }
+        case 'fulfilment':
+          final mode = _fulfilment(value);
+          if (mode != null) {
+            next = next.copyWith(fulfilment: mode);
+            filled = true;
+          }
+      }
+    }
+    if (!filled) return null;
+    return next.copyWith(dynamicFields: fields);
+  }
+
+  String _normalizeTeluguUnits(String value) => value
+      .replaceAll('కిలోలు', ' kg')
+      .replaceAll('కిలో', ' kg')
+      .replaceAll('కేజీ', ' kg')
+      .replaceAll('గ్రాములు', ' g');
 
   String? _fulfilment(String value) {
     final lower = value.toLowerCase();

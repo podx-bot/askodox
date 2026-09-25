@@ -19,11 +19,20 @@ class UniversalDealBrain {
       quantity: _numberBeforeUnit(lower),
       unit: _unit(lower),
       price: _price(lower),
+      size: screenSizeIn(lower),
       fulfilment: _fulfilment(lower),
       location: DealLocation(label: _location(text, intent)),
       timing: _timing(lower),
       dynamicFields: _dynamicFields(text, lower, intent),
     );
+  }
+
+  /// "43 inch", "55-inch", "43\"", "43 ఇంచ్" → "43 inch". A size stated
+  /// in the request must not be asked for again.
+  static String? screenSizeIn(String lower) {
+    final match = RegExp(r'(\d{2,3})\s*-?\s*(inches|inch|"|ఇంచ్|అంగుళ)')
+        .firstMatch(lower);
+    return match == null ? null : '${match.group(1)} inch';
   }
 
   DealIntent _intent(String text) {

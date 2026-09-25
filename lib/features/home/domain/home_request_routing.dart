@@ -74,6 +74,24 @@ class AskodoxHomeRequestRouting {
 
   static bool isTransactional(String text) => kindOf(text) != AskodoxHomeRequestKind.general;
 
+  /// A short reply that answers a pending detail question ("curry cut",
+  /// "1 kg", "skinless", "delivery") rather than starting a new request or
+  /// asking something else. Only meaningful while a deal is unfinished.
+  static bool isShortDetailAnswer(String text) {
+    final clean = text.trim();
+    if (clean.isEmpty || clean.contains('?')) return false;
+    final words = clean.split(RegExp(r'\s+'));
+    final kind = kindOf(clean);
+    // "delivery" / "home delivery" answers the pickup-or-delivery question;
+    // it is not a new parcel request.
+    final fulfilmentOnly = kind == AskodoxHomeRequestKind.parcel &&
+        words.length <= 4 &&
+        !_has(clean.toLowerCase(),
+            const ['parcel', 'courier', 'send', 'పార్సెల్', 'పంపాలి']);
+    if (kind != AskodoxHomeRequestKind.general && !fulfilmentOnly) return false;
+    return words.length <= 8;
+  }
+
   static bool shouldStartFresh(String? activeText, String incomingText) {
     final incoming = kindOf(incomingText);
     if (incoming == AskodoxHomeRequestKind.general) return false;

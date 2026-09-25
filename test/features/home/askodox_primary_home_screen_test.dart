@@ -26,7 +26,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
-      if (call.method == 'startVoiceSearch') return '';
+      if (call.method == 'startVoiceRecording') return null;
       return null;
     });
 
@@ -42,8 +42,10 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
     await tester.pump();
 
+    // Main Chat voice records in-app for the Sarvam-first backend
+    // transcription; it never opens the system RecognizerIntent.
     expect(calls, hasLength(1));
-    expect(calls.single.method, 'startVoiceSearch');
+    expect(calls.single.method, 'startVoiceRecording');
     expect(calls.single.arguments, {'languageCode': 'en'});
     expect(tester.takeException(), isNull);
   });

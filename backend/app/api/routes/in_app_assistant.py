@@ -83,6 +83,31 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide)
 
 
+_AUDIO_MIME_BY_SUFFIX = {
+    ".m4a": "audio/mp4",
+    ".mp4": "audio/mp4",
+    ".aac": "audio/aac",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/opus",
+    ".mp3": "audio/mpeg",
+    ".webm": "audio/webm",
+}
+
+
+def _audio_mime_type(content_type: str | None, filename: str | None) -> str:
+    """Multipart clients often send application/octet-stream; Sarvam needs
+    the real audio type, so fall back to the file extension."""
+    declared = str(content_type or "").split(";", 1)[0].strip().lower()
+    if declared.startswith("audio/"):
+        return declared
+    name = str(filename or "").lower()
+    for suffix, mime in _AUDIO_MIME_BY_SUFFIX.items():
+        if name.endswith(suffix):
+            return mime
+    return "audio/mp4"
+
+
 @router.post("/voice/transcribe")
 async def transcribe_in_app_voice(
     request: Request,
@@ -96,7 +121,7 @@ async def transcribe_in_app_voice(
         raise HTTPException(status_code=400, detail="Empty audio upload")
     result = container.voice_assistant_service.transcribe(
         audio_bytes=audio_bytes,
-        mime_type=audio.content_type or "audio/m4a",
+        mime_type=_audio_mime_type(audio.content_type, audio.filename),
     )
     transcript = str((result or {}).get("transcript") or (result or {}).get("text") or "").strip()
     if not transcript:

@@ -6,7 +6,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import android.media.MediaRecorder
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -25,6 +30,7 @@ class MainActivity : FlutterActivity() {
     private val deviceChannel = "com.askodox.app/device"
     private val voiceRequestCode = 4301
     private val locationPermissionRequestCode = 4302
+    private val microphonePermissionRequestCode = 4303
     private val acknowledgementUtteranceId = "askodox_voice_acknowledgement"
     private val replyUtteranceId = "askodox_voice_reply"
     private var pendingVoiceResult: MethodChannel.Result? = null
@@ -32,6 +38,39 @@ class MainActivity : FlutterActivity() {
     private var pendingSpeechResult: MethodChannel.Result? = null
     private var textToSpeech: TextToSpeech? = null
     private var ttsReady = false
+
+    // Main Chat voice: record in-app and let the backend's Sarvam-first
+    // /api/in-app/voice/transcribe produce the transcript (Telugu, English,
+    // mixed). The system RecognizerIntent is not used for Main Chat.
+    private var pendingRecordingResult: MethodChannel.Result? = null
+    private var recorder: MediaRecorder? = null
+    private var recordingFile: File? = null
+    private var recordingStartedAt = 0L
+    private var lastVoiceAt = 0L
+    private var heardSpeech = false
+    private val recordingHandler = Handler(Looper.getMainLooper())
+    private val recordingCheck = object : Runnable {
+        override fun run() {
+            val active = recorder ?: return
+            val now = SystemClock.elapsedRealtime()
+            val amplitude = try { active.maxAmplitude } catch (_: Exception) { 0 }
+            if (amplitude > speechAmplitudeThreshold) {
+                heardSpeech = true
+                lastVoiceAt = now
+            }
+            val elapsed = now - recordingStartedAt
+            when {
+                elapsed >= maxRecordingMillis -> finishRecording(keep = true)
+                heardSpeech && now - lastVoiceAt >= silenceAfterSpeechMillis -> finishRecording(keep = true)
+                !heardSpeech && elapsed >= noSpeechTimeoutMillis -> finishRecording(keep = true, noSpeech = true)
+                else -> recordingHandler.postDelayed(this, 200L)
+            }
+        }
+    }
+    private val speechAmplitudeThreshold = 1800
+    private val silenceAfterSpeechMillis = 2500L
+    private val noSpeechTimeoutMillis = 8000L
+    private val maxRecordingMillis = 30000L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -72,6 +111,15 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startVoiceSearch" -> startVoiceSearch(call.argument("languageCode"), result)
+                    "startVoiceRecording" -> startVoiceRecording(result)
+                    "stopVoiceRecording" -> {
+                        finishRecording(keep = true)
+                        result.success(true)
+                    }
+                    "cancelVoiceRecording" -> {
+                        finishRecording(keep = false)
+                        result.success(true)
+                    }
                     "speakAcknowledgement" -> speakAcknowledgement(
                         call.argument("languageCode"),
                         call.argument("voicePreference"),
@@ -280,6 +328,94 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun startVoiceRecording(result: MethodChannel.Result) {
+        if (pendingRecordingResult != null) {
+            result.error("voice_busy", "Voice recording is already active", null)
+            return
+        }
+        pendingRecordingResult = result
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                microphonePermissionRequestCode,
+            )
+            return
+        }
+        beginRecording()
+    }
+
+    private fun beginRecording() {
+        val result = pendingRecordingResult ?: return
+        var file: File? = null
+        var active: MediaRecorder? = null
+        try {
+            file = File.createTempFile("askodox_voice_", ".m4a", cacheDir)
+            active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(this)
+            } else {
+                @Suppress("DEPRECATION")
+                MediaRecorder()
+            }
+            active.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            active.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            active.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            active.setAudioSamplingRate(16000)
+            active.setAudioChannels(1)
+            active.setAudioEncodingBitRate(64000)
+            active.setOutputFile(file.absolutePath)
+            active.prepare()
+            active.start()
+            recorder = active
+            recordingFile = file
+            recordingStartedAt = SystemClock.elapsedRealtime()
+            lastVoiceAt = recordingStartedAt
+            heardSpeech = false
+            recordingHandler.postDelayed(recordingCheck, 200L)
+        } catch (e: Exception) {
+            try { active?.release() } catch (_: Exception) {}
+            file?.delete()
+            pendingRecordingResult = null
+            result.error("voice_unavailable", e.message ?: "Microphone unavailable", null)
+        }
+    }
+
+    /** Ends the active recording. keep=false is a user cancel (returns null). */
+    private fun finishRecording(keep: Boolean, noSpeech: Boolean = false) {
+        recordingHandler.removeCallbacks(recordingCheck)
+        val active = recorder
+        val file = recordingFile
+        recorder = null
+        recordingFile = null
+        val result = pendingRecordingResult
+        pendingRecordingResult = null
+        var stopped = false
+        if (active != null) {
+            stopped = try {
+                active.stop()
+                true
+            } catch (_: Exception) {
+                false // stop() throws when nothing usable was captured
+            }
+            try { active.release() } catch (_: Exception) {}
+        }
+        if (result == null) {
+            file?.delete()
+            return
+        }
+        when {
+            !keep -> {
+                file?.delete()
+                result.success(null)
+            }
+            noSpeech || !stopped || file == null || file.length() == 0L -> {
+                file?.delete()
+                result.error("no_speech", "No speech was heard", null)
+            }
+            else -> result.success(file.absolutePath)
+        }
+    }
+
     private fun getCurrentLocation(result: MethodChannel.Result) {
         if (pendingLocationResult != null) {
             result.error("location_busy", "Location request is already active", null)
@@ -337,6 +473,16 @@ class MainActivity : FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == microphonePermissionRequestCode) {
+            val result = pendingRecordingResult ?: return
+            if (grantResults.any { it == PackageManager.PERMISSION_GRANTED }) {
+                beginRecording()
+            } else {
+                pendingRecordingResult = null
+                result.error("mic_denied", "Microphone permission denied", null)
+            }
+            return
+        }
         if (requestCode != locationPermissionRequestCode) return
         val result = pendingLocationResult ?: return
         pendingLocationResult = null
@@ -347,7 +493,15 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onPause() {
+        // Leaving the app (call, home button) cancels an in-flight recording
+        // instead of silently recording in the background.
+        if (recorder != null) finishRecording(keep = false)
+        super.onPause()
+    }
+
     override fun onDestroy() {
+        finishRecording(keep = false)
         pendingSpeechResult?.success(false)
         pendingSpeechResult = null
         textToSpeech?.stop()
