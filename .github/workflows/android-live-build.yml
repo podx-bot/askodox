@@ -39,28 +39,42 @@ jobs:
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      # A plain push to main has no workflow_dispatch input, so it used to
-      # fall back to the literal string '919' on every single push -- every
-      # push-triggered live build was labeled build 919 regardless of what
-      # code actually changed. That made the in-app updater's own
-      # ASKODOX_BUILD_NUMBER comparison useless for detecting a real update:
-      # a device already on a "919" install could never see a newer one.
-      # github.run_number is this workflow's own monotonically increasing
-      # per-run counter (currently 228), so it is offset by 1000 -- safely
-      # past the highest build number ever manually published (920, see
-      # the askodox-920/android-920 release history) -- to guarantee every
-      # future push-triggered build number is both unique and always
-      # greater than any previously installed one. Android refuses to
-      # install an update with a lower versionCode, so this must never
-      # regress. workflow_dispatch keeps its explicit input (and that
-      # input's own '919' default) for manual overrides.
-      BUILD_NUMBER: ${{ inputs.build_number || (1000 + github.run_number) }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
+      - name: Compute Android build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A plain push to main has no workflow_dispatch input, so it used to
+          # fall back to the literal string '919' on every single push -- every
+          # push-triggered live build was labeled build 919 regardless of what
+          # code actually changed. That made the in-app updater's own
+          # ASKODOX_BUILD_NUMBER comparison useless for detecting a real
+          # update: a device already on a "919" install could never see a
+          # newer one. github.run_number is this workflow's own monotonically
+          # increasing per-run counter, so it is offset by 1000 -- safely past
+          # the highest build number ever manually published (920, see the
+          # askodox-920/android-920 release history) -- to guarantee every
+          # future push-triggered build number is both unique and always
+          # greater than any previously installed one. Android refuses to
+          # install an update with a lower versionCode, so this must never
+          # regress. workflow_dispatch keeps its explicit input (and that
+          # input's own '919' default) for manual overrides. This has to be
+          # plain shell arithmetic, not a `${{ }}` expression: GitHub Actions'
+          # expression language has no `+` arithmetic operator, so
+          # `${{ 1000 + github.run_number }}` is invalid syntax that fails
+          # the whole workflow at parse time before any job runs.
+          INPUT_BUILD_NUMBER="${{ inputs.build_number }}"
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            echo "BUILD_NUMBER=$INPUT_BUILD_NUMBER" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_NUMBER=$((1000 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+          fi
 
       - name: Validate live build configuration
         shell: bash
