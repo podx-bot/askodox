@@ -24,7 +24,15 @@ class DynamicRoleProfileAttachmentService:
         ("DELIVERY", "SEEKER"): "DELIVERY_CUSTOMER",
     }
 
-    def __init__(self, delegate, category_brain, user_repository, min_confidence: float = 0.75, profile_essentials=None, session_registry=None, smart_job_message_service=None) -> None:
+    # Also reused by the /api/in-app/assistant route to compute a lightweight,
+    # non-persistent "active role" suggestion for the chat UI on every
+    # message -- see in_app_assistant.py. Keeping one shared threshold avoids
+    # the UI's role hint and this service's actual durable capability
+    # attachment (which only runs on the deeper /deals and WhatsApp pipeline)
+    # from silently drifting apart.
+    MIN_CONFIDENCE = 0.75
+
+    def __init__(self, delegate, category_brain, user_repository, min_confidence: float = MIN_CONFIDENCE, profile_essentials=None, session_registry=None, smart_job_message_service=None) -> None:
         self.delegate = delegate
         self.category_brain = category_brain
         self.user_repository = user_repository

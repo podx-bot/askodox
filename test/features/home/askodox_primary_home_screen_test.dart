@@ -3,8 +3,42 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
+import 'package:podx/services/askodox_voice_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:podx/services/video_analysis_service.dart';
+
+/// Records calls without touching the real microphone/audio plugins, so
+/// widget tests can verify the Main Chat voice flow without a device.
+class _FakeAskodoxVoiceService extends AskodoxVoiceService {
+  _FakeAskodoxVoiceService({this.transcript});
+  final String? transcript;
+  final List<String> calls = [];
+
+  @override
+  Future<void> startListening() async {
+    calls.add('startListening');
+  }
+
+  @override
+  Future<String?> stopAndTranscribe({required String locale}) async {
+    calls.add('stopAndTranscribe:$locale');
+    return transcript;
+  }
+
+  @override
+  Future<void> cancel() async {
+    calls.add('cancel');
+  }
+
+  @override
+  Future<bool> speak(
+    String text, {
+    required Future<void> Function() onSarvamUnavailable,
+  }) async {
+    calls.add('speak:$text');
+    return true;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -16,24 +50,32 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  testWidgets('primary home orb starts voice inside Main Chat', (tester) async {
+  testWidgets(
+      'primary home orb records in-app instead of opening the external '
+      'Google speech-recognition popup', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tester.view.physicalSize = const Size(1440, 2400);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final calls = <MethodCall>[];
+    final legacyChannelCalls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'startVoiceSearch') return '';
+      legacyChannelCalls.add(call);
       return null;
     });
+    // Empty transcript keeps this test hermetic: _send()'s real network
+    // call is only reached for non-empty text, matching how the previous
+    // version of this test used an empty startVoiceSearch result for the
+    // same reason.
+    final fakeVoice = _FakeAskodoxVoiceService(transcript: null);
 
     await tester.pumpWidget(
-      const ProviderScope(
+      ProviderScope(
         child: MaterialApp(
-          home: Scaffold(body: AskodoxPrimaryHomeScreen()),
+          home: Scaffold(
+            body: AskodoxPrimaryHomeScreen(voiceService: fakeVoice),
+          ),
         ),
       ),
     );
@@ -42,9 +84,21 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
     await tester.pump();
 
-    expect(calls, hasLength(1));
-    expect(calls.single.method, 'startVoiceSearch');
-    expect(calls.single.arguments, {'languageCode': 'en'});
+    expect(fakeVoice.calls, ['startListening']);
+    expect(tester.takeException(), isNull);
+
+    // Tapping again stops the in-app recording (ASKODOX controls when
+    // speech ends, not a platform silence timer) and transcribes it.
+    await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
+    await tester.pump();
+
+    expect(fakeVoice.calls, ['startListening', 'stopAndTranscribe:en']);
+    // The primary Main Chat voice flow never calls the legacy
+    // RecognizerIntent-backed native channel method.
+    expect(
+      legacyChannelCalls.where((call) => call.method == 'startVoiceSearch'),
+      isEmpty,
+    );
     expect(tester.takeException(), isNull);
   });
 
