@@ -7,15 +7,19 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `54f5f77` — round 16 / PR #61, merged 2026-09-17.
-- The identity-spoofing audit (started before round 10) is CLOSED: every
-  file it flagged is fixed or deleted. No dedicated identity-fix round is
-  currently needed.
-- `_explicit_target`'s role-keyword gate now matches whole words, not bare
-  substrings (round 16) — the "actually"/"all" false-positive is fixed.
+- `main` @ `e8c666c` — PR #89 (includes PR #88's `109820e`), merged
+  2026-09-25. Previous: PR #87 (`b505b27`) unified in-chat results.
+- Live build **1236** (v1.0.1236) from `e8c666c` is on the in-app update
+  channel (`askodox-latest` release). Flutter CI #895, Android APK CI #18,
+  Android Live Build #236 all green.
+- Sprint status: NOT complete. Real-phone acceptance on build 1236 is still
+  required for: Chicken (curry cut → 1 kg → skinless → results), 43-inch TV
+  (local + online/affiliate + video, context kept), Telugu voice via Sarvam
+  (mic permission, silence auto-stop, cancel, transcript quality).
+- The identity-spoofing audit (started before round 10) is CLOSED.
 - Roadmap (14 points, phased delivery): https://claude.ai/artifact/TWUnjbA2TTubwczT9Lxg4n
   — Phase 0–1 done, Phase 2 round 1 (seller tiers) done, rest of Phase 2 and
-  Phases 3–9 open. Next work returns here.
+  Phases 3–9 open.
 - Always confirm this checkpoint against `git fetch origin main` before
   relying on it — this line is updated after each merge, but git is truth.
 
@@ -63,8 +67,26 @@ this file, don't trust it blindly.
   Flutter caller was updated — this caused a real production outage once
   (round 13 → round 14 hotfix). Grep the whole Flutter app for every
   caller of a route whenever its auth changes.
+- Main Chat (`askodox_primary_home_screen.dart`) is the primary journey:
+  results are embedded per assistant turn (`chat_result_policy.dart` decides
+  card actions: Party B → `acceptMatch`, numeric listing → order request,
+  online/video → link only). Don't build a separate results page.
+- `UniversalDealController.answer()` fills the field an answer *describes*
+  (with positional fallback); short detail answers bypass the AI rewrite
+  (`AskodoxHomeRequestRouting.isShortDetailAnswer`) so they can't restart the
+  active deal. Keep both when touching follow-up handling.
+- Main Chat voice = native `MediaRecorder` (`startVoiceRecording` on the
+  `com.askodox.app/device` channel) → `POST /api/in-app/voice/transcribe`
+  (Sarvam-first). Never reintroduce the `RecognizerIntent` fallback there.
+- No Android SDK in the cloud dev container: Kotlin changes compile only in
+  CI (`Android APK CI` / `Android Live Build`).
 
 ## Known open issues (verified, not yet fixed)
+- `/discover/voice` (ProductDiscoveryScreen) still uses the Android system
+  `RecognizerIntent`; only Main Chat voice goes through Sarvam. Voice
+  *replies* still use device TTS, not Sarvam TTS.
+- A combined answer ("1 kg curry cut skinless") is stored whole in both
+  `cut` and `chickenPreference` (matching still completes).
 - No automated check catches "a route's auth requirement changed but a
   Flutter caller wasn't updated" — manual grep only (see gotcha above).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
