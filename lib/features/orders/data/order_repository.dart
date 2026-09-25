@@ -81,14 +81,26 @@ class Order {
   // plain phone number for display, and return null both when it's
   // withheld (blank string) and when the other party is a guest with no
   // real phone on record ("app-guest-...").
-  String? get sellerContact => _phoneFrom(sellerUserId);
-  String? get buyerContact => _phoneFrom(buyerUserId);
+  // 2026-09-25: also gated on status here (defense in depth), so a stale
+  // or misbehaving response can never surface a phone before acceptance.
+  String? get sellerContact =>
+      orderContactVisible(status) ? _phoneFrom(sellerUserId) : null;
+  String? get buyerContact =>
+      orderContactVisible(status) ? _phoneFrom(buyerUserId) : null;
 
   static String? _phoneFrom(String userId) {
     final match = RegExp(r'^app-phone-(\d+)$').firstMatch(userId);
     return match?.group(1);
   }
 }
+
+/// Mirrors backend `order_contact_visibility.CONTACT_VISIBLE_STATUSES`: the
+/// other party's contact is shown only once the request is accepted (or
+/// fulfilled). Any other or unknown status keeps it hidden.
+const orderContactVisibleStatuses = {'ACCEPTED', 'FULFILLED'};
+
+bool orderContactVisible(String? status) =>
+    orderContactVisibleStatuses.contains((status ?? '').trim().toUpperCase());
 
 class OrderActionResult {
   const OrderActionResult({required this.success, this.order, this.message});

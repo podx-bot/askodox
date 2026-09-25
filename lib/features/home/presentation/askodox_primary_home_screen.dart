@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/environment.dart';
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../core/providers/backend_providers.dart';
 import '../../../services/in_app_assistant_service.dart';
 import '../../../services/document_intelligence_service.dart';
 import '../../../services/real_product_match_service.dart';
@@ -21,6 +23,7 @@ import '../../location/application/location_controller.dart';
 import '../../matching/data/universal_match_repository.dart';
 import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
+import '../domain/chat_result_policy.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
 import 'askodox_orb.dart';
@@ -69,6 +72,16 @@ String askodoxContinuationReply({
       normalized == 'understood. continuing your request.';
     }
 
+// Injectable so widget tests can drive the whole chat → matching → results
+// flow without the network. Production uses the same default instances the
+// screen always constructed directly.
+final askodoxAssistantServiceProvider =
+    Provider<InAppAssistantService>((ref) => const InAppAssistantService());
+final askodoxRealProductMatchServiceProvider =
+    Provider<RealProductMatchService>((ref) => const RealProductMatchService());
+final askodoxVisionServiceProvider =
+    Provider<VisionApiService>((ref) => const VisionApiService());
+
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
   const AskodoxPrimaryHomeScreen({super.key});
   @override
@@ -82,10 +95,15 @@ class _AskodoxPrimaryHomeScreenState
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
   final _store = ConversationTurnStore();
-  final _assistant = const InAppAssistantService();
-  final _realMatches = const RealProductMatchService();
   final List<ConversationTurnRecord> _turns = [];
-  List<UniversalMatch> _matches = const [];
+
+  // Rich results embedded in the conversation, keyed by the index of the
+  // assistant turn they belong to. Earlier result sets stay in the history
+  // while the user refines, like any other chat message.
+  final Map<int, AskodoxChatResults> _resultsByTurn = {};
+  final Map<int, UniversalDeal> _dealByTurn = {};
+  final Map<int, String> _roleNoticeByTurn = {};
+  DealIntent? _lastIntent;
   bool _active = false;
   bool _sending = false;
   bool _voiceBusy = false;
@@ -281,7 +299,7 @@ class _AskodoxPrimaryHomeScreenState
     // placeholder businesses before the app had even finished asking for
     // required details). `readyToMatch` keeps the same "don't show anything
     // until the request is actually understood" gate the demo catalog used.
-    var matches = const <UniversalMatch>[];
+    AskodoxChatResults? results;
     String? listingBanner;
     var listingBannerIsError = false;
     if (deal != null) {
@@ -295,15 +313,20 @@ class _AskodoxPrimaryHomeScreenState
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          matches = await _findUniversalMatches(deal);
+          results = await _findUniversalMatches(deal);
         }
       }
+      _lastIntent = deal.intent;
     }
     if (!mounted) return;
     setState(() {
       _turns.addAll(records);
       _active = true;
-      _matches = matches;
+      final lastAssistant = _turns.lastIndexWhere((turn) => !turn.isUser);
+      if (results != null && !results.isEmpty && lastAssistant >= 0) {
+        _resultsByTurn[lastAssistant] = results;
+        if (deal != null) _dealByTurn[lastAssistant] = deal;
+      }
       _listingBanner = listingBanner;
       _listingBannerIsError = listingBannerIsError;
     });
@@ -344,22 +367,54 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
-  Future<List<UniversalMatch>> _findUniversalMatches(
+  Future<AskodoxChatResults> _findUniversalMatches(
     UniversalDeal deal,
   ) async {
     try {
       final result = await ref
           .read(universalMatchRepositoryProvider)
           .createAndMatch(deal);
-      return result.matches;
-    } catch (_) {
+      final matches = [...result.matches]
+        ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+      return AskodoxChatResults(dealId: result.dealId, matches: matches);
+    } on DealNeedsDetailsException catch (error) {
+      return AskodoxChatResults(missingFields: error.missingFields);
+    } catch (error) {
+      final signInRequired =
+          error.toString().toLowerCase().contains('sign in');
       // Keep the real seller catalog useful for signed-out commerce searches
       // while universal backend matching is unavailable.
-      if (deal.intent != DealIntent.buy) return const [];
-      final query = _lastGoodProductQuery ?? '';
-      if (query.isEmpty) return const [];
-      return _realMatches.search(query);
+      final query = (_lastGoodProductQuery ?? deal.subject ?? '').trim();
+      var local = const <UniversalMatch>[];
+      if (deal.intent == DealIntent.buy && query.isNotEmpty) {
+        local = await ref
+            .read(askodoxRealProductMatchServiceProvider)
+            .search(query);
+      }
+      // No genuine local match reachable: clearly fall back to online
+      // options (plain search links, never invented sellers).
+      final online = local.isEmpty
+          ? askodoxOfflineFallbackResults(query,
+              includeVideos: askodoxIntentWantsVideos(deal.intent))
+          : const <UniversalMatch>[];
+      return AskodoxChatResults(
+        matches: [...local, ...online],
+        failed: !signInRequired && local.isEmpty,
+        signInRequired: signInRequired && local.isEmpty,
+      );
     }
+  }
+
+  Future<void> _retryMatching(int turnIndex) async {
+    final deal = _dealByTurn[turnIndex];
+    if (deal == null || _sending) return;
+    setState(() => _sending = true);
+    final results = await _findUniversalMatches(deal);
+    if (!mounted) return;
+    setState(() {
+      _resultsByTurn[turnIndex] = results;
+      _sending = false;
+    });
   }
 
   Future<void> _send([String? preset, bool speakResponse = false]) async {
@@ -372,7 +427,7 @@ class _AskodoxPrimaryHomeScreenState
     text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
 
     if (attachment != null && !_isVideoAttachment(attachment)) {
-      final analysis = await const VisionApiService().analyze(
+      final analysis = await ref.read(askodoxVisionServiceProvider).analyze(
         image: attachment,
         userText: text,
         language: _te ? 'te' : 'en',
@@ -386,10 +441,8 @@ class _AskodoxPrimaryHomeScreenState
         ));
         return;
       }
-      final facts = analysis['summary'] ?? analysis['text'] ?? '';
-      if (facts.toString().trim().isNotEmpty) {
-        text = '$text\nAttachment facts: ${facts.toString().trim()}';
-      }
+      text = askodoxAttachmentRequest(
+          text, analysis['summary'] ?? analysis['text']);
     } else if (attachment != null) {
       final analysis = await const VideoAnalysisService().analyze(
         video: attachment,
@@ -415,7 +468,6 @@ class _AskodoxPrimaryHomeScreenState
     setState(() {
       _sending = true;
       _active = true;
-      _matches = const [];
       _listingBanner = null;
       _listingBannerIsError = false;
       _turns.add(ConversationTurnRecord(
@@ -447,7 +499,8 @@ class _AskodoxPrimaryHomeScreenState
             ? selectedLocation.address.trim()
             : selectedLocation.name.trim());
 
-    final decision = await _assistant.decide(
+    final userTurnIndex = _turns.length - 1;
+    final decision = await ref.read(askodoxAssistantServiceProvider).decide(
       message: text,
       locale: _te ? 'te' : 'en',
       history: history,
@@ -460,7 +513,10 @@ class _AskodoxPrimaryHomeScreenState
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
-    List<UniversalMatch> matches = const [];
+    AskodoxChatResults? results;
+    UniversalDeal? matchedDeal;
+    String? detailQuestion;
+    String? roleNotice;
     String? listingBanner;
     var listingBannerIsError = false;
 
@@ -495,9 +551,19 @@ class _AskodoxPrimaryHomeScreenState
       // sandbox data. `readyToMatch` keeps the same "don't show anything
       // until the request is actually understood" gate the demo catalog
       // used internally, now applied explicitly here.
-      final deal = ref.read(universalDealControllerProvider).deal;
+      final dealSession = ref.read(universalDealControllerProvider);
+      final deal = dealSession.deal;
       if (deal != null) {
         _trackSearchQuery(deal.subject ?? deal.category);
+        // Roles follow the user's activity: announce a switch (e.g. buyer →
+        // seller) inside the chat, never silently answer in the old role.
+        roleNotice = askodoxRoleSwitchNotice(
+          previous: _lastIntent,
+          current: deal.intent,
+          telugu: _te,
+        );
+        _lastIntent = deal.intent;
+        if (!deal.readyToMatch) detailQuestion = dealSession.lastQuestion;
       }
       if (deal != null && deal.readyToMatch) {
         if (deal.intent == DealIntent.sell) {
@@ -507,8 +573,8 @@ class _AskodoxPrimaryHomeScreenState
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          matches = await _findUniversalMatches(deal)
-            ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+          matchedDeal = deal;
+          results = await _findUniversalMatches(deal);
         }
       }
     } else {
@@ -529,18 +595,23 @@ class _AskodoxPrimaryHomeScreenState
           previousUserTurn: previous,
           telugu: _te,
           )
-        : _fallbackAssistantReply(
-          text,
-          _te,
-          hasMatches: matches.isNotEmpty,
-          );
+        : detailQuestion != null && detailQuestion.trim().isNotEmpty
+          ? askodoxDetailQuestionReply(detailQuestion, telugu: _te)
+          : results != null
+            ? askodoxResultsReply(results, telugu: _te)
+            : _fallbackAssistantReply(text, _te);
 
     if (!mounted) return;
     setState(() {
-      _matches = matches;
+      if (roleNotice != null) _roleNoticeByTurn[userTurnIndex] = roleNotice;
       _listingBanner = listingBanner;
       _listingBannerIsError = listingBannerIsError;
       _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+      final assistantIndex = _turns.length - 1;
+      if (results != null && !results.isEmpty) {
+        _resultsByTurn[assistantIndex] = results;
+        if (matchedDeal != null) _dealByTurn[assistantIndex] = matchedDeal;
+      }
       _sending = false;
     });
     await _store.save(_turns);
@@ -573,11 +644,7 @@ class _AskodoxPrimaryHomeScreenState
         name.endsWith('.webm');
   }
 
-  String _fallbackAssistantReply(
-    String text,
-    bool te, {
-    bool? hasMatches,
-  }) {
+  String _fallbackAssistantReply(String text, bool te) {
     final q = text.toLowerCase();
     if (_has(q, ['job', 'jobs', 'ఉద్యోగం', 'జాబ్', 'computer operator'])) {
       return te
@@ -614,11 +681,6 @@ class _AskodoxPrimaryHomeScreenState
           : 'You’re looking for chicken or meat. I’m showing only relevant nearby sellers.';
     }
     if (AskodoxHomeRequestRouting.isTransactional(text)) {
-      if (hasMatches == false) {
-        return te
-            ? 'ఈ అభ్యర్థనకు ప్రస్తుతం ధృవీకరించిన match దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను; సరైన అవకాశం లభిస్తే ASKODOX మీకు తెలియజేస్తుంది.'
-            : 'I could not find a verified match for this request yet. I saved your need and ASKODOX will notify you when a suitable option becomes available.';
-      }
       return te
           ? 'మీ లావాదేవీ అవసరాన్ని అర్థం చేసుకున్నాను. దానికి సంబంధించిన ఎంపికలను మాత్రమే చూపిస్తున్నాను.'
           : 'I understand your transactional request. I’m showing only relevant options.';
@@ -746,6 +808,10 @@ class _AskodoxPrimaryHomeScreenState
                   Icons.local_shipping_outlined),
             ],
           ),
+          // Demo profiles are fake local businesses: only ever shown in the
+          // mock/sandbox build, never against the live REST backend.
+          if (ref.watch(appConfigProvider).backendProvider ==
+              BackendProvider.mock) ...[
           const SizedBox(height: 24),
           Row(children: [
             Text(te ? 'డెమో లోకల్ ప్రొఫైల్స్' : 'Demo local profiles',
@@ -802,6 +868,7 @@ class _AskodoxPrimaryHomeScreenState
               ],
             ),
           ),
+          ],
         ],
       );
 
@@ -818,7 +885,7 @@ class _AskodoxPrimaryHomeScreenState
         controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
         children: [
-          for (final turn in _turns)
+          for (final (index, turn) in _turns.indexed) ...[
             Align(
               alignment:
                   turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -840,6 +907,19 @@ class _AskodoxPrimaryHomeScreenState
                         fontWeight: FontWeight.w500)),
               ),
             ),
+            if (_roleNoticeByTurn[index] case final notice?)
+              _RoleNotice(text: notice),
+            if (_resultsByTurn[index] case final results?)
+              _ChatResultsView(
+                key: ValueKey('askodoxChatResults-$index'),
+                results: results,
+                te: te,
+                retrying: _sending,
+                onRetry: _dealByTurn.containsKey(index)
+                    ? () => _retryMatching(index)
+                    : null,
+              ),
+          ],
           if (_sending)
             const Align(
               alignment: Alignment.centerLeft,
@@ -855,16 +935,6 @@ class _AskodoxPrimaryHomeScreenState
             const SizedBox(height: 6),
             _ListingBanner(
                 message: _listingBanner!, isError: _listingBannerIsError),
-          ],
-          if (_matches.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Row(children: [
-              Text(te ? 'సంబంధిత ఎంపికలు' : 'Relevant matches',
-                  style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w900, color: _ink))
-            ]),
-            const SizedBox(height: 10),
-            ..._matches.map((match) => _MatchCard(match: match, te: te)),
           ],
         ],
       );
@@ -1093,9 +1163,155 @@ class _ListingBanner extends StatelessWidget {
   }
 }
 
+class _RoleNotice extends StatelessWidget {
+  const _RoleNotice({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.center,
+        child: Container(
+          key: const Key('askodoxRoleNotice'),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+              color: const Color(0xFFEDEBFF),
+              borderRadius: BorderRadius.circular(14)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.swap_horiz_rounded,
+                size: 16, color: Color(0xFF5B4BFF)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(text,
+                  style: const TextStyle(
+                      color: Color(0xFF3B2FCC),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800)),
+            ),
+          ]),
+        ),
+      );
+}
+
+/// Rich result cards embedded directly under an assistant reply -- local
+/// matches first, then online options, then videos. Not a separate page.
+class _ChatResultsView extends StatelessWidget {
+  const _ChatResultsView({
+    super.key,
+    required this.results,
+    required this.te,
+    required this.retrying,
+    this.onRetry,
+  });
+
+  final AskodoxChatResults results;
+  final bool te;
+  final bool retrying;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final local = results.local;
+    final online = results.online;
+    final videos = results.videos;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (results.failed)
+          _notice(
+            key: const Key('askodoxResultsFailed'),
+            icon: Icons.cloud_off_rounded,
+            text: te
+                ? 'మ్యాచింగ్ ఇప్పుడు అందుబాటులో లేదు.'
+                : 'Matching is unavailable right now.',
+            action: onRetry == null
+                ? null
+                : TextButton.icon(
+                    key: const Key('askodoxResultsRetry'),
+                    onPressed: retrying ? null : onRetry,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(te ? 'మళ్లీ ప్రయత్నించండి' : 'Retry'),
+                  ),
+          ),
+        if (results.signInRequired)
+          _notice(
+            key: const Key('askodoxResultsSignIn'),
+            icon: Icons.lock_outline_rounded,
+            text: te
+                ? 'స్థానిక అభ్యర్థనలు పంపడానికి సైన్ ఇన్ చేయండి.'
+                : 'Sign in to send requests to local sellers and providers.',
+          ),
+        if (local.isNotEmpty) ...[
+          _heading(te ? 'దగ్గరలోని ఎంపికలు' : 'Local matches',
+              Icons.near_me_rounded),
+          for (final match in local)
+            _MatchCard(match: match, dealId: results.dealId, te: te),
+        ],
+        if (online.isNotEmpty) ...[
+          _heading(
+              local.isEmpty
+                  ? (te
+                      ? 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు'
+                      : 'No local match yet -- online options')
+                  : (te ? 'ఆన్‌లైన్ ఎంపికలు' : 'Online options'),
+              Icons.public_rounded),
+          for (final match in online)
+            _MatchCard(match: match, dealId: results.dealId, te: te),
+        ],
+        if (videos.isNotEmpty) ...[
+          _heading(te ? 'వీడియోలు & రివ్యూలు' : 'Videos & reviews',
+              Icons.play_circle_outline_rounded),
+          for (final match in videos)
+            _MatchCard(match: match, dealId: results.dealId, te: te),
+        ],
+      ]),
+    );
+  }
+
+  Widget _heading(String text, IconData icon) => Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: Row(children: [
+          Icon(icon, size: 18, color: _blue),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w900, color: _ink)),
+          ),
+        ]),
+      );
+
+  Widget _notice({
+    required Key key,
+    required IconData icon,
+    required String text,
+    Widget? action,
+  }) =>
+      Container(
+        key: key,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+        decoration: BoxDecoration(
+            color: const Color(0xFFFFF4E5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFFD8A8))),
+        child: Row(children: [
+          Icon(icon, size: 18, color: const Color(0xFF9A5B00)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    color: Color(0xFF7A4A00), fontWeight: FontWeight.w700)),
+          ),
+          if (action != null) action,
+        ]),
+      );
+}
+
 class _MatchCard extends ConsumerStatefulWidget {
-  const _MatchCard({required this.match, required this.te});
+  const _MatchCard({required this.match, required this.te, this.dealId});
   final UniversalMatch match;
+  final String? dealId;
   final bool te;
 
   @override
@@ -1109,21 +1325,48 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
 
   UniversalMatch get _match => widget.match;
   bool get _te => widget.te;
+  ChatResultAction get _action => chatResultActionFor(_match);
 
   Future<void> _openDestination() async {
     final raw = _match.destinationUrl?.trim();
     if (raw == null || raw.isEmpty) return;
     final uri = Uri.tryParse(raw);
-    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_te ? 'లింక్ తెరవడం సాధ్యం కాలేదు.' : 'This destination could not be opened.'),
-        ));
-      }
+    var opened = false;
+    try {
+      opened = uri != null &&
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_te
+            ? 'లింక్ తెరవడం సాధ్యం కాలేదు.'
+            : 'This destination could not be opened.'),
+      ));
     }
   }
 
-  Future<void> _placeOrder() async {
+  /// Party A asks this Party B to connect (existing consent-first
+  /// `/deals/{id}/accept-match` flow). Contact stays hidden until both
+  /// sides have accepted.
+  Future<OrderActionResult> _connect() async {
+    final dealId = widget.dealId;
+    if (dealId == null || dealId.isEmpty) {
+      return OrderActionResult(
+        success: false,
+        message: _te
+            ? 'ఈ అభ్యర్థనను ఇప్పుడు పంపలేము. మళ్లీ ప్రయత్నించండి.'
+            : 'This request cannot be sent right now. Please retry.',
+      );
+    }
+    await ref
+        .read(universalMatchRepositoryProvider)
+        .acceptMatch(dealId: dealId, matchId: _match.id);
+    return const OrderActionResult(success: true);
+  }
+
+  Future<void> _sendRequest() async {
     if (_placing) return;
     setState(() {
       _placing = true;
@@ -1132,14 +1375,19 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     });
     OrderActionResult result;
     try {
-      result = await ref
-          .read(orderRepositoryProvider)
-          .placeOrder(productId: _match.id);
-    } catch (_) {
+      result = _action == ChatResultAction.connect
+          ? await _connect()
+          : await ref
+              .read(orderRepositoryProvider)
+              .placeOrder(productId: _match.id);
+    } catch (error) {
+      final message = error is StateError ? error.message : null;
       result = OrderActionResult(
         success: false,
-        message:
-            _te ? 'ఆర్డర్ చేయడం సాధ్యం కాలేదు.' : 'Unable to place this order.',
+        message: message ??
+            (_te
+                ? 'అభ్యర్థన పంపడం సాధ్యం కాలేదు.'
+                : 'Unable to send this request.'),
       );
     }
     if (!mounted) return;
@@ -1148,12 +1396,12 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       _orderFailed = !result.success;
       _orderStatusMessage = result.success
           ? (_te
-              ? 'ఆర్డర్ పంపబడింది. విక్రేత అంగీకరించి తప్ప పక్కన పడే సహచరుడి తర్వాత మాత్రమే ఇది నిర్ధారిత డీల్ అవుతుంది.'
-              : 'Order request sent. The seller must accept it before it becomes a confirmed deal.')
+              ? 'అభ్యర్థన పంపబడింది. వారు అంగీకరించిన తర్వాతే ఇది నిర్ధారిత డీల్ అవుతుంది, కాంటాక్ట్ వివరాలు కనిపిస్తాయి.'
+              : 'Request sent. It becomes a confirmed deal -- and contact details are shared -- only after they accept.')
           : (result.message ??
               (_te
-                  ? 'ఆర్డర్ చేయడం సాధ్యం కాలేదు.'
-                  : 'Unable to place this order.'));
+                  ? 'అభ్యర్థన పంపడం సాధ్యం కాలేదు.'
+                  : 'Unable to send this request.'));
     });
   }
 
@@ -1161,13 +1409,20 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   Widget build(BuildContext context) {
     final match = _match;
     final te = _te;
+    final action = _action;
     final distance = match.distanceKm == null
         ? null
         : '${match.distanceKm!.toStringAsFixed(1)} km';
     final price =
         match.price == null ? null : '₹${match.price!.toStringAsFixed(0)}';
+    final score = match.score == null
+        ? null
+        : (match.score! <= 1 ? match.score! * 100 : match.score!);
     final placed = _orderStatusMessage != null && !_orderFailed;
+    final requestable = action == ChatResultAction.connect ||
+        action == ChatResultAction.sendRequest;
     return Container(
+      key: ValueKey('askodoxResultCard-${match.source}-${match.id}'),
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1177,14 +1432,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
-            width: 64,
-            height: 64,
-            child: _match.imageUrl?.trim().isNotEmpty == true
-              ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(_match.imageUrl!, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _sourceIcon()))
-              : _sourceIcon()),
+              width: 64,
+              height: 64,
+              child: _match.imageUrl?.trim().isNotEmpty == true
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(_match.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _sourceIcon()))
+                  : _sourceIcon()),
           const SizedBox(width: 12),
           Expanded(
               child: Column(
@@ -1192,10 +1448,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   children: [
                 Text(match.title,
                     style: const TextStyle(
-                        color: _ink,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16)),
-                if (match.subtitle != null) ...[
+                        color: _ink, fontWeight: FontWeight.w900, fontSize: 16)),
+                if (match.subtitle?.trim().isNotEmpty == true) ...[
                   const SizedBox(height: 4),
                   Text(match.subtitle!,
                       style: const TextStyle(
@@ -1206,8 +1460,10 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   _meta(_sourceLabel(_match.source)),
-                  if (match.score != null)
-                    _meta('★ ${match.score!.toStringAsFixed(0)}%'),
+                  if (score != null) _meta('${score.toStringAsFixed(0)}% match'),
+                  if (match.ratingAverage != null)
+                    _meta(
+                        '★ ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount})'),
                   if (distance != null) _meta(distance),
                   if (price != null) _meta(price),
                   if (match.locationLabel?.trim().isNotEmpty == true)
@@ -1230,42 +1486,70 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           ),
           const SizedBox(height: 8),
         ],
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: (_placing || placed) ? null : _placeOrder,
-            style: FilledButton.styleFrom(
-                backgroundColor: _blue,
-                padding: const EdgeInsets.symmetric(vertical: 12)),
-            child: _placing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : Text(
-                    placed
-                        ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
-                        : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w800),
-                  ),
+        if (requestable) ...[
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: (_placing || placed) ? null : _sendRequest,
+              style: FilledButton.styleFrom(
+                  backgroundColor: _blue,
+                  padding: const EdgeInsets.symmetric(vertical: 12)),
+              child: _placing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : Text(
+                      placed
+                          ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
+                          : _orderFailed
+                              ? (te ? 'మళ్లీ ప్రయత్నించండి' : 'Retry request')
+                              : action == ChatResultAction.connect
+                                  ? (te ? 'కనెక్ట్ అభ్యర్థన పంపండి' : 'Connect')
+                                  : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w800),
+                    ),
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Row(children: [
+            const Icon(Icons.lock_outline_rounded, size: 14, color: _muted),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                te
+                    ? 'వారు అంగీకరించే వరకు ఫోన్/కాంటాక్ట్ దాచబడి ఉంటుంది.'
+                    : 'Phone/contact stays hidden until they accept.',
+                style: const TextStyle(color: _muted, fontSize: 11),
+              ),
+            ),
+          ]),
+        ],
         if (match.destinationUrl?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _openDestination,
-              icon: const Icon(Icons.open_in_new_rounded),
-              label: Text(_te ? 'వివరాలు చూడండి' : 'View details'),
+              icon: Icon(action == ChatResultAction.watchVideo
+                  ? Icons.play_arrow_rounded
+                  : Icons.open_in_new_rounded),
+              label: Text(action == ChatResultAction.watchVideo
+                  ? (te ? 'వీడియో చూడండి' : 'Watch')
+                  : action == ChatResultAction.openLink
+                      ? (te ? 'తెరవండి' : 'Open')
+                      : (te ? 'వివరాలు చూడండి' : 'View details')),
             ),
           ),
-          if (match.disclosure?.trim().isNotEmpty == true)
+          if (match.disclosure?.trim().isNotEmpty == true || match.affiliate)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(match.disclosure!,
+              child: Text(
+                  match.disclosure?.trim().isNotEmpty == true
+                      ? match.disclosure!
+                      : 'Affiliate link',
                   style: const TextStyle(color: _muted, fontSize: 11)),
             ),
         ],
@@ -1275,18 +1559,23 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
 
   Widget _sourceIcon() => Container(
       decoration: BoxDecoration(
-          color: const Color(0xFFF0EFFF), borderRadius: BorderRadius.circular(14)),
+          color: const Color(0xFFF0EFFF),
+          borderRadius: BorderRadius.circular(14)),
       child: Icon(
-          _match.source.toLowerCase() == 'online'
-              ? Icons.public_rounded
-              : _match.source.toLowerCase() == 'nearby'
-                  ? Icons.near_me_rounded
-                  : Icons.storefront_rounded,
+          switch (_action) {
+            ChatResultAction.watchVideo => Icons.smart_display_rounded,
+            ChatResultAction.openLink => Icons.public_rounded,
+            _ => _match.source.toLowerCase() == 'nearby'
+                ? Icons.near_me_rounded
+                : Icons.storefront_rounded,
+          },
           color: const Color(0xFF5B4BFF)));
 
   String _sourceLabel(String source) => switch (source.toLowerCase()) {
         'online' => _te ? 'ఆన్‌లైన్' : 'Online',
+        'video' => _te ? 'వీడియో' : 'Video',
         'nearby' => _te ? 'దగ్గరలో' : 'Nearby',
+        'demo_discovery' => _te ? 'డెమో' : 'Demo',
         _ => _te ? 'లోకల్' : 'Local',
       };
 

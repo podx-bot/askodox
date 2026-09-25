@@ -83,6 +83,9 @@ class UniversalMatch {
     this.availability,
     this.destinationUrl,
     this.disclosure,
+    this.affiliate = false,
+    this.ratingAverage,
+    this.reviewCount = 0,
   });
 
   final String id;
@@ -100,6 +103,11 @@ class UniversalMatch {
   final String? availability;
   final String? destinationUrl;
   final String? disclosure;
+  final bool affiliate;
+
+  /// Average review rating from completed deals, when the backend has any.
+  final double? ratingAverage;
+  final int reviewCount;
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -133,6 +141,9 @@ class UniversalMatch {
           availability: json['availability']?.toString() ?? json['stock_status']?.toString(),
           destinationUrl: json['destination_url']?.toString() ?? json['normal_url']?.toString(),
           disclosure: json['disclosure']?.toString(),
+          affiliate: json['affiliate'] == true,
+          ratingAverage: (json['rating_average'] as num?)?.toDouble(),
+          reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
       );
 }
 

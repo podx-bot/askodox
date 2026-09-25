@@ -643,5 +643,25 @@ Known gaps, explicitly not started this round:
 
 Next action: apply this instruction file, wait for `flutter-ci.yml`, `backend-monorepo-smoke.yml`, and the rewritten `in-app-e2e-smoke.yml` to all go green, **create and merge a pull request**, then re-verify by hand: confirm the CI logs show the new workflow actually exercising `POST /deals` and `GET /deals/{id}/matches` (not skipped), and confirm no other CI job or script anywhere still references `/debug/message`, `/debug/location`, `/debug/inbox`, or `/debug/match-action`. After this is confirmed, this closes the identity-spoofing audit; the next round can return to the roadmap's remaining phases.
 
+### 2026-09-25 — Unified chat results: local → online/video fallback, source-aware actions, roles, retry
+
+Audit of main @ `4dee283` against the single chat flow (need → questions → matching → results in chat → request → accept → contact). Real gaps found and closed; nothing already merged was undone (voice, multimodal attachments, Nearby gate #76, seller escalation #77, APK/live-update CI untouched).
+
+Gaps closed:
+- **Wrong request call.** Every chat card's "Send request" called `placeOrder(productId: match.id)` -- for `/deals` Party B matches `match.id` is a user id and for online results it is a link id, so those requests always failed. Cards now pick the action by source (`lib/features/home/domain/chat_result_policy.dart`): Party B → existing `acceptMatch` consent flow ("Connect"); real listing (numeric id) → existing order request; online → Open; video → Watch.
+- **No online fallback without affiliate config.** `GET /deals/{id}/matches` only returned online rows when an affiliate mapping existed. New `UniversalOnlineFallbackService` (in `universal_external_result_service.py`) reuses the existing Brave web provider when configured, else plain labelled search links; never invented sellers/prices. Fallback rows never count toward `match_count`/`waiting_for_interest`.
+- **Videos/social.** Same service adds YouTube/Instagram/Facebook results (real pages via Brave, or search links) for product/service/rental/appointment requests; none for ride/parcel/jobs.
+- **Reviews.** Party B rows carry `rating_average`/`review_count` from `universal_reviews`.
+- **Contact leak.** Public `GET /api/products/search` returned `provider_id` = seller_user_id (the seller's phone). Now blank. Flutter `Order.sellerContact/buyerContact` also gated on ACCEPTED/FULFILLED client-side.
+- **Results not part of the conversation.** Results were one list pinned to the bottom and wiped on every send. They now attach to the assistant turn that produced them, so earlier results stay in history while the user refines.
+- **Dishonest failure state.** A matching network error used to read "no verified match". Now: failure notice + Retry, signed-out notice, 422 missing-details question; online links still offered meanwhile.
+- **Category questions without AI.** When the AI reply is unavailable and the deal is not ready, the deal brain's category-specific `lastQuestion` is asked instead of claiming results.
+- **Roles.** No role-switch notice existed anywhere in the repo; added an in-chat notice when the deal intent moves to a different role (Buyer/Seller/Customer/Service provider/...). A sell turn never runs a buyer match.
+- **Fake demo profiles on live home.** "Demo local profiles" (fake Nearby businesses) now render only in the mock backend build.
+
+Verification: backend 165 passed (6 new in `test_unified_chat_results.py`); `flutter analyze` clean; `flutter test` 371 passed (24 new in `chat_result_policy_test.dart` + `askodox_unified_chat_flow_test.dart`).
+
+Still open: camera/gallery/file pickers and real vision/document analysis need a real-phone run (widget tests cover the composition step only); seller-side Accept/Decline UI for `/deals` interests is the existing interest flow, unchanged; Telugu deal-brain category questions are still English text wrapped in a Telugu prefix.
+
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.
