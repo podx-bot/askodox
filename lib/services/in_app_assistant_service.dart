@@ -53,6 +53,8 @@ class InAppAssistantDecision {
     required this.source,
     this.entities = const <String, Object?>{},
     this.buyingGuide,
+    this.activeRole = '',
+    this.activeRoleConfidence = 0.0,
   });
 
   final String reply;
@@ -70,6 +72,14 @@ class InAppAssistantDecision {
   /// Present only for a genuine buy-side PRODUCT/FOOD message with a known
   /// subject -- see buyer_guide_gate.py on the backend. Null otherwise.
   final BuyingGuide? buyingGuide;
+
+  /// Active Role = the current message's request intent (e.g. BUYER,
+  /// SELLER, SERVICE_PROVIDER, WORKER, DELIVERY_PARTNER), re-derived by the
+  /// backend on every message -- never a permanent lock-in. Empty when the
+  /// message's intent was not clear enough to classify confidently. See
+  /// in_app_assistant.py's `_suggest_active_role`.
+  final String activeRole;
+  final double activeRoleConfidence;
 
   bool get usable => source == 'universal_ai' && reply.trim().isNotEmpty;
 
@@ -97,6 +107,8 @@ class InAppAssistantDecision {
       entities: Map.unmodifiable(entities),
       buyingGuide:
           rawGuide is Map ? BuyingGuide.fromJson(Map<String, dynamic>.from(rawGuide)) : null,
+      activeRole: (json['active_role'] ?? '').toString(),
+      activeRoleConfidence: (json['active_role_confidence'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

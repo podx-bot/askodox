@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from app.services.buyer_guide_gate import wants_buying_guide
+from app.services.dynamic_role_profile_attachment_service import DynamicRoleProfileAttachmentService
 
 router = APIRouter(prefix="/api/in-app", tags=["in-app-assistant"])
 
@@ -40,6 +41,29 @@ class AssistantDecision(BaseModel):
     # None for every non-buying message, so existing clients that ignore
     # this field see no change at all.
     buying_guide: dict[str, Any] | None = None
+    # Active Role = current conversation/request intent, re-derived fresh on
+    # every message (never persisted here, never locking the user into one
+    # role). Reuses the same UniversalCategoryFlowBrain classification and
+    # ROLE_MAP already used by DynamicRoleProfileAttachmentService for the
+    # durable capability it attaches once a deal actually completes -- this
+    # is purely a same-message UI hint so the chat can show/switch an
+    # "X mode activated" chip without waiting for that deeper pipeline.
+    active_role: str = ""
+    active_role_confidence: float = 0.0
+
+
+def _suggest_active_role(container: Any, message: str) -> tuple[str, float]:
+    try:
+        decision = container.universal_category_flow_brain.classify(message)
+    except Exception:
+        return "", 0.0
+    confidence = float(getattr(decision, "confidence", 0.0) or 0.0)
+    if confidence < DynamicRoleProfileAttachmentService.MIN_CONFIDENCE:
+        return "", confidence
+    category = str(getattr(decision, "category", "") or "").upper()
+    side = str(getattr(decision, "side", "") or "").upper()
+    role = DynamicRoleProfileAttachmentService.ROLE_MAP.get((category, side), "")
+    return role, confidence
 
 
 @router.post("/assistant", response_model=AssistantDecision)
@@ -53,6 +77,7 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         locale=payload.locale,
         location=payload.location,
     )
+    active_role, active_role_confidence = _suggest_active_role(container, payload.message)
 
     if decision is None:
         # Safe degradation: do not invent an AI action when the model is unavailable.
@@ -64,6 +89,8 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             action="",
             confidence=0.0,
             source="fallback",
+            active_role=active_role,
+            active_role_confidence=active_role_confidence,
         )
 
     entities = decision.get("entities") or {}
@@ -80,7 +107,13 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             subject, guide_context
         )
 
-    return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide)
+    return AssistantDecision(
+        **decision,
+        source="universal_ai",
+        buying_guide=buying_guide,
+        active_role=active_role,
+        active_role_confidence=active_role_confidence,
+    )
 
 
 @router.post("/voice/transcribe")
@@ -106,3 +139,24 @@ async def transcribe_in_app_voice(
         "locale": locale,
         "provider": str((result or {}).get("provider") or "sarvam_first"),
     }
+
+
+class SpeakRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    locale: str = ""
+
+
+@router.post("/voice/speak")
+async def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
+    """Synthesize a Main Chat assistant reply through the same production
+    Sarvam-first voice service (Bulbul v3) already used for WhatsApp voice
+    replies, instead of leaving Sarvam TTS reachable only from that channel."""
+    container: Any = request.app.state.container
+    result = container.voice_assistant_service.synthesize(payload.text)
+    content = (result or {}).get("content")
+    if not result or not result.get("success") or not content:
+        raise HTTPException(status_code=502, detail="Voice synthesis failed")
+    return Response(
+        content=content,
+        media_type=str(result.get("mime_type") or "audio/ogg"),
+    )

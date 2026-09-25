@@ -14,6 +14,7 @@ import '../../../services/real_product_match_service.dart';
 import '../../../services/vision_api_service.dart';
 import '../../../services/multimodal_capture_service.dart';
 import '../../../services/video_analysis_service.dart';
+import '../../../services/askodox_voice_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
@@ -70,7 +71,14 @@ String askodoxContinuationReply({
     }
 
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
-  const AskodoxPrimaryHomeScreen({super.key});
+  const AskodoxPrimaryHomeScreen({super.key, AskodoxVoiceService? voiceService})
+      : _voiceService = voiceService;
+
+  /// Overridable only for tests, which inject a fake to avoid touching the
+  /// real microphone/audio plugins. Production code always uses the
+  /// default (null -> a real AskodoxVoiceService created in State).
+  final AskodoxVoiceService? _voiceService;
+
   @override
   ConsumerState<AskodoxPrimaryHomeScreen> createState() =>
       _AskodoxPrimaryHomeScreenState();
@@ -84,11 +92,17 @@ class _AskodoxPrimaryHomeScreenState
   final _store = ConversationTurnStore();
   final _assistant = const InAppAssistantService();
   final _realMatches = const RealProductMatchService();
+  late final _voiceService = widget._voiceService ?? AskodoxVoiceService();
   final List<ConversationTurnRecord> _turns = [];
   List<UniversalMatch> _matches = const [];
   bool _active = false;
   bool _sending = false;
   bool _voiceBusy = false;
+  bool _recording = false;
+  Timer? _recordingSafetyTimer;
+  String? _activeRole;
+  bool _showActiveRoleChip = false;
+  Timer? _activeRoleChipTimer;
   XFile? _attachment;
   Uint8List? _attachmentPreviewBytes;
   String? _attachmentLabel;
@@ -162,22 +176,72 @@ class _AskodoxPrimaryHomeScreenState
 
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
 
+  /// Starts/stops ASKODOX's own in-app microphone recording (replaces the
+  /// external Google speech-recognition popup). A first tap starts
+  /// recording; ASKODOX -- not a platform silence timer -- decides when the
+  /// user is done, so a second tap on the same button ends it. A generous
+  /// safety cap still applies so an accidentally-open mic does not record
+  /// forever, matching the 60s cap already used for video attachments.
   Future<void> _startVoice() async {
-    if (_voiceBusy || _sending) return;
+    if (_sending) return;
+    if (_recording) {
+      await _stopVoiceAndSend();
+      return;
+    }
+    if (_voiceBusy) return;
     setState(() => _voiceBusy = true);
     try {
-      final spoken = await const MethodChannel('com.askodox.app/device')
-          .invokeMethod<String>('startVoiceSearch', <String, Object?>{
-        'languageCode': _te ? 'te' : 'en',
+      await _voiceService.startListening();
+      if (!mounted) return;
+      _recordingSafetyTimer?.cancel();
+      _recordingSafetyTimer = Timer(const Duration(seconds: 60), () {
+        if (_recording) unawaited(_stopVoiceAndSend());
       });
-      final text = spoken?.trim() ?? '';
-      if (text.isNotEmpty && mounted) await _send(text, true);
+      setState(() {
+        _recording = true;
+        _voiceBusy = false;
+      });
     } catch (_) {
       if (mounted) {
+        setState(() => _voiceBusy = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(_te
               ? 'వాయిస్ ప్రారంభం కాలేదు. Microphone permission చూసి మళ్లీ ప్రయత్నించండి.'
               : 'Voice could not start. Check microphone permission and try again.'),
+        ));
+      }
+    }
+  }
+
+  Future<void> _stopVoiceAndSend() async {
+    _recordingSafetyTimer?.cancel();
+    _recordingSafetyTimer = null;
+    if (!mounted) return;
+    setState(() {
+      _recording = false;
+      _voiceBusy = true;
+    });
+    try {
+      final transcript =
+          await _voiceService.stopAndTranscribe(locale: _te ? 'te' : 'en');
+      final text = transcript?.trim() ?? '';
+      if (text.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_te
+                ? 'వాయిస్ వినిపించలేదు. మళ్లీ ప్రయత్నించండి.'
+                : 'I could not hear that. Please try again.'),
+          ));
+        }
+        return;
+      }
+      if (mounted) await _send(text, true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_te
+              ? 'వాయిస్ ప్రాసెస్ కాలేదు. మళ్లీ ప్రయత్నించండి.'
+              : 'Voice could not be processed. Please try again.'),
         ));
       }
     } finally {
@@ -454,6 +518,7 @@ class _AskodoxPrimaryHomeScreenState
       location: knownLocationLabel,
     );
     final aiUsable = decision?.usable == true;
+    _applyActiveRole(decision?.activeRole);
     final transactional = aiUsable
         ? decision!.transactional
         : AskodoxHomeRequestRouting.isTransactional(text);
@@ -548,19 +613,42 @@ class _AskodoxPrimaryHomeScreenState
     if (speakResponse) await _speakReply(reply);
   }
 
+  /// Plays the assistant's reply through the existing Sarvam Bulbul v3
+  /// voice backend. Android system TTS is only a fallback for when Sarvam
+  /// is unreachable, never the primary reply path.
   Future<void> _speakReply(String reply) async {
-    try {
-      await const MethodChannel('com.askodox.app/device').invokeMethod<bool>(
-        'speakReply',
-        <String, Object?>{
-          'text': reply,
-          'languageCode': _te ? 'te' : 'en',
-          'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
-        },
-      );
-    } catch (_) {
-      // The text reply remains available when device TTS is unavailable.
-    }
+    await _voiceService.speak(reply, onSarvamUnavailable: () async {
+      try {
+        await const MethodChannel('com.askodox.app/device').invokeMethod<bool>(
+          'speakReply',
+          <String, Object?>{
+            'text': reply,
+            'languageCode': _te ? 'te' : 'en',
+            'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
+          },
+        );
+      } catch (_) {
+        // The text reply remains available when no voice path is reachable.
+      }
+    });
+  }
+
+  /// Active Role = the current request's intent, re-derived by the backend
+  /// on every message (see in_app_assistant.py's `_suggest_active_role`).
+  /// A user's available capabilities never lock them into one role; this
+  /// only updates the transient "X mode activated" chip and never blocks
+  /// or delays the conversation.
+  void _applyActiveRole(String? role) {
+    final next = (role ?? '').trim();
+    if (next.isEmpty || next == _activeRole) return;
+    _activeRoleChipTimer?.cancel();
+    setState(() {
+      _activeRole = next;
+      _showActiveRoleChip = true;
+    });
+    _activeRoleChipTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showActiveRoleChip = false);
+    });
   }
 
   bool _isVideoAttachment(XFile file) {
@@ -702,6 +790,14 @@ class _AskodoxPrimaryHomeScreenState
         color: const Color(0xFFF9FBFF),
         child: Column(children: [
           Expanded(child: _active ? _chat(te) : _home(te)),
+          if (_showActiveRoleChip && _activeRole != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AskodoxActiveRoleChip(role: _activeRole!, te: te),
+              ),
+            ),
           _composer(te)
         ]));
   }
@@ -745,62 +841,6 @@ class _AskodoxPrimaryHomeScreenState
               _quick(te ? 'పార్సెల్ పంపాలి' : 'Send a parcel',
                   Icons.local_shipping_outlined),
             ],
-          ),
-          const SizedBox(height: 24),
-          Row(children: [
-            Text(te ? 'డెమో లోకల్ ప్రొఫైల్స్' : 'Demo local profiles',
-                style: const TextStyle(
-                    color: _ink, fontSize: 17, fontWeight: FontWeight.w900)),
-            const Spacer(),
-            Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFEDEBFF),
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Text('DEMO',
-                    style: TextStyle(
-                        color: Color(0xFF5B4BFF),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900))),
-          ]),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 154,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _DemoProfileCard(
-                    name: te ? 'శ్రీ మొబైల్స్' : 'Sri Mobiles',
-                    category: te ? 'మొబైల్ విక్రేత' : 'Mobile seller',
-                    meta: '★ 4.8  •  1.2 km',
-                    icon: Icons.smartphone_rounded,
-                    onTap: () => _send(te
-                        ? 'నాకు మొబైల్ కొనాలి'
-                        : 'I want to buy a mobile phone')),
-                _DemoProfileCard(
-                    name: te ? 'రవి AC సర్వీస్' : 'Ravi AC Service',
-                    category: te ? 'AC టెక్నీషియన్' : 'AC technician',
-                    meta: '★ 4.7  •  2.1 km',
-                    icon: Icons.home_repair_service_rounded,
-                    onTap: () => _send(
-                        te ? 'నాకు AC రిపేర్ కావాలి' : 'I need AC repair')),
-                _DemoProfileCard(
-                    name: te ? 'విజయ జాబ్స్' : 'Vijaya Jobs',
-                    category: te ? 'స్థానిక ఉద్యోగదాత' : 'Local employer',
-                    meta: '★ 4.6  •  3 openings',
-                    icon: Icons.badge_rounded,
-                    onTap: () =>
-                        _send(te ? 'నాకు ఉద్యోగం కావాలి' : 'I need a job')),
-                _DemoProfileCard(
-                    name: te ? 'సాయి డెలివరీ' : 'Sai Delivery',
-                    category: te ? 'డెలివరీ రైడర్' : 'Delivery rider',
-                    meta: '★ 4.9  •  0.9 km',
-                    icon: Icons.local_shipping_rounded,
-                    onTap: () => _send(te
-                        ? 'నాకు పార్సెల్ పంపాలి'
-                        : 'I need to send a parcel')),
-              ],
-            ),
           ),
         ],
       );
@@ -877,14 +917,31 @@ class _AskodoxPrimaryHomeScreenState
             border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_attachmentLabel != null) _attachmentPreview(te),
+        if (_recording)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.graphic_eq_rounded, size: 16, color: Color(0xFFE53935)),
+              const SizedBox(width: 6),
+              Text(
+                  te
+                      ? 'వింటున్నాను… ఆపడానికి మళ్లీ నొక్కండి'
+                      : 'Listening… tap again to stop',
+                  style: const TextStyle(
+                      color: Color(0xFFE53935),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12)),
+            ]),
+          ),
         Row(children: [
         IconButton.filled(
-          onPressed: _startVoice,
+          onPressed: _voiceBusy && !_recording ? null : _startVoice,
           style: IconButton.styleFrom(
-            backgroundColor: _accent,
+            backgroundColor: _recording ? const Color(0xFFE53935) : _accent,
             minimumSize: const Size(40, 40),
             padding: EdgeInsets.zero),
-          icon: const Icon(Icons.mic_rounded, color: _ink)),
+          icon: Icon(_recording ? Icons.stop_rounded : Icons.mic_rounded,
+              color: _recording ? Colors.white : _ink)),
         const SizedBox(width: 6),
         Expanded(
           child: TextField(
@@ -990,72 +1047,68 @@ class _AskodoxPrimaryHomeScreenState
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
+    _recordingSafetyTimer?.cancel();
+    _activeRoleChipTimer?.cancel();
+    _voiceService.dispose();
     super.dispose();
   }
 }
 
-class _DemoProfileCard extends StatelessWidget {
-  const _DemoProfileCard(
-      {required this.name,
-      required this.category,
-      required this.meta,
-      required this.icon,
-      required this.onTap});
-  final String name;
-  final String category;
-  final String meta;
-  final IconData icon;
-  final VoidCallback onTap;
+/// Non-blocking "X mode activated" chip shown for a few seconds when
+/// ASKODOX's Active Role detection changes. Public (rather than a private
+/// `_` class) so it can be unit-tested directly.
+class AskodoxActiveRoleChip extends StatelessWidget {
+  const AskodoxActiveRoleChip({super.key, required this.role, required this.te});
+  final String role;
+  final bool te;
+
+  static const _labels = <String, (String emoji, String en, String te)>{
+    'BUYER': ('🛒', 'Buyer mode activated', 'కొనుగోలుదారు మోడ్ యాక్టివేట్ అయింది'),
+    'SELLER': ('🏪', 'Seller mode activated', 'విక్రేత మోడ్ యాక్టివేట్ అయింది'),
+    'SERVICE_PROVIDER': (
+      '🛠',
+      'Service Provider mode activated',
+      'సర్వీస్ ప్రొవైడర్ మోడ్ యాక్టివేట్ అయింది'
+    ),
+    'SERVICE_CUSTOMER': (
+      '🔧',
+      'Service request mode activated',
+      'సర్వీస్ అవసరం మోడ్ యాక్టివేట్ అయింది'
+    ),
+    'WORKER': ('💼', 'Job Seeker mode activated', 'జాబ్ సీకర్ మోడ్ యాక్టివేట్ అయింది'),
+    'EMPLOYER': ('🧑‍💼', 'Employer mode activated', 'ఎంప్లాయర్ మోడ్ యాక్టివేట్ అయింది'),
+    'DELIVERY_PARTNER': (
+      '🚚',
+      'Delivery Partner mode activated',
+      'డెలివరీ పార్ట్‌నర్ మోడ్ యాక్టివేట్ అయింది'
+    ),
+    'DELIVERY_CUSTOMER': (
+      '📦',
+      'Delivery request mode activated',
+      'డెలివరీ అవసరం మోడ్ యాక్టివేట్ అయింది'
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        width: 168,
-        margin: const EdgeInsets.only(right: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE6F4))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            CircleAvatar(
-                radius: 20,
-                backgroundColor: const Color(0xFFEAF2FF),
-                child: Icon(icon, color: _blue, size: 21)),
-            const Spacer(),
-            Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFF2F0FF),
-                    borderRadius: BorderRadius.circular(10)),
-                child: const Text('DEMO',
-                    style: TextStyle(
-                        color: Color(0xFF5B4BFF),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900))),
-          ]),
-          const SizedBox(height: 10),
-          Text(name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: _ink, fontSize: 15, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 3),
-          Text(category,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: _muted, fontSize: 12, fontWeight: FontWeight.w600)),
-          const Spacer(),
-          Text(meta,
-              style: const TextStyle(
-                  color: _ink, fontSize: 11, fontWeight: FontWeight.w700)),
-        ]),
+    final entry = _labels[role];
+    if (entry == null) return const SizedBox.shrink();
+    final (emoji, en, teLabel) = entry;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF4FF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD7E3F5)),
       ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(emoji, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 6),
+        Text(te ? teLabel : en,
+            style: const TextStyle(
+                color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+      ]),
     );
   }
 }

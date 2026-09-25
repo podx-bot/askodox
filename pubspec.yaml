@@ -30,6 +30,12 @@ dependencies:
   # Flutter SDK. Keeping this unconstrained avoids dependency-solver failures
   # when the SDK updates that pin.
   intl: any
+  # In-app microphone capture (replaces the external Google speech-recognition
+  # popup in the primary Main Chat voice flow) and playback of the Sarvam
+  # Bulbul v3 voice reply. Backs lib/services/askodox_voice_service.dart.
+  record: ^5.1.2
+  audioplayers: ^6.1.0
+  http_parser: ^4.0.2
 
 dev_dependencies:
   flutter_test:

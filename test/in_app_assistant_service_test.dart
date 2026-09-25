@@ -167,6 +167,42 @@ void main() {
     expect(decision.buyingGuide!.decisionFramework, contains('FAIR_PRICE'));
   });
 
+  // Active Role = the current message's request intent, computed by the
+  // backend on every /assistant call (see in_app_assistant.py's
+  // `_suggest_active_role`) -- never a permanent lock-in, so the app must
+  // read it fresh on every decision rather than caching it.
+  test('parses the active role and its confidence when present', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'సరే, మీ TV వివరాలు చెప్పండి.',
+      'domain': 'PRODUCT',
+      'transactional': true,
+      'action': 'sell',
+      'confidence': 0.9,
+      'source': 'universal_ai',
+      'entities': {'subject': 'TV'},
+      'active_role': 'SELLER',
+      'active_role_confidence': 0.93,
+    });
+
+    expect(decision.activeRole, 'SELLER');
+    expect(decision.activeRoleConfidence, 0.93);
+  });
+
+  test('active role defaults to empty when the backend omits it', () {
+    final decision = InAppAssistantDecision.fromJson({
+      'reply': 'సరే',
+      'domain': 'GENERAL',
+      'transactional': false,
+      'action': 'chat',
+      'confidence': 0.8,
+      'source': 'universal_ai',
+      'entities': <String, Object?>{},
+    });
+
+    expect(decision.activeRole, '');
+    expect(decision.activeRoleConfidence, 0.0);
+  });
+
   test('buying guide is null when the backend does not attach one', () {
     final decision = InAppAssistantDecision.fromJson({
       'reply': 'సరే',
