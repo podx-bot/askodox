@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +17,7 @@ import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 import 'package:podx/services/real_product_match_service.dart';
+import 'package:podx/services/voice_transcription_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------- fakes --
@@ -153,6 +155,18 @@ const _videoMatch = UniversalMatch(
   destinationUrl: 'https://www.youtube.com/watch?v=abc',
 );
 
+class _FakeVoice extends VoiceTranscriptionService {
+  _FakeVoice(this.transcript);
+  final String? transcript;
+  final List<(String, String)> calls = [];
+
+  @override
+  Future<String?> transcribeFile(String path, {required String locale}) async {
+    calls.add((path, locale));
+    return transcript;
+  }
+}
+
 // -------------------------------------------------------------- harness --
 
 class _Harness {
@@ -161,13 +175,16 @@ class _Harness {
     _Assistant? assistant,
     List<Map<String, Object?>> products = const [],
     this.backend = BackendProvider.rest,
+    String? voiceTranscript,
   })  : assistant = assistant ?? _Assistant(),
-        productSearch = _productSearch(products);
+        productSearch = _productSearch(products),
+        voice = _FakeVoice(voiceTranscript);
 
   final _FakeMatchRepository matches;
   final _Assistant assistant;
   final RealProductMatchService productSearch;
   final BackendProvider backend;
+  final _FakeVoice voice;
   final orders = _FakeOrderRepository();
   final listings = _FakeSellerListingRepository();
 
@@ -187,6 +204,7 @@ class _Harness {
         sellerListingRepositoryProvider.overrideWithValue(listings),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
+        askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
       ],
       child: const MaterialApp(home: Scaffold(body: AskodoxPrimaryHomeScreen())),
     ));
@@ -394,6 +412,235 @@ void main() {
     );
     await sandbox.pump(tester);
     expect(find.text('Demo local profiles'), findsOneWidget);
+  });
+
+  // ------------------------------------------------ PR #88 acceptance --
+
+  testWidgets('Chicken end-to-end: curry cut → 1 kg → skinless → fresh → delivery stays in the buying flow and matches once',
+      (tester) async {
+    final h = _Harness(
+      assistant: _Assistant((message) {
+        if (message.contains('chicken')) return null; // AI unavailable for the opener
+        return {
+          'reply': 'Noted.',
+          'domain': 'PRODUCT',
+          'transactional': false,
+          'action': 'general_chat',
+          'confidence': 0.4,
+          'source': 'universal_ai',
+          'entities': {'subject': message},
+        };
+      }),
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '301', matches: [_localMatch, _onlineMatch, _videoMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy chicken in Vijayawada');
+    expect(find.text('How much chicken do you need?'), findsOneWidget);
+
+    for (final answer in ['curry cut', '1 kg', 'skinless', 'fresh']) {
+      await h.send(tester, answer);
+      expect(h.matches.deals, isEmpty, reason: 'no matching before details are complete ($answer)');
+    }
+    await h.send(tester, 'delivery');
+
+    expect(h.matches.deals, hasLength(1));
+    final deal = h.matches.deals.single;
+    expect(deal.intent, DealIntent.buy);
+    expect(deal.subject, 'chicken');
+    expect(deal.quantity, 1);
+    expect(deal.unit, 'kg');
+    expect(deal.dynamicFields['cut'], 'curry cut');
+    expect(deal.dynamicFields['chickenPreference'], 'skinless');
+    expect(deal.fulfilment, 'delivery');
+    expect(find.text('Local matches'), findsOneWidget);
+    expect(find.text('Online options'), findsOneWidget);
+    expect(find.text('Videos & reviews'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxChatResults-11')), findsOneWidget,
+        reason: 'results sit under the last assistant reply in the same chat');
+  });
+
+  testWidgets('Chicken short answers survive an AI rewrite that looks like a new retail request',
+      (tester) async {
+    final h = _Harness(
+      assistant: _Assistant((message) => message.contains('chicken')
+          ? null
+          : {
+              'reply': 'Got it.',
+              'domain': 'PRODUCT',
+              'transactional': true,
+              'action': 'buy',
+              'confidence': 0.8,
+              'source': 'universal_ai',
+              'entities': {'subject': message},
+            }),
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '302', matches: [_localMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy chicken in Vijayawada');
+    for (final answer in ['1 kg', 'curry cut', 'skinless', 'fresh', 'delivery']) {
+      await h.send(tester, answer);
+    }
+
+    expect(h.matches.deals, hasLength(1));
+    expect(h.matches.deals.single.subject, 'chicken');
+    expect(h.matches.deals.single.dynamicFields['cut'], 'curry cut');
+  });
+
+  testWidgets('43-inch TV: no repeated size question, local + online + video results, refinement keeps context',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '401', matches: [_localMatch, _onlineMatch, _videoMatch]),
+        const UniversalMatchResult(dealId: '402', matches: [_onlineMatch]),
+      ]),
+      assistant: _Assistant((message) => message.startsWith('Samsung')
+          ? {
+              'reply': 'Here are Samsung 43 inch TVs under ₹30,000.',
+              'domain': 'PRODUCT',
+              'transactional': true,
+              'action': 'buy',
+              'confidence': 0.9,
+              'source': 'universal_ai',
+              'entities': {'subject': 'Samsung 43 inch TV', 'location': 'Vijayawada', 'price': 30000},
+            }
+          : null),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a 43 inch TV in Vijayawada');
+
+    expect(find.text('What TV screen size do you prefer?'), findsNothing);
+    expect(h.matches.deals.single.size, '43 inch');
+    expect(find.text('Local matches'), findsOneWidget);
+    expect(find.text('Affiliate link'), findsOneWidget);
+    expect(find.text('Watch'), findsOneWidget);
+
+    await h.send(tester, 'Samsung under 30000');
+
+    expect(h.matches.deals, hasLength(2));
+    expect(h.matches.deals.last.subject, contains('43 inch'));
+    expect((h.assistant.requests.last['history'] as List).first['text'],
+        contains('43 inch TV'));
+    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget,
+        reason: 'first results stay in the conversation');
+    expect(find.byKey(const ValueKey('askodoxChatResults-3')), findsOneWidget);
+  });
+
+  testWidgets('unfinished buyer deal: a sell request still switches role; an aside keeps the deal to resume',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '501', matches: [_localMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy chicken in Vijayawada');
+    await h.send(tester, 'what is the weather today?');
+    expect(find.byKey(const Key('askodoxRoleNotice')), findsNothing);
+    await h.send(tester, 'curry cut');
+    expect(find.text('How much chicken do you need?'), findsNWidgets(2),
+        reason: 'the aside did not drop the chicken deal; the next question is still pending');
+
+    await h.send(tester, 'I want to sell my 2 bicycles in Vijayawada for 3000');
+    expect(find.text('You are now acting as: Seller for this request'), findsOneWidget);
+    expect(h.listings.listed.single.intent, DealIntent.sell);
+    expect(h.matches.deals, isEmpty);
+  });
+
+  group('Main Chat voice uses the ASKODOX/Sarvam pipeline', () {
+    const channel = MethodChannel('com.askodox.app/device');
+    final calls = <MethodCall>[];
+
+    void mockDevice(Future<Object?> Function(MethodCall call) handler) {
+      calls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) {
+        calls.add(call);
+        return handler(call);
+      });
+    }
+
+    tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+
+    testWidgets('Telugu speech is recorded, transcribed by Sarvam and continues the chat',
+        (tester) async {
+      mockDevice((call) async =>
+          call.method == 'startVoiceRecording' ? '/cache/askodox_voice_1.m4a' : null);
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'నాకు విజయవాడలో చికెన్ కావాలి',
+      );
+      await h.pump(tester, locale: 'te');
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _Harness.settle(tester);
+
+      expect(calls.map((c) => c.method), isNot(contains('startVoiceSearch')));
+      expect(calls.first.method, 'startVoiceRecording');
+      expect(h.voice.calls.single, ('/cache/askodox_voice_1.m4a', 'te'));
+      expect(find.text('నాకు విజయవాడలో చికెన్ కావాలి'), findsOneWidget);
+      expect(h.assistant.requests.single['locale'], 'te');
+      expect(calls.map((c) => c.method), contains('speakReply'));
+    });
+
+    testWidgets('microphone permission denied shows a clear error and no fallback recognizer',
+        (tester) async {
+      mockDevice((call) async {
+        if (call.method == 'startVoiceRecording') {
+          throw PlatformException(code: 'mic_denied');
+        }
+        return null;
+      });
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _Harness.settle(tester);
+
+      expect(find.textContaining('Microphone permission is off'), findsOneWidget);
+      expect(calls.map((c) => c.method), ['startVoiceRecording']);
+      expect(h.voice.calls, isEmpty);
+    });
+
+    testWidgets('cancel returns to idle without sending anything', (tester) async {
+      mockDevice((call) async => null); // cancelled recording resolves to null
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _Harness.settle(tester);
+
+      expect(h.voice.calls, isEmpty);
+      expect(h.assistant.requests, isEmpty);
+      expect(find.byIcon(Icons.mic_rounded), findsWidgets);
+    });
+
+    testWidgets('no speech is reported, chat untouched', (tester) async {
+      mockDevice((call) async {
+        if (call.method == 'startVoiceRecording') {
+          throw PlatformException(code: 'no_speech');
+        }
+        return null;
+      });
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _Harness.settle(tester);
+      expect(find.text('I did not hear anything. Please try again.'), findsOneWidget);
+      expect(h.assistant.requests, isEmpty);
+    });
+
+    testWidgets('transcription failure is reported and nothing is sent', (tester) async {
+      mockDevice((call) async =>
+          call.method == 'startVoiceRecording' ? '/cache/v.m4a' : null);
+      final failing = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await failing.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _Harness.settle(tester);
+      expect(find.textContaining('could not understand'), findsOneWidget);
+      expect(failing.assistant.requests, isEmpty);
+    });
   });
 
   test('live repository never substitutes demo matches and parses rich result fields', () async {

@@ -663,5 +663,15 @@ Verification: backend 165 passed (6 new in `test_unified_chat_results.py`); `flu
 
 Still open: camera/gallery/file pickers and real vision/document analysis need a real-phone run (widget tests cover the composition step only); seller-side Accept/Decline UI for `/deals` interests is the existing interest flow, unchanged; Telugu deal-brain category questions are still English text wrapped in a Telugu prefix.
 
+### 2026-09-25 — PR #88 review: chicken handoff holes, TV size context, Main Chat voice moved to Sarvam
+
+Review of PR #88 (keep unfinished deal transactional). The PR is a one-file change to the existing screen, with no parallel flow. It was not sufficient on its own:
+- **Answers slotted by position.** `UniversalDealController.answer()` wrote each reply into the *first* missing field, so "curry cut → 1 kg → skinless" became quantity="1 curry cut", freshness="1 kg", cut="skinless" before matching. Now fills the field the answer describes (quantity/cut/skin preference/freshness/fulfilment/TV size, English + Telugu, whole-word matching so "delivery" ≠ "live"); positional fallback kept.
+- **Deal reset by the AI rewrite / "delivery".** The AI-rewritten text ("i want to buy 1 kg") or the answer "delivery" (parcel keyword) tripped `shouldStartFresh` and dropped the chicken deal. Short detail answers now go straight to `answer()` with the user's own words (`AskodoxHomeRequestRouting.isShortDetailAnswer`). Real new requests (sell, service, parcel) still switch; a question/long aside goes to general chat and keeps the unfinished deal.
+- **TV size lost.** "43 inch TV" never set `size`, so ASKODOX re-asked and stored the next answer ("Samsung") as the size. `UniversalDealBrain.screenSizeIn` now captures it.
+- **Voice still on Google RecognizerIntent.** Main Chat mic used `startVoiceSearch` (system recognizer); nothing called the Sarvam-first `/api/in-app/voice/transcribe`. Now: native `MediaRecorder` (RECORD_AUDIO runtime permission, silence auto-stop, tap-to-stop, cancel, cancel on background) → `VoiceTranscriptionService` → same chat. No system-recognizer fallback. Backend infers audio MIME from filename when clients send octet-stream. `/discover/voice` still uses the old recognizer (secondary route).
+
+Verification: backend 168 passed; `flutter analyze` clean; `flutter test` 389 passed. Kotlin compiles only in CI (no Android SDK in the dev container). Real-phone gates still open.
+
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.

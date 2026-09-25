@@ -16,6 +16,7 @@ import '../../../services/real_product_match_service.dart';
 import '../../../services/vision_api_service.dart';
 import '../../../services/multimodal_capture_service.dart';
 import '../../../services/video_analysis_service.dart';
+import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
@@ -81,6 +82,11 @@ final askodoxRealProductMatchServiceProvider =
     Provider<RealProductMatchService>((ref) => const RealProductMatchService());
 final askodoxVisionServiceProvider =
     Provider<VisionApiService>((ref) => const VisionApiService());
+final askodoxVoiceTranscriptionServiceProvider =
+    Provider<VoiceTranscriptionService>(
+        (ref) => const VoiceTranscriptionService());
+
+enum _VoicePhase { idle, recording, transcribing }
 
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
   const AskodoxPrimaryHomeScreen({super.key});
@@ -106,7 +112,7 @@ class _AskodoxPrimaryHomeScreenState
   DealIntent? _lastIntent;
   bool _active = false;
   bool _sending = false;
-  bool _voiceBusy = false;
+  _VoicePhase _voicePhase = _VoicePhase.idle;
   XFile? _attachment;
   Uint8List? _attachmentPreviewBytes;
   String? _attachmentLabel;
@@ -180,28 +186,92 @@ class _AskodoxPrimaryHomeScreenState
 
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
 
+  static const _device = MethodChannel('com.askodox.app/device');
+
+  /// Main Chat voice: record in-app, transcribe through the backend's
+  /// Sarvam-first pipeline, then continue the same conversation. Tapping the
+  /// mic while recording stops early; the close button cancels. There is no
+  /// fallback to the Android system recognizer.
   Future<void> _startVoice() async {
-    if (_voiceBusy || _sending) return;
-    setState(() => _voiceBusy = true);
+    if (_voicePhase == _VoicePhase.recording) {
+      await _stopVoice();
+      return;
+    }
+    if (_voicePhase != _VoicePhase.idle || _sending) return;
+    final te = _te;
+    setState(() => _voicePhase = _VoicePhase.recording);
+    String? path;
     try {
-      final spoken = await const MethodChannel('com.askodox.app/device')
-          .invokeMethod<String>('startVoiceSearch', <String, Object?>{
-        'languageCode': _te ? 'te' : 'en',
+      path = await _device.invokeMethod<String>('startVoiceRecording', <String, Object?>{
+        'languageCode': te ? 'te' : 'en',
       });
-      final text = spoken?.trim() ?? '';
-      if (text.isNotEmpty && mounted) await _send(text, true);
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(() => _voicePhase = _VoicePhase.idle);
+        _voiceError(switch (error.code) {
+          'mic_denied' => te
+              ? 'మైక్రోఫోన్ అనుమతి లేదు. Settings లో అనుమతించి మళ్లీ ప్రయత్నించండి.'
+              : 'Microphone permission is off. Allow it in Settings and try again.',
+          'no_speech' => te
+              ? 'మీ మాట వినిపించలేదు. మళ్లీ మాట్లాడండి.'
+              : 'I did not hear anything. Please try again.',
+          _ => te
+              ? 'వాయిస్ ప్రారంభం కాలేదు. మళ్లీ ప్రయత్నించండి.'
+              : 'Voice could not start. Please try again.',
+        });
+      }
+      return;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_te
-              ? 'వాయిస్ ప్రారంభం కాలేదు. Microphone permission చూసి మళ్లీ ప్రయత్నించండి.'
-              : 'Voice could not start. Check microphone permission and try again.'),
-        ));
+        setState(() => _voicePhase = _VoicePhase.idle);
+        _voiceError(te
+            ? 'వాయిస్ ప్రారంభం కాలేదు. మళ్లీ ప్రయత్నించండి.'
+            : 'Voice could not start. Please try again.');
       }
-    } finally {
-      if (mounted) setState(() => _voiceBusy = false);
+      return;
+    }
+    if (!mounted) return;
+    if (path == null || path.isEmpty) {
+      // User cancelled (or the app went to the background).
+      setState(() => _voicePhase = _VoicePhase.idle);
+      return;
+    }
+    setState(() => _voicePhase = _VoicePhase.transcribing);
+    final transcript = await ref
+        .read(askodoxVoiceTranscriptionServiceProvider)
+        .transcribeFile(path, locale: te ? 'te' : 'en');
+    if (!mounted) return;
+    setState(() => _voicePhase = _VoicePhase.idle);
+    if (transcript == null) {
+      _voiceError(te
+          ? 'మీ మాటను అర్థం చేసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి లేదా టైప్ చేయండి.'
+          : 'I could not understand that. Please try again or type your message.');
+      return;
+    }
+    await _send(transcript, true);
+  }
+
+  Future<void> _stopVoice() async {
+    try {
+      await _device.invokeMethod<bool>('stopVoiceRecording');
+    } catch (_) {
+      // The pending startVoiceRecording call still completes or errors.
     }
   }
+
+  Future<void> _cancelVoice() async {
+    try {
+      await _device.invokeMethod<bool>('cancelVoiceRecording');
+    } catch (_) {
+      if (mounted) setState(() => _voicePhase = _VoicePhase.idle);
+    }
+  }
+
+  void _voiceError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
 
   Future<void> _showAttachmentMenu() async {
     try {
@@ -507,9 +577,22 @@ class _AskodoxPrimaryHomeScreenState
       location: knownLocationLabel,
     );
     final aiUsable = decision?.usable == true;
-    final transactional = aiUsable
-        ? decision!.transactional
-        : AskodoxHomeRequestRouting.isTransactional(text);
+    // A short answer such as "curry cut", "1 kg" or "skinless" is not
+    // transactional on its own, but it *is* transactional when ASKODOX is
+    // already collecting details for an unfinished commerce request. Do not
+    // let the assistant classifier drop that active deal and strand the user
+    // in general chat just before matching. A real aside (a question or a
+    // longer general message) still goes to general chat, and the unfinished
+    // deal is kept so the user can resume it.
+    final activeDealSession = ref.read(universalDealControllerProvider);
+    final continuingActiveDeal =
+        activeDealSession.deal != null && !activeDealSession.completed;
+    final detailAnswer = continuingActiveDeal &&
+        AskodoxHomeRequestRouting.isShortDetailAnswer(text);
+    final transactional = detailAnswer ||
+        (aiUsable
+            ? decision!.transactional
+            : AskodoxHomeRequestRouting.isTransactional(text));
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
@@ -527,7 +610,12 @@ class _AskodoxPrimaryHomeScreenState
         routedText,
       );
 
-      if (shouldStartFresh && session.deal != null) {
+      if (detailAnswer) {
+        // The user's own words, not the AI rewrite: a rewrite like
+        // "i want to buy 1 kg" would look like a new retail request and
+        // restart (drop) the active chicken deal.
+        notifier.answer(text);
+      } else if (shouldStartFresh && session.deal != null) {
         _lastGoodProductQuery = null;
         notifier.reset();
         notifier.start(routedText);
@@ -577,7 +665,7 @@ class _AskodoxPrimaryHomeScreenState
           results = await _findUniversalMatches(deal);
         }
       }
-    } else {
+    } else if (!continuingActiveDeal) {
       notifier.reset();
     }
 
@@ -948,13 +1036,38 @@ class _AskodoxPrimaryHomeScreenState
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_attachmentLabel != null) _attachmentPreview(te),
         Row(children: [
+        if (_voicePhase == _VoicePhase.recording)
+          IconButton(
+            key: const Key('askodoxVoiceCancel'),
+            onPressed: _cancelVoice,
+            tooltip: te ? 'రద్దు చేయండి' : 'Cancel voice',
+            icon: const Icon(Icons.close_rounded, color: _muted)),
         IconButton.filled(
-          onPressed: _startVoice,
+          key: const Key('askodoxVoiceButton'),
+          onPressed: _voicePhase == _VoicePhase.transcribing ? null : _startVoice,
+          tooltip: switch (_voicePhase) {
+            _VoicePhase.recording => te ? 'ఆపండి' : 'Stop and send',
+            _VoicePhase.transcribing => te ? 'అర్థం చేసుకుంటున్నాను…' : 'Transcribing…',
+            _VoicePhase.idle => te ? 'మాట్లాడండి' : 'Speak',
+          },
           style: IconButton.styleFrom(
-            backgroundColor: _accent,
+            backgroundColor: _voicePhase == _VoicePhase.recording
+                ? const Color(0xFFE5484D)
+                : _accent,
             minimumSize: const Size(40, 40),
             padding: EdgeInsets.zero),
-          icon: const Icon(Icons.mic_rounded, color: _ink)),
+          icon: _voicePhase == _VoicePhase.transcribing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _ink))
+              : Icon(
+                  _voicePhase == _VoicePhase.recording
+                      ? Icons.stop_rounded
+                      : Icons.mic_rounded,
+                  color: _voicePhase == _VoicePhase.recording
+                      ? Colors.white
+                      : _ink)),
         const SizedBox(width: 6),
         Expanded(
           child: TextField(
