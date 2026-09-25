@@ -507,9 +507,18 @@ class _AskodoxPrimaryHomeScreenState
       location: knownLocationLabel,
     );
     final aiUsable = decision?.usable == true;
-    final transactional = aiUsable
-        ? decision!.transactional
-        : AskodoxHomeRequestRouting.isTransactional(text);
+    // A short answer such as "curry cut", "1 kg" or "skinless" is not
+    // transactional on its own, but it *is* transactional when ASKODOX is
+    // already collecting details for an unfinished commerce request. Do not
+    // let the assistant classifier drop that active deal and strand the user
+    // in general chat just before matching.
+    final activeDealSession = ref.read(universalDealControllerProvider);
+    final continuingActiveDeal =
+        activeDealSession.deal != null && !activeDealSession.completed;
+    final transactional = continuingActiveDeal ||
+        (aiUsable
+            ? decision!.transactional
+            : AskodoxHomeRequestRouting.isTransactional(text));
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
