@@ -550,6 +550,33 @@ void main() {
     expect(h.matches.deals, isEmpty);
   });
 
+  testWidgets('Build 1236: completed chicken deal never ends without result cards',
+      (tester) async {
+    Future<void> runChicken(_Harness h) async {
+      await h.pump(tester);
+      await h.send(tester, 'I want to buy chicken in Vijayawada');
+      for (final answer in ['curry cut', '1 kg', 'skinless', 'fresh', 'delivery']) {
+        await h.send(tester, answer);
+      }
+    }
+
+    // Backend 422 with nothing missing (request could not be published).
+    final rejected = _Harness(matches: _FakeMatchRepository([
+      const DealNeedsDetailsException(domain: 'commerce', action: 'buy', missingFields: []),
+    ]));
+    await runChicken(rejected);
+    expect(rejected.matches.deals, hasLength(1));
+    expect(find.text('Search online for chicken'), findsOneWidget);
+    expect(find.text('Videos & reviews'), findsOneWidget);
+
+    // Backend 200 but zero rows.
+    final empty = _Harness(matches: _FakeMatchRepository([
+      const UniversalMatchResult(dealId: '777', matches: []),
+    ]));
+    await runChicken(empty);
+    expect(find.text('Search online for chicken'), findsOneWidget);
+  });
+
   group('Main Chat voice uses the ASKODOX/Sarvam pipeline', () {
     const channel = MethodChannel('com.askodox.app/device');
     final calls = <MethodCall>[];

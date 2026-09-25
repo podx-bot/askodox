@@ -137,3 +137,41 @@ def test_public_product_search_never_exposes_seller_contact(monkeypatch, tmp_pat
     assert items, "the seeded listing should be searchable"
     assert all(item["provider_id"] == "" for item in items)
     assert "919876543210" not in response.text
+
+
+def test_ready_app_deal_is_published_even_when_conversation_pipeline_saves_nothing(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "publish.db"))
+    from server import app, container
+
+    owner = "app-publish-" + uuid.uuid4().hex
+    headers = _owner_headers(container, owner)
+    # Simulate the Build 1236 failure: the conversation pipeline misreads the
+    # buy request and saves no demand; live capture saves nothing either.
+    monkeypatch.setattr(container.conversation_service, "process", lambda **_: "seller onboarding")
+    monkeypatch.setattr(container.universal_live_capture_service, "process_text", lambda *_: None)
+    client = TestClient(app)
+    body = {
+        "user_id": owner,
+        "raw_text": "I want to buy chicken in Vijayawada",
+        "intent": "buy",
+        "subject": "chicken",
+        "category": "food",
+        "quantity": 1,
+        "unit": "kg",
+        "fulfilment": "delivery",
+        "dynamic_fields": {"cut": "curry cut", "chickenPreference": "skinless"},
+        "location": {"label": "Vijayawada", "latitude": 16.5, "longitude": 80.6, "radius_km": 5},
+    }
+
+    created = client.post("/deals", json=body, headers=headers)
+
+    assert created.status_code == 200, created.text
+    demand = container.universal_demand_repository.get(created.json()["id"])
+    assert demand["side"] == "NEED"
+    assert demand["domain"] == "PRODUCT"
+    assert demand["subject"] == "chicken"
+    matches = client.get(f"/deals/{created.json()['id']}/matches", headers=headers).json()
+    assert {row["match_source"] for row in matches["matches"]} >= {"online", "video"}
+
+    incomplete = client.post("/deals", json={**body, "subject": None}, headers=headers)
+    assert incomplete.status_code == 422
