@@ -87,7 +87,11 @@ def search_products(request: Request, q: str = "", limit: int = 10, location: st
                 title=_title(row),
                 subtitle=_subtitle(row),
                 price=(float(row["price"]) if row.get("price") is not None else None),
-                provider_id=str(row.get("seller_user_id") or ""),
+                # 2026-09-25: seller_user_id is literally the seller's phone
+                # ("app-phone-91...") and this endpoint is public. Contact is
+                # only revealed after the seller accepts an order -- see
+                # order_contact_visibility.py -- so it is never sent here.
+                provider_id="",
                 match_score=float(row.get("match_score") or 0),
                 match_reasons=list(row.get("match_reasons") or []),
             )

@@ -18,7 +18,10 @@ from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing
 from app.core.intent_domain_router import IntentRouteNotFoundError
 from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 from app.services.universal_action_contract import build_action_result
-from app.services.universal_external_result_service import UniversalExternalResultService
+from app.services.universal_external_result_service import (
+    UniversalExternalResultService,
+    UniversalOnlineFallbackService,
+)
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
@@ -291,6 +294,17 @@ def _demo_discovery_matches(container, demand: dict, existing_ids: set[str]) -> 
     return discovered
 
 
+def _review_summary(container, user_id: str) -> dict:
+    repository = getattr(container, "universal_review_repository", None)
+    summary = getattr(repository, "summary_for_user", None)
+    if not callable(summary):
+        return {}
+    try:
+        return dict(summary(user_id))
+    except Exception:  # a reviews read must never break matching
+        return {}
+
+
 @router.post("")
 def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     container = request.app.state.container
@@ -411,6 +425,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
                 "price": None,
                 "match_source": "interest",
                 "demo": False,
+                **_review_summary(container, responder),
             }
         )
 
@@ -441,21 +456,45 @@ def get_matches(deal_id: int, request: Request) -> dict:
             if item.get("id") not in existing_ids
         )
 
+    # 2026-09-25: unified chat results. When no genuine (non-demo) local
+    # party has responded and no configured online partner covers this
+    # request, fall back to real online results instead of an empty chat.
+    # Relevant videos ride along for categories where they make sense.
+    # Fallback rows never count as matches for the consent/waiting state.
+    category = str(demand.get("domain") or "").strip()
+    subject = str(demand.get("subject") or "").strip()
+    local_match_count = sum(
+        1 for item in matches if item.get("match_source") in {"interest", "demo_discovery"}
+    )
+    genuine_local = any(item.get("match_source") == "interest" for item in matches)
+    has_online = any(item.get("match_source") == "online" for item in matches)
+    fallback_service = UniversalOnlineFallbackService(
+        getattr(container, "brave_web_search_provider", None)
+    )
+    fallback: list[dict] = []
+    if not genuine_local and not has_online:
+        fallback.extend(fallback_service.online(category=category, subject=subject))
+    fallback.extend(fallback_service.videos(category=category, subject=subject))
+    primary_count = len(matches)
+    matches.extend(fallback)
+
     return {
         "deal_id": deal_id,
         "request_id": deal_id,
         "contract_version": 1,
         "status": demand.get("status"),
-        "match_count": len(matches),
+        "match_count": primary_count,
+        "local_match_count": local_match_count,
+        "online_fallback_used": any(item.get("match_source") == "online" for item in fallback),
         "matches": matches,
-        "waiting_for_interest": len(matches) == 0,
+        "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
-            raw_status="MATCHES_AVAILABLE" if matches else "WAITING_FOR_INTEREST",
+            raw_status="MATCHES_AVAILABLE" if primary_count else "WAITING_FOR_INTEREST",
             request_id=deal_id,
             category=demand.get("domain"),
             side=demand.get("side"),
             channel="in_app",
-            result={"match_count": len(matches)},
+            result={"match_count": primary_count},
         ).to_dict(),
     }
 

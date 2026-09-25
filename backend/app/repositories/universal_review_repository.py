@@ -43,3 +43,15 @@ class UniversalReviewRepository:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             return [dict(row) for row in conn.execute("SELECT * FROM universal_reviews WHERE request_id=? ORDER BY id", (int(request_id),))]
+
+    def summary_for_user(self, reviewed_user_id):
+        """Average rating + count across completed deals, for match cards."""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT AVG(rating), COUNT(*) FROM universal_reviews WHERE reviewed_user_id=?",
+                (str(reviewed_user_id),),
+            ).fetchone()
+        count = int(row[1] or 0) if row else 0
+        if not count:
+            return {"rating_average": None, "review_count": 0}
+        return {"rating_average": round(float(row[0]), 1), "review_count": count}
