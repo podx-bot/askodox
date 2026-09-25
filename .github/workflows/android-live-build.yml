@@ -65,10 +65,14 @@ jobs:
           # install an update with a lower versionCode, so this must never
           # regress. workflow_dispatch keeps its explicit input (and that
           # input's own '919' default) for manual overrides. This has to be
-          # plain shell arithmetic, not a `${{ }}` expression: GitHub Actions'
-          # expression language has no `+` arithmetic operator, so
-          # `${{ 1000 + github.run_number }}` is invalid syntax that fails
-          # the whole workflow at parse time before any job runs.
+          # plain shell arithmetic, not a GitHub Actions expression: the
+          # expression language has no plus-sign arithmetic operator, and
+          # writing the addition directly as a template substitution is
+          # invalid syntax that fails the whole workflow at parse time
+          # before any job runs (do not paste that template form back into
+          # this file, even inside a comment -- the parser evaluates every
+          # template substitution in a run block regardless of shell
+          # comments).
           INPUT_BUILD_NUMBER="${{ inputs.build_number }}"
           if [ -n "$INPUT_BUILD_NUMBER" ]; then
             echo "BUILD_NUMBER=$INPUT_BUILD_NUMBER" >> "$GITHUB_ENV"
