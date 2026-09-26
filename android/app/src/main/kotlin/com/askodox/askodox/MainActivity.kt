@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
@@ -42,6 +43,7 @@ class MainActivity : FlutterActivity() {
     private var pendingRecordingStart: MethodChannel.Result? = null
     private var recorder: MediaRecorder? = null
     private var recordingFile: File? = null
+    private var mediaPlayer: MediaPlayer? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -89,6 +91,7 @@ class MainActivity : FlutterActivity() {
                         cancelVoiceRecording()
                         result.success(null)
                     }
+                    "playReplyAudio" -> playReplyAudio(call.argument<ByteArray>("bytes"), result)
                     "stopSpeaking" -> {
                         stopSpeaking()
                         result.success(true)
@@ -401,8 +404,56 @@ class MainActivity : FlutterActivity() {
 
     private fun stopSpeaking() {
         try { textToSpeech?.stop() } catch (_: Exception) {}
+        val player = mediaPlayer
+        mediaPlayer = null
+        if (player != null) {
+            try { player.stop() } catch (_: Exception) {}
+            try { player.release() } catch (_: Exception) {}
+        }
         finishSpeechResult(false)
     }
+
+    /**
+     * Plays reply audio produced by the backend's Sarvam Bulbul v3 TTS
+     * (Ogg/Opus). Returns true when it finished playing; false when the
+     * device cannot decode it or playback failed, so the app can fall back
+     * to device TextToSpeech.
+     */
+    private fun playReplyAudio(bytes: ByteArray?, result: MethodChannel.Result) {
+        if (bytes == null || bytes.isEmpty()) {
+            result.success(false)
+            return
+        }
+        stopSpeaking()
+        var player: MediaPlayer? = null
+        try {
+            val file = File(cacheDir, "askodox_reply_audio.ogg")
+            file.writeBytes(bytes)
+            player = MediaPlayer()
+            player.setDataSource(file.absolutePath)
+            player.setOnCompletionListener { finished ->
+                if (mediaPlayer === finished) mediaPlayer = null
+                try { finished.release() } catch (_: Exception) {}
+                finishSpeechResult(true)
+            }
+            player.setOnErrorListener { failed, _, _ ->
+                if (mediaPlayer === failed) mediaPlayer = null
+                try { failed.release() } catch (_: Exception) {}
+                finishSpeechResult(false)
+                true
+            }
+            player.prepare()
+            pendingSpeechResult = result
+            mediaPlayer = player
+            player.start()
+        } catch (e: Exception) {
+            try { player?.release() } catch (_: Exception) {}
+            if (mediaPlayer === player) mediaPlayer = null
+            if (pendingSpeechResult === result) pendingSpeechResult = null
+            result.success(false)
+        }
+    }
+
 
     private fun getCurrentLocation(result: MethodChannel.Result) {
         if (pendingLocationResult != null) {
@@ -490,6 +541,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         cancelVoiceRecording()
+        try { mediaPlayer?.release() } catch (_: Exception) {}
+        mediaPlayer = null
         pendingSpeechResult?.success(false)
         pendingSpeechResult = null
         textToSpeech?.stop()

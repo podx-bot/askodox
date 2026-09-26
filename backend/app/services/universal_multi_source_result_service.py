@@ -22,10 +22,15 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
 from app.services.universal_external_result_service import (
+    STATUS_NO_RESULTS,
+    STATUS_OK,
+    STATUS_UNAVAILABLE,
     UniversalExternalResultService,
     UniversalOnlineFallbackService,
     _host,
     _is_video_host,
+    price_from_text,
+    relevant_to,
 )
 
 SEGMENT_REGISTERED = "registered"
@@ -83,19 +88,6 @@ def distance_km(lat1, lon1, lat2, lon2) -> float | None:
     return round(6371.0 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
 
 
-def _tokens(text: str) -> set[str]:
-    return {token for token in re.findall(r"[a-z0-9]+", str(text or "").casefold()) if len(token) > 1}
-
-
-def _relevant(subject: str, *texts: Any) -> bool:
-    """A web row is relevant only if it mentions the requirement's key words."""
-    wanted = {token for token in _tokens(subject) if not token.isdigit()} or _tokens(subject)
-    if not wanted:
-        return False
-    hay = _tokens(" ".join(str(text or "") for text in texts))
-    return len(wanted & hay) >= max(1, math.ceil(len(wanted) / 2))
-
-
 class UniversalMultiSourceResultService:
     def __init__(
         self,
@@ -112,6 +104,11 @@ class UniversalMultiSourceResultService:
         self.maps = maps
         self.web_search = web_search
         self.fallback = UniversalOnlineFallbackService(web_search)
+        self._status: dict[str, str] = {}
+
+    def source_status(self) -> dict[str, str]:
+        """Per source: ok / no_results / unavailable (never faked)."""
+        return {**self._status, **self.fallback.status}
 
     # ------------------------------------------------------------ public --
 
@@ -132,7 +129,14 @@ class UniversalMultiSourceResultService:
             external = pool.submit(self._external, subject, location_text, lat, lon, radius_km)
             web = pool.submit(self._web_segments, subject, location_text)
             registered = self._registered(subject, location_text, budget, lat, lon, condition)
-            rows = registered + external.result() + web.result()
+            external_rows = external.result()
+            web_rows = web.result()
+            rows = registered + external_rows + web_rows
+        self._status["askodox"] = STATUS_OK if registered else STATUS_NO_RESULTS
+        maps_ready = callable(getattr(self.maps, "search_places", None)) and getattr(self.maps, "enabled", False)
+        self._status["nearby"] = (STATUS_OK if external_rows else STATUS_NO_RESULTS) if maps_ready else STATUS_UNAVAILABLE
+        web_ready = callable(self.web_search) and getattr(self.web_search, "configured", True)
+        self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
         return sorted(rows, key=lambda item: -float(item.get("rank_score") or 0))
 
     def online_and_videos(self, *, category: str, subject: str, include_online: bool) -> list[dict[str, Any]]:
@@ -245,7 +249,7 @@ class UniversalMultiSourceResultService:
                 if not url or _is_video_host(url):
                     continue
                 # Must be about the requirement AND genuinely this segment.
-                if not _relevant(subject, title, snippet) or not _mentions(f"{title} {snippet}", words):
+                if not relevant_to(subject, title, snippet) or not _mentions(f"{title} {snippet}", words):
                     continue
                 host = _host(url).removeprefix("www.")
                 items.append({
@@ -255,6 +259,9 @@ class UniversalMultiSourceResultService:
                     "title": str(title or host)[:160],
                     "subtitle": str(snippet or "")[:280],
                     "destination_url": url,
+                    "image_url": (row or {}).get("thumbnail") or None,
+                    "source_name": (row or {}).get("host") or host,
+                    "price": price_from_text(title, snippet),
                     "source": "online",
                     "match_source": "online",
                     "segment": segment,

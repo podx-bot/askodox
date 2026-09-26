@@ -87,6 +87,8 @@ class UniversalMatch {
     this.ratingAverage,
     this.reviewCount = 0,
     this.segment,
+    this.sourceName,
+    this.duration,
   });
 
   final String id;
@@ -113,6 +115,12 @@ class UniversalMatch {
   /// Result section from the multi-source backend (registered, used,
   /// surplus, deals, nearby_external, ...). Null on older rows.
   final String? segment;
+
+  /// Real seller/site/creator name returned by the source (never invented).
+  final String? sourceName;
+
+  /// Video length as returned by the video source (e.g. "08:12").
+  final String? duration;
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -150,6 +158,8 @@ class UniversalMatch {
           ratingAverage: (json['rating_average'] as num?)?.toDouble(),
           reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
           segment: json['segment']?.toString(),
+          sourceName: json['source_name']?.toString(),
+          duration: json['duration']?.toString(),
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -173,13 +183,23 @@ class UniversalMatch {
         'rating_average': ratingAverage,
         'review_count': reviewCount,
         'segment': segment,
+        'source_name': sourceName,
+        'duration': duration,
       };
 }
 
 class UniversalMatchResult {
-  const UniversalMatchResult({required this.dealId, required this.matches});
+  const UniversalMatchResult({
+    required this.dealId,
+    required this.matches,
+    this.sourceStatus = const <String, String>{},
+  });
   final String dealId;
   final List<UniversalMatch> matches;
+
+  /// Per source (askodox, nearby, used_deals, online, videos): ok,
+  /// no_results or unavailable -- as reported by the backend.
+  final Map<String, String> sourceStatus;
 }
 
 abstract interface class UniversalMatchRepository {
@@ -297,7 +317,14 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         .toList();
 
     rows.sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
-    return UniversalMatchResult(dealId: dealId, matches: rows);
+    final status = data['source_status'];
+    return UniversalMatchResult(
+      dealId: dealId,
+      matches: rows,
+      sourceStatus: status is Map
+          ? {for (final e in status.entries) '${e.key}': '${e.value}'}
+          : const {},
+    );
   }
 
   @override

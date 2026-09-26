@@ -1,6 +1,7 @@
 """Resolve user-facing online results from normal and affiliate mappings."""
 from __future__ import annotations
 
+import re
 from urllib.parse import quote_plus, urlparse
 from typing import Any, Iterable
 
@@ -96,18 +97,53 @@ def _is_video_host(url: str) -> bool:
     return any(host == item or host.endswith("." + item) for item in _VIDEO_HOSTS)
 
 
-class UniversalOnlineFallbackService:
-    """Online + video results shown in chat when no genuine local match exists.
+_PRICE = re.compile(r"(?:₹|rs\.?|inr)\s*([0-9][0-9,]{2,})(?:\.\d+)?", re.IGNORECASE)
 
-    Uses the already-configured Brave web provider (the same one Live
-    Research uses) when it has an API key, so results are real pages. When
-    the provider is not configured or returns nothing, it falls back to plain,
-    clearly-labelled search links -- never fabricated products, prices or
-    sellers.
+
+def price_from_text(*texts: Any) -> float | None:
+    """A rupee price literally present in the returned page text, if any."""
+    for text in texts:
+        match = _PRICE.search(str(text or ""))
+        if match:
+            try:
+                return float(match.group(1).replace(",", ""))
+            except ValueError:
+                return None
+    return None
+
+
+def _tokens(text: str) -> set[str]:
+    return {token for token in re.findall(r"[a-z0-9]+", str(text or "").casefold()) if len(token) > 1}
+
+
+def relevant_to(subject: str, *texts: Any) -> bool:
+    """A returned row is relevant only if it mentions the requirement's key words."""
+    wanted = {token for token in _tokens(subject) if not token.isdigit()} or _tokens(subject)
+    if not wanted:
+        return False
+    hay = _tokens(" ".join(str(text or "") for text in texts))
+    return len(wanted & hay) >= max(1, -(-len(wanted) // 2))
+
+
+STATUS_OK = "ok"
+STATUS_NO_RESULTS = "no_results"
+STATUS_UNAVAILABLE = "unavailable"
+
+
+class UniversalOnlineFallbackService:
+    """Real online product pages and actual videos for a requirement.
+
+    2026-09-26 (Build 1238): the earlier version returned placeholder links
+    ("Search online for TV", "TV reviews on YouTube") whenever the web
+    provider was unconfigured or empty. Those are gone: only rows the Brave
+    provider actually returned are shown, and ``status`` records per source
+    whether it returned results, returned nothing, or is unavailable, so the
+    chat can say so honestly instead of faking a section.
     """
 
     def __init__(self, web_search=None) -> None:
         self.web_search = web_search
+        self.status: dict[str, str] = {}
 
     @property
     def _search_configured(self) -> bool:
@@ -117,49 +153,58 @@ class UniversalOnlineFallbackService:
         subject = " ".join(str(subject or "").split())
         if not subject:
             return []
+        if not self._search_configured:
+            self.status["online"] = STATUS_UNAVAILABLE
+            return []
         results: list[dict[str, Any]] = []
-        if self._search_configured:
-            for row in self._search(f"{subject} price buy online", limit * 2):
-                url = UniversalExternalResultService._http_url(row.get("url"))
-                if not url or _is_video_host(url):
-                    continue
-                results.append(self._row("online", len(results), row.get("title"), row.get("snippet"), url))
-                if len(results) >= limit:
-                    break
-        if results:
-            return results
-        return [
-            self._row(
-                "online",
-                0,
-                f"Search online for {subject}",
-                "No verified local match yet -- compare prices and sellers online.",
-                f"https://www.google.com/search?q={quote_plus(subject + ' price')}",
-            )
-        ]
+        for row in self._search(f"{subject} price buy online", limit * 3):
+            url = UniversalExternalResultService._http_url(row.get("url"))
+            if not url or _is_video_host(url):
+                continue
+            if not relevant_to(subject, row.get("title"), row.get("snippet")):
+                continue
+            item = self._row("online", len(results), row.get("title"), row.get("snippet"), url)
+            item["image_url"] = row.get("thumbnail") or None
+            item["source_name"] = row.get("host") or item["provider_id"]
+            item["price"] = price_from_text(row.get("title"), row.get("snippet"))
+            results.append(item)
+            if len(results) >= limit:
+                break
+        self.status["online"] = STATUS_OK if results else STATUS_NO_RESULTS
+        return results
 
-    def videos(self, *, category: str, subject: str, limit: int = 3) -> list[dict[str, Any]]:
+    def videos(self, *, category: str, subject: str, limit: int = 4) -> list[dict[str, Any]]:
         subject = " ".join(str(subject or "").split())
         if not subject or str(category or "").strip().upper() in _NO_VIDEO_DOMAINS:
             return []
+        if not self._search_configured:
+            self.status["videos"] = STATUS_UNAVAILABLE
+            return []
+        query = f"{subject} review"
+        video_search = getattr(self.web_search, "videos", None)
+        rows: list[dict[str, Any]] = []
+        if callable(video_search):
+            try:
+                rows = [row for row in (video_search(query, limit * 3) or []) if isinstance(row, dict)]
+            except Exception:
+                rows = []
+        if not rows:
+            rows = [row for row in self._search(f"{subject} review video", limit * 4)
+                    if _is_video_host(str(row.get("url") or ""))]
         results: list[dict[str, Any]] = []
-        if self._search_configured:
-            for row in self._search(f"{subject} review video", limit * 4):
-                url = UniversalExternalResultService._http_url(row.get("url"))
-                if not url or not _is_video_host(url):
-                    continue
-                results.append(self._row("video", len(results), row.get("title"), row.get("snippet"), url))
-                if len(results) >= limit:
-                    break
-        if results:
-            return results
-        query = quote_plus(f"{subject} review")
-        return [
-            self._row("video", 0, f"{subject} reviews on YouTube", "Watch video reviews and demos.",
-                      f"https://www.youtube.com/results?search_query={query}"),
-            self._row("video", 1, f"{subject} on Instagram", "Reels and creator posts.",
-                      f"https://www.instagram.com/explore/search/keyword/?q={quote_plus(subject)}"),
-        ][:limit]
+        for row in rows:
+            url = UniversalExternalResultService._http_url(row.get("url"))
+            if not url or not relevant_to(subject, row.get("title"), row.get("snippet")):
+                continue
+            item = self._row("video", len(results), row.get("title"), row.get("snippet"), url)
+            item["image_url"] = row.get("thumbnail") or None
+            item["source_name"] = row.get("creator") or row.get("publisher") or row.get("host") or item["provider_id"]
+            item["duration"] = row.get("duration") or None
+            results.append(item)
+            if len(results) >= limit:
+                break
+        self.status["videos"] = STATUS_OK if results else STATUS_NO_RESULTS
+        return results
 
     def _search(self, query: str, limit: int) -> list[dict[str, Any]]:
         try:

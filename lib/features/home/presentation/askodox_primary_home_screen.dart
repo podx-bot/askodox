@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,6 +17,7 @@ import '../../../services/real_product_match_service.dart';
 import '../../../services/vision_api_service.dart';
 import '../../../services/multimodal_capture_service.dart';
 import '../../../services/video_analysis_service.dart';
+import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
@@ -29,9 +31,11 @@ import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../domain/active_role.dart';
 import '../domain/chat_result_policy.dart';
+import '../domain/need_clarification.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
 import 'askodox_orb.dart';
+import 'video_viewer_screen.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -88,11 +92,15 @@ final askodoxVisionServiceProvider =
     Provider<VisionApiService>((ref) => const VisionApiService());
 final askodoxSupportEscalationServiceProvider =
     Provider<SupportEscalationService>((ref) => const SupportEscalationService());
+final askodoxReplySpeechServiceProvider =
+    Provider<ReplySpeechService>((ref) => const ReplySpeechService());
 final askodoxVoiceTranscriptionServiceProvider =
     Provider<VoiceTranscriptionService>(
         (ref) => const VoiceTranscriptionService());
 
-enum _VoicePhase { idle, recording, transcribing }
+/// Main Chat voice state: Idle → Listening → Understanding (Sarvam STT)
+/// → Thinking (ASKODOX AI) → Speaking (reply voice).
+enum _VoicePhase { idle, recording, transcribing, thinking, speaking }
 
 class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
   const AskodoxPrimaryHomeScreen({super.key});
@@ -128,6 +136,11 @@ class _AskodoxPrimaryHomeScreenState
   final Set<String> _requestSentMatchKeys = {};
   String? _pendingAiContext;
   bool _pendingDiscussOnly = false;
+
+  // One concise clarification for an ambiguous need, asked before search.
+  AskodoxClarification? _pendingClarification;
+  final Set<String> _clarifiedKeys = {};
+  final Map<int, AskodoxClarification> _clarificationByTurn = {};
 
   // Active role question awaiting the user's answer, keyed by user turn.
   final Map<int, AskodoxUserRole> _roleQuestionByTurn = {};
@@ -217,6 +230,14 @@ class _AskodoxPrimaryHomeScreenState
   Timer? _voiceTimer;
   AskodoxVoiceEndpointer? _endpointer;
   int _voiceTicks = 0;
+
+  // Live microphone levels (0..1) from the same voiceRecordingLevel samples
+  // the endpointer uses -- drives the Listening waveform.
+  final List<double> _voiceLevels = [];
+  static const _voiceLevelBars = 24;
+
+  /// Which engine spoke the last reply: 'sarvam_bulbul_v3' or 'device'.
+  String? lastReplyVoiceEngine;
   bool _voiceFinishing = false;
 
   /// Main Chat voice: record in-app, transcribe through the backend's
@@ -229,9 +250,17 @@ class _AskodoxPrimaryHomeScreenState
       await _finishVoice(noSpeech: false);
       return;
     }
+    if (_voicePhase == _VoicePhase.speaking) {
+      // A new mic turn interrupts the reply ASKODOX is speaking.
+      await _stopSpeaking();
+    }
     if (_voicePhase != _VoicePhase.idle || _sending) return;
     final te = _te;
-    setState(() => _voicePhase = _VoicePhase.recording);
+    setState(() {
+      _voicePhase = _VoicePhase.recording;
+      _voiceLevels.clear();
+      _voiceTicks = 0;
+    });
     bool? started;
     try {
       started = await _device.invokeMethod<bool>('startVoiceRecording', <String, Object?>{
@@ -287,6 +316,12 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     _voiceTicks++;
+    setState(() {
+      // Perceptual scale so normal speech visibly moves the bars.
+      final normalized = (level! / 12000).clamp(0.0, 1.0);
+      _voiceLevels.add(normalized <= 0 ? 0 : math.sqrt(normalized));
+      if (_voiceLevels.length > _voiceLevelBars) _voiceLevels.removeAt(0);
+    });
     final decision = _endpointer?.add(level, _voiceSampleInterval * _voiceTicks) ??
         VoiceEndpointDecision.keepRecording;
     switch (decision) {
@@ -342,14 +377,18 @@ class _AskodoxPrimaryHomeScreenState
         .read(askodoxVoiceTranscriptionServiceProvider)
         .transcribeFile(path, locale: te ? 'te' : 'en');
     if (!mounted) return;
-    setState(() => _voicePhase = _VoicePhase.idle);
     if (transcript == null) {
+      setState(() => _voicePhase = _VoicePhase.idle);
       _voiceError(te
           ? 'మీ మాటను అర్థం చేసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి లేదా టైప్ చేయండి.'
           : 'I could not understand that. Please try again or type your message.');
       return;
     }
+    setState(() => _voicePhase = _VoicePhase.thinking);
     await _send(transcript, true);
+    if (mounted && _voicePhase == _VoicePhase.thinking) {
+      setState(() => _voicePhase = _VoicePhase.idle);
+    }
   }
 
   Future<void> _cancelVoice() async {
@@ -367,6 +406,9 @@ class _AskodoxPrimaryHomeScreenState
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
     } catch (_) {}
+    if (mounted && _voicePhase == _VoicePhase.speaking) {
+      setState(() => _voicePhase = _VoicePhase.idle);
+    }
   }
 
   void _voiceError(String message) {
@@ -592,6 +634,11 @@ class _AskodoxPrimaryHomeScreenState
       'actionable': _actionableMatchKeys.toList(),
       'requested': _requestSentMatchKeys.toList(),
       'issueTurns': _issueTurns,
+      'clarified': _clarifiedKeys.toList(),
+      'pendingClarification': _pendingClarification?.key,
+      'clarifications': {
+        for (final entry in _clarificationByTurn.entries) '${entry.key}': entry.value.key,
+      },
       'lastQuery': _lastGoodProductQuery,
     };
   }
@@ -620,6 +667,9 @@ class _AskodoxPrimaryHomeScreenState
     _actionableMatchKeys.clear();
     _requestSentMatchKeys.clear();
     _issueTurns = 0;
+    _pendingClarification = null;
+    _clarifiedKeys.clear();
+    _clarificationByTurn.clear();
     _lastIntent = null;
     _lastGoodProductQuery = null;
     _listingBanner = null;
@@ -697,6 +747,17 @@ class _AskodoxPrimaryHomeScreenState
       _actionableMatchKeys.addAll([for (final k in (data['actionable'] as List? ?? const [])) '$k']);
       _requestSentMatchKeys.addAll([for (final k in (data['requested'] as List? ?? const [])) '$k']);
       _issueTurns = (data['issueTurns'] as num?)?.toInt() ?? 0;
+      _clarifiedKeys.addAll([for (final k in (data['clarified'] as List? ?? const [])) '$k']);
+      map(data['clarifications']).forEach((key, raw) {
+        final value = askodoxClarificationByKey('$raw');
+        if (value != null) _clarificationByTurn[int.parse(key)] = value;
+      });
+      final pendingKey = data['pendingClarification']?.toString();
+      if (pendingKey != null) {
+        for (final value in _clarificationByTurn.values) {
+          if (value.key == pendingKey) _pendingClarification = value;
+        }
+      }
       _lastGoodProductQuery = data['lastQuery']?.toString();
       final intentName = data['lastIntent'];
       for (final intent in DealIntent.values) {
@@ -879,20 +940,21 @@ class _AskodoxPrimaryHomeScreenState
           .createAndMatch(deal);
       final matches = [...result.matches]
         ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
-      // A completed deal must never end in an empty chat: with no local or
-      // online rows at all, still offer the online/video fallback cards.
+      // Only real rows. With none, the chat says so (searched: true) --
+      // never placeholder "Search online for …" cards.
       return AskodoxChatResults(
         dealId: result.dealId,
-        matches: matches.isEmpty ? _onlineFallback(deal) : matches,
+        matches: matches,
+        sourceStatus: result.sourceStatus,
+        searched: true,
       );
     } on DealNeedsDetailsException catch (error) {
       if (error.missingFields.isNotEmpty) {
         return AskodoxChatResults(missingFields: error.missingFields);
       }
-      // 422 with nothing missing: the backend could not publish a request
-      // the app already considers complete. Show online options instead of
-      // leaving "searching…" with no result cards.
-      return AskodoxChatResults(matches: _onlineFallback(deal));
+      // 422 with nothing missing: the request could not be published, so
+      // no search ran. Offer a retry rather than fake results.
+      return const AskodoxChatResults(failed: true);
     } catch (error) {
       final signInRequired =
           error.toString().toLowerCase().contains('sign in');
@@ -905,25 +967,13 @@ class _AskodoxPrimaryHomeScreenState
             .read(askodoxRealProductMatchServiceProvider)
             .search(query);
       }
-      // No genuine local match reachable: clearly fall back to online
-      // options (plain search links, never invented sellers).
-      final online = local.isEmpty
-          ? askodoxOfflineFallbackResults(query,
-              includeVideos: askodoxIntentWantsVideos(deal.intent))
-          : const <UniversalMatch>[];
       return AskodoxChatResults(
-        matches: [...local, ...online],
+        matches: local,
         failed: !signInRequired && local.isEmpty,
         signInRequired: signInRequired && local.isEmpty,
       );
     }
   }
-
-  List<UniversalMatch> _onlineFallback(UniversalDeal deal) =>
-      askodoxOfflineFallbackResults(
-        (deal.subject ?? _lastGoodProductQuery ?? '').trim(),
-        includeVideos: askodoxIntentWantsVideos(deal.intent),
-      );
 
   Future<void> _retryMatching(int turnIndex) async {
     final deal = _dealByTurn[turnIndex];
@@ -1036,6 +1086,16 @@ class _AskodoxPrimaryHomeScreenState
         (latestResults != null && askodoxIsResultsQuestion(text));
     _pendingAiContext = null;
     _pendingDiscussOnly = false;
+
+    // The answer to a pending clarification refines the need, then the
+    // normal flow continues (questions → matching).
+    final pendingClarification = _pendingClarification;
+    AskodoxClarificationOption? clarified;
+    if (pendingClarification != null && !discussOnly) {
+      clarified = askodoxResolveClarification(pendingClarification, text);
+      _pendingClarification = null;
+      if (clarified != null) _clarifiedKeys.add(pendingClarification.key);
+    }
     final aiMessage = explicitContext != null
         ? '$text\n$explicitContext'
         : discussOnly && latestResults != null
@@ -1076,10 +1136,12 @@ class _AskodoxPrimaryHomeScreenState
     final continuingActiveDeal =
         activeDealSession.deal != null && !activeDealSession.completed;
     final detailAnswer = !discussOnly &&
+        clarified == null &&
         continuingActiveDeal &&
         AskodoxHomeRequestRouting.isShortDetailAnswer(text);
     final transactional = !discussOnly &&
-        (detailAnswer ||
+        (clarified != null ||
+            detailAnswer ||
             (aiUsable
                 ? decision!.transactional
                 : AskodoxHomeRequestRouting.isTransactional(text)));
@@ -1089,6 +1151,7 @@ class _AskodoxPrimaryHomeScreenState
     AskodoxChatResults? results;
     UniversalDeal? matchedDeal;
     String? detailQuestion;
+    AskodoxClarification? needClarification;
     String? roleNotice;
     AskodoxUserRole? roleQuestion;
     String? listingBanner;
@@ -1101,7 +1164,9 @@ class _AskodoxPrimaryHomeScreenState
         routedText,
       );
 
-      if (detailAnswer) {
+      if (clarified != null) {
+        notifier.refineSubject(clarified.subject);
+      } else if (detailAnswer) {
         // The user's own words, not the AI rewrite: a rewrite like
         // "i want to buy 1 kg" would look like a new retail request and
         // restart (drop) the active chicken deal.
@@ -1135,9 +1200,17 @@ class _AskodoxPrimaryHomeScreenState
       if (deal != null) {
         _trackSearchQuery(deal.subject ?? deal.category);
         _lastIntent = deal.intent;
+        // Understand the actual product first: a genuinely ambiguous need
+        // gets ONE concise question instead of a guessed search.
+        if (clarified == null && !detailAnswer) {
+          final candidate = askodoxClarificationFor(text);
+          if (candidate != null && !_clarifiedKeys.contains(candidate.key)) {
+            needClarification = candidate;
+          }
+        }
         if (!deal.readyToMatch) detailQuestion = dealSession.lastQuestion;
       }
-      if (deal != null && deal.readyToMatch) {
+      if (deal != null && deal.readyToMatch && needClarification == null) {
         if (deal.intent == DealIntent.sell) {
           // A completed "sell" deal is a real listing to save, not a buyer
           // search -- see `_createRealListing`.
@@ -1186,7 +1259,9 @@ class _AskodoxPrimaryHomeScreenState
       previous != null &&
       (_isContinuation(text.toLowerCase()) ||
         _looksLikeGeneralFollowUp(text.toLowerCase()));
-    final reply = aiUsable &&
+    final reply = needClarification != null
+      ? (_te ? needClarification.teluguQuestion : needClarification.question)
+      : aiUsable &&
         !(isGeneralContinuation &&
           askodoxIsGenericAssistantReply(decision!.reply))
       ? decision!.reply.trim()
@@ -1220,6 +1295,10 @@ class _AskodoxPrimaryHomeScreenState
       if (support.need != AskodoxSupportNeed.none) {
         _supportByTurn[assistantIndex] = support;
       }
+      if (needClarification != null) {
+        _clarificationByTurn[assistantIndex] = needClarification;
+        _pendingClarification = needClarification;
+      }
       _sending = false;
     });
     await _store.save(_turns);
@@ -1228,24 +1307,50 @@ class _AskodoxPrimaryHomeScreenState
     if (speakResponse) await _speakReply(reply, userText: text);
   }
 
+  /// Speaks the reply with the existing Sarvam Bulbul v3 pipeline
+  /// (backend `/api/in-app/voice/speak`); only when Sarvam is unavailable or
+  /// the device cannot play its audio does it fall back to device TTS.
   Future<void> _speakReply(String reply, {required String userText}) async {
+    final language = askodoxSpeechLanguage(
+      reply: reply,
+      userText: userText,
+      uiTelugu: _te,
+    );
+    if (mounted) setState(() => _voicePhase = _VoicePhase.speaking);
     try {
+      final audio = await ref
+          .read(askodoxReplySpeechServiceProvider)
+          .sarvamAudio(reply, locale: language);
+      if (!mounted || _voicePhase != _VoicePhase.speaking) return;
+      if (audio != null) {
+        final played = await _device.invokeMethod<bool>(
+          'playReplyAudio',
+          <String, Object?>{'bytes': audio, 'languageCode': language},
+        );
+        if (played == true) {
+          lastReplyVoiceEngine = 'sarvam_bulbul_v3';
+          return;
+        }
+      }
+      if (!mounted || _voicePhase != _VoicePhase.speaking) return;
+      lastReplyVoiceEngine = 'device';
       await _device.invokeMethod<bool>(
         'speakReply',
         <String, Object?>{
           'text': reply,
-          'languageCode': askodoxSpeechLanguage(
-            reply: reply,
-            userText: userText,
-            uiTelugu: _te,
-          ),
+          'languageCode': language,
           'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
         },
       );
     } catch (_) {
-      // The text reply remains available when device TTS is unavailable.
+      // The text reply remains available when no voice output works.
+    } finally {
+      if (mounted && _voicePhase == _VoicePhase.speaking) {
+        setState(() => _voicePhase = _VoicePhase.idle);
+      }
     }
   }
+
 
   bool _isVideoAttachment(XFile file) {
     final mime = file.mimeType?.toLowerCase() ?? '';
@@ -1550,6 +1655,23 @@ class _AskodoxPrimaryHomeScreenState
                     : (match) => _askAboutMatch(results.dealId, match),
                 onRequestSent: (match) => _onRequestSent(results.dealId, match),
               ),
+            if (_clarificationByTurn[index] case final clarification?)
+              if (identical(clarification, _pendingClarification) &&
+                  index == _turns.length - 1)
+                Padding(
+                  key: const Key('askodoxClarificationOptions'),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Wrap(spacing: 8, runSpacing: 6, children: [
+                    for (final option in clarification.options)
+                      ActionChip(
+                        label: Text(te ? option.teluguLabel : option.label,
+                            style: const TextStyle(fontWeight: FontWeight.w800)),
+                        onPressed: _sending
+                            ? null
+                            : () => _send(te ? option.teluguLabel : option.label),
+                      ),
+                  ]),
+                ),
             if (_supportByTurn[index] case final support?)
               _SupportCard(
                 key: ValueKey('askodoxSupport-$index'),
@@ -1586,6 +1708,7 @@ class _AskodoxPrimaryHomeScreenState
             color: Colors.white,
             border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (_voicePhase != _VoicePhase.idle) _voicePanel(te),
         if (_attachmentLabel != null) _attachmentPreview(te),
         Row(children: [
         if (_voicePhase == _VoicePhase.recording)
@@ -1596,11 +1719,15 @@ class _AskodoxPrimaryHomeScreenState
             icon: const Icon(Icons.close_rounded, color: _muted)),
         IconButton.filled(
           key: const Key('askodoxVoiceButton'),
-          onPressed: _voicePhase == _VoicePhase.transcribing ? null : _startVoice,
+          onPressed: _voicePhase == _VoicePhase.transcribing ||
+                  _voicePhase == _VoicePhase.thinking
+              ? null
+              : _startVoice,
           tooltip: switch (_voicePhase) {
             _VoicePhase.recording => te ? 'ఆపండి' : 'Stop and send',
             _VoicePhase.transcribing => te ? 'అర్థం చేసుకుంటున్నాను…' : 'Transcribing…',
-            _VoicePhase.idle => te ? 'మాట్లాడండి' : 'Speak',
+            _VoicePhase.thinking => te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…',
+            _VoicePhase.speaking || _VoicePhase.idle => te ? 'మాట్లాడండి' : 'Speak',
           },
           style: IconButton.styleFrom(
             backgroundColor: _voicePhase == _VoicePhase.recording
@@ -1608,7 +1735,8 @@ class _AskodoxPrimaryHomeScreenState
                 : _accent,
             minimumSize: const Size(40, 40),
             padding: EdgeInsets.zero),
-          icon: _voicePhase == _VoicePhase.transcribing
+          icon: _voicePhase == _VoicePhase.transcribing ||
+                  _voicePhase == _VoicePhase.thinking
               ? const SizedBox(
                   width: 18,
                   height: 18,
@@ -1666,6 +1794,109 @@ class _AskodoxPrimaryHomeScreenState
         ]),
       ]),
       );
+
+  /// Proof ASKODOX is hearing: a pulsing mic and level bars driven by the
+  /// real microphone amplitude, elapsed time, status and a separate Stop.
+  Widget _voicePanel(bool te) {
+    final listening = _voicePhase == _VoicePhase.recording;
+    final current = _voiceLevels.isEmpty ? 0.0 : _voiceLevels.last;
+    final elapsed = _voiceSampleInterval * _voiceTicks;
+    final mm = elapsed.inMinutes.toString().padLeft(2, '0');
+    final ss = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
+    final status = switch (_voicePhase) {
+      _VoicePhase.recording => te ? 'వింటున్నాను…' : 'Listening…',
+      _VoicePhase.transcribing => te ? 'అర్థం చేసుకుంటున్నాను…' : 'Understanding…',
+      _VoicePhase.thinking => te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…',
+      _VoicePhase.speaking => te ? 'మాట్లాడుతున్నాను…' : 'Speaking…',
+      _VoicePhase.idle => '',
+    };
+    return Container(
+      key: const Key('askodoxVoicePanel'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF2F0FF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFDDD9FF))),
+      child: Row(children: [
+        AnimatedScale(
+          key: const Key('askodoxVoicePulse'),
+          scale: listening ? 1 + current * 0.45 : 1,
+          duration: const Duration(milliseconds: 180),
+          child: CircleAvatar(
+            radius: 18,
+            backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
+            child: Icon(
+                _voicePhase == _VoicePhase.speaking
+                    ? Icons.volume_up_rounded
+                    : Icons.mic_rounded,
+                color: Colors.white,
+                size: 20),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(status,
+                  key: const Key('askodoxVoiceStatus'),
+                  style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+              if (listening) ...[
+                const Spacer(),
+                Text('$mm:$ss',
+                    key: const Key('askodoxVoiceElapsed'),
+                    style: const TextStyle(color: _muted, fontWeight: FontWeight.w700)),
+              ],
+            ]),
+            if (listening) ...[
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 30,
+                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  for (var i = 0; i < _voiceLevelBars; i++)
+                    Expanded(
+                      child: Center(
+                        child: AnimatedContainer(
+                          key: ValueKey('askodoxLevelBar-$i'),
+                          duration: const Duration(milliseconds: 150),
+                          width: 3,
+                          height: 3 + 27 * _barLevel(i),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFF6C4DFF),
+                              borderRadius: BorderRadius.circular(2)),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
+            ],
+          ]),
+        ),
+        const SizedBox(width: 6),
+        if (listening)
+          FilledButton.icon(
+            key: const Key('askodoxVoiceStop'),
+            onPressed: () => _finishVoice(noSpeech: false),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5484D)),
+            icon: const Icon(Icons.stop_rounded),
+            label: Text(te ? 'ఆపండి' : 'Stop'),
+          )
+        else if (_voicePhase == _VoicePhase.speaking)
+          TextButton(
+            key: const Key('askodoxStopSpeaking'),
+            onPressed: _stopSpeaking,
+            child: Text(te ? 'ఆపండి' : 'Stop'),
+          ),
+      ]),
+    );
+  }
+
+  /// Level for bar [i]; the newest sample is the right-most bar.
+  double _barLevel(int i) {
+    final offset = _voiceLevelBars - _voiceLevels.length;
+    final index = i - offset;
+    return index < 0 ? 0 : _voiceLevels[index];
+  }
 
     Widget _attachmentPreview(bool te) => Container(
       key: const Key('askodoxAttachmentPreview'),
@@ -2047,6 +2278,14 @@ class _ChatResultsView extends StatelessWidget {
                 ? 'స్థానిక అభ్యర్థనలు పంపడానికి సైన్ ఇన్ చేయండి.'
                 : 'Sign in to send requests to local sellers and providers.',
           ),
+        if (results.searched && results.matches.isEmpty)
+          _notice(
+            key: const Key('askodoxResultsNone'),
+            icon: Icons.search_off_rounded,
+            text: te
+                ? 'ASKODOX విక్రేతలు, దగ్గరలోని షాపులు, ఆన్‌లైన్ లేదా వీడియోల్లో ఇంకా నిజమైన ఫలితాలు దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను.'
+                : 'No real results yet from ASKODOX sellers, nearby shops, online stores or videos. I saved your need.',
+          ),
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
           _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal),
               _segmentIcon(segment)),
@@ -2061,8 +2300,36 @@ class _ChatResultsView extends StatelessWidget {
               onRequestSent: () => onRequestSent(match),
             ),
         ],
+        if (_sourceNote(te) case final note?)
+          Padding(
+            key: const Key('askodoxSourceStatus'),
+            padding: const EdgeInsets.only(top: 2, bottom: 4),
+            child: Text(note,
+                style: const TextStyle(color: _muted, fontSize: 12, height: 1.3)),
+          ),
       ]),
     );
+  }
+
+  /// One honest line about sources that returned nothing or are down, so
+  /// no section is ever faked.
+  String? _sourceNote(bool te) {
+    String label(String key) => switch (key) {
+          'askodox' => te ? 'ASKODOX విక్రేతలు' : 'ASKODOX sellers',
+          'nearby' => te ? 'దగ్గరలోని షాపులు' : 'nearby shops',
+          'used_deals' => te ? 'వాడినవి / డీల్స్' : 'used & deals',
+          'online' => te ? 'ఆన్‌లైన్ స్టోర్లు' : 'online stores',
+          'videos' => te ? 'వీడియోలు' : 'videos',
+          _ => key,
+        };
+    final none = results.sourcesWith('no_results').map(label).toList();
+    final down = results.sourcesWith('unavailable').map(label).toList();
+    if (none.isEmpty && down.isEmpty) return null;
+    final parts = [
+      if (none.isNotEmpty) (te ? 'ఫలితాలు లేవు: ' : 'No results from: ') + none.join(', '),
+      if (down.isNotEmpty) (te ? 'ప్రస్తుతం అందుబాటులో లేదు: ' : 'Not available right now: ') + down.join(', '),
+    ];
+    return parts.join(' · ');
   }
 
   IconData _segmentIcon(AskodoxResultSegment segment) => switch (segment) {
@@ -2153,6 +2420,14 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   UniversalMatch get _match => widget.match;
   bool get _te => widget.te;
   ChatResultAction get _action => chatResultActionFor(_match);
+
+  /// Videos play inside ASKODOX; back returns to this exact chat position.
+  Future<void> _openVideo() async {
+    final result = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (_) => AskodoxVideoViewerScreen(video: _match, telugu: _te),
+    ));
+    if (result == askodoxVideoAskResult) widget.onAsk?.call();
+  }
 
   Future<void> _openDestination() async {
     final raw = _match.destinationUrl?.trim();
@@ -2260,6 +2535,30 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE1E8F2))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (action == ChatResultAction.watchVideo &&
+            match.imageUrl?.trim().isNotEmpty == true) ...[
+          GestureDetector(
+            key: ValueKey('askodoxVideoThumb-${match.id}'),
+            onTap: _openVideo,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(fit: StackFit.expand, children: [
+                  Image.network(match.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const ColoredBox(color: Color(0xFF10204A))),
+                  const Center(
+                    child: Icon(Icons.play_circle_fill_rounded,
+                        size: 56, color: Colors.white),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
               width: 64,
@@ -2290,6 +2589,10 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   _meta(_sourceLabel(_match.source)),
+                  if (match.sourceName?.trim().isNotEmpty == true)
+                    _meta(match.sourceName!.trim()),
+                  if (match.duration?.trim().isNotEmpty == true)
+                    _meta(match.duration!.trim()),
                   if (score != null) _meta('${score.toStringAsFixed(0)}% match'),
                   if (match.ratingAverage != null)
                     _meta(
@@ -2367,12 +2670,25 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
             ),
           ]),
         ],
+        if (!requestable && widget.onAsk != null)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              key: ValueKey('askodoxAsk-${match.id}'),
+              onPressed: widget.onAsk,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
+            ),
+          ),
         if (match.destinationUrl?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _openDestination,
+              key: ValueKey('askodoxOpen-${match.id}'),
+              onPressed: action == ChatResultAction.watchVideo
+                  ? _openVideo
+                  : _openDestination,
               icon: Icon(action == ChatResultAction.watchVideo
                   ? Icons.play_arrow_rounded
                   : Icons.open_in_new_rounded),

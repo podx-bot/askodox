@@ -564,6 +564,9 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "local_match_count": local_match_count,
         "online_fallback_used": any(item.get("match_source") == "online" for item in fallback),
         "segments": sorted({str(item.get("segment")) for item in matches if item.get("segment")}),
+        # Honest per-source outcome (ok / no_results / unavailable) so the
+        # chat never fills a section with placeholders.
+        "source_status": discovery.source_status(),
         "matches": matches,
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
