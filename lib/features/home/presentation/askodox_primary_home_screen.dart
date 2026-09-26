@@ -446,9 +446,20 @@ class _AskodoxPrimaryHomeScreenState
           .createAndMatch(deal);
       final matches = [...result.matches]
         ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
-      return AskodoxChatResults(dealId: result.dealId, matches: matches);
+      // A completed deal must never end in an empty chat: with no local or
+      // online rows at all, still offer the online/video fallback cards.
+      return AskodoxChatResults(
+        dealId: result.dealId,
+        matches: matches.isEmpty ? _onlineFallback(deal) : matches,
+      );
     } on DealNeedsDetailsException catch (error) {
-      return AskodoxChatResults(missingFields: error.missingFields);
+      if (error.missingFields.isNotEmpty) {
+        return AskodoxChatResults(missingFields: error.missingFields);
+      }
+      // 422 with nothing missing: the backend could not publish a request
+      // the app already considers complete. Show online options instead of
+      // leaving "searching…" with no result cards.
+      return AskodoxChatResults(matches: _onlineFallback(deal));
     } catch (error) {
       final signInRequired =
           error.toString().toLowerCase().contains('sign in');
@@ -474,6 +485,12 @@ class _AskodoxPrimaryHomeScreenState
       );
     }
   }
+
+  List<UniversalMatch> _onlineFallback(UniversalDeal deal) =>
+      askodoxOfflineFallbackResults(
+        (deal.subject ?? _lastGoodProductQuery ?? '').trim(),
+        includeVideos: askodoxIntentWantsVideos(deal.intent),
+      );
 
   Future<void> _retryMatching(int turnIndex) async {
     final deal = _dealByTurn[turnIndex];

@@ -294,6 +294,49 @@ def _demo_discovery_matches(container, demand: dict, existing_ids: set[str]) -> 
     return discovered
 
 
+_SUPPLY_INTENTS = {
+    "sell", "offerservice", "seekwork", "offerride", "deliverparcel",
+    "offerrental", "offerappointment",
+}
+_DOMAIN_BY_CATEGORY = {"product": "PRODUCT", "food": "PRODUCT", "service": "SERVICES"}
+
+
+def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dict:
+    """The app's already-complete deal as a universal demand record."""
+    location = dict(payload.location or {})
+    intent = str(payload.intent or "").replace("_", "").lower()
+    category = str(payload.category or "").strip().lower()
+    constraints = {
+        key: value
+        for key, value in {
+            **dict(payload.dynamic_fields or {}),
+            "fulfilment": payload.fulfilment,
+            "quality": payload.quality,
+            "variant": payload.variant,
+            "size": payload.size,
+            "weight": payload.weight,
+            "model": payload.model,
+            "availability": payload.availability,
+        }.items()
+        if _present(value)
+    }
+    return {
+        "user_id": user_id,
+        "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
+        "domain": _DOMAIN_BY_CATEGORY.get(category, category.upper() or "PRODUCT"),
+        "subject": str(payload.subject).strip(),
+        "quantity": payload.quantity,
+        "unit": payload.unit,
+        "price": payload.price,
+        "when_text": payload.timing,
+        "latitude": location.get("latitude"),
+        "longitude": location.get("longitude"),
+        "location_text": location.get("label"),
+        "constraints": constraints,
+        "source": "app",
+    }
+
+
 def _review_summary(container, user_id: str) -> dict:
     repository = getattr(container, "universal_review_repository", None)
     summary = getattr(repository, "summary_for_user", None)
@@ -333,6 +376,19 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
             if capture_reply:
                 reply = capture_reply
             created = _latest_created_deal(container, user_id)
+    if (
+        not _deal_progressed(before, created)
+        and intent_context is not None
+        and not intent_context["missing_fields"]
+        and _present(payload.subject)
+    ):
+        # 2026-09-25 (Build 1236): the WhatsApp-era conversation pipeline can
+        # misread a complete in-app buy request (e.g. treat "I want to buy
+        # 1 kg chicken in Vijayawada" as seller onboarding) and save nothing,
+        # which left the app with a 422 and no result cards. The app already
+        # sent the structured, complete requirement, so persist it directly.
+        container.universal_demand_repository.create(_structured_demand(user_id, payload))
+        created = _latest_created_deal(container, user_id)
     if not _deal_progressed(before, created):
         headers = None
         if intent_context is not None:
