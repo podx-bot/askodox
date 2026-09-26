@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from google.genai import types
 
-from app.services.normalized_voice_assistant_service import NormalizedVoiceAssistantService, _voice_diag
+from app.services.normalized_voice_assistant_service import NormalizedVoiceAssistantService, _voice_diag, transcription_config
 
 
 class FilesFallbackVoiceAssistantService(NormalizedVoiceAssistantService):
@@ -77,7 +77,7 @@ class FilesFallbackVoiceAssistantService(NormalizedVoiceAssistantService):
             response = client.models.generate_content(
                 model=self.model,
                 contents=[prompt, uploaded],
-                config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=256),
+                config=transcription_config(),
             )
             transcript = self._clean_transcript(str(getattr(response, "text", "") or ""))
             if not transcript:

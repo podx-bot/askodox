@@ -30,6 +30,31 @@ void main() {
     expect(_run(e, levels).last, VoiceEndpointDecision.keepRecording);
   });
 
+  test('35 s of continuous Telugu speech with short pauses keeps recording (Build 1241)', () {
+    final e = AskodoxVoiceEndpointer();
+    final levels = [
+      ..._n(3, 150),
+      // 35 s: 5 s phrases with 1 s breaths, like a long Telugu request.
+      for (var i = 0; i < 6; i++) ...[..._n(25, 2500), ..._n(5, 300)],
+      ..._n(10, 2500),
+    ];
+    final d = _run(e, levels);
+    expect(d.length, levels.length, reason: 'no decision other than keepRecording for 35 s');
+    expect(d.every((x) => x == VoiceEndpointDecision.keepRecording), isTrue);
+  });
+
+  test('60 s of speech keeps recording, then genuine silence ends it once', () {
+    final e = AskodoxVoiceEndpointer();
+    final levels = [
+      ..._n(3, 150),
+      for (var i = 0; i < 10; i++) ...[..._n(25, 2200), ..._n(5, 250)], // 60 s
+      ..._n(20, 150),
+    ];
+    final d = _run(e, levels);
+    expect(d.last, VoiceEndpointDecision.stopAfterSilence);
+    expect(d.length, greaterThan(3 + 300), reason: 'stopped only after the full 60 s of speech');
+  });
+
   test('genuine silence after speech stops the turn', () {
     final e = AskodoxVoiceEndpointer();
     final d = _run(e, [..._n(3, 150), ..._n(20, 4000), ..._n(20, 150)]);

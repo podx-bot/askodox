@@ -55,6 +55,43 @@ class AudioCodecService:
             return {"success": False, "status": "EMPTY_WAV"}
         return {"success": True, "status": "NORMALIZED", "content": output, "mime_type": "audio/wav"}
 
+    def audio_to_pcm16(self, audio_bytes: bytes, sample_rate: int = 16000) -> dict[str, Any]:
+        """Decode any recording (e.g. Android MediaRecorder AAC/M4A) to raw
+        mono signed 16-bit little-endian PCM. Reads from a temp file so MP4
+        containers with the index at the end decode reliably."""
+        if not audio_bytes:
+            return {"success": False, "status": "EMPTY_AUDIO"}
+        import os
+        import tempfile
+
+        path = ""
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as handle:
+                handle.write(audio_bytes)
+                path = handle.name
+            process = subprocess.run(
+                [self._ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-i", path,
+                 "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "pipe:1"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            return {"success": False, "status": "FFMPEG_PCM_TIMEOUT"}
+        except Exception as error:
+            return {"success": False, "status": "FFMPEG_PCM_START_ERROR", "error": str(error)[:300]}
+        finally:
+            if path:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+        if process.returncode != 0 or not process.stdout:
+            return {"success": False, "status": "FFMPEG_PCM_ERROR",
+                    "error": process.stderr.decode("utf-8", errors="replace")[-300:]}
+        return {"success": True, "status": "DECODED", "pcm": bytes(process.stdout), "sample_rate": sample_rate}
+
     def pcm_to_ogg_opus(
         self,
         pcm_bytes: bytes,

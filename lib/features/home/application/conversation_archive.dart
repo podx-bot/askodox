@@ -153,3 +153,20 @@ class AskodoxChatRequest {
 }
 
 final askodoxChatRequestProvider = StateProvider<AskodoxChatRequest?>((ref) => null);
+
+/// True until Main Chat has handled this app process's first mount. The
+/// root ProviderScope lives exactly as long as the process, so a genuine
+/// launch/relaunch (or a restart after a crash) starts a fresh ask, while
+/// in-app navigation during the same session keeps the active chat.
+final askodoxFreshLaunchProvider = Provider<AskodoxLaunchSession>((ref) => AskodoxLaunchSession());
+
+class AskodoxLaunchSession {
+  bool _fresh = true;
+
+  /// True exactly once per app process: the first Main Chat mount.
+  bool consumeFreshLaunch() {
+    final fresh = _fresh;
+    _fresh = false;
+    return fresh;
+  }
+}
