@@ -18,7 +18,6 @@ from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing
 from app.core.intent_domain_router import IntentRouteNotFoundError
 from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 from app.services.universal_action_contract import build_action_result
-from app.services.google_maps_service import GoogleMapsService
 from app.services.universal_external_result_service import UniversalExternalResultService
 from app.services.universal_multi_source_result_service import UniversalMultiSourceResultService
 
@@ -339,6 +338,10 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
 def _multi_source_service(container) -> UniversalMultiSourceResultService:
     maps = getattr(container, "google_maps_service", None)
     if maps is None:
+        # Lazy: google_maps_service needs httpx, which lightweight route
+        # imports (e.g. the demo-isolation CI check) do not install.
+        from app.services.google_maps_service import GoogleMapsService
+
         maps = GoogleMapsService(api_key=getattr(container.settings, "google_maps_api_key", ""))
         container.google_maps_service = maps
     return UniversalMultiSourceResultService(
