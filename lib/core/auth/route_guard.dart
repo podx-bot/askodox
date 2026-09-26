@@ -25,10 +25,12 @@ class RouteGuard {
 
     if (protected && session.status != AuthStatus.loggedIn) {
       if (location == '/seller/login' || location == '/admin/login') return null;
+      // Signs in with its own owner key / staff token, checked by the server.
+      if (location == '/admin/command-center') return null;
       return '/auth/login';
     }
 
-    if (location.startsWith('/admin/')) {
+    if (location.startsWith('/admin/') && location != '/admin/command-center') {
       final role = SecurityRole.values.byName(session.role.name);
       final adminSubscriptionAllowed =
           location.contains('subscriptions') &&

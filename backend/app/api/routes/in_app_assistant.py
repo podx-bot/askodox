@@ -51,12 +51,16 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     container: Any = request.app.state.container
     service = container.universal_ai_assistant_service
     history = [{"role": turn.role, "text": turn.text} for turn in payload.history[-12:]]
-    decision = service.decide(
-        payload.message,
-        history=history,
-        locale=payload.locale,
-        location=payload.location,
-    )
+    # Command Center switch (Phase 20): with the AI assistant disabled the
+    # app keeps working through its deterministic flow (same as model-down).
+    decision = None
+    if _feature_enabled(container, "ai.assistant"):
+        decision = service.decide(
+            payload.message,
+            history=history,
+            locale=payload.locale,
+            location=payload.location,
+        )
 
     if decision is None:
         # Safe degradation: do not invent an AI action when the model is unavailable.
@@ -100,6 +104,8 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
     any other path is a 503 so the app can fall back to device TTS and say
     so honestly."""
     container: Any = request.app.state.container
+    if not _feature_enabled(container, "voice.sarvam_tts"):
+        raise HTTPException(status_code=503, detail="TTS_DISABLED")
     synthesize = getattr(container.voice_assistant_service, "synthesize", None)
     if not callable(synthesize):
         raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
@@ -195,6 +201,16 @@ class SupportEscalationRequest(BaseModel):
     locale: str = ""
 
 
+def _feature_enabled(container: Any, key: str) -> bool:
+    # Lazy import keeps this module importable on its own; never raises.
+    try:
+        from app.api.routes.command_center import feature_enabled
+
+        return feature_enabled(container, key)
+    except Exception:
+        return True
+
+
 def _support_repository(container: Any) -> SupportEscalationRepository:
     repository = getattr(container, "support_escalation_repository", None)
     if repository is None:
@@ -228,6 +244,8 @@ def support_channels() -> dict[str, Any]:
 @router.post("/support/escalate")
 def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> dict[str, Any]:
     container: Any = request.app.state.container
+    if not _feature_enabled(container, "support.escalation"):
+        raise HTTPException(status_code=503, detail="SUPPORT_ESCALATION_DISABLED")
     context = {
         "conversation": [turn.model_dump() for turn in payload.conversation[-30:]],
         "requirement": payload.requirement,
@@ -241,6 +259,20 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
     case = _support_repository(container).create(
         _optional_app_user(request), payload.issue, payload.category, payload.critical, context
     )
+    if case.get("id") and _feature_enabled(container, "notifications.admin"):
+        # One Command Center notification per case (event_key is unique), so a
+        # retried escalation never double-notifies staff.
+        try:
+            from app.api.routes.command_center import command_center
+
+            command_center(container).notify_once(
+                f"escalation:{case['id']}",
+                "escalation_critical" if payload.critical else "escalation",
+                f"{payload.category or 'Support'}: {payload.issue[:80]}",
+                str(case["id"]),
+            )
+        except Exception:
+            pass
     return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels()}
 
 

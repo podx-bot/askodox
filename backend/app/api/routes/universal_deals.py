@@ -503,8 +503,9 @@ def get_matches(deal_id: int, request: Request) -> dict:
 
     matches.extend(_demo_discovery_matches(container, demand, existing_ids))
 
+    flags = _result_flags(container)
     affiliate_config = getattr(container, "affiliate_provider_config", None)
-    if affiliate_config is not None:
+    if affiliate_config is not None and flags.get("results.affiliate", True):
         category = str(demand.get("domain") or "").strip().lower()
         subject = str(demand.get("subject") or "").strip()
         providers = []
@@ -538,14 +539,23 @@ def get_matches(deal_id: int, request: Request) -> dict:
     subject = str(demand.get("subject") or "").strip()
     primary_count = len(matches)
     discovery = _multi_source_service(container)
-    registered_and_external = discovery.collect(demand)
+    local_sources_on = any(
+        flags.get(key, True)
+        for key in ("results.registered", "results.nearby_external", "results.used", "results.surplus", "results.deals")
+    )
+    registered_and_external = discovery.collect(demand) if local_sources_on else []
     has_online = any(item.get("match_source") == "online" for item in matches)
-    fallback = discovery.online_and_videos(
-        category=category, subject=subject, include_online=not has_online
+    online_on, videos_on = flags.get("results.online", True), flags.get("results.videos", True)
+    fallback = (
+        discovery.online_and_videos(
+            category=category, subject=subject, include_online=online_on and not has_online
+        )
+        if online_on or videos_on
+        else []
     )
     seen = {str(item.get("id")) for item in matches}
     for item in registered_and_external + fallback:
-        if str(item.get("id")) in seen:
+        if str(item.get("id")) in seen or not _result_allowed(item, flags):
             continue
         seen.add(str(item.get("id")))
         matches.append(item)
@@ -554,6 +564,8 @@ def get_matches(deal_id: int, request: Request) -> dict:
         for item in matches
         if item.get("match_source") in {"interest", "demo_discovery", "registered"}
     )
+    source_status = _flagged_source_status(discovery.source_status(), flags)
+    _record_discovery(container, flags, demand, source_status, local_match_count)
 
     return {
         "deal_id": deal_id,
@@ -566,7 +578,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "segments": sorted({str(item.get("segment")) for item in matches if item.get("segment")}),
         # Honest per-source outcome (ok / no_results / unavailable) so the
         # chat never fills a section with placeholders.
-        "source_status": discovery.source_status(),
+        "source_status": source_status,
         "matches": matches,
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
@@ -578,6 +590,76 @@ def get_matches(deal_id: int, request: Request) -> dict:
             result={"match_count": primary_count},
         ).to_dict(),
     }
+
+
+# ---- Command Center hooks (Phases 20 / 22 / 23) ---------------------------
+# Admin switches decide which result sources run; a switched-off source is
+# reported as "disabled" (the chat shows nothing for it, never a fake row).
+
+_SEGMENT_FLAGS = {
+    "used": "results.used",
+    "surplus": "results.surplus",
+    "deals": "results.deals",
+    "nearby_external": "results.nearby_external",
+    "wider_local": "results.nearby_external",
+}
+_SOURCE_STATUS_FLAGS = {
+    "askodox": ("results.registered",),
+    "nearby": ("results.nearby_external",),
+    "used_deals": ("results.used", "results.surplus", "results.deals"),
+    "online": ("results.online",),
+    "videos": ("results.videos",),
+}
+
+
+def _result_flags(container) -> dict[str, bool]:
+    try:
+        from app.api.routes.command_center import command_center
+
+        return command_center(container).flags_map()
+    except Exception:
+        return {}
+
+
+def _result_allowed(item: dict, flags: dict[str, bool]) -> bool:
+    segment = str(item.get("segment") or "")
+    if segment in _SEGMENT_FLAGS:
+        return flags.get(_SEGMENT_FLAGS[segment], True)
+    source = str(item.get("match_source") or "")
+    if source == "registered":
+        return flags.get("results.registered", True)
+    if source == "video":
+        return flags.get("results.videos", True)
+    if source == "online":
+        return flags.get("results.online", True)
+    return True
+
+
+def _flagged_source_status(status: dict[str, str], flags: dict[str, bool]) -> dict[str, str]:
+    result = dict(status)
+    for source, keys in _SOURCE_STATUS_FLAGS.items():
+        if not any(flags.get(key, True) for key in keys):
+            result[source] = "disabled"
+    return result
+
+
+def _record_discovery(container, flags, demand, source_status, local_match_count) -> None:
+    """Analytics + no-match queue. Never breaks the customer response."""
+    try:
+        from app.api.routes.command_center import command_center
+
+        cc = command_center(container)
+        cc.record_discovery(str(demand.get("id")), source_status)
+        if local_match_count == 0 and cc.record_no_match(demand, source_status):
+            if flags.get("notifications.admin", True):
+                cc.notify_once(
+                    f"no_match:{demand.get('id')}",
+                    "no_match",
+                    f"No local match: {str(demand.get('subject') or demand.get('domain') or '')[:80]}",
+                    str(demand.get("id")),
+                )
+    except Exception:
+        pass
 
 
 @router.post("/{deal_id}/review")
