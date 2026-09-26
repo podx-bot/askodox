@@ -143,6 +143,23 @@ def test_no_match_is_queued_once_and_notified_once(cc):
     assert client.patch(f"/admin/cc/no-match/{queue[0]['id']}", headers=OWNER, json={"status": "BOGUS"}).status_code == 422
 
 
+def test_switching_off_registered_results_does_not_create_false_no_match(cc):
+    client, container, repo = cc
+    subject = "Offswitch kettle " + uuid.uuid4().hex[:6]
+    container.product_catalog_repository.upsert_product("app-phone-919000000088", subject, price=900)
+    owner = "app-offswitch-" + uuid.uuid4().hex
+    demand_id = container.universal_demand_repository.create(
+        {"user_id": owner, "side": "NEED", "domain": "PRODUCT", "subject": subject, "source": "app"})
+    assert client.put("/admin/cc/config/results.registered", headers=OWNER,
+                      json={"enabled": False, "confirm": True}).status_code == 200
+    body = client.get(f"/deals/{demand_id}/matches", headers=_user_headers(container, owner)).json()
+    assert body["local_match_count"] == 0 and body["source_status"]["askodox"] == "disabled"
+
+    queued = [e for e in repo.no_match_queue(limit=500) if e["demand_id"] == demand_id]
+    notified = [n for n in repo.notifications(limit=500) if n["event_key"] == f"no_match:{demand_id}"]
+    assert queued == [] and notified == [], "a config switch is not a supply gap"
+
+
 def test_flags_switch_live_behaviour_and_need_confirmation(cc):
     client, container, _ = cc
     assert client.put("/admin/cc/config/results.registered", headers=OWNER, json={"enabled": False}).status_code == 409
@@ -238,3 +255,28 @@ def test_listing_moderation_is_confirmed_reasoned_and_masked(cc):
 def test_mask_user_id_keeps_only_last_four_digits():
     masked = mask_user_id("app-phone-919000000001")
     assert "919000000001" not in masked and masked.endswith("0001") and masked.startswith("app-phone-")
+
+
+def _preflight(client, origin):
+    return client.options("/admin/cc/me", headers={
+        "Origin": origin, "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "x-askodox-admin-key"})
+
+
+def test_web_command_center_cors_is_opt_in_and_origin_restricted(monkeypatch, tmp_path):
+    from app.api.app_factory import create_app
+
+    monkeypatch.setenv("PODX_DATABASE_PATH", str(tmp_path / "cors.db"))
+    monkeypatch.delenv("ADMIN_WEB_ORIGINS", raising=False)
+    closed = TestClient(create_app())
+    assert "access-control-allow-origin" not in _preflight(closed, "https://admin.example").headers
+
+    monkeypatch.setenv("ADMIN_WEB_ORIGINS", "https://admin.example")
+    web = TestClient(create_app())
+    allowed = _preflight(web, "https://admin.example")
+    assert allowed.status_code == 200
+    assert allowed.headers["access-control-allow-origin"] == "https://admin.example"
+    assert "x-askodox-admin-key" in allowed.headers["access-control-allow-headers"].lower()
+    assert "access-control-allow-origin" not in _preflight(web, "https://evil.example").headers
+    # CORS never replaces server-side authorization.
+    assert web.get("/admin/cc/me", headers={"Origin": "https://admin.example"}).status_code == 401

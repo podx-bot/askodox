@@ -650,7 +650,10 @@ def _record_discovery(container, flags, demand, source_status, local_match_count
 
         cc = command_center(container)
         cc.record_discovery(str(demand.get("id")), source_status)
-        if local_match_count == 0 and cc.record_no_match(demand, source_status):
+        # With registered results switched off by an admin, "no local match"
+        # reflects configuration, not a supply gap -- don't queue it.
+        supply_gap = local_match_count == 0 and flags.get("results.registered", True)
+        if supply_gap and cc.record_no_match(demand, source_status):
             if flags.get("notifications.admin", True):
                 cc.notify_once(
                     f"no_match:{demand.get('id')}",
