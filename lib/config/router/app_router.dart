@@ -27,6 +27,7 @@ import '../../features/watchlist/presentation/alert_simulator_screen.dart';
 import '../../features/watchlist/presentation/preferences_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
 import '../../features/admin/application/admin_controller.dart';
+import '../../features/admin/command_center/command_center_screen.dart';
 import '../../features/admin/presentation/admin_screens.dart';
 import '../../features/admin/presentation/localized_admin_entry.dart';
 import '../../features/admin/presentation/localized_admin_sections.dart';
@@ -314,9 +315,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/admin/subscriptions',
           builder: (context, state) => const AdminMonetizationScreen()),
+      // The live Command Center is the admin entry point (real data, server-
+      // side permissions); the legacy mock admin login now leads there.
       GoRoute(
           path: '/admin/login',
-          builder: (context, state) => const LocalizedAdminLoginScreen()),
+          redirect: (context, state) => '/admin/command-center'),
+      GoRoute(
+          path: '/admin/command-center',
+          builder: (context, state) => const CommandCenterScreen()),
       GoRoute(
           path: '/admin/announcements',
           builder: (context, state) => const AnnouncementScreen()),

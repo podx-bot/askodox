@@ -111,6 +111,12 @@ class SupportEscalationRepository:
                     updated_at TEXT NOT NULL
                 )"""
             )
+            # 2026-09-26 (Command Center): workflow fields for staff.
+            for column in ("assigned_to TEXT", "resolution_note TEXT"):
+                try:
+                    conn.execute(f"ALTER TABLE support_escalations ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass  # already present
 
     def create(self, requester_user_id: str, issue: str, category: str, critical: bool, context: Dict[str, Any]) -> Dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
@@ -137,6 +143,39 @@ class SupportEscalationRepository:
                 (max(1, min(int(limit), 200)),),
             ).fetchall()
         return [self._row(row) for row in rows]
+
+    def list(self, status: str | None = None, category: str | None = None, limit: int = 100) -> List[Dict[str, Any]]:
+        clauses, params = [], []
+        if status:
+            clauses.append("status=?")
+            params.append(status)
+        if category:
+            clauses.append("category=?")
+            params.append(category.upper())
+        sql = "SELECT * FROM support_escalations"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY critical DESC, id DESC LIMIT ?"
+        params.append(max(1, min(int(limit), 500)))
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(sql, tuple(params)).fetchall()
+        return [self._row(row) for row in rows]
+
+    def update(self, escalation_id: int, *, status: str | None = None, assigned_to: str | None = None,
+               resolution_note: str | None = None) -> Optional[Dict[str, Any]]:
+        current = self.get(escalation_id)
+        if not current:
+            return None
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE support_escalations SET status=?, assigned_to=?, resolution_note=?, updated_at=? WHERE id=?",
+                (status or current["status"],
+                 assigned_to if assigned_to is not None else current.get("assigned_to"),
+                 resolution_note if resolution_note is not None else current.get("resolution_note"),
+                 datetime.now(timezone.utc).isoformat(), int(escalation_id)),
+            )
+        return self.get(escalation_id)
 
     @staticmethod
     def _row(row) -> Dict[str, Any]:
