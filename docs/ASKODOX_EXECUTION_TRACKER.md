@@ -673,5 +673,19 @@ Review of PR #88 (keep unfinished deal transactional). The PR is a one-file chan
 
 Verification: backend 168 passed; `flutter analyze` clean; `flutter test` 389 passed. Kotlin compiles only in CI (no Android SDK in the dev container). Real-phone gates still open.
 
+### 2026-09-26 — Build 1237 sprint: voice endpointing + TTS, active roles, real History/Explore, multi-source results, AI-first cards, support escalation
+
+Root causes:
+- **Voice stopped at ~10 s:** native loop used a fixed amplitude threshold (1800) and an 8 s no-speech timeout, so soft speech never counted; 2.5 s pauses also ended turns. Endpointing moved to testable Dart (`lib/services/voice_endpointing.dart`: noise-floor calibration, 3 s genuine silence after speech, 15 s no-speech, 2 min cap); native only records (`startVoiceRecording` → true, `voiceRecordingLevel`, `stopVoiceRecording`, `cancelVoiceRecording`, `stopSpeaking`).
+- **No voice reply on live builds:** the Live Build's `tool/apply_android_live_device_bridge.sh` MainActivity had no `speakReply`; TTS copied in. Reply language follows the reply/question script (Telugu ↔ English), not only the UI locale. Typing or starting the mic interrupts speech.
+- **Roles were local, unpersisted Profile state** with no active role. New `lib/features/home/domain/active_role.dart`: persisted owned roles + active role; chat switches the active role ("Active role changed: Buyer → Seller"), asks first for ambiguous supply-side switches; Profile highlights "Active now".
+- **History was four hardcoded fake cards.** Conversations are now archived as exact snapshots (turns, per-turn results, deals, role, discussed/requested options); filters work; opening restores without re-matching; "New ask" starts clean.
+- **Explore showed "Mock Nearby results are disabled."** Replaced with `/explore` (real `GET /api/discover/explore` listings + discovery tiles); every selection continues in Main Chat.
+- **Discovery stopped at the first local party.** `UniversalMultiSourceResultService` aggregates registered listings (ranked by the existing ranking service + condition), individual (seller tier `casual`), used / surplus / deals (listing text + Brave pages), nearby and wider-area offline shops (new `GoogleMapsService.search_places`), online/affiliate and videos; irrelevant or far-over-budget rows are dropped.
+- **Send request on every first card.** Cards now offer "Ask ASKODOX about this"; Send request / Connect appear after the option is discussed or the user asks for the seller. Option questions never re-run matching.
+- **No in-app support escalation.** `POST /api/in-app/support/escalate` stores full context (conversation, requirement, deal id, counterpart, AI attempts, status, role) in `support_escalations`; Command Center feed `GET /admin/support/escalations?key=ADMIN_SEED_KEY`. Offered only after an AI attempt, on explicit request for a person, or immediately for payment/dispute/order/safety/account issues. WhatsApp/Call shown only when `SUPPORT_WHATSAPP_NUMBER` / `SUPPORT_PHONE_NUMBER` are set.
+
+Verification: backend 177 passed; `flutter analyze` clean; `flutter test` 419 passed. Kotlin compiles only in CI.
+
 ## Current Overall Status
 52 top-level points are tracked. Point 1 remains IN PROGRESS. The canonical core channel is now in-app and a WhatsApp text support-only gate plus passing smoke test are implemented, but full CI/deploy, real in-app E2E, and remaining WhatsApp media/location separation are still pending. Point 44 has locked reusable dummy/demo account and final E2E regression requirements. Point 51 is now IN PROGRESS rather than requirement-only because a real text-routing guard exists, but it is not GREEN until case/admin-sync and all remaining paths are verified.

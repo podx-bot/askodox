@@ -9,9 +9,6 @@ import android.location.LocationManager
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.SystemClock
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -42,35 +39,9 @@ class MainActivity : FlutterActivity() {
     // Main Chat voice: record in-app and let the backend's Sarvam-first
     // /api/in-app/voice/transcribe produce the transcript (Telugu, English,
     // mixed). The system RecognizerIntent is not used for Main Chat.
-    private var pendingRecordingResult: MethodChannel.Result? = null
+    private var pendingRecordingStart: MethodChannel.Result? = null
     private var recorder: MediaRecorder? = null
     private var recordingFile: File? = null
-    private var recordingStartedAt = 0L
-    private var lastVoiceAt = 0L
-    private var heardSpeech = false
-    private val recordingHandler = Handler(Looper.getMainLooper())
-    private val recordingCheck = object : Runnable {
-        override fun run() {
-            val active = recorder ?: return
-            val now = SystemClock.elapsedRealtime()
-            val amplitude = try { active.maxAmplitude } catch (_: Exception) { 0 }
-            if (amplitude > speechAmplitudeThreshold) {
-                heardSpeech = true
-                lastVoiceAt = now
-            }
-            val elapsed = now - recordingStartedAt
-            when {
-                elapsed >= maxRecordingMillis -> finishRecording(keep = true)
-                heardSpeech && now - lastVoiceAt >= silenceAfterSpeechMillis -> finishRecording(keep = true)
-                !heardSpeech && elapsed >= noSpeechTimeoutMillis -> finishRecording(keep = true, noSpeech = true)
-                else -> recordingHandler.postDelayed(this, 200L)
-            }
-        }
-    }
-    private val speechAmplitudeThreshold = 1800
-    private val silenceAfterSpeechMillis = 2500L
-    private val noSpeechTimeoutMillis = 8000L
-    private val maxRecordingMillis = 30000L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -112,12 +83,14 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "startVoiceSearch" -> startVoiceSearch(call.argument("languageCode"), result)
                     "startVoiceRecording" -> startVoiceRecording(result)
-                    "stopVoiceRecording" -> {
-                        finishRecording(keep = true)
-                        result.success(true)
-                    }
+                    "voiceRecordingLevel" -> result.success(currentRecordingLevel())
+                    "stopVoiceRecording" -> stopVoiceRecording(result)
                     "cancelVoiceRecording" -> {
-                        finishRecording(keep = false)
+                        cancelVoiceRecording()
+                        result.success(null)
+                    }
+                    "stopSpeaking" -> {
+                        stopSpeaking()
                         result.success(true)
                     }
                     "speakAcknowledgement" -> speakAcknowledgement(
@@ -329,12 +302,14 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun startVoiceRecording(result: MethodChannel.Result) {
-        if (pendingRecordingResult != null) {
+        if (recorder != null || pendingRecordingStart != null) {
             result.error("voice_busy", "Voice recording is already active", null)
             return
         }
-        pendingRecordingResult = result
+        // Interruption: when the user starts talking, ASKODOX stops speaking.
+        stopSpeaking()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingRecordingStart = result
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.RECORD_AUDIO),
@@ -342,11 +317,16 @@ class MainActivity : FlutterActivity() {
             )
             return
         }
-        beginRecording()
+        beginRecording(result)
     }
 
-    private fun beginRecording() {
-        val result = pendingRecordingResult ?: return
+    /**
+     * Starts an in-app recording and returns true. The app decides when to
+     * stop (genuine silence or the user's Stop) from voiceRecordingLevel;
+     * native code never ends a recording on its own except when the app
+     * leaves the foreground.
+     */
+    private fun beginRecording(result: MethodChannel.Result) {
         var file: File? = null
         var active: MediaRecorder? = null
         try {
@@ -368,27 +348,27 @@ class MainActivity : FlutterActivity() {
             active.start()
             recorder = active
             recordingFile = file
-            recordingStartedAt = SystemClock.elapsedRealtime()
-            lastVoiceAt = recordingStartedAt
-            heardSpeech = false
-            recordingHandler.postDelayed(recordingCheck, 200L)
+            result.success(true)
         } catch (e: Exception) {
             try { active?.release() } catch (_: Exception) {}
             file?.delete()
-            pendingRecordingResult = null
+            recorder = null
+            recordingFile = null
             result.error("voice_unavailable", e.message ?: "Microphone unavailable", null)
         }
     }
 
-    /** Ends the active recording. keep=false is a user cancel (returns null). */
-    private fun finishRecording(keep: Boolean, noSpeech: Boolean = false) {
-        recordingHandler.removeCallbacks(recordingCheck)
+    /** Peak amplitude since the last call, or null when nothing is recording. */
+    private fun currentRecordingLevel(): Int? {
+        val active = recorder ?: return null
+        return try { active.maxAmplitude } catch (_: Exception) { 0 }
+    }
+
+    private fun releaseRecorder(): Pair<File?, Boolean> {
         val active = recorder
         val file = recordingFile
         recorder = null
         recordingFile = null
-        val result = pendingRecordingResult
-        pendingRecordingResult = null
         var stopped = false
         if (active != null) {
             stopped = try {
@@ -399,21 +379,29 @@ class MainActivity : FlutterActivity() {
             }
             try { active.release() } catch (_: Exception) {}
         }
-        if (result == null) {
+        return Pair(file, stopped)
+    }
+
+    private fun stopVoiceRecording(result: MethodChannel.Result) {
+        val (file, stopped) = releaseRecorder()
+        if (!stopped || file == null || file.length() == 0L) {
             file?.delete()
+            result.error("no_speech", "No speech was recorded", null)
             return
         }
-        when {
-            !keep -> {
-                file?.delete()
-                result.success(null)
-            }
-            noSpeech || !stopped || file == null || file.length() == 0L -> {
-                file?.delete()
-                result.error("no_speech", "No speech was heard", null)
-            }
-            else -> result.success(file.absolutePath)
-        }
+        result.success(file.absolutePath)
+    }
+
+    private fun cancelVoiceRecording() {
+        pendingRecordingStart?.success(false)
+        pendingRecordingStart = null
+        val (file, _) = releaseRecorder()
+        file?.delete()
+    }
+
+    private fun stopSpeaking() {
+        try { textToSpeech?.stop() } catch (_: Exception) {}
+        finishSpeechResult(false)
     }
 
     private fun getCurrentLocation(result: MethodChannel.Result) {
@@ -474,11 +462,11 @@ class MainActivity : FlutterActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == microphonePermissionRequestCode) {
-            val result = pendingRecordingResult ?: return
+            val result = pendingRecordingStart ?: return
+            pendingRecordingStart = null
             if (grantResults.any { it == PackageManager.PERMISSION_GRANTED }) {
-                beginRecording()
+                beginRecording(result)
             } else {
-                pendingRecordingResult = null
                 result.error("mic_denied", "Microphone permission denied", null)
             }
             return
@@ -496,12 +484,12 @@ class MainActivity : FlutterActivity() {
     override fun onPause() {
         // Leaving the app (call, home button) cancels an in-flight recording
         // instead of silently recording in the background.
-        if (recorder != null) finishRecording(keep = false)
+        if (recorder != null) cancelVoiceRecording()
         super.onPause()
     }
 
     override fun onDestroy() {
-        finishRecording(keep = false)
+        cancelVoiceRecording()
         pendingSpeechResult?.success(false)
         pendingSpeechResult = null
         textToSpeech?.stop()

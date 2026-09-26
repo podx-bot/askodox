@@ -91,7 +91,7 @@ def test_no_local_match_returns_online_fallback_and_videos_without_counting_them
     assert body["online_fallback_used"] is True
 
 
-def test_genuine_local_match_suppresses_online_fallback_and_carries_reviews(monkeypatch, tmp_path):
+def test_genuine_local_match_keeps_discovering_online_and_carries_reviews(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "unified-local.db"))
     from server import app, container
 
@@ -117,11 +117,11 @@ def test_genuine_local_match_suppresses_online_fallback_and_carries_reviews(monk
     assert len(local) == 1
     assert local[0]["rating_average"] == 4.5
     assert local[0]["review_count"] == 2
-    assert "online" not in [row["match_source"] for row in body["matches"]]
+    # Finding a local party must not stop discovery (sprint 2026-09-26).
+    assert "online" in [row["match_source"] for row in body["matches"]]
     assert body["local_match_count"] == 1
     assert body["match_count"] == 1
     assert body["waiting_for_interest"] is False
-    assert body["online_fallback_used"] is False
 
 
 def test_public_product_search_never_exposes_seller_contact(monkeypatch, tmp_path):

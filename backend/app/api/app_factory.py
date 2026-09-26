@@ -8,6 +8,7 @@ from app.api.routes.documents import router as documents_router
 from app.api.routes.fast_webhook import router as webhook_router
 from app.api.routes.health import router as health_router
 from app.api.routes.in_app_assistant import router as in_app_assistant_router
+from app.api.routes.in_app_assistant import support_admin_router
 from app.api.routes.in_app_deal import router as in_app_deal_router
 from app.api.routes.onboarding_auth import router as onboarding_auth_router
 from app.api.routes.orders import router as orders_router
@@ -25,6 +26,7 @@ from app.repositories.user_memory_repository import UserMemoryRepository
 from app.services.admin_monitoring_runtime_service import AdminMonitoringRuntimeService
 from app.services.admin_monitoring_service import AdminMonitoringService
 from app.services.brave_web_search_provider import BraveWebSearchProvider
+from app.services.google_maps_service import GoogleMapsService
 from app.services.conversation_os_runtime_service import ConversationOSRuntimeService
 from app.services.customer_facing_response_policy import CustomerFacingResponsePolicy
 from app.services.domain_complaint_prevention_service import DomainComplaintPreventionService
@@ -178,6 +180,8 @@ def create_app() -> FastAPI:
         deep_research_service=deep_research,
     )
     container.brave_web_search_provider = web_provider
+    # Nearby offline shops for chat results and Explore (Places text search).
+    container.google_maps_service = GoogleMapsService(api_key=container.settings.google_maps_api_key)
     container.oasat_live_research_service = live_research
     container.oasat_deep_research_service = deep_research
     container.live_research_aware_conversation_service = research_aware
@@ -232,6 +236,7 @@ def create_app() -> FastAPI:
     app.include_router(webhook_router)
     app.include_router(debug_router)
     app.include_router(in_app_assistant_router)
+    app.include_router(support_admin_router)
     app.include_router(in_app_deal_router)
     app.include_router(vision_router)
     app.include_router(documents_router)

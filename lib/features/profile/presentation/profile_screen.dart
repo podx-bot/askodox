@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/update/askodox_update_service.dart';
+import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -14,7 +15,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  final _roles = <String>{'Buyer'};
   bool _checking = false;
   bool _installing = false;
   double? _progress;
@@ -163,33 +163,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             'One person can be a buyer, seller, service provider or more at the same time.',
                             'ఒకే వ్యక్తి Buyer, Seller, Service Provider లేదా ఇతర పాత్రల్లో ఒకేసారి ఉండవచ్చు.')),
                         const SizedBox(height: 12),
-                        Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              'Buyer',
-                              'Seller',
-                              'Service Provider',
-                              'Job Seeker',
-                              'Delivery Partner'
-                            ].map((role) {
-                              final selected = _roles.contains(role);
-                              return FilterChip(
-                                  selected: selected,
-                                  label: Text(role),
-                                  onSelected: (value) {
-                                    setState(() {
-                                      if (value) {
-                                        _roles.add(role);
-                                      } else if (_roles.length > 1) {
-                                        _roles.remove(role);
-                                      }
-                                    });
-                                  });
-                            }).toList()),
+                        Builder(builder: (context) {
+                          // Held roles are edited here only; the conversation
+                          // moves the ACTIVE role, highlighted below.
+                          final roles = ref.watch(askodoxRoleProvider);
+                          return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final role in {
+                                  ...askodoxProfileRoles,
+                                  roles.active,
+                                })
+                                  FilterChip(
+                                      key: ValueKey('profileRole-${role.name}'),
+                                      selected: roles.owned.contains(role),
+                                      side: role == roles.active
+                                          ? const BorderSide(
+                                              color: Color(0xFF1769FF), width: 2)
+                                          : null,
+                                      avatar: role == roles.active
+                                          ? const Icon(Icons.bolt_rounded,
+                                              size: 18, color: Color(0xFF1769FF))
+                                          : null,
+                                      label: Text(role == roles.active
+                                          ? '${askodoxUserRoleLabel(role, telugu: _te)} · ${t('Active now', 'ఇప్పుడు యాక్టివ్')}'
+                                          : askodoxUserRoleLabel(role, telugu: _te)),
+                                      onSelected: (value) => ref
+                                          .read(askodoxRoleProvider.notifier)
+                                          .toggleOwned(role, value)),
+                              ]);
+                        }),
                       ]))),
           const SizedBox(height: 12),
-          if (_roles.contains('Seller'))
+          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))
             Card(
                 elevation: 0,
                 child: ListTile(
@@ -213,7 +220,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       'ASKODOX‌లో మీరు ఇతర విక్రేతల నుండి ఆర్డర్ చేసినవన్నీ.')),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/orders/mine'))),
-          if (_roles.contains('Seller'))
+          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))
             Card(
                 elevation: 0,
                 child: ListTile(
@@ -225,7 +232,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         'మీ నిజమైన లిస్టింగ్‌ల కోసం కొనుగోలుదారులు పెట్టిన ఆర్డర్లు.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/orders/incoming'))),
-          if (_roles.contains('Delivery Partner'))
+          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.deliveryPartner))
             Card(
                 elevation: 0,
                 child: ListTile(

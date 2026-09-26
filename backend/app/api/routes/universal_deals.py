@@ -18,10 +18,8 @@ from app.core.domain_field_requirements import FieldPolicyNotFoundError, missing
 from app.core.intent_domain_router import IntentRouteNotFoundError
 from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 from app.services.universal_action_contract import build_action_result
-from app.services.universal_external_result_service import (
-    UniversalExternalResultService,
-    UniversalOnlineFallbackService,
-)
+from app.services.universal_external_result_service import UniversalExternalResultService
+from app.services.universal_multi_source_result_service import UniversalMultiSourceResultService
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
@@ -337,6 +335,24 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     }
 
 
+def _multi_source_service(container) -> UniversalMultiSourceResultService:
+    maps = getattr(container, "google_maps_service", None)
+    if maps is None:
+        # Lazy: google_maps_service needs httpx, which lightweight route
+        # imports (e.g. the demo-isolation CI check) do not install.
+        from app.services.google_maps_service import GoogleMapsService
+
+        maps = GoogleMapsService(api_key=getattr(container.settings, "google_maps_api_key", ""))
+        container.google_maps_service = maps
+    return UniversalMultiSourceResultService(
+        catalog=getattr(container, "product_catalog_repository", None),
+        ranking=getattr(container, "product_match_ranking_service", None),
+        seller_profiles=getattr(container, "seller_profile_repository", None),
+        maps=maps,
+        web_search=getattr(container, "brave_web_search_provider", None),
+    )
+
+
 def _review_summary(container, user_id: str) -> dict:
     repository = getattr(container, "universal_review_repository", None)
     summary = getattr(repository, "summary_for_user", None)
@@ -512,27 +528,32 @@ def get_matches(deal_id: int, request: Request) -> dict:
             if item.get("id") not in existing_ids
         )
 
-    # 2026-09-25: unified chat results. When no genuine (non-demo) local
-    # party has responded and no configured online partner covers this
-    # request, fall back to real online results instead of an empty chat.
-    # Relevant videos ride along for categories where they make sense.
-    # Fallback rows never count as matches for the consent/waiting state.
+    # 2026-09-26: universal multi-source results. A registered ASKODOX
+    # seller (or an interested party) no longer stops discovery: registered
+    # listings, nearby offline shops, used / individual / surplus / deals,
+    # online (normal + affiliate) and related videos are all aggregated and
+    # ranked. Discovery rows never count as matches for the consent/waiting
+    # state, which still tracks interested responders only.
     category = str(demand.get("domain") or "").strip()
     subject = str(demand.get("subject") or "").strip()
-    local_match_count = sum(
-        1 for item in matches if item.get("match_source") in {"interest", "demo_discovery"}
-    )
-    genuine_local = any(item.get("match_source") == "interest" for item in matches)
-    has_online = any(item.get("match_source") == "online" for item in matches)
-    fallback_service = UniversalOnlineFallbackService(
-        getattr(container, "brave_web_search_provider", None)
-    )
-    fallback: list[dict] = []
-    if not genuine_local and not has_online:
-        fallback.extend(fallback_service.online(category=category, subject=subject))
-    fallback.extend(fallback_service.videos(category=category, subject=subject))
     primary_count = len(matches)
-    matches.extend(fallback)
+    discovery = _multi_source_service(container)
+    registered_and_external = discovery.collect(demand)
+    has_online = any(item.get("match_source") == "online" for item in matches)
+    fallback = discovery.online_and_videos(
+        category=category, subject=subject, include_online=not has_online
+    )
+    seen = {str(item.get("id")) for item in matches}
+    for item in registered_and_external + fallback:
+        if str(item.get("id")) in seen:
+            continue
+        seen.add(str(item.get("id")))
+        matches.append(item)
+    local_match_count = sum(
+        1
+        for item in matches
+        if item.get("match_source") in {"interest", "demo_discovery", "registered"}
+    )
 
     return {
         "deal_id": deal_id,
@@ -542,6 +563,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "match_count": primary_count,
         "local_match_count": local_match_count,
         "online_fallback_used": any(item.get("match_source") == "online" for item in fallback),
+        "segments": sorted({str(item.get("segment")) for item in matches if item.get("segment")}),
         "matches": matches,
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(

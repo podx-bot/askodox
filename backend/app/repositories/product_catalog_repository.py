@@ -220,6 +220,16 @@ class ProductCatalogRepository:
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
 
+    def list_recent_active(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Newest active listings, for the Explore discovery feed."""
+        safe_limit = max(1, min(int(limit or 20), 50))
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM seller_products WHERE active=1 ORDER BY updated_at DESC, id DESC LIMIT ?",
+                (safe_limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def search_active(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Case-insensitive substring search across subject/brand/variant.
 

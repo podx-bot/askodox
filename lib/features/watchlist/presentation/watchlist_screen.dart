@@ -1,13 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class WatchlistScreen extends StatelessWidget {
+import '../../home/application/conversation_archive.dart';
+
+/// History filter chips. `null` is "All".
+typedef _Filter = AskodoxConversationStatus?;
+
+/// ASKODOX History: every real conversation, filterable by status. Opening
+/// one restores it exactly in Main Chat; "New ask" starts a clean chat.
+class WatchlistScreen extends ConsumerStatefulWidget {
   const WatchlistScreen({super.key});
+
+  @override
+  ConsumerState<WatchlistScreen> createState() => _WatchlistScreenState();
+}
+
+class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
+  _Filter _filter;
+
+  void _open(AskodoxConversationSnapshot snapshot) {
+    ref.read(askodoxChatRequestProvider.notifier).state =
+        AskodoxChatRequest.restore(snapshot.id);
+    context.go('/');
+  }
+
+  void _newAsk() {
+    ref.read(askodoxChatRequestProvider.notifier).state =
+        AskodoxChatRequest.newConversation();
+    context.go('/');
+  }
 
   @override
   Widget build(BuildContext context) {
     final isTelugu = Localizations.localeOf(context).languageCode == 'te';
     String t(String english, String telugu) => isTelugu ? telugu : english;
+    final all = ref.watch(askodoxConversationArchiveProvider);
+    final visible = _filter == null
+        ? all
+        : all.where((item) => item.status == _filter).toList();
+
+    String statusLabel(AskodoxConversationStatus status) => switch (status) {
+          AskodoxConversationStatus.active => t('Active', 'యాక్టివ్'),
+          AskodoxConversationStatus.matched => t('Matched', 'మ్యాచ్ అయింది'),
+          AskodoxConversationStatus.completed => t('Completed', 'పూర్తైంది'),
+        };
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
@@ -19,16 +56,9 @@ class WatchlistScreen extends StatelessWidget {
           t('History', 'చరిత్ర'),
           style: const TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900),
         ),
-        actions: [
-          IconButton(
-            tooltip: t('Filter history', 'చరిత్రను ఫిల్టర్ చేయండి'),
-            onPressed: () {},
-            icon: const Icon(Icons.tune_rounded, color: Color(0xFF1769FF)),
-          ),
-        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 96),
         children: [
           Text(
             t('Continue where you left off', 'మీరు ఆపిన చోటు నుంచే కొనసాగించండి'),
@@ -47,83 +77,77 @@ class WatchlistScreen extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _FilterChipLabel(t('All', 'అన్నీ'), true),
-              _FilterChipLabel(t('Active', 'యాక్టివ్'), false),
-              _FilterChipLabel(t('Matched', 'మ్యాచ్ అయినవి'), false),
-              _FilterChipLabel(t('Completed', 'పూర్తైనవి'), false),
+              for (final (filter, label) in <(_Filter, String)>[
+                (null, t('All', 'అన్నీ')),
+                (AskodoxConversationStatus.active, t('Active', 'యాక్టివ్')),
+                (AskodoxConversationStatus.matched, t('Matched', 'మ్యాచ్ అయినవి')),
+                (AskodoxConversationStatus.completed, t('Completed', 'పూర్తైనవి')),
+              ])
+                ChoiceChip(
+                  key: ValueKey('historyFilter-${filter?.name ?? 'all'}'),
+                  label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  selected: _filter == filter,
+                  onSelected: (_) => setState(() => _filter = filter),
+                ),
             ],
           ),
           const SizedBox(height: 18),
-          _HistoryCard(
-            icon: Icons.shopping_bag_outlined,
-            title: t('Chicken nearby', 'దగ్గరలో చికెన్'),
-            status: t('Matches ready', 'మ్యాచ్లు సిద్ధంగా ఉన్నాయి'),
-            time: t('Just now', 'ఇప్పుడే'),
-            accent: const Color(0xFF10A53A),
-            onTap: () => context.go('/search'),
-          ),
-          _HistoryCard(
-            icon: Icons.work_outline_rounded,
-            title: t('Computer operator job', 'కంప్యూటర్ ఆపరేటర్ ఉద్యోగం'),
-            status: t('Need one more detail', 'ఇంకో వివరము కావాలి'),
-            time: t('2 hours ago', '2 గంటల క్రితం'),
-            accent: const Color(0xFF1769FF),
-            onTap: () => context.go('/search'),
-          ),
-          _HistoryCard(
-            icon: Icons.directions_car_outlined,
-            title: t('Ride to Vijayawada', 'విజయవాడకు రైడ్'),
-            status: t('3 matches found', '3 మ్యాచ్లు దొరికాయి'),
-            time: t('Yesterday', 'నిన్న'),
-            accent: const Color(0xFFFF8A00),
-            onTap: () => context.go('/search'),
-          ),
-          _HistoryCard(
-            icon: Icons.home_repair_service_outlined,
-            title: t('AC service', 'ఏసీ సర్వీస్'),
-            status: t('Completed', 'పూర్తైంది'),
-            time: t('3 days ago', '3 రోజుల క్రితం'),
-            accent: const Color(0xFF8E5CF7),
-            onTap: () => context.go('/search'),
-          ),
+          if (visible.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Text(
+                all.isEmpty
+                    ? t('No conversations yet. Ask ASKODOX anything to get started.',
+                        'ఇంకా సంభాషణలు లేవు. ASKODOXని ఏదైనా అడగండి.')
+                    : t('Nothing here for this filter.', 'ఈ ఫిల్టర్‌లో ఏమీ లేవు.'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF667085)),
+              ),
+            ),
+          for (final item in visible)
+            _HistoryCard(
+              key: ValueKey('historyCard-${item.id}'),
+              icon: switch (item.status) {
+                AskodoxConversationStatus.active => Icons.chat_bubble_outline_rounded,
+                AskodoxConversationStatus.matched => Icons.storefront_outlined,
+                AskodoxConversationStatus.completed => Icons.task_alt_rounded,
+              },
+              title: item.title,
+              status: statusLabel(item.status),
+              time: _relativeTime(item.updatedAt, isTelugu),
+              accent: switch (item.status) {
+                AskodoxConversationStatus.active => const Color(0xFF1769FF),
+                AskodoxConversationStatus.matched => const Color(0xFF10A53A),
+                AskodoxConversationStatus.completed => const Color(0xFF8E5CF7),
+              },
+              onTap: () => _open(item),
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        key: const Key('historyNewAsk'),
         backgroundColor: const Color(0xFF1769FF),
         foregroundColor: Colors.white,
-        onPressed: () => context.go('/'),
+        onPressed: _newAsk,
         icon: const Icon(Icons.add_rounded),
         label: Text(t('New ask', 'కొత్త ప్రశ్న'), style: const TextStyle(fontWeight: FontWeight.w800)),
       ),
     );
   }
-}
 
-class _FilterChipLabel extends StatelessWidget {
-  const _FilterChipLabel(this.label, this.selected);
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F8ED) : Colors.white,
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: selected ? const Color(0xFF10A53A) : const Color(0xFFE1E8F2)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? const Color(0xFF0B7E2C) : const Color(0xFF475467),
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      );
+  static String _relativeTime(DateTime time, bool te) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return te ? 'ఇప్పుడే' : 'Just now';
+    if (diff.inHours < 1) return te ? '${diff.inMinutes} నిమిషాల క్రితం' : '${diff.inMinutes} min ago';
+    if (diff.inDays < 1) return te ? '${diff.inHours} గంటల క్రితం' : '${diff.inHours} h ago';
+    if (diff.inDays == 1) return te ? 'నిన్న' : 'Yesterday';
+    return te ? '${diff.inDays} రోజుల క్రితం' : '${diff.inDays} days ago';
+  }
 }
 
 class _HistoryCard extends StatelessWidget {
   const _HistoryCard({
+    super.key,
     required this.icon,
     required this.title,
     required this.status,
@@ -166,7 +190,10 @@ class _HistoryCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
+                      Text(title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
                       const SizedBox(height: 5),
                       Row(children: [
                         Container(width: 7, height: 7, decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),

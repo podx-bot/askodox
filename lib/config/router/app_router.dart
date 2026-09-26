@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/route_guard.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../features/home/presentation/chat_first_home_host.dart';
+import '../../features/home/presentation/explore_screen.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/search/domain/search_models.dart';
@@ -130,6 +131,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   builder: (context, state) => const ProfileScreen())
             ]),
           ]),
+      GoRoute(
+          path: '/explore',
+          builder: (context, state) => const ExploreScreen()),
       GoRoute(
           path: '/location',
           builder: (context, state) => const LocationSetupScreen()),

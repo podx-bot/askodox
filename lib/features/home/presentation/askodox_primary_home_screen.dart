@@ -16,6 +16,8 @@ import '../../../services/real_product_match_service.dart';
 import '../../../services/vision_api_service.dart';
 import '../../../services/multimodal_capture_service.dart';
 import '../../../services/video_analysis_service.dart';
+import '../../../services/support_escalation_service.dart';
+import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
@@ -24,6 +26,8 @@ import '../../location/application/location_controller.dart';
 import '../../matching/data/universal_match_repository.dart';
 import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
+import '../application/conversation_archive.dart';
+import '../domain/active_role.dart';
 import '../domain/chat_result_policy.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
@@ -82,6 +86,8 @@ final askodoxRealProductMatchServiceProvider =
     Provider<RealProductMatchService>((ref) => const RealProductMatchService());
 final askodoxVisionServiceProvider =
     Provider<VisionApiService>((ref) => const VisionApiService());
+final askodoxSupportEscalationServiceProvider =
+    Provider<SupportEscalationService>((ref) => const SupportEscalationService());
 final askodoxVoiceTranscriptionServiceProvider =
     Provider<VoiceTranscriptionService>(
         (ref) => const VoiceTranscriptionService());
@@ -110,6 +116,26 @@ class _AskodoxPrimaryHomeScreenState
   final Map<int, UniversalDeal> _dealByTurn = {};
   final Map<int, String> _roleNoticeByTurn = {};
   DealIntent? _lastIntent;
+
+  // History: every conversation is saved as a snapshot under this id.
+  String _conversationId = _newConversationId();
+  static String _newConversationId() =>
+      'c-${DateTime.now().microsecondsSinceEpoch}';
+
+  // AI-first deal flow: Send request / Connect appear on an option only
+  // after the user discussed it with ASKODOX or asked for the seller.
+  final Set<String> _actionableMatchKeys = {};
+  final Set<String> _requestSentMatchKeys = {};
+  String? _pendingAiContext;
+  bool _pendingDiscussOnly = false;
+
+  // Active role question awaiting the user's answer, keyed by user turn.
+  final Map<int, AskodoxUserRole> _roleQuestionByTurn = {};
+
+  // First-line support: escalation offered under these assistant turns.
+  final Map<int, AskodoxSupportAssessment> _supportByTurn = {};
+  final Map<int, AskodoxSupportCase> _supportCaseByTurn = {};
+  int _issueTurns = 0;
   bool _active = false;
   bool _sending = false;
   _VoicePhase _voicePhase = _VoicePhase.idle;
@@ -187,22 +213,28 @@ class _AskodoxPrimaryHomeScreenState
   bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
 
   static const _device = MethodChannel('com.askodox.app/device');
+  static const _voiceSampleInterval = Duration(milliseconds: 200);
+  Timer? _voiceTimer;
+  AskodoxVoiceEndpointer? _endpointer;
+  int _voiceTicks = 0;
+  bool _voiceFinishing = false;
 
   /// Main Chat voice: record in-app, transcribe through the backend's
-  /// Sarvam-first pipeline, then continue the same conversation. Tapping the
-  /// mic while recording stops early; the close button cancels. There is no
-  /// fallback to the Android system recognizer.
+  /// Sarvam-first pipeline, then continue the same conversation. The app
+  /// keeps recording while the user speaks and ends only on genuine silence
+  /// ([AskodoxVoiceEndpointer]) or the user's Stop; the close button
+  /// cancels. There is no fallback to the Android system recognizer.
   Future<void> _startVoice() async {
     if (_voicePhase == _VoicePhase.recording) {
-      await _stopVoice();
+      await _finishVoice(noSpeech: false);
       return;
     }
     if (_voicePhase != _VoicePhase.idle || _sending) return;
     final te = _te;
     setState(() => _voicePhase = _VoicePhase.recording);
-    String? path;
+    bool? started;
     try {
-      path = await _device.invokeMethod<String>('startVoiceRecording', <String, Object?>{
+      started = await _device.invokeMethod<bool>('startVoiceRecording', <String, Object?>{
         'languageCode': te ? 'te' : 'en',
       });
     } on PlatformException catch (error) {
@@ -212,9 +244,6 @@ class _AskodoxPrimaryHomeScreenState
           'mic_denied' => te
               ? 'మైక్రోఫోన్ అనుమతి లేదు. Settings లో అనుమతించి మళ్లీ ప్రయత్నించండి.'
               : 'Microphone permission is off. Allow it in Settings and try again.',
-          'no_speech' => te
-              ? 'మీ మాట వినిపించలేదు. మళ్లీ మాట్లాడండి.'
-              : 'I did not hear anything. Please try again.',
           _ => te
               ? 'వాయిస్ ప్రారంభం కాలేదు. మళ్లీ ప్రయత్నించండి.'
               : 'Voice could not start. Please try again.',
@@ -231,9 +260,81 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     if (!mounted) return;
-    if (path == null || path.isEmpty) {
-      // User cancelled (or the app went to the background).
+    if (started != true) {
+      // Cancelled before recording began (e.g. during the permission prompt).
       setState(() => _voicePhase = _VoicePhase.idle);
+      return;
+    }
+    _endpointer = AskodoxVoiceEndpointer();
+    _voiceFinishing = false;
+    _voiceTicks = 0;
+    _voiceTimer = Timer.periodic(_voiceSampleInterval, (_) => _sampleVoice());
+  }
+
+  Future<void> _sampleVoice() async {
+    if (_voiceFinishing || _voicePhase != _VoicePhase.recording) return;
+    int? level;
+    try {
+      level = await _device.invokeMethod<int>('voiceRecordingLevel');
+    } catch (_) {
+      level = 0;
+    }
+    if (!mounted || _voiceFinishing) return;
+    if (level == null) {
+      // Native recording ended outside the app's control (app backgrounded).
+      _stopVoiceTimer();
+      setState(() => _voicePhase = _VoicePhase.idle);
+      return;
+    }
+    _voiceTicks++;
+    final decision = _endpointer?.add(level, _voiceSampleInterval * _voiceTicks) ??
+        VoiceEndpointDecision.keepRecording;
+    switch (decision) {
+      case VoiceEndpointDecision.keepRecording:
+        return;
+      case VoiceEndpointDecision.stopNoSpeech:
+        await _finishVoice(noSpeech: true);
+      case VoiceEndpointDecision.stopAfterSilence:
+      case VoiceEndpointDecision.stopMaxDuration:
+        await _finishVoice(noSpeech: false);
+    }
+  }
+
+  void _stopVoiceTimer() {
+    _voiceTimer?.cancel();
+    _voiceTimer = null;
+  }
+
+  /// Ends the recording (genuine silence, max duration or the user's Stop)
+  /// and sends the Sarvam transcript into the chat.
+  Future<void> _finishVoice({required bool noSpeech}) async {
+    if (_voiceFinishing || _voicePhase != _VoicePhase.recording) return;
+    _voiceFinishing = true;
+    _stopVoiceTimer();
+    final te = _te;
+    if (noSpeech) {
+      try {
+        await _device.invokeMethod<Object?>('cancelVoiceRecording');
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() => _voicePhase = _VoicePhase.idle);
+      _voiceError(te
+          ? 'మీ మాట వినిపించలేదు. మళ్లీ మాట్లాడండి.'
+          : 'I did not hear anything. Please try again.');
+      return;
+    }
+    String? path;
+    try {
+      path = await _device.invokeMethod<String>('stopVoiceRecording');
+    } catch (_) {
+      path = null;
+    }
+    if (!mounted) return;
+    if (path == null || path.isEmpty) {
+      setState(() => _voicePhase = _VoicePhase.idle);
+      _voiceError(te
+          ? 'మీ మాట వినిపించలేదు. మళ్లీ మాట్లాడండి.'
+          : 'I did not hear anything. Please try again.');
       return;
     }
     setState(() => _voicePhase = _VoicePhase.transcribing);
@@ -251,20 +352,21 @@ class _AskodoxPrimaryHomeScreenState
     await _send(transcript, true);
   }
 
-  Future<void> _stopVoice() async {
+  Future<void> _cancelVoice() async {
+    _voiceFinishing = true;
+    _stopVoiceTimer();
     try {
-      await _device.invokeMethod<bool>('stopVoiceRecording');
-    } catch (_) {
-      // The pending startVoiceRecording call still completes or errors.
-    }
+      await _device.invokeMethod<Object?>('cancelVoiceRecording');
+    } catch (_) {}
+    if (mounted) setState(() => _voicePhase = _VoicePhase.idle);
   }
 
-  Future<void> _cancelVoice() async {
+  /// Interruption: typing/sending a new message or starting the mic stops
+  /// any reply ASKODOX is still speaking.
+  Future<void> _stopSpeaking() async {
     try {
-      await _device.invokeMethod<bool>('cancelVoiceRecording');
-    } catch (_) {
-      if (mounted) setState(() => _voicePhase = _VoicePhase.idle);
-    }
+      await _device.invokeMethod<bool>('stopSpeaking');
+    } catch (_) {}
   }
 
   void _voiceError(String message) {
@@ -357,10 +459,46 @@ class _AskodoxPrimaryHomeScreenState
   @override
   void initState() {
     super.initState();
+    ref.listenManual<AskodoxChatRequest?>(askodoxChatRequestProvider,
+        (previous, next) {
+      if (next != null) unawaited(_handleChatRequest(next));
+    }, fireImmediately: true);
     unawaited(_restore());
   }
 
+  /// Requests from History ("open" / "New ask") and Explore ("ask this").
+  Future<void> _handleChatRequest(AskodoxChatRequest request) async {
+    Future.microtask(() {
+      if (mounted) ref.read(askodoxChatRequestProvider.notifier).state = null;
+    });
+    if (request.newConversation) {
+      await _startNewConversation();
+      return;
+    }
+    final id = request.conversationId;
+    if (id != null) {
+      final archive = ref.read(askodoxConversationArchiveProvider.notifier);
+      await archive.ready();
+      final snapshot = archive.byId(id);
+      if (snapshot != null) await _applySnapshot(snapshot);
+      return;
+    }
+    final prompt = request.prompt;
+    if (prompt != null && prompt.trim().isNotEmpty) await _send(prompt);
+  }
+
   Future<void> _restore() async {
+    // Reopen the exact last conversation (results, deal, role) when it was
+    // archived; otherwise fall back to the legacy turn store.
+    final archive = ref.read(askodoxConversationArchiveProvider.notifier);
+    await archive.ready();
+    final currentId = await archive.currentId();
+    final snapshot = currentId == null ? null : archive.byId(currentId);
+    if (!mounted) return;
+    if (snapshot != null) {
+      await _applySnapshot(snapshot);
+      return;
+    }
     final records = await _store.load();
     if (!mounted || records.isEmpty) return;
     final deal = ref.read(universalDealControllerProvider).deal;
@@ -401,6 +539,301 @@ class _AskodoxPrimaryHomeScreenState
       _listingBannerIsError = listingBannerIsError;
     });
     _scrollBottom();
+  }
+
+  // ----------------------------------------------------------- History --
+
+  AskodoxConversationStatus get _conversationStatus {
+    if (_requestSentMatchKeys.isNotEmpty) return AskodoxConversationStatus.completed;
+    if (_resultsByTurn.values.any((results) => results.hasLocal)) {
+      return AskodoxConversationStatus.matched;
+    }
+    return AskodoxConversationStatus.active;
+  }
+
+  String get _conversationTitle {
+    final first = _turns.firstWhere((turn) => turn.isUser,
+        orElse: () => const ConversationTurnRecord(text: 'ASKODOX', isUser: true));
+    final line = first.text.split('\n').first.trim();
+    return line.length <= 60 ? line : '${line.substring(0, 57)}…';
+  }
+
+  Map<String, Object?> _snapshotData() {
+    final deals = ref.read(universalDealControllerProvider.notifier);
+    return {
+      'turns': [for (final turn in _turns) turn.toJson()],
+      'results': {
+        for (final entry in _resultsByTurn.entries)
+          '${entry.key}': {
+            'dealId': entry.value.dealId,
+            'matches': [for (final m in entry.value.matches) m.toJson()],
+            'failed': entry.value.failed,
+            'signInRequired': entry.value.signInRequired,
+            'missingFields': entry.value.missingFields,
+          },
+      },
+      'deals': {
+        for (final entry in _dealByTurn.entries)
+          '${entry.key}': deals.encodeDeal(entry.value),
+      },
+      'roleNotices': {
+        for (final entry in _roleNoticeByTurn.entries) '${entry.key}': entry.value,
+      },
+      'roleQuestions': {
+        for (final entry in _roleQuestionByTurn.entries) '${entry.key}': entry.value.name,
+      },
+      'support': {
+        for (final entry in _supportByTurn.entries)
+          '${entry.key}': {'need': entry.value.need.name, 'category': entry.value.category},
+      },
+      'activeDeal': deals.snapshot(),
+      'activeRole': ref.read(askodoxRoleProvider).active.name,
+      'lastIntent': _lastIntent?.name,
+      'actionable': _actionableMatchKeys.toList(),
+      'requested': _requestSentMatchKeys.toList(),
+      'issueTurns': _issueTurns,
+      'lastQuery': _lastGoodProductQuery,
+    };
+  }
+
+  Future<void> _saveSnapshot() async {
+    if (_turns.isEmpty) return;
+    await ref.read(askodoxConversationArchiveProvider.notifier).save(
+          AskodoxConversationSnapshot(
+            id: _conversationId,
+            title: _conversationTitle,
+            updatedAt: DateTime.now(),
+            status: _conversationStatus,
+            data: _snapshotData(),
+          ),
+        );
+  }
+
+  void _clearConversationState() {
+    _turns.clear();
+    _resultsByTurn.clear();
+    _dealByTurn.clear();
+    _roleNoticeByTurn.clear();
+    _roleQuestionByTurn.clear();
+    _supportByTurn.clear();
+    _supportCaseByTurn.clear();
+    _actionableMatchKeys.clear();
+    _requestSentMatchKeys.clear();
+    _issueTurns = 0;
+    _lastIntent = null;
+    _lastGoodProductQuery = null;
+    _listingBanner = null;
+    _listingBannerIsError = false;
+  }
+
+  /// "New ask": a clean conversation. The previous one stays in History.
+  Future<void> _startNewConversation() async {
+    await _saveSnapshot();
+    if (!mounted) return;
+    setState(() {
+      _clearConversationState();
+      _conversationId = _newConversationId();
+      _active = false;
+    });
+    ref.read(universalDealControllerProvider.notifier).reset();
+    await _store.clear();
+    await ref.read(askodoxConversationArchiveProvider.notifier).setCurrent(null);
+  }
+
+  /// Reopens a History conversation exactly: turns, results, deals, role,
+  /// questions/answers and which options were discussed or requested.
+  Future<void> _applySnapshot(AskodoxConversationSnapshot snapshot) async {
+    if (snapshot.id != _conversationId) await _saveSnapshot();
+    if (!mounted) return;
+    final data = snapshot.data;
+    final deals = ref.read(universalDealControllerProvider.notifier);
+    Map<String, dynamic> map(Object? raw) =>
+        raw is Map ? raw.cast<String, dynamic>() : <String, dynamic>{};
+    AskodoxUserRole? role(Object? name) {
+      for (final value in AskodoxUserRole.values) {
+        if (value.name == name) return value;
+      }
+      return null;
+    }
+
+    setState(() {
+      _clearConversationState();
+      _conversationId = snapshot.id;
+      _turns.addAll((data['turns'] as List? ?? const [])
+          .map(ConversationTurnRecord.fromJson)
+          .whereType<ConversationTurnRecord>());
+      map(data['results']).forEach((key, raw) {
+        final json = map(raw);
+        _resultsByTurn[int.parse(key)] = AskodoxChatResults(
+          dealId: json['dealId']?.toString(),
+          matches: [
+            for (final m in (json['matches'] as List? ?? const []))
+              if (m is Map) UniversalMatch.fromJson(m.cast<String, Object?>()),
+          ],
+          failed: json['failed'] == true,
+          signInRequired: json['signInRequired'] == true,
+          missingFields: [
+            for (final f in (json['missingFields'] as List? ?? const [])) '$f',
+          ],
+        );
+      });
+      map(data['deals']).forEach((key, raw) {
+        final deal = deals.decodeDeal(map(raw));
+        if (deal != null) _dealByTurn[int.parse(key)] = deal;
+      });
+      map(data['roleNotices']).forEach((key, raw) => _roleNoticeByTurn[int.parse(key)] = '$raw');
+      map(data['roleQuestions']).forEach((key, raw) {
+        final value = role(raw);
+        if (value != null) _roleQuestionByTurn[int.parse(key)] = value;
+      });
+      map(data['support']).forEach((key, raw) {
+        final json = map(raw);
+        final need = AskodoxSupportNeed.values.firstWhere(
+            (value) => value.name == json['need'],
+            orElse: () => AskodoxSupportNeed.afterAiAttempt);
+        _supportByTurn[int.parse(key)] = AskodoxSupportAssessment(need,
+            category: json['category']?.toString() ?? 'GENERAL');
+      });
+      _actionableMatchKeys.addAll([for (final k in (data['actionable'] as List? ?? const [])) '$k']);
+      _requestSentMatchKeys.addAll([for (final k in (data['requested'] as List? ?? const [])) '$k']);
+      _issueTurns = (data['issueTurns'] as num?)?.toInt() ?? 0;
+      _lastGoodProductQuery = data['lastQuery']?.toString();
+      final intentName = data['lastIntent'];
+      for (final intent in DealIntent.values) {
+        if (intent.name == intentName) _lastIntent = intent;
+      }
+      _active = _turns.isNotEmpty;
+    });
+    deals.restoreSnapshot(data['activeDeal'] is Map ? map(data['activeDeal']) : null);
+    final activeRole = role(data['activeRole']);
+    if (activeRole != null) ref.read(askodoxRoleProvider.notifier).setActive(activeRole);
+    await _store.save(_turns);
+    await ref.read(askodoxConversationArchiveProvider.notifier).setCurrent(snapshot.id);
+    _scrollBottom();
+  }
+
+  // ---------------------------------------------------- AI-first options --
+
+  static String _matchKey(String? dealId, UniversalMatch match) =>
+      '${dealId ?? ''}::${match.id}';
+
+  AskodoxChatResults? _latestResults() {
+    if (_resultsByTurn.isEmpty) return null;
+    final lastKey = _resultsByTurn.keys.reduce((a, b) => a > b ? a : b);
+    return _resultsByTurn[lastKey];
+  }
+
+  String _resultsContext(AskodoxChatResults results) => [
+        for (final match in results.matches.take(8)) '- ${askodoxOptionContext(match)}',
+      ].join('\n');
+
+  /// "Ask ASKODOX about this": keeps the user in the AI conversation about
+  /// one option (price, distance, condition, reviews, availability). Only
+  /// after this can the option's Send request / Connect be used.
+  Future<void> _askAboutMatch(String? dealId, UniversalMatch match) async {
+    setState(() => _actionableMatchKeys.add(_matchKey(dealId, match)));
+    _pendingAiContext = 'Option the user is asking about: ${askodoxOptionContext(match)}';
+    _pendingDiscussOnly = true;
+    await _send(_te
+        ? '"${match.title}" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు'
+        : 'Tell me more about "${match.title}": price, distance, quality, availability and reviews');
+  }
+
+  void _onRequestSent(String? dealId, UniversalMatch match) {
+    setState(() => _requestSentMatchKeys.add(_matchKey(dealId, match)));
+    unawaited(_saveSnapshot());
+  }
+
+  // ------------------------------------------------------------- roles --
+
+  void _switchRole(AskodoxUserRole to, {int? questionTurn}) {
+    final from = ref.read(askodoxRoleProvider).active;
+    ref.read(askodoxRoleProvider.notifier).setActive(to);
+    setState(() {
+      if (questionTurn != null) {
+        _roleQuestionByTurn.remove(questionTurn);
+        if (from != to) {
+          _roleNoticeByTurn[questionTurn] =
+              askodoxRoleChangedMessage(from, to, telugu: _te);
+        }
+      }
+    });
+    unawaited(_saveSnapshot());
+  }
+
+  void _keepRole(int questionTurn) {
+    setState(() => _roleQuestionByTurn.remove(questionTurn));
+    unawaited(_saveSnapshot());
+  }
+
+  // ----------------------------------------------------------- support --
+
+  Future<void> _escalateToSupport(int assistantTurn) async {
+    final assessment = _supportByTurn[assistantTurn];
+    if (assessment == null) return;
+    final userTurns = [for (final turn in _turns.take(assistantTurn)) if (turn.isUser) turn.text];
+    final issue = userTurns.lastWhere(askodoxLooksLikeIssue,
+        orElse: () => userTurns.isEmpty ? 'Support requested' : userTurns.last);
+    final deal = ref.read(universalDealControllerProvider).deal;
+    final latest = _latestResults();
+    String? counterpart;
+    for (final match in latest?.matches ?? const <UniversalMatch>[]) {
+      if (_requestSentMatchKeys.contains(_matchKey(latest?.dealId, match)) ||
+          _actionableMatchKeys.contains(_matchKey(latest?.dealId, match))) {
+        counterpart = match.title;
+        break;
+      }
+    }
+    final session = ref.read(authSessionProvider);
+    final supportCase = await ref.read(askodoxSupportEscalationServiceProvider).escalate(
+          issue: issue,
+          category: assessment.category,
+          critical: assessment.critical,
+          conversation: [
+            for (final turn in _turns.take(assistantTurn + 1))
+              {'role': turn.isUser ? 'user' : 'assistant', 'text': turn.text},
+          ],
+          requirement: deal == null
+              ? const {}
+              : {
+                  'subject': deal.subject,
+                  'category': deal.category,
+                  'intent': deal.intent.name,
+                  'quantity': deal.quantity,
+                  'unit': deal.unit,
+                  'price': deal.price,
+                  'location': deal.location.label,
+                  ...deal.dynamicFields,
+                },
+          dealId: latest?.dealId,
+          counterpart: counterpart,
+          actionsTried: [
+            for (final turn in _turns.take(assistantTurn + 1))
+              if (!turn.isUser) 'ASKODOX AI: ${turn.text}',
+          ].reversed.take(5).toList().reversed.toList(),
+          status: _conversationStatus.name,
+          activeRole: askodoxUserRoleLabel(ref.read(askodoxRoleProvider).active),
+          locale: _te ? 'te' : 'en',
+          authToken: session.user == null ? null : session.tokenPlaceholder,
+        );
+    if (!mounted) return;
+    if (supportCase == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_te
+            ? 'సపోర్ట్‌ను చేరుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి.'
+            : 'Could not reach ASKODOX Support. Please try again.'),
+      ));
+      return;
+    }
+    setState(() => _supportCaseByTurn[assistantTurn] = supportCase);
+  }
+
+  Future<void> _openExternal(String uri) async {
+    final parsed = Uri.tryParse(uri);
+    if (parsed == null) return;
+    try {
+      await launchUrl(parsed, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   /// Saves a completed "sell" deal as a real, searchable listing (via the
@@ -502,6 +935,7 @@ class _AskodoxPrimaryHomeScreenState
       _resultsByTurn[turnIndex] = results;
       _sending = false;
     });
+    unawaited(_saveSnapshot());
   }
 
   Future<void> _send([String? preset, bool speakResponse = false]) async {
@@ -512,6 +946,7 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
+    if (!speakResponse) unawaited(_stopSpeaking());
 
     if (attachment != null && !_isVideoAttachment(attachment)) {
       final analysis = await ref.read(askodoxVisionServiceProvider).analyze(
@@ -587,8 +1022,44 @@ class _AskodoxPrimaryHomeScreenState
             : selectedLocation.name.trim());
 
     final userTurnIndex = _turns.length - 1;
+
+    // AI-first: questions about options already shown ("which is better?",
+    // "reviews?") and requests for the seller ("contact the seller", "book
+    // it") stay in the AI conversation instead of starting a new search.
+    final latestResults = _latestResults();
+    final explicitContext = _pendingAiContext;
+    final wantsHuman = latestResults != null &&
+        latestResults.hasLocal &&
+        askodoxWantsHumanAction(text);
+    final discussOnly = _pendingDiscussOnly ||
+        wantsHuman ||
+        (latestResults != null && askodoxIsResultsQuestion(text));
+    _pendingAiContext = null;
+    _pendingDiscussOnly = false;
+    final aiMessage = explicitContext != null
+        ? '$text\n$explicitContext'
+        : discussOnly && latestResults != null
+            ? '$text\nOptions already shown to the user:\n${_resultsContext(latestResults)}'
+            : text;
+    if (wantsHuman) {
+      setState(() {
+        for (final match in latestResults.local) {
+          _actionableMatchKeys.add(_matchKey(latestResults.dealId, match));
+        }
+      });
+    }
+
+    // First-line support: count problem messages so escalation is offered
+    // only after ASKODOX AI tried (or at once for critical issues).
+    final support = askodoxAssessSupport(text, previousIssueTurns: _issueTurns);
+    if (askodoxLooksLikeIssue(text)) {
+      _issueTurns++;
+    } else if (AskodoxHomeRequestRouting.isTransactional(text)) {
+      _issueTurns = 0; // back to normal commerce: the problem is behind us
+    }
+
     final decision = await ref.read(askodoxAssistantServiceProvider).decide(
-      message: text,
+      message: aiMessage,
       locale: _te ? 'te' : 'en',
       history: history,
       location: knownLocationLabel,
@@ -604,12 +1075,14 @@ class _AskodoxPrimaryHomeScreenState
     final activeDealSession = ref.read(universalDealControllerProvider);
     final continuingActiveDeal =
         activeDealSession.deal != null && !activeDealSession.completed;
-    final detailAnswer = continuingActiveDeal &&
+    final detailAnswer = !discussOnly &&
+        continuingActiveDeal &&
         AskodoxHomeRequestRouting.isShortDetailAnswer(text);
-    final transactional = detailAnswer ||
-        (aiUsable
-            ? decision!.transactional
-            : AskodoxHomeRequestRouting.isTransactional(text));
+    final transactional = !discussOnly &&
+        (detailAnswer ||
+            (aiUsable
+                ? decision!.transactional
+                : AskodoxHomeRequestRouting.isTransactional(text)));
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
@@ -617,6 +1090,7 @@ class _AskodoxPrimaryHomeScreenState
     UniversalDeal? matchedDeal;
     String? detailQuestion;
     String? roleNotice;
+    AskodoxUserRole? roleQuestion;
     String? listingBanner;
     var listingBannerIsError = false;
 
@@ -660,13 +1134,6 @@ class _AskodoxPrimaryHomeScreenState
       final deal = dealSession.deal;
       if (deal != null) {
         _trackSearchQuery(deal.subject ?? deal.category);
-        // Roles follow the user's activity: announce a switch (e.g. buyer →
-        // seller) inside the chat, never silently answer in the old role.
-        roleNotice = askodoxRoleSwitchNotice(
-          previous: _lastIntent,
-          current: deal.intent,
-          telugu: _te,
-        );
         _lastIntent = deal.intent;
         if (!deal.readyToMatch) detailQuestion = dealSession.lastQuestion;
       }
@@ -682,8 +1149,36 @@ class _AskodoxPrimaryHomeScreenState
           results = await _findUniversalMatches(deal);
         }
       }
-    } else if (!continuingActiveDeal) {
+    } else if (!continuingActiveDeal && !discussOnly) {
       notifier.reset();
+    }
+
+    // Dynamic active role: follows what the user is doing now. A clear
+    // switch is applied and announced; an ambiguous, high-impact one is
+    // asked first. Stored roles are never changed here.
+    if (!discussOnly && !detailAnswer) {
+      final detection = askodoxDetectRole(text);
+      final dealRole = transactional
+          ? askodoxRoleForIntent(ref.read(universalDealControllerProvider).deal?.intent ?? DealIntent.other)
+          : null;
+      // What people say about themselves ("I repair ACs") beats a
+      // demand-side intent guess from a keyword like "repair".
+      final detected = detection != null && detection.role != AskodoxUserRole.buyer
+          ? detection.role
+          : dealRole ?? detection?.role;
+      final current = ref.read(askodoxRoleProvider).active;
+      // A general (non-commerce) "I need ..." is not a buying intent.
+      final generalBuyerHint = !transactional && detected == AskodoxUserRole.buyer;
+      if (detected != null && detected != current && !generalBuyerHint) {
+        final ambiguous = (detection?.ambiguous ?? false) ||
+            (detection == null && aiUsable && decision!.confidence < 0.55);
+        if (ambiguous && askodoxRoleSwitchIsHighImpact(detected)) {
+          roleQuestion = detected;
+        } else {
+          ref.read(askodoxRoleProvider.notifier).setActive(detected);
+          roleNotice = askodoxRoleChangedMessage(current, detected, telugu: _te);
+        }
+      }
     }
 
     final previous = _previousUserTurn();
@@ -695,6 +1190,10 @@ class _AskodoxPrimaryHomeScreenState
         !(isGeneralContinuation &&
           askodoxIsGenericAssistantReply(decision!.reply))
       ? decision!.reply.trim()
+      : wantsHuman
+        ? askodoxHumanActionReply(telugu: _te)
+      : discussOnly && explicitContext != null
+        ? askodoxOptionReply(explicitContext.split(': ').skip(1).join(': '), telugu: _te)
       : isGeneralContinuation
         ? askodoxContinuationReply(
           previousUserTurn: previous,
@@ -709,6 +1208,7 @@ class _AskodoxPrimaryHomeScreenState
     if (!mounted) return;
     setState(() {
       if (roleNotice != null) _roleNoticeByTurn[userTurnIndex] = roleNotice;
+      if (roleQuestion != null) _roleQuestionByTurn[userTurnIndex] = roleQuestion;
       _listingBanner = listingBanner;
       _listingBannerIsError = listingBannerIsError;
       _turns.add(ConversationTurnRecord(text: reply, isUser: false));
@@ -717,20 +1217,28 @@ class _AskodoxPrimaryHomeScreenState
         _resultsByTurn[assistantIndex] = results;
         if (matchedDeal != null) _dealByTurn[assistantIndex] = matchedDeal;
       }
+      if (support.need != AskodoxSupportNeed.none) {
+        _supportByTurn[assistantIndex] = support;
+      }
       _sending = false;
     });
     await _store.save(_turns);
+    await _saveSnapshot();
     _scrollBottom();
-    if (speakResponse) await _speakReply(reply);
+    if (speakResponse) await _speakReply(reply, userText: text);
   }
 
-  Future<void> _speakReply(String reply) async {
+  Future<void> _speakReply(String reply, {required String userText}) async {
     try {
-      await const MethodChannel('com.askodox.app/device').invokeMethod<bool>(
+      await _device.invokeMethod<bool>(
         'speakReply',
         <String, Object?>{
           'text': reply,
-          'languageCode': _te ? 'te' : 'en',
+          'languageCode': askodoxSpeechLanguage(
+            reply: reply,
+            userText: userText,
+            uiTelugu: _te,
+          ),
           'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
         },
       );
@@ -1014,6 +1522,16 @@ class _AskodoxPrimaryHomeScreenState
             ),
             if (_roleNoticeByTurn[index] case final notice?)
               _RoleNotice(text: notice),
+            if (_roleQuestionByTurn[index] case final role?)
+              _RoleQuestion(
+                question: askodoxRoleSwitchQuestion(role, telugu: te),
+                switchLabel: te ? 'మారండి' : 'Switch',
+                keepLabel: te
+                    ? '${askodoxUserRoleLabel(ref.watch(askodoxRoleProvider).active, telugu: true)}గానే ఉండండి'
+                    : 'Stay ${askodoxUserRoleLabel(ref.watch(askodoxRoleProvider).active)}',
+                onSwitch: () => _switchRole(role, questionTurn: index),
+                onKeep: () => _keepRole(index),
+              ),
             if (_resultsByTurn[index] case final results?)
               _ChatResultsView(
                 key: ValueKey('askodoxChatResults-$index'),
@@ -1023,6 +1541,23 @@ class _AskodoxPrimaryHomeScreenState
                 onRetry: _dealByTurn.containsKey(index)
                     ? () => _retryMatching(index)
                     : null,
+                isActionable: (match) => _actionableMatchKeys
+                    .contains(_matchKey(results.dealId, match)),
+                wasRequested: (match) => _requestSentMatchKeys
+                    .contains(_matchKey(results.dealId, match)),
+                onAsk: _sending
+                    ? null
+                    : (match) => _askAboutMatch(results.dealId, match),
+                onRequestSent: (match) => _onRequestSent(results.dealId, match),
+              ),
+            if (_supportByTurn[index] case final support?)
+              _SupportCard(
+                key: ValueKey('askodoxSupport-$index'),
+                te: te,
+                critical: support.critical,
+                supportCase: _supportCaseByTurn[index],
+                onChat: () => _escalateToSupport(index),
+                onOpen: _openExternal,
               ),
           ],
           if (_sending)
@@ -1187,6 +1722,7 @@ class _AskodoxPrimaryHomeScreenState
 
   @override
   void dispose() {
+    _stopVoiceTimer();
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
@@ -1325,12 +1861,150 @@ class _RoleNotice extends StatelessWidget {
 
 /// Rich result cards embedded directly under an assistant reply -- local
 /// matches first, then online options, then videos. Not a separate page.
+class _RoleQuestion extends StatelessWidget {
+  const _RoleQuestion({
+    required this.question,
+    required this.switchLabel,
+    required this.keepLabel,
+    required this.onSwitch,
+    required this.onKeep,
+  });
+
+  final String question;
+  final String switchLabel;
+  final String keepLabel;
+  final VoidCallback onSwitch;
+  final VoidCallback onKeep;
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.center,
+        child: Container(
+          key: const Key('askodoxRoleQuestion'),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          decoration: BoxDecoration(
+              color: const Color(0xFFEDEBFF),
+              borderRadius: BorderRadius.circular(14)),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            children: [
+              Text(question,
+                  style: const TextStyle(
+                      color: Color(0xFF3B2FCC), fontWeight: FontWeight.w800)),
+              TextButton(onPressed: onSwitch, child: Text(switchLabel)),
+              TextButton(onPressed: onKeep, child: Text(keepLabel)),
+            ],
+          ),
+        ),
+      );
+}
+
+/// "Need more help? Contact ASKODOX Support" -- shown only after ASKODOX AI
+/// tried (or at once for critical issues). The case carries the whole
+/// conversation so the user never repeats themselves.
+class _SupportCard extends StatefulWidget {
+  const _SupportCard({
+    super.key,
+    required this.te,
+    required this.critical,
+    required this.onChat,
+    required this.onOpen,
+    this.supportCase,
+  });
+
+  final bool te;
+  final bool critical;
+  final AskodoxSupportCase? supportCase;
+  final Future<void> Function() onChat;
+  final Future<void> Function(String uri) onOpen;
+
+  @override
+  State<_SupportCard> createState() => _SupportCardState();
+}
+
+class _SupportCardState extends State<_SupportCard> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final te = widget.te;
+    final supportCase = widget.supportCase;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: widget.critical ? const Color(0xFFFFF1F0) : const Color(0xFFF2F6FF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: widget.critical ? const Color(0xFFFFC9C4) : const Color(0xFFD7E3F5))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.support_agent_rounded, color: _blue),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                te ? 'ఇంకా సహాయం కావాలా? ASKODOX సపోర్ట్‌ను సంప్రదించండి'
+                    : 'Need more help? Contact ASKODOX Support',
+                style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        if (supportCase == null)
+          FilledButton.icon(
+            key: const Key('askodoxSupportChat'),
+            onPressed: _busy
+                ? null
+                : () async {
+                    setState(() => _busy = true);
+                    await widget.onChat();
+                    if (mounted) setState(() => _busy = false);
+                  },
+            icon: const Icon(Icons.chat_rounded),
+            label: Text(te ? 'సపోర్ట్‌తో చాట్ చేయండి' : 'Chat with Support'),
+          )
+        else ...[
+          Text(
+            te
+                ? 'సపోర్ట్ కేసు #${supportCase.caseId} సృష్టించబడింది. మీ సంభాషణ మొత్తం వారికి చేరింది -- మళ్లీ వివరించాల్సిన అవసరం లేదు.'
+                : 'Support case #${supportCase.caseId} created. ASKODOX Support has this whole conversation -- no need to explain again.',
+            key: const Key('askodoxSupportCaseCreated'),
+            style: const TextStyle(color: Color(0xFF1B8A3B), fontWeight: FontWeight.w700),
+          ),
+          Wrap(spacing: 8, children: [
+            if (supportCase.whatsappUrl case final url?)
+              OutlinedButton.icon(
+                onPressed: () => widget.onOpen(url),
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: Text(te ? 'వాట్సాప్ సపోర్ట్' : 'WhatsApp Support'),
+              ),
+            if (supportCase.callUri case final uri?)
+              OutlinedButton.icon(
+                onPressed: () => widget.onOpen(uri),
+                icon: const Icon(Icons.call_rounded),
+                label: Text(te ? 'సపోర్ట్‌కు కాల్' : 'Call Support'),
+              ),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
+
+/// Rich result cards embedded directly under an assistant reply, grouped by
+/// source (ASKODOX sellers, individual, used, surplus, deals, nearby shops,
+/// online, videos). Not a separate page; empty sections are never shown.
 class _ChatResultsView extends StatelessWidget {
   const _ChatResultsView({
     super.key,
     required this.results,
     required this.te,
     required this.retrying,
+    required this.isActionable,
+    required this.wasRequested,
+    required this.onRequestSent,
+    this.onAsk,
     this.onRetry,
   });
 
@@ -1338,12 +2012,14 @@ class _ChatResultsView extends StatelessWidget {
   final bool te;
   final bool retrying;
   final VoidCallback? onRetry;
+  final bool Function(UniversalMatch match) isActionable;
+  final bool Function(UniversalMatch match) wasRequested;
+  final void Function(UniversalMatch match)? onAsk;
+  final void Function(UniversalMatch match) onRequestSent;
 
   @override
   Widget build(BuildContext context) {
-    final local = results.local;
-    final online = results.online;
-    final videos = results.videos;
+    final hasLocal = results.hasLocal;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1371,32 +2047,38 @@ class _ChatResultsView extends StatelessWidget {
                 ? 'స్థానిక అభ్యర్థనలు పంపడానికి సైన్ ఇన్ చేయండి.'
                 : 'Sign in to send requests to local sellers and providers.',
           ),
-        if (local.isNotEmpty) ...[
-          _heading(te ? 'దగ్గరలోని ఎంపికలు' : 'Local matches',
-              Icons.near_me_rounded),
-          for (final match in local)
-            _MatchCard(match: match, dealId: results.dealId, te: te),
-        ],
-        if (online.isNotEmpty) ...[
-          _heading(
-              local.isEmpty
-                  ? (te
-                      ? 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు'
-                      : 'No local match yet -- online options')
-                  : (te ? 'ఆన్‌లైన్ ఎంపికలు' : 'Online options'),
-              Icons.public_rounded),
-          for (final match in online)
-            _MatchCard(match: match, dealId: results.dealId, te: te),
-        ],
-        if (videos.isNotEmpty) ...[
-          _heading(te ? 'వీడియోలు & రివ్యూలు' : 'Videos & reviews',
-              Icons.play_circle_outline_rounded),
-          for (final match in videos)
-            _MatchCard(match: match, dealId: results.dealId, te: te),
+        for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
+          _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal),
+              _segmentIcon(segment)),
+          for (final match in rows)
+            _MatchCard(
+              match: match,
+              dealId: results.dealId,
+              te: te,
+              actionable: isActionable(match),
+              alreadySent: wasRequested(match),
+              onAsk: onAsk == null ? null : () => onAsk!(match),
+              onRequestSent: () => onRequestSent(match),
+            ),
         ],
       ]),
     );
   }
+
+  IconData _segmentIcon(AskodoxResultSegment segment) => switch (segment) {
+        AskodoxResultSegment.askodoxMatches ||
+        AskodoxResultSegment.registered =>
+          Icons.verified_rounded,
+        AskodoxResultSegment.individual => Icons.person_rounded,
+        AskodoxResultSegment.used => Icons.recycling_rounded,
+        AskodoxResultSegment.surplus => Icons.inventory_2_rounded,
+        AskodoxResultSegment.deals => Icons.local_offer_rounded,
+        AskodoxResultSegment.nearbyExternal ||
+        AskodoxResultSegment.widerLocal =>
+          Icons.near_me_rounded,
+        AskodoxResultSegment.online => Icons.public_rounded,
+        AskodoxResultSegment.video => Icons.play_circle_outline_rounded,
+      };
 
   Widget _heading(String text, IconData icon) => Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -1439,10 +2121,25 @@ class _ChatResultsView extends StatelessWidget {
 }
 
 class _MatchCard extends ConsumerStatefulWidget {
-  const _MatchCard({required this.match, required this.te, this.dealId});
+  const _MatchCard({
+    required this.match,
+    required this.te,
+    required this.onRequestSent,
+    this.dealId,
+    this.actionable = false,
+    this.alreadySent = false,
+    this.onAsk,
+  });
   final UniversalMatch match;
   final String? dealId;
   final bool te;
+
+  /// AI-first: Send request / Connect is exposed only once the user has
+  /// discussed this option with ASKODOX or asked for the seller.
+  final bool actionable;
+  final bool alreadySent;
+  final VoidCallback? onAsk;
+  final VoidCallback onRequestSent;
 
   @override
   ConsumerState<_MatchCard> createState() => _MatchCardState();
@@ -1521,6 +2218,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       );
     }
     if (!mounted) return;
+    if (result.success) widget.onRequestSent();
     setState(() {
       _placing = false;
       _orderFailed = !result.success;
@@ -1548,9 +2246,11 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     final score = match.score == null
         ? null
         : (match.score! <= 1 ? match.score! * 100 : match.score!);
-    final placed = _orderStatusMessage != null && !_orderFailed;
+    final placed = widget.alreadySent ||
+        (_orderStatusMessage != null && !_orderFailed);
     final requestable = action == ChatResultAction.connect ||
         action == ChatResultAction.sendRequest;
+    final showRequest = requestable && (widget.actionable || placed);
     return Container(
       key: ValueKey('askodoxResultCard-${match.source}-${match.id}'),
       margin: const EdgeInsets.only(bottom: 10),
@@ -1616,7 +2316,17 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           ),
           const SizedBox(height: 8),
         ],
-        if (requestable) ...[
+        if (requestable && !showRequest)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              key: ValueKey('askodoxAsk-${match.id}'),
+              onPressed: widget.onAsk,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
+            ),
+          ),
+        if (showRequest) ...[
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -1704,6 +2414,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   String _sourceLabel(String source) => switch (source.toLowerCase()) {
         'online' => _te ? 'ఆన్‌లైన్' : 'Online',
         'video' => _te ? 'వీడియో' : 'Video',
+        'external' => _te ? 'దగ్గరలోని షాప్' : 'Nearby shop',
         'nearby' => _te ? 'దగ్గరలో' : 'Nearby',
         'demo_discovery' => _te ? 'డెమో' : 'Demo',
         _ => _te ? 'లోకల్' : 'Local',

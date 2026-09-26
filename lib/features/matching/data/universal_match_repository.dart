@@ -86,6 +86,7 @@ class UniversalMatch {
     this.affiliate = false,
     this.ratingAverage,
     this.reviewCount = 0,
+    this.segment,
   });
 
   final String id;
@@ -108,6 +109,10 @@ class UniversalMatch {
   /// Average review rating from completed deals, when the backend has any.
   final double? ratingAverage;
   final int reviewCount;
+
+  /// Result section from the multi-source backend (registered, used,
+  /// surplus, deals, nearby_external, ...). Null on older rows.
+  final String? segment;
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -144,7 +149,31 @@ class UniversalMatch {
           affiliate: json['affiliate'] == true,
           ratingAverage: (json['rating_average'] as num?)?.toDouble(),
           reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
+          segment: json['segment']?.toString(),
       );
+
+  /// Round-trips through [UniversalMatch.fromJson] (History restoration).
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'title': title,
+        'subtitle': subtitle,
+        'score': score,
+        'distance_km': distanceKm,
+        'price': price,
+        'provider_id': providerId,
+        'trust_score': trustScore,
+        'availability_score': availabilityScore,
+        'source': source,
+        'image_url': imageUrl,
+        'location_label': locationLabel,
+        'availability': availability,
+        'destination_url': destinationUrl,
+        'disclosure': disclosure,
+        'affiliate': affiliate,
+        'rating_average': ratingAverage,
+        'review_count': reviewCount,
+        'segment': segment,
+      };
 }
 
 class UniversalMatchResult {
