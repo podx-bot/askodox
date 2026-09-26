@@ -35,10 +35,16 @@ class OASATLiveResearchService:
     HIGH_TRUST_TYPES = {"official", "government", "primary", "documentation", "paper"}
     MEDIUM_TRUST_TYPES = {"news", "reference", "industry"}
 
-    def __init__(self, provider: Callable[[str, int], Iterable[dict[str, Any]]]) -> None:
+    def __init__(
+        self,
+        provider: Callable[[str, int], Iterable[dict[str, Any]]],
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         if not callable(provider):
             raise TypeError("provider must be callable")
         self.provider = provider
+        # Freshness is measured against this clock (injectable for tests).
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
 
     def research(self, query: str, *, limit: int = 8, max_age_days: int | None = None) -> dict[str, Any]:
         clean_query = " ".join(str(query or "").strip().split())
@@ -76,7 +82,7 @@ class OASATLiveResearchService:
             source_type = str(row.get("source_type") or "web").strip().lower()
             published_at = self._clean_timestamp(row.get("published_at"))
             quality = self._quality_score(source_type, parsed.netloc)
-            freshness = self._freshness_score(published_at, max_age_days=max_age_days)
+            freshness = self._freshness_score(published_at, max_age_days=max_age_days, now=self.clock())
             if max_age_days is not None and freshness <= 0:
                 continue
             evidence = round((quality * 0.6) + (freshness * 0.4), 3)
@@ -117,11 +123,14 @@ class OASATLiveResearchService:
             return None
 
     @classmethod
-    def _freshness_score(cls, published_at: str | None, *, max_age_days: int | None) -> float:
+    def _freshness_score(cls, published_at: str | None, *, max_age_days: int | None, now: datetime | None = None) -> float:
         if published_at is None:
             return 0.5 if max_age_days is None else 0.0
         dt = datetime.fromisoformat(published_at)
-        age_days = max(0.0, (datetime.now(timezone.utc) - dt).total_seconds() / 86400)
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        age_days = max(0.0, (current - dt).total_seconds() / 86400)
         if max_age_days is not None and age_days > max_age_days:
             return 0.0
         if age_days <= 1:

@@ -17,6 +17,8 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
+from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,8 +58,14 @@ class UniversalAIAssistantService:
         openai_api_key: str = "",
         openai_model: str = "gpt-5",
         http_client: Any | None = None,
+        research_service: Any | None = None,
+        clock: Any | None = None,
     ) -> None:
         self.delegate = delegate
+        # Live evidence for time-sensitive facts (OASATLiveResearchService) and
+        # the runtime clock used for "today / this year / now" grounding.
+        self.research_service = research_service
+        self.clock = clock
         self.api_key = str(api_key or "").strip()
         self.model = str(model or "gemini-3.6-flash").strip()
         self.client = client or (genai.Client(api_key=self.api_key) if self.api_key else None)
@@ -225,6 +233,8 @@ class UniversalAIAssistantService:
             if role in {"user", "assistant"} and text:
                 compact_history.append({"role": role, "text": text[:1200]})
 
+        runtime_block = runtime_context_block(clean, self.clock)
+        grounding, grounding_block = self._live_grounding(clean)
         prompt = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
@@ -257,6 +267,8 @@ class UniversalAIAssistantService:
                 f"quantity, date or budget) instead.\n"
                 if clean_location else ""
             )
+            + runtime_block + "\n"
+            + grounding_block
             + f"Current user message: {clean}"
         )
         data: dict[str, Any] | None = None
@@ -316,6 +328,9 @@ class UniversalAIAssistantService:
                 reply = self._strip_location_question(reply, locale)
             if not reply:
                 return None
+            if grounding is not None and not grounding["verified"]:
+                # Deterministic honesty: never let an unverified current fact look checked.
+                reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
             return {
                 "reply": reply,
                 "domain": domain,
@@ -323,6 +338,7 @@ class UniversalAIAssistantService:
                 "action": action,
                 "confidence": confidence,
                 "entities": entities,
+                **({"grounding": grounding} if grounding is not None else {}),
             }
         except Exception:
             # Previously silent -- this made every AI-call failure (bad API
@@ -336,6 +352,54 @@ class UniversalAIAssistantService:
                 bool(clean_location),
             )
             return None
+
+    _UNVERIFIED_NOTE = {
+        "te": "(గమనిక: ప్రస్తుతం దీన్ని లైవ్ సోర్సులతో ధృవీకరించలేకపోయాను — దయచేసి అధికారిక క్యాలెండర్/సోర్స్‌తో సరిచూసుకోండి.)",
+        "en": "(Note: I couldn't verify this with live sources right now — please confirm with an official source.)",
+    }
+
+    def _unverified_note(self, message: str, locale: str) -> str:
+        telugu = str(locale or "").lower().startswith("te") or bool(re.search(r"[\u0C00-\u0C7F]", message))
+        return self._UNVERIFIED_NOTE["te" if telugu else "en"]
+
+    def _live_grounding(self, message: str) -> tuple[dict[str, Any] | None, str]:
+        """Live evidence for time-sensitive/changeable facts. Returns
+        (grounding summary or None when not needed, prompt block)."""
+        if message.startswith("OASAT ") or not needs_live_verification(message):
+            return None, ""
+        query = grounded_search_query(message, self.clock)
+        evidence: dict[str, Any] = {}
+        if self.research_service is not None:
+            try:
+                evidence = self.research_service.research(query, limit=5) or {}
+            except Exception:
+                logger.exception("universal_ai_assistant: live research failed (query_len=%d)", len(query))
+                evidence = {}
+        sources = list(evidence.get("sources") or [])[:5]
+        if not sources:
+            grounding = {"required": True, "verified": False, "query": query, "sources": []}
+            block = (
+                "LIVE VERIFICATION REQUIRED BUT UNAVAILABLE: this question depends on current or date-specific facts and no "
+                "live web evidence could be retrieved. Do NOT claim the answer was checked or is verified, do NOT present a "
+                "specific current date/price/policy as confirmed, and say plainly that it could not be verified right now.\n"
+            )
+            return grounding, block
+        lines = [
+            f"[S{i}] {src.get('title')} | {src.get('url')} | published={src.get('published_at')} | {src.get('snippet')}"
+            for i, src in enumerate(sources, start=1)
+        ]
+        grounding = {
+            "required": True,
+            "verified": True,
+            "query": query,
+            "sources": [{"id": f"S{i}", "title": src.get("title"), "url": src.get("url")} for i, src in enumerate(sources, start=1)],
+        }
+        block = (
+            "LIVE WEB EVIDENCE (retrieved now for this question). Answer current/date-specific facts ONLY from this evidence, "
+            "for the runtime year above; cite source ids like [S1]; if the evidence does not settle it, say so instead of guessing.\n"
+            + "\n".join(lines) + "\n"
+        )
+        return grounding, block
 
     def process(self, sender_mobile: str, message: str) -> str:
         clean = str(message or "").strip()
