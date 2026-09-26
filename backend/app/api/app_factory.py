@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.appointment_location_middleware import AppointmentLocationMiddleware
 from app.api.request_observability_middleware import RequestObservabilityMiddleware
@@ -233,6 +236,18 @@ def create_app() -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestObservabilityMiddleware)
     app.add_middleware(AppointmentLocationMiddleware, container=container)
+    # Browser-hosted Command Center (Flutter web) calls this API cross-origin.
+    # Opt-in only: without ADMIN_WEB_ORIGINS nothing changes. Credentials are
+    # headers (owner key / staff token), never cookies, so no CSRF exposure.
+    admin_web_origins = [o.strip() for o in os.getenv("ADMIN_WEB_ORIGINS", "").split(",") if o.strip()]
+    if admin_web_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=admin_web_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "PATCH"],
+            allow_headers=["Content-Type", "Accept", "Authorization", "X-ASKODOX-Admin-Key", "X-ASKODOX-Staff-Token"],
+        )
     app.include_router(health_router)
     app.include_router(onboarding_auth_router)
     app.include_router(webhook_router)
