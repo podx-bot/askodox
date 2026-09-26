@@ -11,6 +11,20 @@ def _voice_diag(message: str) -> None:
     print(f"VOICE TRANSCRIPTION PATH: {message}", flush=True)
 
 
+# A 30-60 s Telugu recording is several hundred output tokens, and thinking
+# models spend the output budget on reasoning first: a 256-token cap with
+# thinking on returned ~one word. Transcription needs no reasoning.
+TRANSCRIPTION_MAX_OUTPUT_TOKENS = 4096
+
+
+def transcription_config():
+    return types.GenerateContentConfig(
+        temperature=0.0,
+        max_output_tokens=TRANSCRIPTION_MAX_OUTPUT_TOKENS,
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
+    )
+
+
 class NormalizedVoiceAssistantService(RetryingVoiceAssistantService):
     """Production voice transcription with normalized-audio primary path and fallbacks."""
 
@@ -224,10 +238,7 @@ class NormalizedVoiceAssistantService(RetryingVoiceAssistantService):
                         mime_type=mime_type,
                     ),
                 ],
-                config=types.GenerateContentConfig(
-                    temperature=0.0,
-                    max_output_tokens=256,
-                ),
+                config=transcription_config(),
             )
             transcript = self._clean_transcript(
                 str(getattr(response, "text", "") or "")

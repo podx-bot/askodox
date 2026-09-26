@@ -59,6 +59,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   }
 
   static const _storageKey = 'askodox.active_universal_deal.v1';
+  bool _resetSinceCreated = false;
   final UniversalDealBrain _brain = const UniversalDealBrain();
   final UniversalDealContextResolver _contextResolver = const UniversalDealContextResolver();
 
@@ -319,6 +320,9 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   }
 
   void reset() {
+    // A reset (fresh launch / New ask) wins over a persisted-deal restore
+    // that is still loading.
+    _resetSinceCreated = true;
     state = const UniversalDealSession();
     unawaited(_clearPersisted());
   }
@@ -450,7 +454,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
       if (dealJson is! Map<String, dynamic>) return;
       final deal = _dealFromJson(dealJson);
       final quotes = _quotesFromJson(decoded['quotes']);
-      if (!mounted) return;
+      if (!mounted || _resetSinceCreated) return;
       state = _sessionFor(deal, quoteCollection: DealQuoteCollection(quotes));
     } catch (_) {
       await _clearPersisted();

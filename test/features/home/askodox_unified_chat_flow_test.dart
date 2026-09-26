@@ -252,7 +252,36 @@ class _Harness {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(ProviderScope(
+    await tester.pumpWidget(_app());
+    await settle(tester);
+  }
+
+  /// A new app process: a brand-new ProviderScope over the same persisted
+  /// storage (SharedPreferences survives, in-memory state does not).
+  Future<void> relaunch(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    _scopeKey = UniqueKey();
+    await tester.pumpWidget(_app());
+    await settle(tester);
+  }
+
+  /// Same session: Main Chat is unmounted (another screen) and mounted again
+  /// inside the SAME ProviderScope.
+  Future<void> navigateAway(WidgetTester tester) async {
+    await tester.pumpWidget(_app(home: const Text('Explore screen')));
+    await settle(tester);
+  }
+
+  Future<void> navigateBack(WidgetTester tester) async {
+    await tester.pumpWidget(_app());
+    await settle(tester);
+  }
+
+  Key _scopeKey = UniqueKey();
+
+  Widget _app({Widget home = const Scaffold(body: AskodoxPrimaryHomeScreen())}) {
+    return ProviderScope(
+      key: _scopeKey,
       overrides: [
         appConfigProvider.overrideWithValue(_config(backend)),
         universalMatchRepositoryProvider.overrideWithValue(matches),
@@ -268,9 +297,8 @@ class _Harness {
           return Text('EMBED $uri');
         }),
       ],
-      child: const MaterialApp(home: Scaffold(body: AskodoxPrimaryHomeScreen())),
-    ));
-    await settle(tester);
+      child: MaterialApp(home: home),
+    );
   }
 
   Future<void> send(WidgetTester tester, String text) async {
@@ -797,6 +825,113 @@ void main() {
     expect(h.matches.deals, hasLength(1), reason: 'restoring never re-runs matching');
   });
 
+  group('fresh Main Chat on every app launch (History keeps everything)', () {
+    const ask = 'I want to buy a mixer grinder in Vijayawada';
+
+    Future<(_Harness, ProviderContainer)> converse(WidgetTester tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '901', matches: [_localMatch, _videoMatch]),
+        ]),
+      );
+      await h.pump(tester);
+      await h.send(tester, ask);
+      await _tapText(tester, 'Ask ASKODOX about this');
+      await _tapText(tester, 'Connect');
+      expect(find.text('Request sent'), findsOneWidget);
+      return (h, ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen))));
+    }
+
+    ProviderContainer scope(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+
+    testWidgets('reopening the app shows a new ask; the old chat stays in History and restores exactly',
+        (tester) async {
+      final (h, _) = await converse(tester);
+      await h.relaunch(tester);
+      final c = scope(tester);
+
+      expect(find.text(ask), findsNothing, reason: 'Main Chat starts as a new, clean ask');
+      expect(find.text('Request sent'), findsNothing);
+      expect(c.read(universalDealControllerProvider).deal, isNull, reason: 'temporary deal context reset');
+      final saved = c.read(askodoxConversationArchiveProvider);
+      expect(saved, hasLength(1), reason: 'the previous conversation is kept, not deleted');
+      expect(saved.single.title, ask);
+
+      c.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.restore(saved.single.id);
+      await _Harness.settle(tester);
+      expect(find.text(ask), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
+      expect(find.text('Request sent'), findsOneWidget, reason: 'selected option + request state restored');
+      expect(find.text('Videos & reviews'), findsOneWidget);
+      expect(c.read(universalDealControllerProvider).deal?.subject, contains('mixer grinder'));
+      expect(h.matches.deals, hasLength(1), reason: 'History restore never re-runs matching');
+    });
+
+    testWidgets('same-session navigation keeps the active chat', (tester) async {
+      final (h, _) = await converse(tester);
+      await h.navigateAway(tester);
+      expect(find.text('Explore screen'), findsOneWidget);
+      await h.navigateBack(tester);
+      expect(find.text(ask), findsOneWidget, reason: 'not a new launch: chat preserved');
+      expect(find.text('Request sent'), findsOneWidget);
+      expect(scope(tester).read(askodoxConversationArchiveProvider), hasLength(1));
+    });
+
+    testWidgets('New ask after a relaunch starts clean and both conversations coexist', (tester) async {
+      final (h, _) = await converse(tester);
+      await h.relaunch(tester);
+      await h.send(tester, 'I need a plumber in Guntur');
+      final c = scope(tester);
+      expect(find.text('I need a plumber in Guntur'), findsOneWidget);
+      c.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.newConversation();
+      await _Harness.settle(tester);
+      expect(find.text('I need a plumber in Guntur'), findsNothing);
+      expect(c.read(askodoxConversationArchiveProvider).map((x) => x.title),
+          containsAll([ask, 'I need a plumber in Guntur']));
+    });
+
+    testWidgets('repeated launches never duplicate History and owned roles survive', (tester) async {
+      final (h, c) = await converse(tester);
+      c.read(askodoxRoleProvider.notifier).toggleOwned(AskodoxUserRole.seller, true);
+      c.read(askodoxRoleProvider.notifier).toggleOwned(AskodoxUserRole.serviceProvider, true);
+      await _Harness.settle(tester);
+      for (var i = 0; i < 3; i++) {
+        await h.relaunch(tester);
+      }
+      final after = scope(tester);
+      after.read(askodoxRoleProvider); // created lazily; let it load from storage
+      await _Harness.settle(tester);
+      expect(after.read(askodoxConversationArchiveProvider), hasLength(1), reason: 'no duplicate per launch');
+      expect(after.read(askodoxRoleProvider).owned,
+          containsAll([AskodoxUserRole.buyer, AskodoxUserRole.seller, AskodoxUserRole.serviceProvider]),
+          reason: 'profile/owned roles are account state, not chat state');
+      expect(find.text(ask), findsNothing);
+    });
+
+    testWidgets('after a crash, turns only in the per-turn store are recovered into History', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      // Simulate a process killed after the per-turn store was written but
+      // before the History snapshot was.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('askodox.active_conversation_turns.v1', jsonEncode([
+        {'text': 'నాకు 1 కిలో చికెన్ కావాలి', 'isUser': true},
+        {'text': 'ఏ కట్ కావాలి?', 'isUser': false},
+      ]));
+      await prefs.setString('askodox.conversation_current.v1', 'lost-conversation');
+      await h.relaunch(tester);
+      final c = scope(tester);
+      expect(find.text('నాకు 1 కిలో చికెన్ కావాలి'), findsNothing, reason: 'fresh ask on the new launch');
+      final saved = c.read(askodoxConversationArchiveProvider);
+      expect(saved.single.id, 'lost-conversation');
+      expect(saved.single.title, 'నాకు 1 కిలో చికెన్ కావాలి');
+      c.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.restore('lost-conversation');
+      await _Harness.settle(tester);
+      expect(find.text('ఏ కట్ కావాలి?'), findsOneWidget);
+    });
+  });
+
   testWidgets('ambiguous "battery TV" asks ONE clarification before any search, then searches the chosen product',
       (tester) async {
     final h = _Harness(
@@ -989,6 +1124,49 @@ void main() {
       expect(find.text('నాకు విజయవాడలో చికెన్ కావాలి'), findsOneWidget);
       final speak = calls.lastWhere((c) => c.method == 'speakReply');
       expect((speak.arguments as Map)['text'], 'సరే, ఎంత చికెన్ కావాలి?');
+      expect((speak.arguments as Map)['languageCode'], 'te');
+    });
+
+    testWidgets('60 s of continuous Telugu speech records to the end and the full transcript is answered in Telugu voice',
+        (tester) async {
+      // Build 1241: ~35 s of Telugu became one word. The recording must run
+      // for the whole utterance, finalize once, and hand the complete file
+      // (not a chunk) to STT; the complete transcript drives the reply.
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        for (var i = 0; i < 12; i++) ...[
+          ...speech(const Duration(seconds: 4), level: 2400),
+          ...quiet(const Duration(seconds: 1), level: 300), // breaths, not silence
+        ],
+        ...quiet(const Duration(seconds: 4)),
+      ]);
+      const longTranscript = 'నాకు విజయవాడలో రేపు ఉదయం పది గంటలకు రెండు కిలోల చికెన్ కావాలి '
+          'స్కిన్‌లెస్ కర్రీ కట్ కావాలి డెలివరీ మా ఇంటికి కావాలి ధర ఎంత అవుతుందో కూడా చెప్పండి';
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: longTranscript,
+        assistant: _Assistant((_) => {
+              'reply': 'సరే, రెండు కిలోల స్కిన్‌లెస్ కర్రీ కట్ చికెన్ కోసం చూస్తున్నాను.',
+              'domain': 'FOOD',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
+      );
+      await h.pump(tester, locale: 'te');
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 58));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'still speaking at 58 s');
+
+      await runFor(tester, const Duration(seconds: 10));
+
+      expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1), reason: 'finalized exactly once');
+      expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'audio kept, not discarded');
+      expect(levelPolls(), greaterThan(290), reason: 'recorded for the full ~60 s');
+      expect(h.voice.calls.single, ('/cache/askodox_voice_1.m4a', 'te'), reason: 'the one complete file reaches STT');
+      expect(find.text(longTranscript), findsOneWidget, reason: 'the full transcript, not the last word');
+      final speak = calls.lastWhere((c) => c.method == 'speakReply');
+      expect((speak.arguments as Map)['text'], 'సరే, రెండు కిలోల స్కిన్‌లెస్ కర్రీ కట్ చికెన్ కోసం చూస్తున్నాను.');
       expect((speak.arguments as Map)['languageCode'], 'te');
     });
 

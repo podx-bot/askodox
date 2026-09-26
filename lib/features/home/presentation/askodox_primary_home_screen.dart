@@ -505,14 +505,20 @@ class _AskodoxPrimaryHomeScreenState
         (previous, next) {
       if (next != null) unawaited(_handleChatRequest(next));
     }, fireImmediately: true);
-    unawaited(_restore());
+    _restoring = _restore();
   }
+
+  /// Completes once launch handling (fresh ask or same-session restore) is
+  /// done, so a History tap can never be overwritten by it.
+  Future<void> _restoring = Future<void>.value();
 
   /// Requests from History ("open" / "New ask") and Explore ("ask this").
   Future<void> _handleChatRequest(AskodoxChatRequest request) async {
     Future.microtask(() {
       if (mounted) ref.read(askodoxChatRequestProvider.notifier).state = null;
     });
+    await _restoring;
+    if (!mounted) return;
     if (request.newConversation) {
       await _startNewConversation();
       return;
@@ -530,9 +536,15 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   Future<void> _restore() async {
-    // Reopen the exact last conversation (results, deal, role) when it was
-    // archived; otherwise fall back to the legacy turn store.
     final archive = ref.read(askodoxConversationArchiveProvider.notifier);
+    if (ref.read(askodoxFreshLaunchProvider).consumeFreshLaunch()) {
+      // A genuine app launch opens Main Chat as a new, clean ask. The last
+      // conversation is not deleted -- it stays in History.
+      await _beginFreshLaunch(archive);
+      return;
+    }
+    // Same app session (Main Chat remounted): reopen the exact current
+    // conversation (results, deal, role); else the legacy turn store.
     await archive.ready();
     final currentId = await archive.currentId();
     final snapshot = currentId == null ? null : archive.byId(currentId);
@@ -581,6 +593,31 @@ class _AskodoxPrimaryHomeScreenState
       _listingBannerIsError = listingBannerIsError;
     });
     _scrollBottom();
+  }
+
+  /// Fresh launch: make sure the previous conversation is safely in History
+  /// (also after a crash, when only the per-turn store was written), then
+  /// reset only the temporary chat context. Owned roles, profile and
+  /// settings are untouched.
+  Future<void> _beginFreshLaunch(AskodoxConversationArchive archive) async {
+    await archive.ready();
+    final previousId = await archive.currentId();
+    final records = await _store.load();
+    if (records.isNotEmpty && (previousId == null || archive.byId(previousId) == null)) {
+      final first = records.firstWhere((turn) => turn.isUser, orElse: () => records.first);
+      final line = first.text.split('\n').first.trim();
+      await archive.save(AskodoxConversationSnapshot(
+        id: previousId ?? _newConversationId(),
+        title: line.length <= 60 ? line : '${line.substring(0, 57)}…',
+        updatedAt: DateTime.now(),
+        status: AskodoxConversationStatus.active,
+        data: {'turns': [for (final turn in records) turn.toJson()]},
+      ));
+    }
+    await _store.clear();
+    await archive.setCurrent(null);
+    if (!mounted) return;
+    ref.read(universalDealControllerProvider.notifier).reset();
   }
 
   // ----------------------------------------------------------- History --

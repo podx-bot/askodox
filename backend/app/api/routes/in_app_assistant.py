@@ -5,11 +5,14 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 
+import logging
 import os
 
 from app.repositories.hybrid_support_repository import SupportEscalationRepository
 from app.services.buyer_guide_gate import wants_buying_guide
 from app.services.session_tokens import verify_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/in-app", tags=["in-app-assistant"])
 
@@ -171,10 +174,21 @@ async def transcribe_in_app_voice(
     transcript = str((result or {}).get("transcript") or (result or {}).get("text") or "").strip()
     if not transcript:
         raise HTTPException(status_code=422, detail="Voice transcription failed")
+    # Safe diagnostics only: sizes and counts, never audio or transcript text.
+    diagnostics = {
+        "upload_bytes": len(audio_bytes),
+        "audio_seconds": (result or {}).get("audio_seconds"),
+        "segments": (result or {}).get("segments"),
+        "path": (result or {}).get("transcription_path"),
+        "transcript_chars": len(transcript),
+        "transcript_words": len(transcript.split()),
+    }
+    logger.info("in_app_voice_transcribe %s", " ".join(f"{k}={v}" for k, v in diagnostics.items()))
     return {
         "transcript": transcript,
         "locale": locale,
         "provider": str((result or {}).get("provider") or "sarvam_first"),
+        "diagnostics": diagnostics,
     }
 
 
