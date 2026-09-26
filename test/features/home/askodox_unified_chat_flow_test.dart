@@ -18,6 +18,10 @@ import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 import 'package:podx/services/real_product_match_service.dart';
+import 'dart:async';
+
+import 'package:podx/features/home/presentation/video_viewer_screen.dart';
+import 'package:podx/services/reply_speech_service.dart';
 import 'package:podx/services/support_escalation_service.dart';
 import 'package:podx/services/voice_transcription_service.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
@@ -102,11 +106,13 @@ class _Assistant {
   _Assistant([this.decide]);
   final Map<String, Object?>? Function(String message)? decide;
   final List<Map<String, dynamic>> requests = [];
+  Completer<void>? hold;
 
   InAppAssistantService service() => InAppAssistantService(
         client: MockClient((request) async {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           requests.add(body);
+          if (hold != null) await hold!.future;
           final decision = decide?.call(body['message'] as String);
           if (decision == null) {
             return http.Response(jsonEncode({'reply': '', 'source': 'fallback'}), 200);
@@ -163,11 +169,24 @@ class _FakeVoice extends VoiceTranscriptionService {
   _FakeVoice(this.transcript);
   final String? transcript;
   final List<(String, String)> calls = [];
+  Completer<void>? hold;
 
   @override
   Future<String?> transcribeFile(String path, {required String locale}) async {
     calls.add((path, locale));
+    if (hold != null) await hold!.future;
     return transcript;
+  }
+}
+
+class _FakeReplySpeech extends ReplySpeechService {
+  Uint8List? audio;
+  final List<(String, String)> calls = [];
+
+  @override
+  Future<Uint8List?> sarvamAudio(String text, {required String locale}) async {
+    calls.add((text, locale));
+    return audio;
   }
 }
 
@@ -220,6 +239,8 @@ class _Harness {
   final BackendProvider backend;
   final _FakeVoice voice;
   final support = _FakeSupport();
+  final replySpeech = _FakeReplySpeech();
+  final embeddedVideos = <Uri>[];
   final orders = _FakeOrderRepository();
   final listings = _FakeSellerListingRepository();
 
@@ -241,6 +262,11 @@ class _Harness {
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
         askodoxSupportEscalationServiceProvider.overrideWithValue(support),
+        askodoxReplySpeechServiceProvider.overrideWithValue(replySpeech),
+        askodoxVideoEmbedBuilderProvider.overrideWithValue((uri) {
+          embeddedVideos.add(uri);
+          return Text('EMBED $uri');
+        }),
       ],
       child: const MaterialApp(home: Scaffold(body: AskodoxPrimaryHomeScreen())),
     ));
@@ -394,8 +420,9 @@ void main() {
 
     expect(find.byKey(const Key('askodoxResultsFailed')), findsOneWidget);
     expect(find.textContaining('tap Retry below'), findsOneWidget);
-    // Even while matching is down the user is not left empty-handed.
-    expect(find.text('Open'), findsOneWidget);
+    // No placeholder links while matching is down -- just an honest retry.
+    expect(find.text('Open'), findsNothing);
+    expect(find.textContaining('Search online'), findsNothing);
     expect(find.text('Connect'), findsNothing);
 
     await tester.ensureVisible(find.byKey(const Key('askodoxResultsRetry')));
@@ -608,21 +635,26 @@ void main() {
       }
     }
 
-    // Backend 422 with nothing missing (request could not be published).
+    // Backend 422 with nothing missing (request could not be published):
+    // honest failure + retry, never placeholder cards.
     final rejected = _Harness(matches: _FakeMatchRepository([
       const DealNeedsDetailsException(domain: 'commerce', action: 'buy', missingFields: []),
     ]));
     await runChicken(rejected);
     expect(rejected.matches.deals, hasLength(1));
-    expect(find.text('Search online for chicken'), findsOneWidget);
-    expect(find.text('Videos & reviews'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxResultsFailed')), findsOneWidget);
+    expect(find.textContaining('Search online'), findsNothing);
 
-    // Backend 200 but zero rows.
+    // Backend 200 but zero rows from every source: said plainly.
     final empty = _Harness(matches: _FakeMatchRepository([
-      const UniversalMatchResult(dealId: '777', matches: []),
+      const UniversalMatchResult(dealId: '777', matches: [], sourceStatus: {
+        'askodox': 'no_results', 'nearby': 'no_results', 'online': 'unavailable', 'videos': 'unavailable',
+      }),
     ]));
     await runChicken(empty);
-    expect(find.text('Search online for chicken'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxResultsNone')), findsOneWidget);
+    expect(find.textContaining('Not available right now: online stores, videos'), findsOneWidget);
+    expect(find.textContaining('reviews on YouTube'), findsNothing);
   });
 
   testWidgets('43-inch TV: registered, used, deals, nearby shops, online and videos all appear in one chat',
@@ -655,12 +687,13 @@ void main() {
     ]) {
       expect(find.text(heading), findsOneWidget, reason: heading);
     }
-    // Nearby shop not on ASKODOX: a link, never a request.
-    expect(find.byKey(const ValueKey('askodoxAsk-external-p1')), findsNothing);
+    // Nearby shop not on ASKODOX: open its real map page / ask ASKODOX,
+    // never a request to a seller who is not on ASKODOX.
+    expect(find.byKey(const ValueKey('askodoxOpen-external-p1')), findsOneWidget);
     expect(find.text('Affiliate link'), findsOneWidget);
     // AI-first: no request buttons on first results.
     expect(find.text('Send request'), findsNothing);
-    expect(find.text('Ask ASKODOX about this'), findsNWidgets(4));
+    expect(find.text('Ask ASKODOX about this'), findsNWidgets(8));
 
     // A comparison question stays in the conversation (no new search) ...
     await h.send(tester, 'Which one is better, new or used?');
@@ -764,6 +797,109 @@ void main() {
     expect(h.matches.deals, hasLength(1), reason: 'restoring never re-runs matching');
   });
 
+  testWidgets('ambiguous "battery TV" asks ONE clarification before any search, then searches the chosen product',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '700', matches: [_onlineMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a 14 inch battery TV in Vijayawada');
+
+    expect(find.textContaining('Do you mean a portable TV that runs on a battery'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxClarificationOptions')), findsOneWidget);
+    expect(h.matches.deals, isEmpty, reason: 'no guessed search before the need is clear');
+
+    await _tapText(tester, 'Portable battery TV');
+
+    expect(h.matches.deals.single.subject, 'portable rechargeable battery TV');
+    expect(find.byKey(const Key('askodoxClarificationOptions')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxChatResults-3')), findsOneWidget);
+  });
+
+  testWidgets('Telugu "నాకు battery TV కావాలి" is clarified first, then the usual questions continue',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '701', matches: [_onlineMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'నాకు battery TV కావాలి');
+    expect(find.textContaining('Do you mean a portable TV'), findsOneWidget);
+    expect(h.matches.deals, isEmpty);
+
+    await h.send(tester, 'inverter backup');
+    expect(h.matches.deals, isEmpty, reason: 'size still needed for a TV');
+    await h.send(tester, '32 inch');
+    await h.send(tester, 'Vijayawada');
+
+    expect(h.matches.deals, hasLength(1));
+    expect(h.matches.deals.single.subject, 'low power TV for inverter battery backup');
+  });
+
+  testWidgets('real multi-source results coexist; actual video opens inside ASKODOX and back keeps the chat',
+      (tester) async {
+    const video = UniversalMatch(
+      id: 'video-0-youtube.com',
+      title: 'Samsung 43 inch Crystal 4K TV review',
+      source: 'video',
+      imageUrl: 'https://i.ytimg.com/vi/AbCdEf12345/hqdefault.jpg',
+      sourceName: 'Tech Telugu',
+      duration: '08:12',
+      destinationUrl: 'https://www.youtube.com/watch?v=AbCdEf12345',
+    );
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '800', matches: [
+          UniversalMatch(id: '21', title: 'Sony 43 inch TV', source: 'local', segment: 'registered', price: 28000),
+          UniversalMatch(id: '22', title: '43 inch TV used 1 year', source: 'local', segment: 'used', price: 15000),
+          UniversalMatch(id: 'online-0-shop.example', title: 'Samsung 43 inch Crystal 4K', source: 'online',
+              price: 27990, sourceName: 'shop.example', imageUrl: 'https://imgs.example/tv.jpg',
+              destinationUrl: 'https://shop.example/tv'),
+          video,
+        ], sourceStatus: {'askodox': 'ok', 'nearby': 'no_results', 'online': 'ok', 'videos': 'ok'}),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a 43 inch TV in Vijayawada');
+
+    for (final heading in ['ASKODOX sellers', 'Used / second-hand', 'Online options', 'Videos & reviews']) {
+      expect(find.text(heading), findsOneWidget, reason: heading);
+    }
+    expect(find.textContaining('No results from: nearby shops'), findsOneWidget);
+    expect(find.text('shop.example'), findsOneWidget, reason: 'real source name');
+    expect(find.text('₹27990'), findsOneWidget, reason: 'real returned price');
+    expect(find.text('Tech Telugu'), findsOneWidget, reason: 'real creator');
+    expect(find.text('08:12'), findsOneWidget);
+    expect(find.textContaining('reviews on YouTube'), findsNothing);
+    expect(find.textContaining('Search online for'), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxVideoThumb-video-0-youtube.com')));
+    await tester.tap(find.byKey(const ValueKey('askodoxVideoThumb-video-0-youtube.com')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AskodoxVideoViewerScreen), findsOneWidget);
+    expect(h.embeddedVideos.single.toString(),
+        'https://www.youtube-nocookie.com/embed/AbCdEf12345?autoplay=1&playsinline=1&rel=0');
+    expect(find.byKey(const Key('askodoxVideoOpenOriginal')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(AskodoxVideoViewerScreen), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget, reason: 'same chat after back');
+
+    // Ask about the video from the viewer: stays in the AI conversation.
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxVideoThumb-video-0-youtube.com')));
+    await tester.tap(find.byKey(const ValueKey('askodoxVideoThumb-video-0-youtube.com')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxVideoAsk')));
+    await _Harness.settle(tester);
+    await tester.pumpAndSettle();
+    expect(h.assistant.requests.last['message'], contains('Samsung 43 inch Crystal 4K TV review'));
+    expect(h.matches.deals, hasLength(1), reason: 'asking about a video never re-runs matching');
+  });
+
   group('Main Chat voice uses the ASKODOX/Sarvam pipeline', () {
     const channel = MethodChannel('com.askodox.app/device');
     final calls = <MethodCall>[];
@@ -775,6 +911,7 @@ void main() {
       Object? startResult = true,
       PlatformException? startError,
       String? path = '/cache/askodox_voice_1.m4a',
+      Future<Object?> Function(MethodCall call)? extra,
     }) {
       calls.clear();
       var sample = 0;
@@ -791,7 +928,7 @@ void main() {
           case 'stopVoiceRecording':
             return path;
           default:
-            return null;
+            return extra == null ? null : await extra(call);
         }
       });
     }
@@ -965,6 +1102,151 @@ void main() {
       await h.send(tester, 'hello');
       expect(methods(), contains('stopSpeaking'));
       expect(methods(), isNot(contains('speakReply')), reason: 'typed turns are not spoken');
+    });
+
+    testWidgets('Listening panel shows live level bars driven by real amplitude, elapsed time and a separate Stop',
+        (tester) async {
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        ...speech(const Duration(seconds: 2), level: 200),
+        ...speech(const Duration(seconds: 3), level: 9000),
+        ...speech(const Duration(seconds: 30), level: 9000),
+      ]);
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxVoicePanel')), findsOneWidget);
+
+      double lastBar() => tester.getSize(find.byKey(const ValueKey('askodoxLevelBar-23'))).height;
+      Future<void> samples(int n) async {
+        for (var i = 0; i < n; i++) {
+          await tester.pump(const Duration(milliseconds: 200));
+        }
+        await tester.pump(const Duration(milliseconds: 200)); // bar animation
+      }
+
+      await samples(11); // 3 calibration + 8 soft (200) samples
+      expect(find.text('Listening…'), findsOneWidget);
+      final quietHeight = lastBar();
+      await samples(4); // now loud (9000) speech
+      final loudHeight = lastBar();
+      expect(loudHeight, greaterThan(quietHeight + 10), reason: 'bars react to the speaker');
+      expect(find.text('00:03'), findsOneWidget);
+      expect(find.byKey(const Key('askodoxVoiceStop')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('askodoxVoiceStop')));
+      await _Harness.settle(tester);
+      expect(methods(), contains('stopVoiceRecording'));
+    });
+
+    testWidgets('Listening → Understanding → Thinking → Speaking → idle, with Sarvam Bulbul reply audio',
+        (tester) async {
+      final playing = Completer<Object?>();
+      mockRecorder(
+        levels: [
+          ...quiet(const Duration(milliseconds: 600)),
+          ...speech(const Duration(seconds: 2)),
+          ...quiet(const Duration(seconds: 4)),
+        ],
+        extra: (call) async => call.method == 'playReplyAudio' ? playing.future : null,
+      );
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'hello ASKODOX',
+        assistant: _Assistant((_) => {
+              'reply': 'Hello! How can I help?',
+              'domain': 'GENERAL',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
+      );
+      h.voice.hold = Completer<void>();
+      h.assistant.hold = Completer<void>();
+      h.replySpeech.audio = Uint8List.fromList([79, 103, 103, 83]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 1));
+      expect(find.text('Listening…'), findsOneWidget);
+
+      await runFor(tester, const Duration(seconds: 5));
+      expect(find.text('Understanding…'), findsOneWidget);
+
+      h.voice.hold!.complete();
+      await _Harness.settle(tester);
+      expect(find.text('Thinking…'), findsOneWidget);
+
+      h.assistant.hold!.complete();
+      await _Harness.settle(tester);
+      expect(find.text('Speaking…'), findsOneWidget);
+      final play = calls.lastWhere((c) => c.method == 'playReplyAudio');
+      expect((play.arguments as Map)['bytes'], [79, 103, 103, 83]);
+      expect(methods(), isNot(contains('speakReply')), reason: 'Sarvam audio, not device TTS');
+      expect(h.replySpeech.calls.single, ('Hello! How can I help?', 'en'));
+
+      playing.complete(true);
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxVoicePanel')), findsNothing);
+      expect(state.lastReplyVoiceEngine, 'sarvam_bulbul_v3');
+    });
+
+    testWidgets('without Sarvam audio the reply falls back to device TTS and says so', (tester) async {
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        ...speech(const Duration(seconds: 2)),
+        ...quiet(const Duration(seconds: 4)),
+      ]);
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'నమస్తే',
+        assistant: _Assistant((_) => {
+              'reply': 'నమస్తే! మీకు ఏమి కావాలి?',
+              'domain': 'GENERAL',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
+      );
+      await h.pump(tester, locale: 'te');
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 8));
+
+      expect(h.replySpeech.calls.single.$2, 'te');
+      final speak = calls.lastWhere((c) => c.method == 'speakReply');
+      expect((speak.arguments as Map)['languageCode'], 'te');
+      expect(state.lastReplyVoiceEngine, 'device');
+    });
+
+    testWidgets('starting the mic while ASKODOX is speaking interrupts the reply', (tester) async {
+      final playing = Completer<Object?>();
+      mockRecorder(
+        levels: [
+          ...quiet(const Duration(milliseconds: 600)),
+          ...speech(const Duration(seconds: 2)),
+          ...quiet(const Duration(seconds: 4)),
+          ...speech(const Duration(seconds: 60)),
+        ],
+        extra: (call) async {
+          if (call.method == 'playReplyAudio') return playing.future;
+          if (call.method == 'stopSpeaking' && !playing.isCompleted) playing.complete(false);
+          return null;
+        },
+      );
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]), voiceTranscript: 'hi');
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 8));
+      expect(find.text('Speaking…'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 1));
+      expect(methods(), contains('stopSpeaking'));
+      expect(find.text('Listening…'), findsOneWidget);
     });
   });
 

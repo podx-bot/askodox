@@ -155,7 +155,39 @@ def test_matches_endpoint_returns_registered_listing_with_online_and_videos(monk
     body = TestClient(app).get(f"/deals/{demand_id}/matches", headers=headers).json()
 
     sources = [row["match_source"] for row in body["matches"]]
-    assert "registered" in sources and "online" in sources and "video" in sources
+    assert "registered" in sources
+    assert body["source_status"]["askodox"] == "ok"
     assert body["local_match_count"] >= 1
     assert body["waiting_for_interest"] is True, "discovery rows are not consent matches"
     assert "919000000001" not in str(body)
+
+
+def test_brave_video_search_returns_actual_video_metadata():
+    from app.services.brave_web_search_provider import BraveWebSearchProvider
+
+    class _Resp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"results": [
+                {"title": "Battery TV review", "url": "https://www.youtube.com/watch?v=a1",
+                 "description": "Portable TV test", "thumbnail": {"src": "https://imgs.search.brave.com/t.jpg"},
+                 "video": {"creator": "Gadgets Telugu", "duration": "06:40"},
+                 "meta_url": {"hostname": "www.youtube.com"}},
+                {"title": "", "url": "https://x"},
+            ]}
+
+    class _Client:
+        def get(self, url, headers, params):
+            assert url == BraveWebSearchProvider.VIDEO_URL
+            assert params["q"] == "battery tv review"
+            return _Resp()
+
+    videos = BraveWebSearchProvider("key", client=_Client()).videos("battery tv review", 5)
+    assert videos == [{
+        "title": "Battery TV review", "url": "https://www.youtube.com/watch?v=a1", "snippet": "Portable TV test",
+        "thumbnail": "https://imgs.search.brave.com/t.jpg", "creator": "Gadgets Telugu", "publisher": None,
+        "duration": "06:40", "host": "www.youtube.com",
+    }]
+    assert BraveWebSearchProvider("").videos("tv", 5) == []

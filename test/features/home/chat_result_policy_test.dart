@@ -191,22 +191,15 @@ void main() {
   });
 
   group('fallback and replies', () {
-    test('offline fallback is plain labelled links, never fake sellers', () {
-      final rows = askodoxOfflineFallbackResults('mixer grinder');
-      expect(rows.map((m) => m.source), ['online', 'video', 'video']);
-      expect(rows.every((m) => m.price == null && m.distanceKm == null), isTrue);
-      expect(rows.first.destinationUrl,
-          'https://www.google.com/search?q=mixer+grinder+price');
-      expect(askodoxOfflineFallbackResults('  '), isEmpty);
-      expect(askodoxOfflineFallbackResults('ride', includeVideos: false),
-          hasLength(1));
-    });
-
-    test('videos are offered only where they make sense', () {
-      expect(askodoxIntentWantsVideos(DealIntent.buy), isTrue);
-      expect(askodoxIntentWantsVideos(DealIntent.needService), isTrue);
-      expect(askodoxIntentWantsVideos(DealIntent.needRide), isFalse);
-      expect(askodoxIntentWantsVideos(DealIntent.sendParcel), isFalse);
+    test('source status is reported honestly, never faked', () {
+      const results = AskodoxChatResults(
+        searched: true,
+        sourceStatus: {'askodox': 'no_results', 'online': 'unavailable', 'videos': 'ok'},
+      );
+      expect(results.isEmpty, isFalse, reason: 'an empty real search is still shown, honestly');
+      expect(results.sourcesWith('no_results'), ['askodox']);
+      expect(results.sourcesWith('unavailable'), ['online']);
+      expect(const AskodoxChatResults().isEmpty, isTrue);
     });
 
     test('image and file facts feed the same request pipeline', () {

@@ -277,6 +277,16 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   bool _missing(String? value) => value == null || value.trim().isEmpty;
 
+  /// Replaces the subject after the user clarified an ambiguous need
+  /// ("battery TV" → "portable rechargeable battery TV"). Everything else
+  /// already collected is kept.
+  void refineSubject(String subject) {
+    final current = state.deal;
+    final clean = subject.trim();
+    if (current == null || clean.isEmpty) return;
+    _setSession(_sessionFor(current.copyWith(subject: clean)));
+  }
+
   /// JSON for any deal (History keeps one per result set for Retry).
   Map<String, Object?> encodeDeal(UniversalDeal deal) => _dealToJson(deal);
 

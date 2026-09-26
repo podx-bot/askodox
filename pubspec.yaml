@@ -30,6 +30,7 @@ dependencies:
   # Flutter SDK. Keeping this unconstrained avoids dependency-solver failures
   # when the SDK updates that pin.
   intl: any
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:

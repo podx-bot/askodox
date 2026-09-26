@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import '../../deal_brain/domain/universal_deal.dart';
 import '../../matching/data/universal_match_repository.dart';
 
 /// What a result card embedded in the ASKODOX chat lets the user do.
@@ -42,9 +41,18 @@ class AskodoxChatResults {
     this.failed = false,
     this.signInRequired = false,
     this.missingFields = const <String>[],
+    this.sourceStatus = const <String, String>{},
+    this.searched = false,
   });
 
   final String? dealId;
+
+  /// Backend-reported outcome per source (ok / no_results / unavailable).
+  final Map<String, String> sourceStatus;
+
+  /// A real search ran. With no rows the chat says so honestly instead of
+  /// showing placeholder cards.
+  final bool searched;
   final List<UniversalMatch> matches;
 
   /// Matching could not be reached (network / server error). The chat shows
@@ -75,57 +83,15 @@ class AskodoxChatResults {
       ];
 
   bool get hasLocal => local.isNotEmpty;
-  bool get isEmpty => matches.isEmpty && !failed && !signInRequired;
-}
+  bool get isEmpty => matches.isEmpty && !failed && !signInRequired && !searched;
 
-/// Online + video results the app can offer by itself when the matching
-/// backend is unreachable or the user is signed out. These are plain search
-/// links -- never invented sellers, prices or stock.
-List<UniversalMatch> askodoxOfflineFallbackResults(
-  String subject, {
-  bool includeVideos = true,
-}) {
-  final clean = subject.trim().replaceAll(RegExp(r'\s+'), ' ');
-  if (clean.isEmpty) return const <UniversalMatch>[];
-  final q = Uri.encodeQueryComponent;
-  return [
-    UniversalMatch(
-      id: 'online-0-google.com',
-      title: 'Search online for $clean',
-      subtitle: 'No verified local match yet -- compare prices and sellers online.',
-      source: 'online',
-      destinationUrl: 'https://www.google.com/search?q=${q('$clean price')}',
-    ),
-    if (includeVideos) ...[
-      UniversalMatch(
-        id: 'video-0-youtube.com',
-        title: '$clean reviews on YouTube',
-        subtitle: 'Watch video reviews and demos.',
-        source: 'video',
-        destinationUrl:
-            'https://www.youtube.com/results?search_query=${q('$clean review')}',
-      ),
-      UniversalMatch(
-        id: 'video-1-instagram.com',
-        title: '$clean on Instagram',
-        subtitle: 'Reels and creator posts.',
-        source: 'video',
-        destinationUrl:
-            'https://www.instagram.com/explore/search/keyword/?q=${q(clean)}',
-      ),
-    ],
-  ];
+  /// Sources that were consulted but returned nothing, and sources that are
+  /// not available right now -- shown as a one-line honest note.
+  List<String> sourcesWith(String status) => [
+        for (final e in sourceStatus.entries)
+          if (e.value == status) e.key,
+      ];
 }
-
-/// Intents where a "video review" result is meaningful.
-bool askodoxIntentWantsVideos(DealIntent intent) => switch (intent) {
-      DealIntent.buy ||
-      DealIntent.needService ||
-      DealIntent.rent ||
-      DealIntent.bookAppointment =>
-        true,
-      _ => false,
-    };
 
 /// Combines the user's words with facts extracted from an attached photo or
 /// file so the same intent → category → questions → matching pipeline runs
@@ -155,8 +121,8 @@ String askodoxResultsReply(AskodoxChatResults results, {required bool telugu}) {
   }
   if (results.signInRequired && !results.hasLocal) {
     return telugu
-        ? 'స్థానిక విక్రేతలకు అభ్యర్థన పంపడానికి సైన్ ఇన్ చేయండి. ఈలోగా ఆన్‌లైన్ ఎంపికలు ఇవి.'
-        : 'Sign in to send requests to local sellers and providers. Meanwhile, here are online options.';
+        ? 'స్థానిక విక్రేతలకు అభ్యర్థన పంపడానికి సైన్ ఇన్ చేయండి.'
+        : 'Sign in to send requests to local sellers and providers.';
   }
   if (results.failed) {
     return telugu

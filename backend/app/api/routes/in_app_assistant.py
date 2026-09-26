@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 
 import os
@@ -85,6 +85,38 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         )
 
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide)
+
+
+class SpeakRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2500)
+    locale: str = ""
+
+
+@router.post("/voice/speak")
+def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
+    """Main Chat reply voice through the existing Sarvam Bulbul v3 pipeline
+    (SarvamTTSVoiceAssistantService.synthesize, until now used only by the
+    WhatsApp webhook). Returns audio only when Sarvam actually produced it;
+    any other path is a 503 so the app can fall back to device TTS and say
+    so honestly."""
+    container: Any = request.app.state.container
+    synthesize = getattr(container.voice_assistant_service, "synthesize", None)
+    if not callable(synthesize):
+        raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
+    result = synthesize(payload.text) or {}
+    path = str(result.get("tts_path") or "")
+    audio = result.get("content")
+    if not result.get("success") or not path.startswith("sarvam") or not audio:
+        raise HTTPException(status_code=503, detail=str(result.get("status") or "SARVAM_TTS_UNAVAILABLE"))
+    return Response(
+        content=bytes(audio),
+        media_type=str(result.get("mime_type") or "audio/ogg"),
+        headers={
+            "X-ASKODOX-TTS-Path": path,
+            "X-ASKODOX-TTS-Model": str(result.get("model") or ""),
+            "X-ASKODOX-TTS-Language": str(result.get("language_code") or ""),
+        },
+    )
 
 
 _AUDIO_MIME_BY_SUFFIX = {

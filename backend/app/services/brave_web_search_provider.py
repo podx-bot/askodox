@@ -9,6 +9,7 @@ import httpx
 
 class BraveWebSearchProvider:
     API_URL = "https://api.search.brave.com/res/v1/web/search"
+    VIDEO_URL = "https://api.search.brave.com/res/v1/videos/search"
 
     def __init__(self, api_key: str, *, timeout_seconds: int = 8, client: httpx.Client | None = None) -> None:
         self.api_key = str(api_key or "").strip()
@@ -61,8 +62,62 @@ class BraveWebSearchProvider:
                 "snippet": snippet,
                 "published_at": published_at,
                 "source_type": self._source_type(url),
+                # Real page thumbnail (Brave-proxied, key-free) and site name
+                # for chat result cards; absent when Brave returns none.
+                "thumbnail": ((row.get("thumbnail") or {}).get("src") or None),
+                "host": ((row.get("meta_url") or {}).get("hostname") or None),
             })
         return results
+
+    def videos(self, query: str, limit: int) -> list[dict[str, Any]]:
+        """Actual videos (title, url, thumbnail, creator, duration) for chat.
+
+        Returns [] when not configured or on any provider failure -- never
+        placeholder search links.
+        """
+        if not self.configured:
+            return []
+        clean_query = " ".join(str(query or "").strip().split())
+        if not clean_query:
+            return []
+        count = max(1, min(int(limit), 20))
+        headers = {
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+            "X-Subscription-Token": self.api_key,
+            "User-Agent": "ASKODOX/2.0",
+        }
+        params = {"q": clean_query, "count": count, "safesearch": "moderate"}
+        try:
+            if self.client is not None:
+                response = self.client.get(self.VIDEO_URL, headers=headers, params=params)
+            else:
+                with httpx.Client(timeout=self.timeout_seconds, follow_redirects=True) as client:
+                    response = client.get(self.VIDEO_URL, headers=headers, params=params)
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPError, ValueError, TypeError):
+            return []
+        videos: list[dict[str, Any]] = []
+        for row in ((payload or {}).get("results") or [])[:count]:
+            if not isinstance(row, dict):
+                continue
+            url = str(row.get("url") or "").strip()
+            title = str(row.get("title") or "").strip()
+            if not (url and title):
+                continue
+            video = row.get("video") or {}
+            videos.append({
+                "title": title,
+                "url": url,
+                "snippet": str(row.get("description") or "").strip(),
+                "thumbnail": ((row.get("thumbnail") or {}).get("src") or None),
+                "creator": str(video.get("creator") or video.get("publisher") or "").strip() or None,
+                "publisher": str(video.get("publisher") or "").strip() or None,
+                "duration": str(video.get("duration") or "").strip() or None,
+                "host": ((row.get("meta_url") or {}).get("hostname") or None),
+            })
+        return videos
 
     @staticmethod
     def _published_at(row: dict[str, Any]) -> str | None:
