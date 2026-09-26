@@ -10,6 +10,7 @@ import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/core/config/environment.dart';
 import 'package:podx/core/providers/backend_providers.dart';
+import 'package:podx/features/deal_brain/application/universal_deal_controller.dart';
 import 'package:podx/features/deal_brain/domain/universal_deal.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
@@ -17,7 +18,10 @@ import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 import 'package:podx/services/real_product_match_service.dart';
+import 'package:podx/services/support_escalation_service.dart';
 import 'package:podx/services/voice_transcription_service.dart';
+import 'package:podx/features/home/application/conversation_archive.dart';
+import 'package:podx/features/home/domain/active_role.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------- fakes --
@@ -167,6 +171,36 @@ class _FakeVoice extends VoiceTranscriptionService {
   }
 }
 
+class _FakeSupport extends SupportEscalationService {
+  final List<Map<String, Object?>> escalations = [];
+
+  @override
+  Future<AskodoxSupportCase?> escalate({
+    required String issue,
+    required String category,
+    required bool critical,
+    required List<Map<String, String>> conversation,
+    Map<String, Object?> requirement = const {},
+    String? dealId,
+    String? counterpart,
+    List<String> actionsTried = const [],
+    String status = '',
+    String activeRole = '',
+    String locale = '',
+    String? authToken,
+  }) async {
+    escalations.add({
+      'issue': issue,
+      'category': category,
+      'critical': critical,
+      'conversation': conversation,
+      'actionsTried': actionsTried,
+      'activeRole': activeRole,
+    });
+    return const AskodoxSupportCase(caseId: '12', whatsappUrl: 'https://wa.me/919000000000');
+  }
+}
+
 // -------------------------------------------------------------- harness --
 
 class _Harness {
@@ -185,6 +219,7 @@ class _Harness {
   final RealProductMatchService productSearch;
   final BackendProvider backend;
   final _FakeVoice voice;
+  final support = _FakeSupport();
   final orders = _FakeOrderRepository();
   final listings = _FakeSellerListingRepository();
 
@@ -205,6 +240,7 @@ class _Harness {
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
+        askodoxSupportEscalationServiceProvider.overrideWithValue(support),
       ],
       child: const MaterialApp(home: Scaffold(body: AskodoxPrimaryHomeScreen())),
     ));
@@ -245,13 +281,20 @@ void main() {
     expect(h.matches.deals.single.intent, DealIntent.buy);
     expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget,
         reason: 'results render under the assistant reply, in the chat');
-    expect(find.text('Local matches'), findsOneWidget);
+    expect(find.text('ASKODOX matches'), findsOneWidget);
     expect(find.text('82% match'), findsOneWidget);
     expect(find.text('★ 4.5 (2)'), findsOneWidget);
     expect(find.text('Videos & reviews'), findsOneWidget);
     expect(find.text('Watch'), findsOneWidget);
-    expect(find.text('Phone/contact stays hidden until they accept.'), findsOneWidget);
     expect(find.textContaining('app-seller-1'), findsNothing);
+
+    // AI-first: the first card offers a conversation, not a request.
+    expect(find.text('Connect'), findsNothing);
+    await _tapText(tester, 'Ask ASKODOX about this');
+    expect(h.matches.deals, hasLength(1), reason: 'discussing an option never re-runs matching');
+    expect(h.assistant.requests.last['message'], contains('Option the user is asking about: Interested match'));
+    expect(find.textContaining('Here is what I know about this option'), findsOneWidget);
+    expect(find.text('Phone/contact stays hidden until they accept.'), findsOneWidget);
 
     await _tapText(tester, 'Connect');
     expect(h.matches.accepted, [('77', 'app-seller-1')]);
@@ -300,7 +343,8 @@ void main() {
 
     expect(h.matches.deals.single.intent, DealIntent.needService);
     expect(find.text('I found AC technicians near you.'), findsOneWidget);
-    expect(find.text('Connect'), findsOneWidget);
+    expect(find.text('Ask ASKODOX about this'), findsOneWidget);
+    expect(find.text('Connect'), findsNothing);
   });
 
   testWidgets('Telugu conversation keeps Telugu replies and result labels', (tester) async {
@@ -359,7 +403,7 @@ void main() {
     await _Harness.settle(tester);
 
     expect(find.byKey(const Key('askodoxResultsFailed')), findsNothing);
-    expect(find.text('Connect'), findsOneWidget);
+    expect(find.text('Ask ASKODOX about this'), findsOneWidget);
   });
 
   testWidgets('signed-out buyer gets real listings with Send Request as an order request',
@@ -374,6 +418,10 @@ void main() {
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
 
     expect(find.text('₹3200'), findsOneWidget);
+    expect(find.text('Send request'), findsNothing);
+    // Asking for the seller exposes the request without a new search.
+    await h.send(tester, 'Please contact the seller');
+    expect(find.textContaining('Tap Send request on the option you want'), findsOneWidget);
     await _tapText(tester, 'Send request');
     expect(h.orders.placed, ['42']);
     expect(h.matches.accepted, isEmpty);
@@ -393,7 +441,7 @@ void main() {
 
     await h.send(tester, 'I want to sell my 2 bicycles in Vijayawada for 3000');
 
-    expect(find.text('You are now acting as: Seller for this request'), findsOneWidget);
+    expect(find.text('Active role changed: Buyer → Seller'), findsOneWidget);
     expect(h.listings.listed.single.intent, DealIntent.sell);
     expect(h.matches.deals, hasLength(1), reason: 'the sell turn must not run a buyer match');
   });
@@ -454,7 +502,7 @@ void main() {
     expect(deal.dynamicFields['cut'], 'curry cut');
     expect(deal.dynamicFields['chickenPreference'], 'skinless');
     expect(deal.fulfilment, 'delivery');
-    expect(find.text('Local matches'), findsOneWidget);
+    expect(find.text('ASKODOX matches'), findsOneWidget);
     expect(find.text('Online options'), findsOneWidget);
     expect(find.text('Videos & reviews'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxChatResults-11')), findsOneWidget,
@@ -514,7 +562,7 @@ void main() {
 
     expect(find.text('What TV screen size do you prefer?'), findsNothing);
     expect(h.matches.deals.single.size, '43 inch');
-    expect(find.text('Local matches'), findsOneWidget);
+    expect(find.text('ASKODOX matches'), findsOneWidget);
     expect(find.text('Affiliate link'), findsOneWidget);
     expect(find.text('Watch'), findsOneWidget);
 
@@ -545,7 +593,7 @@ void main() {
         reason: 'the aside did not drop the chicken deal; the next question is still pending');
 
     await h.send(tester, 'I want to sell my 2 bicycles in Vijayawada for 3000');
-    expect(find.text('You are now acting as: Seller for this request'), findsOneWidget);
+    expect(find.text('Active role changed: Buyer → Seller'), findsOneWidget);
     expect(h.listings.listed.single.intent, DealIntent.sell);
     expect(h.matches.deals, isEmpty);
   });
@@ -577,96 +625,346 @@ void main() {
     expect(find.text('Search online for chicken'), findsOneWidget);
   });
 
+  testWidgets('43-inch TV: registered, used, deals, nearby shops, online and videos all appear in one chat',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '600', matches: [
+          UniversalMatch(id: '12', title: 'Sony 43 inch TV', source: 'local', segment: 'registered', price: 28000),
+          UniversalMatch(id: '13', title: '43 inch TV, 2 years used', source: 'local', segment: 'used', price: 14000),
+          UniversalMatch(id: '14', title: '43 inch TV open box', source: 'local', segment: 'surplus', price: 22000),
+          UniversalMatch(id: '15', title: 'LG 43 inch TV (one-time seller)', source: 'local', segment: 'individual', price: 26500),
+          UniversalMatch(id: 'external-p1', title: 'Sri Electronics', source: 'external', segment: 'nearby_external',
+              distanceKm: 1.2, destinationUrl: 'https://maps.google.com/?cid=1'),
+          UniversalMatch(id: 'deals-0-shop', title: '43 inch TV festival offers', source: 'online', segment: 'deals',
+              destinationUrl: 'https://shop.example/tv'),
+          UniversalMatch(id: 'online-0-partner', title: 'TV at Partner', source: 'online', affiliate: true,
+              disclosure: 'Affiliate link', destinationUrl: 'https://partner.example/tv'),
+          UniversalMatch(id: 'video-0-youtube.com', title: '43 inch TV comparison', source: 'video',
+              destinationUrl: 'https://youtube.com/watch?v=x'),
+        ]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a 43 inch TV in Vijayawada');
+
+    for (final heading in [
+      'ASKODOX sellers', 'Individual sellers', 'Used / second-hand',
+      'Surplus / clearance / open-box', 'Deals & offers', 'Nearby shops',
+      'Online options', 'Videos & reviews',
+    ]) {
+      expect(find.text(heading), findsOneWidget, reason: heading);
+    }
+    // Nearby shop not on ASKODOX: a link, never a request.
+    expect(find.byKey(const ValueKey('askodoxAsk-external-p1')), findsNothing);
+    expect(find.text('Affiliate link'), findsOneWidget);
+    // AI-first: no request buttons on first results.
+    expect(find.text('Send request'), findsNothing);
+    expect(find.text('Ask ASKODOX about this'), findsNWidgets(4));
+
+    // A comparison question stays in the conversation (no new search) ...
+    await h.send(tester, 'Which one is better, new or used?');
+    expect(h.matches.deals, hasLength(1));
+    expect(h.assistant.requests.last['message'], contains('Options already shown to the user'));
+    expect(h.assistant.requests.last['message'], contains('43 inch TV, 2 years used'));
+  });
+
+  testWidgets('support is not pushed in normal chat; offered after the AI tried, and at once for payment problems',
+      (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+    await h.pump(tester);
+    await h.send(tester, 'hello there');
+    await h.send(tester, 'The app is not working when I upload a photo');
+    expect(find.text('Need more help? Contact ASKODOX Support'), findsNothing,
+        reason: 'ASKODOX AI answers first');
+
+    await h.send(tester, 'Still not working');
+    expect(find.text('Need more help? Contact ASKODOX Support'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('askodoxSupportChat')));
+    await tester.tap(find.byKey(const Key('askodoxSupportChat')));
+    await _Harness.settle(tester);
+
+    final escalation = h.support.escalations.single;
+    expect(escalation['issue'], 'Still not working');
+    expect(escalation['critical'], isFalse);
+    final conversation = escalation['conversation']! as List;
+    expect(conversation.first, {'role': 'user', 'text': 'hello there'});
+    expect(conversation.length, 6, reason: 'the whole conversation travels with the case');
+    expect((escalation['actionsTried']! as List), isNotEmpty);
+    expect(escalation['activeRole'], 'Buyer');
+    expect(find.byKey(const Key('askodoxSupportCaseCreated')), findsOneWidget);
+    expect(find.text('WhatsApp Support'), findsOneWidget);
+    expect(find.text('Call Support'), findsNothing, reason: 'not configured');
+  });
+
+  testWidgets('critical payment issue gets support immediately', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+    await h.pump(tester);
+    await h.send(tester, 'Money deducted but order not confirmed');
+    expect(find.text('Need more help? Contact ASKODOX Support'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('askodoxSupportChat')));
+    await tester.tap(find.byKey(const Key('askodoxSupportChat')));
+    await _Harness.settle(tester);
+    expect(h.support.escalations.single['category'], 'PAYMENT');
+    expect(h.support.escalations.single['critical'], isTrue);
+  });
+
+  testWidgets('ambiguous high-impact role switch asks first; stored roles stay', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+    await h.pump(tester);
+    final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+    await h.send(tester, 'Can I sell things on ASKODOX?');
+
+    expect(find.text('Switch to Seller mode?'), findsOneWidget);
+    expect(container.read(askodoxRoleProvider).active, AskodoxUserRole.buyer);
+    await _tapText(tester, 'Switch');
+    expect(container.read(askodoxRoleProvider).active, AskodoxUserRole.seller);
+    expect(container.read(askodoxRoleProvider).owned, {AskodoxUserRole.buyer});
+    expect(find.text('Active role changed: Buyer → Seller'), findsOneWidget);
+
+    await h.send(tester, 'I repair ACs in Vijayawada');
+    expect(container.read(askodoxRoleProvider).active, AskodoxUserRole.serviceProvider);
+    expect(find.text('Active role changed: Seller → Service Provider'), findsOneWidget);
+  });
+
+  testWidgets('History: New ask starts clean and reopening restores the exact conversation',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '901', matches: [_localMatch, _videoMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+    await _tapText(tester, 'Ask ASKODOX about this');
+    await _tapText(tester, 'Connect');
+    expect(find.text('Request sent'), findsOneWidget);
+
+    final saved = container.read(askodoxConversationArchiveProvider);
+    expect(saved, hasLength(1));
+    expect(saved.single.status, AskodoxConversationStatus.completed);
+    expect(saved.single.title, 'I want to buy a mixer grinder in Vijayawada');
+
+    container.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.newConversation();
+    await _Harness.settle(tester);
+    expect(find.text('I want to buy a mixer grinder in Vijayawada'), findsNothing);
+    expect(container.read(universalDealControllerProvider).deal, isNull);
+
+    container.read(askodoxChatRequestProvider.notifier).state =
+        AskodoxChatRequest.restore(saved.single.id);
+    await _Harness.settle(tester);
+
+    expect(find.text('I want to buy a mixer grinder in Vijayawada'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
+    expect(find.text('Request sent'), findsOneWidget, reason: 'deal state restored');
+    expect(find.text('Videos & reviews'), findsOneWidget);
+    expect(container.read(universalDealControllerProvider).deal?.subject, contains('mixer grinder'));
+    expect(h.matches.deals, hasLength(1), reason: 'restoring never re-runs matching');
+  });
+
   group('Main Chat voice uses the ASKODOX/Sarvam pipeline', () {
     const channel = MethodChannel('com.askodox.app/device');
     final calls = <MethodCall>[];
 
-    void mockDevice(Future<Object?> Function(MethodCall call) handler) {
+    /// Simulated native recorder: `levels` are the amplitudes returned by
+    /// successive voiceRecordingLevel polls (one per 200 ms sample).
+    void mockRecorder({
+      List<int> levels = const [],
+      Object? startResult = true,
+      PlatformException? startError,
+      String? path = '/cache/askodox_voice_1.m4a',
+    }) {
       calls.clear();
+      var sample = 0;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) {
+          .setMockMethodCallHandler(channel, (call) async {
         calls.add(call);
-        return handler(call);
+        switch (call.method) {
+          case 'startVoiceRecording':
+            if (startError != null) throw startError;
+            return startResult;
+          case 'voiceRecordingLevel':
+            if (sample >= levels.length) return levels.isEmpty ? 0 : levels.last;
+            return levels[sample++];
+          case 'stopVoiceRecording':
+            return path;
+          default:
+            return null;
+        }
       });
+    }
+
+    List<String> methods() => [for (final c in calls) c.method];
+    int levelPolls() => methods().where((m) => m == 'voiceRecordingLevel').length;
+
+    List<int> speech(Duration d, {int level = 5000}) =>
+        List.filled(d.inMilliseconds ~/ 200, level);
+    List<int> quiet(Duration d, {int level = 150}) =>
+        List.filled(d.inMilliseconds ~/ 200, level);
+
+    Future<void> runFor(WidgetTester tester, Duration d) async {
+      for (var i = 0; i < d.inMilliseconds ~/ 200; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      await _Harness.settle(tester);
     }
 
     tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null));
 
-    testWidgets('Telugu speech is recorded, transcribed by Sarvam and continues the chat',
+    testWidgets('long Telugu speech with natural pauses keeps recording, stops on genuine silence and replies in Telugu voice',
         (tester) async {
-      mockDevice((call) async =>
-          call.method == 'startVoiceRecording' ? '/cache/askodox_voice_1.m4a' : null);
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        // ~25 s of speech with 2-second thinking pauses: the old native loop
+        // stopped at ~10 s; this must keep recording.
+        for (var i = 0; i < 5; i++) ...[
+          ...speech(const Duration(seconds: 3), level: 1200), // soft voice
+          ...quiet(const Duration(seconds: 2), level: 400),
+        ],
+        ...quiet(const Duration(seconds: 4)),
+      ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
         voiceTranscript: 'నాకు విజయవాడలో చికెన్ కావాలి',
+        assistant: _Assistant((_) => {
+              'reply': 'సరే, ఎంత చికెన్ కావాలి?',
+              'domain': 'FOOD',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
       );
       await h.pump(tester, locale: 'te');
       await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
-      await _Harness.settle(tester);
+      await runFor(tester, const Duration(seconds: 20));
+      expect(methods(), isNot(contains('stopVoiceRecording')),
+          reason: 'still speaking at 20 s: no premature stop');
 
-      expect(calls.map((c) => c.method), isNot(contains('startVoiceSearch')));
-      expect(calls.first.method, 'startVoiceRecording');
+      await runFor(tester, const Duration(seconds: 12));
+
+      expect(methods(), isNot(contains('startVoiceSearch')), reason: 'never the system recognizer');
+      expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1));
+      expect(levelPolls(), greaterThan(125), reason: 'recorded for well over 25 seconds');
       expect(h.voice.calls.single, ('/cache/askodox_voice_1.m4a', 'te'));
       expect(find.text('నాకు విజయవాడలో చికెన్ కావాలి'), findsOneWidget);
-      expect(h.assistant.requests.single['locale'], 'te');
-      expect(calls.map((c) => c.method), contains('speakReply'));
+      final speak = calls.lastWhere((c) => c.method == 'speakReply');
+      expect((speak.arguments as Map)['text'], 'సరే, ఎంత చికెన్ కావాలి?');
+      expect((speak.arguments as Map)['languageCode'], 'te');
+    });
+
+    testWidgets('English question gets an English voice reply even in the Telugu UI',
+        (tester) async {
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        ...speech(const Duration(seconds: 12)),
+        ...quiet(const Duration(seconds: 4)),
+      ]);
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'I want to know the best time to visit Araku valley',
+        assistant: _Assistant((_) => {
+              'reply': 'October to March is the best time to visit Araku.',
+              'domain': 'GENERAL',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
+      );
+      await h.pump(tester, locale: 'te');
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 18));
+
+      final speak = calls.lastWhere((c) => c.method == 'speakReply');
+      expect((speak.arguments as Map)['languageCode'], 'en');
+      expect((speak.arguments as Map)['text'], 'October to March is the best time to visit Araku.');
+    });
+
+    testWidgets('pressing Stop ends the recording immediately and sends it', (tester) async {
+      mockRecorder(levels: speech(const Duration(seconds: 60)));
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'I need AC repair',
+      );
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 3));
+      expect(find.byTooltip('Stop and send'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _Harness.settle(tester);
+
+      expect(methods(), contains('stopVoiceRecording'));
+      expect(h.voice.calls, hasLength(1));
+      expect(find.text('I need AC repair'), findsOneWidget);
+    });
+
+    testWidgets('no speech at all is reported after the long timeout, chat untouched', (tester) async {
+      mockRecorder(levels: quiet(const Duration(seconds: 30)));
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 10));
+      expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'not at 10 s');
+      await runFor(tester, const Duration(seconds: 6));
+
+      expect(methods(), contains('cancelVoiceRecording'));
+      expect(find.text('I did not hear anything. Please try again.'), findsOneWidget);
+      expect(h.voice.calls, isEmpty);
+      expect(h.assistant.requests, isEmpty);
+    });
+
+    testWidgets('cancel discards the recording without sending anything', (tester) async {
+      mockRecorder(levels: speech(const Duration(seconds: 60)));
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await runFor(tester, const Duration(seconds: 2));
+      await tester.tap(find.byKey(const Key('askodoxVoiceCancel')));
+      await _Harness.settle(tester);
+
+      expect(methods(), contains('cancelVoiceRecording'));
+      expect(methods(), isNot(contains('stopVoiceRecording')));
+      expect(h.voice.calls, isEmpty);
+      expect(find.byIcon(Icons.mic_rounded), findsWidgets);
     });
 
     testWidgets('microphone permission denied shows a clear error and no fallback recognizer',
         (tester) async {
-      mockDevice((call) async {
-        if (call.method == 'startVoiceRecording') {
-          throw PlatformException(code: 'mic_denied');
-        }
-        return null;
-      });
+      mockRecorder(startError: PlatformException(code: 'mic_denied'));
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await h.pump(tester);
       await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
       await _Harness.settle(tester);
 
       expect(find.textContaining('Microphone permission is off'), findsOneWidget);
-      expect(calls.map((c) => c.method), ['startVoiceRecording']);
+      expect(methods(), ['startVoiceRecording']);
       expect(h.voice.calls, isEmpty);
-    });
-
-    testWidgets('cancel returns to idle without sending anything', (tester) async {
-      mockDevice((call) async => null); // cancelled recording resolves to null
-      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
-      await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
-      await _Harness.settle(tester);
-
-      expect(h.voice.calls, isEmpty);
-      expect(h.assistant.requests, isEmpty);
-      expect(find.byIcon(Icons.mic_rounded), findsWidgets);
-    });
-
-    testWidgets('no speech is reported, chat untouched', (tester) async {
-      mockDevice((call) async {
-        if (call.method == 'startVoiceRecording') {
-          throw PlatformException(code: 'no_speech');
-        }
-        return null;
-      });
-      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
-      await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
-      await _Harness.settle(tester);
-      expect(find.text('I did not hear anything. Please try again.'), findsOneWidget);
-      expect(h.assistant.requests, isEmpty);
     });
 
     testWidgets('transcription failure is reported and nothing is sent', (tester) async {
-      mockDevice((call) async =>
-          call.method == 'startVoiceRecording' ? '/cache/v.m4a' : null);
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        ...speech(const Duration(seconds: 2)),
+        ...quiet(const Duration(seconds: 4)),
+      ]);
       final failing = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await failing.pump(tester);
       await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
-      await _Harness.settle(tester);
+      await runFor(tester, const Duration(seconds: 8));
       expect(find.textContaining('could not understand'), findsOneWidget);
       expect(failing.assistant.requests, isEmpty);
+    });
+
+    testWidgets('typing a new message interrupts a spoken reply', (tester) async {
+      mockRecorder();
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      await h.pump(tester);
+      await h.send(tester, 'hello');
+      expect(methods(), contains('stopSpeaking'));
+      expect(methods(), isNot(contains('speakReply')), reason: 'typed turns are not spoken');
     });
   });
 

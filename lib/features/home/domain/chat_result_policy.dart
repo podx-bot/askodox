@@ -17,7 +17,11 @@ enum ChatResultAction { connect, sendRequest, openLink, watchVideo }
 ChatResultAction chatResultActionFor(UniversalMatch match) {
   final source = match.source.toLowerCase();
   if (source == 'video') return ChatResultAction.watchVideo;
-  if (source == 'online') return ChatResultAction.openLink;
+  // Online pages and nearby shops not registered on ASKODOX are links: there
+  // is no ASKODOX seller on the other side to accept a request.
+  if (source == 'online' || source == 'external') {
+    return ChatResultAction.openLink;
+  }
   if (source == 'interest' ||
       source == 'demo_discovery' ||
       match.id.startsWith('demo-')) {
@@ -27,92 +31,6 @@ ChatResultAction chatResultActionFor(UniversalMatch match) {
   if (int.tryParse(match.id) != null) return ChatResultAction.sendRequest;
   final url = match.destinationUrl?.trim() ?? '';
   return url.isNotEmpty ? ChatResultAction.openLink : ChatResultAction.connect;
-}
-
-/// The role the user is acting in for the current request. Follows the
-/// latest deal intent, so a buyer is never answered as a seller.
-enum AskodoxChatRole {
-  buyer,
-  seller,
-  customer,
-  serviceProvider,
-  employer,
-  jobSeeker,
-  rider,
-  driver,
-  sender,
-  courier,
-  renter,
-  owner,
-}
-
-AskodoxChatRole? askodoxRoleForIntent(DealIntent intent) => switch (intent) {
-      DealIntent.buy => AskodoxChatRole.buyer,
-      DealIntent.sell => AskodoxChatRole.seller,
-      DealIntent.needService => AskodoxChatRole.customer,
-      DealIntent.bookAppointment => AskodoxChatRole.customer,
-      DealIntent.offerService => AskodoxChatRole.serviceProvider,
-      DealIntent.offerAppointment => AskodoxChatRole.serviceProvider,
-      DealIntent.needWorker => AskodoxChatRole.employer,
-      DealIntent.seekWork => AskodoxChatRole.jobSeeker,
-      DealIntent.needRide => AskodoxChatRole.rider,
-      DealIntent.offerRide => AskodoxChatRole.driver,
-      DealIntent.sendParcel => AskodoxChatRole.sender,
-      DealIntent.deliverParcel => AskodoxChatRole.courier,
-      DealIntent.rent => AskodoxChatRole.renter,
-      DealIntent.offerRental => AskodoxChatRole.owner,
-      DealIntent.other => null,
-    };
-
-String askodoxRoleLabel(AskodoxChatRole role, {required bool telugu}) {
-  if (telugu) {
-    return switch (role) {
-      AskodoxChatRole.buyer => 'కొనుగోలుదారు',
-      AskodoxChatRole.seller => 'విక్రేత',
-      AskodoxChatRole.customer => 'కస్టమర్',
-      AskodoxChatRole.serviceProvider => 'సర్వీస్ ప్రొవైడర్',
-      AskodoxChatRole.employer => 'యజమాని',
-      AskodoxChatRole.jobSeeker => 'ఉద్యోగార్థి',
-      AskodoxChatRole.rider => 'ప్రయాణికుడు',
-      AskodoxChatRole.driver => 'డ్రైవర్',
-      AskodoxChatRole.sender => 'పంపేవారు',
-      AskodoxChatRole.courier => 'డెలివరీ భాగస్వామి',
-      AskodoxChatRole.renter => 'అద్దెదారు',
-      AskodoxChatRole.owner => 'యజమాని (అద్దెకు ఇచ్చేవారు)',
-    };
-  }
-  return switch (role) {
-    AskodoxChatRole.buyer => 'Buyer',
-    AskodoxChatRole.seller => 'Seller',
-    AskodoxChatRole.customer => 'Customer',
-    AskodoxChatRole.serviceProvider => 'Service provider',
-    AskodoxChatRole.employer => 'Employer',
-    AskodoxChatRole.jobSeeker => 'Job seeker',
-    AskodoxChatRole.rider => 'Rider',
-    AskodoxChatRole.driver => 'Driver',
-    AskodoxChatRole.sender => 'Sender',
-    AskodoxChatRole.courier => 'Courier',
-    AskodoxChatRole.renter => 'Renter',
-    AskodoxChatRole.owner => 'Owner (renting out)',
-  };
-}
-
-/// A short in-chat notice when the user's activity moves them into a
-/// different role (for example from buying to selling). Null when there is
-/// no previous role or the role did not change.
-String? askodoxRoleSwitchNotice({
-  required DealIntent? previous,
-  required DealIntent current,
-  required bool telugu,
-}) {
-  if (previous == null) return null;
-  final from = askodoxRoleForIntent(previous);
-  final to = askodoxRoleForIntent(current);
-  if (from == null || to == null || from == to) return null;
-  final label = askodoxRoleLabel(to, telugu: telugu);
-  return telugu
-      ? 'ఈ అభ్యర్థనకు మీ పాత్ర ఇప్పుడు: $label'
-      : 'You are now acting as: $label for this request';
 }
 
 /// The result set ASKODOX embeds under one assistant reply in the chat.
@@ -259,3 +177,234 @@ String askodoxResultsReply(AskodoxChatResults results, {required bool telugu}) {
       ? 'ఈ అభ్యర్థనకు ప్రస్తుతం ధృవీకరించిన match దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను; సరైన అవకాశం లభిస్తే ASKODOX మీకు తెలియజేస్తుంది.'
       : 'I could not find a verified match for this request yet. I saved your need and ASKODOX will notify you when a suitable option becomes available.';
 }
+
+
+/// Result sections shown in chat, in display order. Each row carries a
+/// backend `segment`; rows from older backends fall back by source.
+enum AskodoxResultSegment {
+  askodoxMatches,
+  registered,
+  individual,
+  used,
+  surplus,
+  deals,
+  nearbyExternal,
+  widerLocal,
+  online,
+  video,
+}
+
+AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
+  switch (match.segment) {
+    case 'registered':
+      return AskodoxResultSegment.registered;
+    case 'individual':
+      return AskodoxResultSegment.individual;
+    case 'used':
+      return AskodoxResultSegment.used;
+    case 'surplus':
+      return AskodoxResultSegment.surplus;
+    case 'deals':
+      return AskodoxResultSegment.deals;
+    case 'nearby_external':
+      return AskodoxResultSegment.nearbyExternal;
+    case 'wider_local':
+      return AskodoxResultSegment.widerLocal;
+  }
+  return switch (chatResultActionFor(match)) {
+    ChatResultAction.watchVideo => AskodoxResultSegment.video,
+    ChatResultAction.openLink => AskodoxResultSegment.online,
+    ChatResultAction.connect => AskodoxResultSegment.askodoxMatches,
+    ChatResultAction.sendRequest => AskodoxResultSegment.registered,
+  };
+}
+
+String askodoxSegmentTitle(
+  AskodoxResultSegment segment, {
+  required bool telugu,
+  required bool hasLocal,
+}) {
+  if (telugu) {
+    return switch (segment) {
+      AskodoxResultSegment.askodoxMatches => 'ASKODOX మ్యాచ్‌లు',
+      AskodoxResultSegment.registered => 'ASKODOX విక్రేతలు',
+      AskodoxResultSegment.individual => 'వ్యక్తిగత విక్రేతలు',
+      AskodoxResultSegment.used => 'వాడిన / సెకండ్ హ్యాండ్',
+      AskodoxResultSegment.surplus => 'సర్ప్లస్ / క్లియరెన్స్ / ఓపెన్-బాక్స్',
+      AskodoxResultSegment.deals => 'డీల్స్ & ఆఫర్లు',
+      AskodoxResultSegment.nearbyExternal => 'దగ్గరలోని షాపులు',
+      AskodoxResultSegment.widerLocal => 'కొంచెం దూరంలోని షాపులు',
+      AskodoxResultSegment.online => hasLocal
+          ? 'ఆన్‌లైన్ ఎంపికలు'
+          : 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు',
+      AskodoxResultSegment.video => 'వీడియోలు & రివ్యూలు',
+    };
+  }
+  return switch (segment) {
+    AskodoxResultSegment.askodoxMatches => 'ASKODOX matches',
+    AskodoxResultSegment.registered => 'ASKODOX sellers',
+    AskodoxResultSegment.individual => 'Individual sellers',
+    AskodoxResultSegment.used => 'Used / second-hand',
+    AskodoxResultSegment.surplus => 'Surplus / clearance / open-box',
+    AskodoxResultSegment.deals => 'Deals & offers',
+    AskodoxResultSegment.nearbyExternal => 'Nearby shops',
+    AskodoxResultSegment.widerLocal => 'Shops a little farther away',
+    AskodoxResultSegment.online =>
+      hasLocal ? 'Online options' : 'No local match yet -- online options',
+    AskodoxResultSegment.video => 'Videos & reviews',
+  };
+}
+
+/// Groups rows into non-empty sections in display order (no empty sections
+/// are ever shown just to fill the screen).
+List<(AskodoxResultSegment, List<UniversalMatch>)> askodoxGroupResults(
+  List<UniversalMatch> matches,
+) {
+  final groups = <AskodoxResultSegment, List<UniversalMatch>>{};
+  for (final match in matches) {
+    groups.putIfAbsent(askodoxSegmentOf(match), () => []).add(match);
+  }
+  return [
+    for (final segment in AskodoxResultSegment.values)
+      if (groups[segment] case final rows?) (segment, rows),
+  ];
+}
+
+// ------------------------------------------------------ AI-first deal flow --
+
+/// Messages that genuinely need the seller/provider (confirmation,
+/// negotiation, booking, availability): only then are Send request /
+/// Connect exposed on the local options.
+bool askodoxWantsHumanAction(String text) {
+  final t = ' ${text.toLowerCase()} ';
+  return [
+    r'\bcontact (the )?(seller|provider|shop|owner)\b',
+    r'\bsend (a |the )?request\b',
+    r'\b(book|reserve) (it|this|that|now|a slot)\b',
+    r'\bconfirm (availability|the price|stock)\b',
+    r'\bnegotiat',
+    r"\bi('ll| will) take (it|this|that)\b",
+    r'\b(place|confirm) (the )?order\b',
+    r'\bcall (the )?(seller|shop|provider)\b',
+    r'విక్రేతను సంప్రదించ',
+    r'బుక్ చేయ',
+    r'ఆర్డర్ చేయ',
+  ].any((p) => RegExp(p).hasMatch(t));
+}
+
+/// Questions about options already shown (compare, reviews, distance...).
+/// These stay in the AI conversation instead of starting a new search.
+bool askodoxIsResultsQuestion(String text) {
+  final t = ' ${text.toLowerCase()} ';
+  final explicit = [
+    r'\bcompare\b',
+    r'\bwhich (one|is|should|of)\b',
+    r'\bdifference between\b',
+    r'\bhow far\b',
+    r'\bis (it|this|that) (new|used|available|good|genuine)\b',
+    r'\b(this|that|first|second|third|last) (one|option)\b',
+    r'\breviews? (of|for|about) (this|that|it|them)\b',
+    r'ఏది మంచిది',
+    r'పోల్చ',
+  ].any((p) => RegExp(p).hasMatch(t));
+  // "best/cheapest/closest" only counts when asked as a question about the
+  // shown options -- "I want the best mixer grinder" is a new request.
+  final comparativeQuestion = t.contains('?') &&
+      RegExp(r'\b(better|best|cheapest|cheaper|closest|nearest|reviews?)\b').hasMatch(t);
+  return explicit || comparativeQuestion;
+}
+
+/// Short, factual description of an option so ASKODOX AI can discuss it.
+String askodoxOptionContext(UniversalMatch match) {
+  final parts = <String>[match.title];
+  if (match.subtitle?.trim().isNotEmpty == true) parts.add(match.subtitle!.trim());
+  if (match.price != null) parts.add('price ₹${match.price!.toStringAsFixed(0)}');
+  if (match.distanceKm != null) parts.add('${match.distanceKm!.toStringAsFixed(1)} km away');
+  if (match.availability?.trim().isNotEmpty == true) parts.add(match.availability!.trim());
+  if (match.ratingAverage != null) {
+    parts.add('rated ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount} reviews)');
+  }
+  if (match.segment?.isNotEmpty == true) parts.add('type: ${match.segment}');
+  return parts.join('; ');
+}
+
+// --------------------------------------------------------- support policy --
+
+enum AskodoxSupportNeed { none, afterAiAttempt, immediate }
+
+class AskodoxSupportAssessment {
+  const AskodoxSupportAssessment(this.need, {this.category = 'GENERAL'});
+  final AskodoxSupportNeed need;
+  final String category;
+  bool get critical => need == AskodoxSupportNeed.immediate;
+}
+
+const _criticalSupport = <String, List<String>>{
+  'PAYMENT': [r'\bpayment (failed|failure|issue|problem|stuck|not (done|received|reflected|confirmed))', r'\brefund\b', r'money (was )?(deducted|debited)', r'\bupi\b.*\b(fail|stuck)', r'డబ్బులు (పోయాయి|కట్)'],
+  'DISPUTE': [r'\bdispute\b', r'\bcheat', r'\bscam\b', r'\bfraud\b', r'మోసం'],
+  'ORDER': [r'order (not|never) (delivered|received|arrived)', r'\bwrong (item|product)\b', r'\bdamaged\b', r'\bmissing item'],
+  'SAFETY': [r'\bunsafe\b', r'\bharass', r'\bthreat', r'\babuse', r'\bemergency\b'],
+  'ACCOUNT': [r'account (hacked|blocked|locked|suspended)', r"\bcan('|no)t (log ?in|sign in)\b", r'\botp not\b'],
+};
+
+const _issueWords = [
+  r'\bproblem\b', r'\bissue\b', r'not working', r'\berror\b', r'\bcomplain', r'\bbroken\b',
+  r'\bcrash', r'\bfailed\b', r'సమస్య', r'పని చేయడం లేదు',
+];
+
+const _unresolvedWords = [
+  r'\bstill\b', r"didn'?t (help|work)", r'not (solved|resolved|fixed)', r'ఇంకా అలాగే',
+];
+
+const _askForHumanWords = [
+  r'\bhuman\b', r'\b(real )?agent\b', r'\b(talk|speak|chat) (to|with) (support|someone|a person)\b',
+  r'customer (care|support)', r'సపోర్ట్',
+];
+
+bool _matchesAny(String text, List<String> patterns) =>
+    patterns.any((p) => RegExp(p).hasMatch(text));
+
+/// ASKODOX AI is first-line support. Support escalation is offered only
+/// when the AI could not resolve the issue ([previousIssueTurns] earlier
+/// problem messages, or the user says it is still unresolved), or
+/// immediately for critical payment/dispute/order/safety/account problems.
+AskodoxSupportAssessment askodoxAssessSupport(
+  String text, {
+  required int previousIssueTurns,
+}) {
+  final t = ' ${text.toLowerCase()} ';
+  for (final entry in _criticalSupport.entries) {
+    if (_matchesAny(t, entry.value)) {
+      return AskodoxSupportAssessment(AskodoxSupportNeed.immediate, category: entry.key);
+    }
+  }
+  // The user explicitly asks for a person.
+  if (_matchesAny(t, _askForHumanWords)) {
+    return const AskodoxSupportAssessment(AskodoxSupportNeed.afterAiAttempt);
+  }
+  // The same problem persists after ASKODOX AI already tried to help.
+  final issue = _matchesAny(t, _issueWords) || _matchesAny(t, _unresolvedWords);
+  if (issue && previousIssueTurns >= 1) {
+    return const AskodoxSupportAssessment(AskodoxSupportNeed.afterAiAttempt, category: 'TECHNICAL');
+  }
+  return const AskodoxSupportAssessment(AskodoxSupportNeed.none);
+}
+
+/// Whether a message describes a problem (used to count AI attempts).
+bool askodoxLooksLikeIssue(String text) {
+  final t = ' ${text.toLowerCase()} ';
+  return _matchesAny(t, _issueWords) ||
+      _matchesAny(t, _unresolvedWords) ||
+      _criticalSupport.values.any((patterns) => _matchesAny(t, patterns));
+}
+
+/// Deterministic reply when the user asks about one option and the AI reply
+/// is unavailable: stay in the conversation, facts first, human last.
+String askodoxOptionReply(String optionContext, {required bool telugu}) => telugu
+    ? 'ఈ ఎంపిక గురించి నాకు తెలిసింది: $optionContext. ఇంకా ఏమైనా అడగండి; విక్రేత నిర్ధారణ కావాలనుకుంటే "అభ్యర్థన పంపండి" నొక్కండి.'
+    : 'Here is what I know about this option: $optionContext. Ask me anything else, or tap Send request when you want the seller to confirm.';
+
+/// Reply when the user needs the seller/provider to act.
+String askodoxHumanActionReply({required bool telugu}) => telugu
+    ? 'సరే. మీకు నచ్చిన ఎంపికపై "అభ్యర్థన పంపండి" నొక్కండి -- విక్రేత అంగీకరించిన తర్వాతే కాంటాక్ట్ వివరాలు కనిపిస్తాయి.'
+    : 'Sure. Tap Send request on the option you want -- the seller confirms first, and contact details are shared only after they accept.';

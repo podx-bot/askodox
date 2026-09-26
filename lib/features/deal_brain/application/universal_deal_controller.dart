@@ -277,6 +277,37 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   bool _missing(String? value) => value == null || value.trim().isEmpty;
 
+  /// JSON for any deal (History keeps one per result set for Retry).
+  Map<String, Object?> encodeDeal(UniversalDeal deal) => _dealToJson(deal);
+
+  UniversalDeal? decodeDeal(Map<String, dynamic> json) {
+    try {
+      return _dealFromJson(json);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// JSON of the active deal (for History), or null when there is none.
+  Map<String, Object?>? snapshot() {
+    final deal = state.deal;
+    return deal == null ? null : _dealToJson(deal);
+  }
+
+  /// Restores a deal captured by [snapshot] (History reopening). A null or
+  /// unreadable snapshot clears the active deal.
+  void restoreSnapshot(Map<String, dynamic>? json) {
+    if (json == null) {
+      reset();
+      return;
+    }
+    try {
+      _setSession(_sessionFor(_dealFromJson(json)));
+    } catch (_) {
+      reset();
+    }
+  }
+
   void reset() {
     state = const UniversalDealSession();
     unawaited(_clearPersisted());

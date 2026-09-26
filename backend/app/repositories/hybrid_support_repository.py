@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class HybridSupportRepository:
@@ -83,3 +84,63 @@ class HybridSupportRepository:
                 return None
             row = conn.execute("SELECT * FROM hybrid_support_tickets WHERE id=?", (int(ticket_id),)).fetchone()
         return dict(row) if row else None
+
+
+class SupportEscalationRepository:
+    """In-app escalations to ASKODOX Support, with the full AI context.
+
+    Added 2026-09-26: when ASKODOX AI (first-line support) cannot resolve an
+    issue, the Support/Admin Command Center receives the user's issue, the AI
+    conversation, requirement, deal/order id, counterpart, what was already
+    tried and the current status -- so the user never repeats themselves.
+    """
+
+    def __init__(self, db_path: str = "podx.db") -> None:
+        self.db_path = db_path
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS support_escalations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    requester_user_id TEXT NOT NULL,
+                    issue TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    critical INTEGER NOT NULL DEFAULT 0,
+                    context_json TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'OPEN',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )"""
+            )
+
+    def create(self, requester_user_id: str, issue: str, category: str, critical: bool, context: Dict[str, Any]) -> Dict[str, Any]:
+        now = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            cur = conn.execute(
+                "INSERT INTO support_escalations(requester_user_id,issue,category,critical,context_json,status,created_at,updated_at) VALUES(?,?,?,?,?,'OPEN',?,?)",
+                (str(requester_user_id), str(issue).strip()[:2000], str(category or "GENERAL").upper(), int(bool(critical)),
+                 json.dumps(context, ensure_ascii=False), now, now),
+            )
+            new_id = int(cur.lastrowid)
+        return self.get(new_id) or {}
+
+    def get(self, escalation_id: int) -> Optional[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM support_escalations WHERE id=?", (int(escalation_id),)).fetchone()
+        return self._row(row) if row else None
+
+    def list_open(self, limit: int = 50) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT * FROM support_escalations WHERE status='OPEN' ORDER BY critical DESC, id DESC LIMIT ?",
+                (max(1, min(int(limit), 200)),),
+            ).fetchall()
+        return [self._row(row) for row in rows]
+
+    @staticmethod
+    def _row(row) -> Dict[str, Any]:
+        data = dict(row)
+        data["critical"] = bool(data.get("critical"))
+        data["context"] = json.loads(data.pop("context_json") or "{}")
+        return data

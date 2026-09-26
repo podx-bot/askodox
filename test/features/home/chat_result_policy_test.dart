@@ -1,13 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/deal_brain/domain/universal_deal.dart';
+import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 UniversalMatch _m(String id, String source, {String? url}) =>
     UniversalMatch(id: id, title: id, source: source, destinationUrl: url);
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('card actions follow the result source', () {
     test('deal Party B matches connect through the consent flow', () {
       expect(chatResultActionFor(_m('app-seller-1', 'interest')),
@@ -70,42 +73,120 @@ void main() {
   });
 
   group('roles follow user activity', () {
-    test('buyer to seller switch is announced in English and Telugu', () {
+    test('clear self-descriptions pick the active role', () {
+      expect(askodoxDetectRole('I want chicken')!.role, AskodoxUserRole.buyer);
+      expect(askodoxDetectRole('I want to sell my TV')!.role, AskodoxUserRole.seller);
+      expect(askodoxDetectRole('I repair ACs')!.role, AskodoxUserRole.serviceProvider);
+      expect(askodoxDetectRole('I need a computer operator job')!.role, AskodoxUserRole.jobSeeker);
+      expect(askodoxDetectRole('I can deliver parcels')!.role, AskodoxUserRole.deliveryPartner);
+      expect(askodoxDetectRole('నాకు ఉద్యోగం కావాలి')!.role, AskodoxUserRole.jobSeeker);
+      expect(askodoxDetectRole('I want to sell my TV')!.ambiguous, isFalse);
+      expect(askodoxDetectRole('hello there'), isNull);
+    });
+
+    test('questions about a role are ambiguous and high-impact switches ask first', () {
+      final detection = askodoxDetectRole('Can I sell things on ASKODOX?')!;
+      expect(detection.role, AskodoxUserRole.seller);
+      expect(detection.ambiguous, isTrue);
+      expect(askodoxRoleSwitchIsHighImpact(AskodoxUserRole.seller), isTrue);
+      expect(askodoxRoleSwitchIsHighImpact(AskodoxUserRole.buyer), isFalse);
+      expect(askodoxRoleSwitchQuestion(AskodoxUserRole.seller, telugu: false),
+          'Switch to Seller mode?');
+    });
+
+    test('role change message in English and Telugu', () {
       expect(
-        askodoxRoleSwitchNotice(
-            previous: DealIntent.buy, current: DealIntent.sell, telugu: false),
-        'You are now acting as: Seller for this request',
+        askodoxRoleChangedMessage(AskodoxUserRole.buyer, AskodoxUserRole.seller, telugu: false),
+        'Active role changed: Buyer → Seller',
       );
       expect(
-        askodoxRoleSwitchNotice(
-            previous: DealIntent.buy, current: DealIntent.sell, telugu: true),
+        askodoxRoleChangedMessage(AskodoxUserRole.buyer, AskodoxUserRole.seller, telugu: true),
         contains('విక్రేత'),
       );
     });
 
-    test('no notice on first request or when the role is unchanged', () {
-      expect(
-          askodoxRoleSwitchNotice(
-              previous: null, current: DealIntent.buy, telugu: false),
-          isNull);
-      expect(
-          askodoxRoleSwitchNotice(
-              previous: DealIntent.buy, current: DealIntent.buy, telugu: false),
-          isNull);
+    test('deal intents map to user roles', () {
+      expect(askodoxRoleForIntent(DealIntent.needService), AskodoxUserRole.buyer);
+      expect(askodoxRoleForIntent(DealIntent.offerService), AskodoxUserRole.serviceProvider);
+      expect(askodoxRoleForIntent(DealIntent.deliverParcel), AskodoxUserRole.deliveryPartner);
+      expect(askodoxRoleForIntent(DealIntent.seekWork), AskodoxUserRole.jobSeeker);
     });
 
-    test('service provider and customer are distinct roles', () {
-      expect(askodoxRoleForIntent(DealIntent.needService),
-          AskodoxChatRole.customer);
-      expect(askodoxRoleForIntent(DealIntent.offerService),
-          AskodoxChatRole.serviceProvider);
+    test('active role persists without touching stored roles', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final roles = AskodoxRoleController();
+      await Future<void>.delayed(Duration.zero);
+      roles.toggleOwned(AskodoxUserRole.serviceProvider, true);
+      roles.setActive(AskodoxUserRole.seller);
+      expect(roles.state.active, AskodoxUserRole.seller);
+      expect(roles.state.owned, {AskodoxUserRole.buyer, AskodoxUserRole.serviceProvider});
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final reloaded = AskodoxRoleController();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(reloaded.state.active, AskodoxUserRole.seller);
+      expect(reloaded.state.owned, {AskodoxUserRole.buyer, AskodoxUserRole.serviceProvider});
+    });
+  });
+
+  group('multi-source results and AI-first flow', () {
+    test('rows group into ordered, non-empty sections', () {
+      final groups = askodoxGroupResults([
+        const UniversalMatch(id: 'video-0', title: 'v', source: 'video', destinationUrl: 'https://y'),
+        const UniversalMatch(id: '7', title: 'used tv', source: 'local', segment: 'used'),
+        const UniversalMatch(id: 'external-1', title: 'shop', source: 'external', segment: 'nearby_external', destinationUrl: 'https://maps'),
+        const UniversalMatch(id: '8', title: 'tv', source: 'local', segment: 'registered'),
+      ]);
+      expect(groups.map((g) => g.$1), [
+        AskodoxResultSegment.registered,
+        AskodoxResultSegment.used,
+        AskodoxResultSegment.nearbyExternal,
+        AskodoxResultSegment.video,
+      ]);
+    });
+
+    test('nearby external shops are links, never requests', () {
       expect(
-        askodoxRoleSwitchNotice(
-            previous: DealIntent.needService,
-            current: DealIntent.offerService,
-            telugu: false),
-        contains('Service provider'),
+        chatResultActionFor(const UniversalMatch(id: 'external-1', title: 's', source: 'external')),
+        ChatResultAction.openLink,
       );
+    });
+
+    test('human action and result questions are recognised', () {
+      expect(askodoxWantsHumanAction('Please contact the seller'), isTrue);
+      expect(askodoxWantsHumanAction("I'll take it"), isTrue);
+      expect(askodoxWantsHumanAction('What is the price?'), isFalse);
+      expect(askodoxIsResultsQuestion('Which one is better?'), isTrue);
+      expect(askodoxIsResultsQuestion('Compare the first two'), isTrue);
+      expect(askodoxIsResultsQuestion('Samsung under 30000'), isFalse);
+      expect(askodoxIsResultsQuestion('I want the best mixer grinder'), isFalse);
+      expect(askodoxIsResultsQuestion('Which is cheapest?'), isTrue);
+      expect(askodoxIsResultsQuestion('Any reviews?'), isTrue);
+    });
+  });
+
+  group('first-line support escalation', () {
+    test('normal conversations never push support', () {
+      expect(askodoxAssessSupport('I want chicken', previousIssueTurns: 0).need,
+          AskodoxSupportNeed.none);
+      expect(askodoxAssessSupport('What payment options do you accept?', previousIssueTurns: 0).need,
+          AskodoxSupportNeed.none);
+    });
+
+    test('a problem is escalated only after ASKODOX AI tried', () {
+      expect(askodoxAssessSupport('The app is not working', previousIssueTurns: 0).need,
+          AskodoxSupportNeed.none);
+      expect(askodoxAssessSupport('Still not working', previousIssueTurns: 1).need,
+          AskodoxSupportNeed.afterAiAttempt);
+      expect(askodoxAssessSupport('I want to talk to customer care', previousIssueTurns: 0).need,
+          AskodoxSupportNeed.afterAiAttempt);
+    });
+
+    test('critical issues escalate immediately', () {
+      final payment = askodoxAssessSupport('Money deducted but order not confirmed', previousIssueTurns: 0);
+      expect(payment.need, AskodoxSupportNeed.immediate);
+      expect(payment.category, 'PAYMENT');
+      expect(askodoxAssessSupport('The seller is a scam', previousIssueTurns: 0).category, 'DISPUTE');
+      expect(askodoxAssessSupport('I feel unsafe with this driver', previousIssueTurns: 0).category, 'SAFETY');
     });
   });
 

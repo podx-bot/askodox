@@ -12,6 +12,12 @@ import httpx
 class GoogleMapsService:
     GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
     ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
+    PLACES_TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
+    PLACES_FIELDS = (
+        "places.id,places.displayName,places.formattedAddress,places.location,"
+        "places.rating,places.userRatingCount,places.googleMapsUri,"
+        "places.businessStatus,places.currentOpeningHours.openNow"
+    )
 
     def __init__(self, api_key: str | None = None, timeout_seconds: float | None = None, client=None) -> None:
         self.api_key = str(api_key if api_key is not None else os.getenv("GOOGLE_MAPS_API_KEY", "")).strip()
@@ -57,6 +63,65 @@ class GoogleMapsService:
             "longitude": lon,
             "place_id": str(first.get("place_id") or ""),
         }
+
+    def search_places(
+        self,
+        query: str,
+        *,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_m: float = 5000.0,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        """Nearby offline shops/providers for a need (Places API text search).
+
+        Used for "nearby external/offline businesses" in chat results. Never
+        raises; returns [] when disabled or on any provider failure.
+        """
+        clean = " ".join(str(query or "").strip().split())
+        if not self.enabled or not clean:
+            return []
+        body: dict[str, Any] = {"textQuery": clean, "maxResultCount": max(1, min(int(limit), 20))}
+        if latitude is not None and longitude is not None:
+            body["locationBias"] = {
+                "circle": {
+                    "center": {"latitude": float(latitude), "longitude": float(longitude)},
+                    "radius": float(max(500.0, min(radius_m, 50000.0))),
+                }
+            }
+        try:
+            response = self.client.post(
+                self.PLACES_TEXT_URL,
+                json=body,
+                headers={"X-Goog-Api-Key": self.api_key, "X-Goog-FieldMask": self.PLACES_FIELDS},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPError, ValueError, TypeError):
+            return []
+        places = []
+        for place in (payload or {}).get("places") or []:
+            if not isinstance(place, dict):
+                continue
+            if str(place.get("businessStatus") or "OPERATIONAL").upper() != "OPERATIONAL":
+                continue
+            name = str(((place.get("displayName") or {}).get("text")) or "").strip()
+            location = place.get("location") or {}
+            if not name:
+                continue
+            places.append({
+                "place_id": str(place.get("id") or ""),
+                "name": name,
+                "address": str(place.get("formattedAddress") or "").strip(),
+                "latitude": location.get("latitude"),
+                "longitude": location.get("longitude"),
+                "rating": place.get("rating"),
+                "rating_count": place.get("userRatingCount"),
+                "maps_url": str(place.get("googleMapsUri") or ""),
+                "open_now": (place.get("currentOpeningHours") or {}).get("openNow"),
+            })
+        return places
 
     def compute_route(self, points: list[dict[str, Any]]) -> dict[str, Any] | None:
         coords = [self._lat_lng(point) for point in points]

@@ -5,7 +5,11 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
+import os
+
+from app.repositories.hybrid_support_repository import SupportEscalationRepository
 from app.services.buyer_guide_gate import wants_buying_guide
+from app.services.session_tokens import verify_token
 
 router = APIRouter(prefix="/api/in-app", tags=["in-app-assistant"])
 
@@ -131,3 +135,92 @@ async def transcribe_in_app_voice(
         "locale": locale,
         "provider": str((result or {}).get("provider") or "sarvam_first"),
     }
+
+
+# ------------------------------------------------------------------ support --
+# 2026-09-26: ASKODOX AI is first-line support. The app escalates only when
+# the AI could not resolve an issue (or earlier for critical issues such as
+# payments, disputes or safety). The case carries the full context so the
+# Support/Admin Command Center never asks the user to repeat themselves.
+
+
+class SupportTurn(BaseModel):
+    role: str
+    text: str = Field(max_length=4000)
+
+
+class SupportEscalationRequest(BaseModel):
+    issue: str = Field(min_length=1, max_length=2000)
+    category: str = "GENERAL"
+    critical: bool = False
+    conversation: list[SupportTurn] = Field(default_factory=list)
+    requirement: dict[str, Any] = Field(default_factory=dict)
+    deal_id: str | None = None
+    counterpart: str | None = None
+    actions_tried: list[str] = Field(default_factory=list)
+    status: str = ""
+    active_role: str = ""
+    locale: str = ""
+
+
+def _support_repository(container: Any) -> SupportEscalationRepository:
+    repository = getattr(container, "support_escalation_repository", None)
+    if repository is None:
+        repository = SupportEscalationRepository(container.settings.database_path)
+        container.support_escalation_repository = repository
+    return repository
+
+
+def _optional_app_user(request: Request) -> str:
+    """Signed-in user when a valid token is sent; guests can still escalate."""
+    container: Any = request.app.state.container
+    header = request.headers.get("authorization") or ""
+    token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    if token:
+        user = verify_token(token, container.settings.session_token_secret)
+        if user:
+            return user
+    return "guest"
+
+
+def support_channels() -> dict[str, Any]:
+    whatsapp = "".join(ch for ch in os.getenv("SUPPORT_WHATSAPP_NUMBER", "") if ch.isdigit())
+    phone = os.getenv("SUPPORT_PHONE_NUMBER", "").strip()
+    return {
+        "chat": True,
+        "whatsapp_url": f"https://wa.me/{whatsapp}" if whatsapp else None,
+        "call_uri": f"tel:{phone}" if phone else None,
+    }
+
+
+@router.post("/support/escalate")
+def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> dict[str, Any]:
+    container: Any = request.app.state.container
+    context = {
+        "conversation": [turn.model_dump() for turn in payload.conversation[-30:]],
+        "requirement": payload.requirement,
+        "deal_id": payload.deal_id,
+        "counterpart": payload.counterpart,
+        "actions_tried": payload.actions_tried[-20:],
+        "status": payload.status,
+        "active_role": payload.active_role,
+        "locale": payload.locale,
+    }
+    case = _support_repository(container).create(
+        _optional_app_user(request), payload.issue, payload.category, payload.critical, context
+    )
+    return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels()}
+
+
+support_admin_router = APIRouter(prefix="/admin/support", tags=["admin-support"])
+
+
+@support_admin_router.get("/escalations")
+def list_support_escalations(request: Request, key: str = "", limit: int = 50) -> dict[str, Any]:
+    """Support/Admin Command Center feed (same ADMIN_SEED_KEY gate as
+    /admin/products; 404 when the key is wrong so the path isn't advertised)."""
+    container: Any = request.app.state.container
+    expected = str(getattr(container.settings, "admin_seed_key", "") or "").strip()
+    if not expected or key != expected:
+        raise HTTPException(status_code=404)
+    return {"items": _support_repository(container).list_open(limit=limit)}
