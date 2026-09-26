@@ -44,6 +44,9 @@ class AssistantDecision(BaseModel):
     # None for every non-buying message, so existing clients that ignore
     # this field see no change at all.
     buying_guide: dict[str, Any] | None = None
+    # Present only for time-sensitive questions: whether live web evidence
+    # verified the answer, and which sources (never claimed when unverified).
+    grounding: dict[str, Any] | None = None
 
 
 @router.post("/assistant", response_model=AssistantDecision)

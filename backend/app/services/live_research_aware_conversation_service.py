@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.services.oasat_domain_router import OASATDomainRouter
+from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 
 
 class LiveResearchAwareConversationService:
@@ -11,30 +12,39 @@ class LiveResearchAwareConversationService:
         research_service,
         router: OASATDomainRouter | None = None,
         deep_research_service=None,
+        clock=None,
     ) -> None:
         self.delegate = delegate
         self.research_service = research_service
         self.router = router or OASATDomainRouter()
         self.deep_research_service = deep_research_service
+        self.clock = clock
 
     def process(self, sender_mobile: str, message: str) -> str:
         clean = " ".join(str(message or "").strip().split())
         plan = self.router.route(clean)
-        if str(plan.get("domain") or "").upper() != "RESEARCH":
+        # Explicit research requests, plus time-sensitive/changeable facts
+        # (festival dates, current prices, policies...) that must be verified
+        # live. Local-commerce requests stay on the normal pipeline.
+        # Machine-generated OASAT routing prompts keep the original router-only rule.
+        live_fact = not clean.startswith("OASAT ") and needs_live_verification(clean)
+        if str(plan.get("domain") or "").upper() != "RESEARCH" and not live_fact:
             return self._delegate(sender_mobile, clean)
+        query = grounded_search_query(clean, self.clock)
+        runtime = runtime_context_block(clean, self.clock)
 
         use_deep = self.deep_research_service is not None and self._needs_deep_research(clean)
         try:
             if use_deep:
                 evidence = self.deep_research_service.research(
-                    clean,
+                    query,
                     limit_per_query=5,
                     max_queries=4,
                     max_age_days=self._freshness_days(clean),
                 )
             else:
                 evidence = self.research_service.research(
-                    clean,
+                    query,
                     limit=8,
                     max_age_days=self._freshness_days(clean),
                 )
@@ -46,7 +56,7 @@ class LiveResearchAwareConversationService:
             routed = (
                 f"OASAT {mode.upper()}: live web evidence is currently unavailable or no usable sources were returned. "
                 "Do not claim that current web results were checked. Be transparent about the limitation. "
-                f"User request: {clean}"
+                f"{runtime} User request: {clean}"
             )
             return self._delegate(sender_mobile, routed)
 
@@ -70,7 +80,7 @@ class LiveResearchAwareConversationService:
                 f"coverage_ratio={evidence.get('coverage_ratio')}; partial_failure={bool(evidence.get('partial_failure'))}; "
                 f"planned_queries={evidence.get('planned_queries')}. "
                 + " ".join(source_lines)
-                + f" User request: {clean}"
+                + f" {runtime} User request: {clean}"
             )
         else:
             routed = (
@@ -79,7 +89,7 @@ class LiveResearchAwareConversationService:
                 "Never invent a source, publication date, or live fact. "
                 f"conflicts_present={bool(evidence.get('conflicts_present'))}. "
                 + " ".join(source_lines)
-                + f" User request: {clean}"
+                + f" {runtime} User request: {clean}"
             )
         return self._delegate(sender_mobile, routed)
 
@@ -112,7 +122,7 @@ class LiveResearchAwareConversationService:
     @staticmethod
     def _freshness_days(message: str) -> int | None:
         text = str(message or "").casefold()
-        if any(marker in text for marker in ("today", "latest", "breaking", "current", "ఈరోజు", "లేటెస్ట్")):
+        if any(marker in text for marker in ("today", "latest", "breaking", "current", "ఈరోజు", "ఇవాళ", "లేటెస్ట్", "తాజా")):
             return 7
         if any(marker in text for marker in ("this month", "recent", "recently", "ఈ నెల")):
             return 30

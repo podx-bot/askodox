@@ -7,6 +7,7 @@ on:
       - 'backend/app/services/brave_web_search_provider.py'
       - 'backend/app/services/oasat_live_research_service.py'
       - 'backend/app/services/live_research_aware_conversation_service.py'
+      - 'backend/app/services/runtime_time_context.py'
       - 'backend/app/core/settings.py'
       - 'backend/app/api/app_factory.py'
       - '.github/workflows/oasat-live-web-provider-smoke.yml'
@@ -26,11 +27,19 @@ jobs:
         working-directory: backend
         run: |
           python - <<'PY'
+          from datetime import datetime, timedelta, timezone
+
           import httpx
 
           from app.services.brave_web_search_provider import BraveWebSearchProvider
           from app.services.oasat_live_research_service import OASATLiveResearchService
           from app.services.live_research_aware_conversation_service import LiveResearchAwareConversationService
+
+          # Fixture evidence is published relative to the run's clock: fixed dates
+          # went stale and the 7-day freshness policy then (correctly) dropped them.
+          now = datetime.now(timezone.utc)
+          fresh_official = (now - timedelta(hours=6)).isoformat()
+          fresh_industry = (now - timedelta(hours=5)).isoformat()
 
           def handler(request: httpx.Request) -> httpx.Response:
               assert request.headers.get('X-Subscription-Token') == 'test-key'
@@ -41,13 +50,13 @@ jobs:
                           'title': 'Official Solar Update',
                           'url': 'https://energy.gov.in/solar/update',
                           'description': 'Official policy update.',
-                          'page_age': '2026-09-05T12:00:00Z',
+                          'page_age': fresh_official,
                       },
                       {
                           'title': 'Industry Coverage',
                           'url': 'https://example.com/solar-news',
                           'description': 'Industry summary of the update.',
-                          'page_age': '2026-09-05T13:00:00Z',
+                          'page_age': fresh_industry,
                       },
                   ]}
               })

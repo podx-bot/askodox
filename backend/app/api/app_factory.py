@@ -193,6 +193,7 @@ def create_app() -> FastAPI:
         model=container.settings.gemini_text_model,
         openai_api_key=container.settings.openai_api_key,
         openai_model=container.settings.openai_text_model,
+        research_service=live_research,
     )
     container.universal_ai_assistant_service = universal_ai
 
