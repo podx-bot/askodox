@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 
 from app.repositories.order_repository import VALID_STATUSES
 from app.services import deal_lifecycle as lifecycle
+from app.services import payment_gateway
 from app.services.order_contact_visibility import mask_contact_for_viewer
 from app.services.session_tokens import verify_token
 
@@ -87,6 +88,8 @@ class PlaceOrderRequest(BaseModel):
     request_context: dict[str, Any] | None = None
     # Optional first question for the seller (stock, final price, delivery).
     question: str | None = Field(default=None, max_length=2000)
+    # COD / CASH_ON_PICKUP / DIRECT_CASH / DIRECT_UPI (GATEWAY later).
+    settlement_method: str | None = None
 
 
 class OrderResponse(BaseModel):
@@ -104,6 +107,10 @@ class OrderResponse(BaseModel):
     kind: str = "product"
     payment_state: str = "NOT_STARTED"
     payment_reference: str | None = None
+    settlement_method: str = "DIRECT_UPI"
+    paid_at: str | None = None
+    return_reason: str | None = None
+    refund_reference: str | None = None
     closed_at: str | None = None
     dispute_escalation_id: int | None = None
     request_context: dict[str, Any] | None = None
@@ -147,6 +154,11 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
     variant = str(product.get("variant") or "").strip()
     subject = str(product.get("subject") or "").strip()
     title = f"{subject} -- {variant}" if variant else subject
+    try:
+        method = lifecycle.settlement_method(payload.settlement_method)
+        instruction = payment_gateway.adapter_for(method).instruction({"settlement_method": method})
+    except lifecycle.LifecycleError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
     order_id = container.order_repository.create_order(
         buyer_user_id=buyer_user_id,
@@ -160,6 +172,7 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
         buyer_note=payload.buyer_note,
         kind=lifecycle.kind_for(product, _seller_profile(container, seller_user_id)),
         request_context=_clean_context(payload.request_context),
+        settlement_method=instruction.method,
     )
     if payload.question and payload.question.strip():
         container.order_repository.add_message(order_id, "buyer", "QUESTION", payload.question)
@@ -269,6 +282,15 @@ def _party(container: Any, order_id: int, request: Request) -> tuple[dict[str, A
     raise HTTPException(status_code=404, detail="Order not found")
 
 
+def _settlement(order: dict[str, Any]) -> dict[str, Any]:
+    try:
+        info = payment_gateway.adapter_for(order.get("settlement_method")).instruction(order)
+    except lifecycle.LifecycleError:
+        return {"method": order.get("settlement_method"), "available": False}
+    return {"method": info.method, "payer_action": info.payer_action, "payee_action": info.payee_action,
+            "needs_reference": info.needs_reference, "online": info.online, "available": True}
+
+
 def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
     messages = container.order_repository.messages(order["id"])
     body = _to_response(order, viewer=role).model_dump()
@@ -279,6 +301,7 @@ def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
         "actions": lifecycle.buyer_actions(order, messages) if role == "buyer" else lifecycle.seller_actions(order, messages),
         "viewer": role,
         "payment_note": "ASKODOX does not process payments; payment is made directly to the seller/provider.",
+        "settlement": _settlement(order),
     })
     return body
 
@@ -367,6 +390,27 @@ def order_payment(order_id: int, payload: PaymentAction, request: Request) -> di
         container.order_repository.update_fields(order_id, payment_state="PROOF_SUBMITTED", payment_reference=reference)
         _notify_admin(container, f"payment_proof:{order_id}", "payment_proof",
                       f"Payment reference submitted for order #{order_id}", order_id)
+    elif role == "buyer" and action == "cash_paid":
+        # Cash handed over: recorded as the customer's claim until the
+        # seller/provider confirms it (never VERIFIED on the payer's word).
+        if order.get("settlement_method") not in lifecycle.CASH_METHODS:
+            raise HTTPException(status_code=409, detail="This order is not a cash order")
+        if order["status"] not in lifecycle.OPEN_EXECUTION | lifecycle.COMPLETION_STATES:
+            raise HTTPException(status_code=409, detail="Payment is made after the seller/provider accepts")
+        container.order_repository.update_fields(order_id, payment_state="PROOF_SUBMITTED",
+                                                 payment_reference="CASH")
+    elif role == "seller" and action == "confirm_cash_received":
+        if order.get("settlement_method") not in lifecycle.CASH_METHODS:
+            raise HTTPException(status_code=409, detail="This order is not a cash order")
+        if state not in {"AWAITING_PAYMENT", "PROOF_SUBMITTED"}:
+            raise HTTPException(status_code=409, detail="No cash payment is pending for this order")
+        from datetime import datetime, timezone
+
+        container.order_repository.update_fields(order_id, payment_state="VERIFIED", payment_verified_by="seller",
+                                                 payment_reference=order.get("payment_reference") or "CASH",
+                                                 paid_at=datetime.now(timezone.utc).isoformat())
+        _trace_order(container, container.order_repository.get(order_id), "payment_confirmed",
+                     payment={"method": order.get("settlement_method"), "state": "VERIFIED"})
     elif role == "seller" and action in {"confirm_received", "not_received"}:
         if state != "PROOF_SUBMITTED":
             raise HTTPException(status_code=409, detail="No payment reference is waiting for confirmation")
@@ -377,6 +421,76 @@ def order_payment(order_id: int, payload: PaymentAction, request: Request) -> di
         )
     else:
         raise HTTPException(status_code=422, detail="Unsupported payment action")
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+class ReturnRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+@router.post("/{order_id}/return")
+def request_return(order_id: int, payload: ReturnRequest, request: Request) -> dict[str, Any]:
+    """Customer asks to return a delivered product (before closing)."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "buyer":
+        raise HTTPException(status_code=403, detail="Only the customer can request a return")
+    try:
+        lifecycle.check_return_request(order["status"], order.get("kind"))
+    except lifecycle.LifecycleError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    container.order_repository.update_fields(order_id, status=lifecycle.RETURN_REQUESTED,
+                                             return_reason=payload.reason.strip(),
+                                             return_from_status=order["status"])
+    _trace_order(container, container.order_repository.get(order_id), "return_requested")
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+class ReturnDecision(BaseModel):
+    action: str  # item_received | decline
+    note: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/{order_id}/return/decision")
+def return_decision(order_id: int, payload: ReturnDecision, request: Request) -> dict[str, Any]:
+    """Seller records the item came back (-> refund due if paid) or declines
+    (the order goes back to delivered; the customer can report a problem)."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "seller":
+        raise HTTPException(status_code=403, detail="Only the seller decides a return")
+    if order["status"] != lifecycle.RETURN_REQUESTED:
+        raise HTTPException(status_code=409, detail="No return is waiting for a decision")
+    action = payload.action.strip().lower()
+    if action == "item_received":
+        target = lifecycle.after_return_received(order.get("payment_state"))
+        container.order_repository.update_fields(order_id, status=target)
+        _trace_order(container, container.order_repository.get(order_id), target.lower())
+    elif action == "decline":
+        container.order_repository.update_fields(order_id, status=order.get("return_from_status") or "DELIVERED",
+                                                 seller_note=(payload.note or "Return declined").strip())
+        _trace_order(container, container.order_repository.get(order_id), "return_declined")
+    else:
+        raise HTTPException(status_code=422, detail="action must be item_received or decline")
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+class RefundRecord(BaseModel):
+    reference: str = Field(min_length=2, max_length=120)
+
+
+@router.post("/{order_id}/refund")
+def record_refund(order_id: int, payload: RefundRecord, request: Request) -> dict[str, Any]:
+    """Seller records the refund they paid (UPI reference or "CASH")."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "seller":
+        raise HTTPException(status_code=403, detail="Only the seller records a refund")
+    if order["status"] != lifecycle.REFUND_DUE:
+        raise HTTPException(status_code=409, detail="No refund is due on this order")
+    container.order_repository.update_fields(order_id, status=lifecycle.REFUNDED, payment_state="REFUNDED",
+                                             refund_reference=payload.reference.strip())
+    _trace_order(container, container.order_repository.get(order_id), "refunded")
     return _detail(container, container.order_repository.get(order_id), role)
 
 
