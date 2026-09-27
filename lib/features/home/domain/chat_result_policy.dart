@@ -185,6 +185,18 @@ AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
   };
 }
 
+/// Plain label for a result's condition/source segment (Details sheet).
+String askodoxSegmentLabel(String segment) => switch (segment) {
+      'used' => 'Used / second-hand',
+      'surplus' => 'Surplus / open-box / clearance',
+      'deals' => 'Deal / offer',
+      'individual' => 'Individual seller',
+      'registered' => 'New (ASKODOX seller)',
+      'nearby_external' => 'Nearby shop',
+      'wider_local' => 'Wider local area',
+      _ => segment,
+    };
+
 String askodoxSegmentTitle(
   AskodoxResultSegment segment, {
   required bool telugu,
@@ -293,6 +305,81 @@ String askodoxOptionContext(UniversalMatch match) {
   if (match.segment?.isNotEmpty == true) parts.add('type: ${match.segment}');
   return parts.join('; ');
 }
+
+// ------------------------------------------------ universal routing --
+// ONE decision for every question, any category:
+//   ASKODOX AI answers what it can know (specs, comparisons, process, shown
+//   data) -> the seller/provider only for facts/actions only they can give
+//   (stock, final/negotiated price, delivery or appointment commitment)
+//   -> Customer Care when AI + seller cannot resolve (support policy below).
+
+enum AskodoxRoute { ai, seller, support }
+
+/// Questions ASKODOX must not guess: seller-specific facts or commitments.
+bool askodoxNeedsSeller(String text) {
+  final t = ' ${text.toLowerCase()} ';
+  return [
+    r'\b(in|out of) stock\b',
+    r'\bstock\b',
+    r'\bis (it|this|that) (still )?available\b',
+    r'\bavailable (today|tomorrow|now|this week)\b',
+    r'\b(final|lowest|best|last) price\b',
+    r'\bdiscount\b',
+    r'\bcan (they|you|he|she) (do|give|make it)\b',
+    r'\b(reduce|lower) the price\b',
+    r'\bnegotiat',
+    r'\b(deliver|delivery)\b.*\b(today|tomorrow|by|when|included|free|charge)\b',
+    r'\b(free|home) delivery\b',
+    r'\binstallation (included|free|charge)\b',
+    r'\b(slot|appointment)\b',
+    r'\b(come|visit|arrive) (today|tomorrow|at|on|by)\b',
+    r'\bwhen can (they|you|he|she) (come|deliver|start)\b',
+    'స్టాక్',
+    'తగ్గిస్తారా',
+    'తగ్గించ',
+    'డిస్కౌంట్',
+    'డెలివరీ',
+    'ఎప్పుడు వస్తారు',
+    'అందుబాటులో ఉందా',
+    'ఫైనల్ ధర',
+  ].any((p) => RegExp(p).hasMatch(t));
+}
+
+/// A price the customer proposes ("can they do ₹24,000?", "24000 ki istara").
+double? askodoxOfferAmount(String text) {
+  final match = RegExp(r'(?:₹|rs\.?|inr)?\s*(\d{1,3}(?:,\d{2,3})+|\d{3,7})(?:\s*(?:/-|rupees|రూపాయ))?',
+          caseSensitive: false)
+      .firstMatch(text);
+  if (match == null) return null;
+  final amount = double.tryParse(match.group(1)!.replaceAll(',', ''));
+  final negotiating = RegExp(r'(can (they|you|he|she) do|for|at|offer|ok with|కి ఇస్తారా|ఇస్తారా|తగ్గించ)',
+          caseSensitive: false)
+      .hasMatch(text);
+  return amount != null && amount >= 100 && negotiating ? amount : null;
+}
+
+/// Where this message goes. [hasOpenDeal]: a request is already with a
+/// seller/provider in this conversation, so a seller question can be
+/// relayed; otherwise ASKODOX answers what it can and offers Send request.
+AskodoxRoute askodoxRouteMessage(String text,
+    {required bool hasOpenDeal, int previousIssueTurns = 0}) {
+  final support = askodoxAssessSupport(text, previousIssueTurns: previousIssueTurns);
+  if (support.need != AskodoxSupportNeed.none) return AskodoxRoute.support;
+  if (hasOpenDeal && askodoxNeedsSeller(text)) return AskodoxRoute.seller;
+  return AskodoxRoute.ai;
+}
+
+String askodoxSellerRelayReply({required bool offer, required bool telugu}) => telugu
+    ? (offer
+        ? 'మీ ధర ప్రతిపాదనను ASKODOX ద్వారా విక్రేతకు పంపాను. వారి సమాధానం క్రింది డీల్ కార్డ్‌లో కనిపిస్తుంది; మీ ఫోన్ నంబర్ పంచుకోబడదు.'
+        : 'ఈ ప్రశ్నకు విక్రేత మాత్రమే ఖచ్చితంగా చెప్పగలరు, కాబట్టి ASKODOX ద్వారా వారిని అడిగాను. వారి సమాధానం క్రింది డీల్ కార్డ్‌లో కనిపిస్తుంది.')
+    : (offer
+        ? "I've sent your price proposal to the seller through ASKODOX. Their answer will appear on the deal card below -- your phone number is not shared."
+        : 'Only the seller can confirm this, so I asked them through ASKODOX. Their answer will appear on the deal card below.');
+
+String askodoxSellerQuestionHint({required bool telugu}) => telugu
+    ? '\n\nస్టాక్/ఫైనల్ ధర/డెలివరీని విక్రేత మాత్రమే నిర్ధారించగలరు — ఎంపికపై "అభ్యర్థన పంపండి" నొక్కితే ఈ ప్రశ్నను వారికి పంపుతాను.'
+    : '\n\nStock, final price and delivery can only be confirmed by the seller -- tap "Send request" on an option and I will send them this question.';
 
 // --------------------------------------------------------- support policy --
 

@@ -41,6 +41,35 @@ SEGMENT_DEALS = "deals"
 SEGMENT_NEARBY_EXTERNAL = "nearby_external"
 SEGMENT_WIDER_LOCAL = "wider_local"
 
+STATUS_NOT_APPLICABLE = "not_applicable"
+
+# One universal engine, category-aware source selection (never a per-category
+# flow): which discovery sources make sense for the KIND of need.
+NEED_PRODUCT, NEED_SERVICE, NEED_PARTY = "product", "service", "party"
+_SERVICE_DOMAINS = {"SERVICES", "SERVICE", "APPOINTMENT", "EVENT", "REPAIR", "STAFFING", "RENTAL"}
+_PARTY_DOMAINS = {"JOB", "JOBS", "WORK", "WORKERS", "JOB_SEEKER", "RIDE", "MOBILITY", "PARCEL",
+                  "DELIVERY", "COURIER"}
+SOURCE_PLAN = {
+    NEED_PRODUCT: {"askodox", "nearby", "used_deals", "online", "videos"},
+    NEED_SERVICE: {"askodox", "nearby", "online"},
+    NEED_PARTY: {"askodox"},
+}
+
+
+def _public_image(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text if text.startswith("https://") else None
+
+
+def need_kind(demand: dict[str, Any]) -> str:
+    domain = str(demand.get("domain") or "").strip().upper()
+    if domain in _PARTY_DOMAINS:
+        return NEED_PARTY
+    if domain in _SERVICE_DOMAINS:
+        return NEED_SERVICE
+    return NEED_PRODUCT
+
+
 _USED_WORDS = ("used", "second hand", "second-hand", "secondhand", "pre-owned", "preowned", "refurbished")
 _SURPLUS_WORDS = ("open box", "open-box", "openbox", "surplus", "clearance", "excess stock", "stock clearance", "display piece")
 _DEAL_WORDS = ("offer", "discount", "deal", "% off", "sale", "combo", "cashback")
@@ -105,17 +134,24 @@ class UniversalMultiSourceResultService:
         self.web_search = web_search
         self.fallback = UniversalOnlineFallbackService(web_search)
         self._status: dict[str, str] = {}
+        self._kind = NEED_PRODUCT
 
     def source_status(self) -> dict[str, str]:
-        """Per source: ok / no_results / unavailable (never faked)."""
-        return {**self._status, **self.fallback.status}
+        """Per source: ok / no_results / unavailable / not_applicable (never faked)."""
+        status = {**self._status, **self.fallback.status}
+        for source in ("askodox", "nearby", "used_deals", "online", "videos"):
+            if source not in SOURCE_PLAN[self._kind]:
+                status[source] = STATUS_NOT_APPLICABLE
+        return status
 
     # ------------------------------------------------------------ public --
 
     def collect(self, demand: dict[str, Any]) -> list[dict[str, Any]]:
         subject = " ".join(str(demand.get("subject") or "").split())
+        self._kind = need_kind(demand)
         if not subject:
             return []
+        plan = SOURCE_PLAN[self._kind]
         category = str(demand.get("domain") or "").strip()
         constraints = demand.get("constraints") or {}
         context_text = f"{subject} {constraints}"
@@ -126,11 +162,11 @@ class UniversalMultiSourceResultService:
         condition = wanted_condition(context_text)
 
         with ThreadPoolExecutor(max_workers=4) as pool:
-            external = pool.submit(self._external, subject, location_text, lat, lon, radius_km)
-            web = pool.submit(self._web_segments, subject, location_text)
+            external = pool.submit(self._external, subject, location_text, lat, lon, radius_km) if "nearby" in plan else None
+            web = pool.submit(self._web_segments, subject, location_text) if "used_deals" in plan else None
             registered = self._registered(subject, location_text, budget, lat, lon, condition)
-            external_rows = external.result()
-            web_rows = web.result()
+            external_rows = external.result() if external else []
+            web_rows = web.result() if web else []
             rows = registered + external_rows + web_rows
         self._status["askodox"] = STATUS_OK if registered else STATUS_NO_RESULTS
         maps_ready = callable(getattr(self.maps, "search_places", None)) and getattr(self.maps, "enabled", False)
@@ -139,9 +175,16 @@ class UniversalMultiSourceResultService:
         self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
         return sorted(rows, key=lambda item: -float(item.get("rank_score") or 0))
 
-    def online_and_videos(self, *, category: str, subject: str, include_online: bool) -> list[dict[str, Any]]:
-        rows = self.fallback.online(category=category, subject=subject) if include_online else []
-        return rows + self.fallback.videos(category=category, subject=subject)
+    def online_and_videos(self, *, category: str, subject: str, include_online: bool,
+                          location_text: str = "") -> list[dict[str, Any]]:
+        plan = SOURCE_PLAN[self._kind]
+        query = None
+        if self._kind == NEED_SERVICE:
+            near = f" in {location_text}" if location_text else ""
+            query = f"{subject} service{near} book"
+        rows = (self.fallback.online(category=category, subject=subject, query=query)
+                if include_online and "online" in plan else [])
+        return rows + (self.fallback.videos(category=category, subject=subject) if "videos" in plan else [])
 
     # ----------------------------------------------------------- sources --
 
@@ -182,6 +225,8 @@ class UniversalMultiSourceResultService:
                 "price": price,
                 "availability": str(row.get("stock_status") or "").replace("_", " ").title() or None,
                 "location_label": str(row.get("location_label") or "") or None,
+                # Only a real, publicly loadable photo URL -- never a guess.
+                "image_url": _public_image(row.get("image_media_id")),
                 "source": "local",
                 "match_source": "registered",
                 "segment": segment,
@@ -194,7 +239,8 @@ class UniversalMultiSourceResultService:
         search = getattr(self.maps, "search_places", None)
         if not callable(search) or not getattr(self.maps, "enabled", False):
             return []
-        query = f"{subject} shop" + (f" near {location_text}" if location_text else "")
+        noun = "service" if self._kind == NEED_SERVICE else "shop"
+        query = f"{subject} {noun}" + (f" near {location_text}" if location_text else "")
         try:
             places = search(query, latitude=lat, longitude=lon, radius_m=radius_km * 3000, limit=10)
         except Exception:

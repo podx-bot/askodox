@@ -86,4 +86,25 @@ class SupportEscalationService {
       if (_client == null) client.close();
     }
   }
+
+  /// Customer Care's current status/resolution for this user's case (the
+  /// reply returns into the same ASKODOX conversation). Null when
+  /// unavailable -- never a guessed status.
+  Future<Map<String, Object?>?> caseStatus(String caseId, {String? authToken}) async {
+    if (authToken == null || authToken.isEmpty) return null;
+    final client = _client ?? http.Client();
+    try {
+      final response = await client.get(
+        Uri.parse('$_baseUrl/api/in-app/support/cases/$caseId'),
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $authToken'},
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      return decoded is Map ? Map<String, Object?>.from(decoded) : null;
+    } catch (_) {
+      return null;
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
 }

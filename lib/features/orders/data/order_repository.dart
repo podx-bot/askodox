@@ -37,6 +37,11 @@ class Order {
     this.sellerNote,
     this.createdAt,
     this.updatedAt,
+    this.kind = 'product',
+    this.paymentState = 'NOT_STARTED',
+    this.paymentReference,
+    this.closedAt,
+    this.requestContext = const {},
   });
 
   final String id;
@@ -55,6 +60,17 @@ class Order {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  /// 'product' or 'service': same universal lifecycle, different execution
+  /// steps (see backend deal_lifecycle.py).
+  final String kind;
+  /// Truthful payment state: ASKODOX never marks VERIFIED on its own.
+  final String paymentState;
+  final String? paymentReference;
+  final DateTime? closedAt;
+  final Map<String, Object?> requestContext;
+
+  bool get isService => kind == 'service';
+
   factory Order.fromJson(Map<String, Object?> json) => Order(
         id: '${json['id'] ?? ''}',
         buyerUserId: '${json['buyer_user_id'] ?? ''}',
@@ -71,6 +87,13 @@ class Order {
         sellerNote: json['seller_note']?.toString(),
         createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
         updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''),
+        kind: json['kind']?.toString() ?? 'product',
+        paymentState: json['payment_state']?.toString() ?? 'NOT_STARTED',
+        paymentReference: json['payment_reference']?.toString(),
+        closedAt: DateTime.tryParse(json['closed_at']?.toString() ?? ''),
+        requestContext: json['request_context'] is Map
+            ? Map<String, Object?>.from(json['request_context'] as Map)
+            : const {},
       );
 
   // Added 2026-09-16 (round 8). The backend now withholds
@@ -97,7 +120,11 @@ class Order {
 /// Mirrors backend `order_contact_visibility.CONTACT_VISIBLE_STATUSES`: the
 /// other party's contact is shown only once the request is accepted (or
 /// fulfilled). Any other or unknown status keeps it hidden.
-const orderContactVisibleStatuses = {'ACCEPTED', 'FULFILLED'};
+const orderContactVisibleStatuses = {
+  'ACCEPTED', 'FULFILLED', 'PREPARING', 'READY', 'DISPATCHED', 'DELIVERED',
+  'SCHEDULED', 'PROVIDER_ASSIGNED', 'ARRIVED', 'IN_PROGRESS', 'SERVICE_COMPLETED',
+  'DISPUTED', 'RESOLVED', 'CLOSED',
+};
 
 bool orderContactVisible(String? status) =>
     orderContactVisibleStatuses.contains((status ?? '').trim().toUpperCase());
@@ -114,6 +141,8 @@ abstract interface class OrderRepository {
     required String productId,
     double? quantity,
     String? buyerNote,
+    Map<String, Object?>? requestContext,
+    String? question,
   });
 
   Future<List<Order>> myOrders({int limit = 50});
@@ -175,6 +204,8 @@ class ApiOrderRepository implements OrderRepository {
     required String productId,
     double? quantity,
     String? buyerNote,
+    Map<String, Object?>? requestContext,
+    String? question,
   }) async {
     final numericProductId = int.tryParse(productId);
     if (numericProductId == null) {
@@ -190,6 +221,10 @@ class ApiOrderRepository implements OrderRepository {
         if (quantity != null) 'quantity': quantity,
         if (buyerNote != null && buyerNote.trim().isNotEmpty)
           'buyer_note': buyerNote.trim(),
+        if (requestContext != null && requestContext.isNotEmpty)
+          'request_context': requestContext,
+        if (question != null && question.trim().isNotEmpty)
+          'question': question.trim(),
       },
       options: _mutateOptions,
     );
@@ -292,3 +327,134 @@ class ApiOrderRepository implements OrderRepository {
     ];
   }
 }
+
+
+// ---------------------------------------------------------------------------
+// Universal deal lifecycle (orders & bookings): mediated seller Q&A and
+// negotiation, truthful payment state, execution, customer confirmation,
+// problems/disputes, review and alternatives. Backend: orders.py +
+// deal_lifecycle.py.
+
+class OrderMessage {
+  const OrderMessage({required this.fromRole, required this.kind, this.text, this.amount});
+
+  final String fromRole; // buyer | seller
+  final String kind; // QUESTION, ANSWER, OFFER, COUNTER_OFFER, ACCEPT_OFFER, ...
+  final String? text;
+  final double? amount;
+
+  factory OrderMessage.fromJson(Map<String, Object?> json) => OrderMessage(
+        fromRole: json['from_role']?.toString() ?? '',
+        kind: json['kind']?.toString() ?? '',
+        text: json['text']?.toString(),
+        amount: (json['amount'] as num?)?.toDouble(),
+      );
+}
+
+class OrderDetail {
+  const OrderDetail({
+    required this.order,
+    this.messages = const [],
+    this.actions = const [],
+    this.awaiting = 'none',
+    this.sellerUnresponsive = false,
+    this.supportCaseId,
+  });
+
+  final Order order;
+  final List<OrderMessage> messages;
+  /// What this viewer may do next, decided by the server's lifecycle rules.
+  final List<String> actions;
+  /// seller | buyer | support | none
+  final String awaiting;
+  final bool sellerUnresponsive;
+  final String? supportCaseId;
+
+  bool can(String action) => actions.contains(action);
+
+  OrderMessage? get lastOffer {
+    for (final m in messages.reversed) {
+      if (m.kind == 'OFFER' || m.kind == 'COUNTER_OFFER') return m;
+    }
+    return null;
+  }
+
+  factory OrderDetail.fromJson(Map<String, Object?> json) => OrderDetail(
+        order: Order.fromJson(json),
+        messages: [
+          for (final m in (json['messages'] as List? ?? const []))
+            if (m is Map) OrderMessage.fromJson(Map<String, Object?>.from(m)),
+        ],
+        actions: [for (final a in (json['actions'] as List? ?? const [])) '$a'],
+        awaiting: json['awaiting']?.toString() ?? 'none',
+        sellerUnresponsive: json['seller_unresponsive'] == true,
+        supportCaseId: json['support_case_id']?.toString(),
+      );
+}
+
+class OrderLifecycleRepository {
+  OrderLifecycleRepository(this._client, {this.authToken});
+
+  final ApiClient _client;
+  final String? authToken;
+
+  ApiRequestOptions get _options =>
+      ApiRequestOptions(timeout: const Duration(seconds: 30), authToken: authToken);
+
+  Future<OrderDetail> _call(Future<ApiResult<Map<String, Object?>>> request) async {
+    final result = await request;
+    if (result is ApiError<Map<String, Object?>>) {
+      throw StateError(result.failure.message ?? 'This request could not be updated.');
+    }
+    return OrderDetail.fromJson((result as ApiSuccess<Map<String, Object?>>).data);
+  }
+
+  Future<OrderDetail> detail(String orderId) =>
+      _call(_client.get<Map<String, Object?>>('/api/orders/$orderId', options: _options));
+
+  Future<OrderDetail> message(String orderId, String kind, {String? text, double? amount}) => _call(
+      _client.post<Map<String, Object?>>('/api/orders/$orderId/messages',
+          body: {'kind': kind, if (text != null) 'text': text, if (amount != null) 'amount': amount},
+          options: _options));
+
+  Future<OrderDetail> cancel(String orderId) =>
+      _call(_client.post<Map<String, Object?>>('/api/orders/$orderId/cancel', options: _options));
+
+  Future<OrderDetail> payment(String orderId, String action, {String? reference}) => _call(
+      _client.post<Map<String, Object?>>('/api/orders/$orderId/payment',
+          body: {'action': action, if (reference != null) 'reference': reference}, options: _options));
+
+  Future<OrderDetail> confirm(String orderId) =>
+      _call(_client.post<Map<String, Object?>>('/api/orders/$orderId/confirm', options: _options));
+
+  Future<OrderDetail> problem(String orderId,
+          {required String issue, String category = 'DELIVERY', List<String> aiAttempts = const []}) =>
+      _call(_client.post<Map<String, Object?>>('/api/orders/$orderId/problem',
+          body: {'issue': issue, 'category': category, 'ai_attempts': aiAttempts}, options: _options));
+
+  Future<void> review(String orderId, int rating, {String text = ''}) async {
+    final result = await _client.post<Map<String, Object?>>('/api/orders/$orderId/review',
+        body: {'rating': rating, 'text': text}, options: _options);
+    if (result is ApiError<Map<String, Object?>>) {
+      throw StateError(result.failure.message ?? 'The review could not be saved.');
+    }
+  }
+
+  /// Other listings for the same need after a decline -- never start over.
+  Future<List<Map<String, Object?>>> alternatives(String orderId) async {
+    final result = await _client.get<Map<String, Object?>>('/api/orders/$orderId/alternatives', options: _options);
+    if (result is ApiError<Map<String, Object?>>) return const [];
+    return [
+      for (final m in ((result as ApiSuccess<Map<String, Object?>>).data['matches'] as List? ?? const []))
+        if (m is Map) Map<String, Object?>.from(m),
+    ];
+  }
+}
+
+final orderLifecycleRepositoryProvider = Provider<OrderLifecycleRepository>((ref) {
+  final session = ref.watch(authSessionProvider);
+  return OrderLifecycleRepository(
+    ref.watch(apiClientProvider),
+    authToken: session.user == null ? null : session.tokenPlaceholder,
+  );
+});

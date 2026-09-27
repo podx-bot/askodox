@@ -35,6 +35,7 @@ import '../domain/need_clarification.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
 import 'askodox_orb.dart';
+import 'deal_lifecycle_panel.dart';
 import 'video_viewer_screen.dart';
 
 const _ink = Color(0xFF10204A);
@@ -134,6 +135,13 @@ class _AskodoxPrimaryHomeScreenState
   // after the user discussed it with ASKODOX or asked for the seller.
   final Set<String> _actionableMatchKeys = {};
   final Set<String> _requestSentMatchKeys = {};
+  /// Real orders/bookings created from this conversation (match key → id),
+  /// in creation order: the deal panel and seller relay use them.
+  final Map<String, String> _orderByMatchKey = {};
+  /// A seller-only question asked before any request exists; it travels
+  /// with the next Send request so the customer never retypes it.
+  String? _pendingSellerQuestion;
+  int _dealRefreshTick = 0;
   String? _pendingAiContext;
   bool _pendingDiscussOnly = false;
 
@@ -670,6 +678,8 @@ class _AskodoxPrimaryHomeScreenState
       'lastIntent': _lastIntent?.name,
       'actionable': _actionableMatchKeys.toList(),
       'requested': _requestSentMatchKeys.toList(),
+      'orders': Map<String, String>.from(_orderByMatchKey),
+      'pendingSellerQuestion': _pendingSellerQuestion,
       'issueTurns': _issueTurns,
       'clarified': _clarifiedKeys.toList(),
       'pendingClarification': _pendingClarification?.key,
@@ -703,6 +713,8 @@ class _AskodoxPrimaryHomeScreenState
     _supportCaseByTurn.clear();
     _actionableMatchKeys.clear();
     _requestSentMatchKeys.clear();
+    _orderByMatchKey.clear();
+    _pendingSellerQuestion = null;
     _issueTurns = 0;
     _pendingClarification = null;
     _clarifiedKeys.clear();
@@ -783,6 +795,8 @@ class _AskodoxPrimaryHomeScreenState
       });
       _actionableMatchKeys.addAll([for (final k in (data['actionable'] as List? ?? const [])) '$k']);
       _requestSentMatchKeys.addAll([for (final k in (data['requested'] as List? ?? const [])) '$k']);
+      map(data['orders']).forEach((key, value) => _orderByMatchKey[key] = '$value');
+      _pendingSellerQuestion = data['pendingSellerQuestion']?.toString();
       _issueTurns = (data['issueTurns'] as num?)?.toInt() ?? 0;
       _clarifiedKeys.addAll([for (final k in (data['clarified'] as List? ?? const [])) '$k']);
       map(data['clarifications']).forEach((key, raw) {
@@ -837,8 +851,12 @@ class _AskodoxPrimaryHomeScreenState
         : 'Tell me more about "${match.title}": price, distance, quality, availability and reviews');
   }
 
-  void _onRequestSent(String? dealId, UniversalMatch match) {
-    setState(() => _requestSentMatchKeys.add(_matchKey(dealId, match)));
+  void _onRequestSent(String? dealId, UniversalMatch match, String? orderId) {
+    setState(() {
+      _requestSentMatchKeys.add(_matchKey(dealId, match));
+      if (orderId != null && orderId.isNotEmpty) _orderByMatchKey[_matchKey(dealId, match)] = orderId;
+      _pendingSellerQuestion = null;
+    });
     unawaited(_saveSnapshot());
   }
 
@@ -1155,6 +1173,18 @@ class _AskodoxPrimaryHomeScreenState
       _issueTurns = 0; // back to normal commerce: the problem is behind us
     }
 
+    // Universal routing: a seller-only question (stock, final price,
+    // delivery/appointment commitment) about a request already with a
+    // seller/provider is relayed through ASKODOX -- AI never guesses it.
+    final openOrderId = _orderByMatchKey.isEmpty ? null : _orderByMatchKey.values.last;
+    if (openOrderId != null &&
+        explicitContext == null &&
+        askodoxRouteMessage(text, hasOpenDeal: true, previousIssueTurns: _issueTurns - 1) ==
+            AskodoxRoute.seller) {
+      await _relayToSeller(openOrderId, text, speakResponse);
+      return;
+    }
+
     final decision = await ref.read(askodoxAssistantServiceProvider).decide(
       message: aiMessage,
       locale: _te ? 'te' : 'en',
@@ -1180,7 +1210,7 @@ class _AskodoxPrimaryHomeScreenState
         (clarified != null ||
             detailAnswer ||
             (aiUsable
-                ? decision!.transactional
+                ? (decision!.transactional || AskodoxSemanticDealInput.isConcreteNeed(decision))
                 : AskodoxHomeRequestRouting.isTransactional(text)));
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
@@ -1296,7 +1326,7 @@ class _AskodoxPrimaryHomeScreenState
       previous != null &&
       (_isContinuation(text.toLowerCase()) ||
         _looksLikeGeneralFollowUp(text.toLowerCase()));
-    final reply = needClarification != null
+    var reply = needClarification != null
       ? (_te ? needClarification.teluguQuestion : needClarification.question)
       : aiUsable &&
         !(isGeneralContinuation &&
@@ -1317,8 +1347,39 @@ class _AskodoxPrimaryHomeScreenState
             ? askodoxResultsReply(results, telugu: _te)
             : _fallbackAssistantReply(text, _te);
 
+    // Dynamic questions: an unfinished requirement always ends with the NEXT
+    // question it needs (e.g. area for local results), even when the AI's
+    // own reply is an explanation -- otherwise the app waits silently and
+    // the customer only ever sees text.
+    final nextQuestion = detailQuestion?.trim();
+    if (transactional &&
+        needClarification == null &&
+        nextQuestion != null &&
+        nextQuestion.isNotEmpty &&
+        !reply.trim().endsWith('?') &&
+        !reply.contains(nextQuestion)) {
+      final ask = askodoxDetailQuestionReply(nextQuestion, telugu: _te);
+      reply = reply.trim().isEmpty || reply == ask ? ask : '${reply.trim()}\n\n$ask';
+    }
+
+    final sellerOnly = openOrderId == null &&
+        latestResults != null &&
+        latestResults.hasLocal &&
+        askodoxNeedsSeller(text);
+    if (sellerOnly) {
+      // ASKODOX answers what it can; the seller-only part rides along with
+      // the next Send request.
+      _pendingSellerQuestion = text;
+      reply = '$reply${askodoxSellerQuestionHint(telugu: _te)}';
+    }
+
     if (!mounted) return;
     setState(() {
+      if (sellerOnly) {
+        for (final match in latestResults.local) {
+          _actionableMatchKeys.add(_matchKey(latestResults.dealId, match));
+        }
+      }
       if (roleNotice != null) _roleNoticeByTurn[userTurnIndex] = roleNotice;
       if (roleQuestion != null) _roleQuestionByTurn[userTurnIndex] = roleQuestion;
       _listingBanner = listingBanner;
@@ -1342,6 +1403,107 @@ class _AskodoxPrimaryHomeScreenState
     await _saveSnapshot();
     _scrollBottom();
     if (speakResponse) await _speakReply(reply, userText: text);
+  }
+
+  Future<void> _relayToSeller(String orderId, String text, bool speakResponse) async {
+    final amount = askodoxOfferAmount(text);
+    String reply;
+    try {
+      await ref.read(orderLifecycleRepositoryProvider).message(
+            orderId,
+            amount != null ? 'OFFER' : 'QUESTION',
+            text: text,
+            amount: amount,
+          );
+      reply = askodoxSellerRelayReply(offer: amount != null, telugu: _te);
+    } catch (error) {
+      reply = _te
+          ? 'ఇప్పుడు విక్రేతకు పంపలేకపోయాను. దయచేసి మళ్లీ ప్రయత్నించండి.'
+          : 'I could not reach the seller right now. Please try again.';
+    }
+    if (!mounted) return;
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+      _dealRefreshTick++;
+      _sending = false;
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) await _speakReply(reply, userText: text);
+  }
+
+  /// The structured requirement that travels with a request, so the seller
+  /// / provider (and later Customer Care) never ask the customer again.
+  Map<String, Object?> _requestContextFor(String? dealId) {
+    UniversalDeal? deal;
+    _resultsByTurn.forEach((turn, results) {
+      if (results.dealId == dealId && _dealByTurn[turn] != null) deal = _dealByTurn[turn];
+    });
+    final d = deal ?? ref.read(universalDealControllerProvider).deal;
+    if (d == null) return {if (dealId != null) 'deal_id': dealId};
+    return {
+      if (dealId != null) 'deal_id': dealId,
+      'subject': d.subject,
+      'category': d.category,
+      'intent': d.intent.name,
+      'quantity': d.quantity,
+      'unit': d.unit,
+      'budget': d.price,
+      'size': d.size,
+      'model': d.model,
+      'variant': d.variant,
+      'quality': d.quality,
+      'timing': d.timing,
+      'fulfilment': d.fulfilment,
+      'location': d.location.label,
+      ...d.dynamicFields,
+    }..removeWhere((_, value) => value == null || (value is String && value.trim().isEmpty));
+  }
+
+  Future<void> _compareMatch(AskodoxChatResults results, UniversalMatch match) async {
+    for (final option in results.local) {
+      _actionableMatchKeys.add(_matchKey(results.dealId, option));
+    }
+    _pendingAiContext = 'Compare for the user. Selected: ${askodoxOptionContext(match)}\n'
+        'Other options shown:\n${_resultsContext(results)}';
+    _pendingDiscussOnly = true;
+    await _send(_te
+        ? '"${match.title}" ని మిగతా ఎంపికలతో పోల్చండి'
+        : 'Compare "${match.title}" with the other options');
+  }
+
+  /// A declined request never dead-ends: the same need, other options.
+  void _showAlternatives(String? dealId, List<Map<String, Object?>> rows) {
+    final matches = [
+      for (final row in rows) UniversalMatch.fromJson(row),
+    ].where((m) => m.id.isNotEmpty).toList();
+    setState(() {
+      _turns.add(ConversationTurnRecord(
+        text: matches.isEmpty
+            ? (_te
+                ? 'ఈ విక్రేత అంగీకరించలేదు. ఇదే అవసరానికి ఇప్పుడు ఇతర నమోదైన ఎంపికలు లేవు; మళ్లీ వెతకమంటారా?'
+                : 'That seller declined. There are no other registered options for the same need right now -- shall I search again?')
+            : (_te
+                ? 'ఆ విక్రేత అంగీకరించలేదు. మీ అవసరం అలాగే ఉంది — ఇవి ఇతర ఎంపికలు:'
+                : 'That seller declined. Your requirement is kept -- here are other options for the same need:'),
+        isUser: false,
+      ));
+      if (matches.isNotEmpty) {
+        _resultsByTurn[_turns.length - 1] = AskodoxChatResults(dealId: dealId, matches: matches, searched: true);
+      }
+    });
+    unawaited(_saveSnapshot());
+    _scrollBottom();
+  }
+
+  /// Seller not responding: Customer Care with the full context.
+  Future<void> _dealSupport() async {
+    final turn = _turns.lastIndexWhere((t) => !t.isUser);
+    if (turn < 0) return;
+    setState(() => _supportByTurn[turn] =
+        const AskodoxSupportAssessment(AskodoxSupportNeed.immediate, category: 'SELLER_UNRESPONSIVE'));
+    await _escalateToSupport(turn);
   }
 
   /// Speaks the reply with the existing Sarvam Bulbul v3 pipeline
@@ -1690,7 +1852,16 @@ class _AskodoxPrimaryHomeScreenState
                 onAsk: _sending
                     ? null
                     : (match) => _askAboutMatch(results.dealId, match),
-                onRequestSent: (match) => _onRequestSent(results.dealId, match),
+                onCompare: _sending || results.local.length < 2
+                    ? null
+                    : (match) => _compareMatch(results, match),
+                onRequestSent: (match, orderId) => _onRequestSent(results.dealId, match, orderId),
+                orderIdFor: (match) => _orderByMatchKey[_matchKey(results.dealId, match)],
+                requestContext: () => _requestContextFor(results.dealId),
+                pendingQuestion: _pendingSellerQuestion,
+                refreshTick: _dealRefreshTick,
+                onAlternatives: (rows) => _showAlternatives(results.dealId, rows),
+                onSupport: _dealSupport,
               ),
             if (_clarificationByTurn[index] case final clarification?)
               if (identical(clarification, _pendingClarification) &&
@@ -1715,6 +1886,13 @@ class _AskodoxPrimaryHomeScreenState
                 te: te,
                 critical: support.critical,
                 supportCase: _supportCaseByTurn[index],
+                onCheckReply: (caseId) {
+                  final session = ref.read(authSessionProvider);
+                  return ref.read(askodoxSupportEscalationServiceProvider).caseStatus(
+                        caseId,
+                        authToken: session.user == null ? null : session.tokenPlaceholder,
+                      );
+                },
                 onChat: () => _escalateToSupport(index),
                 onOpen: _openExternal,
               ),
@@ -2180,11 +2358,13 @@ class _SupportCard extends StatefulWidget {
     required this.onChat,
     required this.onOpen,
     this.supportCase,
+    this.onCheckReply,
   });
 
   final bool te;
   final bool critical;
   final AskodoxSupportCase? supportCase;
+  final Future<Map<String, Object?>?> Function(String caseId)? onCheckReply;
   final Future<void> Function() onChat;
   final Future<void> Function(String uri) onOpen;
 
@@ -2194,6 +2374,29 @@ class _SupportCard extends StatefulWidget {
 
 class _SupportCardState extends State<_SupportCard> {
   bool _busy = false;
+  String? _reply;
+
+  Future<void> _check(String caseId) async {
+    setState(() => _busy = true);
+    final status = await widget.onCheckReply!(caseId);
+    if (!mounted) return;
+    final te = widget.te;
+    setState(() {
+      _busy = false;
+      if (status == null) {
+        _reply = te ? 'స్థితి ఇప్పుడు అందుబాటులో లేదు.' : 'Status is unavailable right now.';
+      } else {
+        final state = '${status['status'] ?? ''}';
+        final note = status['resolution_note']?.toString();
+        _reply = switch (state) {
+          'RESOLVED' || 'CLOSED' => (te ? 'సపోర్ట్ పరిష్కరించింది: ' : 'Support resolved it: ') + (note ?? ''),
+          'WAITING_FOR_USER' => te ? 'సపోర్ట్ మీ నుండి సమాచారం కోరుతోంది.' : 'Support needs more information from you.',
+          'IN_PROGRESS' => te ? 'సపోర్ట్ టీమ్ పని చేస్తోంది.' : 'A support agent is working on it.',
+          _ => te ? 'కేసు తెరిచి ఉంది; ఇంకా సమాధానం లేదు.' : 'Case open; no reply yet.',
+        };
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2253,7 +2456,16 @@ class _SupportCardState extends State<_SupportCard> {
                 icon: const Icon(Icons.call_rounded),
                 label: Text(te ? 'సపోర్ట్‌కు కాల్' : 'Call Support'),
               ),
+            if (widget.onCheckReply != null)
+              TextButton.icon(
+                key: const Key('askodoxSupportCheckReply'),
+                onPressed: _busy ? null : () => _check(supportCase.caseId),
+                icon: const Icon(Icons.mark_email_unread_outlined),
+                label: Text(te ? 'సమాధానం చూడండి' : 'Check for reply'),
+              ),
           ]),
+          if (_reply != null)
+            Text(_reply!, key: const Key('askodoxSupportReply'), style: const TextStyle(color: _ink)),
         ],
       ]),
     );
@@ -2274,6 +2486,13 @@ class _ChatResultsView extends StatelessWidget {
     required this.onRequestSent,
     this.onAsk,
     this.onRetry,
+    this.onCompare,
+    this.orderIdFor,
+    this.requestContext,
+    this.pendingQuestion,
+    this.refreshTick = 0,
+    this.onAlternatives,
+    this.onSupport,
   });
 
   final AskodoxChatResults results;
@@ -2283,7 +2502,14 @@ class _ChatResultsView extends StatelessWidget {
   final bool Function(UniversalMatch match) isActionable;
   final bool Function(UniversalMatch match) wasRequested;
   final void Function(UniversalMatch match)? onAsk;
-  final void Function(UniversalMatch match) onRequestSent;
+  final void Function(UniversalMatch match)? onCompare;
+  final void Function(UniversalMatch match, String? orderId) onRequestSent;
+  final String? Function(UniversalMatch match)? orderIdFor;
+  final Map<String, Object?> Function()? requestContext;
+  final String? pendingQuestion;
+  final int refreshTick;
+  final void Function(List<Map<String, Object?>> rows)? onAlternatives;
+  final Future<void> Function()? onSupport;
 
   @override
   Widget build(BuildContext context) {
@@ -2334,7 +2560,14 @@ class _ChatResultsView extends StatelessWidget {
               actionable: isActionable(match),
               alreadySent: wasRequested(match),
               onAsk: onAsk == null ? null : () => onAsk!(match),
-              onRequestSent: () => onRequestSent(match),
+              onCompare: onCompare == null ? null : () => onCompare!(match),
+              onRequestSent: (orderId) => onRequestSent(match, orderId),
+              orderId: orderIdFor?.call(match),
+              requestContext: requestContext,
+              pendingQuestion: pendingQuestion,
+              refreshTick: refreshTick,
+              onAlternatives: onAlternatives,
+              onSupport: onSupport,
             ),
         ],
         if (_sourceNote(te) case final note?)
@@ -2433,6 +2666,13 @@ class _MatchCard extends ConsumerStatefulWidget {
     this.actionable = false,
     this.alreadySent = false,
     this.onAsk,
+    this.onCompare,
+    this.orderId,
+    this.requestContext,
+    this.pendingQuestion,
+    this.refreshTick = 0,
+    this.onAlternatives,
+    this.onSupport,
   });
   final UniversalMatch match;
   final String? dealId;
@@ -2443,7 +2683,14 @@ class _MatchCard extends ConsumerStatefulWidget {
   final bool actionable;
   final bool alreadySent;
   final VoidCallback? onAsk;
-  final VoidCallback onRequestSent;
+  final VoidCallback? onCompare;
+  final void Function(String? orderId) onRequestSent;
+  final String? orderId;
+  final Map<String, Object?> Function()? requestContext;
+  final String? pendingQuestion;
+  final int refreshTick;
+  final void Function(List<Map<String, Object?>> rows)? onAlternatives;
+  final Future<void> Function()? onSupport;
 
   @override
   ConsumerState<_MatchCard> createState() => _MatchCardState();
@@ -2516,9 +2763,11 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     try {
       result = _action == ChatResultAction.connect
           ? await _connect()
-          : await ref
-              .read(orderRepositoryProvider)
-              .placeOrder(productId: _match.id);
+          : await ref.read(orderRepositoryProvider).placeOrder(
+                productId: _match.id,
+                requestContext: widget.requestContext?.call(),
+                question: widget.pendingQuestion,
+              );
     } catch (error) {
       final message = error is StateError ? error.message : null;
       result = OrderActionResult(
@@ -2530,7 +2779,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       );
     }
     if (!mounted) return;
-    if (result.success) widget.onRequestSent();
+    if (result.success) widget.onRequestSent(result.order?.id);
     setState(() {
       _placing = false;
       _orderFailed = !result.success;
@@ -2717,6 +2966,29 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
             ),
           ),
+        Wrap(spacing: 4, children: [
+          if (widget.onCompare != null && action != ChatResultAction.watchVideo)
+            TextButton.icon(
+              key: ValueKey('askodoxCompare-${match.id}'),
+              onPressed: widget.onCompare,
+              icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+              label: Text(te ? 'పోల్చండి' : 'Compare'),
+            ),
+          TextButton.icon(
+            key: ValueKey('askodoxDetails-${match.id}'),
+            onPressed: () => _showDetails(context),
+            icon: const Icon(Icons.info_outline_rounded, size: 18),
+            label: Text(te ? 'వివరాలు' : 'Details'),
+          ),
+        ]),
+        if (widget.orderId != null && widget.orderId!.isNotEmpty)
+          AskodoxDealPanel(
+            key: ValueKey('askodoxDeal-${widget.orderId}-${widget.refreshTick}'),
+            orderId: widget.orderId!,
+            te: te,
+            onAlternatives: widget.onAlternatives,
+            onSupport: widget.onSupport,
+          ),
         if (match.destinationUrl?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 8),
           SizedBox(
@@ -2747,6 +3019,55 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
             ),
         ],
       ]),
+    );
+  }
+
+  /// Every verified field of the option -- nothing invented.
+  void _showDetails(BuildContext context) {
+    final m = _match;
+    final te = _te;
+    final rows = <(String, String)>[
+      (te ? 'పేరు' : 'Name', m.title),
+      if (m.subtitle?.trim().isNotEmpty == true) (te ? 'వివరణ' : 'Description', m.subtitle!.trim()),
+      (te ? 'మూలం' : 'Source', [_sourceLabel(m.source), if (m.sourceName?.trim().isNotEmpty == true) m.sourceName!.trim()].join(' · ')),
+      if (m.segment?.trim().isNotEmpty == true) (te ? 'రకం' : 'Type', askodoxSegmentLabel(m.segment!)),
+      if (m.price != null) (te ? 'ధర' : 'Price', '₹${m.price!.toStringAsFixed(0)}'),
+      if (m.distanceKm != null) (te ? 'దూరం' : 'Distance', '${m.distanceKm!.toStringAsFixed(1)} km'),
+      if (m.locationLabel?.trim().isNotEmpty == true) (te ? 'ప్రదేశం' : 'Location', m.locationLabel!.trim()),
+      if (m.availability?.trim().isNotEmpty == true) (te ? 'అందుబాటు' : 'Availability', m.availability!.trim()),
+      if (m.ratingAverage != null) (te ? 'రేటింగ్' : 'Rating', '★ ${m.ratingAverage!.toStringAsFixed(1)} (${m.reviewCount})'),
+      if (m.destinationUrl?.trim().isNotEmpty == true) (te ? 'లింక్' : 'Link', m.destinationUrl!.trim()),
+      if (m.affiliate || m.disclosure?.trim().isNotEmpty == true)
+        (te ? 'గమనిక' : 'Note', m.disclosure?.trim().isNotEmpty == true ? m.disclosure!.trim() : 'Affiliate link'),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          key: const Key('askodoxDetailsSheet'),
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final (label, value) in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text.rich(TextSpan(children: [
+                  TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  TextSpan(text: value),
+                ])),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                te
+                    ? 'స్టాక్, ఫైనల్ ధర, డెలివరీని విక్రేత మాత్రమే నిర్ధారించగలరు.'
+                    : 'Stock, final price and delivery are confirmed only by the seller/provider.',
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

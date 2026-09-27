@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/deal_brain/domain/universal_deal.dart';
 import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
+import 'package:podx/features/home/domain/semantic_deal_input.dart';
+import 'package:podx/services/in_app_assistant_service.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -229,6 +231,53 @@ void main() {
       expect(askodoxResultsReply(online, telugu: true), contains('ఆన్‌లైన్'));
       expect(askodoxDetailQuestionReply('How much do you need?', telugu: true),
           contains('How much do you need?'));
+    });
+  });
+
+  group('universal routing: AI first, seller for seller-only facts, support when needed', () {
+    test('seller-only questions are recognised in English and Telugu', () {
+      for (final q in ['Is it in stock?', 'What is the final price?', 'Can they do 24000?',
+          'Is free delivery included?', 'When can they come tomorrow?', 'స్టాక్ ఉందా?', 'ధర తగ్గిస్తారా?']) {
+        expect(askodoxNeedsSeller(q), isTrue, reason: q);
+      }
+      for (final q in ['What is the difference between LED and QLED?', 'Which one is better?', 'Explain battery backup']) {
+        expect(askodoxNeedsSeller(q), isFalse, reason: q);
+      }
+    });
+
+    test('price proposals are extracted only when the customer is negotiating', () {
+      expect(askodoxOfferAmount('Can they do ₹24,000?'), 24000);
+      expect(askodoxOfferAmount('will they give it for 23500'), 23500);
+      expect(askodoxOfferAmount('Is it 43 inch?'), isNull);
+      expect(askodoxOfferAmount('Is it in stock?'), isNull);
+    });
+
+    test('one central decision: AI, seller or support', () {
+      expect(askodoxRouteMessage('Which is better?', hasOpenDeal: true), AskodoxRoute.ai);
+      expect(askodoxRouteMessage('Is it in stock?', hasOpenDeal: true), AskodoxRoute.seller);
+      expect(askodoxRouteMessage('Is it in stock?', hasOpenDeal: false), AskodoxRoute.ai,
+          reason: 'no request yet: AI answers and offers Send request');
+      expect(askodoxRouteMessage('Money deducted but order not confirmed', hasOpenDeal: true), AskodoxRoute.support);
+    });
+
+    test('contact stays hidden before acceptance and after decline, visible through the accepted deal', () {
+      for (final s in ['PLACED', 'REJECTED', 'CANCELLED']) {
+        expect(orderContactVisible(s), isFalse, reason: s);
+      }
+      for (final s in ['ACCEPTED', 'DISPATCHED', 'SERVICE_COMPLETED', 'DISPUTED', 'CLOSED']) {
+        expect(orderContactVisible(s), isTrue, reason: s);
+      }
+    });
+
+    test('a concrete need is searched even when the AI labels its reply as advice', () {
+      InAppAssistantDecision decision(String domain, Map<String, Object?> entities) =>
+          InAppAssistantDecision.fromJson({
+            'reply': 'x', 'domain': domain, 'transactional': false, 'source': 'universal_ai', 'entities': entities,
+          });
+      expect(AskodoxSemanticDealInput.isConcreteNeed(decision('PRODUCT', {'subject': '43 inch TV'})), isTrue);
+      expect(AskodoxSemanticDealInput.isConcreteNeed(decision('SERVICE', {'service': 'AC installation'})), isTrue);
+      expect(AskodoxSemanticDealInput.isConcreteNeed(decision('GENERAL', {'subject': 'Diwali'})), isFalse);
+      expect(AskodoxSemanticDealInput.isConcreteNeed(decision('PRODUCT', const {})), isFalse);
     });
   });
 }

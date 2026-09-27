@@ -30,6 +30,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.repositories.order_repository import VALID_STATUSES
+from app.services import deal_lifecycle as lifecycle
 from app.services.order_contact_visibility import mask_contact_for_viewer
 from app.services.session_tokens import verify_token
 
@@ -81,6 +82,11 @@ class PlaceOrderRequest(BaseModel):
     product_id: int
     quantity: float | None = None
     buyer_note: str | None = None
+    # Structured requirement from the conversation (category, specs, budget,
+    # date/time...) so the seller never asks the customer to repeat it.
+    request_context: dict[str, Any] | None = None
+    # Optional first question for the seller (stock, final price, delivery).
+    question: str | None = Field(default=None, max_length=2000)
 
 
 class OrderResponse(BaseModel):
@@ -95,6 +101,12 @@ class OrderResponse(BaseModel):
     currency: str = "INR"
     total_amount: float | None = None
     status: str
+    kind: str = "product"
+    payment_state: str = "NOT_STARTED"
+    payment_reference: str | None = None
+    closed_at: str | None = None
+    dispute_escalation_id: int | None = None
+    request_context: dict[str, Any] | None = None
     buyer_note: str | None = None
     seller_note: str | None = None
     created_at: str
@@ -146,7 +158,11 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
         price=(float(product["price"]) if product.get("price") is not None else None),
         currency=str(product.get("currency") or "INR"),
         buyer_note=payload.buyer_note,
+        kind=lifecycle.kind_for(product, _seller_profile(container, seller_user_id)),
+        request_context=_clean_context(payload.request_context),
     )
+    if payload.question and payload.question.strip():
+        container.order_repository.add_message(order_id, "buyer", "QUESTION", payload.question)
     order = container.order_repository.get(order_id)
     if not order:
         raise HTTPException(status_code=500, detail="Order was not saved")
@@ -185,7 +201,305 @@ def update_order_status(order_id: int, payload: UpdateOrderStatusRequest, reques
     clean_status = payload.status.strip().upper()
     if clean_status not in VALID_STATUSES:
         raise HTTPException(status_code=422, detail=f"status must be one of {', '.join(VALID_STATUSES)}")
-
-    container.order_repository.update_status(order_id, clean_status, seller_note=payload.seller_note)
+    try:
+        # Forward-only, category-aware; "done" never closes the deal -- the
+        # customer confirms (or reports a problem) first.
+        target = lifecycle.check_seller_transition(order["status"], clean_status, order.get("kind") or "product")
+    except lifecycle.LifecycleError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    fields: dict[str, Any] = {"status": target}
+    if payload.seller_note:
+        fields["seller_note"] = payload.seller_note.strip()
+    if target == lifecycle.ACCEPTED and order.get("payment_state") in (None, "NOT_STARTED"):
+        fields["payment_state"] = lifecycle.payment_after_accept(order.get("total_amount") or order.get("price"))
+    container.order_repository.update_fields(order_id, **fields)
     updated = container.order_repository.get(order_id)
     return _to_response(updated, viewer="seller")
+
+
+# ------------------------------------------------ universal deal lifecycle --
+# One lifecycle for products and services (deal_lifecycle.py): mediated
+# questions and negotiation (no contact exposed), payment state that never
+# claims money moved without a confirmation, customer confirmation before
+# close, disputes routed to Customer Care with the full context package.
+
+
+def _seller_profile(container: Any, seller_user_id: str) -> dict[str, Any]:
+    repo = getattr(container, "seller_profile_repository", None)
+    try:
+        return dict(repo.get(seller_user_id) or {}) if repo is not None else {}
+    except Exception:
+        return {}
+
+
+def _clean_context(context: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not context:
+        return None
+    return {str(k)[:40]: v for k, v in list(context.items())[:30] if v not in (None, "", [], {})}
+
+
+def _party(container: Any, order_id: int, request: Request) -> tuple[dict[str, Any], str]:
+    user_id = _authenticated_app_user(request)
+    order = container.order_repository.get(order_id)
+    if order and str(order.get("buyer_user_id")) == user_id:
+        return order, "buyer"
+    if order and str(order.get("seller_user_id")) == user_id:
+        return order, "seller"
+    raise HTTPException(status_code=404, detail="Order not found")
+
+
+def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
+    messages = container.order_repository.messages(order["id"])
+    body = _to_response(order, viewer=role).model_dump()
+    body.update({
+        "messages": messages,
+        "awaiting": lifecycle.awaiting(order, messages),
+        "seller_unresponsive": lifecycle.seller_unresponsive(order, messages),
+        "actions": lifecycle.buyer_actions(order, messages) if role == "buyer" else lifecycle.seller_actions(order, messages),
+        "viewer": role,
+        "payment_note": "ASKODOX does not process payments; payment is made directly to the seller/provider.",
+    })
+    return body
+
+
+@router.get("/{order_id}")
+def order_detail(order_id: int, request: Request) -> dict[str, Any]:
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    return _detail(container, order, role)
+
+
+class OrderMessageRequest(BaseModel):
+    kind: str
+    text: str | None = Field(default=None, max_length=2000)
+    amount: float | None = Field(default=None, gt=0)
+
+
+_ROLE_KINDS = {
+    "buyer": {"QUESTION", "OFFER", "ACCEPT_OFFER", "DECLINE_OFFER", "NOTE"},
+    "seller": {"ANSWER", "COUNTER_OFFER", "ACCEPT_OFFER", "DECLINE_OFFER", "NOTE"},
+}
+
+
+@router.post("/{order_id}/messages")
+def order_message(order_id: int, payload: OrderMessageRequest, request: Request) -> dict[str, Any]:
+    """ASKODOX-mediated buyer <-> seller/provider questions and negotiation."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    kind = payload.kind.strip().upper()
+    if kind not in _ROLE_KINDS[role]:
+        raise HTTPException(status_code=422, detail=f"A {role} cannot send {kind}")
+    if order["status"] in {lifecycle.REJECTED, lifecycle.CANCELLED, lifecycle.CLOSED}:
+        raise HTTPException(status_code=409, detail="This deal is no longer open")
+    if kind in {"OFFER", "COUNTER_OFFER"} and not payload.amount:
+        raise HTTPException(status_code=422, detail="An offer needs an amount")
+    if kind in {"QUESTION", "ANSWER", "NOTE"} and not (payload.text or "").strip():
+        raise HTTPException(status_code=422, detail="Message text is required")
+    messages = container.order_repository.messages(order_id)
+    if kind in {"ACCEPT_OFFER", "DECLINE_OFFER"}:
+        pending = next((m for m in reversed(messages) if m["kind"] in {"OFFER", "COUNTER_OFFER"}), None)
+        if not pending or pending["from_role"] == role or any(
+                m["kind"] in {"ACCEPT_OFFER", "DECLINE_OFFER"} and m["id"] > pending["id"] for m in messages):
+            raise HTTPException(status_code=409, detail="There is no open offer from the other party")
+        if kind == "ACCEPT_OFFER":
+            amount = float(pending["amount"])
+            total = amount * float(order["quantity"]) if order.get("quantity") else amount
+            container.order_repository.update_fields(order_id, price=amount, total_amount=total)
+            payload.amount = amount
+    container.order_repository.add_message(order_id, role, kind, payload.text or "", payload.amount)
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+@router.post("/{order_id}/cancel")
+def cancel_order(order_id: int, request: Request) -> dict[str, Any]:
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "buyer":
+        raise HTTPException(status_code=403, detail="Only the customer can cancel their request")
+    try:
+        lifecycle.check_buyer_cancel(order["status"])
+    except lifecycle.LifecycleError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    container.order_repository.update_fields(order_id, status=lifecycle.CANCELLED)
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+class PaymentAction(BaseModel):
+    action: str
+    reference: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/{order_id}/payment")
+def order_payment(order_id: int, payload: PaymentAction, request: Request) -> dict[str, Any]:
+    """Truthful payment state: the customer submits a UPI/UTR reference; only
+    the seller/provider (money received) or staff can mark it VERIFIED."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    action = payload.action.strip().lower()
+    state = order.get("payment_state") or "NOT_STARTED"
+    if role == "buyer" and action == "submit_reference":
+        if order["status"] not in lifecycle.OPEN_EXECUTION | lifecycle.COMPLETION_STATES:
+            raise HTTPException(status_code=409, detail="Payment is made after the seller/provider accepts")
+        reference = (payload.reference or "").strip()
+        if len(reference) < 6:
+            raise HTTPException(status_code=422, detail="Enter the payment reference (UTR) from your UPI app")
+        container.order_repository.update_fields(order_id, payment_state="PROOF_SUBMITTED", payment_reference=reference)
+        _notify_admin(container, f"payment_proof:{order_id}", "payment_proof",
+                      f"Payment reference submitted for order #{order_id}", order_id)
+    elif role == "seller" and action in {"confirm_received", "not_received"}:
+        if state != "PROOF_SUBMITTED":
+            raise HTTPException(status_code=409, detail="No payment reference is waiting for confirmation")
+        container.order_repository.update_fields(
+            order_id,
+            payment_state="VERIFIED" if action == "confirm_received" else "FAILED",
+            payment_verified_by="seller" if action == "confirm_received" else None,
+        )
+    else:
+        raise HTTPException(status_code=422, detail="Unsupported payment action")
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+@router.post("/{order_id}/confirm")
+def confirm_completion(order_id: int, request: Request) -> dict[str, Any]:
+    """Customer confirms they received the product / the service was done.
+    Only this closes the deal."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "buyer":
+        raise HTTPException(status_code=403, detail="Only the customer can confirm completion")
+    try:
+        lifecycle.check_customer_confirm(order["status"])
+    except lifecycle.LifecycleError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    from datetime import datetime, timezone
+
+    container.order_repository.update_fields(order_id, status=lifecycle.CLOSED,
+                                             closed_at=datetime.now(timezone.utc).isoformat())
+    return _detail(container, container.order_repository.get(order_id), role)
+
+
+class ProblemRequest(BaseModel):
+    issue: str = Field(min_length=3, max_length=2000)
+    category: str = "DELIVERY"
+    ai_attempts: list[str] = Field(default_factory=list)
+
+
+@router.post("/{order_id}/problem")
+def report_problem(order_id: int, payload: ProblemRequest, request: Request) -> dict[str, Any]:
+    """Not received / wrong / damaged / provider didn't come / payment issue:
+    the deal is held open (DISPUTED) and Customer Care gets the full context
+    package once -- the customer never retells the story."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    try:
+        lifecycle.check_problem(order["status"])
+    except lifecycle.LifecycleError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    category = payload.category.strip().upper() or "DELIVERY"
+    messages = container.order_repository.messages(order_id)
+    context = order_context_package(order, messages, reason=payload.issue, reported_by=role,
+                                    ai_attempts=payload.ai_attempts)
+    from app.api.routes.in_app_assistant import _support_repository
+
+    case = _support_repository(container).create(
+        _authenticated_app_user(request), payload.issue, category,
+        category in {"PAYMENT", "SAFETY", "FRAUD"}, context,
+    )
+    fields: dict[str, Any] = {"status": lifecycle.DISPUTED, "dispute_from_status": order["status"],
+                              "dispute_escalation_id": case.get("id")}
+    if category == "PAYMENT":
+        fields["payment_state"] = "DISPUTED"
+    container.order_repository.update_fields(order_id, **fields)
+    _notify_admin(container, f"dispute:order:{order_id}", "dispute", f"{category}: order #{order_id} -- {payload.issue[:60]}",
+                  case.get("id"))
+    return {**_detail(container, container.order_repository.get(order_id), role), "support_case_id": case.get("id")}
+
+
+def order_context_package(order: dict[str, Any], messages: list[dict[str, Any]], *, reason: str,
+                          reported_by: str, ai_attempts: list[str] | None = None) -> dict[str, Any]:
+    """Everything Customer Care needs in one place (ids masked)."""
+    from app.repositories.command_center_repository import mask_user_id
+
+    return {
+        "order_id": order["id"],
+        "deal_id": str((order.get("request_context") or {}).get("deal_id") or ""),
+        "kind": order.get("kind"),
+        "selected": order.get("product_title"),
+        "requirement": order.get("request_context") or {},
+        "status_before_problem": order.get("status"),
+        "payment_state": order.get("payment_state"),
+        "price": order.get("price"),
+        "quantity": order.get("quantity"),
+        "buyer": mask_user_id(order.get("buyer_user_id")),
+        "seller": mask_user_id(order.get("seller_user_id")),
+        "conversation": [{"role": m["from_role"], "text": f"{m['kind']}: {m.get('text') or ''} {m.get('amount') or ''}".strip()}
+                         for m in messages[-30:]],
+        "actions_tried": list(ai_attempts or [])[-20:],
+        "reported_by": reported_by,
+        "problem": reason,
+    }
+
+
+def _notify_admin(container: Any, event_key: str, kind: str, title: str, entity_id: Any) -> None:
+    try:
+        from app.api.routes.command_center import command_center, feature_enabled
+
+        if feature_enabled(container, "notifications.admin"):
+            command_center(container).notify_once(event_key, kind, title, str(entity_id or ""))
+    except Exception:
+        pass
+
+
+class OrderReview(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    text: str = Field(default="", max_length=2000)
+
+
+@router.post("/{order_id}/review")
+def review_order(order_id: int, payload: OrderReview, request: Request) -> dict[str, Any]:
+    """Only after a genuinely closed deal; feeds the same trust summary shown
+    on match cards (universal_reviews). Keyed by -order_id so order reviews
+    never collide with request-level reviews."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "buyer":
+        raise HTTPException(status_code=403, detail="Only the customer reviews a deal")
+    if order["status"] != lifecycle.CLOSED:
+        raise HTTPException(status_code=409, detail="Reviews open after the deal is completed and closed")
+    result = container.universal_review_repository.create(
+        -int(order_id), order["buyer_user_id"], order["seller_user_id"],
+        (order.get("kind") or "product").upper(), payload.rating, payload.text,
+    )
+    return {"order_id": order_id, **result}
+
+
+@router.get("/{order_id}/alternatives")
+def order_alternatives(order_id: int, request: Request, limit: int = 5) -> dict[str, Any]:
+    """After a decline (or no response): other active listings for the same
+    need, excluding that seller -- the customer never starts over."""
+    container: Any = request.app.state.container
+    order, role = _party(container, order_id, request)
+    if role != "buyer":
+        raise HTTPException(status_code=403, detail="Only the customer can request alternatives")
+    subject = str((order.get("request_context") or {}).get("subject") or "").strip()
+    if not subject:
+        listing = container.product_catalog_repository.get(order["product_id"]) or {}
+        subject = str(listing.get("subject") or order["product_title"]).strip()
+    items = []
+    try:
+        rows = container.product_catalog_repository.search_active(subject, limit=30)
+    except Exception:
+        rows = []
+    for row in rows:
+        if str(row.get("seller_user_id")) == str(order["seller_user_id"]) or int(row["id"]) == int(order["product_id"]):
+            continue
+        items.append({
+            "id": str(row["id"]), "match_id": str(row["id"]), "provider_id": "",
+            "title": " ".join(str(x) for x in (row.get("subject"), row.get("brand"), row.get("variant")) if x),
+            "subtitle": str(row.get("location_label") or ""),
+            "price": row.get("price"), "source": "local", "match_source": "registered",
+            "segment": "registered", "demo": False,
+        })
+        if len(items) >= max(1, min(limit, 10)):
+            break
+    return {"order_id": order_id, "subject": subject, "matches": items}

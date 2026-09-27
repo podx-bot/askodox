@@ -375,6 +375,23 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     )
 
     before = _latest_created_deal(container, user_id)
+    if _app_structured_requirement(payload):
+        # 2026-09-27 (universal engine): the app already understood the need
+        # (AI + requirement state, from text, voice, photo or file) and sent
+        # it structured. Persist THAT -- for every category, including
+        # services and categories the keyword router has never seen -- and
+        # dispatch it to matching providers. Re-parsing it through the
+        # WhatsApp-era text pipeline dropped most natural requests ("I want a
+        # 43 inch battery TV", "I need a plumber") and could misread a buyer
+        # as a seller.
+        live_capture = getattr(container, "universal_live_capture_service", None)
+        persist = getattr(live_capture, "persist_app_requirement", None)
+        demand = _structured_demand(user_id, payload)
+        stored = persist(user_id, demand) if callable(persist) else None
+        if stored is None:
+            demand_id = container.universal_demand_repository.create(demand)
+            stored = container.universal_demand_repository.get(demand_id) or {**demand, "id": demand_id}
+        return _deal_response(stored, "", intent_context)
     reply = container.conversation_service.process(
         sender_mobile=user_id,
         message=" ".join(payload.raw_text.strip().split()),
@@ -419,6 +436,16 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
             headers=headers,
         )
 
+    return _deal_response(created, reply, intent_context)
+
+
+def _app_structured_requirement(payload: UniversalDealCreateRequest) -> bool:
+    """The app sends its understood requirement with an intent and subject;
+    raw-text-only callers (legacy clients) keep the text pipeline."""
+    return _present(payload.subject) and _present(payload.intent)
+
+
+def _deal_response(created, reply, intent_context) -> dict:
     item = dict(created)
     deal_id = int(item["id"])
     readiness = _readiness(item, intent_context)
@@ -548,16 +575,21 @@ def get_matches(deal_id: int, request: Request) -> dict:
     online_on, videos_on = flags.get("results.online", True), flags.get("results.videos", True)
     fallback = (
         discovery.online_and_videos(
-            category=category, subject=subject, include_online=online_on and not has_online
+            category=category, subject=subject, include_online=online_on and not has_online,
+            location_text=str(demand.get("location_text") or ""),
         )
         if online_on or videos_on
         else []
     )
     seen = {str(item.get("id")) for item in matches}
+    seen_urls = {_url_key(item.get("destination_url")) for item in matches} - {""}
     for item in registered_and_external + fallback:
-        if str(item.get("id")) in seen or not _result_allowed(item, flags):
-            continue
+        url_key = _url_key(item.get("destination_url"))
+        if str(item.get("id")) in seen or (url_key and url_key in seen_urls) or not _result_allowed(item, flags):
+            continue  # the same destination found by two sources is shown once
         seen.add(str(item.get("id")))
+        if url_key:
+            seen_urls.add(url_key)
         matches.append(item)
     local_match_count = sum(
         1
@@ -610,6 +642,15 @@ _SOURCE_STATUS_FLAGS = {
     "online": ("results.online",),
     "videos": ("results.videos",),
 }
+
+
+def _url_key(url) -> str:
+    """Normalized destination for cross-source de-duplication."""
+    text = str(url or "").strip().lower()
+    if not text.startswith(("http://", "https://")):
+        return ""
+    text = text.split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    return text.replace("https://", "").replace("http://", "").removeprefix("www.")
 
 
 def _result_flags(container) -> dict[str, bool]:

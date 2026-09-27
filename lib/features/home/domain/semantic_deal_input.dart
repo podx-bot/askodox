@@ -3,6 +3,20 @@ import '../../../services/in_app_assistant_service.dart';
 class AskodoxSemanticDealInput {
   const AskodoxSemanticDealInput._();
 
+  static const _needDomains = {
+    'PRODUCT', 'FOOD', 'SERVICE', 'APPOINTMENT', 'EVENT', 'STAFFING', 'JOB_SEEKER', 'PARCEL', 'RIDE',
+  };
+
+  /// A concrete need (a buyable/bookable subject in a commerce domain) is
+  /// searched even when the model labels its reply as advisory -- ASKODOX
+  /// shows real options next to the guidance instead of explanation only.
+  /// A seller's own offer is handled by the normal intent flow.
+  static bool isConcreteNeed(InAppAssistantDecision decision) {
+    if (!_needDomains.contains(decision.domain.toUpperCase())) return false;
+    final subject = _firstText(decision, const ['subject', 'product', 'item', 'service', 'role', 'skill']);
+    return subject != null && subject.trim().length >= 2;
+  }
+
   static String build(String original, InAppAssistantDecision decision) {
     final subject = _firstText(decision,
         const ['subject', 'product', 'item', 'service', 'role', 'skill']);

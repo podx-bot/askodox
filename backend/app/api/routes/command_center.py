@@ -275,7 +275,7 @@ def update_request(request_id: int, payload: RequestUpdate, request: Request) ->
 @router.get("/orders")
 def orders(request: Request, status: str = "", limit: int = 100) -> dict[str, Any]:
     _require(request, "requests:view")
-    sql = "SELECT id,buyer_user_id,seller_user_id,product_title,quantity,unit,price,total_amount,status,created_at FROM orders"
+    sql = "SELECT * FROM orders"
     params: tuple = ()
     if status:
         sql += " WHERE status=?"
@@ -388,12 +388,60 @@ def update_escalation(escalation_id: int, payload: EscalationUpdate, request: Re
             raise HTTPException(status_code=422, detail="A resolution note is required to resolve or close")
     updated = repo.update(escalation_id, status=status, assigned_to=payload.assigned_to,
                           resolution_note=payload.resolution_note)
+    if status in ("RESOLVED", "CLOSED"):
+        _resolve_linked_order(request.app.state.container, before)
     command_center(request.app.state.container).audit(
         principal["id"], "escalation_update", "escalation", escalation_id,
         {k: before.get(k) for k in ("status", "assigned_to")},
         {k: updated.get(k) for k in ("status", "assigned_to")}, payload.resolution_note or "")
     updated["requester"] = mask_user_id(updated.pop("requester_user_id", ""))
     return updated
+
+
+def _resolve_linked_order(container: Any, escalation: dict[str, Any]) -> None:
+    """A resolved dispute returns the deal to the customer for confirmation
+    (it is not closed on the customer's behalf)."""
+    order_id = (escalation.get("context") or {}).get("order_id")
+    orders = getattr(container, "order_repository", None)
+    if not order_id or orders is None:
+        return
+    order = orders.get(int(order_id))
+    if order and order.get("status") == "DISPUTED":
+        fields = {"status": "RESOLVED"}
+        if order.get("payment_state") == "DISPUTED":
+            fields["payment_state"] = "PROOF_SUBMITTED" if order.get("payment_reference") else "AWAITING_PAYMENT"
+        orders.update_fields(int(order_id), **fields)
+
+
+class PaymentVerification(BaseModel):
+    state: str
+    reason: str = Field(default="", max_length=500)
+    confirm: bool = False
+
+
+@router.patch("/orders/{order_id}/payment")
+def verify_order_payment(order_id: int, payload: PaymentVerification, request: Request) -> dict[str, Any]:
+    """Staff payment verification (UTR checked against the seller/UPI
+    statement). Never automatic."""
+    principal = _require(request, "payments:manage")
+    container = request.app.state.container
+    state = payload.state.strip().upper()
+    if state not in ("VERIFIED", "FAILED"):
+        raise HTTPException(status_code=422, detail="state must be VERIFIED or FAILED")
+    _require_confirm(payload.confirm, f"mark payment for order {order_id} {state}")
+    if not payload.reason.strip():
+        raise HTTPException(status_code=422, detail="A verification note is required")
+    order = container.order_repository.get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("payment_state") not in ("PROOF_SUBMITTED", "DISPUTED"):
+        raise HTTPException(status_code=409, detail="No submitted payment reference to verify")
+    container.order_repository.update_fields(order_id, payment_state=state,
+                                             payment_verified_by=principal["id"] if state == "VERIFIED" else None)
+    command_center(container).audit(principal["id"], "payment_" + state.lower(), "order", order_id,
+                                    {"payment_state": order.get("payment_state")}, {"payment_state": state},
+                                    payload.reason)
+    return {"id": order_id, "payment_state": state}
 
 
 # ----------------------------------------------------------- no-match --
