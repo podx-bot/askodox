@@ -176,6 +176,7 @@ def create_app() -> FastAPI:
     web_provider = BraveWebSearchProvider(
         api_key=container.settings.brave_search_api_key,
         timeout_seconds=container.settings.brave_search_timeout_seconds,
+        country=getattr(container.settings, "search_country", "IN"),
     )
     live_research = OASATLiveResearchService(web_provider)
     deep_research = OASATDeepResearchService(live_research)

@@ -112,6 +112,108 @@ def price_from_text(*texts: Any) -> float | None:
     return None
 
 
+# ------------------------------------------------ page classification --
+# A web page is only an "option" when it is a place to buy/book (a product
+# page, a marketplace listing, a store/service page). Reviews, articles,
+# forums and videos are content: useful to read, never shown as if they
+# were purchasable. Directories (Justdial-style) list providers: useful for
+# services, not a product listing.
+PAGE_PRODUCT = "product_page"
+PAGE_LISTING = "listing"
+PAGE_STORE = "store"
+PAGE_DIRECTORY = "directory"
+PAGE_ARTICLE = "article"
+PAGE_REVIEW = "review"
+PAGE_FORUM = "forum"
+PAGE_VIDEO = "video"
+BUYABLE_PAGES = {PAGE_PRODUCT, PAGE_LISTING, PAGE_STORE}
+
+_REVIEW_HOSTS = ("tripadvisor.", "trustpilot.", "mouthshut.com", "gadgets360.", "91mobiles.com",
+                 "smartprix.com", "rtings.com", "techradar.com", "gsmarena.com", "zigwheels.com/news")
+_FORUM_HOSTS = ("reddit.com", "quora.com", "team-bhp.com", "stackexchange.com", "xda-developers.com")
+_DIRECTORY_HOSTS = ("justdial.com", "sulekha.com", "yelp.", "yellowpages.", "asklaila.com", "grotal.com")
+_LISTING_HOSTS = ("olx.in", "quikr.com", "cars24.com", "spinny.com", "cardekho.com", "carwale.com",
+                  "indiamart.com", "tradeindia.com", "magicbricks.com", "99acres.com", "naukri.com",
+                  "indeed.co", "shine.com", "apna.co")
+_STORE_HOSTS = ("amazon.in", "flipkart.com", "croma.com", "reliancedigital.in", "vijaysales.com",
+                "tatacliq.com", "jiomart.com", "bigbasket.com", "meesho.com", "myntra.com", "nykaa.com",
+                "urbancompany.com", "licious.in", "freshtohome.com", "swiggy.com", "zomato.com",
+                "pepperfry.com", "ikea.com/in", "decathlon.in", "samsung.com/in", "lg.com/in", "mi.com/in")
+_PRODUCT_PATH = re.compile(r"/(dp|gp/product|p|product|products|item|buy|listing|ad|ads)/", re.IGNORECASE)
+_ARTICLE_WORDS = re.compile(
+    r"\b(review|reviews|vs\.?|versus|best \d*|top \d+|buying guide|how to|what is|explained|news|"
+    r"comparison|compared|tips|guide to|blog|opinion|ranked)\b",
+    re.IGNORECASE,
+)
+
+
+def _host_matches(url: str, hosts: tuple[str, ...]) -> bool:
+    low = url.casefold()
+    host = _host(url)
+    return any(item in host or item in low for item in hosts)
+
+
+def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
+    """What kind of page a web result is (never guessed as buyable)."""
+    if _is_video_host(url):
+        return PAGE_VIDEO
+    if _host_matches(url, _FORUM_HOSTS):
+        return PAGE_FORUM
+    if _host_matches(url, _REVIEW_HOSTS):
+        return PAGE_REVIEW
+    if _host_matches(url, _DIRECTORY_HOSTS):
+        return PAGE_DIRECTORY
+    if _host_matches(url, _LISTING_HOSTS):
+        return PAGE_LISTING
+    if _ARTICLE_WORDS.search(str(title or "")):
+        return PAGE_ARTICLE
+    if _host_matches(url, _STORE_HOSTS):
+        return PAGE_PRODUCT if _PRODUCT_PATH.search(url) else PAGE_STORE
+    if _PRODUCT_PATH.search(url):
+        return PAGE_PRODUCT
+    if _ARTICLE_WORDS.search(str(snippet or "")[:120]):
+        return PAGE_ARTICLE
+    return PAGE_STORE
+
+
+# ----------------------------------------------------- region filtering --
+# ASKODOX is India-first: a Home Depot / Manhattan / US$ page is not an
+# option for "AC service in Vijayawada" unless the customer asked abroad.
+_FOREIGN_TLDS = (".co.uk", ".uk", ".com.au", ".au", ".ca", ".us", ".de", ".fr", ".ae", ".sg",
+                 ".co.nz", ".nz", ".ie", ".za", ".ph", ".my", ".pk", ".bd", ".lk", ".np")
+_FOREIGN_CHAINS = ("homedepot.com", "lowes.com", "bestbuy.com", "walmart.com", "target.com", "costco.com",
+                   "angi.com", "thumbtack.com", "homeadvisor.com", "craigslist.org", "ebay.com",
+                   "amazon.com/", "carmax.com", "autotrader.com", "cars.com", "kbb.com", "edmunds.com")
+_FOREIGN_MONEY = re.compile(r"(?:US\$|\$\s?\d|\bUSD\b|£\s?\d|€\s?\d|\bAUD\b|\bCAD\b|\bGBP\b|\bEUR\b)")
+_INDIA_MONEY = re.compile(r"(?:₹|\brs\.?\s?\d|\binr\b|\blakh|\bcrore)", re.IGNORECASE)
+_US_PLACES = re.compile(
+    r"\b(manhattan|brooklyn|new york|los angeles|california|texas|florida|chicago|usa|united states|"
+    r"london|toronto|sydney|dubai)\b",
+    re.IGNORECASE,
+)
+
+
+def region_mismatch(url: str, title: Any = "", snippet: Any = "", *, country: str = "IN",
+                    wanted_place: str = "") -> bool:
+    """True when a result is clearly for another country than the request."""
+    if str(country or "").upper() != "IN":
+        return False
+    host = _host(url)
+    if host.endswith(".in") or ".in/" in url.casefold():
+        return False
+    if any(host.endswith(tld) for tld in _FOREIGN_TLDS):
+        return True
+    if _host_matches(url, _FOREIGN_CHAINS):
+        return True
+    text = f"{title or ''} {snippet or ''}"
+    if _FOREIGN_MONEY.search(text) and not _INDIA_MONEY.search(text):
+        return True
+    place_hit = _US_PLACES.search(text)
+    if place_hit and place_hit.group(0).casefold() not in str(wanted_place or "").casefold():
+        return not _INDIA_MONEY.search(text) and "india" not in text.casefold()
+    return False
+
+
 def _tokens(text: str) -> set[str]:
     return {token for token in re.findall(r"[a-z0-9]+", str(text or "").casefold()) if len(token) > 1}
 
@@ -128,6 +230,18 @@ def relevant_to(subject: str, *texts: Any) -> bool:
 STATUS_OK = "ok"
 STATUS_NO_RESULTS = "no_results"
 STATUS_UNAVAILABLE = "unavailable"
+# The provider was called and failed (auth, quota, network) -- reported
+# honestly instead of looking like "nothing found".
+STATUS_ERROR = "error"
+
+
+def _price_fields(*texts: Any) -> dict[str, Any]:
+    """A price only when the page text literally states one -- flagged as
+    unverified (a snippet can be stale, an EMI, or another variant)."""
+    price = price_from_text(*texts)
+    if price is None:
+        return {"price": None, "price_verified": False, "price_source": None}
+    return {"price": price, "price_verified": False, "price_source": "page_text"}
 
 
 class UniversalOnlineFallbackService:
@@ -141,34 +255,54 @@ class UniversalOnlineFallbackService:
     chat can say so honestly instead of faking a section.
     """
 
-    def __init__(self, web_search=None) -> None:
+    def __init__(self, web_search=None, *, country: str = "IN") -> None:
         self.web_search = web_search
+        self.country = country
         self.status: dict[str, str] = {}
         self.filtered: dict[str, int] = {}
+
+    def _drop(self, reason: str) -> None:
+        self.filtered[reason] = self.filtered.get(reason, 0) + 1
 
     @property
     def _search_configured(self) -> bool:
         return callable(self.web_search) and bool(getattr(self.web_search, "configured", True))
 
-    def online(self, *, category: str, subject: str, limit: int = 4, query: str | None = None) -> list[dict[str, Any]]:
+    def online(self, *, category: str, subject: str, limit: int = 4, query: str | None = None,
+               location_text: str = "", allow_directories: bool = False) -> list[dict[str, Any]]:
         subject = " ".join(str(subject or "").split())
         if not subject:
             return []
         if not self._search_configured:
             self.status["online"] = STATUS_UNAVAILABLE
             return []
+        # Always anchored to the customer's geography (India by default).
+        where = location_text.strip() or "India"
         results: list[dict[str, Any]] = []
-        for row in self._search(query or f"{subject} price buy online", limit * 3):
+        rows = self._search(query or f"{subject} price buy online {where}", limit * 3)
+        if getattr(self.web_search, "last_error", False):
+            self.status["online"] = STATUS_ERROR
+            return []
+        for row in rows:
             url = UniversalExternalResultService._http_url(row.get("url"))
             if not url or _is_video_host(url):
                 continue
-            if not relevant_to(subject, row.get("title"), row.get("snippet")):
-                self.filtered["not_relevant"] = self.filtered.get("not_relevant", 0) + 1
+            title, snippet = row.get("title"), row.get("snippet")
+            if not relevant_to(subject, title, snippet):
+                self._drop("not_relevant")
                 continue
-            item = self._row("online", len(results), row.get("title"), row.get("snippet"), url)
+            if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
+                self._drop("wrong_region")
+                continue
+            page_type = classify_page(url, title, snippet)
+            if page_type not in BUYABLE_PAGES and not (allow_directories and page_type == PAGE_DIRECTORY):
+                self._drop("not_purchasable")  # review / article / forum / video
+                continue
+            item = self._row("online", len(results), title, snippet, url)
             item["image_url"] = row.get("thumbnail") or None
             item["source_name"] = row.get("host") or item["provider_id"]
-            item["price"] = price_from_text(row.get("title"), row.get("snippet"))
+            item.update(_price_fields(title, snippet))
+            item["page_type"] = page_type
             results.append(item)
             if len(results) >= limit:
                 break
@@ -203,6 +337,7 @@ class UniversalOnlineFallbackService:
             item["image_url"] = row.get("thumbnail") or None
             item["source_name"] = row.get("creator") or row.get("publisher") or row.get("host") or item["provider_id"]
             item["duration"] = row.get("duration") or None
+            item["page_type"] = PAGE_VIDEO
             results.append(item)
             if len(results) >= limit:
                 break

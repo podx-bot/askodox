@@ -368,4 +368,20 @@ class UniversalLiveCaptureService:
             # notify_matches is not implemented by UniversalNotificationService;
             # guarded so a found match no longer raises AttributeError.
             return notify(stored, matches, location_saved=location_saved)
-        return self.targeting.handle_no_match(stored)
+        # No direct match: plan the next nearby/relevant providers with the
+        # targeting planner (UniversalTargetingService has build_plan, not the
+        # handle_no_match this used to call -- an AttributeError on every
+        # no-match). Dispatch only through the notification service's own
+        # dispatch_plan when it exists; otherwise say honestly it is saved.
+        build_plan = getattr(self.targeting, "build_plan", None)
+        dispatch = getattr(self.notifications, "dispatch_plan", None)
+        if callable(build_plan) and callable(dispatch):
+            try:
+                plan = build_plan(stored)
+                if plan.get("total_targets"):
+                    result = dispatch(stored, plan) or {}
+                    if int(result.get("sent") or 0) > 0:
+                        return f"Your request was sent to {int(result['sent'])} relevant provider(s) nearby."
+            except Exception:
+                pass
+        return "No matching provider yet. Your request is saved and ASKODOX will keep looking."

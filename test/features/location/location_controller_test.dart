@@ -93,4 +93,24 @@ void main() {
     await c.setRadius(5000);
     expect(c.state.shops.length, greaterThan(short));
   });
+
+  test('current location is named as a real place when resolved, never invented when not', () async {
+    final named = LocationController(
+      MockGeoRepository(),
+      FakeDeviceLocationGateway(position: const GeoPoint(16.5, 80.65)),
+      placeNamer: (lat, lon) async => 'Benz Circle, Vijayawada, Andhra Pradesh',
+    );
+    await named.requestPermission();
+    expect(named.state.defaultLocation?.name, 'Benz Circle, Vijayawada, Andhra Pradesh');
+    expect(named.state.defaultLocation?.address, 'Benz Circle, Vijayawada, Andhra Pradesh');
+
+    final unresolved = LocationController(
+      MockGeoRepository(),
+      FakeDeviceLocationGateway(position: const GeoPoint(16.5, 80.65)),
+      placeNamer: (lat, lon) async => null,
+    );
+    await unresolved.requestPermission();
+    expect(unresolved.state.defaultLocation?.name, 'Current location');
+    expect(unresolved.state.defaultLocation?.address, isEmpty, reason: 'no claimed place');
+  });
 }

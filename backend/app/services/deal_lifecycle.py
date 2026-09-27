@@ -24,17 +24,41 @@ PRODUCT_STEPS = ("PREPARING", "READY", "DISPATCHED", "DELIVERED")
 SERVICE_STEPS = ("SCHEDULED", "PROVIDER_ASSIGNED", "ARRIVED", "IN_PROGRESS", "SERVICE_COMPLETED")
 COMPLETION_STATES = {"DELIVERED", "SERVICE_COMPLETED", FULFILLED, RESOLVED}
 
+# Returns / refunds (products): the customer asks, the seller takes the
+# item back, and -- only when money was actually received -- a refund is due
+# until the seller records it. Money never moves through ASKODOX.
+RETURN_REQUESTED, RETURNED, REFUND_DUE, REFUNDED = "RETURN_REQUESTED", "RETURNED", "REFUND_DUE", "REFUNDED"
+RETURN_STATES = (RETURN_REQUESTED, RETURNED, REFUND_DUE, REFUNDED)
+
 ALL_STATUSES = (
     PLACED, ACCEPTED, REJECTED, CANCELLED, FULFILLED, *PRODUCT_STEPS, *SERVICE_STEPS, DISPUTED, RESOLVED, CLOSED,
+    *RETURN_STATES,
 )
 # Contact is shared only once the seller/provider has explicitly accepted
 # (round-8 consent rule), and stays shared for the rest of that deal.
-CONTACT_VISIBLE = {ACCEPTED, FULFILLED, *PRODUCT_STEPS, *SERVICE_STEPS, DISPUTED, RESOLVED, CLOSED}
+CONTACT_VISIBLE = {ACCEPTED, FULFILLED, *PRODUCT_STEPS, *SERVICE_STEPS, DISPUTED, RESOLVED, CLOSED, *RETURN_STATES}
 OPEN_EXECUTION = {ACCEPTED, *PRODUCT_STEPS, *SERVICE_STEPS}
 
 # Payment: ASKODOX does not move money. States describe the offline/UPI
 # payment truthfully; VERIFIED needs the seller's or staff's confirmation.
-PAYMENT_STATES = ("NOT_STARTED", "AWAITING_PAYMENT", "PROOF_SUBMITTED", "VERIFIED", "FAILED", "DISPUTED")
+PAYMENT_STATES = ("NOT_STARTED", "AWAITING_PAYMENT", "PROOF_SUBMITTED", "VERIFIED", "FAILED", "DISPUTED",
+                  "REFUNDED")
+
+# Settlement comes first as cash / direct UPI between the two parties; a
+# payment gateway plugs in later behind services/payment_gateway.py without
+# changing this lifecycle.
+COD, CASH_ON_PICKUP, DIRECT_CASH, DIRECT_UPI, GATEWAY = "COD", "CASH_ON_PICKUP", "DIRECT_CASH", "DIRECT_UPI", "GATEWAY"
+SETTLEMENT_METHODS = (COD, CASH_ON_PICKUP, DIRECT_CASH, DIRECT_UPI, GATEWAY)
+CASH_METHODS = {COD, CASH_ON_PICKUP, DIRECT_CASH}
+
+
+def settlement_method(value: Any) -> str:
+    method = str(value or DIRECT_UPI).strip().upper().replace("-", "_").replace(" ", "_")
+    aliases = {"CASH_ON_DELIVERY": COD, "CASH": DIRECT_CASH, "UPI": DIRECT_UPI}
+    method = aliases.get(method, method)
+    if method not in SETTLEMENT_METHODS:
+        raise LifecycleError(f"Unsupported settlement method: {value}")
+    return method
 
 MESSAGE_KINDS = ("QUESTION", "ANSWER", "OFFER", "COUNTER_OFFER", "ACCEPT_OFFER", "DECLINE_OFFER", "NOTE")
 SELLER_RESPONSE_HOURS = 24
@@ -86,8 +110,22 @@ def check_buyer_cancel(status: str) -> None:
         raise LifecycleError("Only a request the seller has not accepted yet can be cancelled")
 
 
+def check_return_request(status: str, kind: str) -> None:
+    if str(kind or PRODUCT) != PRODUCT:
+        raise LifecycleError("Returns apply to products; report a problem for a service")
+    if str(status).upper() not in {"DELIVERED", FULFILLED}:
+        raise LifecycleError("A return can be requested after delivery and before the order is closed")
+
+
+def after_return_received(payment_state: str) -> str:
+    """Item is back with the seller: a refund is due only if money was paid."""
+    return REFUND_DUE if str(payment_state or "").upper() in {"VERIFIED", "PROOF_SUBMITTED"} else RETURNED
+
+
 def check_customer_confirm(status: str) -> None:
     status = str(status).upper()
+    if status in {REFUNDED, RETURNED}:
+        return  # the customer confirms the refund/return is settled -> CLOSED
     if status == DISPUTED:
         raise LifecycleError("This deal has an open problem; it closes after support resolves it")
     if status not in COMPLETION_STATES:
@@ -150,6 +188,13 @@ def buyer_actions(order: dict[str, Any], messages: list[dict[str, Any]] | None =
         actions.append("submit_payment_reference")
     if status in COMPLETION_STATES:
         actions += ["confirm_completion", "report_problem"]
+    if status in {"DELIVERED", FULFILLED} and str(order.get("kind") or PRODUCT) == PRODUCT:
+        actions.append("request_return")
+    if status in {REFUNDED, RETURNED}:
+        actions.append("confirm_completion")
+    if status in OPEN_EXECUTION and order.get("settlement_method") in CASH_METHODS \
+            and order.get("payment_state") == "AWAITING_PAYMENT":
+        actions.append("mark_cash_paid")
     if messages and messages[-1].get("kind") == "COUNTER_OFFER" and status in {PLACED, ACCEPTED}:
         actions += ["accept_offer", "decline_offer"]
     if status == CLOSED:
@@ -171,4 +216,10 @@ def seller_actions(order: dict[str, Any], messages: list[dict[str, Any]] | None 
         actions += ["accept_offer", "decline_offer"]
     if order.get("payment_state") == "PROOF_SUBMITTED":
         actions += ["confirm_payment_received", "payment_not_received"]
-    return actions
+    if order.get("settlement_method") in CASH_METHODS and order.get("payment_state") in {"AWAITING_PAYMENT", "PROOF_SUBMITTED"}:
+        actions.append("confirm_cash_received")
+    if status == RETURN_REQUESTED:
+        actions += ["return_item_received", "decline_return"]
+    if status == REFUND_DUE:
+        actions.append("record_refund")
+    return list(dict.fromkeys(actions))

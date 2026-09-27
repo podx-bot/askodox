@@ -95,7 +95,7 @@ def test_registered_seller_does_not_stop_discovery_and_segments_are_labelled(tmp
     assert "Other City TVs" not in [row["title"] for row in rows]
     assert not any("Cooking" in row["title"] for row in rows), "irrelevant web rows never fill a section"
     assert by_segment["used"][0]["source"] in {"local", "online"}
-    assert maps.queries[0][0] == "43 inch TV shop near Vijayawada"
+    assert maps.queries[0][0] == "43 inch TV near Vijayawada"
 
 
 def test_condition_intent_filters_and_ranks(tmp_path):

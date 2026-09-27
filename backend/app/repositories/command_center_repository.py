@@ -323,6 +323,35 @@ class CommandCenterRepository:
             )
             return cur.rowcount == 1
 
+    def demand_gaps(self, min_count: int = 1, limit: int = 100) -> List[Dict[str, Any]]:
+        """Repeated unmet demand by category + area (where to recruit
+        providers). Built only from real no-match events."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT UPPER(COALESCE(domain,'')) AS category,
+                       LOWER(TRIM(COALESCE(location_text,''))) AS area,
+                       COUNT(*) AS requests,
+                       COUNT(DISTINCT LOWER(TRIM(subject))) AS distinct_needs,
+                       GROUP_CONCAT(DISTINCT LOWER(TRIM(subject))) AS needs,
+                       SUM(CASE WHEN status='OPEN' THEN 1 ELSE 0 END) AS open_requests,
+                       MAX(created_at) AS last_seen
+                FROM no_match_events
+                GROUP BY category, area
+                HAVING COUNT(*) >= ?
+                ORDER BY requests DESC, last_seen DESC
+                LIMIT ?
+                """,
+                (int(min_count), int(limit)),
+            ).fetchall()
+        gaps = []
+        for row in rows:
+            item = dict(row)
+            item["area"] = item["area"] or "unknown"
+            item["needs"] = sorted(set((item.get("needs") or "").split(",")) - {""})[:10]
+            gaps.append(item)
+        return gaps
+
     def no_match_queue(self, status: str | None = None, limit: int = 100) -> List[Dict[str, Any]]:
         sql = "SELECT * FROM no_match_events"
         params: tuple = ()

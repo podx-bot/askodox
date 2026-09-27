@@ -35,6 +35,8 @@ class OrderRepository:
     _ADDED_COLUMNS: tuple[str, ...] = (
         "kind", "payment_state", "payment_reference", "payment_verified_by",
         "dispute_escalation_id", "dispute_from_status", "request_context", "closed_at",
+        # Engine 11/12: settlement method + return/refund trail.
+        "settlement_method", "paid_at", "return_reason", "return_from_status", "refund_reference",
     )
 
     def __init__(self, db_path: str = "podx.db") -> None:
@@ -106,6 +108,7 @@ class OrderRepository:
         buyer_note: Optional[str] = None,
         kind: str = "product",
         request_context: Optional[Dict[str, Any]] = None,
+        settlement_method: str = "DIRECT_UPI",
     ) -> int:
         buyer = str(buyer_user_id or "").strip()
         seller = str(seller_user_id or "").strip()
@@ -126,14 +129,15 @@ class OrderRepository:
                        buyer_user_id, seller_user_id, product_id, product_title,
                        quantity, unit, price, currency, total_amount, status,
                        buyer_note, seller_note, created_at, updated_at,
-                       kind, payment_state, request_context
-                   ) VALUES(?,?,?,?,?,?,?,?,?, 'PLACED', ?, NULL, ?, ?, ?, 'NOT_STARTED', ?)""",
+                       kind, payment_state, request_context, settlement_method
+                   ) VALUES(?,?,?,?,?,?,?,?,?, 'PLACED', ?, NULL, ?, ?, ?, 'NOT_STARTED', ?, ?)""",
                 (
                     buyer, seller, int(product_id), title,
                     quantity, unit, price, str(currency or "INR"), total_amount,
                     (str(buyer_note).strip() or None) if buyer_note else None,
                     now, now, str(kind or "product"),
                     json.dumps(request_context, ensure_ascii=False) if request_context else None,
+                    str(settlement_method or "DIRECT_UPI"),
                 ),
             )
             return int(cur.lastrowid)
@@ -148,6 +152,7 @@ class OrderRepository:
         item = dict(row)
         item["kind"] = item.get("kind") or "product"
         item["payment_state"] = item.get("payment_state") or "NOT_STARTED"
+        item["settlement_method"] = item.get("settlement_method") or "DIRECT_UPI"
         raw = item.get("request_context")
         try:
             item["request_context"] = json.loads(raw) if raw else None
@@ -157,7 +162,8 @@ class OrderRepository:
 
     def update_fields(self, order_id: int, **fields: Any) -> bool:
         allowed = {"status", "payment_state", "payment_reference", "payment_verified_by", "dispute_escalation_id",
-                   "dispute_from_status", "closed_at", "price", "total_amount", "seller_note"}
+                   "dispute_from_status", "closed_at", "price", "total_amount", "seller_note",
+                   "settlement_method", "paid_at", "return_reason", "return_from_status", "refund_reference"}
         fields = {k: v for k, v in fields.items() if k in allowed}
         if "status" in fields and fields["status"] not in VALID_STATUSES:
             raise ValueError(f"invalid status: {fields['status']!r}")

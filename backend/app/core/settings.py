@@ -35,6 +35,8 @@ class Settings:
     brave_search_timeout_seconds: int
     admin_seed_key: str
     session_token_secret: str
+    # Market the discovery engine serves first (Brave country, Places region).
+    search_country: str = "IN"
 
 
 def _database_path() -> str:
@@ -150,6 +152,7 @@ def load_settings() -> Settings:
         google_maps_api_key=os.getenv("GOOGLE_MAPS_API_KEY", "").strip(),
         brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY", "").strip(),
         brave_search_timeout_seconds=_positive_int_env("BRAVE_SEARCH_TIMEOUT_SECONDS", 8),
+        search_country=(os.getenv("ASKODOX_SEARCH_COUNTRY", "IN").strip().upper() or "IN"),
         admin_seed_key=os.getenv("ADMIN_SEED_KEY", "").strip(),
         session_token_secret=_session_token_secret(),
     )

@@ -30,7 +30,9 @@ import '../../matching/data/universal_match_repository.dart';
 import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
+import '../application/match_action_executor.dart';
 import '../domain/active_role.dart';
+import '../domain/chat_action_intent.dart';
 import '../domain/chat_result_policy.dart';
 import '../domain/need_clarification.dart';
 import '../domain/need_state.dart';
@@ -137,6 +139,10 @@ class _AskodoxPrimaryHomeScreenState
   // after the user discussed it with ASKODOX or asked for the seller.
   final Set<String> _actionableMatchKeys = {};
   final Set<String> _requestSentMatchKeys = {};
+
+  /// The option the customer most recently asked about -- the default
+  /// target of a typed "yes / order it".
+  UniversalMatch? _focusedMatch;
   /// Real orders/bookings created from this conversation (match key → id),
   /// in creation order: the deal panel and seller relay use them.
   final Map<String, String> _orderByMatchKey = {};
@@ -859,6 +865,7 @@ class _AskodoxPrimaryHomeScreenState
   /// one option (price, distance, condition, reviews, availability). Only
   /// after this can the option's Send request / Connect be used.
   Future<void> _askAboutMatch(String? dealId, UniversalMatch match) async {
+    _focusedMatch = match;
     setState(() => _actionableMatchKeys.add(_matchKey(dealId, match)));
     _pendingAiContext = 'Option the user is asking about: ${askodoxOptionContext(match)}';
     _pendingDiscussOnly = true;
@@ -1019,6 +1026,8 @@ class _AskodoxPrimaryHomeScreenState
         matches: matches,
         sourceStatus: result.sourceStatus,
         searched: true,
+        broadcastSent: result.broadcastSent,
+        scopeMessage: result.scopeMessage,
       );
     } on DealNeedsDetailsException catch (error) {
       if (error.missingFields.isNotEmpty) {
@@ -1150,6 +1159,16 @@ class _AskodoxPrimaryHomeScreenState
     // it") stay in the AI conversation instead of starting a new search.
     final latestResults = _latestResults();
     final explicitContext = _pendingAiContext;
+    // "yes" / "order it" / "send request" / "book it" / "confirm" with real
+    // options on screen performs the SAME backend action as the card's
+    // Send request button -- it is never answered with text alone.
+    if (explicitContext == null &&
+        latestResults != null &&
+        latestResults.hasLocal &&
+        askodoxConfirmsAction(text)) {
+      await _actOnConfirmation(text, latestResults, speakResponse);
+      return;
+    }
     final wantsHuman = latestResults != null &&
         latestResults.hasLocal &&
         askodoxWantsHumanAction(text);
@@ -1378,10 +1397,9 @@ class _AskodoxPrimaryHomeScreenState
           ? askodoxRoleForIntent(ref.read(universalDealControllerProvider).deal?.intent ?? DealIntent.other)
           : null;
       // What people say about themselves ("I repair ACs") beats a
-      // demand-side intent guess from a keyword like "repair".
-      final detected = detection != null && detection.role != AskodoxUserRole.buyer
-          ? detection.role
-          : dealRole ?? detection?.role;
+      // demand-side intent guess from a keyword like "repair", and a guessed
+      // supply intent never flips a Buyer (role scoped to this request).
+      final detected = askodoxContextRole(spoken: detection, fromIntent: dealRole);
       final current = ref.read(askodoxRoleProvider).active;
       // A general (non-commerce) "I need ..." is not a buying intent.
       final generalBuyerHint = !transactional && detected == AskodoxUserRole.buyer;
@@ -1524,6 +1542,12 @@ class _AskodoxPrimaryHomeScreenState
       'categories': categories ?? [if (deal.subject != null) deal.subject!],
       'questions': questions.reversed.take(10).toList().reversed.toList(),
       'answers': answers.reversed.take(10).toList().reversed.toList(),
+      // Context-scoped role, what is still unknown, and the place used.
+      'active_role': ref.read(askodoxRoleProvider).active.name,
+      'missing_slots': deal.missingForMatch,
+      'location_used': deal.location.label?.trim().isNotEmpty == true
+          ? deal.location.label
+          : (deal.location.latitude != null ? 'GPS point (not named)' : 'none'),
     };
   }
 
@@ -1577,6 +1601,50 @@ class _AskodoxPrimaryHomeScreenState
     await _saveSnapshot();
     _scrollBottom();
     if (speakResponse) await _speakReply(intro, userText: text);
+  }
+
+  /// Typed confirmation -> the shared executor (same endpoint, same order
+  /// id as the button). The reply states the real outcome only.
+  Future<void> _actOnConfirmation(String text, AskodoxChatResults results, bool speakResponse) async {
+    final target = askodoxPickTarget(text, results.local, focused: _focusedMatch);
+    String reply;
+    if (target == null) {
+      reply = _te ? 'పంపడానికి ASKODOX ఎంపిక ఏదీ లేదు.' : 'There is no ASKODOX option to send a request to.';
+    } else if (_requestSentMatchKeys.contains(_matchKey(results.dealId, target))) {
+      final orderId = _orderByMatchKey[_matchKey(results.dealId, target)];
+      reply = _te
+          ? '"${target.title}" కి అభ్యర్థన ఇప్పటికే పంపబడింది${orderId == null ? '' : ' (#$orderId)'}. వారి సమాధానం కోసం వేచి ఉన్నాం.'
+          : 'Your request to "${target.title}" was already sent${orderId == null ? '' : ' (#$orderId)'}. Waiting for their reply.';
+    } else {
+      final result = await askodoxExecuteMatchAction(
+        ref,
+        match: target,
+        dealId: results.dealId,
+        telugu: _te,
+        requestContext: _requestContextFor(results.dealId),
+        question: _pendingSellerQuestion,
+      );
+      if (result.success) {
+        _focusedMatch = target; // "order it" next time means this option
+        _onRequestSent(results.dealId, target, result.order?.id);
+        final id = result.order?.id;
+        reply = _te
+            ? '"${target.title}" కి అభ్యర్థన పంపబడింది${id == null ? '' : ' (#$id)'}. వారు అంగీకరించిన తర్వాతే డీల్ నిర్ధారితమవుతుంది, కాంటాక్ట్ వివరాలు కనిపిస్తాయి.'
+            : 'Request sent to "${target.title}"${id == null ? '' : ' (#$id)'}. It becomes a confirmed deal -- and contact details are shared -- only after they accept.';
+      } else {
+        reply = result.message ?? (_te ? 'అభ్యర్థన పంపడం సాధ్యం కాలేదు.' : 'Unable to send this request.');
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+      _dealRefreshTick++;
+      _sending = false;
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) await _speakReply(reply, userText: text);
   }
 
   Future<void> _relayToSeller(String orderId, String text, bool speakResponse) async {
@@ -2715,13 +2783,25 @@ class _ChatResultsView extends StatelessWidget {
                 ? 'స్థానిక అభ్యర్థనలు పంపడానికి సైన్ ఇన్ చేయండి.'
                 : 'Sign in to send requests to local sellers and providers.',
           ),
+        if (results.scopeMessage != null)
+          _notice(
+            key: const Key('askodoxResultsScope'),
+            icon: Icons.travel_explore_rounded,
+            text: results.scopeMessage!,
+          ),
         if (results.searched && results.matches.isEmpty)
           _notice(
             key: const Key('askodoxResultsNone'),
             icon: Icons.search_off_rounded,
+            text: askodoxNoResultsText(results, telugu: te),
+          )
+        else if ((results.broadcastSent ?? 0) > 0)
+          _notice(
+            key: const Key('askodoxResultsBroadcast'),
+            icon: Icons.campaign_outlined,
             text: te
-                ? 'ASKODOX విక్రేతలు, దగ్గరలోని షాపులు, ఆన్‌లైన్ లేదా వీడియోల్లో ఇంకా నిజమైన ఫలితాలు దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను.'
-                : 'No real results yet from ASKODOX sellers, nearby shops, online stores or videos. I saved your need.',
+                ? 'మీ అభ్యర్థనను ${results.broadcastSent} నమోదైన ASKODOX ప్రొవైడర్లకు కూడా పంపాను.'
+                : 'Also sent to ${results.broadcastSent} registered ASKODOX provider(s) nearby.',
           ),
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
           _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal),
@@ -2871,6 +2951,25 @@ class _MatchCard extends ConsumerStatefulWidget {
 }
 
 class _MatchCardState extends ConsumerState<_MatchCard> {
+  static final _compact = FilledButton.styleFrom(
+    visualDensity: VisualDensity.compact,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    minimumSize: const Size(0, 34),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+  static final _compactOutline = OutlinedButton.styleFrom(
+    visualDensity: VisualDensity.compact,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    minimumSize: const Size(0, 34),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+  static final _compactText = TextButton.styleFrom(
+    visualDensity: VisualDensity.compact,
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    minimumSize: const Size(0, 34),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   bool _placing = false;
   bool _orderFailed = false;
   String? _orderStatusMessage;
@@ -2907,25 +3006,6 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     }
   }
 
-  /// Party A asks this Party B to connect (existing consent-first
-  /// `/deals/{id}/accept-match` flow). Contact stays hidden until both
-  /// sides have accepted.
-  Future<OrderActionResult> _connect() async {
-    final dealId = widget.dealId;
-    if (dealId == null || dealId.isEmpty) {
-      return OrderActionResult(
-        success: false,
-        message: _te
-            ? 'ఈ అభ్యర్థనను ఇప్పుడు పంపలేము. మళ్లీ ప్రయత్నించండి.'
-            : 'This request cannot be sent right now. Please retry.',
-      );
-    }
-    await ref
-        .read(universalMatchRepositoryProvider)
-        .acceptMatch(dealId: dealId, matchId: _match.id);
-    return const OrderActionResult(success: true);
-  }
-
   Future<void> _sendRequest() async {
     if (_placing) return;
     setState(() {
@@ -2933,25 +3013,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       _orderStatusMessage = null;
       _orderFailed = false;
     });
-    OrderActionResult result;
-    try {
-      result = _action == ChatResultAction.connect
-          ? await _connect()
-          : await ref.read(orderRepositoryProvider).placeOrder(
-                productId: _match.id,
-                requestContext: widget.requestContext?.call(),
-                question: widget.pendingQuestion,
-              );
-    } catch (error) {
-      final message = error is StateError ? error.message : null;
-      result = OrderActionResult(
-        success: false,
-        message: message ??
-            (_te
-                ? 'అభ్యర్థన పంపడం సాధ్యం కాలేదు.'
-                : 'Unable to send this request.'),
-      );
-    }
+    // Same executor as a typed "yes / order it" in chat.
+    final result = await askodoxExecuteMatchAction(
+      ref,
+      match: _match,
+      dealId: widget.dealId,
+      telugu: _te,
+      requestContext: widget.requestContext?.call(),
+      question: widget.pendingQuestion,
+    );
     if (!mounted) return;
     if (result.success) widget.onRequestSent(result.order?.id);
     setState(() {
@@ -2981,8 +3051,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     final distance = match.distanceKm == null
         ? null
         : '${match.distanceKm!.toStringAsFixed(1)} km';
-    final price =
-        match.price == null ? null : '₹${match.price!.toStringAsFixed(0)}';
+    // A price only found in page text is labelled as such, never shown as
+    // a confirmed price.
+    final price = match.price == null
+        ? null
+        : match.priceVerified
+            ? '₹${match.price!.toStringAsFixed(0)}'
+            : (_te
+                ? 'పేజీలో ₹${match.price!.toStringAsFixed(0)}'
+                : 'Page mentions ₹${match.price!.toStringAsFixed(0)}');
     final score = match.score == null
         ? null
         : (match.score! <= 1 ? match.score! * 100 : match.score!);
@@ -3084,82 +3161,89 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           ),
           const SizedBox(height: 8),
         ],
-        if (requestable && !showRequest)
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonalIcon(
-              key: ValueKey('askodoxAsk-${match.id}'),
-              onPressed: widget.onAsk,
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
-            ),
-          ),
-        if (showRequest) ...[
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: (_placing || placed) ? null : _sendRequest,
-              style: FilledButton.styleFrom(
-                  backgroundColor: _blue,
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-              child: _placing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : Text(
-                      placed
-                          ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
-                          : _orderFailed
-                              ? (te ? 'మళ్లీ ప్రయత్నించండి' : 'Retry request')
-                              : action == ChatResultAction.connect
-                                  ? (te ? 'కనెక్ట్ అభ్యర్థన పంపండి' : 'Connect')
-                                  : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w800),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(children: [
-            const Icon(Icons.lock_outline_rounded, size: 14, color: _muted),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                te
-                    ? 'వారు అంగీకరించే వరకు ఫోన్/కాంటాక్ట్ దాచబడి ఉంటుంది.'
-                    : 'Phone/contact stays hidden until they accept.',
-                style: const TextStyle(color: _muted, fontSize: 11),
+        // Compact, left-aligned actions side by side; they wrap to the next
+        // row on small screens instead of stacking full-width blocks.
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          alignment: WrapAlignment.start,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if ((requestable && !showRequest) || (!requestable && widget.onAsk != null))
+              FilledButton.tonalIcon(
+                key: ValueKey('askodoxAsk-${match.id}'),
+                onPressed: widget.onAsk,
+                style: _compact,
+                icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
               ),
-            ),
-          ]),
-        ],
-        if (!requestable && widget.onAsk != null)
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonalIcon(
-              key: ValueKey('askodoxAsk-${match.id}'),
-              onPressed: widget.onAsk,
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
-            ),
-          ),
-        Wrap(spacing: 4, children: [
-          if (widget.onCompare != null && action != ChatResultAction.watchVideo)
+            if (showRequest)
+              FilledButton(
+                onPressed: (_placing || placed) ? null : _sendRequest,
+                style: _compact.merge(FilledButton.styleFrom(backgroundColor: _blue)),
+                child: _placing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        placed
+                            ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
+                            : _orderFailed
+                                ? (te ? 'మళ్లీ ప్రయత్నించండి' : 'Retry request')
+                                : action == ChatResultAction.connect
+                                    ? (te ? 'కనెక్ట్ అభ్యర్థన పంపండి' : 'Connect')
+                                    : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                      ),
+              ),
+            if (match.destinationUrl?.trim().isNotEmpty == true)
+              OutlinedButton.icon(
+                key: ValueKey('askodoxOpen-${match.id}'),
+                onPressed: action == ChatResultAction.watchVideo ? _openVideo : _openDestination,
+                style: _compactOutline,
+                icon: Icon(
+                    action == ChatResultAction.watchVideo ? Icons.play_arrow_rounded : Icons.open_in_new_rounded,
+                    size: 16),
+                label: Text(action == ChatResultAction.watchVideo
+                    ? (te ? 'వీడియో చూడండి' : 'Watch')
+                    : action == ChatResultAction.openLink
+                        ? (te ? 'తెరవండి' : 'Open')
+                        : (te ? 'వివరాలు చూడండి' : 'View details')),
+              ),
+            if (widget.onCompare != null && action != ChatResultAction.watchVideo)
+              TextButton.icon(
+                key: ValueKey('askodoxCompare-${match.id}'),
+                onPressed: widget.onCompare,
+                style: _compactText,
+                icon: const Icon(Icons.compare_arrows_rounded, size: 16),
+                label: Text(te ? 'పోల్చండి' : 'Compare'),
+              ),
             TextButton.icon(
-              key: ValueKey('askodoxCompare-${match.id}'),
-              onPressed: widget.onCompare,
-              icon: const Icon(Icons.compare_arrows_rounded, size: 18),
-              label: Text(te ? 'పోల్చండి' : 'Compare'),
+              key: ValueKey('askodoxDetails-${match.id}'),
+              onPressed: () => _showDetails(context),
+              style: _compactText,
+              icon: const Icon(Icons.info_outline_rounded, size: 16),
+              label: Text(te ? 'వివరాలు' : 'Details'),
             ),
-          TextButton.icon(
-            key: ValueKey('askodoxDetails-${match.id}'),
-            onPressed: () => _showDetails(context),
-            icon: const Icon(Icons.info_outline_rounded, size: 18),
-            label: Text(te ? 'వివరాలు' : 'Details'),
+          ],
+        ),
+        if (showRequest)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(children: [
+              const Icon(Icons.lock_outline_rounded, size: 14, color: _muted),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  te
+                      ? 'వారు అంగీకరించే వరకు ఫోన్/కాంటాక్ట్ దాచబడి ఉంటుంది.'
+                      : 'Phone/contact stays hidden until they accept.',
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+              ),
+            ]),
           ),
-        ]),
         if (widget.orderId != null && widget.orderId!.isNotEmpty)
           AskodoxDealPanel(
             key: ValueKey('askodoxDeal-${widget.orderId}-${widget.refreshTick}'),
@@ -3169,24 +3253,6 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
             onSupport: widget.onSupport,
           ),
         if (match.destinationUrl?.trim().isNotEmpty == true) ...[
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: ValueKey('askodoxOpen-${match.id}'),
-              onPressed: action == ChatResultAction.watchVideo
-                  ? _openVideo
-                  : _openDestination,
-              icon: Icon(action == ChatResultAction.watchVideo
-                  ? Icons.play_arrow_rounded
-                  : Icons.open_in_new_rounded),
-              label: Text(action == ChatResultAction.watchVideo
-                  ? (te ? 'వీడియో చూడండి' : 'Watch')
-                  : action == ChatResultAction.openLink
-                      ? (te ? 'తెరవండి' : 'Open')
-                      : (te ? 'వివరాలు చూడండి' : 'View details')),
-            ),
-          ),
           if (match.disclosure?.trim().isNotEmpty == true || match.affiliate)
             Padding(
               padding: const EdgeInsets.only(top: 6),

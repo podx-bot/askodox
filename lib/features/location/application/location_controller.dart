@@ -11,6 +11,7 @@ import '../data/mock_geo_repository.dart';
 import '../domain/device_location_gateway.dart';
 import '../domain/geo_models.dart';
 import '../domain/geo_repository.dart';
+import '../../../services/place_name_service.dart';
 
 final geoRepositoryProvider = Provider<GeoRepository?>((ref) {
   final config = ref.watch(appConfigProvider);
@@ -27,6 +28,7 @@ final locationControllerProvider = StateNotifierProvider<LocationController, Loc
   (ref) => LocationController(
     ref.read(geoRepositoryProvider),
     ref.read(deviceLocationGatewayProvider),
+    placeNamer: const PlaceNameService().resolve,
   )..restoreAndRefresh(),
 );
 
@@ -94,8 +96,15 @@ class LocationState {
       );
 }
 
+/// Names a GPS point (area / city / state); null when it cannot.
+typedef PlaceNamer = Future<String?> Function(double latitude, double longitude);
+
 class LocationController extends StateNotifier<LocationState> {
-  LocationController(this._repository, this._deviceLocation) : super(const LocationState());
+  LocationController(this._repository, this._deviceLocation, {PlaceNamer? placeNamer})
+      : _placeNamer = placeNamer,
+        super(const LocationState());
+
+  final PlaceNamer? _placeNamer;
 
   static const _storageKey = 'askodox.selected_location.v1';
   final GeoRepository? _repository;
@@ -130,11 +139,19 @@ class LocationController extends StateNotifier<LocationState> {
       return;
     }
 
+    // A readable place ("Benz Circle, Vijayawada, Andhra Pradesh") when the
+    // backend can resolve it; otherwise honestly "Current location".
+    String? place;
+    try {
+      place = await _placeNamer?.call(point.latitude, point.longitude);
+    } catch (_) {
+      place = null;
+    }
     await selectManualLocation(
       BuyerSavedLocation(
         id: 'current-location',
-        name: 'Current location',
-        address: '',
+        name: place ?? 'Current location',
+        address: place ?? '',
         point: point,
         type: SavedLocationType.currentLocation,
       ),

@@ -19,6 +19,7 @@ from app.core.intent_domain_router import IntentRouteNotFoundError
 from app.services.universal_category_schema import UniversalCategorySchemaRegistry
 from app.services.universal_action_contract import build_action_result
 from app.services.universal_external_result_service import UniversalExternalResultService
+from app.repositories.command_center_repository import mask_user_id
 from app.services.universal_multi_source_result_service import UniversalMultiSourceResultService
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
@@ -302,6 +303,30 @@ _SUPPLY_INTENTS = {
 _DOMAIN_BY_CATEGORY = {"product": "PRODUCT", "food": "PRODUCT", "service": "SERVICES"}
 
 
+_SUBJECT_FIELDS = ("skill", "role", "jobRole", "job_role", "service", "item", "product", "cargo",
+                   "speciality", "specialty", "jobType", "rentalType")
+_INTENT_SUBJECT = {
+    "sendparcel": "parcel delivery", "deliverparcel": "parcel delivery", "needride": "ride",
+    "offerride": "ride", "seekwork": "job", "needworker": "worker", "bookappointment": "appointment",
+}
+
+
+def _fill_subject(payload: UniversalDealCreateRequest) -> None:
+    """A requirement whose "what" lives in a detail field (a job seeker's
+    skill, a parcel's item) still has a subject -- never a 422 that the app
+    shows as "Matching is unavailable right now"."""
+    if _present(payload.subject):
+        return
+    fields = dict(payload.dynamic_fields or {})
+    for key in _SUBJECT_FIELDS:
+        if _present(fields.get(key)):
+            payload.subject = str(fields[key]).strip()
+            return
+    intent = str(payload.intent or "").replace("_", "").lower()
+    if intent in _INTENT_SUBJECT:
+        payload.subject = _INTENT_SUBJECT[intent]
+
+
 def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dict:
     """The app's already-complete deal as a universal demand record."""
     location = dict(payload.location or {})
@@ -321,6 +346,9 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         }.items()
         if _present(value)
     }
+    radius = location.get("radius_km")
+    if _present(radius):
+        constraints.setdefault("radius_km", radius)
     return {
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
@@ -378,6 +406,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
     )
 
     before = _latest_created_deal(container, user_id)
+    _fill_subject(payload)
     if _app_structured_requirement(payload):
         # 2026-09-27 (universal engine): the app already understood the need
         # (AI + requirement state, from text, voice, photo or file) and sent
@@ -395,7 +424,15 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
             demand_id = container.universal_demand_repository.create(demand)
             stored = container.universal_demand_repository.get(demand_id) or {**demand, "id": demand_id}
         _trace_request(container, f"deal:{stored['id']}", payload, user_id, deal_id=int(stored["id"]))
-        return _deal_response(stored, "", intent_context)
+        # Real in-app leads to matching registered providers (catering staff,
+        # plumbers, sellers...): a saved need is also a sent need.
+        from app.services.app_demand_broadcast import broadcast_need
+
+        broadcast = broadcast_need(container, stored)
+        _trace_stage(container, int(stored["id"]), broadcast=broadcast)
+        response = _deal_response(stored, "", intent_context)
+        response["broadcast"] = broadcast
+        return response
     reply = container.conversation_service.process(
         sender_mobile=user_id,
         message=" ".join(payload.raw_text.strip().split()),
@@ -475,6 +512,7 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
     Identity is required only to act (send a request/order, contact a
     seller) -- never to view results, photos, prices or links."""
     container = request.app.state.container
+    _fill_subject(payload)
     if not _present(payload.subject):
         raise HTTPException(status_code=422, detail="Tell ASKODOX what you are looking for")
     try:
@@ -496,10 +534,66 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "local_match_count": discovered["local_match_count"],
         "segments": sorted({str(item.get("segment")) for item in matches if item.get("segment")}),
         "source_status": discovered["source_status"],
+        "scope": discovered.get("scope") or {},
         "matches": matches,
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
     }
+
+
+@router.get("/leads")
+def provider_leads(request: Request) -> dict:
+    """Requests ASKODOX sent to this registered provider (in-app leads).
+
+    The requester's identity/contact is never included: it is shared only
+    after the requester accepts the provider's interest (consent rule).
+    """
+    container = request.app.state.container
+    provider = _authenticated_app_user(request)
+    rows = container.database.fetchall(
+        """
+        SELECT n.request_id, n.lead_message, n.created_at, n.status AS lead_status,
+               d.subject, d.domain, d.location_text, d.when_text, d.quantity, d.unit, d.price, d.status,
+               (SELECT responder_status FROM universal_interests i
+                WHERE i.request_id=n.request_id AND i.responder_user_id=n.target_user_id) AS my_response
+        FROM universal_notifications n
+        JOIN universal_need_offer_records d ON d.id = n.request_id
+        WHERE n.target_user_id=? AND UPPER(COALESCE(d.status,'ACTIVE'))='ACTIVE'
+        ORDER BY n.id DESC
+        LIMIT 100
+        """,
+        (provider,),
+    )
+    return {"leads": [dict(row) for row in rows], "count": len(rows)}
+
+
+@router.post("/{deal_id}/interest")
+def provider_interest(deal_id: int, request: Request) -> dict:
+    """A targeted provider says "I can do this" -> the requester sees the
+    interest in their results and decides (existing consent flow)."""
+    container = request.app.state.container
+    provider = _authenticated_app_user(request)
+    demand = container.universal_demand_repository.get(deal_id)
+    if not demand or str(demand.get("status") or "ACTIVE").upper() != "ACTIVE":
+        raise HTTPException(status_code=404, detail="active request not found")
+    if str(demand.get("user_id") or "") == provider:
+        raise HTTPException(status_code=409, detail="this is your own request")
+    notifications = container.universal_notification_repository
+    if not notifications.was_targeted(deal_id, provider):
+        raise HTTPException(status_code=403, detail="this request was not sent to you")
+    result = container.universal_notification_service.register_interest(demand, provider)
+    _trace_stage(container, deal_id, stage="provider_interested",
+                 seller_request={"provider": mask_user_id(provider), "status": "INTERESTED"})
+    return {"deal_id": deal_id, "status": "INTERESTED", "result": result}
+
+
+def _trace_stage(container, deal_id: int, *, stage: str | None = None, **fields) -> None:
+    try:
+        from app.api.routes.command_center import command_center
+
+        command_center(container).trace_upsert(f"deal:{int(deal_id)}", deal_id=int(deal_id), stage=stage, **fields)
+    except Exception:
+        pass  # tracing never breaks the customer flow
 
 
 @router.get("/{deal_id}/matches")
@@ -589,6 +683,8 @@ def get_matches(deal_id: int, request: Request) -> dict:
         # Honest per-source outcome (ok / no_results / unavailable) so the
         # chat never fills a section with placeholders.
         "source_status": source_status,
+        # Where local results came from, and whether the search widened.
+        "scope": discovered.get("scope") or {},
         "matches": matches,
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
@@ -612,7 +708,10 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
     """
     import time as _time
 
+    from app.services import external_call_budget
+
     started = _time.perf_counter()
+    usage_before = external_call_budget.usage_snapshot()
     matches = list(matches or [])
     existing_ids = {str(item.get("id")) for item in matches}
     flags = _result_flags(container)
@@ -721,7 +820,20 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         "errors": errors,
         "latency_ms": round((_time.perf_counter() - started) * 1000),
         "need_kind": discovery._kind,
+        "scope": dict(discovery.scope or {}),
+        "api_calls": _usage_delta(usage_before, external_call_budget.usage_snapshot()),
     }
+
+
+def _usage_delta(before: dict, after: dict) -> dict:
+    """Real external calls made (and cache hits) while serving this request."""
+    delta: dict[str, dict[str, int]] = {}
+    for provider, stats in after.items():
+        prior = before.get(provider, {})
+        changed = {k: v - prior.get(k, 0) for k, v in stats.items() if v - prior.get(k, 0)}
+        if changed:
+            delta[provider] = changed
+    return delta
 
 
 _NOT_RUN = (None, "not_applicable", "disabled", "unavailable")
@@ -751,6 +863,8 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
             master_web=discovered["source_status"].get("online") not in _NOT_RUN,
             local_search=discovered["source_status"].get("nearby") not in _NOT_RUN,
             need_kind=discovered["need_kind"],
+            geographic_scope=discovered.get("scope") or None,
+            api_calls=discovered.get("api_calls") or {},
             results_count=len(discovered["matches"]),
             results=top,
             errors=discovered["errors"],
@@ -787,6 +901,9 @@ def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=
             questions=[str(q)[:200] for q in (client.get("questions") or [])][:20],
             answers=[str(a)[:200] for a in (client.get("answers") or [])][:20],
             auth_gate=auth_gate or str(client.get("auth_gate") or "")[:120],
+            active_role=str(client.get("active_role") or "")[:40],
+            missing_slots=[str(m)[:40] for m in (client.get("missing_slots") or [])][:20],
+            location_used=str(client.get("location_used") or "")[:160],
             stage="request_received",
         )
     except Exception:
