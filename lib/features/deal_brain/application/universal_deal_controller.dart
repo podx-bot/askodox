@@ -402,6 +402,35 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     final fields = Map<String, Object?>.from(current.dynamicFields);
     var next = current;
     var filled = false;
+    // Route answers ("pickup at X, drop at Y", "from X to Y", "current
+    // location"): fill every end the answer names, never ask it again.
+    if (missing.contains('from') || missing.contains('to')) {
+      final route = _brain.capture('send parcel $value').dynamicFields;
+      if (missing.contains('from') && route['from'] != null) {
+        fields['from'] = route['from'];
+        filled = true;
+      }
+      if (missing.contains('to') && route['to'] != null) {
+        fields['to'] = route['to'];
+        filled = true;
+      }
+      final here = RegExp(r'\b(current location|my location|here|this location)\b|నా లొకేషన్|ఇక్కడ|ప్రస్తుత స్థానం',
+              caseSensitive: false)
+          .hasMatch(lower);
+      final known = current.location.label?.trim() ?? '';
+      if (here && missing.contains('from') && fields['from'] == null && known.isNotEmpty) {
+        fields['from'] = known;
+        filled = true;
+      }
+    }
+    if (missing.contains('timing') &&
+        RegExp(r'\b(now|today|tonight|tomorrow|morning|evening|afternoon|asap|urgent|\d{1,2}(:\d{2})?\s*(am|pm))\b'
+                r'|ఇప్పుడే|ఈరోజు|రేపు|ఉదయం|సాయంత్రం',
+                caseSensitive: false)
+            .hasMatch(lower)) {
+      next = next.copyWith(timing: value);
+      filled = true;
+    }
     for (final field in missing) {
       switch (field) {
         case 'quantity':

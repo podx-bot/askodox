@@ -901,6 +901,9 @@ def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=
             questions=[str(q)[:200] for q in (client.get("questions") or [])][:20],
             answers=[str(a)[:200] for a in (client.get("answers") or [])][:20],
             auth_gate=auth_gate or str(client.get("auth_gate") or "")[:120],
+            active_role=str(client.get("active_role") or "")[:40],
+            missing_slots=[str(m)[:40] for m in (client.get("missing_slots") or [])][:20],
+            location_used=str(client.get("location_used") or "")[:160],
             stage="request_received",
         )
     except Exception:

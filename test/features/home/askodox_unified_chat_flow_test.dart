@@ -1380,6 +1380,99 @@ void main() {
     expect(find.textContaining('Sign in'), findsNothing, reason: 'viewing results never needs sign-in');
   });
 
+  group('human flow: chat actions are real backend actions', () {
+    testWidgets('typed "yes, order the second one" places the SAME order as the Send request button', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '901', matches: [_registeredTv, _registeredTv2]),
+        ]),
+      );
+      h.orders.orderId = '501';
+      await h.pump(tester);
+      await h.send(tester, '43 inch TV ₹30,000 show me');
+      expect(h.matches.deals, hasLength(1));
+
+      await h.send(tester, 'yes, order the second one');
+      expect(h.orders.placed, ['43'], reason: 'POST /api/orders for the chosen registered listing');
+      expect(h.orders.contexts.single, isNotNull, reason: 'the requirement travels with the request');
+      expect(find.textContaining('Request sent to "43 inch battery backup TV" (#501)'), findsOneWidget);
+      expect(h.matches.deals, hasLength(1), reason: 'confirming never restarts the search');
+
+      await h.send(tester, 'order it');
+      expect(h.orders.placed, ['43'], reason: 'no duplicate order');
+      expect(find.textContaining('already sent (#501)'), findsOneWidget);
+    });
+
+    testWidgets('a snippet price is labelled, never shown as a confirmed price', (tester) async {
+      const page = UniversalMatch(
+        id: 'online-0-urbancompany.com',
+        title: 'AC repair service Vijayawada',
+        source: 'online',
+        destinationUrl: 'https://www.urbancompany.com/vijayawada-ac-repair',
+        price: 499,
+        priceVerified: false,
+      );
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '902', matches: [page]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need AC repair service in Vijayawada, show me');
+      expect(find.text('Page mentions ₹499'), findsOneWidget);
+      expect(find.text('₹499'), findsNothing);
+    });
+
+    testWidgets('catering: a saved need shows the REAL broadcast count, not "saved"', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '903', matches: [], broadcastSent: 4,
+            sourceStatus: {'askodox': 'no_results', 'nearby': 'no_results'}),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need 10 catering staff tomorrow 6 pm in Vijayawada, ₹800 each, show me');
+      expect(h.matches.deals, hasLength(1));
+      expect(find.textContaining('sent your request to 4 registered ASKODOX provider(s)'), findsOneWidget);
+      expect(find.textContaining('I saved your need'), findsNothing);
+    });
+
+    testWidgets('parcel with pickup + drop + time is searched at once -- no repeated questions', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '904', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'send a document from Benz Circle Vijayawada to Kukatpally Hyderabad tomorrow');
+      expect(find.textContaining('Where does it start'), findsNothing);
+      expect(find.textContaining('Where should it go'), findsNothing);
+      expect(h.matches.deals, hasLength(1));
+      final deal = h.matches.deals.single;
+      expect(deal.intent, DealIntent.sendParcel);
+      expect(deal.subject, isNot(contains('Hyderabad')), reason: 'route words never match listings');
+      expect(deal.dynamicFields['to'], 'Kukatpally Hyderabad');
+    });
+
+    testWidgets('job seeker: skill + salary give results, never "Matching is unavailable"', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '905', matches: [], sourceStatus: {'askodox': 'no_results'}),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need a delivery driver job in Vijayawada, salary 18000, show me');
+      expect(h.matches.deals, hasLength(1));
+      expect(h.matches.deals.single.intent, DealIntent.seekWork);
+      expect(askodoxEffectiveSubject(h.matches.deals.single), isNotNull);
+      expect(find.textContaining('Matching is unavailable'), findsNothing);
+      expect(find.textContaining('#905 stays open'), findsOneWidget);
+    });
+
+    testWidgets('browsing "best selling TV" keeps the Buyer role and never lists an item', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '906', matches: [_registeredTv]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'show me the best selling 43 inch TV under ₹30,000');
+      expect(h.matches.deals.single.intent, DealIntent.buy);
+      expect(h.listings.listed, isEmpty, reason: 'no listing published from a buyer search');
+      expect(find.textContaining('Seller'), findsNothing);
+    });
+  });
+
   testWidgets('real multi-source results coexist; actual video opens inside ASKODOX and back keeps the chat',
       (tester) async {
     const video = UniversalMatch(

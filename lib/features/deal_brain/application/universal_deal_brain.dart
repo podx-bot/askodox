@@ -41,20 +41,32 @@ class UniversalDealBrain {
     if (hasAny(['buy nearby', 'i want to buy', 'want to buy', 'need to buy', 'looking to buy', 'కొనాలి', 'కావాలి కొన'])) {
       return DealIntent.buy;
     }
-    if (hasAny([
-      'sell something',
-      'i want to sell',
-      'want to sell',
-      'i have a ',
-      'i am selling',
-      "i'm selling",
-      'selling ',
-      'for sale',
-      'అమ్మాలి',
-      'అమ్మకం',
-      'అమ్ముతున్నాను',
-    ])) {
+    // Selling only when the user says THEY sell: "best selling TV", "I have
+    // a budget of 25k" and "TV for sale near me" are buyers.
+    final ownsForSale = RegExp(
+      r'\b(i|we) (have|own|got) (a|an|some|my|our|one)\b.{0,50}\b(to sell|for sale)\b'
+      r'|\b(my|our) .{1,50}\bfor sale\b'
+      r"|\b(i am|i'm|we are|we're) selling\b|\bselling (my|our)\b|\bsell (my|our)\b",
+    ).hasMatch(text);
+    if (ownsForSale ||
+        hasAny([
+          'sell something',
+          'i want to sell',
+          'want to sell',
+          'అమ్మాలి',
+          'అమ్మకం',
+          'అమ్ముతున్నాను',
+        ])) {
       return DealIntent.sell;
+    }
+    // Sending something somewhere ("I need to send a parcel", "pickup at X,
+    // drop at Y", "courier a document to Hyderabad") -- any wording.
+    if (!hasAny(['deliver parcel', 'delivery work', 'parcel delivery job']) &&
+        (RegExp(r'\b(send|deliver|courier|ship|drop)\b.{0,30}\b(parcel|package|courier|documents?|box|cover|luggage|item)\b'
+                    r'|\bpick ?up\b.{0,80}\bdrop\b|\bparcel\b|\bcourier\b')
+                .hasMatch(text) ||
+            hasAny(['పార్సెల్', 'కొరియర్']))) {
+      return DealIntent.sendParcel;
     }
     final hiring = hasAny(['need worker', 'need staff', 'hiring', 'hire ', 'worker కావాలి', 'మనిషి కావాలి']);
     if (hasAny(['need a job', 'looking for job', 'find work', 'need work', 'ఉద్యోగం కావాలి', 'పని కావాలి']) ||
@@ -115,8 +127,36 @@ class UniversalDealBrain {
   DealPartyRequirement _demand(String role, String action) => DealPartyRequirement(side: DealSide.demand, role: role, action: action);
   DealPartyRequirement _supply(String role, String action) => DealPartyRequirement(side: DealSide.supply, role: role, action: action);
 
+  static const _routeIntents = {
+    DealIntent.sendParcel,
+    DealIntent.deliverParcel,
+    DealIntent.needRide,
+    DealIntent.offerRide,
+  };
+
+  /// What is being sent ("a document", "2 boxes"), never the route.
+  static String? parcelItem(String text) {
+    final match = RegExp(
+      r'\b(?:send|deliver|courier|ship)\s+(?:a|an|my|the|some|\d+)?\s*([a-z]+(?:\s[a-z]+)?)\s+(?:from|to|at|pickup|pick up)\b',
+      caseSensitive: false,
+    ).firstMatch(text);
+    final item = match?.group(1)?.trim().toLowerCase();
+    if (item == null || item.isEmpty || {'parcel', 'package', 'courier', 'it', 'something'}.contains(item)) {
+      return null;
+    }
+    return item;
+  }
+
   String? _subject(String text, DealIntent intent) {
     final lowerText = text.toLowerCase().trim();
+    // A route need is about the service, not the places: "parcel to
+    // Hyderabad" must never match a Hyderabad listing.
+    if (_routeIntents.contains(intent)) {
+      final isRide = intent == DealIntent.needRide || intent == DealIntent.offerRide;
+      if (isRide) return null; // route + timing are the need; backend names it "ride"
+      final item = parcelItem(text);
+      return item == null ? 'parcel delivery' : '$item delivery';
+    }
     if ({'buy nearby', 'sell something', 'find work', 'book a service', 'find a ride'}.contains(lowerText)) return null;
 
     var value = text;
@@ -167,12 +207,20 @@ class UniversalDealBrain {
     ).trim();
     value = value.replaceFirst(RegExp(r'\s*₹\s*[0-9]+(?:\.[0-9]+)?\s*$'), '').trim();
 
-    final genericValues = <String>{'work', 'job', 'service', 'a service', 'ride', 'a ride', 'something', 'nearby'};
+    final genericValues = <String>{
+      'work', 'job', 'a job', 'any job', 'some work', 'a work', 'service', 'a service', 'ride', 'a ride',
+      'something', 'nearby',
+    };
     if (value.isEmpty || genericValues.contains(value.toLowerCase())) return null;
     return value;
   }
 
   String? _category(String text, DealIntent intent) {
+    // What the person is DOING wins over nouns in the message: a parcel of
+    // biryani is a parcel, not a food order.
+    if (intent == DealIntent.sendParcel || intent == DealIntent.deliverParcel) return 'parcel';
+    if (intent == DealIntent.needRide || intent == DealIntent.offerRide) return 'ride';
+    if (intent == DealIntent.seekWork || intent == DealIntent.needWorker) return 'work';
     if (RegExp(r'\b(?:food|meal|biryani|restaurant|tiffin|lunch|dinner|chicken|rice)\b').hasMatch(text) ||
         text.contains('ఫుడ్') || text.contains('బిర్యానీ') || text.contains('చికెన్')) {
       return 'food';
@@ -250,16 +298,39 @@ class UniversalDealBrain {
         break;
       }
     }
+    String tidy(String v) => v
+        .replaceFirst(RegExp(r'^(?:at|from|the)\s+', caseSensitive: false), '')
+        .replaceFirst(RegExp(r'[\s,.;]+(?:and|then|&)?\s*$', caseSensitive: false), '')
+        .trim();
+    // "pickup at X, drop at Y" / "pick up from X and drop to Y" anywhere.
+    final pickDrop = RegExp(
+      r'pick\s?-?up\s*(?:is\s*|at\s*|from\s*)?(.+?)[\s,;]+(?:and\s+|then\s+)?drop(?:\s?-?off)?\s*(?:is\s*|at\s*|to\s*)?(.+)$',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    // "... from X to Y ..." anywhere; Telugu "X నుండి Y కి".
+    final fromTo = RegExp(r'\bfrom\s+(.+?)\s+(?:to|->|→)\s+(.+)$', caseSensitive: false).firstMatch(raw);
+    final telugu = RegExp(r'(\S+(?:\s\S+)?)\s*(?:నుండి|నుంచి)\s*(\S+?)(?:కి|కు)?(?:\s|$)').firstMatch(raw);
     value = value.replaceFirst(RegExp(r'^from\s+', caseSensitive: false), '');
-    final match = RegExp(r'^(.+?)\s+(?:to|->|→)\s+(.+)$', caseSensitive: false).firstMatch(value);
+    final match = pickDrop ?? fromTo ?? telugu ??
+        RegExp(r'^(.+?)\s+(?:to|->|→)\s+(.+)$', caseSensitive: false).firstMatch(value);
     if (match == null) return null;
-    final from = match.group(1)?.trim() ?? '';
-    var to = match.group(2)?.trim() ?? '';
+    var from = tidy(match.group(1) ?? '');
+    var to = tidy(match.group(2) ?? '');
+    // "I need to send a parcel": a verb phrase, not a route.
+    if (RegExp(r'\b(need|want|have|like|going|able|has)$', caseSensitive: false).hasMatch(from) ||
+        RegExp(r'^(send|buy|deliver|get|go|book|pick|ship|courier)\b', caseSensitive: false).hasMatch(to)) {
+      return null;
+    }
+    // "parcel to Hyderabad": only the drop is known.
+    if (RegExp(r'^(?:(?:a|my|the|send|send a)\s+)?(?:parcel|package|courier|document|box)s?$', caseSensitive: false)
+        .hasMatch(from)) {
+      from = '';
+    }
     to = to.replaceFirst(
       RegExp(r'\s+(?:today|tomorrow|tonight|now|urgent)\b.*$', caseSensitive: false),
       '',
     ).trim();
-    if (from.isEmpty || to.isEmpty) return null;
+    if (from.isEmpty && to.isEmpty) return null;
     return (from, to);
   }
 
@@ -272,8 +343,8 @@ class UniversalDealBrain {
     if (intent == DealIntent.needRide || intent == DealIntent.offerRide || intent == DealIntent.sendParcel || intent == DealIntent.deliverParcel) {
       final route = _route(raw, intent);
       if (route != null) {
-        fields['from'] = route.$1;
-        fields['to'] = route.$2;
+        if (route.$1.isNotEmpty) fields['from'] = route.$1;
+        if (route.$2.isNotEmpty) fields['to'] = route.$2;
       }
     }
 

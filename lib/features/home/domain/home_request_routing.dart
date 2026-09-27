@@ -50,7 +50,11 @@ class AskodoxHomeRequestRouting {
     if (_has(q, const ['ride', 'carpool', 'driver', 'passenger', 'రైడ్'])) {
       return AskodoxHomeRequestKind.ride;
     }
-    if (_has(q, const ['parcel', 'delivery', 'courier', 'పార్సెల్', 'డెలివరీ'])) {
+    if (_has(q, const [
+      'parcel', 'delivery', 'courier', 'పార్సెల్', 'డెలివరీ',
+      // Sending something between two places, in any wording.
+      'send a document', 'send document', 'pickup at', 'pick up at', 'pick up from', 'drop at', 'drop it at',
+    ])) {
       return AskodoxHomeRequestKind.parcel;
     }
     if (_has(q, const ['chicken', 'చికెన్', 'కోడి', 'mutton', 'మటన్', 'meat'])) {

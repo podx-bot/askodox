@@ -89,6 +89,7 @@ class UniversalMatch {
     this.segment,
     this.sourceName,
     this.duration,
+    this.priceVerified = true,
   });
 
   final String id;
@@ -121,6 +122,10 @@ class UniversalMatch {
 
   /// Video length as returned by the video source (e.g. "08:12").
   final String? duration;
+
+  /// False when the price is only text found on a web page (snippet) --
+  /// shown as "Page mentions ₹X", never as a confirmed price.
+  final bool priceVerified;
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -160,6 +165,7 @@ class UniversalMatch {
           segment: json['segment']?.toString(),
           sourceName: json['source_name']?.toString(),
           duration: json['duration']?.toString(),
+          priceVerified: json['price_verified'] != false,
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -185,6 +191,7 @@ class UniversalMatch {
         'segment': segment,
         'source_name': sourceName,
         'duration': duration,
+        'price_verified': priceVerified,
       };
 }
 
@@ -193,9 +200,18 @@ class UniversalMatchResult {
     required this.dealId,
     required this.matches,
     this.sourceStatus = const <String, String>{},
+    this.broadcastSent,
+    this.scopeMessage,
   });
   final String dealId;
   final List<UniversalMatch> matches;
+
+  /// Real in-app leads created for registered providers (backend count);
+  /// null when no broadcast ran (e.g. guest browsing).
+  final int? broadcastSent;
+
+  /// One line when the search widened beyond the customer's area.
+  final String? scopeMessage;
 
   /// Per source (askodox, nearby, used_deals, online, videos): ok,
   /// no_results or unavailable -- as reported by the backend.
@@ -331,9 +347,12 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
     rows.sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
     final status = data['source_status'];
+    final broadcast = created['broadcast'];
     return UniversalMatchResult(
       dealId: dealId,
       matches: rows,
+      broadcastSent: broadcast is Map ? (broadcast['sent'] as num?)?.toInt() : null,
+      scopeMessage: _scopeMessage(data['scope']),
       sourceStatus: status is Map
           ? {for (final e in status.entries) '${e.key}': '${e.value}'}
           : const {},
@@ -393,6 +412,12 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     return sandboxPartyGateStore.canShareContact(dealId: dealId, matchId: matchId);
   }
 
+  static String? _scopeMessage(Object? scope) {
+    if (scope is! Map || scope['expanded'] != true) return null;
+    final message = scope['message']?.toString().trim() ?? '';
+    return message.isEmpty ? null : message;
+  }
+
   Future<UniversalMatchResult> _browse(
     UniversalDeal deal,
     String userId,
@@ -421,6 +446,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     return UniversalMatchResult(
       dealId: '',
       matches: rows,
+      scopeMessage: _scopeMessage(data['scope']),
       sourceStatus: status is Map ? {for (final e in status.entries) '${e.key}': '${e.value}'} : const {},
     );
   }
@@ -430,7 +456,10 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         'raw_text': deal.rawText,
         'intent': deal.intent.name,
         'opposite_intent': deal.oppositeIntent.name,
-        'subject': deal.subject,
+        // A job seeker's skill / a parcel's item is the subject when the
+        // brain left it empty (otherwise the backend 422 surfaced as
+        // "Matching is unavailable right now").
+        'subject': askodoxEffectiveSubject(deal),
         'category': deal.category,
         'quantity': deal.quantity,
         'unit': deal.unit,
@@ -462,4 +491,17 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
           'action': deal.partyB.action,
         },
       };
+}
+
+
+/// The "what" of a requirement, falling back to the detail field that holds
+/// it (skill, role, service, item) when the subject slot is empty.
+String? askodoxEffectiveSubject(UniversalDeal deal) {
+  final subject = deal.subject?.trim();
+  if (subject != null && subject.isNotEmpty) return subject;
+  for (final key in const ['skill', 'role', 'jobRole', 'service', 'item', 'product', 'cargo', 'speciality']) {
+    final value = deal.dynamicFields[key]?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
 }

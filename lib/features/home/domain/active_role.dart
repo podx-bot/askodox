@@ -71,6 +71,30 @@ AskodoxUserRole? askodoxRoleForIntent(DealIntent intent) => switch (intent) {
       DealIntent.other => null,
     };
 
+/// Supply-side roles: acting as one publishes listings / receives leads,
+/// so it must come from the user's own words, never from a guessed intent.
+const askodoxSupplyRoles = {
+  AskodoxUserRole.seller,
+  AskodoxUserRole.serviceProvider,
+  AskodoxUserRole.jobSeeker,
+  AskodoxUserRole.deliveryPartner,
+  AskodoxUserRole.driver,
+};
+
+/// The role the conversation should make active for this message, scoped to
+/// the current request: the user's own words win; an inferred deal intent
+/// may only move between demand-side roles (Buyer <-> Employer). Browsing a
+/// TV therefore can never turn a Buyer into a Seller.
+AskodoxUserRole? askodoxContextRole({
+  required AskodoxRoleDetection? spoken,
+  required AskodoxUserRole? fromIntent,
+}) {
+  if (spoken != null && spoken.role != AskodoxUserRole.buyer) return spoken.role;
+  if (spoken?.role == AskodoxUserRole.buyer) return AskodoxUserRole.buyer;
+  if (fromIntent != null && askodoxSupplyRoles.contains(fromIntent)) return null;
+  return fromIntent;
+}
+
 class AskodoxRoleDetection {
   const AskodoxRoleDetection(this.role, {this.ambiguous = false});
   final AskodoxUserRole role;

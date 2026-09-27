@@ -44,6 +44,23 @@ class AskodoxSemanticDealInput {
       );
     }
 
+    // Route needs keep the AI's pickup/drop/time (they used to be dropped,
+    // so ASKODOX asked "Where does it start?" after the user had said it).
+    final pickup = _firstText(decision, const ['from', 'pickup', 'pickup_location', 'origin', 'source']);
+    final drop = _firstText(decision, const ['to', 'drop', 'drop_location', 'destination']);
+    final when = _firstText(decision, const ['time', 'timing', 'when', 'date']);
+    final isRoute = decision.domain == 'PARCEL' || decision.domain == 'RIDE';
+    if (isRoute && (pickup != null || drop != null)) {
+      parts
+        ..clear()
+        ..addAll([
+          if (subject != null) subject,
+          if (pickup != null) ...['from', pickup],
+          if (drop != null) ...['to', drop],
+          if (when != null) when,
+        ]);
+    }
+
     final payload = parts.isEmpty ? original.trim() : parts.join(' ').trim();
     final offering = _isOfferingSide(original, decision);
     return switch (decision.domain) {
@@ -82,7 +99,12 @@ class AskodoxSemanticDealInput {
         'become_seller',
         'register_seller',
       ];
-      if (offeringActionHints.any(action.contains)) return true;
+      // Token match, not substring: "best_selling_tv" or
+      // "compare_top_sellers" are buyer actions, not selling.
+      final tokens = action.split(RegExp(r'[^a-z]+')).where((t) => t.isNotEmpty).toSet();
+      final offering = offeringActionHints.any((hint) =>
+          hint.contains('_') ? action.contains(hint) : tokens.contains(hint));
+      if (offering) return true;
       const requestingActionHints = [
         'buy',
         'purchase',

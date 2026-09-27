@@ -43,9 +43,17 @@ class AskodoxChatResults {
     this.missingFields = const <String>[],
     this.sourceStatus = const <String, String>{},
     this.searched = false,
+    this.broadcastSent,
+    this.scopeMessage,
   });
 
   final String? dealId;
+
+  /// Real in-app leads the backend created for registered providers.
+  final int? broadcastSent;
+
+  /// "No suitable option near X, expanding to the wider city (~25 km)."
+  final String? scopeMessage;
 
   /// Backend-reported outcome per source (ok / no_results / unavailable).
   final Map<String, String> sourceStatus;
@@ -135,13 +143,21 @@ String askodoxResultsReply(AskodoxChatResults results, {required bool telugu}) {
         : 'Here are local options that match your request. Send a request -- contact details appear only after they accept.';
   }
   if (results.online.isNotEmpty || results.videos.isNotEmpty) {
+    // Only what really happened: an open request id / a real broadcast.
+    final id = results.dealId ?? '';
+    final sent = results.broadcastSent ?? 0;
+    final next = sent > 0
+        ? (telugu ? ' మీ అభ్యర్థనను $sent నమోదైన ప్రొవైడర్లకు పంపాను.' : ' I sent your request to $sent registered provider(s).')
+        : id.isNotEmpty
+            ? (telugu ? ' మీ అభ్యర్థన #$id తెరిచే ఉంది.' : ' Your request #$id stays open.')
+            : '';
     return telugu
-        ? 'ప్రస్తుతం ధృవీకరించిన స్థానిక match దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను; ఈలోగా ఆన్‌లైన్ ఎంపికలు, వీడియోలు ఇవి.'
-        : 'No verified local match yet. I saved your need; meanwhile here are online options and videos.';
+        ? 'ప్రస్తుతం ధృవీకరించిన స్థానిక match దొరకలేదు.$next ఈలోగా ఆన్‌లైన్ ఎంపికలు, వీడియోలు ఇవి.'
+        : 'No verified local match yet.$next Meanwhile here are online options and videos.';
   }
-  return telugu
-      ? 'ఈ అభ్యర్థనకు ప్రస్తుతం ధృవీకరించిన match దొరకలేదు. మీ అవసరాన్ని సేవ్ చేశాను; సరైన అవకాశం లభిస్తే ASKODOX మీకు తెలియజేస్తుంది.'
-      : 'I could not find a verified match for this request yet. I saved your need and ASKODOX will notify you when a suitable option becomes available.';
+  // The full, honest status (what was searched, broadcast count, open
+  // request) is the notice under this reply -- not repeated here.
+  return telugu ? 'ఇంకా సరైన ఫలితం దొరకలేదు -- వివరాలు క్రింద.' : 'Nothing suitable yet -- details below.';
 }
 
 
@@ -461,3 +477,50 @@ String askodoxOptionReply(String optionContext, {required bool telugu}) => telug
 String askodoxHumanActionReply({required bool telugu}) => telugu
     ? 'సరే. మీకు నచ్చిన ఎంపికపై "అభ్యర్థన పంపండి" నొక్కండి -- విక్రేత అంగీకరించిన తర్వాతే కాంటాక్ట్ వివరాలు కనిపిస్తాయి.'
     : 'Sure. Tap Send request on the option you want -- the seller confirms first, and contact details are shared only after they accept.';
+
+
+const _sourceNames = {
+  'askodox': ('ASKODOX sellers', 'ASKODOX విక్రేతలు'),
+  'nearby': ('nearby businesses', 'దగ్గరలోని వ్యాపారాలు'),
+  'used_deals': ('used/deals pages', 'పాత/ఆఫర్ పేజీలు'),
+  'online': ('online stores', 'ఆన్‌లైన్ స్టోర్లు'),
+  'videos': ('videos', 'వీడియోలు'),
+};
+
+/// Honest empty-results line: what was actually searched, what could not be
+/// reached, and what happens next (a real broadcast count, the open
+/// request, or signing in to save it) -- never a generic "saved".
+String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) {
+  String names(String status) => [
+        for (final e in results.sourceStatus.entries)
+          if (e.value == status && _sourceNames.containsKey(e.key))
+            telugu ? _sourceNames[e.key]!.$2 : _sourceNames[e.key]!.$1,
+      ].join(', ');
+  final searched = names('no_results');
+  final failed = names('error');
+  final parts = <String>[];
+  if (searched.isNotEmpty) {
+    parts.add(telugu ? 'వెతికాను: $searched -- సరైన ఫలితం లేదు.' : 'Searched $searched -- nothing suitable yet.');
+  } else {
+    parts.add(telugu ? 'ఇంకా సరైన ఫలితం దొరకలేదు.' : 'No suitable result yet.');
+  }
+  if (failed.isNotEmpty) {
+    parts.add(telugu ? '$failed ఇప్పుడు అందుబాటులో లేవు.' : '$failed could not be reached right now.');
+  }
+  final sent = results.broadcastSent ?? 0;
+  final id = results.dealId ?? '';
+  if (sent > 0) {
+    parts.add(telugu
+        ? 'మీ అభ్యర్థనను దగ్గరలోని $sent నమోదైన ASKODOX ప్రొవైడర్లకు పంపాను; వారి సమాధానాలు ఇక్కడే కనిపిస్తాయి.'
+        : 'I sent your request to $sent registered ASKODOX provider(s) nearby; their replies will appear here.');
+  } else if (id.isNotEmpty) {
+    parts.add(telugu
+        ? 'మీ అభ్యర్థన #$id తెరిచే ఉంటుంది; ఎవరైనా స్పందించగానే తెలియజేస్తాను. ఇది చేసే వారు తెలుసా? వారిని ASKODOX కి సూచించండి -- వారికి నేరుగా స్థానిక లీడ్స్ వస్తాయి.'
+        : 'Your request #$id stays open and I will tell you when someone responds. Know someone who does this? Refer them to ASKODOX -- they get direct local leads.');
+  } else {
+    parts.add(telugu
+        ? 'ప్రొవైడర్లు మీకు స్పందించేలా ఈ అవసరాన్ని సేవ్ చేయడానికి సైన్ ఇన్ చేయండి.'
+        : 'Sign in to save this need so providers can reply to you.');
+  }
+  return parts.join(' ');
+}
