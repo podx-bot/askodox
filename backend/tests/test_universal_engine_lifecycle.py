@@ -133,7 +133,10 @@ def test_sources_follow_the_kind_of_need_not_the_category_name():
     svc = UniversalMultiSourceResultService(catalog=None, ranking=None, seller_profiles=None, maps=maps, web_search=web)
     svc.collect({"subject": "yoga teacher", "domain": "SERVICES", "location_text": "Guntur", "latitude": 16.3, "longitude": 80.4})
     svc.online_and_videos(category="SERVICES", subject="yoga teacher", include_online=True, location_text="Guntur")
-    assert maps.queries == ["yoga teacher service near Guntur"]
+    # Nothing nearby: the SAME need is searched in widening scopes
+    # (nearby -> city -> region -> state), never a different query.
+    assert maps.queries == ["yoga teacher service near Guntur"] * 4
+    assert svc.scope["level"] == "state" and svc.scope["expanded"] is True
     assert web.queries == ["yoga teacher service in Guntur book"], "no used/surplus/deals/video queries for a service"
     status = svc.source_status()
     assert status["used_deals"] == status["videos"] == "not_applicable"

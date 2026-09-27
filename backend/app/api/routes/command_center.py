@@ -472,6 +472,29 @@ def flow_trace(trace_id: int, request: Request) -> dict[str, Any]:
     return item
 
 
+# ------------------------------------------------ demand gaps / API usage --
+
+@router.get("/demand-gaps")
+def demand_gaps(request: Request, min_count: int = 1) -> dict[str, Any]:
+    """Unmet demand grouped by category + area: where ASKODOX should recruit
+    sellers/providers. Real no-match events only."""
+    _require(request, "nomatch:view")
+    return {"items": command_center(request.app.state.container).demand_gaps(min_count=max(1, min_count))}
+
+
+@router.get("/api-usage")
+def api_usage(request: Request) -> dict[str, Any]:
+    """External API calls made by this server process (Brave, Places,
+    Geocoding): real calls, cache hits and errors since the last deploy."""
+    _require(request, "analytics:view")
+    from app.services import external_call_budget
+
+    usage = external_call_budget.usage_snapshot()
+    items = [{"provider": name, **stats,
+              "saved_by_cache": stats.get("cache_hits", 0)} for name, stats in sorted(usage.items())]
+    return {"items": items, "scope": "since last deploy (process-local)"}
+
+
 # ----------------------------------------------------------- no-match --
 
 @router.get("/no-match")

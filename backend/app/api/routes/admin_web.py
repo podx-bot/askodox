@@ -29,7 +29,7 @@ nav{display:flex;gap:8px;overflow:auto;margin:14px 0}nav button{white-space:nowr
 const tabs=[
 ["Overview","overview"],["Users","users"],["Requests","requests"],["Orders","orders"],["Listings","listings"],
 ["Categories","categories"],["Support","escalations"],["No Match","no-match"],["Notifications","notifications"],
-["Flow traces","traces"],["Staff","staff"],["Integrations","integrations"],["System Health","health"],["Analytics","analytics"],["Audit","audit"]
+["Flow traces","traces"],["Demand gaps","demand-gaps"],["API usage","api-usage"],["Staff","staff"],["Integrations","integrations"],["System Health","health"],["Analytics","analytics"],["Audit","audit"]
 ];
 let key=sessionStorage.getItem("askodox_admin_key")||""; document.querySelector("#key").value=key;
 const esc=x=>String(x??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

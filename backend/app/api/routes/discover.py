@@ -107,3 +107,24 @@ def explore_feed(
                 destination_url=place.get("maps_url") or None,
             ))
     return ExploreResponse(items=items)
+
+
+@router.get("/place")
+def resolve_place(request: Request, latitude: float, longitude: float) -> dict[str, Any]:
+    """Readable place for the customer's GPS point (area / city / state).
+
+    No sign-in needed (it only names a point the device already has).
+    ``resolved`` is False when Maps is not configured or fails -- the app
+    then keeps "Current location" and never claims a confirmed place.
+    """
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return {"resolved": False, "reason": "invalid_coordinates"}
+    container: Any = request.app.state.container
+    maps = getattr(container, "google_maps_service", None)
+    resolver = getattr(maps, "reverse_geocode", None)
+    if not callable(resolver) or not getattr(maps, "enabled", False):
+        return {"resolved": False, "reason": "maps_unavailable"}
+    place = resolver(latitude, longitude)
+    if not place:
+        return {"resolved": False, "reason": "not_found"}
+    return {"resolved": True, **place}

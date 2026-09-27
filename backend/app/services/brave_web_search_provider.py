@@ -6,15 +6,59 @@ from typing import Any
 
 import httpx
 
+from app.services import external_call_budget
+
 
 class BraveWebSearchProvider:
     API_URL = "https://api.search.brave.com/res/v1/web/search"
     VIDEO_URL = "https://api.search.brave.com/res/v1/videos/search"
 
-    def __init__(self, api_key: str, *, timeout_seconds: int = 8, client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        timeout_seconds: int = 8,
+        client: httpx.Client | None = None,
+        country: str = "IN",
+        search_lang: str = "en",
+    ) -> None:
         self.api_key = str(api_key or "").strip()
         self.timeout_seconds = max(1, int(timeout_seconds))
         self.client = client
+        # ASKODOX serves India first: without a country Brave answers from
+        # its default (US) index -- Home Depot for "AC service Vijayawada".
+        self.country = str(country or "").strip().upper()
+        self.search_lang = str(search_lang or "").strip().lower()
+        # True when the most recent call failed at the provider (HTTP/auth/
+        # quota), so callers can report "error" instead of "no results".
+        self.last_error = False
+
+    def _locale_params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if self.country:
+            params["country"] = self.country
+        if self.search_lang:
+            params["search_lang"] = self.search_lang
+        return params
+
+    def _get(self, url: str, headers: dict[str, str], params: dict[str, Any]) -> Any:
+        """One real HTTP call, de-duplicated through the shared TTL cache."""
+        def fetch() -> Any:
+            if self.client is not None:
+                response = self.client.get(url, headers=headers, params=params)
+            else:
+                with httpx.Client(timeout=self.timeout_seconds, follow_redirects=True) as client:
+                    response = client.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            return response.json()
+
+        key = (url, tuple(sorted((k, str(v)) for k, v in params.items())))
+        self.last_error = False
+        try:
+            return external_call_budget.cached_call("brave", key, fetch)
+        except (httpx.HTTPError, ValueError, TypeError):
+            self.last_error = True
+            return None
 
     @property
     def configured(self) -> bool:
@@ -33,16 +77,10 @@ class BraveWebSearchProvider:
             "X-Subscription-Token": self.api_key,
             "User-Agent": "ASKODOX/2.0",
         }
-        params = {"q": clean_query, "count": count, "text_decorations": False, "safesearch": "moderate"}
-        try:
-            if self.client is not None:
-                response = self.client.get(self.API_URL, headers=headers, params=params)
-            else:
-                with httpx.Client(timeout=self.timeout_seconds, follow_redirects=True) as client:
-                    response = client.get(self.API_URL, headers=headers, params=params)
-            response.raise_for_status()
-            payload = response.json()
-        except (httpx.HTTPError, ValueError, TypeError):
+        params = {"q": clean_query, "count": count, "text_decorations": False, "safesearch": "moderate",
+                  **self._locale_params()}
+        payload = self._get(self.API_URL, headers, params)
+        if payload is None:
             return []
 
         rows = ((payload or {}).get("web") or {}).get("results") or []
@@ -87,16 +125,9 @@ class BraveWebSearchProvider:
             "X-Subscription-Token": self.api_key,
             "User-Agent": "ASKODOX/2.0",
         }
-        params = {"q": clean_query, "count": count, "safesearch": "moderate"}
-        try:
-            if self.client is not None:
-                response = self.client.get(self.VIDEO_URL, headers=headers, params=params)
-            else:
-                with httpx.Client(timeout=self.timeout_seconds, follow_redirects=True) as client:
-                    response = client.get(self.VIDEO_URL, headers=headers, params=params)
-            response.raise_for_status()
-            payload = response.json()
-        except (httpx.HTTPError, ValueError, TypeError):
+        params = {"q": clean_query, "count": count, "safesearch": "moderate", **self._locale_params()}
+        payload = self._get(self.VIDEO_URL, headers, params)
+        if payload is None:
             return []
         videos: list[dict[str, Any]] = []
         for row in ((payload or {}).get("results") or [])[:count]:

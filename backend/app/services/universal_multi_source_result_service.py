@@ -22,6 +22,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
 from app.services.universal_external_result_service import (
+    BUYABLE_PAGES,
+    STATUS_ERROR,
     STATUS_NO_RESULTS,
     STATUS_OK,
     STATUS_UNAVAILABLE,
@@ -29,7 +31,10 @@ from app.services.universal_external_result_service import (
     UniversalOnlineFallbackService,
     _host,
     _is_video_host,
-    price_from_text,
+    _price_fields,
+    _tokens,
+    classify_page,
+    region_mismatch,
     relevant_to,
 )
 
@@ -54,6 +59,16 @@ SOURCE_PLAN = {
     NEED_SERVICE: {"askodox", "nearby", "online"},
     NEED_PARTY: {"askodox"},
 }
+
+
+# Geographic expansion (only when the nearer scope found nothing): each step
+# is one more Places call, so it stops at the first scope with options.
+GEO_LADDER = (
+    ("nearby", None),        # the customer's own radius
+    ("city", 25.0),
+    ("region", 80.0),        # district / nearby region
+    ("state", 250.0),
+)
 
 
 def _public_image(value: Any) -> str | None:
@@ -136,6 +151,9 @@ class UniversalMultiSourceResultService:
         self._status: dict[str, str] = {}
         self._kind = NEED_PRODUCT
         self._filtered: dict[str, int] = {}
+        # Geographic scope actually used for local results (admin trace +
+        # the one-line "expanding to ..." message in chat).
+        self.scope: dict[str, Any] = {}
 
     def _filter(self, reason: str) -> None:
         self._filtered[reason] = self._filtered.get(reason, 0) + 1
@@ -171,17 +189,28 @@ class UniversalMultiSourceResultService:
         location_text = str(demand.get("location_text") or "").strip()
         radius_km = self._number((constraints or {}).get("radius_km")) or 5.0
         condition = wanted_condition(context_text)
+        # Words naming a place/route ("to Hyderabad", "in Vijayawada") are not
+        # the thing wanted: they must never match an unrelated listing.
+        place_words = _tokens(" ".join(
+            str(v) for v in (location_text, (constraints or {}).get("from"), (constraints or {}).get("to"),
+                             (constraints or {}).get("pickup"), (constraints or {}).get("drop")) if v
+        ))
 
         with ThreadPoolExecutor(max_workers=4) as pool:
             external = pool.submit(self._external, subject, location_text, lat, lon, radius_km) if "nearby" in plan else None
             web = pool.submit(self._web_segments, subject, location_text) if "used_deals" in plan else None
-            registered = self._registered(subject, location_text, budget, lat, lon, condition)
+            registered = self._registered(subject, location_text, budget, lat, lon, condition, place_words)
             external_rows = external.result() if external else []
             web_rows = web.result() if web else []
             rows = registered + external_rows + web_rows
         self._status["askodox"] = STATUS_OK if registered else STATUS_NO_RESULTS
         maps_ready = callable(getattr(self.maps, "search_places", None)) and getattr(self.maps, "enabled", False)
-        self._status["nearby"] = (STATUS_OK if external_rows else STATUS_NO_RESULTS) if maps_ready else STATUS_UNAVAILABLE
+        if not maps_ready:
+            self._status["nearby"] = STATUS_UNAVAILABLE
+        elif external_rows:
+            self._status["nearby"] = STATUS_OK
+        else:
+            self._status["nearby"] = STATUS_ERROR if self._maps_failed else STATUS_NO_RESULTS
         web_ready = callable(self.web_search) and getattr(self.web_search, "configured", True)
         self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
         return sorted(rows, key=lambda item: -float(item.get("rank_score") or 0))
@@ -190,16 +219,18 @@ class UniversalMultiSourceResultService:
                           location_text: str = "") -> list[dict[str, Any]]:
         plan = SOURCE_PLAN[self._kind]
         query = None
+        where = location_text or "India"
         if self._kind == NEED_SERVICE:
-            near = f" in {location_text}" if location_text else ""
-            query = f"{subject} service{near} book"
-        rows = (self.fallback.online(category=category, subject=subject, query=query)
+            query = f"{subject} service in {where} book"
+        rows = (self.fallback.online(category=category, subject=subject, query=query, location_text=location_text,
+                                     allow_directories=self._kind == NEED_SERVICE)
                 if include_online and "online" in plan else [])
         return rows + (self.fallback.videos(category=category, subject=subject) if "videos" in plan else [])
 
     # ----------------------------------------------------------- sources --
 
-    def _registered(self, subject, location_text, budget, lat, lon, condition) -> list[dict[str, Any]]:
+    def _registered(self, subject, location_text, budget, lat, lon, condition,
+                    place_words: set[str] | None = None) -> list[dict[str, Any]]:
         search = getattr(self.catalog, "search_active", None)
         if not callable(search):
             return []
@@ -211,8 +242,16 @@ class UniversalMultiSourceResultService:
             return []
         from app.api.routes.product_search import _subtitle, _title
 
+        core = " ".join(t for t in _tokens(subject) if t not in (place_words or set())) or subject
         items = []
         for row in rows:
+            # The listing must be about what is wanted -- a place name alone
+            # ("Hyderabad" in a parcel request) is never a match.
+            listing_text = " ".join(str(row.get(k) or "") for k in
+                                    ("subject", "brand", "variant", "category_tag", "features_json"))
+            if not relevant_to(core, listing_text):
+                self._filter("not_relevant")
+                continue
             price = self._number(row.get("price"))
             # Far over budget is not a relevant option, it is noise.
             if budget and price and price > budget * 1.3:
@@ -248,31 +287,61 @@ class UniversalMultiSourceResultService:
             })
         return items
 
+    _maps_failed = False
+
     def _external(self, subject, location_text, lat, lon, radius_km) -> list[dict[str, Any]]:
         search = getattr(self.maps, "search_places", None)
         if not callable(search) or not getattr(self.maps, "enabled", False):
             return []
-        noun = "service" if self._kind == NEED_SERVICE else "shop"
-        query = f"{subject} {noun}" + (f" near {location_text}" if location_text else "")
-        try:
-            places = search(query, latitude=lat, longitude=lon, radius_m=radius_km * 3000, limit=10)
-        except Exception:
-            return []
+        # "used car shop" finds nothing; the need itself ("used car near X")
+        # lets Places return dealers, garages, stores -- whatever sells it.
+        noun = " service" if self._kind == NEED_SERVICE else ""
+        query = f"{subject}{noun}" + (f" near {location_text}" if location_text else " in India")
+        has_point = lat is not None and lon is not None
+        ladder = GEO_LADDER if has_point else GEO_LADDER[:1]
+        for level, level_km in ladder:
+            scope_km = max(radius_km, level_km or radius_km)
+            if level_km is not None and level_km <= radius_km:
+                continue
+            try:
+                places = search(query, latitude=lat, longitude=lon, radius_m=scope_km * 1000, limit=10)
+            except Exception:
+                places = []
+            if getattr(self.maps, "last_error", False):
+                self._maps_failed = True
+                return []
+            items = self._places_to_rows(places, lat, lon, radius_km, scope_km)
+            if items:
+                expanded = level != "nearby"
+                self.scope = {
+                    "level": level,
+                    "radius_km": scope_km,
+                    "expanded": expanded,
+                    "place": location_text or None,
+                    "message": (f"No suitable option near {location_text or 'you'}, "
+                                f"expanding to the wider {level} (~{int(scope_km)} km).") if expanded else "",
+                }
+                return items
+        self.scope = {"level": ladder[-1][0], "radius_km": max(radius_km, ladder[-1][1] or radius_km),
+                      "expanded": len(ladder) > 1, "place": location_text or None, "message": ""}
+        return []
+
+    def _places_to_rows(self, places, lat, lon, radius_km, scope_km) -> list[dict[str, Any]]:
         items = []
-        for index, place in enumerate(places):
+        for index, place in enumerate(places or []):
             km = distance_km(lat, lon, place.get("latitude"), place.get("longitude"))
-            if km is not None and km > radius_km * 3:
+            if km is not None and km > max(scope_km * 1.5, radius_km * 3):
                 self._filter("too_far")
-                continue  # beyond the wider local area: not a local option
+                continue  # beyond the current search scope: not a local option
             segment = SEGMENT_WIDER_LOCAL if km is not None and km > radius_km else SEGMENT_NEARBY_EXTERNAL
             rating = self._number(place.get("rating"))
-            score = 40.0 - (km or radius_km) * 2 + (rating or 0) * 2
+            score = 40.0 - min(km or radius_km, 200) * 0.2 + (rating or 0) * 2
             items.append({
                 "id": f"external-{place.get('place_id') or index}",
                 "match_id": f"external-{place.get('place_id') or index}",
                 "provider_id": "",
                 "title": place.get("name"),
-                "subtitle": place.get("address") or "Nearby shop (not on ASKODOX yet)",
+                "subtitle": place.get("address") or "Local business (not on ASKODOX yet)",
                 "distance_km": km,
                 "rating_average": rating,
                 "review_count": int(place.get("rating_count") or 0),
@@ -281,6 +350,10 @@ class UniversalMultiSourceResultService:
                 "source": "external",
                 "match_source": "external",
                 "segment": segment,
+                "page_type": "business",
+                # Places gives no price: never shown as if it did.
+                "price": None,
+                "price_verified": False,
                 "rank_score": score,
                 "demo": False,
             })
@@ -289,7 +362,7 @@ class UniversalMultiSourceResultService:
     def _web_segments(self, subject, location_text) -> list[dict[str, Any]]:
         if not callable(self.web_search) or not getattr(self.web_search, "configured", True):
             return []
-        near = f" {location_text}" if location_text else ""
+        near = f" {location_text}" if location_text else " India"
         queries = {
             SEGMENT_USED: f"used second hand {subject}{near}",
             SEGMENT_SURPLUS: f"open box clearance {subject}{near}",
@@ -312,6 +385,13 @@ class UniversalMultiSourceResultService:
                 if not relevant_to(subject, title, snippet) or not _mentions(f"{title} {snippet}", words):
                     self._filter("not_relevant")
                     continue
+                if region_mismatch(url, title, snippet, wanted_place=location_text):
+                    self._filter("wrong_region")
+                    continue
+                page_type = classify_page(url, title, snippet)
+                if page_type not in BUYABLE_PAGES:
+                    self._filter("not_purchasable")
+                    continue
                 host = _host(url).removeprefix("www.")
                 items.append({
                     "id": f"{segment}-{kept}-{host}",
@@ -322,7 +402,8 @@ class UniversalMultiSourceResultService:
                     "destination_url": url,
                     "image_url": (row or {}).get("thumbnail") or None,
                     "source_name": (row or {}).get("host") or host,
-                    "price": price_from_text(title, snippet),
+                    **_price_fields(title, snippet),
+                    "page_type": page_type,
                     "source": "online",
                     "match_source": "online",
                     "segment": segment,

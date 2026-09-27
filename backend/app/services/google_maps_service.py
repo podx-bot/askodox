@@ -8,6 +8,8 @@ from urllib.parse import quote_plus
 
 import httpx
 
+from app.services import external_call_budget
+
 
 class GoogleMapsService:
     GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
@@ -27,6 +29,10 @@ class GoogleMapsService:
         except (TypeError, ValueError):
             self.timeout_seconds = 5.0
         self.client = client or httpx.Client(timeout=self.timeout_seconds)
+        # True when the latest Places call failed at the provider (API not
+        # enabled, key restricted, quota) -- reported as an error, not as
+        # "no nearby shops".
+        self.last_error = False
 
     @property
     def enabled(self) -> bool:
@@ -64,6 +70,64 @@ class GoogleMapsService:
             "place_id": str(first.get("place_id") or ""),
         }
 
+    _AREA_TYPES = ("sublocality_level_1", "sublocality", "neighborhood", "sublocality_level_2")
+
+    def reverse_geocode(self, latitude: float, longitude: float) -> dict[str, Any] | None:
+        """Readable place for a GPS point: area / city / district / state.
+
+        Returns None when Maps is not configured or the provider fails --
+        callers must then keep saying "current location" honestly rather
+        than inventing a place name.
+        """
+        try:
+            lat, lon = float(latitude), float(longitude)
+        except (TypeError, ValueError):
+            return None
+        if not self.enabled:
+            return None
+
+        def fetch() -> Any:
+            response = self.client.get(
+                self.GEOCODE_URL,
+                params={"latlng": f"{lat:.5f},{lon:.5f}", "key": self.api_key, "language": "en"},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        try:
+            payload = external_call_budget.cached_call("google_geocode", (round(lat, 4), round(lon, 4)), fetch)
+        except (httpx.HTTPError, ValueError, TypeError):
+            self.last_error = True
+            return None
+        if str((payload or {}).get("status") or "").upper() != "OK":
+            return None
+        parts: dict[str, str] = {}
+        for result in (payload.get("results") or [])[:5]:
+            for component in (result or {}).get("address_components") or []:
+                types = component.get("types") or []
+                name = str(component.get("long_name") or "").strip()
+                if not name:
+                    continue
+                if "area" not in parts and any(t in types for t in self._AREA_TYPES):
+                    parts["area"] = name
+                elif "city" not in parts and "locality" in types:
+                    parts["city"] = name
+                elif "district" not in parts and "administrative_area_level_3" in types:
+                    parts["district"] = name
+                elif "district" not in parts and "administrative_area_level_2" in types:
+                    parts["district"] = name
+                elif "state" not in parts and "administrative_area_level_1" in types:
+                    parts["state"] = name
+                elif "country" not in parts and "country" in types:
+                    parts["country"] = name
+                    parts["country_code"] = str(component.get("short_name") or "").upper()
+        if not parts:
+            return None
+        label_parts = [parts.get("area"), parts.get("city") or parts.get("district"), parts.get("state")]
+        label = ", ".join(dict.fromkeys(p for p in label_parts if p))
+        return {**parts, "label": label, "latitude": lat, "longitude": lon}
+
     def search_places(
         self,
         query: str,
@@ -72,6 +136,7 @@ class GoogleMapsService:
         longitude: float | None = None,
         radius_m: float = 5000.0,
         limit: int = 8,
+        region: str = "in",
     ) -> list[dict[str, Any]]:
         """Nearby offline shops/providers for a need (Places API text search).
 
@@ -81,7 +146,13 @@ class GoogleMapsService:
         clean = " ".join(str(query or "").strip().split())
         if not self.enabled or not clean:
             return []
-        body: dict[str, Any] = {"textQuery": clean, "maxResultCount": max(1, min(int(limit), 20))}
+        body: dict[str, Any] = {
+            "textQuery": clean,
+            "maxResultCount": max(1, min(int(limit), 20)),
+            # India-first: results and names for the Indian region.
+            "regionCode": region.upper(),
+            "languageCode": "en",
+        }
         if latitude is not None and longitude is not None:
             body["locationBias"] = {
                 "circle": {
@@ -89,7 +160,8 @@ class GoogleMapsService:
                     "radius": float(max(500.0, min(radius_m, 50000.0))),
                 }
             }
-        try:
+
+        def fetch() -> Any:
             response = self.client.post(
                 self.PLACES_TEXT_URL,
                 json=body,
@@ -97,8 +169,14 @@ class GoogleMapsService:
                 timeout=self.timeout_seconds,
             )
             response.raise_for_status()
-            payload = response.json()
+            return response.json()
+
+        key = (clean, body["maxResultCount"], body["regionCode"], repr(body.get("locationBias")))
+        self.last_error = False
+        try:
+            payload = external_call_budget.cached_call("google_places", key, fetch)
         except (httpx.HTTPError, ValueError, TypeError):
+            self.last_error = True
             return []
         places = []
         for place in (payload or {}).get("places") or []:
