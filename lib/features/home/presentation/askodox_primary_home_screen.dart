@@ -1244,7 +1244,7 @@ class _AskodoxPrimaryHomeScreenState
             (showNow && activeDealSession.deal != null) ||
             (aiUsable
                 ? (decision!.transactional || AskodoxSemanticDealInput.isConcreteNeed(decision))
-                : AskodoxHomeRequestRouting.isTransactional(text)));
+                : AskodoxHomeRequestRouting.isTransactional(text) || askodoxStatesANeed(text)));
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
@@ -1317,7 +1317,7 @@ class _AskodoxPrimaryHomeScreenState
       // A subject polluted by budget/filler words ("TV ₹20,000 లో కావాలి")
       // is cleaned once, universally.
       final rawSubject = ref.read(universalDealControllerProvider).deal?.subject;
-      if (rawSubject != null && RegExp(r'₹|\d{4,}|కావాలి|show me|చూపించ', caseSensitive: false).hasMatch(rawSubject)) {
+      if (rawSubject != null && RegExp(r'₹|\d{4,}|కావాలి|show me|చూపించ|^(a|an|the)\s', caseSensitive: false).hasMatch(rawSubject)) {
         final clean = askodoxNeedSubject(rawSubject);
         if (clean.isNotEmpty) notifier.refineSubject(clean);
       }

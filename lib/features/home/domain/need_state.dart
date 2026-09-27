@@ -149,3 +149,16 @@ bool askodoxSameNeed(String? a, String? b) {
   if (x.isEmpty || y.isEmpty) return false;
   return x.intersection(y).isNotEmpty;
 }
+
+final _wants = RegExp(
+  r'\b(i want|i need|need|want|looking for|searching for|get me)\b|కావాలి|కొనాలి|चाहिए',
+  caseSensitive: false,
+);
+
+/// A concrete need without any AI help: the customer says they want/need
+/// something AND gives a budget or asks to see results ("I want a used car
+/// under ₹8 lakh -- show me"). Category-agnostic by design.
+bool askodoxStatesANeed(String text) =>
+    _wants.hasMatch(text) &&
+    (askodoxWantsResultsNow(text) || !askodoxBudgetRange(text).isEmpty) &&
+    askodoxNeedSubject(text).isNotEmpty;

@@ -42,4 +42,12 @@ void main() {
     expect(askodoxSameNeed('Samsung television', 'television'), isTrue);
     expect(askodoxSameNeed('fridge', 'car'), isFalse);
   });
+
+  test('a stated need with a budget or "show me" is a request even without AI', () {
+    expect(askodoxStatesANeed('I want a used car under ₹8 lakh'), isTrue);
+    expect(askodoxStatesANeed('నాకు fridge ₹30,000 లో కావాలి'), isTrue);
+    expect(askodoxStatesANeed('I need a plumber, show me'), isTrue);
+    expect(askodoxStatesANeed('what is the weather today'), isFalse);
+    expect(askodoxStatesANeed('I want to know about cars'), isFalse);
+  });
 }

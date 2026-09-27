@@ -56,8 +56,10 @@ class UniversalDealBrain {
     ])) {
       return DealIntent.sell;
     }
+    final hiring = hasAny(['need worker', 'need staff', 'hiring', 'hire ', 'worker కావాలి', 'మనిషి కావాలి']);
     if (hasAny(['need a job', 'looking for job', 'find work', 'need work', 'ఉద్యోగం కావాలి', 'పని కావాలి']) ||
-        (text.contains('looking for ') && RegExp(r'\b(job|work|employment)\b').hasMatch(text))) {
+        (text.contains('looking for ') && RegExp(r'\b(job|work|employment)\b').hasMatch(text)) ||
+        (!hiring && (RegExp(r'\b(jobs?|vacancy|vacancies)\b').hasMatch(text) || hasAny(['ఉద్యోగం', 'జాబ్'])))) {
       return DealIntent.seekWork;
     }
     if (hasAny(['need worker', 'need staff', 'hiring', 'hire ', 'worker కావాలి', 'మనిషి కావాలి'])) {
@@ -81,6 +83,12 @@ class UniversalDealBrain {
     if (hasAny(['for rent', 'rent out', 'అద్దెకు ఇస్తాను'])) return DealIntent.offerRental;
     if (hasAny(['book appointment', 'appointment కావాలి'])) return DealIntent.bookAppointment;
     if (hasAny(['appointments available', 'take appointments'])) return DealIntent.offerAppointment;
+    // Someone who performs work for you (any trade) is a service need.
+    if (RegExp(r'\b(plumber|electrician|carpenter|mechanic|technician|painter|mason|welder|tutor|repair|repairing|servicing|installation|cleaning)\b')
+            .hasMatch(text) ||
+        hasAny(['మెకానిక్', 'రిపేర్', 'సర్వీస్ కావాలి'])) {
+      return DealIntent.needService;
+    }
     return DealIntent.buy;
   }
 

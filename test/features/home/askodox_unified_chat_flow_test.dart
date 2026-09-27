@@ -1338,6 +1338,36 @@ void main() {
     expect(h.matches.deals.last.dynamicFields['budget_max'], 30000);
   });
 
+  group('universal "show me" acceptance (no AI available, one pipeline for every category)', () {
+    for (final (label, message, subjectWord, intents, price) in [
+      ('chicken', '1 kg chicken curry cut in Vijayawada, show me', 'chicken', {DealIntent.buy}, null),
+      ('car', 'I want a used car under ₹8 lakh in Vijayawada — show me', 'car', {DealIntent.buy}, 800000.0),
+      ('service', 'I need a plumber in Vijayawada, show me options', 'plumber', {DealIntent.needService, DealIntent.needWorker}, null),
+      ('job', 'I need a delivery boy job in Vijayawada, show me', 'delivery', {DealIntent.seekWork}, null),
+    ]) {
+      testWidgets('$label: one search, real results in chat, no questionnaire restart', (tester) async {
+        final h = _Harness(
+          matches: _FakeMatchRepository([
+            const UniversalMatchResult(dealId: '901', matches: [_localMatch]),
+          ]),
+        );
+        await h.pump(tester);
+        await h.send(tester, message);
+
+        expect(h.matches.deals, hasLength(1), reason: '$label: show me searches once');
+        final deal = h.matches.deals.single;
+        // ignore: avoid_print
+        print('ACCEPT $label -> intent=${deal.intent} subject=${deal.subject} price=${deal.price}');
+        expect(deal.subject!.toLowerCase(), contains(subjectWord));
+        expect(intents, contains(deal.intent));
+        if (price != null) expect(deal.price, price);
+        expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
+        expect(find.textContaining('Sign in'), findsNothing);
+        expect(h.matches.traces.single!['query'], message);
+      });
+    }
+  });
+
   testWidgets('guest can browse; the sign-in prompt appears only when sending a request', (tester) async {
     final h = _Harness(
       matches: _FakeMatchRepository([
