@@ -7,15 +7,21 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `e8c666c` — PR #89 (includes PR #88's `109820e`), merged
-  2026-09-25. Previous: PR #87 (`b505b27`) unified in-chat results.
-- Live build **1236** (v1.0.1236) from `e8c666c` is on the in-app update
-  channel (`askodox-latest` release). Flutter CI #895, Android APK CI #18,
-  Android Live Build #236 all green.
-- Sprint status: NOT complete. Real-phone acceptance on build 1236 is still
-  required for: Chicken (curry cut → 1 kg → skinless → results), 43-inch TV
-  (local + online/affiliate + video, context kept), Telugu voice via Sarvam
-  (mic permission, silence auto-stop, cancel, transcript quality).
+- `main` @ `b79ebc9` — PR #101 (universal human flow), merged 2026-09-27.
+  Previous: PR #100 (`1103389`) browse without sign-in + per-category need
+  state + Admin flow traces; PR #99 Admin Web.
+- PR #101 CI was green on its head `7489fef` (askodox-ci, build-apk,
+  docker-smoke, smoke, isolation + gates). Backend 246 tests, Flutter 486.
+- Sprint status: NOT complete. NOT yet verified: real Brave/Maps results in
+  production (the cloud dev container cannot reach Brave or Railway), and
+  real-phone acceptance for TV, chicken ("yes" = order), car, AC, job,
+  catering broadcast, parcel, multi-category, Telugu voice, location naming.
+- Master Fix Ticket engines NOT built yet: advisory (3), offers/promotions
+  (13), referral/influencer/middleman reward ledger (14), subscriptions
+  backend (15), catalog drafting from photo/video (16), catering/hotel/
+  salon/health adapters (17), map-pin pickup/drop picker. Partial: extra
+  roles (6), refer/onboard action (8), route/quote/rider tracking (10), LLM
+  call caching (18), Admin offers/subscriptions/attribution tabs (20).
 - The identity-spoofing audit (started before round 10) is CLOSED.
 - Roadmap (14 points, phased delivery): https://claude.ai/artifact/TWUnjbA2TTubwczT9Lxg4n
   — Phase 0–1 done, Phase 2 round 1 (seller tiers) done, rest of Phase 2 and
@@ -80,6 +86,17 @@ this file, don't trust it blindly.
   (Sarvam-first). Never reintroduce the `RecognizerIntent` fallback there.
 - No Android SDK in the cloud dev container: Kotlin changes compile only in
   CI (`Android APK CI` / `Android Live Build`).
+- Chat and card actions share ONE executor
+  (`lib/features/home/application/match_action_executor.dart`): a typed
+  "yes / order it / book it" must keep calling it, never answer with text.
+  Supply roles (seller/provider/worker) come only from the user's own words
+  (`askodoxContextRole`), never from a guessed deal intent.
+- Discovery is India-first (`ASKODOX_SEARCH_COUNTRY`, default IN): Brave
+  `country`, Places `regionCode`, `region_mismatch` + `classify_page`
+  filters. Snippet prices are `price_verified=false`. Identical Brave/
+  Places/Geocoding calls go through `external_call_budget` (cache + usage).
+  `/deals/discover`, `/deals/leads`, `/api/discover/place` exist; the first
+  and last are public (no rate limit yet).
 
 ## Known open issues (verified, not yet fixed)
 - `/discover/voice` (ProductDiscoveryScreen) still uses the Android system
@@ -89,6 +106,13 @@ this file, don't trust it blindly.
   `cut` and `chickenPreference` (matching still completes).
 - No automated check catches "a route's auth requirement changed but a
   Flutter caller wasn't updated" — manual grep only (see gotcha above).
+- Naming the current location needs the Geocoding API enabled on the Maps
+  key; otherwise the app honestly keeps "Current location".
+- Provider leads (`/deals/leads`) are in-app only: no push/WhatsApp
+  notification, and WhatsApp-only providers are not targeted.
+- API usage counters are per process and reset on each deploy.
+- Pre-existing: `deal-completion-memory-smoke` block 2 fails when run
+  outside its workflow env (same on `main` before PR #101).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.
