@@ -103,6 +103,9 @@ def mask_user_id(user_id: Any) -> str:
     return re.sub(r"\d(?=\d{4})", "•", str(user_id or ""))
 
 
+TRACE_KEEP = 5000  # newest flow traces kept
+
+
 class CommandCenterRepository:
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
@@ -164,6 +167,16 @@ class CommandCenterRepository:
                     detail TEXT,
                     checked_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS flow_traces (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trace_key TEXT NOT NULL UNIQUE,
+                    deal_id INTEGER,
+                    data_json TEXT NOT NULL DEFAULT '{}',
+                    stage TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_flow_traces_deal ON flow_traces(deal_id);
                 CREATE TABLE IF NOT EXISTS admin_notifications (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     event_key TEXT NOT NULL UNIQUE,
@@ -351,6 +364,65 @@ class CommandCenterRepository:
                 "ON CONFLICT(demand_id, source) DO UPDATE SET status=excluded.status",
                 [(int(demand_id), str(source), str(status), now) for source, status in source_status.items()],
             )
+
+    # ------------------------------------------------------------ flow traces --
+    # One row per customer request: what the app understood, what it asked,
+    # which sources ran, what was filtered and why, what the customer got,
+    # auth gates, deal stage, errors and latency. Real events only.
+
+    def trace_upsert(self, trace_key: str, **fields: Any) -> None:
+        now = _now()
+        with self._connect() as conn:
+            row = conn.execute("SELECT data_json FROM flow_traces WHERE trace_key=?", (trace_key,)).fetchone()
+            data = json.loads(row["data_json"]) if row else {}
+            stage = fields.pop("stage", None)
+            deal_id = fields.pop("deal_id", None)
+            for key, value in fields.items():
+                if value is None or value == "":
+                    continue  # an empty list/dict is a real answer ("nothing filtered")
+                data[key] = value
+            if stage:
+                data.setdefault("timeline", []).append({"stage": stage, "at": now})
+            if row:
+                conn.execute(
+                    "UPDATE flow_traces SET data_json=?, stage=COALESCE(?, stage), deal_id=COALESCE(?, deal_id), updated_at=? WHERE trace_key=?",
+                    (json.dumps(data, ensure_ascii=False), stage, deal_id, now, trace_key),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO flow_traces(trace_key,deal_id,data_json,stage,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+                    (trace_key, deal_id, json.dumps(data, ensure_ascii=False), stage, now, now),
+                )
+                # Guest browsing is public: keep the trace table bounded.
+                conn.execute(
+                    "DELETE FROM flow_traces WHERE id <= (SELECT id FROM flow_traces ORDER BY id DESC LIMIT 1 OFFSET ?)",
+                    (TRACE_KEEP,),
+                )
+
+    def trace_stage_for_deal(self, deal_id: Any, stage: str, **fields: Any) -> None:
+        """Advance the business stage (request sent, accepted, disputed...)."""
+        try:
+            demand_id = int(deal_id)
+        except (TypeError, ValueError):
+            return
+        self.trace_upsert(f"deal:{demand_id}", deal_id=demand_id, stage=stage, **fields)
+
+    def _trace_row(self, row) -> Dict[str, Any]:
+        return {"id": row["id"], "trace_key": row["trace_key"], "deal_id": row["deal_id"], "stage": row["stage"],
+                "created_at": row["created_at"], "updated_at": row["updated_at"], **json.loads(row["data_json"] or "{}")}
+
+    def traces(self, limit: int = 100, stage: str | None = None) -> List[Dict[str, Any]]:
+        sql, params = "SELECT * FROM flow_traces", ()
+        if stage:
+            sql, params = sql + " WHERE stage=?", (stage,)
+        with self._connect() as conn:
+            rows = conn.execute(sql + " ORDER BY updated_at DESC, id DESC LIMIT ?", params + (max(1, min(limit, 500)),)).fetchall()
+        return [self._trace_row(row) for row in rows]
+
+    def trace(self, trace_id: int) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM flow_traces WHERE id=?", (int(trace_id),)).fetchone()
+        return self._trace_row(row) if row else None
 
     # ------------------------------------------------------ integration checks --
 

@@ -203,7 +203,11 @@ class UniversalMatchResult {
 }
 
 abstract interface class UniversalMatchRepository {
-  Future<UniversalMatchResult> createAndMatch(UniversalDeal deal);
+  /// Real results for [deal]. Signed-in users get a saved request (so a
+  /// seller can respond); guests and expired sessions still get the same
+  /// real results through public discovery -- viewing never needs sign-in.
+  /// [trace] is app-side context for the admin flow trace.
+  Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace});
   Future<void> acceptMatch({required String dealId, required String matchId});
 
   /// Explicit Party B acknowledgement for production-like sandbox flows.
@@ -251,10 +255,14 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       dealId.startsWith('local-') || matchId.startsWith('demo-');
 
   @override
-  Future<UniversalMatchResult> createAndMatch(UniversalDeal deal) async {
+  Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace}) async {
     final userId = appUserId;
     if (userId == null || userId.isEmpty) {
       throw StateError('Unable to establish an app session for matching.');
+    }
+    final signedIn = authToken != null && authToken!.isNotEmpty;
+    if (!signedIn && _client is! MockApiClient) {
+      return _browse(deal, userId, trace, authGate: 'guest: results shown without sign-in');
     }
 
     // Railway can need more than the global 15 second API timeout while a
@@ -262,11 +270,16 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     // because it is a POST and we must not risk duplicate requirements.
     final create = await _client.post<Map<String, Object?>>(
       '/deals',
-      body: _payload(deal, userId),
+      body: {..._payload(deal, userId), if (trace != null) 'trace': trace},
       options: _createOptions,
     );
     if (create is ApiError<Map<String, Object?>>) {
       final failure = create.failure;
+      if (failure.statusCode == 401) {
+        // Expired session: still show real results; sign-in is asked for
+        // only when the user acts (send request / contact).
+        return _browse(deal, userId, trace, authGate: 'session expired: browsing without sign-in');
+      }
       if (failure.statusCode == 422) {
         final missing = (failure.header('x-askodox-missing-fields') ?? '')
             .split(',')
@@ -378,6 +391,38 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
   bool sandboxContactSharingAllowed({required String dealId, required String matchId}) {
     if (!_isSandbox(dealId, matchId)) return false;
     return sandboxPartyGateStore.canShareContact(dealId: dealId, matchId: matchId);
+  }
+
+  Future<UniversalMatchResult> _browse(
+    UniversalDeal deal,
+    String userId,
+    Map<String, Object?>? trace, {
+    required String authGate,
+  }) async {
+    final response = await _client.post<Map<String, Object?>>(
+      '/deals/discover',
+      body: {
+        ..._payload(deal, userId),
+        'trace': {...?trace, 'auth_gate': authGate},
+      },
+      options: ApiRequestOptions(timeout: const Duration(seconds: 30)),
+    );
+    if (response is ApiError<Map<String, Object?>>) {
+      throw StateError(response.failure.message ?? 'Unable to load results.');
+    }
+    final data = (response as ApiSuccess<Map<String, Object?>>).data;
+    final rows = (data['matches'] as List? ?? const <Object?>[])
+        .whereType<Map>()
+        .map((item) => UniversalMatch.fromJson(Map<String, Object?>.from(item)))
+        .where((item) => item.id.isNotEmpty)
+        .toList()
+      ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+    final status = data['source_status'];
+    return UniversalMatchResult(
+      dealId: '',
+      matches: rows,
+      sourceStatus: status is Map ? {for (final e in status.entries) '${e.key}': '${e.value}'} : const {},
+    );
   }
 
   Map<String, Object?> _payload(UniversalDeal deal, String userId) => {

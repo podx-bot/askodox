@@ -39,8 +39,11 @@ class _FakeMatchRepository implements UniversalMatchRepository {
   final List<UniversalDeal> deals = [];
   final List<(String, String)> accepted = [];
 
+  final List<Map<String, Object?>?> traces = [];
+
   @override
-  Future<UniversalMatchResult> createAndMatch(UniversalDeal deal) async {
+  Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace}) async {
+    traces.add(trace);
     deals.add(deal);
     final next = responses.length > 1 ? responses.removeAt(0) : responses.first;
     if (next is UniversalMatchResult) return next;
@@ -1288,6 +1291,65 @@ void main() {
     expect(h.matches.deals.single.subject, 'low power TV for inverter battery backup');
   });
 
+  testWidgets('Telugu 43-inch TV "show me" with a budget searches at once -- no questionnaire', (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '801', matches: [_onlineMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'నాకు 43-inch TV ₹20,000–₹30,000 లో కావాలి — show me');
+
+    expect(h.matches.deals, hasLength(1), reason: 'show me + known subject = search now');
+    final deal = h.matches.deals.single;
+    expect(deal.subject, isNot(contains('₹')));
+    expect(deal.subject!.toLowerCase(), contains('tv'));
+    expect(deal.price, 30000);
+    expect(deal.dynamicFields['budget_min'], 20000);
+    expect(deal.dynamicFields['budget_max'], 30000);
+    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
+    final trace = h.matches.traces.single!;
+    expect(trace['query'], contains('43-inch TV'));
+  });
+
+  testWidgets('fridge + TV + car in one message: separate state and results per category', (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '811', matches: [_onlineMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'నాకు fridge ₹30–40k, TV ₹20–30k, car ₹10 lakh లో కావాలి — show me');
+
+    expect(h.matches.deals, hasLength(3));
+    final bySubject = {for (final d in h.matches.deals) d.subject!.toLowerCase(): d};
+    expect(bySubject.keys, containsAll(['fridge', 'tv', 'car']));
+    expect(bySubject['fridge']!.dynamicFields['budget_min'], 30000);
+    expect(bySubject['fridge']!.dynamicFields['budget_max'], 40000);
+    expect(bySubject['tv']!.dynamicFields['budget_max'], 30000);
+    expect(bySubject['car']!.price, 1000000);
+    expect(find.textContaining('fridge · ₹30000–₹40000'), findsOneWidget);
+    expect(find.textContaining('car · ₹10 lakh'), findsOneWidget);
+
+    // Coming back to one category restores ITS answers, not another's.
+    await h.send(tester, 'TV show me');
+    expect(h.matches.deals, hasLength(4));
+    expect(h.matches.deals.last.subject!.toLowerCase(), 'tv');
+    expect(h.matches.deals.last.dynamicFields['budget_max'], 30000);
+  });
+
+  testWidgets('guest can browse; the sign-in prompt appears only when sending a request', (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '', matches: [_registeredTv]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, '43 inch TV ₹25,000 show me');
+    expect(h.matches.deals, hasLength(1));
+    expect(find.textContaining('Sign in'), findsNothing, reason: 'viewing results never needs sign-in');
+  });
+
   testWidgets('real multi-source results coexist; actual video opens inside ASKODOX and back keeps the chat',
       (tester) async {
     const video = UniversalMatch(
@@ -1775,6 +1837,54 @@ void main() {
     expect(interest.reviewCount, 3);
     expect(result.matches.firstWhere((m) => m.id == 'online-0').affiliate, isTrue);
   });
+
+  test('guests and expired sessions browse real results via /deals/discover (no sign-in wall)', () async {
+    final deal = UniversalDeal(
+      rawText: '43 inch TV show me',
+      intent: DealIntent.buy,
+      partyA: const DealPartyRequirement(side: DealSide.demand, role: 'buyer', action: 'buy'),
+      partyB: const DealPartyRequirement(side: DealSide.supply, role: 'seller', action: 'sell'),
+      subject: '43 inch TV',
+    );
+    const discover = {
+      'matches': [
+        {'id': 'online-0', 'source': 'online', 'title': 'TV', 'destination_url': 'https://a.b'},
+      ],
+      'source_status': {'master_web': 'ok'},
+    };
+    final guestClient = _RecordingClient({'/deals/discover': discover});
+    final guest = ApiUniversalMatchRepository(guestClient, appUserId: 'guest-1', authToken: '');
+    final result = await guest.createAndMatch(deal, trace: {'query': '43 inch TV show me'});
+    expect(guestClient.posts.map((p) => p.$1), ['/deals/discover'], reason: 'no /deals create without sign-in');
+    expect(result.dealId, isEmpty);
+    expect(result.matches.single.id, 'online-0');
+    expect(result.sourceStatus['master_web'], 'ok');
+    final sentTrace = guestClient.posts.single.$2['trace'] as Map;
+    expect(sentTrace['query'], '43 inch TV show me');
+    expect(sentTrace['auth_gate'], contains('guest'));
+
+    final expiredClient = _RecordingClient({'/deals/discover': discover}, unauthorized: {'/deals'});
+    final expired = ApiUniversalMatchRepository(expiredClient, appUserId: 'app-1', authToken: 'old');
+    final again = await expired.createAndMatch(deal);
+    expect(expiredClient.posts.map((p) => p.$1), ['/deals', '/deals/discover']);
+    expect(again.matches.single.id, 'online-0');
+  });
+}
+
+class _RecordingClient extends _ScriptedClient {
+  _RecordingClient(super.routes, {this.unauthorized = const {}});
+  final Set<String> unauthorized;
+  final List<(String, Map<String, Object?>)> posts = [];
+
+  @override
+  Future<ApiResult<T>> post<T>(String path,
+      {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) async {
+    posts.add((path, Map<String, Object?>.from((body as Map?) ?? const {})));
+    if (unauthorized.contains(path)) {
+      return ApiError<T>(const ApiFailure(ApiFailureType.authentication, statusCode: 401, message: 'expired'));
+    }
+    return super.post<T>(path, body: body, options: options);
+  }
 }
 
 class _ScriptedClient implements ApiClient {

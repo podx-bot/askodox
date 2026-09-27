@@ -144,6 +144,7 @@ class UniversalOnlineFallbackService:
     def __init__(self, web_search=None) -> None:
         self.web_search = web_search
         self.status: dict[str, str] = {}
+        self.filtered: dict[str, int] = {}
 
     @property
     def _search_configured(self) -> bool:
@@ -162,6 +163,7 @@ class UniversalOnlineFallbackService:
             if not url or _is_video_host(url):
                 continue
             if not relevant_to(subject, row.get("title"), row.get("snippet")):
+                self.filtered["not_relevant"] = self.filtered.get("not_relevant", 0) + 1
                 continue
             item = self._row("online", len(results), row.get("title"), row.get("snippet"), url)
             item["image_url"] = row.get("thumbnail") or None
@@ -195,6 +197,7 @@ class UniversalOnlineFallbackService:
         for row in rows:
             url = UniversalExternalResultService._http_url(row.get("url"))
             if not url or not relevant_to(subject, row.get("title"), row.get("snippet")):
+                self.filtered["video_not_relevant"] = self.filtered.get("video_not_relevant", 0) + 1
                 continue
             item = self._row("video", len(results), row.get("title"), row.get("snippet"), url)
             item["image_url"] = row.get("thumbnail") or None

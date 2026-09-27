@@ -135,6 +135,17 @@ class UniversalMultiSourceResultService:
         self.fallback = UniversalOnlineFallbackService(web_search)
         self._status: dict[str, str] = {}
         self._kind = NEED_PRODUCT
+        self._filtered: dict[str, int] = {}
+
+    def _filter(self, reason: str) -> None:
+        self._filtered[reason] = self._filtered.get(reason, 0) + 1
+
+    def filtered_counts(self) -> dict[str, int]:
+        """Rows dropped and why (admin flow trace), across all sources."""
+        merged = dict(self._filtered)
+        for reason, count in getattr(self.fallback, "filtered", {}).items():
+            merged[reason] = merged.get(reason, 0) + count
+        return merged
 
     def source_status(self) -> dict[str, str]:
         """Per source: ok / no_results / unavailable / not_applicable (never faked)."""
@@ -205,9 +216,11 @@ class UniversalMultiSourceResultService:
             price = self._number(row.get("price"))
             # Far over budget is not a relevant option, it is noise.
             if budget and price and price > budget * 1.3:
+                self._filter("over_budget")
                 continue
             segment = listing_segment(row, self._tier(row.get("seller_user_id")))
             if condition == "new" and segment in {SEGMENT_USED, SEGMENT_SURPLUS}:
+                self._filter("condition_mismatch")
                 continue
             score = 50.0 + float(row.get("match_score") or 0)
             if condition == "used" and segment == SEGMENT_USED:
@@ -249,6 +262,7 @@ class UniversalMultiSourceResultService:
         for index, place in enumerate(places):
             km = distance_km(lat, lon, place.get("latitude"), place.get("longitude"))
             if km is not None and km > radius_km * 3:
+                self._filter("too_far")
                 continue  # beyond the wider local area: not a local option
             segment = SEGMENT_WIDER_LOCAL if km is not None and km > radius_km else SEGMENT_NEARBY_EXTERNAL
             rating = self._number(place.get("rating"))
@@ -296,6 +310,7 @@ class UniversalMultiSourceResultService:
                     continue
                 # Must be about the requirement AND genuinely this segment.
                 if not relevant_to(subject, title, snippet) or not _mentions(f"{title} {snippet}", words):
+                    self._filter("not_relevant")
                     continue
                 host = _host(url).removeprefix("www.")
                 items.append({
