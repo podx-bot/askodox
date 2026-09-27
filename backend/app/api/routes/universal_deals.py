@@ -49,6 +49,9 @@ class UniversalDealCreateRequest(BaseModel):
     dynamic_fields: dict = Field(default_factory=dict)
     party_a: dict | None = None
     party_b: dict | None = None
+    # App-side context for the admin flow trace (query, AI intent,
+    # categories, questions asked, answers remembered, auth gate). Optional.
+    trace: dict | None = None
 
 
 class AcceptMatchRequest(BaseModel):
@@ -391,6 +394,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
         if stored is None:
             demand_id = container.universal_demand_repository.create(demand)
             stored = container.universal_demand_repository.get(demand_id) or {**demand, "id": demand_id}
+        _trace_request(container, f"deal:{stored['id']}", payload, user_id, deal_id=int(stored["id"]))
         return _deal_response(stored, "", intent_context)
     reply = container.conversation_service.process(
         sender_mobile=user_id,
@@ -464,6 +468,40 @@ def _deal_response(created, reply, intent_context) -> dict:
     }
 
 
+@router.post("/discover")
+def discover_results(payload: UniversalDealCreateRequest, request: Request) -> dict:
+    """Browse real results WITHOUT signing in: the same universal discovery
+    pipeline as signed-in matches, but nothing is saved to anyone's account.
+    Identity is required only to act (send a request/order, contact a
+    seller) -- never to view results, photos, prices or links."""
+    container = request.app.state.container
+    if not _present(payload.subject):
+        raise HTTPException(status_code=422, detail="Tell ASKODOX what you are looking for")
+    try:
+        viewer = _authenticated_app_user(request)
+    except HTTPException:
+        viewer = ""  # a guest or an expired session may still browse
+    demand = _structured_demand(viewer or "guest", payload)
+    import uuid as _uuid
+
+    trace_key = f"browse:{_uuid.uuid4().hex[:16]}"
+    gate = "" if viewer else "guest browsing (no sign-in needed to view results)"
+    _trace_request(container, trace_key, payload, viewer, auth_gate=gate)
+    discovered = _discover(container, demand)
+    _trace_results(container, trace_key, discovered)
+    matches = discovered["matches"]
+    return {
+        "deal_id": None,
+        "contract_version": 1,
+        "local_match_count": discovered["local_match_count"],
+        "segments": sorted({str(item.get("segment")) for item in matches if item.get("segment")}),
+        "source_status": discovered["source_status"],
+        "matches": matches,
+        "trace_key": trace_key,
+        "requires_sign_in_for": ["send_request", "contact_seller"],
+    }
+
+
 @router.get("/{deal_id}/matches")
 def get_matches(deal_id: int, request: Request) -> dict:
     container = request.app.state.container
@@ -530,74 +568,14 @@ def get_matches(deal_id: int, request: Request) -> dict:
 
     matches.extend(_demo_discovery_matches(container, demand, existing_ids))
 
-    flags = _result_flags(container)
-    affiliate_config = getattr(container, "affiliate_provider_config", None)
-    if affiliate_config is not None and flags.get("results.affiliate", True):
-        category = str(demand.get("domain") or "").strip().lower()
-        subject = str(demand.get("subject") or "").strip()
-        providers = []
-        provider_ids = set()
-        for key in (category, subject):
-            if key:
-                for provider in affiliate_config.active_for_category(key):
-                    provider_id = str(provider.get("provider_id") or provider.get("name") or "")
-                    if provider_id and provider_id in provider_ids:
-                        continue
-                    if provider_id:
-                        provider_ids.add(provider_id)
-                    providers.append(provider)
-        external = UniversalExternalResultService.resolve(
-            category=category,
-            subject=subject,
-            providers=providers,
-        )
-        matches.extend(
-            item for item in external
-            if item.get("id") not in existing_ids
-        )
-
-    # 2026-09-26: universal multi-source results. A registered ASKODOX
-    # seller (or an interested party) no longer stops discovery: registered
-    # listings, nearby offline shops, used / individual / surplus / deals,
-    # online (normal + affiliate) and related videos are all aggregated and
-    # ranked. Discovery rows never count as matches for the consent/waiting
-    # state, which still tracks interested responders only.
-    category = str(demand.get("domain") or "").strip()
-    subject = str(demand.get("subject") or "").strip()
     primary_count = len(matches)
-    discovery = _multi_source_service(container)
-    local_sources_on = any(
-        flags.get(key, True)
-        for key in ("results.registered", "results.nearby_external", "results.used", "results.surplus", "results.deals")
-    )
-    registered_and_external = discovery.collect(demand) if local_sources_on else []
-    has_online = any(item.get("match_source") == "online" for item in matches)
-    online_on, videos_on = flags.get("results.online", True), flags.get("results.videos", True)
-    fallback = (
-        discovery.online_and_videos(
-            category=category, subject=subject, include_online=online_on and not has_online,
-            location_text=str(demand.get("location_text") or ""),
-        )
-        if online_on or videos_on
-        else []
-    )
-    seen = {str(item.get("id")) for item in matches}
-    seen_urls = {_url_key(item.get("destination_url")) for item in matches} - {""}
-    for item in registered_and_external + fallback:
-        url_key = _url_key(item.get("destination_url"))
-        if str(item.get("id")) in seen or (url_key and url_key in seen_urls) or not _result_allowed(item, flags):
-            continue  # the same destination found by two sources is shown once
-        seen.add(str(item.get("id")))
-        if url_key:
-            seen_urls.add(url_key)
-        matches.append(item)
-    local_match_count = sum(
-        1
-        for item in matches
-        if item.get("match_source") in {"interest", "demo_discovery", "registered"}
-    )
-    source_status = _flagged_source_status(discovery.source_status(), flags)
-    _record_discovery(container, flags, demand, source_status, local_match_count)
+    discovered = _discover(container, demand, matches)
+    matches = discovered["matches"]
+    local_match_count = discovered["local_match_count"]
+    source_status = discovered["source_status"]
+    fallback = discovered["fallback_rows"]
+    _record_discovery(container, discovered["flags"], demand, source_status, local_match_count)
+    _trace_results(container, f"deal:{deal_id}", discovered, deal_id=deal_id)
 
     return {
         "deal_id": deal_id,
@@ -622,6 +600,197 @@ def get_matches(deal_id: int, request: Request) -> dict:
             result={"match_count": primary_count},
         ).to_dict(),
     }
+
+
+def _discover(container, demand: dict, matches: list[dict] | None = None) -> dict:
+    """The ONE universal discovery pipeline (any category): affiliate +
+    ASKODOX registered + nearby/wider local + used/surplus/deals + online +
+    videos, filtered by admin switches, de-duplicated across sources.
+
+    Used by signed-in matches and by the public (no sign-in) discovery
+    endpoint, so browsing results never depends on identity.
+    """
+    import time as _time
+
+    started = _time.perf_counter()
+    matches = list(matches or [])
+    existing_ids = {str(item.get("id")) for item in matches}
+    flags = _result_flags(container)
+    errors: list[str] = []
+    affiliate_rows: list[dict] = []
+    affiliate_config = getattr(container, "affiliate_provider_config", None)
+    if affiliate_config is not None and flags.get("results.affiliate", True):
+        category = str(demand.get("domain") or "").strip().lower()
+        subject = str(demand.get("subject") or "").strip()
+        providers = []
+        provider_ids = set()
+        for key in (category, subject):
+            if key:
+                for provider in affiliate_config.active_for_category(key):
+                    provider_id = str(provider.get("provider_id") or provider.get("name") or "")
+                    if provider_id and provider_id in provider_ids:
+                        continue
+                    if provider_id:
+                        provider_ids.add(provider_id)
+                    providers.append(provider)
+        try:
+            external = UniversalExternalResultService.resolve(category=category, subject=subject, providers=providers)
+        except Exception as error:  # a provider failure never abandons the request
+            external, _ = [], errors.append(f"affiliate:{type(error).__name__}")
+        affiliate_rows = [item for item in external if item.get("id") not in existing_ids]
+        matches.extend(affiliate_rows)
+
+    # 2026-09-26: universal multi-source results. A registered ASKODOX
+    # seller (or an interested party) no longer stops discovery: registered
+    # listings, nearby offline shops, used / individual / surplus / deals,
+    # online (normal + affiliate) and related videos are all aggregated and
+    # ranked. Discovery rows never count as matches for the consent/waiting
+    # state, which still tracks interested responders only.
+    category = str(demand.get("domain") or "").strip()
+    subject = str(demand.get("subject") or "").strip()
+    discovery = _multi_source_service(container)
+    local_sources_on = any(
+        flags.get(key, True)
+        for key in ("results.registered", "results.nearby_external", "results.used", "results.surplus", "results.deals")
+    )
+    try:
+        registered_and_external = discovery.collect(demand) if local_sources_on else []
+    except Exception as error:
+        registered_and_external = []
+        errors.append(f"local:{type(error).__name__}")
+    has_online = any(item.get("match_source") == "online" for item in matches)
+    online_on, videos_on = flags.get("results.online", True), flags.get("results.videos", True)
+    try:
+        fallback = (
+            discovery.online_and_videos(
+                category=category, subject=subject, include_online=online_on and not has_online,
+                location_text=str(demand.get("location_text") or ""),
+            )
+            if online_on or videos_on
+            else []
+        )
+    except Exception as error:
+        fallback = []
+        errors.append(f"online:{type(error).__name__}")
+    filtered = dict(discovery.filtered_counts())
+    seen = {str(item.get("id")) for item in matches}
+    seen_urls = {_url_key(item.get("destination_url")) for item in matches} - {""}
+    for item in registered_and_external + fallback:
+        url_key = _url_key(item.get("destination_url"))
+        if str(item.get("id")) in seen or (url_key and url_key in seen_urls):
+            filtered["duplicate"] = filtered.get("duplicate", 0) + 1
+            continue  # the same destination found by two sources is shown once
+        if not _result_allowed(item, flags):
+            filtered["source_switched_off"] = filtered.get("source_switched_off", 0) + 1
+            continue
+        seen.add(str(item.get("id")))
+        if url_key:
+            seen_urls.add(url_key)
+        matches.append(item)
+    local_match_count = sum(
+        1 for item in matches if item.get("match_source") in {"interest", "demo_discovery", "registered"}
+    )
+    source_status = _flagged_source_status(discovery.source_status(), flags)
+    counts = {
+        "registered": sum(1 for m in matches if m.get("match_source") == "registered"),
+        "interest": sum(1 for m in matches if m.get("match_source") == "interest"),
+        "nearby": sum(1 for m in matches if m.get("segment") in {"nearby_external", "wider_local"}),
+        "online": sum(1 for m in matches if m.get("match_source") == "online" and not m.get("affiliate")
+                      and m.get("segment") not in {"used", "surplus", "deals"}),
+        "used_surplus_deals": sum(1 for m in matches if m.get("segment") in {"used", "surplus", "deals"}),
+        "affiliate": sum(1 for m in matches if m.get("affiliate")),
+        "videos": sum(1 for m in matches if m.get("match_source") == "video"),
+    }
+    if not online_on:
+        fallback_decision = "online switched off by admin"
+    elif has_online:
+        fallback_decision = "online search skipped: affiliate/online result already present"
+    elif local_match_count == 0:
+        fallback_decision = "no ASKODOX local match: online and nearby shown as fallback"
+    else:
+        fallback_decision = "local matches found; online shown alongside"
+    return {
+        "matches": matches,
+        "fallback_rows": fallback,
+        "flags": flags,
+        "source_status": source_status,
+        "local_match_count": local_match_count,
+        "counts": counts,
+        "filtered": filtered,
+        "fallback_decision": fallback_decision,
+        "errors": errors,
+        "latency_ms": round((_time.perf_counter() - started) * 1000),
+        "need_kind": discovery._kind,
+    }
+
+
+_NOT_RUN = (None, "not_applicable", "disabled", "unavailable")
+
+
+def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None) -> None:
+    """Admin flow trace: what the pipeline actually did for this request."""
+    try:
+        from app.api.routes.command_center import command_center
+
+        top = [
+            {"title": str(m.get("title") or "")[:80], "source": m.get("match_source"),
+             "segment": m.get("segment"), "price": m.get("price"), "has_image": bool(m.get("image_url")),
+             "has_link": bool(m.get("destination_url"))}
+            for m in discovered["matches"][:12]
+        ]
+        command_center(container).trace_upsert(
+            trace_key,
+            deal_id=deal_id,
+            stage="results_sent" if discovered["matches"] else "no_results",
+            sources=discovered["source_status"],
+            source_counts=discovered["counts"],
+            filtered=discovered["filtered"],
+            fallback=discovered["fallback_decision"],
+            # "ran" = the source was actually called; unconfigured/switched
+            # off/not relevant for this kind of need are reported as not run.
+            master_web=discovered["source_status"].get("online") not in _NOT_RUN,
+            local_search=discovered["source_status"].get("nearby") not in _NOT_RUN,
+            need_kind=discovered["need_kind"],
+            results_count=len(discovered["matches"]),
+            results=top,
+            errors=discovered["errors"],
+            latency_ms=discovered["latency_ms"],
+        )
+    except Exception:
+        pass  # tracing never breaks the customer response
+
+
+def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=None, auth_gate: str = "") -> None:
+    """The app-side context of the request (query, AI intent, slots, the
+    questions asked and answers remembered) -- sanitized, ids masked."""
+    try:
+        from app.api.routes.command_center import command_center
+        from app.repositories.command_center_repository import mask_user_id
+
+        client = dict(payload.trace or {}) if getattr(payload, "trace", None) else {}
+        slots = {k: v for k, v in {
+            "subject": payload.subject, "category": payload.category, "intent": payload.intent,
+            "quantity": payload.quantity, "unit": payload.unit, "budget": payload.price, "size": payload.size,
+            "model": payload.model, "variant": payload.variant, "timing": payload.timing,
+            "location": (payload.location or {}).get("label") if isinstance(payload.location, dict) else None,
+            **dict(payload.dynamic_fields or {}),
+        }.items() if _present(v)}
+        command_center(container).trace_upsert(
+            trace_key,
+            deal_id=deal_id,
+            user=mask_user_id(user_id) if user_id else "guest",
+            query=str(client.get("query") or payload.raw_text or "")[:500],
+            intent=str(client.get("intent") or payload.intent or "")[:80],
+            domain=str(client.get("domain") or payload.category or "")[:40],
+            categories=[str(c)[:60] for c in (client.get("categories") or [payload.subject])][:10],
+            slots=slots,
+            questions=[str(q)[:200] for q in (client.get("questions") or [])][:20],
+            answers=[str(a)[:200] for a in (client.get("answers") or [])][:20],
+            auth_gate=auth_gate or str(client.get("auth_gate") or "")[:120],
+            stage="request_received",
+        )
+    except Exception:
+        pass
 
 
 # ---- Command Center hooks (Phases 20 / 22 / 23) ---------------------------

@@ -164,6 +164,7 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
     if payload.question and payload.question.strip():
         container.order_repository.add_message(order_id, "buyer", "QUESTION", payload.question)
     order = container.order_repository.get(order_id)
+    _trace_order(container, order, "request_sent")
     if not order:
         raise HTTPException(status_code=500, detail="Order was not saved")
     return _to_response(order, viewer="buyer")
@@ -214,6 +215,7 @@ def update_order_status(order_id: int, payload: UpdateOrderStatusRequest, reques
         fields["payment_state"] = lifecycle.payment_after_accept(order.get("total_amount") or order.get("price"))
     container.order_repository.update_fields(order_id, **fields)
     updated = container.order_repository.get(order_id)
+    _trace_order(container, updated, f"seller_{target.lower()}")
     return _to_response(updated, viewer="seller")
 
 
@@ -222,6 +224,25 @@ def update_order_status(order_id: int, payload: UpdateOrderStatusRequest, reques
 # questions and negotiation (no contact exposed), payment state that never
 # claims money moved without a confirmation, customer confirmation before
 # close, disputes routed to Customer Care with the full context package.
+
+
+def _trace_order(container: Any, order: dict[str, Any] | None, stage: str, **fields: Any) -> None:
+    """Advance the admin flow trace of the conversation request this deal
+    came from (seller request status, deal stage)."""
+    try:
+        deal_id = ((order or {}).get("request_context") or {}).get("deal_id")
+        if not deal_id:
+            return
+        from app.api.routes.command_center import command_center
+
+        command_center(container).trace_stage_for_deal(
+            deal_id, stage,
+            seller_request={"order_id": order["id"], "status": order.get("status"), "kind": order.get("kind"),
+                            "payment_state": order.get("payment_state")},
+            **fields,
+        )
+    except Exception:
+        pass
 
 
 def _seller_profile(container: Any, seller_user_id: str) -> dict[str, Any]:
@@ -375,6 +396,7 @@ def confirm_completion(order_id: int, request: Request) -> dict[str, Any]:
 
     container.order_repository.update_fields(order_id, status=lifecycle.CLOSED,
                                              closed_at=datetime.now(timezone.utc).isoformat())
+    _trace_order(container, container.order_repository.get(order_id), "deal_closed")
     return _detail(container, container.order_repository.get(order_id), role)
 
 
@@ -412,6 +434,8 @@ def report_problem(order_id: int, payload: ProblemRequest, request: Request) -> 
     container.order_repository.update_fields(order_id, **fields)
     _notify_admin(container, f"dispute:order:{order_id}", "dispute", f"{category}: order #{order_id} -- {payload.issue[:60]}",
                   case.get("id"))
+    _trace_order(container, container.order_repository.get(order_id), "disputed",
+                 escalation={"case_id": case.get("id"), "category": category, "status": "OPEN"})
     return {**_detail(container, container.order_repository.get(order_id), role), "support_case_id": case.get("id")}
 
 

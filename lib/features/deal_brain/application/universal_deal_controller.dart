@@ -281,6 +281,25 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   /// Replaces the subject after the user clarified an ambiguous need
   /// ("battery TV" → "portable rechargeable battery TV"). Everything else
   /// already collected is kept.
+  /// A stated budget range ("₹20,000–30,000"): the upper bound is the
+  /// price used for matching; both bounds travel with the requirement.
+  void applyBudget({double? min, double? max}) {
+    final current = state.deal;
+    if (current == null || (min == null && max == null)) return;
+    _setSession(_sessionFor(current.copyWith(
+      price: max ?? min,
+      dynamicFields: {
+        ...current.dynamicFields,
+        if (min != null) 'budget_min': min,
+        if (max != null) 'budget_max': max,
+      },
+    )));
+  }
+
+  /// Make [deal] the active requirement (a category the customer returns to
+  /// keeps its own answers -- nothing from another category leaks in).
+  void adopt(UniversalDeal deal) => _setSession(_sessionFor(deal));
+
   void refineSubject(String subject) {
     final current = state.deal;
     final clean = subject.trim();

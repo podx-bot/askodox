@@ -22,6 +22,7 @@ import '../../../services/support_escalation_service.dart';
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
+import '../../deal_brain/application/universal_deal_brain.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 import '../../location/application/location_controller.dart';
@@ -32,6 +33,7 @@ import '../application/conversation_archive.dart';
 import '../domain/active_role.dart';
 import '../domain/chat_result_policy.dart';
 import '../domain/need_clarification.dart';
+import '../domain/need_state.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
 import 'askodox_orb.dart';
@@ -142,6 +144,12 @@ class _AskodoxPrimaryHomeScreenState
   /// with the next Send request so the customer never retypes it.
   String? _pendingSellerQuestion;
   int _dealRefreshTick = 0;
+  /// Each category's own unfinished requirement (subject → encoded deal):
+  /// switching needs never mixes slots, and returning restores answers.
+  final Map<String, Map<String, Object?>> _parkedDeals = {};
+  InAppAssistantDecision? _lastDecision;
+  String? _lastAskedQuestion;
+  List<String> _lastMissing = const [];
   String? _pendingAiContext;
   bool _pendingDiscussOnly = false;
 
@@ -679,6 +687,7 @@ class _AskodoxPrimaryHomeScreenState
       'actionable': _actionableMatchKeys.toList(),
       'requested': _requestSentMatchKeys.toList(),
       'orders': Map<String, String>.from(_orderByMatchKey),
+      'parked': Map<String, Object?>.from(_parkedDeals),
       'pendingSellerQuestion': _pendingSellerQuestion,
       'issueTurns': _issueTurns,
       'clarified': _clarifiedKeys.toList(),
@@ -715,6 +724,10 @@ class _AskodoxPrimaryHomeScreenState
     _requestSentMatchKeys.clear();
     _orderByMatchKey.clear();
     _pendingSellerQuestion = null;
+    _parkedDeals.clear();
+    _lastDecision = null;
+    _lastAskedQuestion = null;
+    _lastMissing = const [];
     _issueTurns = 0;
     _pendingClarification = null;
     _clarifiedKeys.clear();
@@ -796,6 +809,9 @@ class _AskodoxPrimaryHomeScreenState
       _actionableMatchKeys.addAll([for (final k in (data['actionable'] as List? ?? const [])) '$k']);
       _requestSentMatchKeys.addAll([for (final k in (data['requested'] as List? ?? const [])) '$k']);
       map(data['orders']).forEach((key, value) => _orderByMatchKey[key] = '$value');
+      map(data['parked']).forEach((key, value) {
+        if (value is Map) _parkedDeals[key] = Map<String, Object?>.from(value);
+      });
       _pendingSellerQuestion = data['pendingSellerQuestion']?.toString();
       _issueTurns = (data['issueTurns'] as num?)?.toInt() ?? 0;
       _clarifiedKeys.addAll([for (final k in (data['clarified'] as List? ?? const [])) '$k']);
@@ -987,12 +1003,13 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   Future<AskodoxChatResults> _findUniversalMatches(
-    UniversalDeal deal,
-  ) async {
+    UniversalDeal deal, {
+    List<String>? categories,
+  }) async {
     try {
       final result = await ref
           .read(universalMatchRepositoryProvider)
-          .createAndMatch(deal);
+          .createAndMatch(deal, trace: _traceFor(deal, categories: categories));
       final matches = [...result.matches]
         ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
       // Only real rows. With none, the chat says so (searched: true) --
@@ -1185,6 +1202,17 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
 
+    // Several needs in one message ("fridge ₹30–40k, TV ₹20–30k, car ₹10
+    // lakh"): each becomes its own requirement with its own slots and its
+    // own real results -- nothing is mixed between categories.
+    final needs = explicitContext == null && !discussOnly
+        ? askodoxSplitNeeds(text)
+        : const <AskodoxNeedSegment>[];
+    if (needs.isNotEmpty) {
+      await _searchSeveralNeeds(needs, speakResponse, text);
+      return;
+    }
+
     final decision = await ref.read(askodoxAssistantServiceProvider).decide(
       message: aiMessage,
       locale: _te ? 'te' : 'en',
@@ -1192,6 +1220,10 @@ class _AskodoxPrimaryHomeScreenState
       location: knownLocationLabel,
     );
     final aiUsable = decision?.usable == true;
+    if (aiUsable) _lastDecision = decision;
+    // "show me / results / options" = search now with what is known.
+    final showNow = askodoxWantsResultsNow(text);
+    final showOnly = showNow && askodoxNeedSubject(text).isEmpty;
     // A short answer such as "curry cut", "1 kg" or "skinless" is not
     // transactional on its own, but it *is* transactional when ASKODOX is
     // already collecting details for an unfinished commerce request. Do not
@@ -1209,9 +1241,10 @@ class _AskodoxPrimaryHomeScreenState
     final transactional = !discussOnly &&
         (clarified != null ||
             detailAnswer ||
+            (showNow && activeDealSession.deal != null) ||
             (aiUsable
                 ? (decision!.transactional || AskodoxSemanticDealInput.isConcreteNeed(decision))
-                : AskodoxHomeRequestRouting.isTransactional(text)));
+                : AskodoxHomeRequestRouting.isTransactional(text) || askodoxStatesANeed(text)));
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
@@ -1231,8 +1264,30 @@ class _AskodoxPrimaryHomeScreenState
         routedText,
       );
 
+      final aiSubject = aiUsable ? decision!.entityText('subject') : null;
+      final parked = _parkedFor(aiSubject ?? (showNow || askodoxBudgetRange(text).isEmpty == false ? askodoxNeedSubject(text) : null));
       if (clarified != null) {
         notifier.refineSubject(clarified.subject);
+      } else if (showOnly && session.deal != null) {
+        // "show me" alone: keep every answer, just search.
+      } else if (parked != null && !askodoxSameNeed(session.deal?.subject, parked.subject)) {
+        // Back to an earlier category: its own answers, not the current one's.
+        if (session.deal != null) _parkDeal(session.deal!);
+        notifier.reset();
+        notifier.adopt(parked);
+        if (!showOnly) notifier.answer(text);
+      } else if (session.deal != null &&
+          !session.completed &&
+          !detailAnswer &&
+          aiSubject != null &&
+          session.deal!.subject != null &&
+          !askodoxSameNeed(session.deal!.subject, aiSubject)) {
+        // A different need while one is unfinished: park it (kept for when
+        // the customer returns) instead of writing the new need into its slots.
+        _parkDeal(session.deal!);
+        _lastGoodProductQuery = null;
+        notifier.reset();
+        notifier.start(routedText);
       } else if (detailAnswer) {
         // The user's own words, not the AI rewrite: a rewrite like
         // "i want to buy 1 kg" would look like a new retail request and
@@ -1257,6 +1312,15 @@ class _AskodoxPrimaryHomeScreenState
           radiusKm: locationState.radiusMetres / 1000,
         );
       }
+      final budget = askodoxBudgetRange(text);
+      if (!budget.isEmpty) notifier.applyBudget(min: budget.min, max: budget.max);
+      // A subject polluted by budget/filler words ("TV ₹20,000 లో కావాలి")
+      // is cleaned once, universally.
+      final rawSubject = ref.read(universalDealControllerProvider).deal?.subject;
+      if (rawSubject != null && RegExp(r'₹|\d{4,}|కావాలి|show me|చూపించ|^(a|an|the)\s', caseSensitive: false).hasMatch(rawSubject)) {
+        final clean = askodoxNeedSubject(rawSubject);
+        if (clean.isNotEmpty) notifier.refineSubject(clean);
+      }
 
       // Real seller-backed search replaces the old DemoNaturalMatchCatalog
       // sandbox data. `readyToMatch` keeps the same "don't show anything
@@ -1277,7 +1341,19 @@ class _AskodoxPrimaryHomeScreenState
         }
         if (!deal.readyToMatch) detailQuestion = dealSession.lastQuestion;
       }
-      if (deal != null && deal.readyToMatch && needClarification == null) {
+      // Never loop on the same question: once asked and answered, or when
+      // the customer says "show me", search with what is known.
+      // A loop = the same question again AND the answer filled nothing.
+      final missingNow = deal?.missingForMatch ?? const <String>[];
+      final repeating = detailQuestion != null &&
+          clarified == null &&
+          detailQuestion == _lastAskedQuestion &&
+          missingNow.join('|') == _lastMissing.join('|');
+      final searchNow = deal != null &&
+          (deal.readyToMatch ||
+              ((showNow || repeating) && (deal.subject?.trim().isNotEmpty ?? false)));
+      if (searchNow && !deal.readyToMatch) detailQuestion = repeating ? null : detailQuestion;
+      if (deal != null && searchNow && needClarification == null) {
         if (deal.intent == DealIntent.sell) {
           // A completed "sell" deal is a real listing to save, not a buyer
           // search -- see `_createRealListing`.
@@ -1362,6 +1438,12 @@ class _AskodoxPrimaryHomeScreenState
       reply = reply.trim().isEmpty || reply == ask ? ask : '${reply.trim()}\n\n$ask';
     }
 
+    // A clarification turn did not actually ask the detail question.
+    _lastAskedQuestion = transactional && results == null && needClarification == null ? detailQuestion : null;
+    _lastMissing = transactional && results == null
+        ? (ref.read(universalDealControllerProvider).deal?.missingForMatch ?? const [])
+        : const [];
+
     final sellerOnly = openOrderId == null &&
         latestResults != null &&
         latestResults.hasLocal &&
@@ -1403,6 +1485,98 @@ class _AskodoxPrimaryHomeScreenState
     await _saveSnapshot();
     _scrollBottom();
     if (speakResponse) await _speakReply(reply, userText: text);
+  }
+
+  void _parkDeal(UniversalDeal deal) {
+    final key = deal.subject?.trim();
+    if (key == null || key.isEmpty) return;
+    _parkedDeals[key] = ref.read(universalDealControllerProvider.notifier).encodeDeal(deal);
+  }
+
+  UniversalDeal? _parkedFor(String? subject) {
+    if (subject == null || subject.trim().isEmpty) return null;
+    for (final entry in _parkedDeals.entries) {
+      if (askodoxSameNeed(entry.key, subject)) {
+        return ref.read(universalDealControllerProvider.notifier).decodeDeal(Map<String, dynamic>.from(entry.value));
+      }
+    }
+    return null;
+  }
+
+  /// App-side facts for the admin flow trace (no personal data beyond what
+  /// the customer typed): query, AI intent, categories, questions asked and
+  /// the answers remembered.
+  Map<String, Object?> _traceFor(UniversalDeal deal, {List<String>? categories}) {
+    final questions = <String>[];
+    final answers = <String>[];
+    for (var i = 0; i < _turns.length; i++) {
+      final turn = _turns[i];
+      if (!turn.isUser && turn.text.trim().endsWith('?')) {
+        questions.add(turn.text.trim());
+        if (i + 1 < _turns.length && _turns[i + 1].isUser) answers.add(_turns[i + 1].text.trim());
+      }
+    }
+    final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => ConversationTurnRecord(text: deal.rawText, isUser: true));
+    return {
+      'query': lastUser.text,
+      'intent': _lastDecision?.action.isNotEmpty == true ? _lastDecision!.action : deal.intent.name,
+      'domain': _lastDecision?.domain ?? deal.category,
+      'categories': categories ?? [if (deal.subject != null) deal.subject!],
+      'questions': questions.reversed.take(10).toList().reversed.toList(),
+      'answers': answers.reversed.take(10).toList().reversed.toList(),
+    };
+  }
+
+  Future<void> _searchSeveralNeeds(List<AskodoxNeedSegment> needs, bool speakResponse, String text) async {
+    const brain = UniversalDealBrain();
+    final notifier = ref.read(universalDealControllerProvider.notifier);
+    final location = ref.read(locationControllerProvider).defaultLocation;
+    final deals = [
+      for (final need in needs)
+        brain.capture('i want to buy ${need.subject}').copyWith(
+          subject: need.subject,
+          price: need.budget.max ?? need.budget.min,
+          dynamicFields: {
+            if (need.budget.min != null) 'budget_min': need.budget.min,
+            if (need.budget.max != null) 'budget_max': need.budget.max,
+          },
+          location: location == null
+              ? null
+              : DealLocation(
+                  label: location.address.trim().isNotEmpty ? location.address.trim() : location.name.trim(),
+                  latitude: location.point.latitude,
+                  longitude: location.point.longitude,
+                ),
+        ),
+    ];
+    final subjects = [for (final n in needs) n.subject];
+    final results = await Future.wait([
+      for (final deal in deals) _findUniversalMatches(deal, categories: subjects),
+    ]);
+    if (!mounted) return;
+    final intro = _te
+        ? 'మీ ${needs.length} అవసరాలను వేర్వేరుగా వెతికాను — ప్రతి దానికి దాని బడ్జెట్‌తో:'
+        : 'I searched your ${needs.length} needs separately, each with its own budget:';
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: intro, isUser: false));
+      for (var i = 0; i < needs.length; i++) {
+        _turns.add(ConversationTurnRecord(
+          text: '${needs[i].subject} · ${needs[i].budget.label()}',
+          isUser: false,
+        ));
+        final index = _turns.length - 1;
+        _resultsByTurn[index] = results[i];
+        _dealByTurn[index] = deals[i];
+        _parkedDeals[needs[i].subject] = notifier.encodeDeal(deals[i]);
+      }
+      _sending = false;
+    });
+    // No single active deal: a follow-up names the category it is about.
+    notifier.reset();
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) await _speakReply(intro, userText: text);
   }
 
   Future<void> _relayToSeller(String orderId, String text, bool speakResponse) async {
@@ -2787,10 +2961,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           ? (_te
               ? 'అభ్యర్థన పంపబడింది. వారు అంగీకరించిన తర్వాతే ఇది నిర్ధారిత డీల్ అవుతుంది, కాంటాక్ట్ వివరాలు కనిపిస్తాయి.'
               : 'Request sent. It becomes a confirmed deal -- and contact details are shared -- only after they accept.')
-          : (result.message ??
-              (_te
-                  ? 'అభ్యర్థన పంపడం సాధ్యం కాలేదు.'
-                  : 'Unable to send this request.'));
+          : (result.message ?? '').toLowerCase().contains('sign in')
+              // Sign-in is needed only to act (send/contact), never to browse.
+              ? (_te
+                  ? 'అభ్యర్థన పంపడానికి సైన్ ఇన్ చేయండి. ఫలితాలు చూడడానికి సైన్ ఇన్ అవసరం లేదు.'
+                  : 'Sign in to send this request. Browsing results never needs sign-in.')
+              : (result.message ??
+                  (_te
+                      ? 'అభ్యర్థన పంపడం సాధ్యం కాలేదు.'
+                      : 'Unable to send this request.'));
     });
   }
 

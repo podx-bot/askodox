@@ -444,6 +444,34 @@ def verify_order_payment(order_id: int, payload: PaymentVerification, request: R
     return {"id": order_id, "payment_state": state}
 
 
+# --------------------------------------------------------- flow traces --
+
+@router.get("/traces")
+def flow_traces(request: Request, stage: str = "", limit: int = 100) -> dict[str, Any]:
+    """Real per-request pipeline traces: query → intent/categories/slots →
+    questions/answers → sources called and counts → filtered + reasons →
+    fallback → results sent → auth gate → seller request → escalation →
+    deal stage → errors → latency."""
+    _require(request, "requests:view")
+    items = command_center(request.app.state.container).traces(limit=limit, stage=stage or None)
+    compact = [{
+        "id": t["id"], "updated_at": t["updated_at"], "stage": t.get("stage"), "user": t.get("user"),
+        "query": t.get("query"), "intent": t.get("intent"), "categories": t.get("categories"),
+        "results": t.get("results_count"), "sources": t.get("source_counts"), "fallback": t.get("fallback"),
+        "auth_gate": t.get("auth_gate"), "errors": t.get("errors"), "latency_ms": t.get("latency_ms"),
+    } for t in items]
+    return {"items": compact}
+
+
+@router.get("/traces/{trace_id}")
+def flow_trace(trace_id: int, request: Request) -> dict[str, Any]:
+    _require(request, "requests:view")
+    item = command_center(request.app.state.container).trace(trace_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Trace not found")
+    return item
+
+
 # ----------------------------------------------------------- no-match --
 
 @router.get("/no-match")
