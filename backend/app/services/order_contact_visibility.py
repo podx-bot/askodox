@@ -23,7 +23,15 @@ from __future__ import annotations
 
 from typing import Any
 
-CONTACT_VISIBLE_STATUSES = {"ACCEPTED", "FULFILLED"}
+# Round-8 rule, unchanged in spirit: hidden until the seller/provider
+# explicitly ACCEPTS; after that it stays visible for the rest of that deal
+# (execution, delivery/service, dispute, close). Never for PLACED, REJECTED
+# or CANCELLED. Kept in sync with deal_lifecycle.CONTACT_VISIBLE.
+CONTACT_VISIBLE_STATUSES = {
+    "ACCEPTED", "FULFILLED", "PREPARING", "READY", "DISPATCHED", "DELIVERED",
+    "SCHEDULED", "PROVIDER_ASSIGNED", "ARRIVED", "IN_PROGRESS", "SERVICE_COMPLETED",
+    "DISPUTED", "RESOLVED", "CLOSED",
+}
 
 
 def mask_contact_for_viewer(row: dict[str, Any], *, viewer: str) -> dict[str, Any]:

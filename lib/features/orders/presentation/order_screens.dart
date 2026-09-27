@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../home/presentation/deal_lifecycle_panel.dart';
 import '../data/order_repository.dart';
 
 // Added 2026-09-15 (round 5) alongside the real order-placement backend --
@@ -31,13 +32,15 @@ String _statusLabel(BuildContext context, String raw) {
     'REJECTED' => _t(context, 'Declined', 'తిరస్కరించబడింది'),
     'FULFILLED' => _t(context, 'Completed', 'పూర్తైంది'),
     'CANCELLED' => _t(context, 'Cancelled', 'రద్దు చేయబడింది'),
+    'DISPUTED' => _t(context, 'Problem reported', 'సమస్య నమోదైంది'),
+    'CLOSED' => _t(context, 'Closed', 'ముగిసింది'),
     _ => raw.replaceAll('_', ' '),
   };
 }
 
 Color _statusColor(String raw) => switch (raw.toUpperCase()) {
-      'ACCEPTED' || 'FULFILLED' => const Color(0xFF1B8A3B),
-      'REJECTED' || 'CANCELLED' => const Color(0xFFB3261E),
+      'ACCEPTED' || 'FULFILLED' || 'CLOSED' => const Color(0xFF1B8A3B),
+      'REJECTED' || 'CANCELLED' || 'DISPUTED' => const Color(0xFFB3261E),
       _ => const Color(0xFF9A7B00),
     };
 
@@ -353,6 +356,14 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
             ),
           ),
         ],
+        // 2026-09-27: the universal deal lifecycle for both sides -- mediated
+        // questions/negotiation, execution steps, payment state, customer
+        // confirmation, problems -- driven by the server's allowed actions.
+        if (status != 'REJECTED' && status != 'CANCELLED')
+          AskodoxDealPanel(
+            orderId: order.id,
+            te: Localizations.localeOf(context).languageCode == 'te',
+          ),
         // Added 2026-09-16 (round 8): the actual Accept/Decline step this
         // whole round exists to add -- see Master Architecture Point 13.
         // Only the seller sees these, and only while the request is still

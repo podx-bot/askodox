@@ -11,14 +11,20 @@ Architecture Point 21). Mirrors the exact same schema/migration shape as
 `product_catalog_repository.py` for consistency.
 """
 from __future__ import annotations
+import json
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.services.deal_lifecycle import ALL_STATUSES, MESSAGE_KINDS, PAYMENT_STATES
+
 # An order moves through this fixed set of statuses. PLACED is the only
 # status a buyer can create; everything else is set by the seller (or by
 # the buyer cancelling their own still-open order) via update_status().
-VALID_STATUSES = ("PLACED", "ACCEPTED", "REJECTED", "FULFILLED", "CANCELLED")
+# 2026-09-27: the universal lifecycle (deal_lifecycle.py) adds product and
+# service execution states, customer confirmation, disputes and CLOSED; the
+# original five remain valid for existing clients.
+VALID_STATUSES = ALL_STATUSES
 
 
 class OrderRepository:
@@ -26,7 +32,10 @@ class OrderRepository:
     # ALTER-TABLE-guarded-against-duplicate-column convention as
     # product_catalog_repository.py (CREATE TABLE IF NOT EXISTS never alters
     # an already-existing table on Railway's persistent volume).
-    _ADDED_COLUMNS: tuple[str, ...] = ()
+    _ADDED_COLUMNS: tuple[str, ...] = (
+        "kind", "payment_state", "payment_reference", "payment_verified_by",
+        "dispute_escalation_id", "dispute_from_status", "request_context", "closed_at",
+    )
 
     def __init__(self, db_path: str = "podx.db") -> None:
         self.db_path = db_path
@@ -65,6 +74,16 @@ class OrderRepository:
                 CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders(buyer_user_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_orders_seller ON orders(seller_user_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_orders_product ON orders(product_id);
+                CREATE TABLE IF NOT EXISTS order_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    order_id INTEGER NOT NULL,
+                    from_role TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    text TEXT,
+                    amount REAL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_order_messages_order ON order_messages(order_id, id);
                 """
             )
             for column in self._ADDED_COLUMNS:
@@ -85,6 +104,8 @@ class OrderRepository:
         price: Optional[float] = None,
         currency: str = "INR",
         buyer_note: Optional[str] = None,
+        kind: str = "product",
+        request_context: Optional[Dict[str, Any]] = None,
     ) -> int:
         buyer = str(buyer_user_id or "").strip()
         seller = str(seller_user_id or "").strip()
@@ -104,13 +125,15 @@ class OrderRepository:
                 """INSERT INTO orders(
                        buyer_user_id, seller_user_id, product_id, product_title,
                        quantity, unit, price, currency, total_amount, status,
-                       buyer_note, seller_note, created_at, updated_at
-                   ) VALUES(?,?,?,?,?,?,?,?,?, 'PLACED', ?, NULL, ?, ?)""",
+                       buyer_note, seller_note, created_at, updated_at,
+                       kind, payment_state, request_context
+                   ) VALUES(?,?,?,?,?,?,?,?,?, 'PLACED', ?, NULL, ?, ?, ?, 'NOT_STARTED', ?)""",
                 (
                     buyer, seller, int(product_id), title,
                     quantity, unit, price, str(currency or "INR"), total_amount,
                     (str(buyer_note).strip() or None) if buyer_note else None,
-                    now, now,
+                    now, now, str(kind or "product"),
+                    json.dumps(request_context, ensure_ascii=False) if request_context else None,
                 ),
             )
             return int(cur.lastrowid)
@@ -118,7 +141,54 @@ class OrderRepository:
     def get(self, order_id: int) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM orders WHERE id=?", (int(order_id),)).fetchone()
-        return dict(row) if row else None
+        return self._row(row) if row else None
+
+    @staticmethod
+    def _row(row) -> Dict[str, Any]:
+        item = dict(row)
+        item["kind"] = item.get("kind") or "product"
+        item["payment_state"] = item.get("payment_state") or "NOT_STARTED"
+        raw = item.get("request_context")
+        try:
+            item["request_context"] = json.loads(raw) if raw else None
+        except (TypeError, ValueError):
+            item["request_context"] = None
+        return item
+
+    def update_fields(self, order_id: int, **fields: Any) -> bool:
+        allowed = {"status", "payment_state", "payment_reference", "payment_verified_by", "dispute_escalation_id",
+                   "dispute_from_status", "closed_at", "price", "total_amount", "seller_note"}
+        fields = {k: v for k, v in fields.items() if k in allowed}
+        if "status" in fields and fields["status"] not in VALID_STATUSES:
+            raise ValueError(f"invalid status: {fields['status']!r}")
+        if "payment_state" in fields and fields["payment_state"] not in PAYMENT_STATES:
+            raise ValueError(f"invalid payment state: {fields['payment_state']!r}")
+        if not fields:
+            return False
+        fields["updated_at"] = self._now()
+        assignments = ", ".join(f"{key}=?" for key in fields)
+        with self._connect() as conn:
+            cur = conn.execute(f"UPDATE orders SET {assignments} WHERE id=?", (*fields.values(), int(order_id)))
+            return cur.rowcount > 0
+
+    def add_message(self, order_id: int, from_role: str, kind: str, text: str = "",
+                    amount: Optional[float] = None) -> Dict[str, Any]:
+        if kind not in MESSAGE_KINDS:
+            raise ValueError(f"invalid message kind: {kind!r}")
+        now = self._now()
+        with self._connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO order_messages(order_id,from_role,kind,text,amount,created_at) VALUES(?,?,?,?,?,?)",
+                (int(order_id), str(from_role), kind, str(text or "").strip()[:2000] or None, amount, now),
+            )
+            conn.execute("UPDATE orders SET updated_at=? WHERE id=?", (now, int(order_id)))
+        return {"id": cur.lastrowid, "order_id": int(order_id), "from_role": from_role, "kind": kind,
+                "text": str(text or "").strip()[:2000] or None, "amount": amount, "created_at": now}
+
+    def messages(self, order_id: int) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM order_messages WHERE order_id=? ORDER BY id", (int(order_id),)).fetchall()
+        return [dict(row) for row in rows]
 
     def list_for_buyer(self, buyer_user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         safe_limit = max(1, min(int(limit or 50), 200))
@@ -127,7 +197,7 @@ class OrderRepository:
                 "SELECT * FROM orders WHERE buyer_user_id=? ORDER BY id DESC LIMIT ?",
                 (str(buyer_user_id or "").strip(), safe_limit),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [self._row(row) for row in rows]
 
     def list_for_seller(self, seller_user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         safe_limit = max(1, min(int(limit or 50), 200))
@@ -136,7 +206,7 @@ class OrderRepository:
                 "SELECT * FROM orders WHERE seller_user_id=? ORDER BY id DESC LIMIT ?",
                 (str(seller_user_id or "").strip(), safe_limit),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [self._row(row) for row in rows]
 
     def update_status(
         self,

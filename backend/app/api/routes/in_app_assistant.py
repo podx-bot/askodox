@@ -248,12 +248,16 @@ def _optional_app_user(request: Request) -> str:
     return "guest"
 
 
-def support_channels() -> dict[str, Any]:
+def support_channels(case_id: Any = None) -> dict[str, Any]:
     whatsapp = "".join(ch for ch in os.getenv("SUPPORT_WHATSAPP_NUMBER", "") if ch.isdigit())
     phone = os.getenv("SUPPORT_PHONE_NUMBER", "").strip()
+    # The case reference travels with the WhatsApp message so the agent opens
+    # the full context in the Command Center (one-way: WhatsApp replies are
+    # not synced back into the app; staff respond via the case).
+    text = f"?text=ASKODOX%20support%20case%20%23{case_id}" if whatsapp and case_id else ""
     return {
         "chat": True,
-        "whatsapp_url": f"https://wa.me/{whatsapp}" if whatsapp else None,
+        "whatsapp_url": f"https://wa.me/{whatsapp}{text}" if whatsapp else None,
         "call_uri": f"tel:{phone}" if phone else None,
     }
 
@@ -290,7 +294,25 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
             )
         except Exception:
             pass
-    return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels()}
+    return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels(case.get("id"))}
+
+
+@router.get("/support/cases/{case_id}")
+def support_case_status(case_id: int, request: Request) -> dict[str, Any]:
+    """Customer Care's reply comes back into the same ASKODOX conversation:
+    the requester (token-proven) sees status and resolution, nothing else."""
+    container: Any = request.app.state.container
+    user = _optional_app_user(request)
+    case = _support_repository(container).get(case_id)
+    if not user or not case or str(case.get("requester_user_id") or "") != user:
+        raise HTTPException(status_code=404, detail="Support case not found")
+    return {
+        "case_id": case["id"],
+        "status": case.get("status"),
+        "assigned": bool(case.get("assigned_to")),
+        "resolution_note": case.get("resolution_note"),
+        "updated_at": case.get("updated_at"),
+    }
 
 
 support_admin_router = APIRouter(prefix="/admin/support", tags=["admin-support"])

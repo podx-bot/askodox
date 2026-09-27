@@ -64,15 +64,29 @@ class _FakeMatchRepository implements UniversalMatchRepository {
 
 class _FakeOrderRepository implements OrderRepository {
   final List<String> placed = [];
+  final List<Map<String, Object?>?> contexts = [];
+  final List<String?> questions = [];
+  /// When set, placing returns a real order id so the chat tracks the deal.
+  String? orderId;
 
   @override
   Future<OrderActionResult> placeOrder({
     required String productId,
     double? quantity,
     String? buyerNote,
+    Map<String, Object?>? requestContext,
+    String? question,
   }) async {
     placed.add(productId);
-    return const OrderActionResult(success: true);
+    contexts.add(requestContext);
+    questions.add(question);
+    final id = orderId;
+    return OrderActionResult(
+      success: true,
+      order: id == null
+          ? null
+          : Order(id: id, buyerUserId: '', sellerUserId: '', productId: productId, productTitle: 'x', status: 'PLACED'),
+    );
   }
 
   @override
@@ -88,6 +102,68 @@ class _FakeOrderRepository implements OrderRepository {
     String? sellerNote,
   }) async =>
       const OrderActionResult(success: true);
+}
+
+/// Scripted universal deal lifecycle (test fixture, not production data).
+class _FakeLifecycle extends OrderLifecycleRepository {
+  _FakeLifecycle() : super(MockApiClient());
+
+  String status = 'PLACED';
+  String kind = 'product';
+  String paymentStatus = 'NOT_STARTED';
+  double? price = 24999;
+  final messages = <OrderMessage>[];
+  final calls = <String>[];
+
+  List<String> get _actions {
+    final last = messages.isEmpty ? null : messages.last;
+    return [
+      if (status == 'PLACED') ...['ask_seller', 'offer_price', 'cancel'],
+      if (last?.kind == 'COUNTER_OFFER') ...['accept_offer', 'decline_offer'],
+      if (const {'DELIVERED', 'SERVICE_COMPLETED', 'RESOLVED'}.contains(status)) ...['confirm_completion', 'report_problem'],
+      if (status == 'REJECTED') 'see_alternatives',
+      if (status == 'CLOSED') 'review',
+    ];
+  }
+
+  OrderDetail _detail() => OrderDetail(
+        order: Order(id: '501', buyerUserId: '', sellerUserId: '', productId: '42', productTitle: 'TV',
+            status: status, kind: kind, paymentState: paymentStatus, price: price),
+        messages: List.of(messages),
+        actions: _actions,
+        awaiting: status == 'PLACED' ? 'seller' : 'buyer',
+      );
+
+  @override
+  Future<OrderDetail> detail(String orderId) async => _detail();
+
+  @override
+  Future<OrderDetail> message(String orderId, String kind, {String? text, double? amount}) async {
+    calls.add('$kind:${amount?.toStringAsFixed(0) ?? text}');
+    if (kind == 'ACCEPT_OFFER') price = messages.lastWhere((m) => m.kind == 'COUNTER_OFFER').amount;
+    messages.add(OrderMessage(fromRole: 'buyer', kind: kind, text: text, amount: amount));
+    return _detail();
+  }
+
+  @override
+  Future<OrderDetail> confirm(String orderId) async {
+    calls.add('confirm');
+    status = 'CLOSED';
+    return _detail();
+  }
+
+  @override
+  Future<OrderDetail> problem(String orderId,
+      {required String issue, String category = 'DELIVERY', List<String> aiAttempts = const []}) async {
+    calls.add('problem:$issue');
+    status = 'DISPUTED';
+    return _detail();
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> alternatives(String orderId) async => [
+        {'id': '77', 'title': 'Other 43 inch TV', 'source': 'local', 'match_source': 'registered', 'price': 25500},
+      ];
 }
 
 class _FakeSellerListingRepository implements SellerListingRepository {
@@ -149,6 +225,23 @@ const _localMatch = UniversalMatch(
   ratingAverage: 4.5,
   reviewCount: 2,
 );
+const _registeredTv = UniversalMatch(
+  id: '42',
+  title: '43 inch portable battery TV',
+  subtitle: 'Sony, rechargeable',
+  source: 'local',
+  segment: 'registered',
+  price: 24999,
+  locationLabel: 'Vijayawada',
+);
+const _registeredTv2 = UniversalMatch(
+  id: '43',
+  title: '43 inch battery backup TV',
+  source: 'local',
+  segment: 'registered',
+  price: 27999,
+);
+
 const _onlineMatch = UniversalMatch(
   id: 'online-0-shop.example',
   title: 'Mixer grinder at Shop',
@@ -218,6 +311,11 @@ class _FakeSupport extends SupportEscalationService {
     });
     return const AskodoxSupportCase(caseId: '12', whatsappUrl: 'https://wa.me/919000000000');
   }
+
+  Map<String, Object?>? caseReply = {'status': 'RESOLVED', 'resolution_note': 'Engineer reset your account'};
+
+  @override
+  Future<Map<String, Object?>?> caseStatus(String caseId, {String? authToken}) async => caseReply;
 }
 
 // -------------------------------------------------------------- harness --
@@ -242,6 +340,7 @@ class _Harness {
   final replySpeech = _FakeReplySpeech();
   final embeddedVideos = <Uri>[];
   final orders = _FakeOrderRepository();
+  final lifecycle = _FakeLifecycle();
   final listings = _FakeSellerListingRepository();
 
   Future<void> pump(WidgetTester tester, {String? locale}) async {
@@ -286,6 +385,7 @@ class _Harness {
         appConfigProvider.overrideWithValue(_config(backend)),
         universalMatchRepositoryProvider.overrideWithValue(matches),
         orderRepositoryProvider.overrideWithValue(orders),
+        orderLifecycleRepositoryProvider.overrideWithValue(lifecycle),
         sellerListingRepositoryProvider.overrideWithValue(listings),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
@@ -757,6 +857,11 @@ void main() {
     expect(find.byKey(const Key('askodoxSupportCaseCreated')), findsOneWidget);
     expect(find.text('WhatsApp Support'), findsOneWidget);
     expect(find.text('Call Support'), findsNothing, reason: 'not configured');
+
+    // Customer Care's reply comes back into the same conversation.
+    await tester.tap(find.byKey(const Key('askodoxSupportCheckReply')));
+    await _Harness.settle(tester);
+    expect(find.text('Support resolved it: Engineer reset your account'), findsOneWidget);
   });
 
   testWidgets('critical payment issue gets support immediately', (tester) async {
@@ -929,6 +1034,215 @@ void main() {
       c.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.restore('lost-conversation');
       await _Harness.settle(tester);
       expect(find.text('ఏ కట్ కావాలి?'), findsOneWidget);
+    });
+  });
+
+  group('universal engine: results, AI-first routing and the deal lifecycle in chat', () {
+    const tvAsk = 'I want a 43 inch portable battery TV in Vijayawada, budget 20000 to 30000';
+    Map<String, Object?> advisory(String reply, {bool transactional = false, Map<String, Object?>? entities}) => {
+          'reply': reply,
+          'domain': 'PRODUCT',
+          'transactional': transactional,
+          'action': 'buying_advice',
+          'confidence': 0.9,
+          'source': 'universal_ai',
+          'entities': entities ?? {'subject': '43 inch portable battery TV', 'location': 'Vijayawada', 'price': 30000},
+        };
+
+    Future<_Harness> withTvResults(WidgetTester tester, {Map<String, Object?>? Function(String)? later}) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '910', matches: [_registeredTv, _registeredTv2, _onlineMatch]),
+        ]),
+        assistant: _Assistant((message) => message.startsWith('I want a 43')
+            ? advisory('Portable 43 inch battery TVs are rare; check battery backup hours and weight.')
+            : later?.call(message)),
+      );
+      h.orders.orderId = '501';
+      await h.pump(tester);
+      await h.send(tester, tvAsk);
+      return h;
+    }
+
+    testWidgets('an advisory AI reply for a concrete need still shows real result cards, not text only',
+        (tester) async {
+      final h = await withTvResults(tester);
+      expect(h.matches.deals, hasLength(1), reason: 'the need was searched');
+      expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
+      expect(find.text('43 inch portable battery TV'), findsOneWidget);
+      expect(find.textContaining('rare'), findsOneWidget, reason: 'AI guidance is kept next to the cards');
+    });
+
+    testWidgets('a missing detail is asked as the next question instead of a silent explanation',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('must not search yet')]),
+        assistant: _Assistant((_) => advisory('Portable battery TVs are handy for outages.',
+            entities: {'subject': '43 inch portable battery TV'})),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'I want a 43 inch portable battery TV');
+      expect(h.matches.deals, isEmpty);
+      final reply = tester.widgetList<Text>(find.textContaining('handy for outages')).single.data!;
+      expect(reply.trim().endsWith('?'), isTrue, reason: 'the requirement asks its next question');
+    });
+
+    testWidgets('a seller-only question before any request rides along with Send request, with the requirement',
+        (tester) async {
+      final h = await withTvResults(tester, later: (_) => advisory('It is listed from Vijayawada.',
+          entities: const {}));
+      await h.send(tester, 'Is it in stock and is delivery free?');
+      expect(find.textContaining('only be confirmed by the seller'), findsOneWidget);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+
+      expect(h.orders.questions.single, 'Is it in stock and is delivery free?');
+      expect(h.orders.contexts.single!['subject'], contains('battery TV'));
+      expect(h.orders.contexts.single!['deal_id'], '910');
+      expect(find.byKey(const Key('askodoxDealPanel')), findsOneWidget);
+      expect(find.text('Request sent — waiting for the seller/provider'), findsOneWidget);
+    });
+
+    testWidgets('with a request open, stock and price questions go to the seller through ASKODOX, not the AI',
+        (tester) async {
+      final h = await withTvResults(tester, later: (_) => advisory('ok', entities: const {}));
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-42')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+      final aiCalls = h.assistant.requests.length;
+
+      await h.send(tester, 'Can they do ₹24,000?');
+      await h.send(tester, 'Is it in stock?');
+
+      expect(h.lifecycle.calls, ['OFFER:24000', 'QUESTION:Is it in stock?']);
+      expect(h.assistant.requests.length, aiCalls, reason: 'ASKODOX did not guess seller-only facts');
+      for (final text in ['price proposal to the seller', 'Only the seller can confirm this']) {
+        await tester.scrollUntilVisible(find.textContaining(text), 300, scrollable: find.byType(Scrollable).first);
+        expect(find.textContaining(text), findsOneWidget);
+      }
+    });
+
+    testWidgets('counter-offer, delivery, customer confirmation and review close the deal in the same chat',
+        (tester) async {
+      final h = await withTvResults(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-42')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+
+      h.lifecycle.messages.add(const OrderMessage(fromRole: 'seller', kind: 'COUNTER_OFFER', amount: 25000));
+      await tester.tap(find.byTooltip('Refresh'));
+      await _Harness.settle(tester);
+      expect(find.textContaining('counter-offer ₹25000'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxDealAcceptOffer')));
+      await _Harness.settle(tester);
+      expect(find.text('Price: ₹25000'), findsOneWidget);
+
+      h.lifecycle.status = 'DELIVERED';
+      await tester.tap(find.byTooltip('Refresh'));
+      await _Harness.settle(tester);
+      expect(find.text('Seller marked delivered — please confirm'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxDealConfirm')));
+      await _Harness.settle(tester);
+      expect(find.text('Did you receive the product?'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxDealConfirmYes')));
+      await _Harness.settle(tester);
+      expect(find.text('Deal closed'), findsOneWidget);
+      expect(find.byKey(const Key('askodoxDealReview')), findsOneWidget);
+    });
+
+    testWidgets('a declined request keeps the need and shows other options without starting over',
+        (tester) async {
+      final h = await withTvResults(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-42')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+      h.lifecycle.status = 'REJECTED';
+      await tester.tap(find.byTooltip('Refresh'));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const Key('askodoxDealAlternatives')));
+      await _Harness.settle(tester);
+      expect(find.textContaining('Your requirement is kept'), findsOneWidget);
+      expect(find.text('Other 43 inch TV'), findsOneWidget);
+      expect(h.matches.deals, hasLength(1), reason: 'no new search, no retyping');
+    });
+
+    testWidgets('a service asks "completed properly?" and a problem goes to Customer Care, not closed',
+        (tester) async {
+      final h = await withTvResults(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-42')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+      h.lifecycle
+        ..kind = 'service'
+        ..status = 'SERVICE_COMPLETED';
+      await tester.tap(find.byTooltip('Refresh'));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const Key('askodoxDealConfirm')));
+      await _Harness.settle(tester);
+      expect(find.text('Was the service completed properly?'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxDealConfirmNo')));
+      await _Harness.settle(tester);
+      await tester.enterText(find.byKey(const Key('askodoxDealInput')), 'Installation incomplete');
+      await tester.tap(find.byKey(const Key('askodoxDealSubmit')));
+      await _Harness.settle(tester);
+      expect(h.lifecycle.calls.last, 'problem:Installation incomplete');
+      expect(find.text('Problem reported — Customer Care is handling it'), findsOneWidget);
+      expect(find.byKey(const Key('askodoxDealConfirm')), findsNothing, reason: 'a dispute blocks closing');
+    });
+
+    testWidgets('History restores the deal with its live status after an app relaunch', (tester) async {
+      final h = await withTvResults(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-42')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+      await h.relaunch(tester);
+      expect(find.byKey(const Key('askodoxDealPanel')), findsNothing, reason: 'fresh Main Chat (PR #97)');
+      final c = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+      h.lifecycle.status = 'DISPATCHED';
+      c.read(askodoxChatRequestProvider.notifier).state =
+          AskodoxChatRequest.restore(c.read(askodoxConversationArchiveProvider).single.id);
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxDealPanel')), findsOneWidget);
+      expect(find.text('Dispatched'), findsOneWidget, reason: 'current state, not a stale copy');
+      expect(h.matches.deals, hasLength(1), reason: 'restoring never re-runs matching');
+    });
+
+    testWidgets('Compare and Details are AI-first actions; Details shows only verified fields',
+        (tester) async {
+      final h = await withTvResults(tester, later: (_) => advisory('The Sony is cheaper.', entities: const {}));
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxDetails-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxDetails-42')));
+      await _Harness.settle(tester);
+      final sheet = find.byKey(const Key('askodoxDetailsSheet'));
+      expect(find.descendant(of: sheet, matching: find.textContaining('₹24999')), findsOneWidget);
+      expect(find.descendant(of: sheet, matching: find.textContaining('Distance')), findsNothing,
+          reason: 'no distance was verified, so none is shown');
+      Navigator.of(tester.element(sheet)).pop();
+      await _Harness.settle(tester);
+
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompare-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxCompare-42')));
+      await _Harness.settle(tester);
+      final compare = h.assistant.requests.last['message'] as String;
+      expect(compare, contains('Compare'));
+      expect(compare, contains('43 inch battery backup TV'), reason: 'other options are in the AI context');
+      expect(h.matches.deals, hasLength(1), reason: 'comparing never restarts the search');
     });
   });
 

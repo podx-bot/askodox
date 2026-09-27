@@ -264,6 +264,30 @@ class UniversalLiveCaptureService:
             f"ముందు చెప్పిన quantity/details అలాగే ఉంచాను.\n{result}"
         )
 
+    def persist_app_requirement(self, user_id: str, demand: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Save the app's already-understood structured requirement (any
+        category, any input modality) and dispatch it to matching providers.
+
+        Unlike process_text/process_structured this never re-parses text:
+        the app's AI + requirement state is authoritative. A follow-up with
+        the same side/domain/subject merges into the active request instead
+        of creating a duplicate.
+        """
+        latest = getattr(self.demands, "latest_active_for_user", None)
+        active = latest(user_id) if callable(latest) else None
+        stored = None
+        if ActiveDealContextResolver.same_context(active, demand):
+            stored = self._update_latest_active(active, ActiveDealContextResolver.merge_fields(active, demand))
+        if stored is None:
+            request_id = self.demands.create(demand)
+            stored = self.demands.get(request_id) or {**demand, "id": request_id}
+        # Existing demand-intelligence signal (seller/provider targeting).
+        # The WhatsApp-era lead dispatch (_match_target_notify) messages the
+        # *buyer* on WhatsApp and is not used for app requests: the app shows
+        # matches itself via /deals/{id}/matches, and WhatsApp is support-only.
+        self._trigger_demand_intelligence(stored)
+        return stored
+
     def _trigger_demand_intelligence(self, request: Dict[str, Any]) -> None:
         if self.demand_intelligence is None:
             return
@@ -339,6 +363,9 @@ class UniversalLiveCaptureService:
 
     def _match_target_notify(self, stored: Dict[str, Any], location_saved: bool = False) -> str:
         matches = self.matcher.find_matches(stored, limit=10)
-        if matches:
-            return self.notifications.notify_matches(stored, matches, location_saved=location_saved)
+        notify = getattr(self.notifications, "notify_matches", None)
+        if matches and callable(notify):
+            # notify_matches is not implemented by UniversalNotificationService;
+            # guarded so a found match no longer raises AttributeError.
+            return notify(stored, matches, location_saved=location_saved)
         return self.targeting.handle_no_match(stored)

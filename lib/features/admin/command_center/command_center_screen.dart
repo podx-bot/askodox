@@ -71,7 +71,8 @@ final _sections = <_Section>[
   _Section('Support', 'support:view', (api, p) => _Escalations(api: api, canManage: p.contains('support:manage'))),
   _Section('No-match', 'nomatch:view', (api, p) => _NoMatch(api: api, canManage: p.contains('nomatch:manage'))),
   _Section('Listings', 'catalog:view', (api, p) => _Listings(api: api, canManage: p.contains('catalog:manage'))),
-  _Section('Requests', 'requests:view', (api, p) => _Requests(api: api, canManage: p.contains('requests:manage'))),
+  _Section('Requests', 'requests:view',
+      (api, p) => _Requests(api: api, canManage: p.contains('requests:manage'), canVerifyPayments: p.contains('payments:manage'))),
   _Section('Users', 'users:view', (api, p) => _Users(api: api, canManage: p.contains('users:manage'))),
   _Section('Notifications', 'notifications:view', (api, p) => _Notifications(api: api)),
   _Section('Config', 'config:view', (api, p) => _Config(api: api, canManage: p.contains('config:manage'))),
@@ -605,9 +606,10 @@ class _ListingsState extends State<_Listings> {
 }
 
 class _Requests extends StatelessWidget {
-  const _Requests({required this.api, required this.canManage});
+  const _Requests({required this.api, required this.canManage, this.canVerifyPayments = false});
   final CommandCenterApi api;
   final bool canManage;
+  final bool canVerifyPayments;
 
   @override
   Widget build(BuildContext context) => _Loader(
@@ -650,8 +652,30 @@ class _Requests extends StatelessWidget {
             if (orders.isEmpty) const ListTile(title: Text('No orders yet.')),
             for (final o in orders)
               ListTile(
-                title: Text('#${o['id']} ${o['product_title'] ?? ''}'),
-                subtitle: Text('${o['status']} • buyer ${o['buyer']} • seller ${o['seller']}'),
+                title: Text('#${o['id']} ${o['product_title'] ?? ''} (${o['kind'] ?? 'product'})'),
+                subtitle: Text('${o['status']} • payment ${o['payment_state'] ?? 'NOT_STARTED'}'
+                    '${o['payment_reference'] != null ? ' (ref ${o['payment_reference']})' : ''}'
+                    ' • buyer ${o['buyer']} • seller ${o['seller']}'),
+                trailing: canVerifyPayments && (o['payment_state'] == 'PROOF_SUBMITTED' || o['payment_state'] == 'DISPUTED')
+                    ? PopupMenuButton<String>(
+                        key: Key('cc-verify-${o['id']}'),
+                        tooltip: 'Verify payment',
+                        onSelected: (state) async {
+                          final note = await _confirm(context, 'Mark payment $state?',
+                              'Only after checking the reference against the seller/UPI statement.', noteLabel: 'Verification note');
+                          if (note == null || !context.mounted) return;
+                          if (await _run(context,
+                              () => api.patch('/admin/cc/orders/${o['id']}/payment', {'state': state, 'reason': note, 'confirm': true}),
+                              'Payment $state')) {
+                            reload();
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'VERIFIED', child: Text('Verified')),
+                          PopupMenuItem(value: 'FAILED', child: Text('Not received')),
+                        ],
+                      )
+                    : null,
               ),
           ]);
         },

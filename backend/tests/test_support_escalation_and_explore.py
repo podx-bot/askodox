@@ -33,7 +33,12 @@ def test_escalation_carries_full_context_to_command_center(monkeypatch, tmp_path
     assert response.status_code == 200
     body = response.json()
     assert body["case_id"]
-    assert body["channels"] == {"chat": True, "whatsapp_url": "https://wa.me/919000000000", "call_uri": None}
+    assert body["channels"] == {
+        "chat": True,
+        # The case reference travels to WhatsApp so the agent opens the full context.
+        "whatsapp_url": f"https://wa.me/919000000000?text=ASKODOX%20support%20case%20%23{body['case_id']}",
+        "call_uri": None,
+    }
 
     hidden = client.get("/admin/support/escalations", params={"key": "wrong"})
     assert hidden.status_code == 404

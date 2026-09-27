@@ -149,7 +149,7 @@ class UniversalOnlineFallbackService:
     def _search_configured(self) -> bool:
         return callable(self.web_search) and bool(getattr(self.web_search, "configured", True))
 
-    def online(self, *, category: str, subject: str, limit: int = 4) -> list[dict[str, Any]]:
+    def online(self, *, category: str, subject: str, limit: int = 4, query: str | None = None) -> list[dict[str, Any]]:
         subject = " ".join(str(subject or "").split())
         if not subject:
             return []
@@ -157,7 +157,7 @@ class UniversalOnlineFallbackService:
             self.status["online"] = STATUS_UNAVAILABLE
             return []
         results: list[dict[str, Any]] = []
-        for row in self._search(f"{subject} price buy online", limit * 3):
+        for row in self._search(query or f"{subject} price buy online", limit * 3):
             url = UniversalExternalResultService._http_url(row.get("url"))
             if not url or _is_video_host(url):
                 continue
