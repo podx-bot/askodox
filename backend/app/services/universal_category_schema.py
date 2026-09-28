@@ -51,6 +51,25 @@ class UniversalCategorySchemaRegistry:
             "MOBILITY", ("from_location", "to_location"), ("timing", "seats", "budget"),
             "mobility", "SERVICE_CUSTOMER", "SERVICE_PROVIDER", ("speed", "price", "seats"),
         ),
+        # Domain adapters (Master Fix Ticket, engine 17): configuration on the
+        # same universal core, not separate brains.
+        "CATERING": CategorySchema(
+            "CATERING", ("subject", "people_count", "date", "time", "location"),
+            ("duration", "rate", "budget", "backup_staff"),
+            "staffing", "EMPLOYER", "WORKER", ("availability", "rate", "reliability"),
+        ),
+        "HOTEL": CategorySchema(
+            "HOTEL", ("location", "check_in", "check_out", "guests"), ("rooms", "room_type", "budget"),
+            "hotel", "GUEST", "HOTEL", ("location", "price", "rating", "availability"),
+        ),
+        "SALON": CategorySchema(
+            "SALON", ("subject", "location", "timing"), ("budget", "stylist_gender"),
+            "appointment", "SERVICE_CUSTOMER", "SERVICE_PROVIDER", ("timing", "price", "rating"),
+        ),
+        "HEALTHCARE": CategorySchema(
+            "HEALTHCARE", ("need", "location"), ("speciality", "timing", "patient_age"),
+            "appointment", "PATIENT", "HEALTH_PROVIDER", ("speciality", "availability", "distance"),
+        ),
     }
 
     _ALIASES = {
@@ -61,6 +80,13 @@ class UniversalCategorySchemaRegistry:
         "WORK": "JOBS",
         "RIDE": "MOBILITY",
         "TAXI": "MOBILITY",
+        "STAFFING": "CATERING",
+        "HOSPITAL": "HEALTHCARE",
+        "CLINIC": "HEALTHCARE",
+        "DOCTOR": "HEALTHCARE",
+        "HEALTH": "HEALTHCARE",
+        "BEAUTY": "SALON",
+        "LODGING": "HOTEL",
     }
 
     @classmethod

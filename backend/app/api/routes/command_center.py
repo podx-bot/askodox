@@ -482,6 +482,20 @@ def demand_gaps(request: Request, min_count: int = 1) -> dict[str, Any]:
     return {"items": command_center(request.app.state.container).demand_gaps(min_count=max(1, min_count))}
 
 
+@router.get("/returns")
+def returns_and_disputes(request: Request) -> dict[str, Any]:
+    """Orders in return / refund / dispute states (the lifecycle audit)."""
+    _require(request, "payments:view")
+    rows = _rows(request, "SELECT id, product_title, status, kind, settlement_method, payment_state, total_amount, "
+                          "return_reason, refund_reference, buyer_user_id, seller_user_id, updated_at FROM orders "
+                          "WHERE status IN ('RETURN_REQUESTED','RETURNED','REFUND_DUE','REFUNDED','DISPUTED','RESOLVED')"
+                          " ORDER BY updated_at DESC LIMIT 200")
+    for row in rows:
+        row["buyer_user_id"] = mask_user_id(row.get("buyer_user_id"))
+        row["seller_user_id"] = mask_user_id(row.get("seller_user_id"))
+    return {"items": rows}
+
+
 @router.get("/api-usage")
 def api_usage(request: Request) -> dict[str, Any]:
     """External API calls made by this server process (Brave, Places,
@@ -489,10 +503,30 @@ def api_usage(request: Request) -> dict[str, Any]:
     _require(request, "analytics:view")
     from app.services import external_call_budget
 
-    usage = external_call_budget.usage_snapshot()
-    items = [{"provider": name, **stats,
-              "saved_by_cache": stats.get("cache_hits", 0)} for name, stats in sorted(usage.items())]
-    return {"items": items, "scope": "since last deploy (process-local)"}
+    costs = external_call_budget.cost_table()
+    history: list[dict[str, Any]] = []
+    try:
+        from app.api.routes.growth import growth
+
+        history = growth(request.app.state.container).usage(days=30)
+    except Exception:
+        history = []
+    if history:
+        totals: dict[str, dict[str, int]] = {}
+        for row in history:
+            t = totals.setdefault(row["provider"], {"calls": 0, "cache_hits": 0, "errors": 0})
+            for k in ("calls", "cache_hits", "errors"):
+                t[k] += int(row[k] or 0)
+        scope = "last 30 days (persisted)"
+    else:
+        totals = external_call_budget.usage_snapshot()
+        scope = "since last deploy (process-local)"
+    items = [{"provider": name, **stats, "saved_by_cache": stats.get("cache_hits", 0),
+              "est_cost_inr": round(stats.get("calls", 0) * costs.get(name, 0), 2),
+              "est_saved_inr": round(stats.get("cache_hits", 0) * costs.get(name, 0), 2)}
+             for name, stats in sorted(totals.items())]
+    return {"items": items, "scope": scope, "daily": history[:200],
+            "cost_note": "Estimated from list prices (configurable: ASKODOX_API_COST_INR); the provider bill is authoritative."}
 
 
 # ----------------------------------------------------------- no-match --

@@ -24,11 +24,14 @@ the round-10 tracker entry in docs/ASKODOX_EXECUTION_TRACKER.md for why.
 """
 from __future__ import annotations
 
+import json
+
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.repositories.command_center_repository import mask_user_id
 from app.repositories.order_repository import VALID_STATUSES
 from app.services import deal_lifecycle as lifecycle
 from app.services import payment_gateway
@@ -90,6 +93,11 @@ class PlaceOrderRequest(BaseModel):
     question: str | None = Field(default=None, max_length=2000)
     # COD / CASH_ON_PICKUP / DIRECT_CASH / DIRECT_UPI (GATEWAY later).
     settlement_method: str | None = None
+    # Who else added value to this deal (influencer / advisor / referrer /
+    # agent / partner / distributor) -- recorded transparently; any reward
+    # needs an admin rule and admin approval.
+    attribution: list[dict[str, str]] = Field(default_factory=list)
+    referral_code: str | None = Field(default=None, max_length=20)
 
 
 class OrderResponse(BaseModel):
@@ -111,6 +119,8 @@ class OrderResponse(BaseModel):
     paid_at: str | None = None
     return_reason: str | None = None
     refund_reference: str | None = None
+    offer: dict[str, Any] | None = None
+    discount: float | None = None
     closed_at: str | None = None
     dispute_escalation_id: int | None = None
     request_context: dict[str, Any] | None = None
@@ -174,10 +184,12 @@ def place_order(payload: PlaceOrderRequest, request: Request) -> OrderResponse:
         request_context=_clean_context(payload.request_context),
         settlement_method=instruction.method,
     )
+    _apply_growth(container, order_id, product, buyer_user_id, seller_user_id, payload)
     if payload.question and payload.question.strip():
         container.order_repository.add_message(order_id, "buyer", "QUESTION", payload.question)
     order = container.order_repository.get(order_id)
-    _trace_order(container, order, "request_sent")
+    _trace_order(container, order, "request_sent",
+                 offer=(order or {}).get("offer"), participants=len(_participants(container, order_id)))
     if not order:
         raise HTTPException(status_code=500, detail="Order was not saved")
     return _to_response(order, viewer="buyer")
@@ -282,6 +294,69 @@ def _party(container: Any, order_id: int, request: Request) -> tuple[dict[str, A
     raise HTTPException(status_code=404, detail="Order not found")
 
 
+def _growth(container: Any):
+    from app.api.routes.growth import growth
+
+    return growth(container)
+
+
+def _participants(container: Any, order_id: int) -> list[dict[str, Any]]:
+    try:
+        return _growth(container).participants("order", order_id)
+    except Exception:
+        return []
+
+
+def _apply_growth(container: Any, order_id: int, product: dict[str, Any], buyer: str, seller: str,
+                  payload: "PlaceOrderRequest") -> None:
+    """Best applicable offer (seller + admin campaigns) and the transaction's
+    participants. Never blocks placing the order."""
+    from app.repositories.growth_repository import REWARDABLE_ROLES
+    from app.services import offers_engine
+
+    try:
+        repo = _growth(container)
+        order = container.order_repository.get(order_id) or {}
+        referral = repo.referral(payload.referral_code) if payload.referral_code else None
+        referred = bool(referral and referral["referrer_user_id"] not in {buyer, seller})
+        prior = int(next(iter(dict(container.database.fetchall(
+            "SELECT COUNT(*) AS n FROM orders WHERE buyer_user_id=? AND seller_user_id=? AND id<>?",
+            (buyer, seller, order_id))[0]).values())) or 0)
+        best = offers_engine.best_offer(repo.offers_for_listing(product), {
+            "unit_price": order.get("price") or 0, "quantity": order.get("quantity") or 1,
+            "prior_orders": prior, "referred": referred,
+        })
+        if best:
+            total = float(order.get("total_amount") or 0)
+            container.order_repository.update_fields(
+                order_id, offer_json=json.dumps(best, ensure_ascii=False), discount=best["discount"],
+                total_amount=round(max(0.0, total - best["discount"]), 2) if order.get("total_amount") else None,
+            )
+        kind = str(order.get("kind") or "product")
+        repo.add_participant("order", order_id, buyer, "customer" if kind == "service" else "buyer", added_by=buyer)
+        repo.add_participant("order", order_id, seller, "service_provider" if kind == "service" else "seller",
+                             added_by=buyer)
+        if referred:
+            repo.add_participant("order", order_id, referral["referrer_user_id"], "referrer", added_by=buyer)
+        for entry in payload.attribution[:5]:
+            user, role = str(entry.get("user_id") or "").strip(), str(entry.get("role") or "").strip().lower()
+            if role in REWARDABLE_ROLES and user.startswith("app-") and user not in {buyer, seller}:
+                repo.add_participant("order", order_id, user, role, added_by=buyer)
+    except Exception:
+        pass
+
+
+def _settle_rewards(container: Any, order: dict[str, Any] | None, *, completed: bool, note: str = "") -> None:
+    try:
+        repo = _growth(container)
+        if completed:
+            repo.accrue_rewards("order", order["id"], float(order.get("total_amount") or 0))
+        else:
+            repo.cancel_rewards("order", order["id"], note)
+    except Exception:
+        pass
+
+
 def _settlement(order: dict[str, Any]) -> dict[str, Any]:
     try:
         info = payment_gateway.adapter_for(order.get("settlement_method")).instruction(order)
@@ -302,6 +377,8 @@ def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
         "viewer": role,
         "payment_note": "ASKODOX does not process payments; payment is made directly to the seller/provider.",
         "settlement": _settlement(order),
+        "participants": [{"role": p["role"], "user": mask_user_id(p["user_id"])}
+                         for p in _participants(container, order["id"])],
     })
     return body
 
@@ -365,6 +442,7 @@ def cancel_order(order_id: int, request: Request) -> dict[str, Any]:
     except lifecycle.LifecycleError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     container.order_repository.update_fields(order_id, status=lifecycle.CANCELLED)
+    _settle_rewards(container, order, completed=False, note="order cancelled")
     return _detail(container, container.order_repository.get(order_id), role)
 
 
@@ -510,7 +588,12 @@ def confirm_completion(order_id: int, request: Request) -> dict[str, Any]:
 
     container.order_repository.update_fields(order_id, status=lifecycle.CLOSED,
                                              closed_at=datetime.now(timezone.utc).isoformat())
-    _trace_order(container, container.order_repository.get(order_id), "deal_closed")
+    closed = container.order_repository.get(order_id)
+    # A refunded/returned order earns no reward; a completed one accrues
+    # PENDING rewards for value-adding participants (admin approves/pays).
+    _settle_rewards(container, closed, completed=order["status"] not in {lifecycle.REFUNDED, lifecycle.RETURNED},
+                    note="order returned/refunded")
+    _trace_order(container, closed, "deal_closed")
     return _detail(container, container.order_repository.get(order_id), role)
 
 

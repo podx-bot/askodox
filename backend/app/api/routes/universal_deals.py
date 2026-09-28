@@ -512,6 +512,9 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
     Identity is required only to act (send a request/order, contact a
     seller) -- never to view results, photos, prices or links."""
     container = request.app.state.container
+    from app.services import rate_limit
+
+    rate_limit.check(request, "discover", limit=40)
     _fill_subject(payload)
     if not _present(payload.subject):
         raise HTTPException(status_code=422, detail="Tell ASKODOX what you are looking for")
@@ -535,6 +538,8 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "segments": sorted({str(item.get("segment")) for item in matches if item.get("segment")}),
         "source_status": discovered["source_status"],
         "scope": discovered.get("scope") or {},
+        "advice": discovered.get("advice") or [],
+        "next_actions": discovered.get("next_actions") or [],
         "matches": matches,
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
@@ -685,6 +690,8 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "source_status": source_status,
         # Where local results came from, and whether the search widened.
         "scope": discovered.get("scope") or {},
+        "advice": discovered.get("advice") or [],
+        "next_actions": discovered.get("next_actions") or [],
         "matches": matches,
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
@@ -786,6 +793,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         if url_key:
             seen_urls.add(url_key)
         matches.append(item)
+    _annotate_offers(container, matches)
     local_match_count = sum(
         1 for item in matches if item.get("match_source") in {"interest", "demo_discovery", "registered"}
     )
@@ -822,7 +830,53 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         "need_kind": discovery._kind,
         "scope": dict(discovery.scope or {}),
         "api_calls": _usage_delta(usage_before, external_call_budget.usage_snapshot()),
+        "advice": _advice(demand, matches, discovery._kind, discovery.scope),
+        "next_actions": _next_actions(local_match_count, matches, demand),
     }
+
+
+def _annotate_offers(container, matches: list[dict]) -> None:
+    """Registered listings carry their best live offer (seller or admin
+    campaign), computed from the listing's real price."""
+    try:
+        from app.api.routes.growth import growth
+        from app.services import offers_engine
+
+        repo = growth(container)
+        catalog = container.product_catalog_repository
+        for item in matches:
+            if item.get("match_source") != "registered" or not str(item.get("id") or "").isdigit():
+                continue
+            listing = catalog.get(int(item["id"]))
+            if not listing:
+                continue
+            best = offers_engine.best_offer(repo.offers_for_listing(listing),
+                                            {"unit_price": listing.get("price") or 0, "quantity": 1})
+            if best:
+                item["offer"] = {"title": best["title"], "note": best["note"], "discount": best["discount"]}
+    except Exception:
+        pass
+
+
+def _next_actions(local_match_count: int, matches: list[dict], demand: dict) -> list[str]:
+    """No ASKODOX provider yet is not a dead end: contact the external
+    options found, refer someone to ASKODOX, or search wider."""
+    if local_match_count:
+        return []
+    actions = []
+    if any(m.get("match_source") in {"external", "online"} for m in matches):
+        actions.append("contact_external")
+    actions += ["refer_provider", "find_more"]
+    return actions
+
+
+def _advice(demand: dict, matches: list[dict], need_kind: str, scope: dict | None) -> list[dict]:
+    try:
+        from app.services.advisory_service import advise
+
+        return advise(demand, matches, need_kind=need_kind, scope=scope)
+    except Exception:
+        return []  # advice is optional; it never breaks results
 
 
 def _usage_delta(before: dict, after: dict) -> dict:
@@ -865,6 +919,7 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
             need_kind=discovered["need_kind"],
             geographic_scope=discovered.get("scope") or None,
             api_calls=discovered.get("api_calls") or {},
+            advisory_decision=[a["code"] for a in discovered.get("advice") or []] or ["none_needed"],
             results_count=len(discovered["matches"]),
             results=top,
             errors=discovered["errors"],

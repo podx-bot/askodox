@@ -41,6 +41,9 @@ PERMISSIONS = (
     "payments:manage",
     "staff:manage",
     "audit:view",
+    # Offers, rewards/attribution, referrals, plans/subscriptions, catalog AI.
+    "growth:view",
+    "growth:manage",
 )
 
 ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
@@ -49,7 +52,7 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
         "overview:view", "users:view", "users:manage", "requests:view", "requests:manage",
         "catalog:view", "catalog:manage", "support:view", "support:manage", "nomatch:view",
         "nomatch:manage", "notifications:view", "analytics:view", "analytics:export",
-        "health:view", "integrations:view", "config:view", "audit:view",
+        "health:view", "integrations:view", "config:view", "audit:view", "growth:view",
     ),
     "support_agent": (
         "overview:view", "support:view", "support:manage", "requests:view", "notifications:view",
@@ -64,7 +67,8 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "integrations_manager": (
         "overview:view", "integrations:view", "integrations:manage", "config:view", "config:manage", "health:view",
     ),
-    "payments_manager": ("overview:view", "payments:view", "payments:manage"),
+    "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view"),
+    "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view"),
 }
 
 # ----------------------------------------------------------- feature flags --
