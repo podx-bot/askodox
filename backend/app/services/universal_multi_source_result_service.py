@@ -134,6 +134,25 @@ def wanted_condition(text: str) -> str | None:
     return None
 
 
+_JOB_SITE_SUFFIX = re.compile(r"\s*[-|–:]\s*(naukri(\.com)?|indeed|shine(\.com)?|apna|workindia|foundit|"
+                              r"timesjobs|glassdoor|linkedin|freshersworld|quikr|olx)[^\n]*$", re.IGNORECASE)
+
+
+def job_card_title(title: str) -> tuple[str, str | None]:
+    """'369 Latest Delivery Vacancies in Hyderabad 2026 - Naukri.com' ->
+    ('Delivery jobs', 'Hyderabad'): short and scannable, nothing invented
+    (the full page title stays in Details)."""
+    text = _JOB_SITE_SUFFIX.sub("", " ".join(title.split()))
+    place_match = re.search(r"\bin ([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?)", text)
+    place = place_match.group(1) if place_match else None
+    text = re.sub(r"\bin [A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?", " ", text)
+    text = re.sub(r"^\s*[\d,]+\+?\s*", "", text)
+    text = re.sub(r"\b(latest|new|urgent|top|best|jobs? openings?|openings?|vacanc(?:y|ies)|jobs?|hiring|"
+                  r"recruitment|20\d\d|near me|apply now|today)\b", " ", text, flags=re.IGNORECASE)
+    core = " ".join(text.replace("&", " ").split()).strip(" -,:|")
+    return ((f"{core} jobs" if core else title.strip()[:80]), place)
+
+
 def distance_km(lat1, lon1, lat2, lon2) -> float | None:
     try:
         p1, p2 = math.radians(float(lat1)), math.radians(float(lat2))
@@ -491,11 +510,13 @@ class UniversalMultiSourceResultService:
                 continue
             host = _host(url).removeprefix("www.")
             salary = self._SALARY.search(f"{title or ''} {snippet or ''}")
+            short_title, place = job_card_title(str(title or host))
             items.append({
                 "id": f"job-{len(items)}-{host}",
                 "match_id": f"job-{len(items)}-{host}",
                 "provider_id": host,
-                "title": str(title or host)[:160],
+                "title": short_title[:80],
+                "full_title": str(title or host)[:160],
                 "subtitle": str(snippet or "")[:280],
                 "destination_url": url,
                 "source_name": (row or {}).get("host") or host,
@@ -503,7 +524,7 @@ class UniversalMultiSourceResultService:
                 "salary_text": salary.group(0).strip() if salary else None,
                 "price": None,
                 "price_verified": False,
-                "location_label": location_text or None,
+                "location_label": place or location_text or None,
                 "page_type": PAGE_JOB,
                 "source": "online",
                 "match_source": "online",

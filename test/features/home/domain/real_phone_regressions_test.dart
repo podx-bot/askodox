@@ -3,6 +3,7 @@ import 'package:podx/features/deal_brain/domain/brand_lexicon.dart';
 import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/domain/chat_action_intent.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
+import 'package:podx/features/home/domain/need_state.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 
 /// Real-phone regressions, fixed in the shared (universal) layer.
@@ -72,6 +73,13 @@ void main() {
       const match = UniversalMatch(id: 'o1', title: 'TV', source: 'online', price: 24990, priceVerified: false);
       expect(askodoxOptionContext(match), contains('(unverified)'));
     });
+  });
+
+  group('"show me / search / go" run the search (EN/TE/HI)', () {
+    for (final said in ['show me', 'search', 'go', 'go ahead', 'find it', 'చూపించండి', 'ढूंढो']) {
+      test('"$said"', () => expect(askodoxWantsResultsNow(said), isTrue));
+    }
+    test('ordinary words are not commands', () => expect(askodoxWantsResultsNow('good morning'), isFalse));
   });
 
   group('jobs are job openings, never products', () {

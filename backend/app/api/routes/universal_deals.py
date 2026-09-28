@@ -974,8 +974,11 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
         top = [
             {"title": str(m.get("title") or "")[:80], "source": m.get("match_source"),
              "segment": m.get("segment"), "price": m.get("price"), "has_image": bool(m.get("image_url")),
-             "has_link": bool(m.get("destination_url"))}
-            for m in discovered["matches"][:12]
+             "has_link": bool(m.get("destination_url")),
+             # Why it ranked here: score + the facts ranking could use.
+             "rank": i + 1, "rank_score": m.get("rank_score"), "distance_km": m.get("distance_km"),
+             "price_verified": m.get("price_verified")}
+            for i, m in enumerate(discovered["matches"][:12])
         ]
         command_center(container).trace_upsert(
             trace_key,
@@ -1003,6 +1006,15 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
         pass  # tracing never breaks the customer response
 
 
+def _query_language(text: str) -> str:
+    """Script of what the customer actually said (te / hi / en / mixed)."""
+    telugu = bool(re.search(r"[ఀ-౿]", text))
+    hindi = bool(re.search(r"[ऀ-ॿ]", text))
+    latin = bool(re.search(r"[A-Za-z]", text))
+    scripts = [name for name, hit in (("te", telugu), ("hi", hindi), ("en", latin)) if hit]
+    return "+".join(scripts) or "unknown"
+
+
 def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=None, auth_gate: str = "") -> None:
     """The app-side context of the request (query, AI intent, slots, the
     questions asked and answers remembered) -- sanitized, ids masked."""
@@ -1023,6 +1035,8 @@ def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=
             deal_id=deal_id,
             user=mask_user_id(user_id) if user_id else "guest",
             query=str(client.get("query") or payload.raw_text or "")[:500],
+            language=_query_language(str(client.get("query") or payload.raw_text or "")),
+            ui_language=str(client.get("ui_language") or "")[:8] or None,
             intent=str(client.get("intent") or payload.intent or "")[:80],
             domain=str(client.get("domain") or payload.category or "")[:40],
             categories=[str(c)[:60] for c in (client.get("categories") or [payload.subject])][:10],

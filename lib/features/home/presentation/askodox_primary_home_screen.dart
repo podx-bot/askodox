@@ -1665,6 +1665,7 @@ class _AskodoxPrimaryHomeScreenState
       'answers': answers.reversed.take(10).toList().reversed.toList(),
       // Context-scoped role, what is still unknown, and the place used.
       'active_role': ref.read(askodoxRoleProvider).active.name,
+      'ui_language': Localizations.localeOf(context).languageCode,
       'missing_slots': deal.missingForMatch,
       'location_used': deal.location.label?.trim().isNotEmpty == true
           ? deal.location.label

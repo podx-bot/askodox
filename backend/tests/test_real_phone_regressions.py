@@ -239,3 +239,19 @@ def test_current_location_is_named_even_when_geocoding_is_denied():
     place = maps.reverse_geocode(16.365, 80.844)
     assert place["city"] == "Vuyyuru"
     assert place["label"] == "Vuyyuru, Andhra Pradesh"
+
+
+def test_job_cards_are_short_and_never_invent_fields():
+    from app.services.universal_multi_source_result_service import job_card_title
+
+    assert job_card_title("369 Latest Delivery Vacancies in Hyderabad 2026 - Naukri.com") == ("Delivery jobs", "Hyderabad")
+    assert job_card_title("Computer Operator Jobs in Vijayawada | Indeed") == ("Computer Operator jobs", "Vijayawada")
+    assert job_card_title("Data entry work from home") == ("Data entry work from home jobs", None)
+
+
+def test_trace_records_the_language_the_customer_used():
+    from app.api.routes.universal_deals import _query_language
+
+    assert _query_language("నాకు 43-inch TV కావాలి") == "te+en"
+    assert _query_language("मुझे फ्रिज चाहिए") == "hi"
+    assert _query_language("AC installation near me") == "en"
