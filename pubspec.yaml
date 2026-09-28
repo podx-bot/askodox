@@ -46,3 +46,4 @@ flutter:
   generate: true
   assets:
     - assets/mock/catalog.json
+    - assets/companion/engine.html

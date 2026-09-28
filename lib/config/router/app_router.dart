@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../features/companion/companion_vrm_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -183,6 +184,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Demo buyer "insights" (sample charts) are not a customer feature.
       GoRoute(path: '/analytics/buyer', redirect: (context, state) => '/'),
       GoRoute(path: '/analytics/privacy', redirect: (context, state) => '/privacy'),
+      // Measurement build only: the VRM engine lab (see companion_vrm_engine.dart).
+      GoRoute(path: '/companion-lab', builder: (context, state) => const AskodoxCompanionEngineLab()),
       GoRoute(
           path: '/privacy',
           builder: (context, state) => const PrivacyCenterScreen()),

@@ -264,6 +264,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 if (ref.watch(askodoxCompanionSettingsProvider).enabled) ...[
                 AskodoxCompanionPicker(telugu: te),
+                // Measurement build only.
+                ListTile(
+                  key: const Key('askodoxCompanionLabEntry'),
+                  leading: const Icon(Icons.science_outlined),
+                  title: const Text('3D engine lab (measurement)'),
+                  onTap: () => context.push('/companion-lab'),
+                ),
                 const SizedBox(height: 4),
                 SwitchListTile(
                   key: const Key('askodoxCompanion3d'),
