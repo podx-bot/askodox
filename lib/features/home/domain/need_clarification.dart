@@ -126,5 +126,44 @@ AskodoxClarification? askodoxClarificationByKey(String? key) {
   for (final clarification in askodoxClarifications) {
     if (clarification.key == key) return clarification;
   }
+  if (key != null && key.startsWith(_aiKeyPrefix)) {
+    return askodoxDynamicClarification(options: key.substring(_aiKeyPrefix.length).split('|'));
+  }
   return null;
+}
+
+const _aiKeyPrefix = 'ai:';
+
+/// A clarification the AI asked for ANY category ("tablet" -> device or
+/// medicine; "mouse" -> computer mouse or pest control; anything else it
+/// finds genuinely ambiguous). The rules above are only the offline
+/// fallback when the AI is unavailable.
+AskodoxClarification? askodoxDynamicClarification({required List<String> options, String? question}) {
+  final clean = [
+    for (final o in options)
+      if (o.trim().isNotEmpty && o.trim().length <= 80) o.trim(),
+  ].take(4).toList();
+  if (clean.length < 2) return null;
+  final asked = (question ?? '').trim();
+  final fallback = 'Which one do you mean: ${clean.join(', ')}?';
+  // Each option is recognised by its words that the OTHER options lack.
+  List<String> distinctive(String option) {
+    final mine = option.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)).where((w) => w.length > 2).toSet();
+    final others = {
+      for (final o in clean.where((o) => o != option))
+        ...o.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)),
+    };
+    return mine.difference(others).toList();
+  }
+
+  return AskodoxClarification(
+    key: '$_aiKeyPrefix${clean.join('|')}',
+    trigger: RegExp(r'(?!)'),
+    question: asked.isEmpty ? fallback : asked,
+    teluguQuestion: asked.isEmpty ? fallback : asked,
+    options: [
+      for (final o in clean)
+        AskodoxClarificationOption(label: o, teluguLabel: o, subject: o, keywords: distinctive(o)),
+    ],
+  );
 }

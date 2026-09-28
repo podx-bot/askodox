@@ -9,11 +9,15 @@ final _confirm = RegExp(
   r'^(yes|yeah|yep|ok|okay|sure|go ahead|proceed|confirm|confirmed|done|do it|please do|go)\b'
   r'|\b(order (it|this|that|now|the)|place (the |an |my )?order|send (the |a |my )?request|send it'
   r"|book (it|this|that|now)|buy (it|this|that|now)|i('ll| will) (take|buy) (it|this|that)|go with"
+  // Picking an option by position is also acting on it: "I'll take the
+  // second one", "book the first", "order number 2", "request this".
+  r"|(i('ll| will) )?(take|choose|pick|select|book|buy|order|request) (the )?(first|second|third|last|1st|2nd|3rd|option \d|number \d|#\d)( one| option)?"
+  r'|request (it|this|that)|(call|contact|message) (him|her|them)'
   r"|i want (this|that|it)( one)?$|i('ll| will) buy|get (it|this|that) for me"
   r'|(contact|call|message|connect (me )?(with|to)) (the |this |that )?(seller|provider|shop|owner|store)'
   r'|connect me)\b'
-  r'|అవును|సరే|ఓకే|పంపండి|పంపు|ఆర్డర్ చేయ|బుక్ చేయ|కొంటాను'
-  r'|हाँ|हां|ठीक है|भेजो|भेज दो|ऑर्डर कर|बुक कर',
+  r'|అవును|సరే|ఓకే|పంపండి|పంపు|ఆర్డర్ చేయ|బుక్ చేయ|కొంటాను|తీసుకుంటాను|ఇదే కావాలి|రిక్వెస్ట్ పంప'
+  r'|हाँ|हां|ठीक है|भेजो|भेज दो|ऑर्डर कर|बुक कर|ले लूंगा|ले लूँगा|यही चाहिए|रिक्वेस्ट भेज',
   caseSensitive: false,
 );
 

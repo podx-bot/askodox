@@ -152,10 +152,27 @@ class LocalLiveLeadService:
         lowered = text.casefold()
         return bool(LocalLiveLeadService._PRICE_RE.search(text) or any(word in lowered for word in ("stock", "available", "availability", "ఉంది", "ధర")))
 
+    # Negations first: "no stock", "out of stock", "not available",
+    # "stock ledu", "స్టాక్ లేదు", "नहीं है" must never read as in stock.
+    _NEGATIVE_RE = re.compile(
+        r"\b(?:no|not|out\s+of|nil|zero|finished|sold\s+out|unavailable|ledu|nahi|nahin)\b|లేదు|లేవు|అయిపోయ|नहीं|खत्म",
+        re.IGNORECASE,
+    )
+    _POSITIVE_RE = re.compile(r"\b(?:in\s+stock|available|stock\s+(?:undi|hai|is\s+there)|yes|ready)\b|ఉంది|ఉన్నాయి|है", re.IGNORECASE)
+
+    @classmethod
+    def _availability(cls, text):
+        """What the SELLER said about stock -- None when they did not say."""
+        if cls._NEGATIVE_RE.search(text) and re.search(r"stock|availab|ఉంది|స్టాక్|है|ఉన్న", text, re.IGNORECASE):
+            return "out of stock (seller said)"
+        if cls._POSITIVE_RE.search(text):
+            return "in stock (seller said)"
+        return None
+
     @classmethod
     def _parse_response(cls, text):
         match = cls._PRICE_RE.search(text)
         price = float(match.group(1).replace(",", "")) if match else None
-        availability = "in stock" if any(x in text.casefold() for x in ("stock", "available", "ఉంది")) else "seller reported availability"
+        availability = cls._availability(text)
         model = text.split(",", 1)[0].strip()[:120]
         return {"model": model, "price": price, "availability": availability, "details": text[:500]}

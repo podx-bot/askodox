@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/companion/companion_voice.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:podx/core/api/api_client.dart';
@@ -660,6 +661,54 @@ void main() {
     expect(h.orders.placed, ['42']);
     expect(h.matches.accepted, isEmpty);
     expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
+  });
+
+  testWidgets('AI clarifies ANY ambiguous category once, then searches the chosen thing with its category',
+      (tester) async {
+    final h = _Harness(
+      assistant: _Assistant((message) => message.contains('amplifier')
+          ? {
+              'reply': 'Do you mean a guitar amplifier or a car audio amplifier?',
+              'domain': 'PRODUCT',
+              'transactional': true,
+              'action': 'clarify_need',
+              'confidence': 0.8,
+              'source': 'universal_ai',
+              'entities': {
+                'subject': 'amplifier',
+                'category': 'audio equipment',
+                'clarify_options': ['guitar amplifier', 'car audio amplifier'],
+              },
+            }
+          : null),
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '71', matches: [_localMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I need an amplifier, show me');
+    expect(h.matches.deals, isEmpty, reason: 'no guessed search before the one question');
+    expect(find.textContaining('guitar amplifier or a car audio amplifier'), findsWidgets);
+
+    await h.send(tester, '2');
+    expect(h.matches.deals, hasLength(1));
+    expect(h.matches.deals.single.subject!.toLowerCase(), contains('car audio amplifier'));
+    expect(h.matches.deals.single.dynamicFields['aiCategory'], 'audio equipment',
+        reason: 'the AI category travels with the requirement (and into the Admin trace slots)');
+  });
+
+  testWidgets('native speech word events reach the friend (lip-sync hook)', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+    await h.pump(tester);
+    final element = tester.element(find.byType(AskodoxPrimaryHomeScreen));
+    final voice = ProviderScope.containerOf(element).read(askodoxCompanionVoiceProvider)..speechBegin('hello world');
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+      'com.askodox.app/device',
+      const StandardMethodCodec().encodeMethodCall(const MethodCall('speechRange', {'start': 6, 'end': 11})),
+      (_) {},
+    );
+    expect(voice.currentCharIndex(), 6);
+    voice.speechEnd();
   });
 
   testWidgets('car: a short brand reply replaces the old brand in the searched subject (no fixed brand list)',
@@ -1499,6 +1548,12 @@ void main() {
       ('car', 'I want a used car under ₹8 lakh in Vijayawada — show me', 'car', {DealIntent.buy}, 800000.0),
       ('service', 'I need a plumber in Vijayawada, show me options', 'plumber', {DealIntent.needService, DealIntent.needWorker}, null),
       ('job', 'I need a delivery boy job in Vijayawada, show me', 'delivery', {DealIntent.seekWork}, null),
+      ('AC installation', 'I need AC installation service, show me', 'ac', {DealIntent.needService, DealIntent.needWorker}, null),
+      ('TV', '43 inch TV under ₹30,000, show me', 'tv', {DealIntent.buy}, 30000.0),
+      // Categories no keyword list knows: the same universal pipeline.
+      ('guitar', 'I want an acoustic guitar under ₹6,000, show me', 'guitar', {DealIntent.buy}, 6000.0),
+      ('tailor', 'I need a tailor for blouse stitching, show me', 'tailor', {DealIntent.needService, DealIntent.needWorker, DealIntent.buy}, null),
+      ('solar panel', 'I want to buy a 1 kW solar panel, show me', 'solar', {DealIntent.buy}, null),
     ]) {
       testWidgets('$label: one search, real results in chat, no questionnaire restart', (tester) async {
         final h = _Harness(

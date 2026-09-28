@@ -175,6 +175,7 @@ class _AskodoxPrimaryHomeScreenState
   /// switching needs never mixes slots, and returning restores answers.
   final Map<String, Map<String, Object?>> _parkedDeals = {};
   InAppAssistantDecision? _lastDecision;
+  bool _showNowAfterClarification = false;
   String? _lastAskedQuestion;
   List<String> _lastMissing = const [];
   String? _pendingAiContext;
@@ -1376,7 +1377,9 @@ class _AskodoxPrimaryHomeScreenState
     final aiUsable = decision?.usable == true;
     if (aiUsable) _lastDecision = decision;
     // "show me / results / options" = search now with what is known.
-    final showNow = askodoxWantsResultsNow(text);
+    // A "show me" said before a clarification question still counts once the
+    // customer picks what they meant.
+    final showNow = askodoxWantsResultsNow(text) || (clarified != null && _showNowAfterClarification);
     final showOnly = showNow && askodoxNeedSubject(text).isEmpty;
     // A short answer such as "curry cut", "1 kg" or "skinless" is not
     // transactional on its own, but it *is* transactional when ASKODOX is
@@ -1420,6 +1423,7 @@ class _AskodoxPrimaryHomeScreenState
     UniversalDeal? matchedDeal;
     String? detailQuestion;
     AskodoxClarification? needClarification;
+    if (clarified != null) _showNowAfterClarification = false;
     String? roleNotice;
     AskodoxUserRole? roleQuestion;
     String? listingBanner;
@@ -1523,6 +1527,13 @@ class _AskodoxPrimaryHomeScreenState
               ? askodoxQualifierReply(text)
               : null);
       if (brand != null) notifier.applyBrand(brand, known: known);
+      // The AI's category (any category, any language) travels with the
+      // requirement: it shapes follow-up questions and the Admin trace
+      // instead of fixed English keyword lists.
+      final aiCategory = aiUsable ? decision!.entityText('category') : null;
+      if (aiCategory != null && aiCategory.trim().isNotEmpty && aiCategory.length <= 60) {
+        notifier.applyAiCategory(aiCategory);
+      }
       // A subject polluted by budget/filler words ("TV ₹20,000 లో కావాలి")
       // is cleaned once, universally.
       final rawSubject = ref.read(universalDealControllerProvider).deal?.subject;
@@ -1543,9 +1554,16 @@ class _AskodoxPrimaryHomeScreenState
         // Understand the actual product first: a genuinely ambiguous need
         // gets ONE concise question instead of a guessed search.
         if (clarified == null && !detailAnswer) {
-          final candidate = askodoxClarificationFor(text);
+          // The AI flags genuine ambiguity for any category; the fixed
+          // rules only cover the offline case.
+          final aiOptions = aiUsable && decision!.action == 'clarify_need'
+              ? [for (final o in (decision.entities['clarify_options'] as List? ?? const [])) '$o']
+              : const <String>[];
+          final candidate = askodoxDynamicClarification(options: aiOptions, question: decision?.reply) ??
+              askodoxClarificationFor(text);
           if (candidate != null && !_clarifiedKeys.contains(candidate.key)) {
             needClarification = candidate;
+            _showNowAfterClarification = showNow;
           }
         }
         if (!deal.readyToMatch) detailQuestion = dealSession.lastQuestion;
@@ -2803,7 +2821,7 @@ class _AskodoxPrimaryHomeScreenState
           child: ref.watch(askodoxCompanionSettingsProvider).enabled
               // The friend itself listens (mic-reactive), thinks and speaks
               // (lip-synced) right where the voice status is shown.
-              ? AskodoxCompanion(key: const Key('askodoxVoiceFriend'), mood: _companionMood, size: 44)
+              ? AskodoxCompanion(key: const Key('askodoxVoiceFriend'), mood: _companionMood, size: 36)
               : CircleAvatar(
                   radius: 18,
                   backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
@@ -2936,7 +2954,9 @@ class _AskodoxPrimaryHomeScreenState
   void dispose() {
     _device.setMethodCallHandler(null);
     _lipSyncTimer?.cancel();
-    _stopVoiceTimer();
+    // (No ref use while disposing.)
+    _voiceTimer?.cancel();
+    _voiceTimer = null;
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
