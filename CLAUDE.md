@@ -7,21 +7,22 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `b79ebc9` — PR #101 (universal human flow), merged 2026-09-27.
-  Previous: PR #100 (`1103389`) browse without sign-in + per-category need
-  state + Admin flow traces; PR #99 Admin Web.
-- PR #101 CI was green on its head `7489fef` (askodox-ci, build-apk,
-  docker-smoke, smoke, isolation + gates). Backend 246 tests, Flutter 486.
-- Sprint status: NOT complete. NOT yet verified: real Brave/Maps results in
-  production (the cloud dev container cannot reach Brave or Railway), and
-  real-phone acceptance for TV, chicken ("yes" = order), car, AC, job,
-  catering broadcast, parcel, multi-category, Telugu voice, location naming.
-- Master Fix Ticket engines NOT built yet: advisory (3), offers/promotions
-  (13), referral/influencer/middleman reward ledger (14), subscriptions
-  backend (15), catalog drafting from photo/video (16), catering/hotel/
-  salon/health adapters (17), map-pin pickup/drop picker. Partial: extra
-  roles (6), refer/onboard action (8), route/quote/rider tracking (10), LLM
-  call caching (18), Admin offers/subscriptions/attribution tabs (20).
+- `main` @ `261f0aa` — PR #103 (Master Fix Ticket remainder), merged
+  2026-09-28. Previous: PR #101 (`b79ebc9`) universal human flow, PR #100
+  (`1103389`) browse without sign-in + Admin flow traces.
+- PR #103 CI was green on its head `0a8337d` (askodox-ci, build-apk with
+  the new `flutter_map` dependency, docker-smoke, smoke, isolation + gates).
+  Backend 260 tests, Flutter 498. Railway deploy of `261f0aa` started clean.
+- Sprint status: NOT complete. NOT yet verified: real Brave/Maps/Routes/
+  Geocoding results in production (the cloud dev container cannot reach
+  Brave, Railway or OSM tiles) and real-phone acceptance for every flow
+  (TV, chicken "yes" = order, car, AC, job, catering broadcast + leads
+  inbox, parcel map pins, multi-category, catalog drafts, referrals,
+  offers, Telugu voice, location naming).
+- Master Fix Ticket engines are all BUILT at least partially (advisory,
+  map pins/route quote, roles, refer→register, offers, attribution/
+  rewards, subscriptions, catalog AI, domain adapters, cost control,
+  Admin tabs). Still partial: see "Known open issues".
 - The identity-spoofing audit (started before round 10) is CLOSED.
 - Roadmap (14 points, phased delivery): https://claude.ai/artifact/TWUnjbA2TTubwczT9Lxg4n
   — Phase 0–1 done, Phase 2 round 1 (seller tiers) done, rest of Phase 2 and
@@ -95,8 +96,16 @@ this file, don't trust it blindly.
   `country`, Places `regionCode`, `region_mismatch` + `classify_page`
   filters. Snippet prices are `price_verified=false`. Identical Brave/
   Places/Geocoding calls go through `external_call_budget` (cache + usage).
-  `/deals/discover`, `/deals/leads`, `/api/discover/place` exist; the first
-  and last are public (no rate limit yet).
+  `/deals/discover`, `/api/discover/place|places|route` are public and
+  rate-limited per client (`rate_limit.py`); `/deals/leads` needs sign-in.
+- Growth engines live in ONE repository (`growth_repository.py`, tables
+  `growth_*`) + `routes/growth.py` (customer `/api/...`, admin
+  `/admin/cc/growth/...`, permissions `growth:view|manage`). Offers are
+  rule rows evaluated by `offers_engine.py` (never hard-coded promotions);
+  rewards accrue only on customer-confirmed completion and need admin
+  APPROVED -> PAID. Paid plans stay PENDING_PAYMENT (no gateway).
+- Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
+  reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
 ## Known open issues (verified, not yet fixed)
 - `/discover/voice` (ProductDiscoveryScreen) still uses the Android system
@@ -108,9 +117,21 @@ this file, don't trust it blindly.
   Flutter caller wasn't updated" — manual grep only (see gotcha above).
 - Naming the current location needs the Geocoding API enabled on the Maps
   key; otherwise the app honestly keeps "Current location".
-- Provider leads (`/deals/leads`) are in-app only: no push/WhatsApp
-  notification, and WhatsApp-only providers are not targeted.
-- API usage counters are per process and reset on each deploy.
+- Provider leads (`/deals/leads`) are in-app only (home-screen inbox): no
+  push/WhatsApp notification, and WhatsApp-only providers are not targeted.
+- Rate limits, the API cache and live counters are per process; daily API
+  usage (and the ₹ estimate) is persisted in `growth_api_usage`.
+- Route distance needs the Routes API on the Maps key; map tiles use the
+  public OpenStreetMap server (low volume only; heavy use needs a tile
+  provider).
+- Subscriptions: no payment gateway (paid plans PENDING_PAYMENT);
+  entitlements are exposed but not enforced by any feature yet; the older
+  Flutter subscription screens are still mock-backed.
+- Offers: no stacking and no customer-typed coupon codes. Rewards payouts
+  are recorded by admins only (no money moves).
+- Hotel/salon/healthcare adapters configure the backend (schema, search
+  noun, advice); the app's follow-up questions for them are still generic.
+  Advisory is rule-based, not LLM-generated.
 - Pre-existing: `deal-completion-memory-smoke` block 2 fails when run
   outside its workflow env (same on `main` before PR #101).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
