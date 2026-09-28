@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../../core/providers/backend_providers.dart';
 import '../data/geolocator_location_gateway.dart';
 import '../data/mock_geo_repository.dart';
 import '../domain/device_location_gateway.dart';
+import '../domain/geo_distance_service.dart';
 import '../domain/geo_models.dart';
 import '../domain/geo_repository.dart';
 import '../../../services/place_name_service.dart';
@@ -36,7 +38,8 @@ class LocationState {
   const LocationState({
     this.permission = LocationPermissionStatus.notRequested,
     this.locations = const [],
-    this.centre = const GeoPoint(17.4156, 78.4347),
+    // No city is assumed: (0,0) means "no place chosen yet" (see hasPlace).
+    this.centre = const GeoPoint(0, 0),
     this.radiusMetres = 5000,
     this.shops = const [],
     this.mode = MapDisplayMode.map,
@@ -54,6 +57,22 @@ class LocationState {
   final MapDisplayMode mode;
   final bool loading, offline;
   final String? selectedShopId, message;
+
+  /// A real place is known (chosen, detected or a map area) -- never a
+  /// built-in city.
+  bool get hasPlace => centre.latitude != 0 || centre.longitude != 0;
+
+  /// The active place follows the phone (not a place picked by hand).
+  bool get followsDevice {
+    final current = defaultLocation;
+    return current == null || current.type == SavedLocationType.currentLocation;
+  }
+
+  /// The detected place still has no human-readable name.
+  bool get unnamed {
+    final current = defaultLocation;
+    return current != null && current.type == SavedLocationType.currentLocation && current.address.trim().isEmpty;
+  }
 
   BuyerSavedLocation? get defaultLocation {
     for (final l in locations) {
@@ -114,6 +133,11 @@ class LocationController extends StateNotifier<LocationState> {
 
   final PlaceNamer? _placeNamer;
 
+  /// Moving this far from the active point re-reads and re-names the place.
+  static const moveThresholdMetres = 300.0;
+  StreamSubscription<GeoPoint>? _following;
+  bool _updatingFromMove = false;
+
   static const _storageKey = 'askodox.selected_location.v1';
   // Recently used places (max 5) shown under "Use my location / Search".
   static const _recentKey = 'askodox.recent_locations.v1';
@@ -124,13 +148,68 @@ class LocationController extends StateNotifier<LocationState> {
     await _restore();
     // Location already allowed: read where the phone is NOW and name it
     // (no prompt). A place the user picked by hand is kept as chosen.
-    final current = state.defaultLocation;
-    final followsDevice = current == null || current.type == SavedLocationType.currentLocation;
-    if (followsDevice && await _deviceLocation.checkPermission() == LocationPermissionStatus.granted) {
+    if (state.followsDevice && await _deviceLocation.checkPermission() == LocationPermissionStatus.granted) {
       await requestPermission();
       return;
     }
     await refresh();
+  }
+
+  /// Follow the phone while the app is open: a new place is detected and
+  /// named when the user has moved [moveThresholdMetres]. Never overrides a
+  /// place the user picked by hand; stops when they pick one.
+  Future<void> startFollowing() async {
+    if (_following != null || !state.followsDevice) return;
+    if (await _deviceLocation.checkPermission() != LocationPermissionStatus.granted) return;
+    if (!mounted || !state.followsDevice) return;
+    _following = _deviceLocation
+        .watchPosition(distanceFilterMetres: moveThresholdMetres.round())
+        .listen((point) => unawaited(onDeviceMoved(point)), onError: (Object _) {}, cancelOnError: false);
+  }
+
+  Future<void> stopFollowing() async {
+    final following = _following;
+    _following = null;
+    await following?.cancel();
+  }
+
+  /// App came back to the foreground: silently re-read the phone's place
+  /// (no prompt) when it follows the device, then keep following.
+  Future<void> onResume() async {
+    if (!state.followsDevice) return;
+    final permission = await _deviceLocation.checkPermission();
+    if (permission == LocationPermissionStatus.granted) {
+      final point = await _deviceLocation.getCurrentPosition();
+      if (point != null) await onDeviceMoved(point);
+      await startFollowing();
+    } else if (state.permission == LocationPermissionStatus.granted) {
+      // Permission was revoked in Settings meanwhile: say so honestly.
+      state = state.copyWith(permission: permission, message: 'Location access was not granted');
+    }
+  }
+
+  /// The device reports a (possibly new) position.
+  Future<void> onDeviceMoved(GeoPoint point) async {
+    if (!mounted || !point.isValid || !state.followsDevice || _updatingFromMove) return;
+    final current = state.defaultLocation;
+    final moved = current == null
+        ? double.infinity
+        : const GeoDistanceService().distanceMetres(current.point, point) ?? double.infinity;
+    // Same place and already named: nothing to do (no extra lookups).
+    if (moved < moveThresholdMetres && !state.unnamed) return;
+    _updatingFromMove = true;
+    try {
+      await _selectDevicePoint(point);
+    } finally {
+      _updatingFromMove = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _following?.cancel();
+    _following = null;
+    super.dispose();
   }
 
   /// "Refresh my location": re-read GPS and re-name it.
@@ -160,8 +239,15 @@ class LocationController extends StateNotifier<LocationState> {
       return;
     }
 
-    // A readable place ("Benz Circle, Vijayawada, Andhra Pradesh") when the
-    // backend can resolve it; otherwise honestly "Current location".
+    await _selectDevicePoint(point);
+    await startFollowing();
+  }
+
+  /// Names [point] and makes it the active place (type currentLocation).
+  Future<void> _selectDevicePoint(GeoPoint point) async {
+    // A readable place (area, town, state) from the phone's Geocoder or the
+    // backend; otherwise honestly "Current location" (retried on the next
+    // move or resume).
     String? place;
     try {
       place = await _placeNamer?.call(point.latitude, point.longitude);
@@ -186,6 +272,9 @@ class LocationController extends StateNotifier<LocationState> {
       state = state.copyWith(message: 'Invalid location');
       return false;
     }
+    // A place picked by hand wins: stop following the phone until the user
+    // chooses "Use my location" again.
+    if (location.type != SavedLocationType.currentLocation) await stopFollowing();
     final selected = location.copyWith(isDefault: true);
     final nextLocations = [
       for (final l in state.locations.where((l) => l.id != selected.id)) l.copyWith(isDefault: false),
@@ -256,6 +345,10 @@ class LocationController extends StateNotifier<LocationState> {
   void selectShop(String id) => state = state.copyWith(selectedShopId: id);
 
   Future<void> refresh() async {
+    if (!state.hasPlace) {
+      state = state.copyWith(shops: const []);
+      return;
+    }
     if (!state.centre.isValid) {
       state = state.copyWith(message: 'Invalid location', shops: []);
       return;

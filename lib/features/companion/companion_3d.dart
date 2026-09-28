@@ -101,9 +101,11 @@ class AskodoxMesh {
     return AskodoxMeshPart(name, vs, ts, color);
   }
 
-  /// The ASKODOX friend, built from primitives for the chosen look.
+  /// The ASKODOX friend, built from primitives for the chosen look: head,
+  /// face details, brows (expressions) and two floating hands (gestures).
   static AskodoxMesh forLook(AskodoxCompanionLook look, Color accent) {
     const ink = Color(0xFF10204A);
+    final hand = Color.lerp(accent, Colors.white, .25)!;
     final parts = <AskodoxMeshPart>[
       ellipsoid('head', const AskodoxVec3(0, 0, 0), const AskodoxVec3(1, .92, .95), accent),
     ];
@@ -112,6 +114,8 @@ class AskodoxMesh {
         ..add(ellipsoid('visor', const AskodoxVec3(0, .08, -.62), const AskodoxVec3(.72, .4, .38), ink))
         ..add(ellipsoid('eye_l', const AskodoxVec3(-.3, .1, -1.0), const AskodoxVec3(.12, .14, .06), const Color(0xFF7FE3FF), rings: 6, segments: 10))
         ..add(ellipsoid('eye_r', const AskodoxVec3(.3, .1, -1.0), const AskodoxVec3(.12, .14, .06), const Color(0xFF7FE3FF), rings: 6, segments: 10))
+        ..add(ellipsoid('brow_l', const AskodoxVec3(-.3, .42, -.96), const AskodoxVec3(.16, .035, .04), const Color(0xFF7FE3FF), rings: 4, segments: 8))
+        ..add(ellipsoid('brow_r', const AskodoxVec3(.3, .42, -.96), const AskodoxVec3(.16, .035, .04), const Color(0xFF7FE3FF), rings: 4, segments: 8))
         ..add(cylinder('antenna', const AskodoxVec3(0, .85, 0), .05, .45, const Color(0xFF1769FF)))
         ..add(ellipsoid('antenna_tip', const AskodoxVec3(0, 1.36, 0), const AskodoxVec3(.12, .12, .12), const Color(0xFF1769FF), rings: 6, segments: 10))
         ..add(ellipsoid('ear_l', const AskodoxVec3(-1.0, 0, 0), const AskodoxVec3(.12, .3, .3), const Color(0xFF1769FF), rings: 6, segments: 10))
@@ -121,51 +125,157 @@ class AskodoxMesh {
       parts
         ..add(ellipsoid('eye_l', const AskodoxVec3(-.32, .15, -.86), const AskodoxVec3(.1, .13, .06), ink, rings: 6, segments: 10))
         ..add(ellipsoid('eye_r', const AskodoxVec3(.32, .15, -.86), const AskodoxVec3(.1, .13, .06), ink, rings: 6, segments: 10))
+        ..add(ellipsoid('brow_l', const AskodoxVec3(-.32, .42, -.84), const AskodoxVec3(.14, .03, .04), ink, rings: 4, segments: 8))
+        ..add(ellipsoid('brow_r', const AskodoxVec3(.32, .42, -.84), const AskodoxVec3(.14, .03, .04), ink, rings: 4, segments: 8))
         ..add(ellipsoid('cheek_l', const AskodoxVec3(-.55, -.2, -.72), const AskodoxVec3(.14, .08, .05), const Color(0xFFFF9EB5), rings: 4, segments: 8))
         ..add(ellipsoid('cheek_r', const AskodoxVec3(.55, -.2, -.72), const AskodoxVec3(.14, .08, .05), const Color(0xFFFF9EB5), rings: 4, segments: 8))
         ..add(ellipsoid('mouth', const AskodoxVec3(0, -.38, -.86), const AskodoxVec3(.2, .06, .05), ink, rings: 4, segments: 10));
     } else {
       parts.add(ellipsoid('mouth', const AskodoxVec3(0, -.3, -.92), const AskodoxVec3(.18, .05, .04), ink, rings: 4, segments: 10));
     }
+    // Hands are modelled at the origin; the pose places them per gesture.
+    parts
+      ..add(ellipsoid('hand_l', const AskodoxVec3(0, 0, 0), const AskodoxVec3(.2, .22, .14), hand, rings: 6, segments: 10))
+      ..add(ellipsoid('hand_r', const AskodoxVec3(0, 0, 0), const AskodoxVec3(.2, .22, .14), hand, rings: 6, segments: 10));
     return AskodoxMesh(parts);
   }
 }
 
-/// Pose of the friend for a mood at animation time [t] (0..1 loop).
-class _Pose {
-  _Pose({this.yaw = 0, this.pitch = 0, this.roll = 0, this.lift = 0, this.mouth = 1, this.eyes = 1, this.antenna = 1});
-  double yaw, pitch, roll, lift, mouth, eyes, antenna;
+/// Live signals that shape the friend beyond its mood: the microphone level
+/// (listening), lip-sync openness (speaking), a natural blink and where the
+/// eyes look. All optional -- without them the mood pose alone is used.
+class AskodoxCompanionSignals {
+  const AskodoxCompanionSignals({this.micLevel = 0, this.mouthOpen, this.blink = 0, this.gaze = Offset.zero});
+
+  final double micLevel; // 0..1
+  final double? mouthOpen; // 0..1 while lip-syncing, else null
+  final double blink; // 0 open .. 1 closed
+  final Offset gaze; // -1..1 each axis
+
+  @override
+  bool operator ==(Object other) =>
+      other is AskodoxCompanionSignals &&
+      other.micLevel == micLevel &&
+      other.mouthOpen == mouthOpen &&
+      other.blink == blink &&
+      other.gaze == gaze;
+
+  @override
+  int get hashCode => Object.hash(micLevel, mouthOpen, blink, gaze);
 }
 
-_Pose _poseFor(AskodoxCompanionMood mood, double t) {
+/// Pose of the friend for a mood at animation time [t] (0..1 loop):
+/// head rotation, expression (eyes, brows, mouth) and the hands' gesture.
+class AskodoxPose {
+  AskodoxPose({
+    this.yaw = 0,
+    this.pitch = 0,
+    this.roll = 0,
+    this.lift = 0,
+    this.mouth = 1,
+    this.mouthWidth = 1,
+    this.eyes = 1,
+    this.antenna = 1,
+    this.browLift = 0,
+    this.browTilt = 0,
+    this.gaze = Offset.zero,
+    this.handL = const AskodoxVec3(-1.22, -.85, -.35),
+    this.handR = const AskodoxVec3(1.22, -.85, -.35),
+    this.handTiltL = 0,
+    this.handTiltR = 0,
+  });
+
+  double yaw, pitch, roll, lift, mouth, mouthWidth, eyes, antenna, browLift, browTilt, handTiltL, handTiltR;
+  Offset gaze;
+  AskodoxVec3 handL, handR;
+}
+
+/// Mood -> expression + gesture, then live [signals] layered on top.
+AskodoxPose askodoxPoseFor(AskodoxCompanionMood mood, double t, [AskodoxCompanionSignals signals = const AskodoxCompanionSignals()]) {
   final s = math.sin(t * 2 * math.pi);
   final c = math.cos(t * 2 * math.pi);
+  final float = .04 * math.sin(t * 4 * math.pi);
+  AskodoxPose pose;
   switch (mood) {
     case AskodoxCompanionMood.idle:
-      return _Pose(yaw: .18 * s, pitch: .04 * c);
+      pose = AskodoxPose(yaw: .18 * s, pitch: .04 * c);
+      pose.handL = AskodoxVec3(-1.22, -.85 + float, -.35);
+      pose.handR = AskodoxVec3(1.22, -.85 - float, -.35);
     case AskodoxCompanionMood.greeting:
-      return _Pose(yaw: -.25, pitch: .12 * s.abs(), roll: .1, lift: .05 * s.abs(), eyes: .7);
+      // Friendly head tilt, raised brows, happy squint and a waving hand.
+      pose = AskodoxPose(yaw: -.25, pitch: .12 * s.abs(), roll: .1, lift: .05 * s.abs(), eyes: .7, browLift: .08, mouth: 1.3);
+      pose.handR = AskodoxVec3(1.3 + .12 * math.sin(t * 6 * math.pi), .25, -.45);
+      pose.handTiltR = .45 * math.sin(t * 6 * math.pi);
     case AskodoxCompanionMood.listening:
-      return _Pose(roll: .22, pitch: .05, yaw: .08 * s, antenna: 1 + .4 * s.abs());
+      // Head tilted toward the speaker, attentive brows, hand cupped at the ear.
+      pose = AskodoxPose(roll: .22, pitch: .05, yaw: .08 * s, antenna: 1 + .4 * s.abs(), browLift: .06, eyes: 1.1);
+      pose.handL = const AskodoxVec3(-1.28, .08, -.2);
+      pose.handTiltL = -.5;
     case AskodoxCompanionMood.thinking:
-      return _Pose(yaw: .5 * s, pitch: -.18, roll: -.08, antenna: 1 + .25 * c.abs());
+      // Looks up and around, one brow raised, hand at the chin tapping.
+      pose = AskodoxPose(yaw: .5 * s, pitch: -.18, roll: -.08, antenna: 1 + .25 * c.abs(), browTilt: .18, gaze: const Offset(-.6, .7), mouth: .7, mouthWidth: .7);
+      pose.handR = AskodoxVec3(.45, -.95 + .05 * math.sin(t * 8 * math.pi), -1.0);
+      pose.handTiltR = .3;
     case AskodoxCompanionMood.speaking:
-      return _Pose(yaw: .12 * s, pitch: .05 * math.sin(t * 8 * math.pi), mouth: 1 + 1.6 * math.sin(t * 12 * math.pi).abs());
+      // Talking: small nods, lively brows, hands gesturing in turn.
+      pose = AskodoxPose(yaw: .12 * s, pitch: .05 * math.sin(t * 8 * math.pi), mouth: 1 + 1.6 * math.sin(t * 12 * math.pi).abs(), browLift: .04 * s.abs());
+      pose.handL = AskodoxVec3(-1.2, -.75 + .18 * math.max(0, s), -.6);
+      pose.handR = AskodoxVec3(1.2, -.75 + .18 * math.max(0, -s), -.6);
+      pose.handTiltL = .3 * s;
+      pose.handTiltR = -.3 * s;
     case AskodoxCompanionMood.explaining:
-      return _Pose(yaw: .55 + .08 * s, pitch: .08, roll: -.05); // turns toward the results
+      // Turns toward the results and points at them.
+      pose = AskodoxPose(yaw: .55 + .08 * s, pitch: .08, roll: -.05, gaze: const Offset(.8, -.2), browLift: .03);
+      pose.handR = AskodoxVec3(1.55 + .06 * s, -.35, -.75);
+      pose.handTiltR = -1.2;
     case AskodoxCompanionMood.success:
-      return _Pose(lift: .08 * s.abs(), pitch: .15 * s.abs(), eyes: .6, mouth: 1.4);
+      // Happy bounce with both hands up.
+      pose = AskodoxPose(lift: .08 * s.abs(), pitch: .15 * s.abs(), eyes: .6, mouth: 1.4, mouthWidth: 1.15, browLift: .1);
+      pose.handL = AskodoxVec3(-1.15, .35 + .1 * s.abs(), -.4);
+      pose.handR = AskodoxVec3(1.15, .35 + .1 * s.abs(), -.4);
+      pose.handTiltL = -.3;
+      pose.handTiltR = .3;
     case AskodoxCompanionMood.help:
-      return _Pose(yaw: .3 * math.sin(t * 6 * math.pi), pitch: -.1, mouth: .7);
+      // Gentle "no worries" shake, concerned brows, open palms.
+      pose = AskodoxPose(yaw: .3 * math.sin(t * 6 * math.pi), pitch: -.1, mouth: .7, browTilt: -.2);
+      pose.handL = const AskodoxVec3(-1.1, -.55, -.75);
+      pose.handR = const AskodoxVec3(1.1, -.55, -.75);
+      pose.handTiltL = .6;
+      pose.handTiltR = -.6;
   }
+  // Live signals: the mic level makes the friend lean in, glow and widen its
+  // eyes; lip-sync replaces the canned talk loop; blinks and gaze are real.
+  final mic = signals.micLevel.clamp(0.0, 1.0);
+  if (mic > 0) {
+    pose
+      ..roll += .12 * mic
+      ..antenna += .8 * mic
+      ..eyes *= 1 + .15 * mic
+      ..browLift += .05 * mic;
+  }
+  final lips = signals.mouthOpen;
+  if (lips != null) {
+    pose
+      ..mouth = .5 + 2.6 * lips.clamp(0.0, 1.0)
+      ..mouthWidth = 1.05 - .25 * lips.clamp(0.0, 1.0);
+  }
+  pose.eyes *= 1 - .92 * signals.blink.clamp(0.0, 1.0);
+  if (signals.gaze != Offset.zero) pose.gaze = signals.gaze;
+  return pose;
 }
 
 class AskodoxCompanion3dPainter extends CustomPainter {
-  AskodoxCompanion3dPainter({required this.mesh, required this.mood, required this.t});
+  AskodoxCompanion3dPainter({
+    required this.mesh,
+    required this.mood,
+    required this.t,
+    this.signals = const AskodoxCompanionSignals(),
+  });
 
   final AskodoxMesh mesh;
   final AskodoxCompanionMood mood;
   final double t;
+  final AskodoxCompanionSignals signals;
 
   // Key light from the upper-left front (the camera looks along +z, so
   // "towards the viewer" is -z); the halfway vector gives a soft highlight.
@@ -174,11 +284,11 @@ class AskodoxCompanion3dPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final pose = _poseFor(mood, t);
+    final pose = askodoxPoseFor(mood, t, signals);
     final cy = math.cos(pose.yaw), sy = math.sin(pose.yaw);
     final cp = math.cos(pose.pitch), sp = math.sin(pose.pitch);
     final cr = math.cos(pose.roll), sr = math.sin(pose.roll);
-    AskodoxVec3 rotate(AskodoxVec3 v) {
+    AskodoxVec3 rotateHead(AskodoxVec3 v) {
       var x = v.x * cr - v.y * sr, y = v.x * sr + v.y * cr, z = v.z; // roll (z)
       final x2 = x * cy + z * sy, z2 = -x * sy + z * cy; // yaw (y)
       x = x2;
@@ -187,8 +297,20 @@ class AskodoxCompanion3dPainter extends CustomPainter {
       return AskodoxVec3(x, y3 + pose.lift, z3);
     }
 
-    final scale = size.shortestSide * .36;
-    final centre = Offset(size.width / 2, size.height * .56);
+    // Hands follow the body only loosely (a third of the head's yaw).
+    final by = pose.yaw * .33;
+    final cby = math.cos(by), sby = math.sin(by);
+    AskodoxVec3 rotateBody(AskodoxVec3 v) => AskodoxVec3(v.x * cby + v.z * sby, v.y + pose.lift, -v.x * sby + v.z * cby);
+
+    AskodoxVec3 rollAround(AskodoxVec3 v, AskodoxVec3 anchor, double angle) {
+      if (angle == 0) return v;
+      final ca = math.cos(angle), sa = math.sin(angle);
+      final dx = v.x - anchor.x, dy = v.y - anchor.y;
+      return AskodoxVec3(anchor.x + dx * ca - dy * sa, anchor.y + dx * sa + dy * ca, v.z);
+    }
+
+    final scale = size.shortestSide * .3;
+    final centre = Offset(size.width / 2, size.height * .5);
     const camera = 4.2;
     Offset project(AskodoxVec3 v) {
       final f = camera / (camera + v.z);
@@ -198,24 +320,42 @@ class AskodoxCompanion3dPainter extends CustomPainter {
     final light = _light.unit;
     final tris = <(double, Offset, Offset, Offset, Color)>[];
     for (final part in mesh.parts) {
-      // Part-level animation: talking mouth, blinking eyes, glowing antenna.
-      final sx = part.name == 'mouth' ? 1.0 : 1.0;
-      final syPart = part.name == 'mouth'
-          ? pose.mouth
-          : part.name.startsWith('eye')
-              ? pose.eyes
-              : 1.0;
-      final lift = part.name.startsWith('antenna') ? (pose.antenna - 1) * .15 : 0.0;
+      final name = part.name;
+      final isHand = name.startsWith('hand_');
       final anchor = part.vertices.isEmpty
           ? const AskodoxVec3(0, 0, 0)
           : part.vertices.reduce((a, b) => a + b).scale(1 / part.vertices.length);
-      final world = [
-        for (final v in part.vertices)
-          rotate(AskodoxVec3(anchor.x + (v.x - anchor.x) * sx, anchor.y + (v.y - anchor.y) * syPart + lift, v.z)),
-      ];
+      // Part-level animation: lip-synced mouth, blinking/looking eyes,
+      // expressive brows, glowing antenna, gesturing hands.
+      var sx = 1.0, syPart = 1.0, roll = 0.0;
+      var offset = const AskodoxVec3(0, 0, 0);
+      if (name == 'mouth') {
+        syPart = pose.mouth;
+        sx = pose.mouthWidth;
+      } else if (name.startsWith('eye')) {
+        syPart = pose.eyes;
+        offset = AskodoxVec3(pose.gaze.dx * .06, pose.gaze.dy * .05, 0);
+      } else if (name.startsWith('brow')) {
+        final left = name.endsWith('_l');
+        offset = AskodoxVec3(0, pose.browLift + (left ? pose.browTilt : -pose.browTilt) * .12, 0);
+        roll = left ? -pose.browTilt : pose.browTilt;
+      } else if (name.startsWith('antenna')) {
+        offset = AskodoxVec3(0, (pose.antenna - 1) * .15, 0);
+      } else if (isHand) {
+        final left = name.endsWith('_l');
+        final target = left ? pose.handL : pose.handR;
+        offset = target - anchor;
+        roll = left ? pose.handTiltL : pose.handTiltR;
+      }
+      final world = <AskodoxVec3>[];
+      for (final v in part.vertices) {
+        var local = AskodoxVec3(anchor.x + (v.x - anchor.x) * sx, anchor.y + (v.y - anchor.y) * syPart, v.z);
+        local = rollAround(local, anchor, roll) + offset;
+        world.add(isHand ? rotateBody(local) : rotateHead(local));
+      }
       final centre3 = world.isEmpty ? const AskodoxVec3(0, 0, 0) : world.reduce((a, b) => a + b).scale(1 / world.length);
-      final isHead = part.name == 'head';
-      final onTop = part.name.startsWith('antenna');
+      final isHead = name == 'head';
+      final onTop = name.startsWith('antenna') || isHand;
       for (var i = 0; i + 2 < part.triangles.length; i += 3) {
         final a = world[part.triangles[i]], b = world[part.triangles[i + 1]], c = world[part.triangles[i + 2]];
         final mid = (a + b + c).scale(1 / 3);
@@ -230,8 +370,10 @@ class AskodoxCompanion3dPainter extends CustomPainter {
         final lit = .42 + .7 * diffuse;
         int channel(double v) => (v * 255 * lit + 255 * .45 * spec).clamp(0, 255).round();
         final shade = Color.fromARGB(255, channel(part.color.r), channel(part.color.g), channel(part.color.b));
-        // Head first, then details on top of it; each group far-to-near.
-        tris.add(((isHead ? 1000.0 : 0.0) + mid.z, project(a), project(b), project(c), shade));
+        // Head first, then details on top of it; hands in true depth order
+        // (a hand behind the head is drawn before it); each group far-to-near.
+        final bucket = isHead ? 1000.0 : (isHand && mid.z > .2 ? 2000.0 : 0.0);
+        tris.add((bucket + mid.z, project(a), project(b), project(c), shade));
       }
     }
     // Painter's algorithm: far triangles first.
@@ -246,7 +388,7 @@ class AskodoxCompanion3dPainter extends CustomPainter {
     }
     // Soft ground shadow for depth.
     canvas.drawOval(
-      Rect.fromCenter(center: centre + Offset(0, scale * 1.25), width: scale * 1.5 * (1 - pose.lift), height: scale * .22),
+      Rect.fromCenter(center: centre + Offset(0, scale * 1.45), width: scale * 1.6 * (1 - pose.lift), height: scale * .22),
       Paint()..color = const Color(0x22000000),
     );
     canvas.drawVertices(
@@ -257,5 +399,6 @@ class AskodoxCompanion3dPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(AskodoxCompanion3dPainter old) => old.t != t || old.mood != mood || old.mesh != mesh;
+  bool shouldRepaint(AskodoxCompanion3dPainter old) =>
+      old.t != t || old.mood != mood || old.mesh != mesh || old.signals != signals;
 }

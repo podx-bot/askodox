@@ -99,6 +99,11 @@ jobs:
           grep -q 'SessionParams' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'openWrite' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
           grep -q 'session.commit' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          # The committed bridge must survive the scripts (Geocoder naming,
+          # notifications, lip-sync speech events).
+          grep -q 'reverseGeocode' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'showNotification' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
+          grep -q 'speechRange' android/app/src/main/kotlin/com/askodox/askodox/MainActivity.kt
 
       - name: Require stable release signing secrets
         shell: bash

@@ -44,8 +44,9 @@ class AskodoxMapPinPicker extends ConsumerStatefulWidget {
 }
 
 class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
-  // Vijayawada as a neutral India start when no point is known yet.
-  static const _fallback = LatLng(16.5062, 80.6480);
+  // No point known yet: show the whole country (no city is assumed) until
+  // the user searches or taps a place; nothing is confirmed until pinned.
+  static const _fallback = LatLng(22.5, 79.0);
   final _map = MapController();
   final _search = TextEditingController();
   late LatLng _pin = widget.initial == null
@@ -158,7 +159,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
                   mapController: _map,
                   options: MapOptions(
                     initialCenter: _pin,
-                    initialZoom: widget.initial == null ? 12 : 16,
+                    initialZoom: widget.initial == null ? 4.5 : 16,
                     onTap: (_, point) => _dropPin(point),
                   ),
                   children: [

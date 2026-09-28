@@ -46,7 +46,16 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _onForeground();
+    final location = ref.read(locationControllerProvider.notifier);
+    if (state == AppLifecycleState.resumed) {
+      _onForeground();
+      // Back in the app: re-read where the phone is now (no prompt) and keep
+      // following it -- unless the user picked a place by hand.
+      unawaited(location.onResume());
+    } else if (state == AppLifecycleState.paused) {
+      // No location use in the background.
+      unawaited(location.stopFollowing());
+    }
   }
 
   Future<void> _onForeground() async {

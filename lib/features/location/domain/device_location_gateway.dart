@@ -27,4 +27,10 @@ abstract class DeviceLocationGateway {
   /// throwing) if the position could not be read, e.g. no GPS fix within
   /// the allotted time.
   Future<GeoPoint?> getCurrentPosition();
+
+  /// Positions as the phone MOVES, emitted only after it travelled at least
+  /// [distanceFilterMetres]. Only listened to while the location follows
+  /// the device (never for a place the user picked by hand) and while the
+  /// app is in the foreground. Errors end the stream quietly.
+  Stream<GeoPoint> watchPosition({int distanceFilterMetres = 300});
 }

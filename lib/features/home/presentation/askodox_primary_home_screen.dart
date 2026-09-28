@@ -44,6 +44,7 @@ import '../domain/need_state.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
 import '../../companion/askodox_companion.dart';
+import '../../companion/companion_voice.dart';
 import 'deal_lifecycle_panel.dart';
 import 'video_viewer_screen.dart';
 
@@ -364,6 +365,7 @@ class _AskodoxPrimaryHomeScreenState
       _voiceLevels.add(normalized <= 0 ? 0 : math.sqrt(normalized));
       if (_voiceLevels.length > _voiceLevelBars) _voiceLevels.removeAt(0);
     });
+    ref.read(askodoxCompanionVoiceProvider).setMicLevel(_voiceLevels.last);
     final decision = _endpointer?.add(level, _voiceSampleInterval * _voiceTicks) ??
         VoiceEndpointDecision.keepRecording;
     switch (decision) {
@@ -380,6 +382,7 @@ class _AskodoxPrimaryHomeScreenState
   void _stopVoiceTimer() {
     _voiceTimer?.cancel();
     _voiceTimer = null;
+    if (mounted) ref.read(askodoxCompanionVoiceProvider).setMicLevel(0);
   }
 
   /// Ends the recording (genuine silence, max duration or the user's Stop)
@@ -549,6 +552,19 @@ class _AskodoxPrimaryHomeScreenState
     }, fireImmediately: true);
     _restoring = _restore();
     unawaited(_loadLeads());
+    // Native speech events (device TTS word ranges) drive the friend's
+    // lip-sync; everything else on this channel is Dart -> native.
+    _device.setMethodCallHandler(_onDeviceEvent);
+  }
+
+  Future<Object?> _onDeviceEvent(MethodCall call) async {
+    if (!mounted) return null;
+    final voice = ref.read(askodoxCompanionVoiceProvider);
+    if (call.method == 'speechRange') {
+      final args = Map<Object?, Object?>.from(call.arguments as Map? ?? const {});
+      voice.speechRange((args['start'] as num?)?.toInt() ?? 0, (args['end'] as num?)?.toInt() ?? 0);
+    }
+    return null;
   }
 
   Future<void> _loadLeads() async {
@@ -1915,9 +1931,11 @@ class _AskodoxPrimaryHomeScreenState
     } else {
       _pendingDraft = draft;
       final missing = draft.missing.where((m) => m != 'subject').map(_draftFieldLabel).join(', ');
+      // The example uses the seller's own active place, never a fixed city.
+      final area = ref.read(locationControllerProvider).headerLocation;
       reply = _te
-          ? 'డ్రాఫ్ట్ సిద్ధం: "${draft.title}". ${missing.isEmpty ? '' : 'ఇంకా కావాలి: $missing. '}ధర చెప్పండి (ఉదా: ₹3200, స్టాక్‌లో ఉంది, Vijayawada).'
-          : 'Draft ready: "${draft.title}". ${missing.isEmpty ? '' : 'Still needed: $missing. '}Tell me the price (e.g. "₹3200, in stock, Vijayawada") to publish.';
+          ? 'డ్రాఫ్ట్ సిద్ధం: "${draft.title}". ${missing.isEmpty ? '' : 'ఇంకా కావాలి: $missing. '}ధర చెప్పండి (ఉదా: ₹3200, స్టాక్‌లో ఉంది${area == null ? '' : ', $area'}).'
+          : 'Draft ready: "${draft.title}". ${missing.isEmpty ? '' : 'Still needed: $missing. '}Tell me the price (e.g. "₹3200, in stock${area == null ? '' : ', $area'}") to publish.';
     }
     await _replyAndSave(reply, speakResponse, text);
   }
@@ -2130,6 +2148,26 @@ class _AskodoxPrimaryHomeScreenState
     await _escalateToSupport(turn);
   }
 
+  Timer? _lipSyncTimer;
+
+  /// Sarvam audio: follow the player's real position so the friend's mouth
+  /// stays on the words being heard.
+  void _startLipSyncPolling(AskodoxCompanionVoice lips) {
+    _lipSyncTimer?.cancel();
+    _lipSyncTimer = Timer.periodic(const Duration(milliseconds: 150), (_) async {
+      try {
+        final progress = await _device.invokeMethod<Map<Object?, Object?>>('replyAudioProgress');
+        final position = (progress?['position'] as num?)?.toInt();
+        final duration = (progress?['duration'] as num?)?.toInt();
+        if (position != null && duration != null && duration > 0) {
+          lips.speechProgress(Duration(milliseconds: position), Duration(milliseconds: duration));
+        }
+      } catch (_) {
+        _lipSyncTimer?.cancel();
+      }
+    });
+  }
+
   /// Speaks the reply with the existing Sarvam Bulbul v3 pipeline
   /// (backend `/api/in-app/voice/speak`); only when Sarvam is unavailable or
   /// the device cannot play its audio does it fall back to device TTS.
@@ -2140,12 +2178,15 @@ class _AskodoxPrimaryHomeScreenState
       uiTelugu: _te,
     );
     if (mounted) setState(() => _voicePhase = _VoicePhase.speaking);
+    final lips = ref.read(askodoxCompanionVoiceProvider)..speechBegin(reply);
     try {
       final audio = await ref
           .read(askodoxReplySpeechServiceProvider)
           .sarvamAudio(reply, locale: language);
       if (!mounted || _voicePhase != _VoicePhase.speaking) return;
       if (audio != null) {
+        lips.speechBegin(reply);
+        _startLipSyncPolling(lips);
         final played = await _device.invokeMethod<bool>(
           'playReplyAudio',
           <String, Object?>{'bytes': audio, 'languageCode': language},
@@ -2155,8 +2196,10 @@ class _AskodoxPrimaryHomeScreenState
           return;
         }
       }
+      _lipSyncTimer?.cancel();
       if (!mounted || _voicePhase != _VoicePhase.speaking) return;
       lastReplyVoiceEngine = 'device';
+      lips.speechBegin(reply);
       await _device.invokeMethod<bool>(
         'speakReply',
         <String, Object?>{
@@ -2168,6 +2211,8 @@ class _AskodoxPrimaryHomeScreenState
     } catch (_) {
       // The text reply remains available when no voice output works.
     } finally {
+      _lipSyncTimer?.cancel();
+      lips.speechEnd();
       if (mounted && _voicePhase == _VoicePhase.speaking) {
         setState(() => _voicePhase = _VoicePhase.idle);
       }
@@ -2753,18 +2798,22 @@ class _AskodoxPrimaryHomeScreenState
       child: Row(children: [
         AnimatedScale(
           key: const Key('askodoxVoicePulse'),
-          scale: listening ? 1 + current * 0.45 : 1,
+          scale: listening ? 1 + current * 0.2 : 1,
           duration: const Duration(milliseconds: 180),
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
-            child: Icon(
-                _voicePhase == _VoicePhase.speaking
-                    ? Icons.volume_up_rounded
-                    : Icons.mic_rounded,
-                color: Colors.white,
-                size: 20),
-          ),
+          child: ref.watch(askodoxCompanionSettingsProvider).enabled
+              // The friend itself listens (mic-reactive), thinks and speaks
+              // (lip-synced) right where the voice status is shown.
+              ? AskodoxCompanion(key: const Key('askodoxVoiceFriend'), mood: _companionMood, size: 44)
+              : CircleAvatar(
+                  radius: 18,
+                  backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
+                  child: Icon(
+                      _voicePhase == _VoicePhase.speaking
+                          ? Icons.volume_up_rounded
+                          : Icons.mic_rounded,
+                      color: Colors.white,
+                      size: 20),
+                ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -2885,6 +2934,8 @@ class _AskodoxPrimaryHomeScreenState
 
   @override
   void dispose() {
+    _device.setMethodCallHandler(null);
+    _lipSyncTimer?.cancel();
     _stopVoiceTimer();
     _controller.dispose();
     _focusNode.dispose();
