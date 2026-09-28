@@ -6,6 +6,7 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../companion/askodox_companion.dart';
+import '../../companion/companion_picker.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
@@ -262,27 +263,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(enabled: on),
                 ),
                 if (ref.watch(askodoxCompanionSettingsProvider).enabled) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Wrap(spacing: 8, children: [
-                    for (final look in AskodoxCompanionLook.values)
-                      ChoiceChip(
-                        key: ValueKey('askodoxLook-${look.name}'),
-                        selected: ref.watch(askodoxCompanionSettingsProvider).look == look,
-                        onSelected: (_) => ref.read(askodoxCompanionSettingsProvider.notifier).update(look: look),
-                        label: Text(switch (look) {
-                          AskodoxCompanionLook.robot => t('Robot', 'రోబోట్'),
-                          AskodoxCompanionLook.friendlyFace => t('Friendly face', 'స్నేహ ముఖం'),
-                          AskodoxCompanionLook.simpleOrb => t('Simple', 'సింపుల్'),
-                        }),
-                      ),
-                  ]),
-                ),
+                AskodoxCompanionPicker(telugu: te),
+                const SizedBox(height: 4),
                 SwitchListTile(
                   key: const Key('askodoxCompanion3d'),
                   title: Text(t('3D friend', '3D స్నేహితుడు')),
-                  subtitle: Text(t('Slow phones switch to the flat friend automatically.',
-                      'నెమ్మదైన ఫోన్లలో ఆటోమేటిక్‌గా ఫ్లాట్ స్నేహితుడు.')),
+                  subtitle: Text(t('Slow phones switch to the Lite robot, then the flat friend, automatically.',
+                      'నెమ్మదైన ఫోన్లలో ఆటోమేటిక్‌గా లైట్ రోబోట్, తర్వాత ఫ్లాట్ స్నేహితుడు.')),
                   value: ref.watch(askodoxCompanionSettingsProvider).render3d,
                   onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(render3d: on),
                 ),

@@ -33,9 +33,13 @@ class AskodoxVec3 {
 
 /// A named group of triangles that animates together (head, eyes, mouth...).
 class AskodoxMeshPart {
-  AskodoxMeshPart(this.name, this.vertices, this.triangles, this.color);
+  AskodoxMeshPart(this.name, this.vertices, this.triangles, this.color, {this.wound = false});
 
   final String name;
+
+  /// Triangles are wound outward (rings/tori): trust the winding instead of
+  /// the part-centroid rule used for convex parts.
+  final bool wound;
   final List<AskodoxVec3> vertices;
   final List<int> triangles; // 3 indices per triangle, counter-clockwise
   final Color color;
@@ -53,23 +57,32 @@ class AskodoxMeshPart {
 }
 
 class AskodoxMesh {
-  AskodoxMesh(this.parts);
+  AskodoxMesh(this.parts, {this.meta = const {}});
   final List<AskodoxMeshPart> parts;
+
+  /// Rig facts the painter needs beyond triangles (e.g. `rig: human`,
+  /// sleeve/skin colours for the procedurally posed arms).
+  final Map<String, Object?> meta;
+
+  bool get isHuman => meta['rig'] == 'human';
 
   int get triangleCount => parts.fold(0, (n, p) => n + p.triangles.length ~/ 3);
 
   static AskodoxMesh fromJson(Map<String, Object?> json) => AskodoxMesh([
         for (final part in (json['parts'] as List? ?? const []))
           AskodoxMeshPart.fromJson(Map<String, Object?>.from(part as Map)),
-      ]);
+      ], meta: Map<String, Object?>.from(json['meta'] as Map? ?? const {}));
 
   // ------------------------------------------------ procedural shapes --
 
-  static AskodoxMeshPart ellipsoid(String name, AskodoxVec3 c, AskodoxVec3 r, Color color, {int rings = 12, int segments = 18}) {
+  /// Ellipsoid (or a band of it: [phiFrom]..[phiTo] in 0..pi from the top,
+  /// e.g. a hair cap or a hat crown).
+  static AskodoxMeshPart ellipsoid(String name, AskodoxVec3 c, AskodoxVec3 r, Color color,
+      {int rings = 12, int segments = 18, double phiFrom = 0, double phiTo = math.pi}) {
     final vs = <AskodoxVec3>[];
     final ts = <int>[];
     for (var i = 0; i <= rings; i++) {
-      final phi = math.pi * i / rings;
+      final phi = phiFrom + (phiTo - phiFrom) * i / rings;
       for (var j = 0; j <= segments; j++) {
         final theta = 2 * math.pi * j / segments;
         vs.add(AskodoxVec3(c.x + r.x * math.sin(phi) * math.cos(theta), c.y + r.y * math.cos(phi),
@@ -83,6 +96,28 @@ class AskodoxMesh {
       }
     }
     return AskodoxMeshPart(name, vs, ts, color);
+  }
+
+  /// Ring in the x/y plane facing the viewer (glasses frames).
+  static AskodoxMeshPart torus(String name, AskodoxVec3 c, double major, double minor, Color color,
+      {int segments = 16, int sides = 6, double yScale = 1}) {
+    final vs = <AskodoxVec3>[];
+    final ts = <int>[];
+    for (var i = 0; i <= segments; i++) {
+      final u = 2 * math.pi * i / segments;
+      for (var j = 0; j <= sides; j++) {
+        final v = 2 * math.pi * j / sides;
+        final rr = major + minor * math.cos(v);
+        vs.add(AskodoxVec3(c.x + rr * math.cos(u), c.y + rr * math.sin(u) * yScale, c.z + minor * math.sin(v)));
+      }
+    }
+    for (var i = 0; i < segments; i++) {
+      for (var j = 0; j < sides; j++) {
+        final a = i * (sides + 1) + j, b = a + sides + 1;
+        ts.addAll([a, a + 1, b, a + 1, b + 1, b]);
+      }
+    }
+    return AskodoxMeshPart(name, vs, ts, color, wound: true);
   }
 
   static AskodoxMeshPart cylinder(String name, AskodoxVec3 base, double r, double h, Color color, {int segments = 10}) {
@@ -264,6 +299,90 @@ AskodoxPose askodoxPoseFor(AskodoxCompanionMood mood, double t, [AskodoxCompanio
   return pose;
 }
 
+/// The one lit-mesh rasterizer every ASKODOX companion uses (robot lite and
+/// human personas): perspective projection, outward normals, back-face
+/// culling, Lambert + specular light, painter's-algorithm depth sort and a
+/// single `drawVertices` batch.
+class AskodoxRaster {
+  AskodoxRaster(Size size, {double frameHeight = 1 / .3, double frameCenterY = 0})
+      : scale = size.shortestSide / frameHeight,
+        centre = Offset(size.width / 2, size.height * .5),
+        _centerY = frameCenterY;
+
+  final double scale;
+  final Offset centre;
+  final double _centerY;
+  static const camera = 4.2;
+
+  // Key light from the upper-left front (the camera looks along +z, so
+  // "towards the viewer" is -z); the halfway vector gives a soft highlight.
+  static final light = const AskodoxVec3(-.45, .6, -.65).unit;
+  static final _halfway = (light + const AskodoxVec3(0, 0, -1)).unit;
+
+  final _tris = <(double, Offset, Offset, Offset, int)>[];
+
+  int get triangleCount => _tris.length;
+
+  Offset project(AskodoxVec3 v) {
+    final f = camera / (camera + v.z);
+    return centre + Offset(v.x * f * scale, -(v.y - _centerY) * f * scale);
+  }
+
+  /// Adds one part's triangles. [bucket] groups draw order (higher = drawn
+  /// earlier); [hideBehind] hides faces that turned to the back (face
+  /// details on a head).
+  void add(List<AskodoxVec3> world, List<int> triangles, Color color,
+      {double bucket = 0, bool hideBehind = false, bool wound = false}) {
+    if (world.isEmpty) return;
+    final centre3 = world.reduce((a, b) => a + b).scale(1 / world.length);
+    final r = color.r, g = color.g, b = color.b;
+    for (var i = 0; i + 2 < triangles.length; i += 3) {
+      final p1 = world[triangles[i]], p2 = world[triangles[i + 1]], p3 = world[triangles[i + 2]];
+      final mid = (p1 + p2 + p3).scale(1 / 3);
+      var normal = (p2 - p1).cross(p3 - p1).unit;
+      // Outward normal regardless of the mesh's winding order.
+      if (!wound && normal.dot(mid - centre3) < 0) normal = normal.scale(-1);
+      if (normal.z > 0) continue; // faces away from the viewer
+      if (hideBehind && mid.z > 0.05) continue;
+      final diffuse = math.max(0.0, normal.dot(light));
+      final spec = math.pow(math.max(0.0, normal.dot(_halfway)), 24).toDouble();
+      final lit = .42 + .7 * diffuse;
+      int channel(double v) => (v * 255 * lit + 255 * .45 * spec).clamp(0, 255).round();
+      final argb = (255 << 24) | (channel(r) << 16) | (channel(g) << 8) | channel(b);
+      _tris.add((bucket + mid.z, project(p1), project(p2), project(p3), argb));
+    }
+  }
+
+  void draw(Canvas canvas, {double shadowY = 1.45, double shadowWidth = 1.6}) {
+    _tris.sort((p, q) => q.$1.compareTo(p.$1)); // far triangles first
+    final positions = Float32List(_tris.length * 6);
+    final colors = Int32List(_tris.length * 3);
+    for (var i = 0; i < _tris.length; i++) {
+      final (_, a, b, c, argb) = _tris[i];
+      positions.setAll(i * 6, [a.dx, a.dy, b.dx, b.dy, c.dx, c.dy]);
+      colors.setAll(i * 3, [argb, argb, argb]);
+    }
+    // Soft ground shadow for depth.
+    canvas.drawOval(
+      Rect.fromCenter(
+          center: centre + Offset(0, scale * shadowY), width: scale * shadowWidth, height: scale * .22),
+      Paint()..color = const Color(0x22000000),
+    );
+    canvas.drawVertices(ui.Vertices.raw(VertexMode.triangles, positions, colors: colors), BlendMode.dst, Paint());
+  }
+}
+
+AskodoxVec3 askodoxRollAround(AskodoxVec3 v, AskodoxVec3 anchor, double angle) {
+  if (angle == 0) return v;
+  final ca = math.cos(angle), sa = math.sin(angle);
+  final dx = v.x - anchor.x, dy = v.y - anchor.y;
+  return AskodoxVec3(anchor.x + dx * ca - dy * sa, anchor.y + dx * sa + dy * ca, v.z);
+}
+
+AskodoxVec3 askodoxCentroid(List<AskodoxVec3> vs) =>
+    vs.isEmpty ? const AskodoxVec3(0, 0, 0) : vs.reduce((a, b) => a + b).scale(1 / vs.length);
+
+/// The lightweight robot friend (Lite mode / fallback).
 class AskodoxCompanion3dPainter extends CustomPainter {
   AskodoxCompanion3dPainter({
     required this.mesh,
@@ -276,11 +395,6 @@ class AskodoxCompanion3dPainter extends CustomPainter {
   final AskodoxCompanionMood mood;
   final double t;
   final AskodoxCompanionSignals signals;
-
-  // Key light from the upper-left front (the camera looks along +z, so
-  // "towards the viewer" is -z); the halfway vector gives a soft highlight.
-  static const _light = AskodoxVec3(-.45, .6, -.65);
-  static final _halfway = (_light.unit + const AskodoxVec3(0, 0, -1)).unit;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -302,29 +416,11 @@ class AskodoxCompanion3dPainter extends CustomPainter {
     final cby = math.cos(by), sby = math.sin(by);
     AskodoxVec3 rotateBody(AskodoxVec3 v) => AskodoxVec3(v.x * cby + v.z * sby, v.y + pose.lift, -v.x * sby + v.z * cby);
 
-    AskodoxVec3 rollAround(AskodoxVec3 v, AskodoxVec3 anchor, double angle) {
-      if (angle == 0) return v;
-      final ca = math.cos(angle), sa = math.sin(angle);
-      final dx = v.x - anchor.x, dy = v.y - anchor.y;
-      return AskodoxVec3(anchor.x + dx * ca - dy * sa, anchor.y + dx * sa + dy * ca, v.z);
-    }
-
-    final scale = size.shortestSide * .3;
-    final centre = Offset(size.width / 2, size.height * .5);
-    const camera = 4.2;
-    Offset project(AskodoxVec3 v) {
-      final f = camera / (camera + v.z);
-      return centre + Offset(v.x * f * scale, -v.y * f * scale);
-    }
-
-    final light = _light.unit;
-    final tris = <(double, Offset, Offset, Offset, Color)>[];
+    final raster = AskodoxRaster(size);
     for (final part in mesh.parts) {
       final name = part.name;
       final isHand = name.startsWith('hand_');
-      final anchor = part.vertices.isEmpty
-          ? const AskodoxVec3(0, 0, 0)
-          : part.vertices.reduce((a, b) => a + b).scale(1 / part.vertices.length);
+      final anchor = askodoxCentroid(part.vertices);
       // Part-level animation: lip-synced mouth, blinking/looking eyes,
       // expressive brows, glowing antenna, gesturing hands.
       var sx = 1.0, syPart = 1.0, roll = 0.0;
@@ -350,52 +446,18 @@ class AskodoxCompanion3dPainter extends CustomPainter {
       final world = <AskodoxVec3>[];
       for (final v in part.vertices) {
         var local = AskodoxVec3(anchor.x + (v.x - anchor.x) * sx, anchor.y + (v.y - anchor.y) * syPart, v.z);
-        local = rollAround(local, anchor, roll) + offset;
+        local = askodoxRollAround(local, anchor, roll) + offset;
         world.add(isHand ? rotateBody(local) : rotateHead(local));
       }
-      final centre3 = world.isEmpty ? const AskodoxVec3(0, 0, 0) : world.reduce((a, b) => a + b).scale(1 / world.length);
       final isHead = name == 'head';
       final onTop = name.startsWith('antenna') || isHand;
-      for (var i = 0; i + 2 < part.triangles.length; i += 3) {
-        final a = world[part.triangles[i]], b = world[part.triangles[i + 1]], c = world[part.triangles[i + 2]];
-        final mid = (a + b + c).scale(1 / 3);
-        var normal = (b - a).cross(c - a).unit;
-        // Outward normal regardless of the mesh's winding order.
-        if (normal.dot(mid - centre3) < 0) normal = normal.scale(-1);
-        if (normal.z > 0) continue; // faces away from the viewer (camera looks along +z)
-        // A face detail that turned to the back of the head is hidden by it.
-        if (!isHead && !onTop && mid.z > 0.05) continue;
-        final diffuse = math.max(0.0, normal.dot(light));
-        final spec = math.pow(math.max(0.0, normal.dot(_halfway)), 24).toDouble();
-        final lit = .42 + .7 * diffuse;
-        int channel(double v) => (v * 255 * lit + 255 * .45 * spec).clamp(0, 255).round();
-        final shade = Color.fromARGB(255, channel(part.color.r), channel(part.color.g), channel(part.color.b));
-        // Head first, then details on top of it; hands in true depth order
-        // (a hand behind the head is drawn before it); each group far-to-near.
-        final bucket = isHead ? 1000.0 : (isHand && mid.z > .2 ? 2000.0 : 0.0);
-        tris.add((bucket + mid.z, project(a), project(b), project(c), shade));
-      }
+      // Head first, then details on top of it; a hand behind the head is
+      // drawn before it; each group far-to-near.
+      final behindHand = isHand && askodoxCentroid(world).z > .2;
+      raster.add(world, part.triangles, part.color,
+          bucket: isHead ? 1000.0 : (behindHand ? 2000.0 : 0.0), hideBehind: !isHead && !onTop);
     }
-    // Painter's algorithm: far triangles first.
-    tris.sort((p, q) => q.$1.compareTo(p.$1));
-    final positions = Float32List(tris.length * 6);
-    final colors = Int32List(tris.length * 3);
-    for (var i = 0; i < tris.length; i++) {
-      final (_, p1, p2, p3, color) = tris[i];
-      positions.setAll(i * 6, [p1.dx, p1.dy, p2.dx, p2.dy, p3.dx, p3.dy]);
-      final argb = color.toARGB32();
-      colors.setAll(i * 3, [argb, argb, argb]);
-    }
-    // Soft ground shadow for depth.
-    canvas.drawOval(
-      Rect.fromCenter(center: centre + Offset(0, scale * 1.45), width: scale * 1.6 * (1 - pose.lift), height: scale * .22),
-      Paint()..color = const Color(0x22000000),
-    );
-    canvas.drawVertices(
-      ui.Vertices.raw(VertexMode.triangles, positions, colors: colors),
-      BlendMode.dst,
-      Paint(),
-    );
+    raster.draw(canvas, shadowWidth: 1.6 * (1 - pose.lift));
   }
 
   @override

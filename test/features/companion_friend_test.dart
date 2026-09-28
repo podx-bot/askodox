@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/companion/companion_3d.dart';
+import 'package:podx/features/companion/companion_human.dart';
 import 'package:podx/features/companion/companion_voice.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -111,7 +112,7 @@ void main() {
           ));
 
       await show();
-      expect(find.byKey(const ValueKey('askodoxCompanion3d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget, reason: 'human 3D by default');
 
       AskodoxCompanionPerformance.lite = true;
       await tester.pumpWidget(const SizedBox());
@@ -121,7 +122,7 @@ void main() {
       await container.read(askodoxCompanionSettingsProvider.notifier).update(enabled: false);
       await show();
       expect(find.byKey(const ValueKey('askodoxCompanionOff')), findsOneWidget);
-      expect(find.byKey(const ValueKey('askodoxCompanion3d')), findsNothing);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsNothing);
       expect(container.read(askodoxCompanionSettingsProvider).toJson()['enabled'], false);
       await tester.pumpWidget(const SizedBox());
     });
@@ -136,8 +137,8 @@ void main() {
         child: const MaterialApp(home: Center(child: AskodoxCompanion(mood: AskodoxCompanionMood.speaking))),
       ));
       await tester.pump(const Duration(milliseconds: 200));
-      final paint = tester.widget<CustomPaint>(find.byKey(const ValueKey('askodoxCompanion3d')));
-      expect((paint.painter! as AskodoxCompanion3dPainter).signals.mouthOpen, isNotNull);
+      final paint = tester.widget<CustomPaint>(find.byKey(const ValueKey('askodoxCompanionHuman3d')));
+      expect((paint.painter! as AskodoxHuman3dPainter).signals.mouthOpen, isNotNull);
       container.read(askodoxCompanionVoiceProvider).speechEnd();
       await tester.pumpWidget(const SizedBox());
     });

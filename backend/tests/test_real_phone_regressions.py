@@ -181,7 +181,7 @@ def test_videos_only_when_asked_and_admin_trace_records_location_and_actions(api
 
     key = plain["trace_key"]
     r = client.post("/deals/trace-event", json={"trace_key": key, "event": "result_selected",
-                                                "detail": {"title": "43 inch TV at Croma", "phone": "999"}})
+                                                "detail": {"title": "43 inch TV at Croma", "phone": "+91 98765 43210"}})
     assert r.json() == {"recorded": True}
     client.post("/deals/trace-event", json={"trace_key": key, "event": "action_result",
                                             "detail": {"action": "send_request", "ok": False, "reason": "sign_in"}})
@@ -193,7 +193,8 @@ def test_videos_only_when_asked_and_admin_trace_records_location_and_actions(api
     text = str(trace)
     assert "location_searched" in text and "Vijayawada" in text
     assert "result_selected" in text and "action_result" in text
-    assert "999" not in text, "sensitive keys are never stored"
+    # (A distinctive value: a bare "999" also occurs in timestamps' microseconds.)
+    assert "98765 43210" not in text, "sensitive keys are never stored"
 
 
 def test_discover_without_location_reports_the_location_failure(api, monkeypatch):

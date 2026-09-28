@@ -176,6 +176,9 @@ class _AskodoxPrimaryHomeScreenState
   final Map<String, Map<String, Object?>> _parkedDeals = {};
   InAppAssistantDecision? _lastDecision;
   bool _showNowAfterClarification = false;
+
+  /// A request/order was really sent (backend confirmed) -> happy companion.
+  bool _actionConfirmed = false;
   String? _lastAskedQuestion;
   List<String> _lastMissing = const [];
   String? _pendingAiContext;
@@ -978,6 +981,7 @@ class _AskodoxPrimaryHomeScreenState
       _requestSentMatchKeys.add(_matchKey(dealId, match));
       if (orderId != null && orderId.isNotEmpty) _orderByMatchKey[_matchKey(dealId, match)] = orderId;
       _pendingSellerQuestion = null;
+      _actionConfirmed = true; // the companion is happy until the next message
     });
     unawaited(_saveSnapshot());
   }
@@ -1255,6 +1259,7 @@ class _AskodoxPrimaryHomeScreenState
     setState(() {
       _sending = true;
       _active = true;
+      _actionConfirmed = false;
       _listingBanner = null;
       _listingBannerIsError = false;
       _turns.add(ConversationTurnRecord(
@@ -1375,7 +1380,13 @@ class _AskodoxPrimaryHomeScreenState
       location: knownLocationLabel,
     );
     final aiUsable = decision?.usable == true;
-    if (aiUsable) _lastDecision = decision;
+    if (aiUsable) {
+      _lastDecision = decision;
+      // The same brain decision dresses the companion in Automatic mode (a
+      // generic domain; follow-ups keep it). No separate avatar logic.
+      final domain = decision!.domain.toUpperCase();
+      if (domain != 'UNKNOWN') ref.read(askodoxCompanionDomainProvider.notifier).state = domain;
+    }
     // "show me / results / options" = search now with what is known.
     // A "show me" said before a clarification question still counts once the
     // customer picks what they meant.
@@ -2374,7 +2385,7 @@ class _AskodoxPrimaryHomeScreenState
             AskodoxCompanionBar(
               mood: _companionMood,
               telugu: te,
-              results: _latestResults()?.matches.length ?? 0,
+              results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
               onTap: _startVoice,
             ),
           _composer(te)
@@ -2396,10 +2407,13 @@ class _AskodoxPrimaryHomeScreenState
         break;
     }
     if (_sending) return AskodoxCompanionMood.thinking;
+    if (_actionConfirmed) return AskodoxCompanionMood.success;
     if (_turns.isNotEmpty && !_turns.last.isUser) {
       final results = _resultsByTurn[_turns.length - 1];
       if (results != null && results.failed) return AskodoxCompanionMood.help;
-      if (results != null && results.matches.isNotEmpty) return AskodoxCompanionMood.success;
+      // Real options on screen: the companion turns to them and guides;
+      // the cards stay fully usable.
+      if (results != null && results.matches.isNotEmpty) return AskodoxCompanionMood.explaining;
     }
     return AskodoxCompanionMood.idle;
   }

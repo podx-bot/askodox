@@ -765,7 +765,7 @@ void main() {
     expect(find.text('Page mentions ₹3200'), findsOneWidget, reason: 'unverified price is labelled');
     expect(find.text('Know someone? Refer'), findsOneWidget);
     expect(find.text('Know someone? Refer them to ASKODOX'), findsNothing);
-    expect(find.text('Found 2 options'), findsOneWidget);
+    expect(find.text('Found 2 options — pick one to continue'), findsOneWidget);
   });
 
   testWidgets('results stay ABOVE; the conversation about them continues BELOW; input stays at the bottom',

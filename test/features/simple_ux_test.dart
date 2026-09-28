@@ -99,7 +99,10 @@ void main() {
     addTearDown(container.dispose);
     for (final render3d in [true, false]) {
       for (final look in AskodoxCompanionLook.values) {
-        await container.read(askodoxCompanionSettingsProvider.notifier).update(look: look, render3d: render3d);
+        // The robot is the Lite companion; its looks stay selectable.
+        await container
+            .read(askodoxCompanionSettingsProvider.notifier)
+            .update(look: look, render3d: render3d, companion: AskodoxCompanionSettings.robotLite);
         for (final mood in AskodoxCompanionMood.values) {
           await tester.pumpWidget(UncontrolledProviderScope(
             container: container,
