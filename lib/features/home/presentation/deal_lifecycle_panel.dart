@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../growth/data/benefits.dart';
+import '../../growth/presentation/benefits_widgets.dart';
 import '../../orders/data/order_repository.dart';
+import '../domain/conversation_language.dart';
 
 /// The live deal inside the conversation: request → seller/provider reply →
 /// negotiation → accept/decline → payment state → delivery/service →
@@ -144,9 +147,27 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
     );
     if (ok == true) {
       await _run(() => _repo.confirm(widget.orderId));
+      await _revealReward();
     } else if (ok == false) {
       await _problem();
     }
+  }
+
+  /// After a confirmed completion the server may issue a Scratch & Reveal
+  /// reward for THIS order (decided server-side, once per order).
+  Future<void> _revealReward() async {
+    if (_error != null || !mounted) return;
+    AskodoxClaimResult? reward;
+    try {
+      reward = await ref.read(askodoxBenefitsRepositoryProvider).scratch(widget.orderId);
+    } catch (_) {
+      reward = null;
+    }
+    if (reward == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AskodoxScratchCard(reward: reward!, lang: ref.read(askodoxReplyLanguageProvider)),
+    );
   }
 
   Future<void> _review() async {

@@ -33,7 +33,9 @@ from app.services.secret_box import SecretBox
 
 CONVERSION_STATES = ("PENDING", "CONFIRMED", "PAID", "REJECTED", "REVERSED")
 FUNNEL_EVENTS = ("search", "impression", "card_view", "click", "partner_opened", "lead")
-EVENTS = FUNNEL_EVENTS + ("error",)
+# Offers & rewards (benefits) funnel: campaign = "benefit:<id>".
+BENEFIT_EVENTS = ("offer_impression", "offer_open", "offer_claim")
+EVENTS = FUNNEL_EVENTS + ("error",) + BENEFIT_EVENTS
 # Counted at most once per ASKODOX click id (replay / double-tap / reload).
 ONCE_PER_CLICK = ("card_view", "click", "partner_opened", "lead")
 ROLLUP_TZ = "Asia/Kolkata"  # roll-up days match the Revenue Center's default time zone

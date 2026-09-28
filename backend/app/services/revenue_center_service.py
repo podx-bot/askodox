@@ -85,7 +85,8 @@ def _local_day(iso: str, zone: ZoneInfo) -> str:
 
 
 _PLURAL = {"search": "searches", "impression": "impressions", "card_view": "card_views", "click": "clicks",
-           "partner_opened": "partner_opened", "lead": "leads", "error": "errors"}
+           "partner_opened": "partner_opened", "lead": "leads", "error": "errors",
+           "offer_impression": "offer_impressions", "offer_open": "offer_opens", "offer_claim": "offer_claims"}
 
 
 def _pct(current: float, previous: float) -> Optional[float]:
@@ -99,9 +100,10 @@ def _rate(num: float, den: float) -> Optional[float]:
 
 
 class RevenueCenter:
-    def __init__(self, repo: PartnerRevenueRepository, growth_repo: Any = None) -> None:
+    def __init__(self, repo: PartnerRevenueRepository, growth_repo: Any = None, benefits_repo: Any = None) -> None:
         self.repo = repo
         self.growth = growth_repo
+        self.benefits = benefits_repo
 
     # ----------------------------------------------------------- summary --
 
@@ -134,7 +136,17 @@ class RevenueCenter:
         events = [e for e in events if keep(e)]
         conversions = [c for c in conversions if keep(c)]
         entries = [e for e in entries if keep(e)]
-        return {"partners": partners, "events": events, "conversions": conversions, "entries": entries}
+        rewards = {"claims": 0, "redemptions": 0, "askodox_cost": 0.0, "partner_cost": 0.0}
+        if self.benefits is not None and not filters:
+            for claim in self.benefits.claims_between(start, end):
+                if start <= claim["created_at"] < end:
+                    rewards["claims"] += 1
+                if claim["status"] == "REDEEMED" and claim["redeemed_at"] and start <= claim["redeemed_at"] < end:
+                    rewards["redemptions"] += 1
+                    rewards["askodox_cost"] += float(claim["askodox_cost"] or 0)
+                    rewards["partner_cost"] += float(claim["partner_cost"] or 0)
+        return {"partners": partners, "events": events, "conversions": conversions, "entries": entries,
+                "rewards": rewards}
 
     @staticmethod
     def _metrics(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -165,6 +177,12 @@ class RevenueCenter:
             "reversed_commission": round(by_state["REVERSED"], 2),
             "other_revenue": round(entries_total, 2),
             "total_revenue": round(commission_revenue + entries_total, 2),
+            # Offers & rewards: what ASKODOX (and partners) paid out.
+            "offer_impressions": counts["offer_impression"], "offer_opens": counts["offer_open"],
+            "reward_claims": data["rewards"]["claims"], "reward_redemptions": data["rewards"]["redemptions"],
+            "reward_cost_askodox": round(data["rewards"]["askodox_cost"], 2),
+            "reward_cost_partner": round(data["rewards"]["partner_cost"], 2),
+            "net_revenue": round(commission_revenue + entries_total - data["rewards"]["askodox_cost"], 2),
         }
 
     @staticmethod
@@ -334,6 +352,13 @@ class RevenueCenter:
         elif a["orders"] + b["orders"] and a["orders"] + b["orders"] < MIN_ORDERS:
             add("INSUFFICIENT_EVIDENCE", "Too few orders to judge a conversion-rate change.",
                 {"orders": [b["orders"], a["orders"]], "minimum": MIN_ORDERS})
+        # Offers & rewards cost (reduces net revenue).
+        if a["reward_cost_askodox"] != b["reward_cost_askodox"]:
+            add("CONFIRMED", f"ASKODOX-funded reward cost changed from {b['reward_cost_askodox']:,.2f} to "
+                             f"{a['reward_cost_askodox']:,.2f} (net revenue {b['net_revenue']:,.2f} -> "
+                             f"{a['net_revenue']:,.2f}).",
+                {"reward_cost_askodox": [b["reward_cost_askodox"], a["reward_cost_askodox"]],
+                 "redemptions": [b["reward_redemptions"], a["reward_redemptions"]]})
         # 3. Reversals / rejections.
         if a["reversed_commission"] > b["reversed_commission"]:
             add("CONFIRMED", f"Reversed commission rose from {b['reversed_commission']:,.2f} to "

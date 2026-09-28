@@ -284,6 +284,10 @@ def create_app() -> FastAPI:
     from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router
 
     app.include_router(attachments_router)
+    from app.api.routes.benefits import admin_router as benefits_admin_router, router as benefits_router
+
+    app.include_router(benefits_router)
+    app.include_router(benefits_admin_router)
 
     app.include_router(partners_router)
     app.include_router(partners_admin_router)

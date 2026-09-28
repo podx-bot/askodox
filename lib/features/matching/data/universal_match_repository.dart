@@ -95,6 +95,7 @@ class UniversalMatch {
     this.pageType,
     this.clickId,
     this.redirectPath,
+    this.benefits,
   });
 
   final String id;
@@ -148,6 +149,10 @@ class UniversalMatch {
   final String? clickId;
   final String? redirectPath;
 
+  /// Verified offers / coupons / cashback that apply to this result
+  /// (backend benefits engine: {offers: [...], more, comparison_note}).
+  final Map<String, Object?>? benefits;
+
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
 
   double get totalValueScore {
@@ -194,6 +199,7 @@ class UniversalMatch {
           pageType: json['page_type']?.toString(),
           clickId: json['click_id']?.toString(),
           redirectPath: json['redirect_path']?.toString(),
+          benefits: json['benefits'] is Map ? Map<String, Object?>.from(json['benefits'] as Map) : null,
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -225,6 +231,7 @@ class UniversalMatch {
         'page_type': pageType,
         'click_id': clickId,
         'redirect_path': redirectPath,
+        'benefits': benefits,
       };
 }
 

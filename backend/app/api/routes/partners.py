@@ -178,11 +178,35 @@ async def partner_postback(slug: str, request: Request) -> dict:
             form = await request.form()
             params.update({k: v for k, v in form.items()})
     try:
-        return partners_service.handle_postback(repo, partner, params)
+        result = partners_service.handle_postback(repo, partner, params)
+        coupon = str(params.get("coupon") or params.get("coupon_code") or "").strip()
+        if coupon and result.get("recorded") == "order" and result.get("status") in {"CONFIRMED", "PAID"}:
+            result["coupon"] = _redeem_partner_coupon(request, partner, coupon, params)
+        return result
     except PermissionError as error:
         raise HTTPException(status_code=403, detail="Invalid postback token") from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+def _redeem_partner_coupon(request: Request, partner: dict, code: str, params: dict) -> str:
+    """A confirmed partner order that used an ASKODOX-issued coupon marks
+    that coupon redeemed (once; the order id is the redemption reference)."""
+    from app.api.routes.benefits import benefits_repo, redeem_claim
+
+    container = request.app.state.container
+    repo = benefits_repo(container)
+    ids = [c["id"] for c in repo.campaigns() if c.get("partner_id") == partner["id"]]
+    claim = repo.claim_by_code(ids, code)
+    if claim is None:
+        return "unknown"
+    try:
+        value = params.get("order_value") or params.get("amount")
+        redeem_claim(container, claim["id"], f"postback:{partner['slug']}:{params.get('order_id')}",
+                     float(value) if value not in (None, "") else None)
+        return "redeemed"
+    except HTTPException as error:
+        return str(error.detail)
 
 
 # ------------------------------------------------------ admin: partners --
@@ -435,7 +459,9 @@ def _center(request: Request) -> RevenueCenter:
     container = request.app.state.container
     from app.api.routes.growth import growth
 
-    return RevenueCenter(partner_repo(container), growth(container))
+    from app.api.routes.benefits import benefits_repo
+
+    return RevenueCenter(partner_repo(container), growth(container), benefits_repo(container))
 
 
 def _bounds(period: str, start: str, end: str, tz: str) -> dict:

@@ -18,6 +18,7 @@ import 'package:podx/features/deal_brain/application/universal_deal_controller.d
 import 'package:podx/features/deal_brain/domain/universal_deal.dart';
 import 'package:podx/features/growth/data/growth_repository.dart';
 import 'package:podx/features/growth/data/partner_tracking.dart';
+import 'package:podx/features/growth/data/benefits.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
@@ -395,6 +396,7 @@ class _Harness {
   final growth = _FakeGrowth();
   final partnerTracker = _FakePartnerTracker();
   final picker = _FakePicker();
+  final benefits = _FakeBenefits();
   final attachments = _FakeAttachments();
 
   Future<void> pump(WidgetTester tester, {String? locale}) async {
@@ -454,6 +456,7 @@ class _Harness {
         growthRepositoryProvider.overrideWithValue(growth),
         askodoxPartnerTrackerProvider.overrideWithValue(partnerTracker),
         askodoxMediaPickerProvider.overrideWithValue(picker),
+        askodoxBenefitsRepositoryProvider.overrideWithValue(benefits),
         chatAttachmentServiceProvider.overrideWithValue(attachments),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
@@ -501,6 +504,33 @@ class _TestAuth extends AuthController {
       tokenPlaceholder: 'test-session-token',
       expiresAt: DateTime.now().add(const Duration(days: 1)),
     );
+  }
+}
+
+class _FakeBenefits extends AskodoxBenefitsRepository {
+  _FakeBenefits() : super(MockApiClient(), authToken: 'test-session-token');
+  AskodoxClaimResult? scratchReward;
+  AskodoxClaimResult claimResult = const AskodoxClaimResult(code: 'SAVE500A', value: 500, kind: 'coupon');
+  final scratched = <String>[];
+  final claimed = <int>[];
+  final opened = <int>[];
+
+  @override
+  Future<Map<String, Object?>?> open(int campaignId) async {
+    opened.add(campaignId);
+    return const {};
+  }
+
+  @override
+  Future<AskodoxClaimResult> claim(int campaignId, {double? orderValue}) async {
+    claimed.add(campaignId);
+    return claimResult;
+  }
+
+  @override
+  Future<AskodoxClaimResult?> scratch(String orderId) async {
+    scratched.add(orderId);
+    return scratchReward;
   }
 }
 
@@ -1655,6 +1685,30 @@ void main() {
       expect(find.byKey(const Key('askodoxDealReview')), findsOneWidget);
     });
 
+    testWidgets('confirming completion reveals the server-decided Scratch & Reveal reward once', (tester) async {
+      final h = await withTvResults(tester);
+      h.benefits.scratchReward = const AskodoxClaimResult(value: 50, kind: 'credit', name: 'Thank-you credit');
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-42')));
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-42')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.text('Send request').first);
+      await tester.tap(find.text('Send request').first);
+      await _Harness.settle(tester);
+      h.lifecycle.status = 'DELIVERED';
+      await tester.tap(find.byTooltip('Refresh'));
+      await _Harness.settle(tester);
+      expect(h.benefits.scratched, isEmpty, reason: 'nothing before the customer confirms');
+      await tester.tap(find.byKey(const Key('askodoxDealConfirm')));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const Key('askodoxDealConfirmYes')));
+      await _Harness.settle(tester);
+      expect(h.benefits.scratched, hasLength(1), reason: 'asked once, for this order');
+      expect(find.byKey(const Key('askodoxScratchCard')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxScratchArea')));
+      await _Harness.settle(tester);
+      expect(find.text('₹50 ASKODOX credit'), findsOneWidget, reason: 'exactly what the server issued');
+    });
+
     testWidgets('a declined request keeps the need and shows other options without starting over',
         (tester) async {
       final h = await withTvResults(tester);
@@ -2146,6 +2200,44 @@ void main() {
       expect(h.partnerTracker.events, [('ck1', 'card_view'), ('ck1', 'click')]);
       expect(h.partnerTracker.openUri(partner).toString(), 'https://api.askodox.test/go/ck1');
       expect(h.partnerTracker.openUri(_registeredTv), isNull, reason: 'non-partner rows keep their own link');
+    });
+
+    testWidgets('verified offers show compactly; terms and coupon claim come from the server', (tester) async {
+      const withBenefits = UniversalMatch(id: '78', title: 'Sony 43 inch TV', source: 'local', segment: 'registered',
+          price: 25000, benefits: {
+            'offers': [
+              {'id': 1, 'name': 'Card offer', 'provider': 'Bank A', 'type': 'bank_card', 'kind': 'instant_discount',
+               'value': 2000, 'conditions': [{'type': 'payment_method', 'value': ['Bank A credit card']},
+                                            {'type': 'min_purchase', 'value': 20000}],
+               'expires_at': '2026-10-31T23:59:00+05:30', 'verified_at': '2026-09-28T10:00:00+00:00',
+               'source_url': 'https://banka.example/offers/tv', 'claimable': false},
+              {'id': 2, 'name': 'ASKODOX coupon', 'provider': '', 'type': 'coupon', 'kind': 'coupon', 'value': 500,
+               'conditions': [], 'claimable': true},
+            ],
+            'more': 0,
+            'comparison_note': "Values depend on each offer's conditions (payment method, minimum purchase, limits).",
+          });
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '957', matches: [withBenefits]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, '43 inch TV ₹30,000 show me');
+      expect(find.text('2 offer(s) · up to ₹2000'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('askodoxBenefits-78')));
+      await _Harness.settle(tester);
+      expect(find.text('₹2000 instant discount'), findsOneWidget);
+      expect(find.text('Pay with: Bank A credit card'), findsOneWidget);
+      expect(find.text('Min purchase: ₹20000'), findsOneWidget);
+      expect(find.text('Valid till: 2026-10-31'), findsOneWidget);
+      expect(find.textContaining('best'), findsNothing, reason: 'never claims a best offer');
+      await tester.tap(find.byKey(const ValueKey('askodoxBenefitTerms-1')));
+      await _Harness.settle(tester);
+      expect(h.benefits.opened, [1]);
+      await tester.tap(find.byKey(const ValueKey('askodoxBenefitClaim-2')));
+      await _Harness.settle(tester);
+      expect(h.benefits.claimed, [2]);
+      expect(find.byKey(const ValueKey('askodoxCouponCode-2')), findsOneWidget);
+      expect(find.text('SAVE500A'), findsOneWidget);
     });
 
     testWidgets('a live offer shows on the registered result card', (tester) async {

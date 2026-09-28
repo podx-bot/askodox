@@ -120,6 +120,17 @@ this file, don't trust it blindly.
   Secrets are never returned by any API. Revenue = confirmed + paid
   commission + recorded entries; "why" findings are rule-based and graded
   CONFIRMED / POSSIBLE_CORRELATION / INSUFFICIENT_EVIDENCE.
+- Offers & rewards (benefits): `benefits_repository.py` (tables `benefit_*`),
+  `benefits_engine.py`, `routes/benefits.py`; results carry `benefits`
+  (verified campaigns only: external types need source_url + verified_at);
+  claims idempotent per (campaign, user, trigger); Scratch & Reveal is
+  server-decided (highest-priority live campaign) once per completed order.
+  Distinct from the older seller/admin promotions in `offers_engine.py`.
+- Chat attachments: ONE endpoint `POST /api/attachments/analyze` (MIME ->
+  image / video / document processor, facts via `attachment_facts.py`);
+  the chat keeps real bytes (`ChatAttachment`), pickers are injectable
+  (`askodoxMediaPickerProvider`); facts go in `ConversationTurnRecord.context`,
+  never in the shown text.
 - Customer shell (`app_shell.dart`): Home · History · centre mic (starts
   voice via `AskodoxChatRequest.voice()`) · Updates · Profile. No drawer.
   One place per function: request status lives in Updates

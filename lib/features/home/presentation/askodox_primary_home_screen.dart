@@ -31,6 +31,7 @@ import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
 import '../../growth/data/growth_repository.dart';
 import '../../growth/data/partner_tracking.dart';
+import '../../growth/presentation/benefits_widgets.dart';
 import '../../../services/chat_attachment_service.dart';
 import '../../../services/media_picker.dart';
 import '../../location/presentation/map_pin_picker.dart';
@@ -3921,6 +3922,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   if (match.salaryText?.trim().isNotEmpty == true)
                     _meta(te ? 'జీతం (పేజీ ప్రకారం): ${match.salaryText}' : 'Salary (as listed): ${match.salaryText}'),
                   if (match.offerTitle?.trim().isNotEmpty == true) _meta('🏷 ${match.offerTitle!.trim()}'),
+                  if (match.benefits != null)
+                    AskodoxBenefitsChip(match: match, lang: ref.watch(askodoxReplyLanguageProvider)),
                   if (match.locationLabel?.trim().isNotEmpty == true)
                     _meta(match.locationLabel!),
                   if (match.availability?.trim().isNotEmpty == true)

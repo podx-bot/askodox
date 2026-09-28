@@ -895,6 +895,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     except Exception:
         pass
     _annotate_offers(container, matches)
+    _annotate_benefits(container, matches, demand, trace_key)
     local_match_count = sum(
         1 for item in matches if item.get("match_source") in {"interest", "demo_discovery", "registered"}
     )
@@ -943,6 +944,43 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
             if source_status.get("nearby") == "needs_location" else None,
         },
     }
+
+
+def _annotate_benefits(container, matches: list[dict], demand: dict, trace_key: str) -> None:
+    """Verified offers / coupons / cashback that apply to each result,
+    computed from its real price (compact list; terms on request). Nothing
+    is shown unless a campaign row exists for it."""
+    try:
+        from app.api.routes.benefits import benefits_repo
+        from app.api.routes.partners import partner_repo
+        from app.services import benefits_engine
+
+        campaigns = benefits_repo(container).campaigns(active_only=True)
+        if not campaigns:
+            return
+        partners = {p["slug"]: p["id"] for p in partner_repo(container).partners(active_only=True)}
+        shown: set[int] = set()
+        country = str(getattr(container.settings, "search_country", "IN") or "IN")
+        for item in matches:
+            if item.get("match_source") == "video":
+                continue
+            price = item.get("price")
+            result = benefits_engine.evaluate(
+                campaigns, price=float(price) if isinstance(price, (int, float)) else None,
+                category=str(demand.get("domain") or ""),
+                subject=f"{demand.get('subject') or ''} {item.get('title') or ''}",
+                location=str(demand.get("location_text") or ""), country=country,
+                partner_id=partners.get(str(item.get("partner_slug") or "")),
+            )
+            if result["offers"]:
+                item["benefits"] = result
+                shown.update(o["id"] for o in result["offers"])
+        repo = partner_repo(container)
+        for campaign_id in shown:  # one impression per campaign per search
+            repo.record_event("offer_impression", trace_key=trace_key or None, campaign=f"benefit:{campaign_id}",
+                              category=str(demand.get("domain") or ""))
+    except Exception:
+        pass  # offers never break discovery
 
 
 def _annotate_offers(container, matches: list[dict]) -> None:

@@ -122,6 +122,26 @@ rate-limited per client, postback tokens are compared in constant time and
 redacted from access logs, and every Partner Hub change is written to the
 Command Center audit log (field names only for secrets and links).
 
+## 3b. Offers, coupons & rewards (Command Center -> Offers & rewards)
+
+Nothing is shown to customers until a campaign exists and is active.
+- **Bank / card / UPI / wallet / merchant / partner offers:** enter them only
+  from a published source (the bank's or partner's offer page) -- paste the
+  source URL and tick "I verified this offer at the source". Without both,
+  the offer is never shown. Re-verify when the source changes.
+- **Coupons:** create a "coupon" campaign and paste the codes ("Add codes");
+  codes are encrypted with `ASKODOX_SECRETS_KEY` and revealed only to the
+  customer who claims one. A partner's coupon is marked redeemed when that
+  partner's postback reports a confirmed order with `coupon=<code>`.
+- **Scratch & Reveal:** a "scratch_reward" campaign with a fixed value
+  (ASKODOX credit, coupon, free gift/service). The highest-priority active
+  one is issued once per completed order of that customer -- no randomness.
+- **Budgets:** set total budget / total claims cap / per-user limit and who
+  funds it (ASKODOX, partner, merchant, bank or shared %). Reward cost shows
+  in the Revenue Center (net revenue after rewards).
+- **Bulk import:** "Import (JSON)" accepts the same fields as the form (e.g.
+  a partner's verified offer export).
+
 ## 4. Already configured (no action)
 
 `BRAVE_SEARCH_API_KEY`, `SARVAM_API_KEY`, `GEMINI_API_KEY`,
