@@ -7,18 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `261f0aa` — PR #103 (Master Fix Ticket remainder), merged
-  2026-09-28. Previous: PR #101 (`b79ebc9`) universal human flow, PR #100
-  (`1103389`) browse without sign-in + Admin flow traces.
-- PR #103 CI was green on its head `0a8337d` (askodox-ci, build-apk with
-  the new `flutter_map` dependency, docker-smoke, smoke, isolation + gates).
-  Backend 260 tests, Flutter 498. Railway deploy of `261f0aa` started clean.
+- `main` @ `d95e2d2` — PR #106 (real-phone E2E fixes + simple UX), merged
+  2026-09-28. Previous: PR #103 (`261f0aa`) Master Fix Ticket remainder,
+  PR #101 (`b79ebc9`) universal human flow.
+- PR #106 CI was green on its head `de6e3c6` (askodox-ci, build-apk incl.
+  the new Kotlin notification code, docker-smoke, gates). Backend 269
+  tests, Flutter 530.
 - Sprint status: NOT complete. NOT yet verified: real Brave/Maps/Routes/
   Geocoding results in production (the cloud dev container cannot reach
   Brave, Railway or OSM tiles) and real-phone acceptance for every flow
-  (TV, chicken "yes" = order, car, AC, job, catering broadcast + leads
-  inbox, parcel map pins, multi-category, catalog drafts, referrals,
-  offers, Telugu voice, location naming).
+  (TV, chicken "yes" = order, car Maruti→Tata, AC nearby, job openings,
+  multi-category, location allow/deny/change, silent notifications + tap
+  deep-link, privacy export/delete, Telugu voice).
 - Master Fix Ticket engines are all BUILT at least partially (advisory,
   map pins/route quote, roles, refer→register, offers, attribution/
   rewards, subscriptions, catalog AI, domain adapters, cost control,
@@ -104,6 +104,19 @@ this file, don't trust it blindly.
   rule rows evaluated by `offers_engine.py` (never hard-coded promotions);
   rewards accrue only on customer-confirmed completion and need admin
   APPROVED -> PAID. Paid plans stay PENDING_PAYMENT (no gateway).
+- Customer shell (`app_shell.dart`): Home · History · centre mic (starts
+  voice via `AskodoxChatRequest.voice()`) · Updates · Profile. No drawer.
+  One place per function: request status lives in Updates
+  (`features/notifications`); old mock alerts/communication/preferences
+  routes only redirect. Don't re-add duplicate entry points.
+- Acting (send request / contact) needs identity; the executor returns
+  `needsSignIn` and the UI offers `/onboarding?signin=1` (real OTP), then
+  retries the same action. `/auth/login` redirects there.
+- Nearby (Places) needs a real place: no location -> source status
+  `needs_location`, never a country-wide query. Places/web rows in another
+  country are filtered (`place_region_mismatch`, `region_mismatch`).
+- Account deletion revokes earlier tokens via
+  `session_tokens.set_revocation_check` (table `account_deletions`).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -117,8 +130,16 @@ this file, don't trust it blindly.
   Flutter caller wasn't updated" — manual grep only (see gotcha above).
 - Naming the current location needs the Geocoding API enabled on the Maps
   key; otherwise the app honestly keeps "Current location".
-- Provider leads (`/deals/leads`) are in-app only (home-screen inbox): no
-  push/WhatsApp notification, and WhatsApp-only providers are not targeted.
+- Provider leads (`/deals/leads`) are in-app only (home-screen inbox +
+  Updates): WhatsApp-only providers are not targeted.
+- Notifications are local + silent and appear only while the app is open/
+  resumed (60 s poll of real orders/leads). No push service (FCM) or
+  background worker yet.
+- Brand switching uses a fixed Indian brand vocabulary
+  (`brand_lexicon.dart`); unknown brands don't replace the old one.
+- Legacy mock screens still exist but are unlinked: seller shell
+  (`/seller/*`, mock OTP), old `HomeScreen`, Explore, Nearby Shops,
+  monetization/price-benchmark l10n strings. No-match "Notify me" not built.
 - Rate limits, the API cache and live counters are per process; daily API
   usage (and the ₹ estimate) is persisted in `growth_api_usage`.
 - Route distance needs the Routes API on the Maps key; map tiles use the
