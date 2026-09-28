@@ -57,6 +57,18 @@ class _Growth implements GrowthRepository {
       null;
   @override
   Future<int?> publishDraft(int draftId, Map<String, Object?> reviewed) async => null;
+
+  List<AskodoxLead> leadList = const [];
+  final List<String> interests = [];
+
+  @override
+  Future<List<AskodoxLead>> leads() async => leadList;
+
+  @override
+  Future<bool> expressInterest(String requestId) async {
+    interests.add(requestId);
+    return true;
+  }
 }
 
 void main() {

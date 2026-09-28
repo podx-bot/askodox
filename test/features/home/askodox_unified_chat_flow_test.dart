@@ -205,6 +205,18 @@ class _FakeGrowth implements GrowthRepository {
 
   @override
   Future<int?> publishDraft(int draftId, Map<String, Object?> reviewed) async => null;
+
+  List<AskodoxLead> leadList = const [];
+  final List<String> interests = [];
+
+  @override
+  Future<List<AskodoxLead>> leads() async => leadList;
+
+  @override
+  Future<bool> expressInterest(String requestId) async {
+    interests.add(requestId);
+    return true;
+  }
 }
 
 /// Scripted `/api/in-app/assistant`: `null` means the AI is unavailable
@@ -1553,6 +1565,23 @@ void main() {
       await h.pump(tester);
       await h.send(tester, '43 inch TV ₹30,000 show me');
       expect(find.textContaining('Diwali 10% off'), findsOneWidget);
+    });
+
+    testWidgets('provider leads inbox: a broadcast request shows and "I can do this" sends real interest',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '960', matches: []),
+      ]));
+      h.growth.leadList = const [
+        AskodoxLead(requestId: '42', message: 'New ASKODOX request: catering staff, qty 10, in Vijayawada'),
+      ];
+      await h.pump(tester);
+      expect(find.byKey(const Key('askodoxLeadsInbox')), findsOneWidget);
+      expect(find.textContaining('catering staff, qty 10'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('askodoxLeadReply-42')));
+      await _Harness.settle(tester);
+      expect(h.growth.interests, ['42']);
+      expect(find.text('Sent'), findsOneWidget);
     });
 
     testWidgets('a parcel missing pickup/drop offers real map pins instead of re-asking', (tester) async {

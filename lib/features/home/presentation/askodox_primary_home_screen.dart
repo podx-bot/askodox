@@ -148,6 +148,10 @@ class _AskodoxPrimaryHomeScreenState
 
   /// A catalog draft (from photo/video/text) waiting for the seller's review.
   AskodoxCatalogDraft? _pendingDraft;
+
+  /// Customer requests broadcast to me as a registered provider.
+  List<AskodoxLead> _leads = const [];
+  final Set<String> _leadReplies = {};
   /// Real orders/bookings created from this conversation (match key → id),
   /// in creation order: the deal panel and seller relay use them.
   final Map<String, String> _orderByMatchKey = {};
@@ -533,6 +537,29 @@ class _AskodoxPrimaryHomeScreenState
       if (next != null) unawaited(_handleChatRequest(next));
     }, fireImmediately: true);
     _restoring = _restore();
+    unawaited(_loadLeads());
+  }
+
+  Future<void> _loadLeads() async {
+    try {
+      final leads = await ref.read(growthRepositoryProvider).leads();
+      if (mounted) setState(() => _leads = leads.where((l) => !l.responded).toList());
+    } catch (_) {
+      // Leads are a bonus surface; chat never depends on them.
+    }
+  }
+
+  Future<void> _replyToLead(AskodoxLead lead) async {
+    final ok = await ref.read(growthRepositoryProvider).expressInterest(lead.requestId);
+    if (!mounted) return;
+    setState(() {
+      if (ok) _leadReplies.add(lead.requestId);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? (_te ? 'మీ ఆసక్తి పంపబడింది. కస్టమర్ అంగీకరిస్తే డీల్ ప్రారంభమవుతుంది.' : 'Sent. If the customer accepts, the deal starts here.')
+          : (_te ? 'ఇప్పుడు పంపలేకపోయాం.' : 'Could not send right now.')),
+    ));
   }
 
   /// Completes once launch handling (fresh ask or same-session restore) is
@@ -2127,6 +2154,32 @@ class _AskodoxPrimaryHomeScreenState
   Widget _home(bool te) => ListView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
         children: [
+          if (_leads.isNotEmpty)
+            Card(
+              key: const Key('askodoxLeadsInbox'),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    te ? 'మీకు ${_leads.length} కొత్త కస్టమర్ అభ్యర్థనలు' : '${_leads.length} new customer request(s) for you',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  for (final lead in _leads.take(3))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(lead.message, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      trailing: _leadReplies.contains(lead.requestId)
+                          ? Text(te ? 'పంపబడింది' : 'Sent')
+                          : TextButton(
+                              key: ValueKey('askodoxLeadReply-${lead.requestId}'),
+                              onPressed: () => _replyToLead(lead),
+                              child: Text(te ? 'నేను చేయగలను' : 'I can do this'),
+                            ),
+                    ),
+                ]),
+              ),
+            ),
           const SizedBox(height: 8),
           Center(
               child: AskodoxVoiceOrb(

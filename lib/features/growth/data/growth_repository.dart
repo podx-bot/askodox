@@ -28,6 +28,15 @@ class AskodoxReferral {
   final String shareText;
 }
 
+/// A customer request ASKODOX sent to this registered provider (in-app
+/// lead). The requester's identity is shared only after they accept.
+class AskodoxLead {
+  const AskodoxLead({required this.requestId, required this.message, this.responded = false});
+  final String requestId;
+  final String message;
+  final bool responded;
+}
+
 class AskodoxCatalogDraft {
   const AskodoxCatalogDraft({required this.id, required this.draft, required this.missing});
   final int id;
@@ -45,6 +54,12 @@ abstract interface class GrowthRepository {
   Future<AskodoxCatalogDraft?> draftListing({String text = '', Map<String, Object?>? imageAnalysis,
       Map<String, Object?>? videoAnalysis});
   Future<int?> publishDraft(int draftId, Map<String, Object?> reviewed);
+
+  /// Requests broadcast to me as a registered provider (needs sign-in).
+  Future<List<AskodoxLead>> leads();
+
+  /// "I can do this" -> the customer sees my interest and decides.
+  Future<bool> expressInterest(String requestId);
 }
 
 final growthRepositoryProvider = Provider<GrowthRepository>((ref) {
@@ -145,5 +160,27 @@ class ApiGrowthRepository implements GrowthRepository {
     final data = _data(await _client.post<Map<String, Object?>>('/api/catalog/drafts/$draftId/publish',
         body: reviewed, options: _auth));
     return (data?['listing_id'] as num?)?.toInt();
+  }
+
+  @override
+  Future<List<AskodoxLead>> leads() async {
+    if (!_signedIn) return const [];
+    final data = _data(await _client.get<Map<String, Object?>>('/deals/leads', options: _auth));
+    return [
+      for (final lead in (data?['leads'] as List? ?? const []))
+        if (lead is Map && lead['request_id'] != null)
+          AskodoxLead(
+            requestId: '${lead['request_id']}',
+            message: '${lead['lead_message'] ?? lead['subject'] ?? ''}',
+            responded: '${lead['my_response'] ?? ''}'.isNotEmpty,
+          ),
+    ];
+  }
+
+  @override
+  Future<bool> expressInterest(String requestId) async {
+    if (!_signedIn) return false;
+    final result = await _client.post<Map<String, Object?>>('/deals/$requestId/interest', options: _auth);
+    return result is ApiSuccess<Map<String, Object?>>;
   }
 }
