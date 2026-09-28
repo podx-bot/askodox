@@ -20,7 +20,6 @@ import '../../features/admin/presentation/admin_screens.dart';
 import '../../features/admin/presentation/localized_admin_entry.dart';
 import '../../features/admin/presentation/localized_admin_sections.dart';
 import '../../features/location/presentation/location_setup_screen.dart';
-import '../../features/location/presentation/shop_details_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
@@ -126,10 +125,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Nearby results appear in the chat for the chosen location; there is
       // no separate (empty) "Nearby shops" page to navigate through.
       GoRoute(path: '/nearby', redirect: (context, state) => '/'),
-      GoRoute(
-          path: '/shop/:id',
-          builder: (context, state) =>
-              ShopDetailsScreen(shopId: state.pathParameters['id']!)),
+      // The old mock shop page (buttons that did nothing) is retired: shops
+      // appear as result cards in Main Chat.
+      GoRoute(path: '/shop/:id', redirect: (context, state) => '/'),
       GoRoute(path: '/map/shop/:id', redirect: (context, state) => '/'),
       GoRoute(path: '/nearby/product/:id', redirect: (context, state) => '/'),
       GoRoute(path: '/alert/:id/map', redirect: (context, state) => '/updates'),

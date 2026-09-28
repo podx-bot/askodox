@@ -178,6 +178,16 @@ jobs:
             cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${BUILD_NUMBER}.apk"
           fi
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          # Measured size report (exact bytes + the largest parts of each APK).
+          python3 - <<'PY' | tee dist/APK_SIZES.txt
+          import glob, os, zipfile
+          for path in sorted(glob.glob("dist/*.apk")):
+              print(f"{os.path.basename(path)}: {os.path.getsize(path)} bytes ({os.path.getsize(path) / 1048576:.1f} MB)")
+              with zipfile.ZipFile(path) as apk:
+                  entries = sorted(apk.infolist(), key=lambda e: -e.compress_size)[:12]
+                  for e in entries:
+                      print(f"  {e.compress_size / 1048576:7.2f} MB  {e.filename}")
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
