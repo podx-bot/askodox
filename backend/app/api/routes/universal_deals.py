@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -327,6 +328,27 @@ def _fill_subject(payload: UniversalDealCreateRequest) -> None:
         payload.subject = _INTENT_SUBJECT[intent]
 
 
+# Videos/reviews are shown only when the customer asks for them.
+_VIDEO_ASK = re.compile(r"\b(videos?|reviews?|review|youtube|compare|comparison|vs|unboxing|demo|how to)\b",
+                        re.IGNORECASE)
+
+
+def _subject_with_brand(subject: str, constraints: dict) -> str:
+    """The brand the customer chose is part of WHAT is searched ("Tata car",
+    not the earlier "Maruti 800") -- slots never sit unused beside the query."""
+    brand = next((str(constraints.get(k)).strip() for k in ("brand", "make") if _present(constraints.get(k))), "")
+    if not brand or brand.casefold() in {"any", "no preference", "none", "any brand"}:
+        return subject
+    if brand.casefold() in subject.casefold():
+        return subject
+    # Drop another brand's model that the new brand replaces.
+    model = str(constraints.get("model") or "")
+    if model and brand.casefold() not in model.casefold():
+        constraints.pop("model", None)
+        subject = " ".join(w for w in subject.split() if w.casefold() not in model.casefold().split()) or subject
+    return f"{brand} {subject}".strip()
+
+
 def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dict:
     """The app's already-complete deal as a universal demand record."""
     location = dict(payload.location or {})
@@ -349,11 +371,13 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     radius = location.get("radius_km")
     if _present(radius):
         constraints.setdefault("radius_km", radius)
+    if _VIDEO_ASK.search(str(payload.raw_text or "")):
+        constraints["wants_videos"] = True
     return {
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
         "domain": _DOMAIN_BY_CATEGORY.get(category, category.upper() or "PRODUCT"),
-        "subject": str(payload.subject).strip(),
+        "subject": _subject_with_brand(str(payload.subject).strip(), constraints),
         "quantity": payload.quantity,
         "unit": payload.unit,
         "price": payload.price,
@@ -517,6 +541,10 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
     rate_limit.check(request, "discover", limit=40)
     _fill_subject(payload)
     if not _present(payload.subject):
+        import uuid as _uuid
+
+        _trace_request(container, f"browse:{_uuid.uuid4().hex[:16]}", payload, "",
+                       auth_gate="rejected: no subject (422)")
         raise HTTPException(status_code=422, detail="Tell ASKODOX what you are looking for")
     try:
         viewer = _authenticated_app_user(request)
@@ -544,6 +572,42 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
     }
+
+
+class TraceEventRequest(BaseModel):
+    trace_key: str = Field(min_length=6, max_length=64)
+    event: str = Field(min_length=2, max_length=40)
+    detail: dict = Field(default_factory=dict)
+
+
+_TRACE_EVENTS = {"result_selected", "action_attempted", "action_result", "location_failure", "auth_required",
+                 "search_failed"}
+
+
+@router.post("/trace-event")
+def trace_event(payload: TraceEventRequest, request: Request) -> dict:
+    """The app reports what happened AFTER results (which result the
+    customer picked, the action tried and whether the request/order was
+    created, a location or sign-in failure) onto the same admin trace.
+    Only existing traces are updated; values are short, sanitized text."""
+    container = request.app.state.container
+    from app.services import rate_limit
+
+    rate_limit.check(request, "trace_event", limit=60)
+    if payload.event not in _TRACE_EVENTS or not re.fullmatch(r"(browse|deal):[A-Za-z0-9_-]+", payload.trace_key):
+        raise HTTPException(status_code=422, detail="Unknown trace event")
+    detail = {
+        str(k)[:30]: (v if isinstance(v, (int, float, bool)) else str(v)[:160])
+        for k, v in list(payload.detail.items())[:8]
+        if str(k).lower() not in {"phone", "token", "password", "otp", "authorization"}
+    }
+    try:
+        from app.api.routes.command_center import command_center
+
+        recorded = command_center(container).trace_event(payload.trace_key, {"event": payload.event, **detail})
+    except Exception:
+        recorded = False
+    return {"recorded": recorded}
 
 
 @router.get("/leads")
@@ -771,6 +835,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
             discovery.online_and_videos(
                 category=category, subject=subject, include_online=online_on and not has_online,
                 location_text=str(demand.get("location_text") or ""),
+                include_videos=bool((demand.get("constraints") or {}).get("wants_videos")),
             )
             if online_on or videos_on
             else []
@@ -832,6 +897,14 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         "api_calls": _usage_delta(usage_before, external_call_budget.usage_snapshot()),
         "advice": _advice(demand, matches, discovery._kind, discovery.scope),
         "next_actions": _next_actions(local_match_count, matches, demand),
+        # What location the backend actually searched with (admin trace).
+        "location": {
+            "label": demand.get("location_text") or None,
+            "has_point": demand.get("latitude") is not None and demand.get("longitude") is not None,
+            "radius_km": (demand.get("constraints") or {}).get("radius_km"),
+            "failure": "no location: nearby search not run"
+            if source_status.get("nearby") == "needs_location" else None,
+        },
     }
 
 
@@ -918,6 +991,7 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
             local_search=discovered["source_status"].get("nearby") not in _NOT_RUN,
             need_kind=discovered["need_kind"],
             geographic_scope=discovered.get("scope") or None,
+            location_searched=discovered.get("location") or None,
             api_calls=discovered.get("api_calls") or {},
             advisory_decision=[a["code"] for a in discovered.get("advice") or []] or ["none_needed"],
             results_count=len(discovered["matches"]),

@@ -432,6 +432,22 @@ class CommandCenterRepository:
                     (TRACE_KEEP,),
                 )
 
+    def trace_event(self, trace_key: str, event: dict[str, Any], *, limit: int = 40) -> bool:
+        """Append one app event (result selected, action attempted, its
+        outcome, a location/auth failure) to an EXISTING trace only."""
+        now = _now()
+        with self._connect() as conn:
+            row = conn.execute("SELECT data_json FROM flow_traces WHERE trace_key=?", (trace_key,)).fetchone()
+            if not row:
+                return False
+            data = json.loads(row["data_json"])
+            events = data.setdefault("events", [])
+            events.append({**event, "at": now})
+            del events[:-limit]
+            conn.execute("UPDATE flow_traces SET data_json=?, updated_at=? WHERE trace_key=?",
+                         (json.dumps(data, ensure_ascii=False), now, trace_key))
+            return True
+
     def trace_stage_for_deal(self, deal_id: Any, stage: str, **fields: Any) -> None:
         """Advance the business stage (request sent, accepted, disputed...)."""
         try:

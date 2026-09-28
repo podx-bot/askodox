@@ -459,6 +459,13 @@ def flow_traces(request: Request, stage: str = "", limit: int = 100) -> dict[str
         "query": t.get("query"), "intent": t.get("intent"), "categories": t.get("categories"),
         "results": t.get("results_count"), "sources": t.get("source_counts"), "fallback": t.get("fallback"),
         "auth_gate": t.get("auth_gate"), "errors": t.get("errors"), "latency_ms": t.get("latency_ms"),
+        "trace_key": t.get("trace_key"), "role": t.get("active_role"),
+        # Where the search actually looked, and the latest thing the customer
+        # did with the results (selected / action / outcome).
+        "location": (t.get("location_searched") or {}).get("label")
+        or ("GPS point" if (t.get("location_searched") or {}).get("has_point") else None),
+        "location_failure": (t.get("location_searched") or {}).get("failure"),
+        "last_event": ((t.get("events") or [None])[-1]),
     } for t in items]
     return {"items": compact}
 

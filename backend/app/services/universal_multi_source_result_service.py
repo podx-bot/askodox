@@ -23,6 +23,8 @@ from typing import Any, Callable
 
 from app.services.universal_external_result_service import (
     BUYABLE_PAGES,
+    JOB_HOSTS,
+    PAGE_JOB,
     STATUS_ERROR,
     STATUS_NO_RESULTS,
     STATUS_OK,
@@ -32,8 +34,10 @@ from app.services.universal_external_result_service import (
     _host,
     _is_video_host,
     _price_fields,
+    _host_matches,
     _tokens,
     classify_page,
+    place_region_mismatch,
     region_mismatch,
     relevant_to,
 )
@@ -45,19 +49,26 @@ SEGMENT_SURPLUS = "surplus"
 SEGMENT_DEALS = "deals"
 SEGMENT_NEARBY_EXTERNAL = "nearby_external"
 SEGMENT_WIDER_LOCAL = "wider_local"
+SEGMENT_JOBS = "jobs"
 
 STATUS_NOT_APPLICABLE = "not_applicable"
+# Nearby search needs a place: without one it is never run as a generic
+# "in India" query (that is how US stores / Delhi results appeared).
+STATUS_NEEDS_LOCATION = "needs_location"
 
 # One universal engine, category-aware source selection (never a per-category
 # flow): which discovery sources make sense for the KIND of need.
-NEED_PRODUCT, NEED_SERVICE, NEED_PARTY = "product", "service", "party"
+NEED_PRODUCT, NEED_SERVICE, NEED_PARTY, NEED_JOB = "product", "service", "party", "job"
 _SERVICE_DOMAINS = {"SERVICES", "SERVICE", "APPOINTMENT", "EVENT", "REPAIR", "STAFFING", "RENTAL"}
 _PARTY_DOMAINS = {"JOB", "JOBS", "WORK", "WORKERS", "JOB_SEEKER", "RIDE", "MOBILITY", "PARCEL",
                   "DELIVERY", "COURIER"}
+_JOB_DOMAINS = {"JOB", "JOBS", "WORK", "JOB_SEEKER"}
 SOURCE_PLAN = {
     NEED_PRODUCT: {"askodox", "nearby", "used_deals", "online", "videos"},
     NEED_SERVICE: {"askodox", "nearby", "online"},
     NEED_PARTY: {"askodox"},
+    # A job seeker: ASKODOX employers first, then real job openings online.
+    NEED_JOB: {"askodox", "jobs"},
 }
 
 
@@ -78,6 +89,8 @@ def _public_image(value: Any) -> str | None:
 
 def need_kind(demand: dict[str, Any]) -> str:
     domain = str(demand.get("domain") or "").strip().upper()
+    if domain in _JOB_DOMAINS and str(demand.get("side") or "").upper() == "OFFER":
+        return NEED_JOB
     if domain in _PARTY_DOMAINS:
         return NEED_PARTY
     if domain in _SERVICE_DOMAINS:
@@ -168,7 +181,7 @@ class UniversalMultiSourceResultService:
     def source_status(self) -> dict[str, str]:
         """Per source: ok / no_results / unavailable / not_applicable (never faked)."""
         status = {**self._status, **self.fallback.status}
-        for source in ("askodox", "nearby", "used_deals", "online", "videos"):
+        for source in ("askodox", "nearby", "used_deals", "online", "videos", "jobs"):
             if source not in SOURCE_PLAN[self._kind]:
                 status[source] = STATUS_NOT_APPLICABLE
         return status
@@ -199,13 +212,17 @@ class UniversalMultiSourceResultService:
         with ThreadPoolExecutor(max_workers=4) as pool:
             external = pool.submit(self._external, subject, location_text, lat, lon, radius_km) if "nearby" in plan else None
             web = pool.submit(self._web_segments, subject, location_text) if "used_deals" in plan else None
+            jobs = pool.submit(self._jobs, subject, location_text, constraints) if "jobs" in plan else None
             registered = self._registered(subject, location_text, budget, lat, lon, condition, place_words)
             external_rows = external.result() if external else []
             web_rows = web.result() if web else []
-            rows = registered + external_rows + web_rows
+            job_rows = jobs.result() if jobs else []
+            rows = registered + external_rows + web_rows + job_rows
         self._status["askodox"] = STATUS_OK if registered else STATUS_NO_RESULTS
         maps_ready = callable(getattr(self.maps, "search_places", None)) and getattr(self.maps, "enabled", False)
-        if not maps_ready:
+        if "nearby" in plan and self._needs_location:
+            self._status["nearby"] = STATUS_NEEDS_LOCATION
+        elif not maps_ready:
             self._status["nearby"] = STATUS_UNAVAILABLE
         elif external_rows:
             self._status["nearby"] = STATUS_OK
@@ -213,10 +230,12 @@ class UniversalMultiSourceResultService:
             self._status["nearby"] = STATUS_ERROR if self._maps_failed else STATUS_NO_RESULTS
         web_ready = callable(self.web_search) and getattr(self.web_search, "configured", True)
         self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
+        if "jobs" in plan:
+            self._status["jobs"] = (STATUS_OK if job_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
         return sorted(rows, key=lambda item: -float(item.get("rank_score") or 0))
 
     def online_and_videos(self, *, category: str, subject: str, include_online: bool,
-                          location_text: str = "") -> list[dict[str, Any]]:
+                          location_text: str = "", include_videos: bool = True) -> list[dict[str, Any]]:
         plan = SOURCE_PLAN[self._kind]
         query = None
         where = location_text or "India"
@@ -225,6 +244,11 @@ class UniversalMultiSourceResultService:
         rows = (self.fallback.online(category=category, subject=subject, query=query, location_text=location_text,
                                      allow_directories=self._kind == NEED_SERVICE)
                 if include_online and "online" in plan else [])
+        if "videos" in plan and not include_videos:
+            # Reviews/videos only when the customer asked for them (never
+            # mixed into "buy a TV" results just because search found some).
+            self.fallback.status["videos"] = STATUS_NOT_APPLICABLE
+            return rows
         return rows + (self.fallback.videos(category=category, subject=subject) if "videos" in plan else [])
 
     # ----------------------------------------------------------- sources --
@@ -288,10 +312,17 @@ class UniversalMultiSourceResultService:
         return items
 
     _maps_failed = False
+    _needs_location = False
 
     def _external(self, subject, location_text, lat, lon, radius_km) -> list[dict[str, Any]]:
         search = getattr(self.maps, "search_places", None)
         if not callable(search) or not getattr(self.maps, "enabled", False):
+            return []
+        has_point = lat is not None and lon is not None
+        if not has_point and not location_text:
+            # "Nearby" without a place is meaningless: never a country-wide
+            # guess. The app asks for / uses the customer's location instead.
+            self._needs_location = True
             return []
         # "used car shop" finds nothing; the need itself ("used car near X")
         # lets Places return dealers, garages, stores -- whatever sells it.
@@ -301,8 +332,7 @@ class UniversalMultiSourceResultService:
 
         adapted = domain_adapters.search_query(subject)
         noun = " service" if self._kind == NEED_SERVICE and adapted == subject else ""
-        query = f"{adapted}{noun}" + (f" near {location_text}" if location_text else " in India")
-        has_point = lat is not None and lon is not None
+        query = f"{adapted}{noun}" + (f" near {location_text}" if location_text else "")
         ladder = GEO_LADDER if has_point else GEO_LADDER[:1]
         for level, level_km in ladder:
             scope_km = max(radius_km, level_km or radius_km)
@@ -334,6 +364,9 @@ class UniversalMultiSourceResultService:
     def _places_to_rows(self, places, lat, lon, radius_km, scope_km) -> list[dict[str, Any]]:
         items = []
         for index, place in enumerate(places or []):
+            if place_region_mismatch(place.get("address")):
+                self._filter("wrong_region")
+                continue
             km = distance_km(lat, lon, place.get("latitude"), place.get("longitude"))
             if km is not None and km > max(scope_km * 1.5, radius_km * 3):
                 self._filter("too_far")
@@ -420,6 +453,68 @@ class UniversalMultiSourceResultService:
                 kept += 1
                 if kept >= 3:
                     break
+        return items
+
+    _SALARY = re.compile(
+        r"(?:₹|rs\.?|inr)\s?[0-9][0-9,.]*\s*(?:k|lpa|lakh|lakhs)?(?:\s*(?:-|to|–)\s*(?:₹|rs\.?|inr)?\s?[0-9][0-9,.]*"
+        r"\s*(?:k|lpa|lakh|lakhs)?)?(?:\s*(?:per|/|a)\s*(?:month|annum|year|pm|pa))?"
+        r"|[0-9][0-9,.]*\s*(?:-|to|–)\s*[0-9][0-9,.]*\s*(?:lpa|lakhs? p\.?a\.?)",
+        re.IGNORECASE,
+    )
+
+    def _jobs(self, subject, location_text, constraints) -> list[dict[str, Any]]:
+        """Real job openings from job sites (Brave, India-first). Salary only
+        when the page text states one -- never estimated."""
+        if not callable(self.web_search) or not getattr(self.web_search, "configured", True):
+            return []
+        core = re.sub(r"\b(jobs?|work|vacanc(y|ies)|openings?|near me|nearby)\b", " ", subject, flags=re.I)
+        core = " ".join(core.split()) or subject
+        where = location_text or "India"
+        try:
+            rows = self.web_search(f"{core} jobs in {where}", 12) or []
+        except Exception:
+            rows = []
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            url = UniversalExternalResultService._http_url((row or {}).get("url"))
+            title, snippet = (row or {}).get("title"), (row or {}).get("snippet")
+            if not url or _is_video_host(url):
+                continue
+            if classify_page(url, title, snippet) != PAGE_JOB and not _host_matches(url, JOB_HOSTS):
+                self._filter("not_a_job_listing")
+                continue
+            if not relevant_to(core, title, snippet, url):
+                self._filter("not_relevant")
+                continue
+            if region_mismatch(url, title, snippet, wanted_place=location_text):
+                self._filter("wrong_region")
+                continue
+            host = _host(url).removeprefix("www.")
+            salary = self._SALARY.search(f"{title or ''} {snippet or ''}")
+            items.append({
+                "id": f"job-{len(items)}-{host}",
+                "match_id": f"job-{len(items)}-{host}",
+                "provider_id": host,
+                "title": str(title or host)[:160],
+                "subtitle": str(snippet or "")[:280],
+                "destination_url": url,
+                "source_name": (row or {}).get("host") or host,
+                # Salary is text from the page itself, or absent.
+                "salary_text": salary.group(0).strip() if salary else None,
+                "price": None,
+                "price_verified": False,
+                "location_label": location_text or None,
+                "page_type": PAGE_JOB,
+                "source": "online",
+                "match_source": "online",
+                "segment": SEGMENT_JOBS,
+                "rank_score": 30.0 - len(items),
+                "affiliate": False,
+                "disclosure": "",
+                "demo": False,
+            })
+            if len(items) >= 6:
+                break
         return items
 
     # ----------------------------------------------------------- helpers --

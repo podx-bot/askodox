@@ -60,6 +60,13 @@ class ActiveDealContextResolver:
         if isinstance(previous_constraints, dict):
             constraints.update(previous_constraints)
         if isinstance(incoming_constraints, dict):
+            new_brand = str(incoming_constraints.get("brand") or incoming_constraints.get("make") or "").casefold()
+            old_brand = str(constraints.get("brand") or constraints.get("make") or "").casefold()
+            if new_brand and new_brand != old_brand:
+                # A different brand replaces the earlier brand's model/variant.
+                for key in ("model", "variant"):
+                    if new_brand not in str(constraints.get(key) or "").casefold():
+                        constraints.pop(key, None)
             constraints.update(incoming_constraints)
         if constraints:
             merged["constraints"] = constraints
