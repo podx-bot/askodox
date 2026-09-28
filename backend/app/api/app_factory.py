@@ -267,6 +267,19 @@ def create_app() -> FastAPI:
     app.include_router(product_catalog_admin_router)
     app.include_router(product_catalog_self_service_router)
     app.include_router(orders_router)
+    from app.api.routes.growth import admin_router as growth_admin_router, router as growth_router
+
+    app.include_router(growth_router)
+    app.include_router(growth_admin_router)
+
+    # Persist external API usage per day (Admin "API usage", cost estimate).
+    try:
+        from app.api.routes.growth import growth
+        from app.services import external_call_budget
+
+        external_call_budget.set_sink(growth(container).record_usage)
+    except Exception:
+        pass
 
     @app.on_event("shutdown")
     def shutdown_event() -> None:

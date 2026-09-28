@@ -45,9 +45,18 @@ class AskodoxChatResults {
     this.searched = false,
     this.broadcastSent,
     this.scopeMessage,
+    this.advice = const [],
+    this.nextActions = const [],
   });
 
   final String? dealId;
+
+  /// At most two short, contextual advice lines (never a lecture).
+  final List<({String text, String textTe})> advice;
+
+  /// e.g. refer_provider / find_more / contact_external when no ASKODOX
+  /// provider has this yet.
+  final List<String> nextActions;
 
   /// Real in-app leads the backend created for registered providers.
   final int? broadcastSent;

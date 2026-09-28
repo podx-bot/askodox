@@ -24,9 +24,51 @@ _cache: "OrderedDict[tuple, tuple[float, Any]]" = OrderedDict()
 _usage: dict[str, dict[str, int]] = {}
 
 
+# Optional durable sink (set at app start): record(provider, calls, cache_hits,
+# errors) -> persisted per day so usage survives deploys and is shared by
+# every server instance. Failures in the sink never affect the caller.
+_sink: Callable[..., None] | None = None
+
+
+def set_sink(sink: Callable[..., None] | None) -> None:
+    global _sink
+    _sink = sink
+
+
 def _bump(provider: str, key: str) -> None:
-    stats = _usage.setdefault(provider, {"calls": 0, "cache_hits": 0, "errors": 0})
-    stats[key] = stats.get(key, 0) + 1
+    """Count one event. Call WITHOUT holding the lock (the durable sink
+    writes to the database)."""
+    with _lock:
+        stats = _usage.setdefault(provider, {"calls": 0, "cache_hits": 0, "errors": 0})
+        stats[key] = stats.get(key, 0) + 1
+    if _sink is not None:
+        try:
+            _sink(provider, **{key: 1})
+        except Exception:
+            pass
+
+
+# Estimated cost per real call in ₹ (list prices, configurable with the env
+# var ASKODOX_API_COST_INR='{"brave": 0.42, ...}'). An estimate, labelled as
+# such in Admin -- the provider's bill is the source of truth.
+DEFAULT_COST_INR = {
+    "brave": 0.42,           # Brave Search API ~ $5 / 1000
+    "google_places": 2.70,   # Places Text Search ~ $32 / 1000
+    "google_geocode": 0.42,  # Geocoding ~ $5 / 1000
+    "llm_extract": 0.05,     # small LLM extraction call (varies by model/tokens)
+}
+
+
+def cost_table() -> dict[str, float]:
+    import json
+    import os
+
+    table = dict(DEFAULT_COST_INR)
+    try:
+        table.update({k: float(v) for k, v in json.loads(os.getenv("ASKODOX_API_COST_INR", "") or "{}").items()})
+    except (TypeError, ValueError):
+        pass
+    return table
 
 
 def cached_call(provider: str, key: tuple, fetch: Callable[[], Any], *, ttl: int = DEFAULT_TTL_SECONDS) -> Any:
@@ -37,18 +79,21 @@ def cached_call(provider: str, key: tuple, fetch: Callable[[], Any], *, ttl: int
         hit = _cache.get(full_key)
         if hit is not None and hit[0] > now:
             _cache.move_to_end(full_key)
-            _bump(provider, "cache_hits")
-            return hit[1]
+            cached = True
+        else:
+            cached = False
+    if cached:
+        _bump(provider, "cache_hits")
+        return hit[1]
     try:
         value = fetch()
     except Exception:
-        with _lock:
-            _bump(provider, "calls")
-            _bump(provider, "errors")
-        raise
-    with _lock:
         _bump(provider, "calls")
-        if value:
+        _bump(provider, "errors")
+        raise
+    _bump(provider, "calls")
+    if value:
+        with _lock:
             _cache[full_key] = (now + ttl, value)
             while len(_cache) > MAX_ENTRIES:
                 _cache.popitem(last=False)
@@ -56,8 +101,7 @@ def cached_call(provider: str, key: tuple, fetch: Callable[[], Any], *, ttl: int
 
 
 def record_error(provider: str) -> None:
-    with _lock:
-        _bump(provider, "errors")
+    _bump(provider, "errors")
 
 
 def usage_snapshot() -> dict[str, dict[str, int]]:

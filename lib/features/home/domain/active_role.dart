@@ -16,6 +16,15 @@ enum AskodoxUserRole {
   deliveryPartner,
   employer,
   driver,
+  // Participation roles (scoped to a transaction, never a global identity
+  // change): they add value to someone else's deal and can be attributed.
+  influencer,
+  advisor,
+  referrer,
+  agent,
+  partner,
+  distributor,
+  farmer,
 }
 
 /// Roles shown on the Profile screen, in display order.
@@ -37,6 +46,13 @@ String askodoxUserRoleLabel(AskodoxUserRole role, {bool telugu = false}) {
       AskodoxUserRole.deliveryPartner => 'డెలివరీ భాగస్వామి',
       AskodoxUserRole.employer => 'యజమాని',
       AskodoxUserRole.driver => 'డ్రైవర్',
+      AskodoxUserRole.influencer => 'ఇన్‌ఫ్లుయెన్సర్',
+      AskodoxUserRole.advisor => 'సలహాదారు',
+      AskodoxUserRole.referrer => 'సూచించినవారు',
+      AskodoxUserRole.agent => 'ఏజెంట్/మధ్యవర్తి',
+      AskodoxUserRole.partner => 'భాగస్వామి',
+      AskodoxUserRole.distributor => 'పంపిణీదారు',
+      AskodoxUserRole.farmer => 'రైతు',
     };
   }
   return switch (role) {
@@ -47,6 +63,13 @@ String askodoxUserRoleLabel(AskodoxUserRole role, {bool telugu = false}) {
     AskodoxUserRole.deliveryPartner => 'Delivery Partner',
     AskodoxUserRole.employer => 'Employer',
     AskodoxUserRole.driver => 'Driver',
+    AskodoxUserRole.influencer => 'Influencer',
+    AskodoxUserRole.advisor => 'Advisor',
+    AskodoxUserRole.referrer => 'Referrer',
+    AskodoxUserRole.agent => 'Agent / Middleman',
+    AskodoxUserRole.partner => 'Partner',
+    AskodoxUserRole.distributor => 'Distributor',
+    AskodoxUserRole.farmer => 'Farmer',
   };
 }
 
@@ -79,6 +102,18 @@ const askodoxSupplyRoles = {
   AskodoxUserRole.jobSeeker,
   AskodoxUserRole.deliveryPartner,
   AskodoxUserRole.driver,
+  AskodoxUserRole.farmer,
+  AskodoxUserRole.distributor,
+};
+
+/// Roles that add value to another party's deal; recorded as transaction
+/// participants (attribution) rather than changing who buys or sells.
+const askodoxParticipationRoles = {
+  AskodoxUserRole.influencer,
+  AskodoxUserRole.advisor,
+  AskodoxUserRole.referrer,
+  AskodoxUserRole.agent,
+  AskodoxUserRole.partner,
 };
 
 /// The role the conversation should make active for this message, scoped to
@@ -146,6 +181,22 @@ AskodoxRoleDetection? askodoxDetectRole(String message) {
     r'కావాలి',
     r'కొనాలి',
   ]);
+
+  // Participation / trade roles, only from how people describe themselves.
+  final participation = <AskodoxUserRole, List<String>>{
+    AskodoxUserRole.farmer: [r"\bi('m| am) a farmer\b", r'\bi (grow|farm|harvest)\b', r'\bmy (farm|crop|harvest)\b', r'రైతుని', r'పండిస్తాను'],
+    AskodoxUserRole.distributor: [r"\bi('m| am) a (distributor|wholesaler|stockist|dealer)\b", r'\bi (distribute|supply) (to|in bulk)\b'],
+    AskodoxUserRole.influencer: [r"\bi('m| am) an? (influencer|youtuber|creator|blogger)\b", r'\bmy (followers|channel|subscribers)\b'],
+    AskodoxUserRole.advisor: [r"\bi('m| am) an? (advisor|consultant)\b", r'\bi (advise|consult)\b'],
+    AskodoxUserRole.agent: [r"\bi('m| am) an? (agent|broker|middleman|commission agent)\b", r'\bi (broker|arrange) deals\b', r'మధ్యవర్తి'],
+    AskodoxUserRole.referrer: [r'\bi (want to )?(refer|recommend) (someone|a friend|him|her|them)\b'],
+    AskodoxUserRole.partner: [r'\b(partner with|become a partner|partnership with) askodox\b'],
+  };
+  for (final entry in participation.entries) {
+    if (_any(text, entry.value)) {
+      return AskodoxRoleDetection(entry.key, ambiguous: text.contains('?'));
+    }
+  }
 
   final question = text.contains('?') ||
       _any(text, [r'\b(can|should|could) i\b', r'\bhow (do|can) i\b']);

@@ -295,8 +295,13 @@ class UniversalMultiSourceResultService:
             return []
         # "used car shop" finds nothing; the need itself ("used car near X")
         # lets Places return dealers, garages, stores -- whatever sells it.
-        noun = " service" if self._kind == NEED_SERVICE else ""
-        query = f"{subject}{noun}" + (f" near {location_text}" if location_text else " in India")
+        # A domain adapter names the right kind of business (a toothache ->
+        # "dentist", rooms -> "hotel"); otherwise the need itself.
+        from app.services import domain_adapters
+
+        adapted = domain_adapters.search_query(subject)
+        noun = " service" if self._kind == NEED_SERVICE and adapted == subject else ""
+        query = f"{adapted}{noun}" + (f" near {location_text}" if location_text else " in India")
         has_point = lat is not None and lon is not None
         ladder = GEO_LADDER if has_point else GEO_LADDER[:1]
         for level, level_km in ladder:

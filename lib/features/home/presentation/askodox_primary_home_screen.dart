@@ -31,6 +31,8 @@ import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
+import '../../growth/data/growth_repository.dart';
+import '../../location/presentation/map_pin_picker.dart';
 import '../domain/active_role.dart';
 import '../domain/chat_action_intent.dart';
 import '../domain/chat_result_policy.dart';
@@ -143,6 +145,13 @@ class _AskodoxPrimaryHomeScreenState
   /// The option the customer most recently asked about -- the default
   /// target of a typed "yes / order it".
   UniversalMatch? _focusedMatch;
+
+  /// A catalog draft (from photo/video/text) waiting for the seller's review.
+  AskodoxCatalogDraft? _pendingDraft;
+
+  /// Customer requests broadcast to me as a registered provider.
+  List<AskodoxLead> _leads = const [];
+  final Set<String> _leadReplies = {};
   /// Real orders/bookings created from this conversation (match key → id),
   /// in creation order: the deal panel and seller relay use them.
   final Map<String, String> _orderByMatchKey = {};
@@ -528,6 +537,29 @@ class _AskodoxPrimaryHomeScreenState
       if (next != null) unawaited(_handleChatRequest(next));
     }, fireImmediately: true);
     _restoring = _restore();
+    unawaited(_loadLeads());
+  }
+
+  Future<void> _loadLeads() async {
+    try {
+      final leads = await ref.read(growthRepositoryProvider).leads();
+      if (mounted) setState(() => _leads = leads.where((l) => !l.responded).toList());
+    } catch (_) {
+      // Leads are a bonus surface; chat never depends on them.
+    }
+  }
+
+  Future<void> _replyToLead(AskodoxLead lead) async {
+    final ok = await ref.read(growthRepositoryProvider).expressInterest(lead.requestId);
+    if (!mounted) return;
+    setState(() {
+      if (ok) _leadReplies.add(lead.requestId);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? (_te ? 'మీ ఆసక్తి పంపబడింది. కస్టమర్ అంగీకరిస్తే డీల్ ప్రారంభమవుతుంది.' : 'Sent. If the customer accepts, the deal starts here.')
+          : (_te ? 'ఇప్పుడు పంపలేకపోయాం.' : 'Could not send right now.')),
+    ));
   }
 
   /// Completes once launch handling (fresh ask or same-session restore) is
@@ -1028,6 +1060,8 @@ class _AskodoxPrimaryHomeScreenState
         searched: true,
         broadcastSent: result.broadcastSent,
         scopeMessage: result.scopeMessage,
+        advice: result.advice,
+        nextActions: result.nextActions,
       );
     } on DealNeedsDetailsException catch (error) {
       if (error.missingFields.isNotEmpty) {
@@ -1094,6 +1128,10 @@ class _AskodoxPrimaryHomeScreenState
         ));
         return;
       }
+      if (askodoxWantsToList(text)) {
+        await _draftFromMedia(text, imageAnalysis: analysis, speakResponse: speakResponse);
+        return;
+      }
       text = askodoxAttachmentRequest(
           text, analysis['summary'] ?? analysis['text']);
     } else if (attachment != null) {
@@ -1109,6 +1147,10 @@ class _AskodoxPrimaryHomeScreenState
               ? 'వీడియోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
               : 'Video analysis failed. The attachment is still here; please try again.'),
         ));
+        return;
+      }
+      if (askodoxWantsToList(text)) {
+        await _draftFromMedia(text, videoAnalysis: Map<String, Object?>.from(analysis), speakResponse: speakResponse);
         return;
       }
       text = const VideoAnalysisService().combinedRequest(
@@ -1157,6 +1199,10 @@ class _AskodoxPrimaryHomeScreenState
     // AI-first: questions about options already shown ("which is better?",
     // "reviews?") and requests for the seller ("contact the seller", "book
     // it") stay in the AI conversation instead of starting a new search.
+    if (_pendingDraft != null && !askodoxWantsToList(text)) {
+      await _reviewDraft(text, speakResponse);
+      return;
+    }
     final latestResults = _latestResults();
     final explicitContext = _pendingAiContext;
     // "yes" / "order it" / "send request" / "book it" / "confirm" with real
@@ -1647,6 +1693,184 @@ class _AskodoxPrimaryHomeScreenState
     if (speakResponse) await _speakReply(reply, userText: text);
   }
 
+  /// No ASKODOX provider has this yet: create a real referral invite (code
+  /// + share text with the benefits of joining) the customer can forward.
+  Future<void> _referProvider(int turnIndex, AskodoxChatResults results) async {
+    final deal = _dealByTurn[turnIndex] ?? ref.read(universalDealControllerProvider).deal;
+    final referral = await ref.read(growthRepositoryProvider).refer(
+          category: deal?.subject ?? deal?.category ?? '',
+          area: deal?.location.label ?? '',
+          dealId: results.dealId,
+        );
+    String reply;
+    if (referral == null) {
+      reply = _te
+          ? 'ఎవరినైనా సూచించడానికి సైన్ ఇన్ చేయండి (రిఫరల్ మీ పేరుతో నమోదవుతుంది).'
+          : 'Sign in to refer someone (the referral is recorded in your name).';
+    } else {
+      // Best effort: the share text is also shown in the reply below.
+      unawaited(Clipboard.setData(ClipboardData(text: referral.shareText)).catchError((_) {}));
+      reply = _te
+          ? 'రిఫరల్ కోడ్ ${referral.code} సిద్ధం. ఈ సందేశం కాపీ అయింది -- వారికి పంపండి:\n${referral.shareText}'
+          : 'Referral code ${referral.code} is ready. This message is copied -- send it to them:\n${referral.shareText}';
+    }
+    if (!mounted) return;
+    setState(() => _turns.add(ConversationTurnRecord(text: reply, isUser: false)));
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+  }
+
+  Future<void> _replyAndSave(String reply, bool speakResponse, String userText) async {
+    if (!mounted) return;
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+      _sending = false;
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) await _speakReply(reply, userText: userText);
+  }
+
+  /// Photo/video + "sell this": a real catalog draft built only from what
+  /// the analysis and the seller said; missing details are asked, never
+  /// invented.
+  Future<void> _draftFromMedia(String text,
+      {Map<String, Object?>? imageAnalysis, Map<String, Object?>? videoAnalysis, required bool speakResponse}) async {
+    setState(() {
+      _sending = true;
+      _active = true;
+      _turns.add(ConversationTurnRecord(text: text, isUser: true));
+      _attachment = null;
+      _attachmentPreviewBytes = null;
+      _attachmentLabel = null;
+    });
+    _controller.clear();
+    final draft = await ref.read(growthRepositoryProvider).draftListing(
+          text: text, imageAnalysis: imageAnalysis, videoAnalysis: videoAnalysis);
+    String reply;
+    if (draft == null) {
+      reply = _te
+          ? 'లిస్టింగ్ డ్రాఫ్ట్ చేయడానికి సైన్ ఇన్ చేయండి, లేదా వస్తువు గురించి ఒక చిన్న వివరణ ఇవ్వండి.'
+          : 'Sign in to draft a listing, or add a short description of the item.';
+    } else {
+      _pendingDraft = draft;
+      final missing = draft.missing.where((m) => m != 'subject').map(_draftFieldLabel).join(', ');
+      reply = _te
+          ? 'డ్రాఫ్ట్ సిద్ధం: "${draft.title}". ${missing.isEmpty ? '' : 'ఇంకా కావాలి: $missing. '}ధర చెప్పండి (ఉదా: ₹3200, స్టాక్‌లో ఉంది, Vijayawada).'
+          : 'Draft ready: "${draft.title}". ${missing.isEmpty ? '' : 'Still needed: $missing. '}Tell me the price (e.g. "₹3200, in stock, Vijayawada") to publish.';
+    }
+    await _replyAndSave(reply, speakResponse, text);
+  }
+
+  String _draftFieldLabel(String field) => switch (field) {
+        'price' => _te ? 'ధర' : 'price',
+        'stock_status' => _te ? 'స్టాక్' : 'stock',
+        'location_label' => _te ? 'స్థలం' : 'location',
+        _ => field,
+      };
+
+  /// The seller's review answer ("₹3200, in stock, Vijayawada") publishes
+  /// the draft through the SAME listing creation as "list my product".
+  Future<void> _reviewDraft(String text, bool speakResponse) async {
+    final draft = _pendingDraft!;
+    final lower = text.toLowerCase();
+    if (RegExp(r'\b(cancel|discard|stop)\b|వద్దు').hasMatch(lower)) {
+      _pendingDraft = null;
+      await _replyAndSave(_te ? 'డ్రాఫ్ట్ రద్దు చేశాను.' : 'Draft discarded.', speakResponse, text);
+      return;
+    }
+    final budget = askodoxBudgetRange(text);
+    final price = budget.max ?? budget.min ?? (draft.draft['price'] as num?)?.toDouble();
+    if (price == null) {
+      await _replyAndSave(
+          _te ? 'ప్రచురించడానికి ధర చెప్పండి (ఉదా: ₹3200).' : 'Tell me the price to publish (e.g. ₹3200).',
+          speakResponse, text);
+      return;
+    }
+    final place = RegExp(r'\b(?:in|at)\s+([A-Za-z][A-Za-z ]{2,40})').firstMatch(text)?.group(1)?.trim();
+    final stock = RegExp(r'out of stock|sold out', caseSensitive: false).hasMatch(text)
+        ? 'OUT_OF_STOCK'
+        : RegExp(r'in stock|available|ఉంది', caseSensitive: false).hasMatch(text)
+            ? 'IN_STOCK'
+            : null;
+    final location = place ?? ref.read(locationControllerProvider).defaultLocation?.name;
+    final listingId = await ref.read(growthRepositoryProvider).publishDraft(draft.id, {
+      'price': price,
+      if (stock != null) 'stock_status': stock,
+      if (location != null && location.trim().isNotEmpty) 'location_label': location.trim(),
+    });
+    _pendingDraft = null;
+    await _replyAndSave(
+        listingId == null
+            ? (_te ? 'ఇప్పుడు ప్రచురించలేకపోయాను; మళ్లీ ప్రయత్నించండి.' : 'Could not publish right now; please try again.')
+            : (_te
+                ? '"${draft.title}" ₹${price.toStringAsFixed(0)} కి లిస్ట్ అయింది (#$listingId). కొనుగోలుదారులు ఇప్పుడు దీన్ని చూడగలరు.'
+                : 'Listed "${draft.title}" at ₹${price.toStringAsFixed(0)} (#$listingId). Buyers can now find it.'),
+        speakResponse,
+        text);
+  }
+
+  /// A route need (parcel / ride) that still misses its pickup or drop.
+  bool _routePinsNeeded() {
+    final deal = ref.read(universalDealControllerProvider).deal;
+    if (deal == null) return false;
+    final missing = deal.missingForMatch;
+    return missing.contains('from') || missing.contains('to');
+  }
+
+  /// Pickup/drop chosen on a real map pin: fills that end (label + real
+  /// coordinates), then shows the real road distance and partner quotes
+  /// once both ends are pinned. Nothing is asked twice.
+  Future<void> _pickRoutePoint({required bool pickup}) async {
+    final place = await AskodoxMapPinPicker.open(
+      context,
+      title: pickup ? (_te ? 'పికప్ ఎక్కడ?' : 'Pickup point') : (_te ? 'డ్రాప్ ఎక్కడ?' : 'Drop point'),
+    );
+    if (place == null || !mounted) return;
+    final notifier = ref.read(universalDealControllerProvider.notifier);
+    notifier.setRoutePoint(pickup: pickup, label: place.label, latitude: place.latitude, longitude: place.longitude);
+    final deal = ref.read(universalDealControllerProvider).deal;
+    final fields = deal?.dynamicFields ?? const <String, Object?>{};
+    final lines = <String>[
+      pickup
+          ? (_te ? 'పికప్: ${place.label}' : 'Pickup set: ${place.label}')
+          : (_te ? 'డ్రాప్: ${place.label}' : 'Drop set: ${place.label}'),
+    ];
+    final hasBoth = fields['from_lat'] is num && fields['to_lat'] is num;
+    if (hasBoth) {
+      final quote = await ref.read(growthRepositoryProvider).routeQuote(
+            AskodoxPlace(latitude: (fields['from_lat'] as num).toDouble(),
+                longitude: (fields['from_lng'] as num).toDouble(), label: '${fields['from']}'),
+            AskodoxPlace(latitude: (fields['to_lat'] as num).toDouble(),
+                longitude: (fields['to_lng'] as num).toDouble(), label: '${fields['to']}'),
+          );
+      if (quote?.distanceKm != null) {
+        lines.add(_te
+            ? 'దూరం ~${quote!.distanceKm!.toStringAsFixed(1)} కి.మీ${quote.durationMinutes == null ? '' : ', ~${quote.durationMinutes} నిమి'}.'
+            : 'Road distance ~${quote!.distanceKm!.toStringAsFixed(1)} km${quote.durationMinutes == null ? '' : ', ~${quote.durationMinutes} min'}.');
+      }
+      if (quote != null && quote.quotes.isNotEmpty) {
+        final best = quote.quotes.first;
+        lines.add(_te
+            ? 'నమోదైన డెలివరీ భాగస్వామి రేటు: ₹${best.quote.toStringAsFixed(0)} (${best.title}).'
+            : 'Registered delivery partner rate: ₹${best.quote.toStringAsFixed(0)} (${best.title}).');
+      } else if (quote != null && quote.note.isNotEmpty) {
+        lines.add(quote.note);
+      }
+    }
+    final next = ref.read(universalDealControllerProvider);
+    if (next.deal != null && !next.deal!.readyToMatch && next.lastQuestion != null) {
+      lines.add(next.lastQuestion!);
+    }
+    if (!mounted) return;
+    setState(() => _turns.add(ConversationTurnRecord(text: lines.join('\n'), isUser: false)));
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+  }
+
   Future<void> _relayToSeller(String orderId, String text, bool speakResponse) async {
     final amount = askodoxOfferAmount(text);
     String reply;
@@ -1930,6 +2154,32 @@ class _AskodoxPrimaryHomeScreenState
   Widget _home(bool te) => ListView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
         children: [
+          if (_leads.isNotEmpty)
+            Card(
+              key: const Key('askodoxLeadsInbox'),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    te ? 'మీకు ${_leads.length} కొత్త కస్టమర్ అభ్యర్థనలు' : '${_leads.length} new customer request(s) for you',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  for (final lead in _leads.take(3))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(lead.message, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      trailing: _leadReplies.contains(lead.requestId)
+                          ? Text(te ? 'పంపబడింది' : 'Sent')
+                          : TextButton(
+                              key: ValueKey('askodoxLeadReply-${lead.requestId}'),
+                              onPressed: () => _replyToLead(lead),
+                              child: Text(te ? 'నేను చేయగలను' : 'I can do this'),
+                            ),
+                    ),
+                ]),
+              ),
+            ),
           const SizedBox(height: 8),
           Center(
               child: AskodoxVoiceOrb(
@@ -2104,6 +2354,7 @@ class _AskodoxPrimaryHomeScreenState
                 refreshTick: _dealRefreshTick,
                 onAlternatives: (rows) => _showAlternatives(results.dealId, rows),
                 onSupport: _dealSupport,
+                onRefer: _sending ? null : () => _referProvider(index, results),
               ),
             if (_clarificationByTurn[index] case final clarification?)
               if (identical(clarification, _pendingClarification) &&
@@ -2122,6 +2373,25 @@ class _AskodoxPrimaryHomeScreenState
                       ),
                   ]),
                 ),
+            if (index == _turns.length - 1 && !turn.isUser && _routePinsNeeded())
+              Padding(
+                key: const Key('askodoxRoutePins'),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Wrap(spacing: 8, runSpacing: 6, children: [
+                  ActionChip(
+                    key: const Key('askodoxPickPickup'),
+                    avatar: const Icon(Icons.trip_origin_rounded, size: 18),
+                    label: Text(te ? 'పికప్ మ్యాప్‌లో' : 'Pickup on map'),
+                    onPressed: _sending ? null : () => _pickRoutePoint(pickup: true),
+                  ),
+                  ActionChip(
+                    key: const Key('askodoxPickDrop'),
+                    avatar: const Icon(Icons.place_rounded, size: 18),
+                    label: Text(te ? 'డ్రాప్ మ్యాప్‌లో' : 'Drop on map'),
+                    onPressed: _sending ? null : () => _pickRoutePoint(pickup: false),
+                  ),
+                ]),
+              ),
             if (_supportByTurn[index] case final support?)
               _SupportCard(
                 key: ValueKey('askodoxSupport-$index'),
@@ -2726,6 +2996,7 @@ class _ChatResultsView extends StatelessWidget {
     required this.isActionable,
     required this.wasRequested,
     required this.onRequestSent,
+    this.onRefer,
     this.onAsk,
     this.onRetry,
     this.onCompare,
@@ -2752,6 +3023,9 @@ class _ChatResultsView extends StatelessWidget {
   final int refreshTick;
   final void Function(List<Map<String, Object?>> rows)? onAlternatives;
   final Future<void> Function()? onSupport;
+
+  /// "Know someone who does this? Refer them to ASKODOX."
+  final VoidCallback? onRefer;
 
   @override
   Widget build(BuildContext context) {
@@ -2782,6 +3056,25 @@ class _ChatResultsView extends StatelessWidget {
             text: te
                 ? 'స్థానిక అభ్యర్థనలు పంపడానికి సైన్ ఇన్ చేయండి.'
                 : 'Sign in to send requests to local sellers and providers.',
+          ),
+        for (final (i, tip) in results.advice.indexed)
+          _notice(
+            key: ValueKey('askodoxAdvice-$i'),
+            icon: Icons.lightbulb_outline_rounded,
+            text: te ? tip.textTe : tip.text,
+          ),
+        if (results.nextActions.contains('refer_provider') && onRefer != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: const Key('askodoxReferProvider'),
+                onPressed: onRefer,
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                label: Text(te ? 'ఎవరైనా తెలుసా? ASKODOX కి సూచించండి' : 'Know someone? Refer them to ASKODOX'),
+              ),
+            ),
           ),
         if (results.scopeMessage != null)
           _notice(
@@ -3141,6 +3434,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                         '★ ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount})'),
                   if (distance != null) _meta(distance),
                   if (price != null) _meta(price),
+                  if (match.offerTitle?.trim().isNotEmpty == true) _meta('🏷 ${match.offerTitle!.trim()}'),
                   if (match.locationLabel?.trim().isNotEmpty == true)
                     _meta(match.locationLabel!),
                   if (match.availability?.trim().isNotEmpty == true)

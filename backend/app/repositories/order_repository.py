@@ -37,6 +37,8 @@ class OrderRepository:
         "dispute_escalation_id", "dispute_from_status", "request_context", "closed_at",
         # Engine 11/12: settlement method + return/refund trail.
         "settlement_method", "paid_at", "return_reason", "return_from_status", "refund_reference",
+        # Offers engine: the applied offer and its discount (total_amount is after discount).
+        "offer_json", "discount",
     )
 
     def __init__(self, db_path: str = "podx.db") -> None:
@@ -153,6 +155,11 @@ class OrderRepository:
         item["kind"] = item.get("kind") or "product"
         item["payment_state"] = item.get("payment_state") or "NOT_STARTED"
         item["settlement_method"] = item.get("settlement_method") or "DIRECT_UPI"
+        raw_offer = item.pop("offer_json", None)
+        try:
+            item["offer"] = json.loads(raw_offer) if raw_offer else None
+        except (TypeError, ValueError):
+            item["offer"] = None
         raw = item.get("request_context")
         try:
             item["request_context"] = json.loads(raw) if raw else None
@@ -163,7 +170,8 @@ class OrderRepository:
     def update_fields(self, order_id: int, **fields: Any) -> bool:
         allowed = {"status", "payment_state", "payment_reference", "payment_verified_by", "dispute_escalation_id",
                    "dispute_from_status", "closed_at", "price", "total_amount", "seller_note",
-                   "settlement_method", "paid_at", "return_reason", "return_from_status", "refund_reference"}
+                   "settlement_method", "paid_at", "return_reason", "return_from_status", "refund_reference",
+                   "offer_json", "discount"}
         fields = {k: v for k, v in fields.items() if k in allowed}
         if "status" in fields and fields["status"] not in VALID_STATUSES:
             raise ValueError(f"invalid status: {fields['status']!r}")

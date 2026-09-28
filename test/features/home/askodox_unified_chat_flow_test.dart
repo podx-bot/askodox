@@ -12,6 +12,7 @@ import 'package:podx/core/config/environment.dart';
 import 'package:podx/core/providers/backend_providers.dart';
 import 'package:podx/features/deal_brain/application/universal_deal_controller.dart';
 import 'package:podx/features/deal_brain/domain/universal_deal.dart';
+import 'package:podx/features/growth/data/growth_repository.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
@@ -176,6 +177,45 @@ class _FakeSellerListingRepository implements SellerListingRepository {
   Future<SellerListingResult> createListing(UniversalDeal deal) async {
     listed.add(deal);
     return const SellerListingResult(success: true);
+  }
+}
+
+class _FakeGrowth implements GrowthRepository {
+  final List<({String category, String area, String? dealId})> referrals = [];
+  bool signedIn = true;
+
+  @override
+  Future<List<AskodoxPlace>> searchPlaces(String query, {double? latitude, double? longitude}) async => const [];
+
+  @override
+  Future<AskodoxRouteQuote?> routeQuote(AskodoxPlace pickup, AskodoxPlace drop) async =>
+      const AskodoxRouteQuote(distanceKm: 12.5, durationMinutes: 34);
+
+  @override
+  Future<AskodoxReferral?> refer({required String category, String area = '', String? dealId}) async {
+    if (!signedIn) return null;
+    referrals.add((category: category, area: area, dealId: dealId));
+    return const AskodoxReferral(code: 'ASK1A2B3C', shareText: 'Join ASKODOX -- use code ASK1A2B3C');
+  }
+
+  @override
+  Future<AskodoxCatalogDraft?> draftListing({String text = '', Map<String, Object?>? imageAnalysis,
+          Map<String, Object?>? videoAnalysis}) async =>
+      null;
+
+  @override
+  Future<int?> publishDraft(int draftId, Map<String, Object?> reviewed) async => null;
+
+  List<AskodoxLead> leadList = const [];
+  final List<String> interests = [];
+
+  @override
+  Future<List<AskodoxLead>> leads() async => leadList;
+
+  @override
+  Future<bool> expressInterest(String requestId) async {
+    interests.add(requestId);
+    return true;
   }
 }
 
@@ -345,6 +385,7 @@ class _Harness {
   final orders = _FakeOrderRepository();
   final lifecycle = _FakeLifecycle();
   final listings = _FakeSellerListingRepository();
+  final growth = _FakeGrowth();
 
   Future<void> pump(WidgetTester tester, {String? locale}) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -390,6 +431,7 @@ class _Harness {
         orderRepositoryProvider.overrideWithValue(orders),
         orderLifecycleRepositoryProvider.overrideWithValue(lifecycle),
         sellerListingRepositoryProvider.overrideWithValue(listings),
+        growthRepositoryProvider.overrideWithValue(growth),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
@@ -1470,6 +1512,88 @@ void main() {
       expect(h.matches.deals.single.intent, DealIntent.buy);
       expect(h.listings.listed, isEmpty, reason: 'no listing published from a buyer search');
       expect(find.textContaining('Seller'), findsNothing);
+    });
+  });
+
+  group('advisory, refer-to-ASKODOX, offers and route pins', () {
+    testWidgets('contextual advice shows as a short notice under results', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '950', matches: [_localMatch], advice: [
+          (text: 'For 10 people, ask 1-2 backup staff to stay available.', textTe: 'బ్యాకప్ సిబ్బంది'),
+        ]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need 10 catering staff tomorrow in Vijayawada, show me');
+      expect(find.byKey(const ValueKey('askodoxAdvice-0')), findsOneWidget);
+      expect(find.textContaining('backup staff'), findsOneWidget);
+    });
+
+    testWidgets('no ASKODOX provider: "Refer them to ASKODOX" creates a real referral invite', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '951', matches: [], nextActions: ['refer_provider', 'find_more']),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      await tester.ensureVisible(find.byKey(const Key('askodoxReferProvider')));
+      await tester.tap(find.byKey(const Key('askodoxReferProvider')));
+      await _Harness.settle(tester);
+      expect(h.growth.referrals.single.dealId, '951');
+      expect(h.growth.referrals.single.category.toLowerCase(), contains('welder'));
+      expect(find.textContaining('Referral code ASK1A2B3C'), findsOneWidget);
+    });
+
+    testWidgets('guests are asked to sign in only when they refer (browsing stayed open)', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '', matches: [], nextActions: ['refer_provider']),
+      ]));
+      h.growth.signedIn = false;
+      await h.pump(tester);
+      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      expect(find.textContaining('Sign in'), findsWidgets);
+      await tester.ensureVisible(find.byKey(const Key('askodoxReferProvider')));
+      await tester.tap(find.byKey(const Key('askodoxReferProvider')));
+      await _Harness.settle(tester);
+      expect(find.textContaining('Sign in to refer someone'), findsOneWidget);
+    });
+
+    testWidgets('a live offer shows on the registered result card', (tester) async {
+      const withOffer = UniversalMatch(id: '77', title: 'Sony 43 inch TV', source: 'local', segment: 'registered',
+          price: 25000, offerTitle: 'Diwali 10% off');
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '952', matches: [withOffer]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, '43 inch TV ₹30,000 show me');
+      expect(find.textContaining('Diwali 10% off'), findsOneWidget);
+    });
+
+    testWidgets('provider leads inbox: a broadcast request shows and "I can do this" sends real interest',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '960', matches: []),
+      ]));
+      h.growth.leadList = const [
+        AskodoxLead(requestId: '42', message: 'New ASKODOX request: catering staff, qty 10, in Vijayawada'),
+      ];
+      await h.pump(tester);
+      expect(find.byKey(const Key('askodoxLeadsInbox')), findsOneWidget);
+      expect(find.textContaining('catering staff, qty 10'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('askodoxLeadReply-42')));
+      await _Harness.settle(tester);
+      expect(h.growth.interests, ['42']);
+      expect(find.text('Sent'), findsOneWidget);
+    });
+
+    testWidgets('a parcel missing pickup/drop offers real map pins instead of re-asking', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '953', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need to send a parcel');
+      expect(find.byKey(const Key('askodoxRoutePins')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxPickPickup')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxPickDrop')), findsOneWidget);
+      expect(h.matches.deals, isEmpty, reason: 'nothing searched before the route is known');
     });
   });
 

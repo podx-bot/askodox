@@ -81,3 +81,12 @@ UniversalMatch? askodoxPickTarget(
   if (focused != null && actionable.any((m) => m.id == focused.id)) return focused;
   return actionable.first;
 }
+
+final _listIntent = RegExp(
+  r'\b(sell|selling|list|post|publish|put up) (this|it|these|my)\b|\bfor sale\b|\bcatalog(ue)? (this|it)\b'
+  r'|అమ్మాలి|అమ్ముతాను|లిస్ట్ చేయ|बेचना|बेचो',
+  caseSensitive: false,
+);
+
+/// "Sell this" / "list this" with a photo or video: build a catalog draft.
+bool askodoxWantsToList(String text) => _listIntent.hasMatch(text);

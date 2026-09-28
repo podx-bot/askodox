@@ -68,12 +68,19 @@ class UniversalRequestExtractor:
 
         prompt = self._build_prompt(source_text)
         try:
-            interaction = self._client.interactions.create(
-                model=self.model,
-                input=prompt,
-                store=False,
-            )
-            raw = str(getattr(interaction, "output_text", "") or "").strip()
+            from app.services import external_call_budget
+
+            def fetch() -> str:
+                interaction = self._client.interactions.create(
+                    model=self.model,
+                    input=prompt,
+                    store=False,
+                )
+                return str(getattr(interaction, "output_text", "") or "").strip()
+
+            # The extraction depends only on the message: an identical message
+            # (a retry, a re-sent "show me") never pays for a second LLM call.
+            raw = external_call_budget.cached_call("llm_extract", (self.model, source_text), fetch)
             payload = self._parse_json_object(raw)
             request = self._normalize_payload(payload, source_text=source_text)
             return {
