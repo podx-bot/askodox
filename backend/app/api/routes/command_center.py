@@ -671,6 +671,10 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
               ("support.escalation",)),
         state("affiliate_sources", "Affiliate / online partner sources", affiliate_count > 0,
               ("results.affiliate",), detail=f"{affiliate_count} active provider(s)"),
+        state("push_notifications", "Background push (Firebase Cloud Messaging)",
+              bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()),
+              detail="Server needs FIREBASE_SERVICE_ACCOUNT_JSON; the Android app needs google-services.json "
+                     "(see docs/EXTERNAL_SETUP.md). Until then updates arrive only while the app is open."),
         # No payment gateway exists in this codebase: reported, not invented.
         state("payments", "Payment gateway", False, ("payments.subscriptions",),
               detail="No payment gateway is integrated in this build"),
@@ -699,9 +703,12 @@ def check_integration(name: str, request: Request) -> dict[str, Any]:
             rows = provider("ASKODOX marketplace", 1) if provider else []
             ok, detail = bool(rows), "Web search returned results" if rows else "Web search returned nothing or failed"
         elif name == "google_maps":
+            # Per API: Geocoding, Places (text + nearby), Routes are enabled
+            # separately on the key's Google Cloud project.
             maps = getattr(container, "google_maps_service", None)
-            place = maps.geocode("Vijayawada") if maps else None
-            ok, detail = place is not None, "Geocoding OK" if place else "Geocoding failed"
+            status = maps.api_status() if maps is not None and hasattr(maps, "api_status") else {}
+            ok = bool(status) and all(v == "OK" for v in status.values())
+            detail = "; ".join(f"{api}: {verdict}" for api, verdict in status.items()) or "Maps service unavailable"
         elif name == "sarvam":
             result = container.voice_assistant_service.synthesize("ASKODOX") or {}
             ok = bool(result.get("success")) and str(result.get("tts_path") or "").startswith("sarvam")

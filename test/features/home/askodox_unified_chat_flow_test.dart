@@ -662,6 +662,39 @@ void main() {
     expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
   });
 
+  testWidgets('car: a short brand reply replaces the old brand in the searched subject (no fixed brand list)',
+      (tester) async {
+    final h = _Harness(
+      // The AI names the first brand (it knows every maker); the later
+      // "Tata" reply works even with the AI unavailable.
+      assistant: _Assistant((message) => message.contains('Maruti')
+          ? {
+              'reply': 'Looking for Maruti cars under 10 lakh.',
+              'domain': 'PRODUCT',
+              'transactional': true,
+              'action': 'buy_product',
+              'confidence': 0.9,
+              'source': 'universal_ai',
+              'entities': {'subject': 'Maruti car', 'brand': 'Maruti', 'budget': 1000000, 'location': 'Vijayawada'},
+            }
+          : null),
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '1', matches: [_localMatch]),
+        const UniversalMatchResult(dealId: '2', matches: [_localMatch]),
+        const UniversalMatchResult(dealId: '3', matches: [_localMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a Maruti car under 10 lakh in Vijayawada, show me');
+    await h.send(tester, 'Tata');
+    await h.send(tester, 'show me');
+
+    final searched = h.matches.deals.last.subject ?? '';
+    expect(searched.toLowerCase(), contains('tata'));
+    expect(searched.toLowerCase(), isNot(contains('maruti')), reason: 'the old brand never drifts back');
+    expect(h.matches.deals.last.dynamicFields['brand'], 'Tata');
+  });
+
   testWidgets('several options = ONE compact horizontal rail; referral is a small chip; the friend says what it found',
       (tester) async {
     const a = UniversalMatch(id: 'online-0-a', title: 'Mixer grinder 750W at Store A', source: 'online',

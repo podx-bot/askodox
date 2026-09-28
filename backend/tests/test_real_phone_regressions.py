@@ -255,3 +255,44 @@ def test_trace_records_the_language_the_customer_used():
     assert _query_language("నాకు 43-inch TV కావాలి") == "te+en"
     assert _query_language("मुझे फ्रिज चाहिए") == "hi"
     assert _query_language("AC installation near me") == "en"
+
+
+class _StatusResp:
+    def __init__(self, code, data):
+        self.status_code, self._data = code, data
+
+    def json(self):
+        return self._data
+
+
+class _MixedGoogle:
+    """Geocoding + Routes not enabled on the key; Places enabled."""
+
+    def get(self, url, **kwargs):
+        return _StatusResp(200, {"status": "REQUEST_DENIED",
+                                 "error_message": "This API project is not authorized to use this API."})
+
+    def post(self, url, **kwargs):
+        if "routes.googleapis.com" in url:
+            return _StatusResp(403, {"error": {"message": "Routes API has not been used in project 123 before"}})
+        return _StatusResp(200, {"places": []})
+
+
+def test_admin_maps_check_names_each_api_and_never_the_key():
+    from app.services.google_maps_service import GoogleMapsService
+
+    status = GoogleMapsService(api_key="secret-key-value", client=_MixedGoogle()).api_status()
+    assert status["places_text_search"] == "OK" and status["places_nearby"] == "OK"
+    assert status["geocoding"].startswith("FAILED") and "not authorized" in status["geocoding"]
+    assert status["routes"].startswith("FAILED (HTTP 403)")
+    assert "secret-key-value" not in str(status)
+
+
+def test_brand_vocabulary_is_learned_from_real_listings():
+    import uuid as _uuid
+
+    from server import app, container
+
+    brand = "Zz" + _uuid.uuid4().hex[:6]
+    container.product_catalog_repository.upsert_product("app-phone-91brand", "43 inch TV", brand=brand, price=25000)
+    assert brand in TestClient(app).get("/api/products/brands").json()["brands"]

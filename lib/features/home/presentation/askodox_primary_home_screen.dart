@@ -23,6 +23,7 @@ import '../../../services/support_escalation_service.dart';
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
+import '../../deal_brain/data/listed_brands.dart';
 import '../../deal_brain/domain/brand_lexicon.dart';
 import '../../deal_brain/application/universal_deal_brain.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
@@ -1060,6 +1061,19 @@ class _AskodoxPrimaryHomeScreenState
   /// self-service `/api/products/mine` endpoint) instead of only running a
   /// buyer-style search against it. Returns a user-facing confirmation or
   /// error message plus whether it represents a failure.
+  /// True when a reply changed none of the deal's details.
+  static bool _sameDetails(UniversalDeal a, UniversalDeal b) =>
+      a.subject == b.subject &&
+      a.quantity == b.quantity &&
+      a.price == b.price &&
+      a.variant == b.variant &&
+      a.size == b.size &&
+      a.model == b.model &&
+      a.quality == b.quality &&
+      a.timing == b.timing &&
+      a.location.label == b.location.label &&
+      a.dynamicFields.toString() == b.dynamicFields.toString();
+
   /// A real listing is created only when the user said they sell / the
   /// active role is Seller -- never from an AI guess while browsing.
   bool _userMeansToSell(String text, UniversalDeal deal) {
@@ -1362,9 +1376,23 @@ class _AskodoxPrimaryHomeScreenState
         clarified == null &&
         continuingActiveDeal &&
         AskodoxHomeRequestRouting.isShortDetailAnswer(text);
+    // "Tata" / "only Voltas" after (or during) a search refines THAT search
+    // -- even when its results are already shown -- instead of starting a
+    // new request or going to general chat. Any category, no brand list.
+    final listedBrands = ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{};
+    // (A reply to a pending question goes through answer() first and is a
+    // brand only if it filled nothing -- "curry cut" stays a detail.)
+    final brandRefinement = !discussOnly &&
+        clarified == null &&
+        !detailAnswer &&
+        activeDealSession.deal != null &&
+        text.trim().split(RegExp(r'\s+')).length <= 4 &&
+        askodoxDetectRole(text) == null &&
+        (askodoxQualifierReply(text) != null || askodoxDetectBrand(text, known: listedBrands) != null);
     final transactional = !discussOnly &&
         (clarified != null ||
             detailAnswer ||
+            brandRefinement ||
             (showNow && activeDealSession.deal != null) ||
             (aiUsable
                 ? (decision!.transactional || AskodoxSemanticDealInput.isConcreteNeed(decision))
@@ -1390,8 +1418,15 @@ class _AskodoxPrimaryHomeScreenState
 
       final aiSubject = aiUsable ? decision!.entityText('subject') : null;
       final parked = _parkedFor(aiSubject ?? (showNow || askodoxBudgetRange(text).isEmpty == false ? askodoxNeedSubject(text) : null));
+      // The active deal just before a reply is applied: a short reply that
+      // filled nothing ("Tata") is a brand refinement (see brand_lexicon).
+      UniversalDeal? dealBeforeAnswer;
       if (clarified != null) {
         notifier.refineSubject(clarified.subject);
+      } else if (brandRefinement && session.deal != null) {
+        // Same need, new brand: keep every answer (budget, new/used, place).
+        dealBeforeAnswer = session.deal;
+        notifier.adopt(session.deal!);
       } else if (showOnly && session.deal != null) {
         // "show me" alone: keep every answer, just search.
       } else if (parked != null && !askodoxSameNeed(session.deal?.subject, parked.subject)) {
@@ -1416,7 +1451,15 @@ class _AskodoxPrimaryHomeScreenState
         // The user's own words, not the AI rewrite: a rewrite like
         // "i want to buy 1 kg" would look like a new retail request and
         // restart (drop) the active chicken deal.
-        notifier.answer(text);
+        dealBeforeAnswer = session.deal;
+        final brandLike = askodoxQualifierReply(text) ??
+            askodoxDetectBrand(text, known: ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{});
+        if (brandLike != null) {
+          notifier.answerOrBrand(text,
+              brand: brandLike, known: ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{});
+        } else {
+          notifier.answer(text);
+        }
       } else if (shouldStartFresh && session.deal != null) {
         _lastGoodProductQuery = null;
         notifier.reset();
@@ -1425,6 +1468,7 @@ class _AskodoxPrimaryHomeScreenState
         _lastGoodProductQuery = null;
         notifier.start(routedText);
       } else {
+        dealBeforeAnswer = session.deal;
         notifier.answer(routedText);
       }
 
@@ -1450,8 +1494,19 @@ class _AskodoxPrimaryHomeScreenState
       if (!budget.isEmpty) notifier.applyBudget(min: budget.min, max: budget.max);
       // "Tata" / "show Samsung instead": the named brand replaces the old
       // one in the active search (constraints persist, brand updates).
-      final brand = askodoxDetectBrand(text);
-      if (brand != null) notifier.applyBrand(brand);
+      // No fixed brand list: phrasing ("only Tata"), brands real listings
+      // carry, or a short reply that answered no other question.
+      final known = ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{};
+      final afterAnswer = ref.read(universalDealControllerProvider).deal;
+      // The AI names the brand in any category (it knows every maker);
+      // phrasing, listed brands and a short reply cover the offline case.
+      final aiBrand = aiUsable ? decision!.entityText('brand') : null;
+      final brand = (aiBrand != null && aiBrand.length <= 40 ? aiBrand : null) ??
+          askodoxDetectBrand(text, known: known) ??
+          (dealBeforeAnswer != null && afterAnswer != null && _sameDetails(dealBeforeAnswer, afterAnswer)
+              ? askodoxQualifierReply(text)
+              : null);
+      if (brand != null) notifier.applyBrand(brand, known: known);
       // A subject polluted by budget/filler words ("TV ₹20,000 లో కావాలి")
       // is cleaned once, universally.
       final rawSubject = ref.read(universalDealControllerProvider).deal?.subject;

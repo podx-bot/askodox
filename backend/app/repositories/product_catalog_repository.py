@@ -151,6 +151,14 @@ class ProductCatalogRepository:
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
 
+    def active_brands(self, limit: int = 500) -> List[str]:
+        """Brands real sellers list (learned vocabulary -- never a fixed list)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT TRIM(brand) FROM seller_products WHERE active=1 AND brand IS NOT NULL "
+                "AND TRIM(brand) != '' ORDER BY 1 LIMIT ?", (int(limit),)).fetchall()
+        return [str(r[0]) for r in rows if r[0]]
+
     def deactivate_for_seller(self, product_id: int, seller_user_id: str) -> bool:
         """Take one of the seller's OWN listings down (never another's)."""
         with self._connect() as conn:

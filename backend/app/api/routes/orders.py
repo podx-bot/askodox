@@ -251,9 +251,35 @@ def update_order_status(order_id: int, payload: UpdateOrderStatusRequest, reques
 # close, disputes routed to Customer Care with the full context package.
 
 
+_PUSH_WORDS = {"accepted": "Accepted", "rejected": "Declined", "fulfilled": "Completed", "cancelled": "Cancelled"}
+
+
+def _push_order_event(container: Any, order: dict[str, Any] | None, stage: str) -> None:
+    """Background push to the OTHER party (silent channel, once per event).
+    No-op until FIREBASE_SERVICE_ACCOUNT_JSON is set (push_service.py)."""
+    if not order:
+        return
+    try:
+        from app.services.push_service import push_service
+
+        title = str(order.get("product_title") or order.get("subject") or "ASKODOX request")[:80]
+        if stage == "request_sent":
+            push_service(container).notify_async(
+                str(order.get("seller_user_id") or ""), title=title, body="New request -- accept or decline",
+                route="/orders/incoming", event_key=f"order:{order['id']}:request")
+        elif stage.startswith("seller_"):
+            words = _PUSH_WORDS.get(stage.removeprefix("seller_"), stage.removeprefix("seller_").replace("_", " "))
+            push_service(container).notify_async(
+                str(order.get("buyer_user_id") or ""), title=title, body=words,
+                route="/orders/mine", event_key=f"order:{order['id']}:{stage}")
+    except Exception:
+        pass  # a push never breaks the deal
+
+
 def _trace_order(container: Any, order: dict[str, Any] | None, stage: str, **fields: Any) -> None:
     """Advance the admin flow trace of the conversation request this deal
     came from (seller request status, deal stage)."""
+    _push_order_event(container, order, stage)
     try:
         deal_id = ((order or {}).get("request_context") or {}).get("deal_id")
         if not deal_id:

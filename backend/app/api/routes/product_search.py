@@ -98,3 +98,15 @@ def search_products(request: Request, q: str = "", limit: int = 10, location: st
             for row in rows
         ]
     )
+
+@router.get("/brands")
+def listed_brands(request: Request) -> dict:
+    """Brand names that real ASKODOX listings carry. The app uses them to
+    recognise a brand the customer names in ANY category -- learned from
+    data, not a hard-coded list. Public (brand names only)."""
+    container = request.app.state.container
+    try:
+        brands = container.product_catalog_repository.active_brands()
+    except Exception:
+        brands = []
+    return {"brands": brands}

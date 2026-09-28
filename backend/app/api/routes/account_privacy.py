@@ -17,6 +17,7 @@ import time
 from contextlib import closing
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from app.api.routes.in_app_deal import _authenticated_app_user
 
@@ -58,6 +59,31 @@ def _user_tables(conn) -> list[tuple[str, list[str]]]:
     return found
 
 
+class PushTokenRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=4096)
+    platform: str = "android"
+
+
+@router.post("/push-token")
+def register_push_token(payload: PushTokenRequest, request: Request) -> dict:
+    """This phone's FCM token, so request updates reach it in the
+    background (only sent when push is configured on the server)."""
+    from app.services.push_service import push_service
+
+    user_id = _authenticated_app_user(request)
+    service = push_service(request.app.state.container)
+    service.register(user_id, payload.token.strip(), payload.platform)
+    return {"registered": True, "push_configured": service.configured}
+
+
+@router.delete("/push-token")
+def remove_push_tokens(request: Request) -> dict:
+    from app.services.push_service import push_service
+
+    push_service(request.app.state.container).unregister(_authenticated_app_user(request))
+    return {"removed": True}
+
+
 @router.get("/export")
 def export_my_data(request: Request) -> dict:
     user_id = _authenticated_app_user(request)
@@ -90,6 +116,8 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
             done["requirements_closed"] = conn.execute(
                 "UPDATE universal_need_offer_records SET status='CLOSED' WHERE user_id=? AND status='ACTIVE'",
                 (user_id,)).rowcount
+        if "push_tokens" in tables:
+            conn.execute("DELETE FROM push_tokens WHERE user_id=?", (user_id,))  # no more notifications
         conn.execute("INSERT OR REPLACE INTO account_deletions(user_id, deleted_at) VALUES(?,?)", (user_id, now))
         conn.commit()
     return {"deleted": True, **done,
