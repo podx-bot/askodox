@@ -219,14 +219,30 @@ jobs:
           # contents or passwords (keytool reads the password from the env).
           BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           REL="dist/askodox-live-${BUILD_NUMBER}.apk"
-          cert() { "$BT/apksigner" verify --print-certs "$1" > /tmp/certs.txt; grep -m1 'Signer #1 certificate SHA-256 digest' /tmp/certs.txt | awk '{print $NF}'; }
+          norm() { tr -d ': ' | tr 'A-F' 'a-f'; }
+          cert() {
+            "$BT/apksigner" verify --print-certs "$1" > /tmp/certs.txt 2>&1 || true
+            sed -n 's/.*Signer #1 certificate SHA-256 digest: *//p' /tmp/certs.txt | head -n 1 | norm
+          }
           badge() { "$BT/aapt2" dump badging "$1" > /tmp/badge.txt 2>/dev/null || true; sed -n 1p /tmp/badge.txt; }
           pkg() { badge "$1" | sed -n "s/.*name='\([^']*\)'.*/\1/p"; }
           vcode() { badge "$1" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p"; }
           "$BT/apksigner" verify --verbose "$REL" > verify.log
           grep -E 'Verified using|Verifies' verify.log
+          # Public certificate details of the release APK (no secrets).
+          "$BT/apksigner" verify --print-certs "$REL" 2>&1 | grep -E '^Signer #1 certificate (DN|SHA-256)' || true
           REL_CERT="$(cert "$REL")"
-          KEY_CERT="$(keytool -exportcert -keystore android/app/askodox-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD | sha256sum | awk '{print $1}')"
+          # Public fingerprint of the ASKODOX release key (keytool reads the
+          # store password from the environment; only fingerprints printed).
+          keytool -list -v -keystore android/app/askodox-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD \
+            > /tmp/keystore.txt 2>&1 || true
+          KEY_CERT="$(sed -n 's/^[[:space:]]*SHA256: *//p' /tmp/keystore.txt | head -n 1 | norm)"
+          if [ -z "$KEY_CERT" ]; then
+            echo "keytool could not read the release keystore certificate:"
+            grep -iE 'error|exception' /tmp/keystore.txt | sed 's/password[^ ]*/[redacted]/Ig' | head -n 3 || true
+          fi
+          [ -n "$REL_CERT" ] || { echo "FAIL: could not read the release APK certificate"; sed -n 1,5p /tmp/certs.txt; exit 1; }
+          [ -n "$KEY_CERT" ] || { echo "FAIL: could not read the release keystore certificate"; exit 1; }
           {
             echo "APK: $(basename "$REL")"
             echo "package: $(pkg "$REL")"
