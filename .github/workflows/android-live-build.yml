@@ -13,6 +13,11 @@ on:
         required: false
         default: '919'
         type: string
+      compare_run_id:
+        description: Optional Live Build run id whose signed APK must be updatable by this one (e.g. the build installed on a test phone)
+        required: false
+        default: ''
+        type: string
   push:
     branches: [main]
     paths:
@@ -24,6 +29,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: android-live-${{ github.ref }}
@@ -149,6 +155,11 @@ jobs:
           signing = '''    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n'''
           s = s.replace(needle, signing + needle, 1)
           s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
+          # Fail closed: never ship a "release" APK that silently fell back to
+          # the runner's throwaway debug key (a different key on every run).
+          if 'create("release")' not in s or 'signingConfigs.getByName("release")' not in s \
+                  or 'signingConfigs.getByName("debug")' in s:
+              raise SystemExit("release signing patch did not apply to android/app/build.gradle.kts")
           p.write_text(s)
           PY
             echo 'configured=true' >> "$GITHUB_OUTPUT"
@@ -193,6 +204,73 @@ jobs:
         with:
           name: askodox-android-${{ github.run_number }}
           path: dist/*
+          retention-days: 30
+
+      - name: Verify release signing and update compatibility
+        id: verify
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPARE_RUN_ID: ${{ inputs.compare_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only PUBLIC certificate fingerprints are printed -- never keystore
+          # contents or passwords (keytool reads the password from the env).
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          REL="dist/askodox-live-${BUILD_NUMBER}.apk"
+          cert() { "$BT/apksigner" verify --print-certs "$1" > /tmp/certs.txt; grep -m1 'Signer #1 certificate SHA-256 digest' /tmp/certs.txt | awk '{print $NF}'; }
+          badge() { "$BT/aapt2" dump badging "$1" > /tmp/badge.txt 2>/dev/null || true; sed -n 1p /tmp/badge.txt; }
+          pkg() { badge "$1" | sed -n "s/.*name='\([^']*\)'.*/\1/p"; }
+          vcode() { badge "$1" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p"; }
+          "$BT/apksigner" verify --verbose "$REL" > verify.log
+          grep -E 'Verified using|Verifies' verify.log
+          REL_CERT="$(cert "$REL")"
+          KEY_CERT="$(keytool -exportcert -keystore android/app/askodox-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD | sha256sum | awk '{print $1}')"
+          {
+            echo "APK: $(basename "$REL")"
+            echo "package: $(pkg "$REL")"
+            echo "versionCode: $(vcode "$REL")"
+            echo "certificate SHA-256: $REL_CERT"
+            echo "ASKODOX release keystore certificate SHA-256: $KEY_CERT"
+          } | tee VERIFICATION.txt
+          if [ "$REL_CERT" != "$KEY_CERT" ]; then
+            echo "FAIL: release APK is not signed with the ASKODOX release key" | tee -a VERIFICATION.txt
+            exit 1
+          fi
+          # The production in-app update APK (main) must share key + package.
+          mkdir -p ref
+          if gh release download askodox-latest -p askodox-latest.apk -D ref --clobber 2>/dev/null; then
+            {
+              echo "production askodox-latest.apk: package $(pkg ref/askodox-latest.apk), versionCode $(vcode ref/askodox-latest.apk), certificate $(cert ref/askodox-latest.apk)"
+            } | tee -a VERIFICATION.txt
+            [ "$(cert ref/askodox-latest.apk)" = "$REL_CERT" ] || { echo "FAIL: certificate differs from production" | tee -a VERIFICATION.txt; exit 1; }
+            [ "$(pkg ref/askodox-latest.apk)" = "$(pkg "$REL")" ] || { echo "FAIL: package differs from production" | tee -a VERIFICATION.txt; exit 1; }
+          else
+            echo "WARN: production askodox-latest.apk not found for comparison" | tee -a VERIFICATION.txt
+          fi
+          # The build installed on the test phone (optional run id).
+          if [ -n "${COMPARE_RUN_ID:-}" ]; then
+            mkdir -p baseline
+            gh run download "$COMPARE_RUN_ID" --dir baseline
+            BASE="$(find baseline -name '*.apk' ! -name '*-debug.apk' | head -1)"
+            [ -n "$BASE" ] || { echo "FAIL: no signed APK in run $COMPARE_RUN_ID" | tee -a VERIFICATION.txt; exit 1; }
+            echo "installed baseline $(basename "$BASE"): package $(pkg "$BASE"), versionCode $(vcode "$BASE"), certificate $(cert "$BASE")" | tee -a VERIFICATION.txt
+            [ "$(cert "$BASE")" = "$REL_CERT" ] || { echo "FAIL: certificate differs from the installed build" | tee -a VERIFICATION.txt; exit 1; }
+            [ "$(pkg "$BASE")" = "$(pkg "$REL")" ] || { echo "FAIL: package differs from the installed build" | tee -a VERIFICATION.txt; exit 1; }
+            [ "$(vcode "$REL")" -gt "$(vcode "$BASE")" ] || { echo "FAIL: versionCode is not higher than the installed build" | tee -a VERIFICATION.txt; exit 1; }
+          fi
+          echo "PASS: signed with the ASKODOX release key; installs over builds with the same package and a lower versionCode" | tee -a VERIFICATION.txt
+          mkdir -p phone-test
+          cp "$REL" phone-test/
+          cp VERIFICATION.txt phone-test/
+
+      - name: Upload verified phone-test APK
+        if: steps.signing.outputs.configured == 'true' && steps.verify.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: askodox-phone-test-${{ env.BUILD_NUMBER }}
+          path: phone-test/*
           retention-days: 30
 
       - name: Publish ASKODOX in-app update channel
