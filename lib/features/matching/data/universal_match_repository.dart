@@ -90,6 +90,7 @@ class UniversalMatch {
     this.sourceName,
     this.duration,
     this.priceVerified = true,
+    this.offerTitle,
   });
 
   final String id;
@@ -126,6 +127,9 @@ class UniversalMatch {
   /// False when the price is only text found on a web page (snippet) --
   /// shown as "Page mentions ₹X", never as a confirmed price.
   final bool priceVerified;
+
+  /// The listing's best live offer (seller or admin campaign), if any.
+  final String? offerTitle;
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -166,6 +170,7 @@ class UniversalMatch {
           sourceName: json['source_name']?.toString(),
           duration: json['duration']?.toString(),
           priceVerified: json['price_verified'] != false,
+          offerTitle: (json['offer'] is Map ? (json['offer'] as Map)['title'] : json['offer_title'])?.toString(),
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -192,6 +197,7 @@ class UniversalMatch {
         'source_name': sourceName,
         'duration': duration,
         'price_verified': priceVerified,
+        'offer_title': offerTitle,
       };
 }
 
@@ -202,8 +208,16 @@ class UniversalMatchResult {
     this.sourceStatus = const <String, String>{},
     this.broadcastSent,
     this.scopeMessage,
+    this.advice = const [],
+    this.nextActions = const [],
   });
   final String dealId;
+
+  /// Short contextual advice from the backend (English / Telugu).
+  final List<({String text, String textTe})> advice;
+
+  /// What to offer when no ASKODOX provider has it yet (refer_provider...).
+  final List<String> nextActions;
   final List<UniversalMatch> matches;
 
   /// Real in-app leads created for registered providers (backend count);
@@ -353,6 +367,8 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       matches: rows,
       broadcastSent: broadcast is Map ? (broadcast['sent'] as num?)?.toInt() : null,
       scopeMessage: _scopeMessage(data['scope']),
+      advice: _advice(data['advice']),
+      nextActions: _nextActions(data['next_actions']),
       sourceStatus: status is Map
           ? {for (final e in status.entries) '${e.key}': '${e.value}'}
           : const {},
@@ -412,6 +428,14 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     return sandboxPartyGateStore.canShareContact(dealId: dealId, matchId: matchId);
   }
 
+  static List<({String text, String textTe})> _advice(Object? raw) => [
+        for (final a in (raw is List ? raw : const []))
+          if (a is Map && '${a['text'] ?? ''}'.isNotEmpty)
+            (text: '${a['text']}', textTe: '${a['text_te'] ?? a['text']}'),
+      ];
+
+  static List<String> _nextActions(Object? raw) => [for (final a in (raw is List ? raw : const [])) '$a'];
+
   static String? _scopeMessage(Object? scope) {
     if (scope is! Map || scope['expanded'] != true) return null;
     final message = scope['message']?.toString().trim() ?? '';
@@ -447,6 +471,8 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       dealId: '',
       matches: rows,
       scopeMessage: _scopeMessage(data['scope']),
+      advice: _advice(data['advice']),
+      nextActions: _nextActions(data['next_actions']),
       sourceStatus: status is Map ? {for (final e in status.entries) '${e.key}': '${e.value}'} : const {},
     );
   }

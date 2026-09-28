@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../application/location_controller.dart';
 import '../domain/geo_models.dart';
+import 'map_pin_picker.dart';
 
 class LocationSetupScreen extends ConsumerWidget {
   const LocationSetupScreen({super.key});
@@ -103,6 +104,26 @@ class LocationSetupScreen extends ConsumerWidget {
                 if (context.mounted) context.go('/nearby');
               },
             ),
+          ),
+          FilledButton.icon(
+            key: const Key('askodoxPickOnMap'),
+            icon: const Icon(Icons.map_outlined),
+            onPressed: () async {
+              final place = await AskodoxMapPinPicker.open(
+                context,
+                title: _t(context, 'Search or pick on map', 'వెతకండి లేదా మ్యాప్‌లో ఎంచుకోండి'),
+              );
+              if (place == null) return;
+              await controller.selectManualLocation(BuyerSavedLocation(
+                id: 'picked-${place.latitude.toStringAsFixed(4)}-${place.longitude.toStringAsFixed(4)}',
+                name: place.label,
+                address: place.label,
+                point: GeoPoint(place.latitude, place.longitude),
+                type: SavedLocationType.custom,
+              ));
+              if (context.mounted) context.go('/nearby');
+            },
+            label: Text(_t(context, 'Search address or pick on map', 'చిరునామా వెతకండి / మ్యాప్‌లో ఎంచుకోండి')),
           ),
           TextButton(
             onPressed: () => _coordinates(context, controller),

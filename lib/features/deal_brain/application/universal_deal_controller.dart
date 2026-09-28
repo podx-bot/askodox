@@ -167,6 +167,24 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(next));
   }
 
+  /// A pickup/drop chosen on the map: fills that end of the route with a
+  /// readable label AND its real coordinates, so it is never asked again.
+  void setRoutePoint({
+    required bool pickup,
+    required String label,
+    required double latitude,
+    required double longitude,
+  }) {
+    final current = state.deal;
+    if (current == null) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    final end = pickup ? 'from' : 'to';
+    fields[end] = label;
+    fields['${end}_lat'] = latitude;
+    fields['${end}_lng'] = longitude;
+    _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
+  }
+
   void applySelectedLocation({
     required String label,
     required double latitude,
