@@ -205,3 +205,37 @@ def test_discover_without_location_reports_the_location_failure(api, monkeypatch
     assert data["source_status"]["nearby"] in {"needs_location", "unavailable"}
     trace = _trace(client, admin, data["trace_key"])
     assert "location_searched" in str(trace)
+
+
+class _Resp:
+    def __init__(self, data):
+        self.data = data
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.data
+
+
+class _GeoClient:
+    """Geocoding API denied on the key (as on the real phone); Places works."""
+
+    def get(self, url, **kwargs):
+        return _Resp({"status": "REQUEST_DENIED", "results": []})
+
+    def post(self, url, **kwargs):
+        assert url.endswith("searchNearby")
+        return _Resp({"places": [{"displayName": {"text": "Vuyyuru"}, "addressComponents": [
+            {"longText": "Andhra Pradesh", "types": ["administrative_area_level_1"]}]}]})
+
+
+def test_current_location_is_named_even_when_geocoding_is_denied():
+    from app.services import external_call_budget
+    from app.services.google_maps_service import GoogleMapsService
+
+    external_call_budget.reset_for_tests()
+    maps = GoogleMapsService(api_key="test-key", client=_GeoClient())
+    place = maps.reverse_geocode(16.365, 80.844)
+    assert place["city"] == "Vuyyuru"
+    assert place["label"] == "Vuyyuru, Andhra Pradesh"

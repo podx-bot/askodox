@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/location/application/location_controller.dart';
 import 'package:podx/features/location/data/mock_geo_repository.dart';
 import 'package:podx/features/location/domain/geo_models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes/fake_device_location_gateway.dart';
 
@@ -112,5 +113,44 @@ void main() {
     await unresolved.requestPermission();
     expect(unresolved.state.defaultLocation?.name, 'Current location');
     expect(unresolved.state.defaultLocation?.address, isEmpty, reason: 'no claimed place');
+  });
+
+  group('dynamic current location at app start', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('already allowed: reads GPS, names the town, header shows it -- no prompt', () async {
+      final gateway = FakeDeviceLocationGateway(
+        position: const GeoPoint(16.365, 80.844),
+        alreadyAllowed: LocationPermissionStatus.granted,
+      );
+      final controller = LocationController(MockGeoRepository(), gateway,
+          placeNamer: (lat, lon) async => 'Vuyyuru, Andhra Pradesh');
+      await controller.restoreAndRefresh();
+      expect(controller.state.headerLocation, 'Vuyyuru');
+      expect(controller.state.defaultLocation?.point.latitude, 16.365, reason: 'search uses the same point');
+    });
+
+    test('not allowed: never prompts at start and never invents a place', () async {
+      final gateway = FakeDeviceLocationGateway(position: const GeoPoint(16.365, 80.844));
+      final controller = LocationController(MockGeoRepository(), gateway,
+          placeNamer: (lat, lon) async => 'Vuyyuru, Andhra Pradesh');
+      await controller.restoreAndRefresh();
+      expect(gateway.prompts, 0);
+      expect(controller.state.headerLocation, isNull);
+    });
+
+    test('a place picked by hand is kept at start (GPS does not override it)', () async {
+      final first = LocationController(MockGeoRepository(), FakeDeviceLocationGateway());
+      await first.selectManualLocation(const BuyerSavedLocation(
+          id: 'm', name: 'Gudivada', address: 'Gudivada, Andhra Pradesh',
+          point: GeoPoint(16.43, 80.99), type: SavedLocationType.custom));
+      final restarted = LocationController(
+        MockGeoRepository(),
+        FakeDeviceLocationGateway(position: const GeoPoint(16.365, 80.844), alreadyAllowed: LocationPermissionStatus.granted),
+      );
+      await restarted.restoreAndRefresh();
+      expect(restarted.state.headerLocation, 'Gudivada');
+      expect(restarted.state.defaultLocation?.point.latitude, 16.43);
+    });
   });
 }

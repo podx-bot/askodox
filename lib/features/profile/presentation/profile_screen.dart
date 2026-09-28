@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
+import '../../companion/askodox_companion.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
@@ -245,6 +246,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   subtitle: Text(_voiceLabel(voicePreference, te)),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _pickVoicePreference(te))),
+          // How the ASKODOX friend looks (never assumes a gender) and
+          // whether it moves (off = still image, saves battery).
+          Card(
+              key: const Key('askodoxCompanionLook'),
+              elevation: 0,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                ListTile(
+                  leading: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
+                  title: Text(t('ASKODOX friend', 'ASKODOX స్నేహితుడు'),
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Wrap(spacing: 8, children: [
+                    for (final look in AskodoxCompanionLook.values)
+                      ChoiceChip(
+                        key: ValueKey('askodoxLook-${look.name}'),
+                        selected: ref.watch(askodoxCompanionSettingsProvider).look == look,
+                        onSelected: (_) => ref.read(askodoxCompanionSettingsProvider.notifier).update(look: look),
+                        label: Text(switch (look) {
+                          AskodoxCompanionLook.robot => t('Robot', 'రోబోట్'),
+                          AskodoxCompanionLook.friendlyFace => t('Friendly face', 'స్నేహ ముఖం'),
+                          AskodoxCompanionLook.simpleOrb => t('Simple', 'సింపుల్'),
+                        }),
+                      ),
+                  ]),
+                ),
+                SwitchListTile(
+                  key: const Key('askodoxCompanionMotion'),
+                  title: Text(t('Friend moves while it works', 'పని చేస్తున్నప్పుడు కదులుతుంది')),
+                  value: ref.watch(askodoxCompanionSettingsProvider).animate,
+                  onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(animate: on),
+                ),
+              ])),
           const SizedBox(height: 12),
           Card(
               elevation: 0,

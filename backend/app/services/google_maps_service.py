@@ -101,7 +101,9 @@ class GoogleMapsService:
             self.last_error = True
             return None
         if str((payload or {}).get("status") or "").upper() != "OK":
-            return None
+            # Geocoding API not enabled on the key (REQUEST_DENIED) or no
+            # result: name the town from the nearest Places locality instead.
+            return self._locality_from_places(lat, lon)
         parts: dict[str, str] = {}
         for result in (payload.get("results") or [])[:5]:
             for component in (result or {}).get("address_components") or []:
@@ -127,6 +129,45 @@ class GoogleMapsService:
         label_parts = [parts.get("area"), parts.get("city") or parts.get("district"), parts.get("state")]
         label = ", ".join(dict.fromkeys(p for p in label_parts if p))
         return {**parts, "label": label, "latitude": lat, "longitude": lon}
+
+    PLACES_NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
+
+    def _locality_from_places(self, lat: float, lon: float) -> dict[str, Any] | None:
+        """Nearest town/locality around the point (Places API), or None."""
+        body = {
+            "includedTypes": ["locality", "sublocality", "neighborhood"],
+            "maxResultCount": 3,
+            "rankPreference": "DISTANCE",
+            "locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lon}, "radius": 10000.0}},
+        }
+
+        def fetch() -> Any:
+            response = self.client.post(
+                self.PLACES_NEARBY_URL,
+                json=body,
+                headers={"X-Goog-Api-Key": self.api_key,
+                         "X-Goog-FieldMask": "places.displayName,places.addressComponents"},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        try:
+            payload = external_call_budget.cached_call("google_places", ("locality", round(lat, 3), round(lon, 3)), fetch)
+        except (httpx.HTTPError, ValueError, TypeError):
+            return None
+        for place in (payload or {}).get("places") or []:
+            name = str(((place or {}).get("displayName") or {}).get("text") or "").strip()
+            if not name:
+                continue
+            state = ""
+            for component in place.get("addressComponents") or []:
+                if "administrative_area_level_1" in (component.get("types") or []):
+                    state = str(component.get("longText") or "").strip()
+            label = ", ".join(p for p in (name, state) if p)
+            return {"city": name, "state": state or None, "label": label, "latitude": lat, "longitude": lon,
+                    "source": "places"}
+        return None
 
     def search_places(
         self,

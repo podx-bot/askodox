@@ -16,6 +16,10 @@ abstract class DeviceLocationGateway {
   /// location selection instead of crashing.
   Future<LocationPermissionStatus> ensurePermission();
 
+  /// The current permission WITHOUT asking the user (used at app start to
+  /// refresh an already-allowed location silently). Never throws.
+  Future<LocationPermissionStatus> checkPermission();
+
   /// Reads the device's current GPS position.
   ///
   /// Only meaningful to call after [ensurePermission] has returned

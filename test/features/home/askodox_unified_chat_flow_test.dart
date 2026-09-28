@@ -662,6 +662,30 @@ void main() {
     expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
   });
 
+  testWidgets('several options = ONE compact horizontal rail; referral is a small chip; the friend says what it found',
+      (tester) async {
+    const a = UniversalMatch(id: 'online-0-a', title: 'Mixer grinder 750W at Store A', source: 'online',
+        subtitle: '369 latest offers on mixer grinders in Vijayawada 2026 with free delivery and a very long snippet',
+        destinationUrl: 'https://a.example/mixer', price: 3200, priceVerified: false);
+    const b = UniversalMatch(id: 'online-1-b', title: 'Mixer grinder at Store B', source: 'online',
+        destinationUrl: 'https://b.example/mixer');
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '', matches: [a, b], nextActions: ['refer_provider', 'find_more']),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+
+    expect(find.byKey(const ValueKey('askodoxRail-online')), findsOneWidget);
+    final card = tester.getSize(find.byKey(const ValueKey('askodoxResultCard-online-online-0-a')));
+    expect(card.width, lessThanOrEqualTo(282), reason: 'compact fixed-width card (272 + gap)');
+    expect(find.text('Page mentions ₹3200'), findsOneWidget, reason: 'unverified price is labelled');
+    expect(find.text('Know someone? Refer'), findsOneWidget);
+    expect(find.text('Know someone? Refer them to ASKODOX'), findsNothing);
+    expect(find.text('Found 2 options'), findsOneWidget);
+  });
+
   testWidgets('results stay ABOVE; the conversation about them continues BELOW; input stays at the bottom',
       (tester) async {
     final h = _Harness(

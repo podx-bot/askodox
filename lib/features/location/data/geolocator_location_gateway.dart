@@ -43,6 +43,21 @@ class GeolocatorLocationGateway implements DeviceLocationGateway {
   }
 
   @override
+  Future<LocationPermissionStatus> checkPermission() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return LocationPermissionStatus.servicesDisabled;
+      return switch (await Geolocator.checkPermission()) {
+        LocationPermission.always || LocationPermission.whileInUse => LocationPermissionStatus.granted,
+        LocationPermission.deniedForever => LocationPermissionStatus.deniedPermanently,
+        LocationPermission.denied => LocationPermissionStatus.notRequested,
+        LocationPermission.unableToDetermine => LocationPermissionStatus.notRequested,
+      };
+    } catch (_) {
+      return LocationPermissionStatus.notRequested;
+    }
+  }
+
+  @override
   Future<GeoPoint?> getCurrentPosition() async {
     try {
       final position = await Geolocator.getCurrentPosition(

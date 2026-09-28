@@ -71,7 +71,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final shell = widget.shell;
     final isTe = Localizations.localeOf(context).languageCode == 'te';
     final locationState = ref.watch(locationControllerProvider);
-    final locationLabel = locationState.displayLocation ?? (isTe ? 'లొకేషన్ ఎంచుకోండి' : 'Choose location');
+    final locationLabel = locationState.headerLocation ?? (isTe ? 'లొకేషన్ ఎంచుకోండి' : 'Choose location');
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
       appBar: AppBar(

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
+import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/growth/data/growth_repository.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/notifications/application/askodox_notifications.dart';
@@ -91,6 +92,30 @@ List<Override> _overrides({bool signedIn = true, _Orders? orders, _Device? devic
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('AI friend: every mood draws in every look (no assets/3D needed), look persists', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    for (final look in AskodoxCompanionLook.values) {
+      await container.read(askodoxCompanionSettingsProvider.notifier).update(look: look);
+      for (final mood in AskodoxCompanionMood.values) {
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(home: Center(child: AskodoxCompanion(mood: mood))),
+        ));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.takeException(), isNull, reason: '$look / $mood');
+      }
+    }
+    final restarted = ProviderContainer();
+    addTearDown(restarted.dispose);
+    await tester.pump(const Duration(milliseconds: 50));
+    restarted.read(askodoxCompanionSettingsProvider);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    expect(restarted.read(askodoxCompanionSettingsProvider).look, AskodoxCompanionLook.simpleOrb);
+    expect(askodoxCompanionLine(AskodoxCompanionMood.success, telugu: false, results: 1), 'Found 1 option');
+    expect(askodoxCompanionLine(AskodoxCompanionMood.idle, telugu: false), 'Ready');
+  });
 
   test('notifications: ON and silent by default, choices persist across restarts', () async {
     final first = ProviderContainer();

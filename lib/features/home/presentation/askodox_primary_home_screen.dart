@@ -42,7 +42,7 @@ import '../domain/need_clarification.dart';
 import '../domain/need_state.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
-import 'askodox_orb.dart';
+import '../../companion/askodox_companion.dart';
 import 'deal_lifecycle_panel.dart';
 import 'video_viewer_screen.dart';
 
@@ -2249,8 +2249,40 @@ class _AskodoxPrimaryHomeScreenState
         color: const Color(0xFFF9FBFF),
         child: Column(children: [
           Expanded(child: _active ? _chat(te) : _home(te)),
+          // During voice the existing voice status already says Listening /
+          // Speaking -- the friend bar never repeats it.
+          if (_active && _voicePhase == _VoicePhase.idle)
+            AskodoxCompanionBar(
+              mood: _companionMood,
+              telugu: te,
+              results: _latestResults()?.matches.length ?? 0,
+              onTap: _startVoice,
+            ),
           _composer(te)
         ]));
+  }
+
+  /// The friend's mood comes from what ASKODOX is actually doing (voice,
+  /// sending, results) -- one conversation, one state.
+  AskodoxCompanionMood get _companionMood {
+    switch (_voicePhase) {
+      case _VoicePhase.recording:
+        return AskodoxCompanionMood.listening;
+      case _VoicePhase.transcribing:
+      case _VoicePhase.thinking:
+        return AskodoxCompanionMood.thinking;
+      case _VoicePhase.speaking:
+        return AskodoxCompanionMood.speaking;
+      case _VoicePhase.idle:
+        break;
+    }
+    if (_sending) return AskodoxCompanionMood.thinking;
+    if (_turns.isNotEmpty && !_turns.last.isUser) {
+      final results = _resultsByTurn[_turns.length - 1];
+      if (results != null && results.failed) return AskodoxCompanionMood.help;
+      if (results != null && results.matches.isNotEmpty) return AskodoxCompanionMood.success;
+    }
+    return AskodoxCompanionMood.idle;
   }
 
   Widget _home(bool te) => ListView(
@@ -2284,7 +2316,9 @@ class _AskodoxPrimaryHomeScreenState
             ),
           const SizedBox(height: 8),
           Center(
-              child: AskodoxVoiceOrb(
+              child: AskodoxCompanion(
+                key: const Key('askodoxHomeOrb'),
+                mood: _companionMood == AskodoxCompanionMood.idle ? AskodoxCompanionMood.greeting : _companionMood,
                 onTap: _startVoice)),
           const SizedBox(height: 16),
           Text(
@@ -3180,14 +3214,17 @@ class _ChatResultsView extends StatelessWidget {
           ),
         if (results.nextActions.contains('refer_provider') && onRefer != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
+              // Small, contextual: shown only when no ASKODOX provider has
+              // this yet (seller, service provider, employer -- anyone).
+              child: ActionChip(
                 key: const Key('askodoxReferProvider'),
                 onPressed: onRefer,
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                label: Text(te ? 'ఎవరైనా తెలుసా? ASKODOX కి సూచించండి' : 'Know someone? Refer them to ASKODOX'),
+                visualDensity: VisualDensity.compact,
+                avatar: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                label: Text(te ? 'ఎవరైనా తెలుసా? సూచించండి' : 'Know someone? Refer'),
               ),
             ),
           ),
@@ -3214,23 +3251,20 @@ class _ChatResultsView extends StatelessWidget {
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
           _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal),
               _segmentIcon(segment)),
-          for (final match in rows)
-            _MatchCard(
-              match: match,
-              dealId: results.dealId,
-              te: te,
-              actionable: isActionable(match),
-              alreadySent: wasRequested(match),
-              onAsk: onAsk == null ? null : () => onAsk!(match),
-              onCompare: onCompare == null ? null : () => onCompare!(match),
-              onRequestSent: (orderId) => onRequestSent(match, orderId),
-              orderId: orderIdFor?.call(match),
-              requestContext: requestContext,
-              pendingQuestion: pendingQuestion,
-              refreshTick: refreshTick,
-              onAlternatives: onAlternatives,
-              onSupport: onSupport,
-            ),
+          // Several choices: ONE compact horizontal rail (swipe), so the
+          // options stay visible without a long vertical feed. A single
+          // option, or one with a live request/order, stays full width.
+          if (rows.length >= 2 && rows.every((m) => (orderIdFor?.call(m) ?? '').isEmpty))
+            SingleChildScrollView(
+              key: ValueKey('askodoxRail-${segment.name}'),
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [for (final match in rows) _card(match, compact: true)],
+              ),
+            )
+          else
+            for (final match in rows) _card(match),
         ],
         if (results.sourcesWith('needs_location').isNotEmpty)
           Padding(
@@ -3256,6 +3290,24 @@ class _ChatResultsView extends StatelessWidget {
       ]),
     );
   }
+
+  Widget _card(UniversalMatch match, {bool compact = false}) => _MatchCard(
+        match: match,
+        compact: compact,
+        dealId: results.dealId,
+        te: te,
+        actionable: isActionable(match),
+        alreadySent: wasRequested(match),
+        onAsk: onAsk == null ? null : () => onAsk!(match),
+        onCompare: onCompare == null ? null : () => onCompare!(match),
+        onRequestSent: (orderId) => onRequestSent(match, orderId),
+        orderId: orderIdFor?.call(match),
+        requestContext: requestContext,
+        pendingQuestion: pendingQuestion,
+        refreshTick: refreshTick,
+        onAlternatives: onAlternatives,
+        onSupport: onSupport,
+      );
 
   /// One honest line about sources that returned nothing or are down, so
   /// no section is ever faked.
@@ -3351,10 +3403,16 @@ class _MatchCard extends ConsumerStatefulWidget {
     this.refreshTick = 0,
     this.onAlternatives,
     this.onSupport,
+    this.compact = false,
   });
   final UniversalMatch match;
   final String? dealId;
   final bool te;
+
+  /// A card inside a horizontal rail: fixed width, short title, only the
+  /// essential facts (price/salary, distance/place, source) -- the rest is
+  /// behind Details.
+  final bool compact;
 
   /// AI-first: Send request / Connect is exposed only once the user has
   /// discussed this option with ASKODOX or asked for the seller.
@@ -3501,10 +3559,12 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     final requestable = action == ChatResultAction.connect ||
         action == ChatResultAction.sendRequest;
     final showRequest = requestable && (widget.actionable || placed);
+    final compact = widget.compact;
     return Container(
       key: ValueKey('askodoxResultCard-${match.source}-${match.id}'),
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      width: compact ? 272 : null,
+      margin: compact ? const EdgeInsets.only(right: 10, bottom: 10) : const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -3551,11 +3611,17 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(match.title,
-                    style: const TextStyle(
-                        color: _ink, fontWeight: FontWeight.w900, fontSize: 16)),
+                    maxLines: compact ? 2 : 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: _ink, fontWeight: FontWeight.w900, fontSize: compact ? 15 : 16)),
                 if (match.subtitle?.trim().isNotEmpty == true) ...[
                   const SizedBox(height: 4),
+                  // A long page snippet never becomes a paragraph: the full
+                  // text is behind Details.
                   Text(match.subtitle!,
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: _muted,
                           height: 1.35,
@@ -3568,7 +3634,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                     _meta(match.sourceName!.trim()),
                   if (match.duration?.trim().isNotEmpty == true)
                     _meta(match.duration!.trim()),
-                  if (score != null) _meta('${score.toStringAsFixed(0)}% match'),
+                  if (score != null && !compact) _meta('${score.toStringAsFixed(0)}% match'),
                   if (match.ratingAverage != null)
                     _meta(
                         '★ ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount})'),
@@ -3719,7 +3785,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       if (m.subtitle?.trim().isNotEmpty == true) (te ? 'వివరణ' : 'Description', m.subtitle!.trim()),
       (te ? 'మూలం' : 'Source', [_sourceLabel(m.source), if (m.sourceName?.trim().isNotEmpty == true) m.sourceName!.trim()].join(' · ')),
       if (m.segment?.trim().isNotEmpty == true) (te ? 'రకం' : 'Type', askodoxSegmentLabel(m.segment!)),
-      if (m.price != null) (te ? 'ధర' : 'Price', '₹${m.price!.toStringAsFixed(0)}'),
+      if (m.price != null)
+        (te ? 'ధర' : 'Price', '₹${m.price!.toStringAsFixed(0)}${m.priceVerified ? '' : (te ? ' (పేజీలో, నిర్ధారించలేదు)' : ' (from the page, not verified)')}'),
+      if (m.salaryText?.trim().isNotEmpty == true) (te ? 'జీతం' : 'Salary', m.salaryText!.trim()),
       if (m.distanceKm != null) (te ? 'దూరం' : 'Distance', '${m.distanceKm!.toStringAsFixed(1)} km'),
       if (m.locationLabel?.trim().isNotEmpty == true) (te ? 'ప్రదేశం' : 'Location', m.locationLabel!.trim()),
       if (m.availability?.trim().isNotEmpty == true) (te ? 'అందుబాటు' : 'Availability', m.availability!.trim()),
