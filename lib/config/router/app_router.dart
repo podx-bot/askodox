@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/route_guard.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../features/home/presentation/chat_first_home_host.dart';
-import '../../features/home/presentation/explore_screen.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/search/domain/search_models.dart';
@@ -22,9 +21,10 @@ import '../../features/seller/presentation/seller_registration_screen.dart';
 import '../../features/seller/presentation/seller_requests_screen.dart';
 import '../../features/seller/presentation/seller_shell.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../../features/watchlist/presentation/alerts_screen.dart';
+import '../../features/selling/presentation/my_listings_screen.dart';
+import '../../features/notifications/presentation/notification_settings_screen.dart';
+import '../../features/notifications/presentation/updates_screen.dart';
 import '../../features/watchlist/presentation/alert_simulator_screen.dart';
-import '../../features/watchlist/presentation/preferences_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
 import '../../features/admin/application/admin_controller.dart';
 import '../../features/admin/command_center/command_center_screen.dart';
@@ -32,7 +32,6 @@ import '../../features/admin/presentation/admin_screens.dart';
 import '../../features/admin/presentation/localized_admin_entry.dart';
 import '../../features/admin/presentation/localized_admin_sections.dart';
 import '../../features/location/presentation/location_setup_screen.dart';
-import '../../features/location/presentation/nearby_shops_screen.dart';
 import '../../features/location/presentation/shop_details_screen.dart';
 import '../../features/location/presentation/seller_location_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
@@ -43,7 +42,6 @@ import '../../features/developer/presentation/storage_usage_screen.dart';
 import '../../features/developer/presentation/performance_monitor_screen.dart';
 import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
-import '../../features/communication/presentation/localized_communication_screens.dart';
 import '../../features/communication/presentation/localized_seller_communication_screens.dart';
 import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/orders/presentation/order_screens.dart';
@@ -120,8 +118,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ]),
             StatefulShellBranch(routes: [
               GoRoute(
-                  path: '/alerts',
-                  builder: (context, state) => const AlertsScreen())
+                  path: '/updates',
+                  builder: (context, state) => const UpdatesScreen())
             ]),
             StatefulShellBranch(routes: [
               GoRoute(
@@ -129,23 +127,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   builder: (context, state) => const ProfileScreen())
             ]),
           ]),
-      GoRoute(
-          path: '/explore',
-          builder: (context, state) => const ExploreScreen()),
+      // One place per function: the old mock alerts / communication centre
+      // / preferences screens are merged into Updates + Notifications.
+      GoRoute(path: '/alerts', redirect: (context, state) => '/updates'),
+      GoRoute(path: '/explore', redirect: (context, state) => '/'),
       GoRoute(
           path: '/location',
           builder: (context, state) => const LocationSetupScreen()),
-      GoRoute(
-          path: '/nearby',
-          builder: (context, state) => const NearbyShopsScreen()),
+      // Nearby results appear in the chat for the chosen location; there is
+      // no separate (empty) "Nearby shops" page to navigate through.
+      GoRoute(path: '/nearby', redirect: (context, state) => '/'),
       GoRoute(
           path: '/shop/:id',
           builder: (context, state) =>
               ShopDetailsScreen(shopId: state.pathParameters['id']!)),
-      GoRoute(path: '/map/shop/:id', redirect: (context, state) => '/nearby'),
-      GoRoute(
-          path: '/nearby/product/:id', redirect: (context, state) => '/nearby'),
-      GoRoute(path: '/alert/:id/map', redirect: (context, state) => '/nearby'),
+      GoRoute(path: '/map/shop/:id', redirect: (context, state) => '/'),
+      GoRoute(path: '/nearby/product/:id', redirect: (context, state) => '/'),
+      GoRoute(path: '/alert/:id/map', redirect: (context, state) => '/updates'),
       GoRoute(
           path: '/product/:id',
           builder: (context, state) =>
@@ -170,27 +168,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) =>
               const ProductDiscoveryScreen(mode: SearchIntentType.voice)),
       GoRoute(
+          path: '/settings/notifications',
+          builder: (context, state) => const NotificationSettingsScreen()),
+      GoRoute(
           path: '/notification-preferences',
-          builder: (context, state) => const NotificationPreferencesScreen()),
+          redirect: (context, state) => '/settings/notifications'),
       GoRoute(
           path: '/communications',
-          builder: (context, state) => const LocalizedCommunicationHubScreen()),
-      GoRoute(
-          path: '/communications/notifications',
-          builder: (context, state) =>
-              const LocalizedNotificationCenterScreen()),
-      GoRoute(
-          path: '/communications/requests',
-          builder: (context, state) => const LocalizedBuyerRequestsScreen()),
-      GoRoute(
-          path: '/communications/following',
-          builder: (context, state) => const LocalizedFollowedShopsScreen()),
-      GoRoute(
-          path: '/communications/preferences',
-          builder: (context, state) =>
-              const LocalizedCommunicationPreferencesScreen()),
+          redirect: (context, state) => '/updates',
+          routes: [
+            GoRoute(path: 'notifications', redirect: (context, state) => '/updates'),
+            GoRoute(path: 'requests', redirect: (context, state) => '/updates'),
+            GoRoute(path: 'following', redirect: (context, state) => '/updates'),
+            GoRoute(path: 'preferences', redirect: (context, state) => '/settings/notifications'),
+          ]),
       GoRoute(
           path: '/deals', builder: (context, state) => const DealInboxScreen()),
+      GoRoute(
+          path: '/listings/mine',
+          builder: (context, state) => const MyListingsScreen()),
       GoRoute(
           path: '/orders/mine',
           builder: (context, state) => const MyOrdersScreen()),
@@ -204,15 +200,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   int.tryParse(state.pathParameters['requestId'] ?? '') ?? 0,
               userId: state.uri.queryParameters['user'] ?? '',
               otherUserId: state.uri.queryParameters['other'] ?? '')),
-      GoRoute(
-          path: '/alert-simulator',
-          builder: (context, state) => const AlertSimulatorScreen()),
+      if (kDebugMode)
+        GoRoute(
+            path: '/alert-simulator',
+            builder: (context, state) => const AlertSimulatorScreen()),
       GoRoute(
           path: '/analytics/buyer',
           builder: (context, state) => const BuyerInsightsScreen()),
-      GoRoute(
-          path: '/analytics/privacy',
-          builder: (context, state) => const AnalyticsPrivacyScreen()),
+      GoRoute(path: '/analytics/privacy', redirect: (context, state) => '/privacy'),
       GoRoute(
           path: '/privacy',
           builder: (context, state) => const PrivacyCenterScreen()),

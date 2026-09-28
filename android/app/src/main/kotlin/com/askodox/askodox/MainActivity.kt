@@ -2,7 +2,12 @@ package com.askodox.askodox
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
@@ -15,6 +20,8 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -29,6 +36,14 @@ class MainActivity : FlutterActivity() {
     private val voiceRequestCode = 4301
     private val locationPermissionRequestCode = 4302
     private val microphonePermissionRequestCode = 4303
+    private val notificationPermissionRequestCode = 4304
+    private var pendingNotificationPermission: MethodChannel.Result? = null
+    // Routine ASKODOX updates (seller replies, request status, price/stock)
+    // are SILENT by default; "important" is reserved for time-critical ones.
+    private val updatesChannelId = "askodox_updates"
+    private val importantChannelId = "askodox_important"
+    // A tapped notification opens this in-app route (read once by Dart).
+    private var launchRoute: String? = null
     private val acknowledgementUtteranceId = "askodox_voice_acknowledgement"
     private val replyUtteranceId = "askodox_voice_reply"
     private var pendingVoiceResult: MethodChannel.Result? = null
@@ -109,6 +124,20 @@ class MainActivity : FlutterActivity() {
                         result,
                     )
                     "getCurrentLocation" -> getCurrentLocation(result)
+                    "notificationsEnabled" -> result.success(NotificationManagerCompat.from(this).areNotificationsEnabled())
+                    "requestNotificationPermission" -> requestNotificationPermission(result)
+                    "openNotificationSettings" -> { openNotificationSettings(); result.success(true) }
+                    "openAppSettings" -> { openAppSettings(); result.success(true) }
+                    "showNotification" -> result.success(
+                        showNotification(
+                            call.argument<Int>("id") ?: 0,
+                            call.argument<String>("title") ?: "ASKODOX",
+                            call.argument<String>("body") ?: "",
+                            call.argument<String>("route"),
+                            call.argument<Boolean>("important") ?: false,
+                        ),
+                    )
+                    "consumeLaunchRoute" -> { result.success(launchRoute); launchRoute = null }
                     else -> result.notImplemented()
                 }
             }
@@ -510,8 +539,100 @@ class MainActivity : FlutterActivity() {
         result.success(values?.firstOrNull())
     }
 
+    // ------------------------------------------------------ notifications --
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        launchRoute = intent?.getStringExtra("askodox_route")
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("askodox_route")?.let { launchRoute = it }
+    }
+
+    private fun ensureNotificationChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        manager.createNotificationChannel(
+            NotificationChannel(updatesChannelId, "ASKODOX updates", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Seller replies, request status, price and availability changes (silent)"
+                setSound(null, null)
+                enableVibration(false)
+            },
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(importantChannelId, "Important", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Security and time-critical account messages"
+            },
+        )
+    }
+
+    private fun requestNotificationPermission(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(NotificationManagerCompat.from(this).areNotificationsEnabled())
+            return
+        }
+        pendingNotificationPermission?.success(false)
+        pendingNotificationPermission = result
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), notificationPermissionRequestCode)
+    }
+
+    private fun openNotificationSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+        }
+        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    private fun openAppSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
+    private fun showNotification(id: Int, title: String, body: String, route: String?, important: Boolean): Boolean {
+        val manager = NotificationManagerCompat.from(this)
+        if (!manager.areNotificationsEnabled()) return false
+        ensureNotificationChannels()
+        val open = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            if (!route.isNullOrBlank()) putExtra("askodox_route", route)
+        }
+        val tap = PendingIntent.getActivity(
+            this, id, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(this, if (important) importantChannelId else updatesChannelId)
+            .setSmallIcon(applicationInfo.icon)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(if (important) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
+            .setSilent(!important)
+            .setAutoCancel(true)
+            .setContentIntent(tap)
+            .build()
+        return try {
+            manager.notify(id, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == notificationPermissionRequestCode) {
+            val result = pendingNotificationPermission ?: return
+            pendingNotificationPermission = null
+            result.success(grantResults.any { it == PackageManager.PERMISSION_GRANTED })
+            return
+        }
         if (requestCode == microphonePermissionRequestCode) {
             val result = pendingRecordingStart ?: return
             pendingRecordingStart = null

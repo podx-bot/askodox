@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
+import '../../home/application/conversation_archive.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
 
@@ -201,37 +203,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 elevation: 0,
                 child: ListTile(
                     leading: const Icon(Icons.storefront_rounded),
-                    title: Text(t('Seller dashboard', 'Seller dashboard')),
+                    title: Text(t('My listings', 'నా లిస్టింగ్‌లు')),
                     subtitle: Text(t(
-                        'Manage your shop, products, prices and requests.',
-                        'మీ షాప్, ప్రోడక్ట్స్, ధరలు, requests నిర్వహించండి.')),
+                        'What buyers can find from you. Remove or add listings.',
+                        'కొనుగోలుదారులకు కనిపించేవి. తీసివేయండి లేదా కొత్తవి జోడించండి.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/seller/login'))),
-          // Real, backend-persisted orders (see docs/ASKODOX_EXECUTION_TRACKER.md,
-          // round 5) -- not the old local-only "Place order" animation.
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  leading: const Icon(Icons.receipt_long_rounded,
-                      color: Color(0xFF1769FF)),
-                  title: Text(t('My orders', 'నా ఆర్డర్లు')),
-                  subtitle: Text(t(
-                      'Everything you have ordered from other sellers on ASKODOX.',
-                      'ASKODOX‌లో మీరు ఇతర విక్రేతల నుండి ఆర్డర్ చేసినవన్నీ.')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/orders/mine'))),
-          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))
+                    onTap: () => context.push('/listings/mine'))),
+          // Request status (my orders, incoming orders, leads) lives in ONE
+          // place: the Updates tab.
+          if (ref.watch(authSessionProvider).user == null)
             Card(
+                key: const Key('askodoxProfileSignIn'),
                 elevation: 0,
                 child: ListTile(
-                    leading: const Icon(Icons.move_to_inbox_rounded,
-                        color: Color(0xFF1769FF)),
-                    title: Text(t('Incoming orders', 'వచ్చిన ఆర్డర్లు')),
-                    subtitle: Text(t(
-                        'Orders buyers have placed for your real listings.',
-                        'మీ నిజమైన లిస్టింగ్‌ల కోసం కొనుగోలుదారులు పెట్టిన ఆర్డర్లు.')),
+                    leading: const Icon(Icons.phone_iphone_rounded, color: Color(0xFF1769FF)),
+                    title: Text(t('Sign in with your phone', 'మీ ఫోన్‌తో సైన్ ఇన్ చేయండి')),
+                    subtitle: Text(t('Needed only to send requests and see their status.',
+                        'అభ్యర్థనలు పంపడానికి, వాటి స్థితి చూడడానికి మాత్రమే అవసరం.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/orders/incoming'))),
+                    onTap: () => context.push('/onboarding?signin=1'))),
           if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.deliveryPartner))
             Card(
                 elevation: 0,
@@ -243,7 +233,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         'See nearby delivery requests you can choose to accept.',
                         'మీ దగ్గరలో ఉన్న delivery requests చూసి accept చేయవచ్చు.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/alerts'))),
+                    onTap: () => context.go('/updates'))),
           const SizedBox(height: 12),
           Card(
               elevation: 0,
@@ -317,17 +307,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Card(
               elevation: 0,
               child: ListTile(
-                  leading: const Icon(Icons.settings_outlined),
-                  title: Text(t('Settings', 'సెట్టింగ్స్')),
+                  leading: const Icon(Icons.notifications_none_rounded),
+                  title: Text(t('Notifications', 'నోటిఫికేషన్స్')),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/notification-preferences'))),
+                  onTap: () => context.push('/settings/notifications'))),
           Card(
               elevation: 0,
               child: ListTile(
                   leading: const Icon(Icons.support_agent_rounded),
-                  title: Text(t('Support', 'సపోర్ట్')),
+                  title: Text(t('Help', 'సహాయం')),
+                  subtitle: Text(t('Ask ASKODOX; it connects you to Customer Care if needed.',
+                      'ASKODOX ని అడగండి; అవసరమైతే కస్టమర్ కేర్‌కు కలుపుతుంది.')),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/communications'))),
+                  onTap: () {
+                    ref.read(askodoxChatRequestProvider.notifier).state =
+                        AskodoxChatRequest.ask(t('I need help with ASKODOX', 'నాకు ASKODOX తో సహాయం కావాలి'));
+                    context.go('/');
+                  })),
           Card(
               elevation: 0,
               child: ListTile(

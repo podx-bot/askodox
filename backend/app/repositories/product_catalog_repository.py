@@ -151,6 +151,15 @@ class ProductCatalogRepository:
         data["features"] = json.loads(data.pop("features_json") or "[]")
         return data
 
+    def deactivate_for_seller(self, product_id: int, seller_user_id: str) -> bool:
+        """Take one of the seller's OWN listings down (never another's)."""
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "UPDATE seller_products SET active=0 WHERE id=? AND seller_user_id=? AND active=1",
+                (int(product_id), str(seller_user_id)),
+            )
+            return cursor.rowcount > 0
+
     def list_active_for_seller(self, seller_user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """All of one seller's own active listings, most recently updated first.
 

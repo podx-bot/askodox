@@ -191,9 +191,12 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     required double latitude,
     required double longitude,
     double? radiusKm,
+    bool replace = false,
   }) {
     final current = state.deal;
-    if (current == null || current.location.isKnown) return;
+    // [replace]: the user picked a NEW location since this deal took the
+    // previous one -- "nearby" must follow the location they chose now.
+    if (current == null || (current.location.isKnown && !replace)) return;
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
     final cleanLabel = label.trim();
     final next = current.copyWith(

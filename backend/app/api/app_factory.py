@@ -267,6 +267,14 @@ def create_app() -> FastAPI:
     app.include_router(product_catalog_admin_router)
     app.include_router(product_catalog_self_service_router)
     app.include_router(orders_router)
+    from app.api.routes.account_privacy import deleted_before, router as account_privacy_router
+    from app.services import session_tokens
+
+    app.include_router(account_privacy_router)
+    # Sessions of a deleted account stop working everywhere at once.
+    session_tokens.set_revocation_check(
+        lambda user_id, issued_at: deleted_before(container.settings.database_path, user_id, issued_at)
+    )
     from app.api.routes.growth import admin_router as growth_admin_router, router as growth_router
 
     app.include_router(growth_router)

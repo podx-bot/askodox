@@ -19,8 +19,9 @@ class RouteGuard {
     // The user profile is intentionally available before sign-in so onboarding,
     // language, seller entry and app settings can be reached from the main menu.
     // Only genuinely private/authenticated areas remain protected.
-    final protected = location.startsWith('/privacy') ||
-        location.startsWith('/seller/') ||
+    // Privacy information is for everyone; its account actions (download,
+    // delete) appear only when signed in and are checked by the server.
+    final protected = location.startsWith('/seller/') ||
         location.startsWith('/admin/');
 
     if (protected && session.status != AuthStatus.loggedIn) {
