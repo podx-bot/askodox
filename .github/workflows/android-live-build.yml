@@ -226,8 +226,10 @@ jobs:
             sed -n 's/.*[Ss]igner[^:]*:\{0,1\} *certificate SHA-256 digest: *//p' /tmp/certs.txt | head -n 1 | norm
           }
           badge() { "$BT/aapt2" dump badging "$1" > /tmp/badge.txt 2>/dev/null || true; sed -n 1p /tmp/badge.txt; }
-          pkg() { badge "$1" | sed -n "s/.*name='\([^']*\)'.*/\1/p"; }
-          vcode() { badge "$1" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p"; }
+          # First field of "package: name='<id>' versionCode='<n>' ..." (later
+          # fields such as platformBuildVersionName='16' must not be matched).
+          pkg() { badge "$1" | sed -n "s/^package: name='\([^']*\)'.*/\1/p"; }
+          vcode() { badge "$1" | sed -n "s/^package: .* versionCode='\([0-9]*\)'.*/\1/p"; }
           "$BT/apksigner" verify --verbose "$REL" > verify.log
           grep -E 'Verified using|Verifies' verify.log
           # Public certificate details of the release APK (no secrets).
@@ -243,6 +245,7 @@ jobs:
             grep -iE 'error|exception' /tmp/keystore.txt | sed 's/password[^ ]*/[redacted]/Ig' | head -n 3 || true
           fi
           [ -n "$REL_CERT" ] || { echo "FAIL: could not read the release APK certificate"; sed -n 1,5p /tmp/certs.txt; exit 1; }
+          [ -n "$(pkg "$REL")" ] && [ -n "$(vcode "$REL")" ] || { echo "FAIL: could not read package / versionCode"; badge "$REL"; exit 1; }
           [ -n "$KEY_CERT" ] || { echo "FAIL: could not read the release keystore certificate"; exit 1; }
           {
             echo "APK: $(basename "$REL")"
