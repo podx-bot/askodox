@@ -89,6 +89,8 @@ void main() {
   });
 
   test('nearby seller refresh responds to radius', () async {
+    // A real place must be chosen first -- no built-in city is assumed.
+    c.moveMap(const GeoPoint(17.4156, 78.4347));
     await c.setRadius(100);
     final short = c.state.shops.length;
     await c.setRadius(5000);

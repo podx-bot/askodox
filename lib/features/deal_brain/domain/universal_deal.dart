@@ -163,6 +163,14 @@ class UniversalDeal {
         if (schema.id == explicit) return schema;
       }
     }
+    // The AI's category (semantic, any language) wins when it names a known
+    // profile ("car audio amplifier" is audio, not a vehicle); otherwise the
+    // user's words; otherwise the general profile.
+    final aiCategory = dynamicFields['aiCategory']?.toString() ?? '';
+    if (aiCategory.isNotEmpty) {
+      final fromAi = ProductCategorySchemas.resolve(aiCategory);
+      if (fromAi.id != ProductCategorySchemas.general.id) return fromAi;
+    }
     return ProductCategorySchemas.resolve('${subject ?? ''} $rawText');
   }
 

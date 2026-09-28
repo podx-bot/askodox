@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.provider.Settings
 import android.content.pm.PackageManager
@@ -20,6 +21,7 @@ import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -33,6 +35,10 @@ import java.util.Locale
 
 class MainActivity : FlutterActivity() {
     private val updateChannel = "com.askodox.app/update"
+    private val installStatusAction = "com.askodox.askodox.INSTALL_STATUS"
+    // Device channel kept so native speech progress (word ranges) can reach
+    // the ASKODOX friend's lip-sync in Dart.
+    private var deviceMethods: MethodChannel? = null
     private val deviceChannel = "com.askodox.app/device"
     private val voiceRequestCode = 4301
     private val locationPermissionRequestCode = 4302
@@ -76,8 +82,20 @@ class MainActivity : FlutterActivity() {
                     result.error("missing_path", "APK path missing", null)
                     return@setMethodCallHandler
                 }
+                val apk = File(path)
+                if (!apk.isFile || apk.length() <= 0L) {
+                    result.error("missing_apk", "Downloaded APK is missing or empty", null)
+                    return@setMethodCallHandler
+                }
                 try {
-                    val apk = File(path)
+                    // Primary: Android PackageInstaller session (no file path
+                    // has to be shareable). Fallback: the system install intent.
+                    installWithPackageInstaller(apk)
+                    result.success(true)
+                    return@setMethodCallHandler
+                } catch (_: Exception) {
+                }
+                try {
                     val uri = FileProvider.getUriForFile(this, "$packageName.askodox.fileprovider", apk)
                     startActivity(Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
                         setDataAndType(uri, "application/vnd.android.package-archive")
@@ -96,7 +114,9 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceChannel)
+        val device = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceChannel)
+        deviceMethods = device
+        device
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startVoiceSearch" -> startVoiceSearch(call.argument("languageCode"), result)
@@ -108,6 +128,7 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "playReplyAudio" -> playReplyAudio(call.argument<ByteArray>("bytes"), result)
+                    "replyAudioProgress" -> result.success(replyAudioProgress())
                     "stopSpeaking" -> {
                         stopSpeaking()
                         result.success(true)
@@ -160,7 +181,19 @@ class MainActivity : FlutterActivity() {
             ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                 languageResult != TextToSpeech.LANG_NOT_SUPPORTED
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) = Unit
+                override fun onStart(utteranceId: String?) {
+                    if (utteranceId != replyUtteranceId) return
+                    runOnUiThread { deviceMethods?.invokeMethod("speechStarted", null) }
+                }
+
+                // Word being spoken right now (API 26+): drives the friend's
+                // mouth in sync with the device voice.
+                override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
+                    if (utteranceId != replyUtteranceId) return
+                    runOnUiThread {
+                        deviceMethods?.invokeMethod("speechRange", mapOf("start" to start, "end" to end))
+                    }
+                }
 
                 override fun onDone(utteranceId: String?) {
                     if (utteranceId != acknowledgementUtteranceId && utteranceId != replyUtteranceId) return
@@ -303,6 +336,69 @@ class MainActivity : FlutterActivity() {
         "hi" -> "समझ गया। आपकी रिक्वेस्ट आगे बढ़ा रहा हूँ।"
         "or" -> "ବୁଝିଲି। ଆପଣଙ୍କ ଅନୁରୋଧ ଜାରି ରଖୁଛି।"
         else -> "Got it. Continuing your request."
+    }
+
+    /** Position/duration of the Sarvam reply audio (lip-sync timing). */
+    private fun replyAudioProgress(): Map<String, Int>? {
+        val player = mediaPlayer ?: return null
+        return try {
+            mapOf("position" to player.currentPosition, "duration" to player.duration)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun installWithPackageInstaller(source: File) {
+        val installer = packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setAppPackageName(packageName)
+        }
+        val sessionId = installer.createSession(params)
+        installer.openSession(sessionId).use { session ->
+            source.inputStream().use { input ->
+                session.openWrite("ASKODOX-update.apk", 0L, source.length()).use { output ->
+                    input.copyTo(output)
+                    session.fsync(output)
+                }
+            }
+            val callback = Intent(this, MainActivity::class.java).apply {
+                action = installStatusAction
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            val mutableFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+            val sender = PendingIntent.getActivity(
+                this, sessionId, callback, PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag,
+            ).intentSender
+            session.commit(sender)
+        }
+    }
+
+    private fun handleInstallStatus(statusIntent: Intent?) {
+        if (statusIntent?.action != installStatusAction) return
+        when (val status = statusIntent.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                val confirmIntent: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    statusIntent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    statusIntent.getParcelableExtra(Intent.EXTRA_INTENT)
+                }
+                if (confirmIntent != null) {
+                    confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(confirmIntent)
+                } else {
+                    Toast.makeText(this, "ASKODOX update needs install confirmation", Toast.LENGTH_LONG).show()
+                }
+            }
+            PackageInstaller.STATUS_SUCCESS ->
+                Toast.makeText(this, "ASKODOX update installed", Toast.LENGTH_SHORT).show()
+            Int.MIN_VALUE -> Unit
+            else -> {
+                val message = statusIntent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                    ?: "Android installer failed (status $status)"
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun finishSpeechResult(completed: Boolean) {
@@ -579,11 +675,14 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         launchRoute = intent?.getStringExtra("askodox_route")
+        handleInstallStatus(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         intent.getStringExtra("askodox_route")?.let { launchRoute = it }
+        handleInstallStatus(intent)
     }
 
     private fun ensureNotificationChannels() {
@@ -696,6 +795,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        deviceMethods = null
         cancelVoiceRecording()
         try { mediaPlayer?.release() } catch (_: Exception) {}
         mediaPlayer = null

@@ -63,37 +63,11 @@ cat > "$RES/xml/askodox_update_paths.xml" <<'EOF'
 <paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="askodox_updates" path="." /><files-path name="askodox_files" path="." /></paths>
 EOF
 
-cat > "$KOTLIN_DIR/MainActivity.kt" <<'EOF'
-package com.askodox.askodox
-
-import android.content.Intent
-import androidx.core.content.FileProvider
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-import java.io.File
-
-class MainActivity : FlutterActivity() {
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.askodox.app/update")
-            .setMethodCallHandler { call, result ->
-                if (call.method != "installApk") { result.notImplemented(); return@setMethodCallHandler }
-                val path = call.argument<String>("path")
-                if (path.isNullOrBlank()) { result.error("missing_path", "APK path missing", null); return@setMethodCallHandler }
-                try {
-                    val apk = File(path)
-                    val uri = FileProvider.getUriForFile(this, "$packageName.askodox.fileprovider", apk)
-                    startActivity(Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(uri, "application/vnd.android.package-archive")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    })
-                    result.success(true)
-                } catch (e: Exception) { result.error("install_failed", e.message, null) }
-            }
-    }
-}
-EOF
+# MainActivity.kt is committed (android/app/src/main/kotlin/...) and is the
+# ONE source of the native bridge (updater, voice, TTS + lip-sync events,
+# location + Geocoder, notifications). `flutter create` keeps it; this script
+# must never overwrite it with an older copy.
+test -f "$KOTLIN_DIR/MainActivity.kt" || { echo "Committed MainActivity.kt missing in $KOTLIN_DIR" >&2; exit 1; }
 
 python3 - "$MANIFEST" <<'PY'
 from pathlib import Path

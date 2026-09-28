@@ -33,7 +33,7 @@ class UniversalAIAssistantService:
         "date", "time", "timing", "location", "from", "to", "budget", "price",
         "salary", "pay", "pay_basis", "duration", "shift", "context", "variant",
         "quality", "size", "model", "brand", "fulfilment", "availability", "specialist",
-        "service_type", "job_type", "seats", "notes",
+        "service_type", "job_type", "seats", "notes", "clarify_options",
     }
     # Phrases that indicate the model's reply is asking the user for their
     # location/address, in the language mixes ASKODOX users actually type in.
@@ -244,6 +244,10 @@ class UniversalAIAssistantService:
             "Useful entity keys include subject, category, role, skill, quantity, unit, headcount, date, time, timing, location, from, to, budget, price, salary, pay, pay_basis, duration, shift, context, variant, quality, size, model, brand, fulfilment, availability, specialist, service_type, job_type, seats, notes. "
             "brand = the maker/brand/company the user named for the thing wanted (any category, e.g. Tata, Voltas, a local shop brand); "
             "a later message naming another brand replaces it. "
+            "Genuine ambiguity (any category): only when the wanted thing could mean clearly different kinds of things "
+            "(e.g. 'tablet' = a device or medicine), set action to clarify_need, put 2-4 short precise alternatives "
+            "(each usable as a search subject, in the user's language) in entities.clarify_options, and make reply ONE short question. "
+            "Never use clarify_need for brand, budget, size, quantity or anything a normal follow-up can ask. "
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
             "Do not claim a booking, payment, message, search or match happened. "
             "Important distinction: 'delivery job kavali' is JOB_SEEKER; 'delivery boys/staff kavali na shop ki' is STAFFING; "

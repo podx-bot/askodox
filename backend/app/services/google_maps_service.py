@@ -70,7 +70,7 @@ class GoogleMapsService:
             "place_id": str(first.get("place_id") or ""),
         }
 
-    def api_status(self, latitude: float = 16.5062, longitude: float = 80.6480) -> dict[str, str]:
+    def api_status(self, latitude: float = 22.5, longitude: float = 79.0) -> dict[str, str]:
         """Live, per-API readiness of THIS key (Admin: Integrations → Check).
 
         Each Google API is enabled separately on the key's Cloud project;

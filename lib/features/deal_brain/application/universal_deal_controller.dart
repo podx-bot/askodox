@@ -363,6 +363,16 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     )));
   }
 
+  /// The AI's own category label for the active need (e.g. "television",
+  /// "home appliance repair", "పౌల్ట్రీ"). Stored as-is; never replaces
+  /// what the user said.
+  void applyAiCategory(String category) {
+    final current = state.deal;
+    final clean = category.trim();
+    if (current == null || clean.isEmpty || current.dynamicFields['aiCategory'] == clean) return;
+    _setSession(_sessionFor(current.copyWith(dynamicFields: {...current.dynamicFields, 'aiCategory': clean})));
+  }
+
   /// Make [deal] the active requirement (a category the customer returns to
   /// keeps its own answers -- nothing from another category leaks in).
   void adopt(UniversalDeal deal) => _setSession(_sessionFor(deal));

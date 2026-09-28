@@ -401,7 +401,9 @@ class UniversalMultiSourceResultService:
                 "subtitle": place.get("address") or "Local business (not on ASKODOX yet)",
                 "distance_km": km,
                 "rating_average": rating,
-                "review_count": int(place.get("rating_count") or 0),
+                # Unknown stays unknown (never "0 reviews" for a place Google
+                # simply did not report on).
+                "review_count": int(place["rating_count"]) if place.get("rating_count") not in (None, "") else None,
                 "availability": ("Open now" if place.get("open_now") is True else None),
                 "destination_url": place.get("maps_url") or None,
                 "source": "external",

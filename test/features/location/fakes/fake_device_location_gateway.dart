@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:podx/features/location/domain/device_location_gateway.dart';
 import 'package:podx/features/location/domain/geo_models.dart';
 
@@ -29,4 +31,14 @@ class FakeDeviceLocationGateway implements DeviceLocationGateway {
 
   @override
   Future<GeoPoint?> getCurrentPosition() async => position;
+
+  /// Push a new device position (the phone moved).
+  final movements = StreamController<GeoPoint>.broadcast();
+  int watchers = 0;
+
+  @override
+  Stream<GeoPoint> watchPosition({int distanceFilterMetres = 300}) {
+    watchers++;
+    return movements.stream;
+  }
 }

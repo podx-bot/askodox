@@ -10,7 +10,6 @@ on:
       - 'lib/services/vision_api_service.dart'
       - 'lib/services/multimodal_capture_service.dart'
       - 'lib/features/search/application/product_discovery_controller.dart'
-      - 'lib/features/search/presentation/product_discovery_screen.dart'
       - 'lib/features/home/presentation/askodox_primary_home_screen.dart'
       - '.github/workflows/multimodal-intelligence-gate.yml'
   pull_request:
@@ -21,7 +20,6 @@ on:
       - 'lib/services/vision_api_service.dart'
       - 'lib/services/multimodal_capture_service.dart'
       - 'lib/features/search/application/product_discovery_controller.dart'
-      - 'lib/features/search/presentation/product_discovery_screen.dart'
       - 'lib/features/home/presentation/askodox_primary_home_screen.dart'
       - '.github/workflows/multimodal-intelligence-gate.yml'
   workflow_dispatch:
@@ -110,7 +108,9 @@ jobs:
           controller = (root / 'lib/features/search/application/product_discovery_controller.dart').read_text(encoding='utf-8')
           capture = (root / 'lib/services/multimodal_capture_service.dart').read_text(encoding='utf-8')
           vision_client = (root / 'lib/services/vision_api_service.dart').read_text(encoding='utf-8')
-          screen = (root / 'lib/features/search/presentation/product_discovery_screen.dart').read_text(encoding='utf-8')
+          # Camera / gallery / video now live in Main Chat (the old discovery
+          # screen was unreachable and is removed).
+          screen = (root / 'lib/features/home/presentation/askodox_primary_home_screen.dart').read_text(encoding='utf-8')
 
           assert 'extractMockText' not in controller
           assert 'local://pending-product-image.jpg' not in controller
@@ -120,9 +120,8 @@ jobs:
           assert '/vision/analyze' in vision_client
           assert 'ImageSource.camera' in capture
           assert 'ImageSource.gallery' in capture
-          assert ".runOcr('camera')" in screen
-          assert ".runOcr('gallery')" in screen
-          assert '.uploadImage()' in screen
+          assert 'capture.captureCamera()' in screen
+          assert 'capture.chooseGallery()' in screen
           assert 'Camera OCR is being connected' not in screen
           assert 'Image understanding is being connected' not in screen
           assert 'String _visionText(Map<String, dynamic> analysis)' in controller

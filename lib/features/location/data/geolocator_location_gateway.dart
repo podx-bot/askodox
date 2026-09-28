@@ -72,4 +72,21 @@ class GeolocatorLocationGateway implements DeviceLocationGateway {
       return null;
     }
   }
+
+  @override
+  Stream<GeoPoint> watchPosition({int distanceFilterMetres = 300}) {
+    try {
+      return Geolocator.getPositionStream(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          distanceFilter: distanceFilterMetres,
+        ),
+      )
+          .map((position) => GeoPoint(position.latitude, position.longitude))
+          .where((point) => point.isValid)
+          .handleError((Object _) {});
+    } catch (_) {
+      return const Stream<GeoPoint>.empty();
+    }
+  }
 }

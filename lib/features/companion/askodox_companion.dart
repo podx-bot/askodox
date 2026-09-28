@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'companion_3d.dart';
+import 'companion_voice.dart';
 
 /// What the ASKODOX friend is doing right now. Driven by the SAME chat /
 /// voice / results state as the rest of the app -- the companion is a view
@@ -13,13 +16,16 @@ import 'companion_3d.dart';
 enum AskodoxCompanionMood { idle, greeting, listening, thinking, speaking, explaining, success, help }
 
 /// How the friend looks. The ASKODOX robot is the default brand look; other
-/// looks are neutral (no gender is ever assumed). Richer/3D renderers can
-/// be added later behind [askodoxCompanion3dEnabled] without touching the
-/// chat or actions.
+/// looks are neutral (no gender is ever assumed). New looks/meshes plug into
+/// [AskodoxMesh] without touching the chat or actions.
 enum AskodoxCompanionLook { robot, friendlyFace, simpleOrb }
 
 class AskodoxCompanionSettings {
-  const AskodoxCompanionSettings({this.look = AskodoxCompanionLook.robot, this.animate = true, this.render3d = true});
+  const AskodoxCompanionSettings(
+      {this.look = AskodoxCompanionLook.robot, this.animate = true, this.render3d = true, this.enabled = true});
+
+  /// Off = no friend at all (a plain mic button and text status instead).
+  final bool enabled;
 
   final AskodoxCompanionLook look;
 
@@ -30,12 +36,13 @@ class AskodoxCompanionSettings {
   /// (also used automatically when the phone asks for reduced motion).
   final bool render3d;
 
-  Map<String, Object?> toJson() => {'look': look.name, 'animate': animate, 'render3d': render3d};
+  Map<String, Object?> toJson() => {'look': look.name, 'animate': animate, 'render3d': render3d, 'enabled': enabled};
 
   static AskodoxCompanionSettings fromJson(Map<String, Object?> json) => AskodoxCompanionSettings(
         look: AskodoxCompanionLook.values.where((l) => l.name == json['look']).firstOrNull ?? AskodoxCompanionLook.robot,
         animate: json['animate'] != false,
         render3d: json['render3d'] != false,
+        enabled: json['enabled'] != false,
       );
 }
 
@@ -55,9 +62,12 @@ class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionS
     } catch (_) {}
   }
 
-  Future<void> update({AskodoxCompanionLook? look, bool? animate, bool? render3d}) async {
+  Future<void> update({AskodoxCompanionLook? look, bool? animate, bool? render3d, bool? enabled}) async {
     state = AskodoxCompanionSettings(
-        look: look ?? state.look, animate: animate ?? state.animate, render3d: render3d ?? state.render3d);
+        look: look ?? state.look,
+        animate: animate ?? state.animate,
+        render3d: render3d ?? state.render3d,
+        enabled: enabled ?? state.enabled);
     try {
       await (await SharedPreferences.getInstance()).setString(_key, jsonEncode(state.toJson()));
     } catch (_) {}
@@ -82,8 +92,26 @@ String askodoxCompanionLine(AskodoxCompanionMood mood, {required bool telugu, in
       AskodoxCompanionMood.idle => telugu ? 'సిద్ధంగా ఉన్నాను' : 'Ready',
     };
 
-/// The ASKODOX friend: a lightweight animated 2D companion (no assets, no
-/// 3D engine -- safe on low-end phones). Tapping it talks to ASKODOX.
+/// Session-wide guard for low-end phones: when real frames of the 3D friend
+/// are too slow, the friend drops to the light 2D drawing for the rest of
+/// the session (the user's 3D setting is not changed).
+class AskodoxCompanionPerformance {
+  static bool lite = false;
+
+  /// Frames slower than this (build+raster) count as janky.
+  static const jankMicros = 24000;
+
+  static bool judge(List<int> frameMicros) {
+    if (frameMicros.length < 45) return false;
+    final sorted = [...frameMicros]..sort();
+    return sorted[sorted.length ~/ 2] > jankMicros;
+  }
+}
+
+/// The ASKODOX friend. 3D by default (lit mesh with expressions, gestures,
+/// blinking, gaze, mic-reactive listening and lip-synced speaking); the flat
+/// 2D drawing is used when the user turns 3D off, the phone asks for reduced
+/// motion, or real frames prove too slow. Tapping it talks to ASKODOX.
 class AskodoxCompanion extends ConsumerStatefulWidget {
   const AskodoxCompanion({super.key, this.mood = AskodoxCompanionMood.idle, this.size = 112, this.onTap});
 
@@ -98,27 +126,93 @@ class AskodoxCompanion extends ConsumerStatefulWidget {
 class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with SingleTickerProviderStateMixin {
   late final AnimationController _clock =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
+  final _random = math.Random();
+  Timer? _blinkTimer;
+  double _blink = 0;
+  Offset _gaze = Offset.zero;
+  final List<int> _frames = [];
+  bool _watchingFrames = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleBlink();
+  }
 
   @override
   void dispose() {
+    _blinkTimer?.cancel();
+    _stopFrameWatch();
     _clock.dispose();
     super.dispose();
   }
 
-  void _syncAnimation(bool animate) {
+  /// Natural blinks every 2.5-6 s (and an occasional glance), cheap enough
+  /// to run even while the friend is otherwise still.
+  void _scheduleBlink() {
+    _blinkTimer?.cancel();
+    _blinkTimer = Timer(Duration(milliseconds: 2500 + _random.nextInt(3500)), () {
+      if (!mounted) return;
+      setState(() {
+        _blink = 1;
+        if (_random.nextDouble() < .35) {
+          _gaze = Offset(_random.nextDouble() * 1.2 - .6, _random.nextDouble() * .6 - .3);
+        } else if (_random.nextDouble() < .5) {
+          _gaze = Offset.zero;
+        }
+      });
+      _blinkTimer = Timer(const Duration(milliseconds: 140), () {
+        if (!mounted) return;
+        setState(() => _blink = 0);
+        _scheduleBlink();
+      });
+    });
+  }
+
+  void _onTimings(List<FrameTiming> timings) {
+    for (final t in timings) {
+      _frames.add(t.totalSpan.inMicroseconds);
+    }
+    if (_frames.length > 120) _frames.removeRange(0, _frames.length - 120);
+    if (!AskodoxCompanionPerformance.lite && AskodoxCompanionPerformance.judge(_frames)) {
+      AskodoxCompanionPerformance.lite = true;
+      _stopFrameWatch();
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _startFrameWatch() {
+    if (_watchingFrames) return;
+    _watchingFrames = true;
+    SchedulerBinding.instance.addTimingsCallback(_onTimings);
+  }
+
+  void _stopFrameWatch() {
+    if (!_watchingFrames) return;
+    _watchingFrames = false;
+    SchedulerBinding.instance.removeTimingsCallback(_onTimings);
+  }
+
+  void _syncAnimation(bool animate, bool use3d) {
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     // Motion only while ASKODOX is actively doing something; at rest it is
-    // a still image (battery friendly, never distracting).
+    // a still image (battery friendly, never distracting) that still blinks.
     const active = {
       AskodoxCompanionMood.listening,
       AskodoxCompanionMood.thinking,
       AskodoxCompanionMood.speaking,
       AskodoxCompanionMood.explaining,
     };
-    if (animate && !reduceMotion && active.contains(widget.mood)) {
+    final run = animate && !reduceMotion && active.contains(widget.mood);
+    if (run) {
       if (!_clock.isAnimating) _clock.repeat();
     } else if (_clock.isAnimating) {
       _clock.stop();
+    }
+    if (run && use3d && !AskodoxCompanionPerformance.lite) {
+      _startFrameWatch();
+    } else {
+      _stopFrameWatch();
     }
   }
 
@@ -135,12 +229,41 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
     return _mesh!;
   }
 
+  AskodoxCompanionSignals _signals(AskodoxCompanionVoice voice) => AskodoxCompanionSignals(
+        micLevel: widget.mood == AskodoxCompanionMood.listening ? voice.micLevel : 0,
+        mouthOpen: widget.mood == AskodoxCompanionMood.speaking && voice.speaking ? voice.mouthOpenness() : null,
+        blink: _blink,
+        gaze: _gaze,
+      );
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(askodoxCompanionSettingsProvider);
-    _syncAnimation(settings.animate);
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final use3d = settings.render3d && !reduceMotion;
+    if (!settings.enabled) {
+      // Friend off: a plain, still mic button with the same tap action.
+      return Semantics(
+        label: 'ASKODOX ${widget.mood.name}',
+        button: widget.onTap != null,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: SizedBox.square(
+            key: const ValueKey('askodoxCompanionOff'),
+            dimension: widget.size,
+            child: Center(
+              child: CircleAvatar(
+                radius: widget.size * .32,
+                backgroundColor: const Color(0xFF6C4DFF),
+                child: Icon(Icons.mic_rounded, color: Colors.white, size: widget.size * .3),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    final use3d = settings.render3d && !reduceMotion && !AskodoxCompanionPerformance.lite;
+    _syncAnimation(settings.animate, use3d);
+    final voice = ref.watch(askodoxCompanionVoiceProvider);
     return Semantics(
       label: 'ASKODOX ${widget.mood.name}',
       button: widget.onTap != null,
@@ -153,8 +276,9 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
             builder: (context, _) => CustomPaint(
               key: ValueKey(use3d ? 'askodoxCompanion3d' : 'askodoxCompanion2d'),
               painter: use3d
-                  ? AskodoxCompanion3dPainter(mesh: _meshFor(settings.look), mood: widget.mood, t: _clock.value)
-                  : _CompanionPainter(mood: widget.mood, look: settings.look, t: _clock.value),
+                  ? AskodoxCompanion3dPainter(
+                      mesh: _meshFor(settings.look), mood: widget.mood, t: _clock.value, signals: _signals(voice))
+                  : _CompanionPainter(mood: widget.mood, look: settings.look, t: _clock.value, blinkAmount: _blink),
             ),
           ),
         ),
@@ -164,7 +288,9 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
 }
 
 class _CompanionPainter extends CustomPainter {
-  _CompanionPainter({required this.mood, required this.look, required this.t});
+  _CompanionPainter({required this.mood, required this.look, required this.t, this.blinkAmount = 0});
+
+  final double blinkAmount;
 
   final AskodoxCompanionMood mood;
   final AskodoxCompanionLook look;
@@ -228,7 +354,7 @@ class _CompanionPainter extends CustomPainter {
     }
     // Eyes: blink now and then; happy arcs on success/greeting.
     final eyeY = head.dy - headR * .08;
-    final blink = (t % 1) > .94 && mood == AskodoxCompanionMood.idle;
+    final blink = blinkAmount > .5 || ((t % 1) > .94 && mood == AskodoxCompanionMood.idle);
     final eyePaint = Paint()
       ..color = look == AskodoxCompanionLook.robot ? const Color(0xFF7FE3FF) : const Color(0xFF10204A)
       ..strokeWidth = r * .07
@@ -276,7 +402,8 @@ class _CompanionPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CompanionPainter old) => old.t != t || old.mood != mood || old.look != look;
+  bool shouldRepaint(_CompanionPainter old) =>
+      old.t != t || old.mood != mood || old.look != look || old.blinkAmount != blinkAmount;
 }
 
 /// Compact "friend" bar shown above the input while ASKODOX works: the

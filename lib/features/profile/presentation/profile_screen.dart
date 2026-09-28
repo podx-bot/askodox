@@ -252,11 +252,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               key: const Key('askodoxCompanionLook'),
               elevation: 0,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                ListTile(
-                  leading: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
+                SwitchListTile(
+                  key: const Key('askodoxCompanionEnabled'),
+                  secondary: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
                   title: Text(t('ASKODOX friend', 'ASKODOX స్నేహితుడు'),
                       style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(t('Off = plain mic button, no animation.', 'ఆఫ్ = సాధారణ మైక్ బటన్, యానిమేషన్ లేదు.')),
+                  value: ref.watch(askodoxCompanionSettingsProvider).enabled,
+                  onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(enabled: on),
                 ),
+                if (ref.watch(askodoxCompanionSettingsProvider).enabled) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Wrap(spacing: 8, children: [
@@ -276,8 +281,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 SwitchListTile(
                   key: const Key('askodoxCompanion3d'),
                   title: Text(t('3D friend', '3D స్నేహితుడు')),
-                  subtitle: Text(t('Turn off on older phones for a simple flat friend.',
-                      'పాత ఫోన్లలో ఆఫ్ చేస్తే సింపుల్ ఫ్లాట్ స్నేహితుడు.')),
+                  subtitle: Text(t('Slow phones switch to the flat friend automatically.',
+                      'నెమ్మదైన ఫోన్లలో ఆటోమేటిక్‌గా ఫ్లాట్ స్నేహితుడు.')),
                   value: ref.watch(askodoxCompanionSettingsProvider).render3d,
                   onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(render3d: on),
                 ),
@@ -287,6 +292,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   value: ref.watch(askodoxCompanionSettingsProvider).animate,
                   onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(animate: on),
                 ),
+                ],
               ])),
           const SizedBox(height: 12),
           Card(
