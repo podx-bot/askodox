@@ -186,7 +186,9 @@ jobs:
           retention-days: 30
 
       - name: Publish ASKODOX in-app update channel
-        if: steps.signing.outputs.configured == 'true'
+        # Only merged code reaches users' phones: a build started by hand on
+        # a PR branch keeps its APK as a workflow artifact for testing.
+        if: steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -226,7 +228,7 @@ jobs:
           gh release view "$TAG" --json tagName,url,assets --jq '.tagName, .url, (.assets[].name)'
 
       - name: Publish prerelease download link
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
