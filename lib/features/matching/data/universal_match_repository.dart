@@ -91,6 +91,8 @@ class UniversalMatch {
     this.duration,
     this.priceVerified = true,
     this.offerTitle,
+    this.salaryText,
+    this.pageType,
   });
 
   final String id;
@@ -130,6 +132,16 @@ class UniversalMatch {
 
   /// The listing's best live offer (seller or admin campaign), if any.
   final String? offerTitle;
+
+  /// A job opening's salary exactly as the job page states it (never
+  /// estimated); null when the page gives none.
+  final String? salaryText;
+
+  /// What kind of page an online row is (product_page, store, job_listing,
+  /// directory...), as classified by the backend.
+  final String? pageType;
+
+  bool get isJob => segment == 'jobs' || pageType == 'job_listing';
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -171,6 +183,8 @@ class UniversalMatch {
           duration: json['duration']?.toString(),
           priceVerified: json['price_verified'] != false,
           offerTitle: (json['offer'] is Map ? (json['offer'] as Map)['title'] : json['offer_title'])?.toString(),
+          salaryText: json['salary_text']?.toString(),
+          pageType: json['page_type']?.toString(),
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -198,6 +212,8 @@ class UniversalMatch {
         'duration': duration,
         'price_verified': priceVerified,
         'offer_title': offerTitle,
+        'salary_text': salaryText,
+        'page_type': pageType,
       };
 }
 
@@ -210,8 +226,13 @@ class UniversalMatchResult {
     this.scopeMessage,
     this.advice = const [],
     this.nextActions = const [],
+    this.traceKey,
   });
   final String dealId;
+
+  /// The admin flow trace this search wrote (browse:... / deal:...): later
+  /// app events (result selected, action outcome) are appended to it.
+  final String? traceKey;
 
   /// Short contextual advice from the backend (English / Telugu).
   final List<({String text, String textTe})> advice;
@@ -316,11 +337,21 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
             .map((value) => value.trim())
             .where((value) => value.isNotEmpty)
             .toList(growable: false);
-        throw DealNeedsDetailsException(
-          domain: failure.header('x-askodox-intent-domain') ?? '',
-          action: failure.header('x-askodox-intent-action') ?? '',
-          missingFields: missing,
-        );
+        if (missing.isNotEmpty) {
+          throw DealNeedsDetailsException(
+            domain: failure.header('x-askodox-intent-domain') ?? '',
+            action: failure.header('x-askodox-intent-action') ?? '',
+            missingFields: missing,
+          );
+        }
+      }
+      // The requirement could not be saved (validation with nothing missing,
+      // permission, server error): the SAME universal search still runs
+      // without saving, so the user sees real results instead of
+      // "Matching is unavailable". Only a network failure reaches the UI.
+      if (failure.statusCode != null && _client is! MockApiClient) {
+        return _browse(deal, userId, trace,
+            authGate: 'requirement not saved (HTTP ${failure.statusCode}): results shown without saving');
       }
       throw StateError(failure.message ?? 'Unable to create requirement.');
     }
@@ -364,6 +395,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     final broadcast = created['broadcast'];
     return UniversalMatchResult(
       dealId: dealId,
+      traceKey: 'deal:$dealId',
       matches: rows,
       broadcastSent: broadcast is Map ? (broadcast['sent'] as num?)?.toInt() : null,
       scopeMessage: _scopeMessage(data['scope']),
@@ -469,6 +501,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     final status = data['source_status'];
     return UniversalMatchResult(
       dealId: '',
+      traceKey: data['trace_key']?.toString(),
       matches: rows,
       scopeMessage: _scopeMessage(data['scope']),
       advice: _advice(data['advice']),

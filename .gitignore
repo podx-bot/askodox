@@ -24,3 +24,6 @@ ios/Flutter/ephemeral/
 **/__pycache__/
 .pytest_cache/
 **/.pytest_cache/
+
+# Local SQLite databases created by the server/tests
+*.db

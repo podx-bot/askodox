@@ -170,7 +170,9 @@ AskodoxRoleDetection? askodoxDetectRole(String message) {
     r'\b(want|need|going) to sell\b',
     r'\bi (am )?sell(ing)?\b',
     r'\bsell my\b',
-    r'\bfor sale\b',
+    // "TV for sale near me" is a BUYER looking at sale listings; only "my
+    // TV for sale" / "I have a bike for sale" describes a seller.
+    r"\b(my|i have|i've got|i got) [a-z0-9 ]*for sale\b",
     r'అమ్మాలి',
     r'అమ్ముతున్నాను',
   ]);
@@ -193,8 +195,11 @@ AskodoxRoleDetection? askodoxDetectRole(String message) {
     AskodoxUserRole.partner: [r'\b(partner with|become a partner|partnership with) askodox\b'],
   };
   for (final entry in participation.entries) {
-    if (_any(text, entry.value)) {
-      return AskodoxRoleDetection(entry.key, ambiguous: text.contains('?'));
+    // "I'm a farmer" states the role; softer hints ("my channel", "I
+    // recommend him") are confirmed with a question, never switched silently.
+    final explicit = RegExp(entry.value.first).hasMatch(text);
+    if (explicit || _any(text, entry.value.skip(1).toList())) {
+      return AskodoxRoleDetection(entry.key, ambiguous: text.contains('?') || !explicit);
     }
   }
 

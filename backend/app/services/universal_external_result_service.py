@@ -82,7 +82,8 @@ _NO_VIDEO_DOMAINS = {
     "RIDE", "MOBILITY", "DELIVERY", "COURIER", "PARCEL", "WORK", "WORKERS", "JOBS", "JOB",
 }
 
-_VIDEO_HOSTS = ("youtube.com", "youtu.be", "instagram.com", "facebook.com", "fb.watch")
+_VIDEO_HOSTS = ("youtube.com", "youtu.be", "instagram.com", "facebook.com", "fb.watch", "vimeo.com",
+                "dailymotion.com", "sharechat.com", "mojapp.in", "josh.in")
 
 
 def _host(url: str) -> str:
@@ -126,6 +127,10 @@ PAGE_ARTICLE = "article"
 PAGE_REVIEW = "review"
 PAGE_FORUM = "forum"
 PAGE_VIDEO = "video"
+# A job opening (apply, never "buy") and a page that is only information
+# (no price, nothing to buy/book on it) -- neither is shown as a shop.
+PAGE_JOB = "job_listing"
+PAGE_INFO = "info"
 BUYABLE_PAGES = {PAGE_PRODUCT, PAGE_LISTING, PAGE_STORE}
 
 _REVIEW_HOSTS = ("tripadvisor.", "trustpilot.", "mouthshut.com", "gadgets360.", "91mobiles.com",
@@ -133,8 +138,10 @@ _REVIEW_HOSTS = ("tripadvisor.", "trustpilot.", "mouthshut.com", "gadgets360.", 
 _FORUM_HOSTS = ("reddit.com", "quora.com", "team-bhp.com", "stackexchange.com", "xda-developers.com")
 _DIRECTORY_HOSTS = ("justdial.com", "sulekha.com", "yelp.", "yellowpages.", "asklaila.com", "grotal.com")
 _LISTING_HOSTS = ("olx.in", "quikr.com", "cars24.com", "spinny.com", "cardekho.com", "carwale.com",
-                  "indiamart.com", "tradeindia.com", "magicbricks.com", "99acres.com", "naukri.com",
-                  "indeed.co", "shine.com", "apna.co")
+                  "indiamart.com", "tradeindia.com", "magicbricks.com", "99acres.com")
+JOB_HOSTS = ("naukri.com", "indeed.com", "indeed.co.in", "shine.com", "apna.co", "foundit.in",
+             "timesjobs.com", "workindia.in", "glassdoor.co.in", "linkedin.com/jobs", "freshersworld.com",
+             "quikr.com/jobs", "olx.in/jobs")
 _STORE_HOSTS = ("amazon.in", "flipkart.com", "croma.com", "reliancedigital.in", "vijaysales.com",
                 "tatacliq.com", "jiomart.com", "bigbasket.com", "meesho.com", "myntra.com", "nykaa.com",
                 "urbancompany.com", "licious.in", "freshtohome.com", "swiggy.com", "zomato.com",
@@ -153,10 +160,19 @@ def _host_matches(url: str, hosts: tuple[str, ...]) -> bool:
     return any(item in host or item in low for item in hosts)
 
 
+_BUY_WORDS = re.compile(
+    r"\b(buy|shop|order|add to cart|in stock|price|prices|emi|book now|booking|for sale|sell(ing)?|store|"
+    r"offers?|deals?|discount|sale|clearance|open box|second hand|used)\b|₹|% off",
+    re.IGNORECASE,
+)
+
+
 def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
     """What kind of page a web result is (never guessed as buyable)."""
     if _is_video_host(url):
         return PAGE_VIDEO
+    if _host_matches(url, JOB_HOSTS) or re.search(r"/jobs?/|/careers?/|job-listings?", url, re.IGNORECASE):
+        return PAGE_JOB
     if _host_matches(url, _FORUM_HOSTS):
         return PAGE_FORUM
     if _host_matches(url, _REVIEW_HOSTS):
@@ -173,7 +189,11 @@ def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
         return PAGE_PRODUCT
     if _ARTICLE_WORDS.search(str(snippet or "")[:120]):
         return PAGE_ARTICLE
-    return PAGE_STORE
+    # Unknown site: a shop only when the page itself offers something to
+    # buy/book or states a price; otherwise it is information, not an option.
+    if price_from_text(title, snippet) is not None or _BUY_WORDS.search(f"{title or ''} {snippet or ''}"):
+        return PAGE_STORE
+    return PAGE_INFO
 
 
 # ----------------------------------------------------- region filtering --
@@ -183,12 +203,16 @@ _FOREIGN_TLDS = (".co.uk", ".uk", ".com.au", ".au", ".ca", ".us", ".de", ".fr", 
                  ".co.nz", ".nz", ".ie", ".za", ".ph", ".my", ".pk", ".bd", ".lk", ".np")
 _FOREIGN_CHAINS = ("homedepot.com", "lowes.com", "bestbuy.com", "walmart.com", "target.com", "costco.com",
                    "angi.com", "thumbtack.com", "homeadvisor.com", "craigslist.org", "ebay.com",
-                   "amazon.com/", "carmax.com", "autotrader.com", "cars.com", "kbb.com", "edmunds.com")
+                   "amazon.com/", "carmax.com", "autotrader.com", "cars.com", "kbb.com", "edmunds.com",
+                   "karrotmarket.com", "daangn.com", "offerup.com", "mercari.com", "poshmark.com",
+                   "zillow.com", "realtor.com", "gumtree.com", "nextdoor.com", "yelp.com", "facebook.com/marketplace",
+                   "argos.co", "currys.co", "jbhifi.", "harveynorman.")
 _FOREIGN_MONEY = re.compile(r"(?:US\$|\$\s?\d|\bUSD\b|£\s?\d|€\s?\d|\bAUD\b|\bCAD\b|\bGBP\b|\bEUR\b)")
 _INDIA_MONEY = re.compile(r"(?:₹|\brs\.?\s?\d|\binr\b|\blakh|\bcrore)", re.IGNORECASE)
 _US_PLACES = re.compile(
-    r"\b(manhattan|brooklyn|new york|los angeles|california|texas|florida|chicago|usa|united states|"
-    r"london|toronto|sydney|dubai)\b",
+    r"\b(manhattan|brooklyn|queens|new york|nyc|new jersey|los angeles|san francisco|seattle|boston|houston|"
+    r"atlanta|california|texas|florida|chicago|usa|united states|london|toronto|vancouver|sydney|"
+    r"melbourne|dubai|singapore|canada|australia)\b",
     re.IGNORECASE,
 )
 
@@ -208,10 +232,34 @@ def region_mismatch(url: str, title: Any = "", snippet: Any = "", *, country: st
     text = f"{title or ''} {snippet or ''}"
     if _FOREIGN_MONEY.search(text) and not _INDIA_MONEY.search(text):
         return True
+    # A foreign place in the page address itself (".../manhattan/...",
+    # "new-york") is decisive: the snippet mentioning India does not rescue it.
+    url_words = re.sub(r"[-_/.+]+", " ", urlparse(url).path if "://" in url else url)
+    url_place = _US_PLACES.search(url_words)
+    if url_place and url_place.group(0).casefold() not in str(wanted_place or "").casefold():
+        return True
     place_hit = _US_PLACES.search(text)
     if place_hit and place_hit.group(0).casefold() not in str(wanted_place or "").casefold():
         return not _INDIA_MONEY.search(text) and "india" not in text.casefold()
     return False
+
+
+_FOREIGN_ADDRESS = re.compile(
+    r"\b(usa|united states|u\.s\.a|canada|united kingdom|uk|australia|singapore|uae|united arab emirates|"
+    r"new zealand|pakistan|bangladesh|sri lanka|nepal|germany|france|south korea|korea)\b"
+    r"|,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?\b",  # US "City, NY 10001"
+)
+
+
+def place_region_mismatch(address: Any, *, country: str = "IN") -> bool:
+    """A Maps place whose address is in another country (Home Depot in the
+    US for "AC installation") is never a nearby option in India."""
+    if str(country or "").upper() != "IN":
+        return False
+    text = str(address or "").strip()
+    if not text or "india" in text.casefold():
+        return False
+    return bool(_FOREIGN_ADDRESS.search(text) or _FOREIGN_ADDRESS.search(text.casefold()))
 
 
 def _tokens(text: str) -> set[str]:

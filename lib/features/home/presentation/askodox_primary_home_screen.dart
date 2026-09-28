@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/environment.dart';
 import '../../../core/providers/app_settings_provider.dart';
@@ -22,6 +23,7 @@ import '../../../services/support_escalation_service.dart';
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
+import '../../deal_brain/domain/brand_lexicon.dart';
 import '../../deal_brain/application/universal_deal_brain.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
@@ -145,6 +147,11 @@ class _AskodoxPrimaryHomeScreenState
   /// The option the customer most recently asked about -- the default
   /// target of a typed "yes / order it".
   UniversalMatch? _focusedMatch;
+
+  /// A typed "yes / order it" that needed sign-in: after the user signs in
+  /// the SAME action runs (no need to repeat it).
+  ({String text, AskodoxChatResults results, UniversalMatch target})? _pendingSignInAction;
+  int? _signInTurn;
 
   /// A catalog draft (from photo/video/text) waiting for the seller's review.
   AskodoxCatalogDraft? _pendingDraft;
@@ -622,14 +629,15 @@ class _AskodoxPrimaryHomeScreenState
       _trackSearchQuery(deal.subject ?? deal.category);
       if (deal.readyToMatch &&
           AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
-        if (deal.intent == DealIntent.sell) {
+        if (deal.intent == DealIntent.sell && _userMeansToSell(deal.rawText, deal)) {
           // A completed "sell" deal is a real listing to save, not a buyer
           // search -- see `_createRealListing`.
           final outcome = await _createRealListing(deal);
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          results = await _findUniversalMatches(deal);
+          results = await _findUniversalMatches(
+              deal.intent == DealIntent.sell ? deal.copyWith(intent: DealIntent.buy) : deal);
         }
       }
       _lastIntent = deal.intent;
@@ -889,6 +897,37 @@ class _AskodoxPrimaryHomeScreenState
     return _resultsByTurn[lastKey];
   }
 
+  /// The most recent results that have options ASKODOX can act on (a
+  /// registered seller / interested provider). A newer turn that only
+  /// showed online links or a per-need segment must not hide them from
+  /// "yes / order it / contact seller".
+  AskodoxChatResults? _latestActionableResults() {
+    final keys = _resultsByTurn.keys.toList()..sort((a, b) => b.compareTo(a));
+    for (final key in keys.take(4)) {
+      final results = _resultsByTurn[key];
+      if (results != null && results.hasLocal) return results;
+    }
+    return null;
+  }
+
+  /// Append what happened after results to the admin flow trace (fire and
+  /// forget -- tracing never affects the user).
+  void _traceEvent(AskodoxChatResults? results, String event, Map<String, Object?> detail) {
+    final key = results?.traceKey;
+    if (key == null || key.isEmpty) return;
+    unawaited(ref.read(apiClientProvider).post<Map<String, Object?>>(
+      '/deals/trace-event',
+      body: {'trace_key': key, 'event': event, 'detail': detail},
+    ).then((_) {}, onError: (_) {}));
+  }
+
+  AskodoxChatResults? _resultsContaining(UniversalMatch match) {
+    for (final results in _resultsByTurn.values) {
+      if (results.matches.any((m) => identical(m, match) || m.id == match.id)) return results;
+    }
+    return null;
+  }
+
   String _resultsContext(AskodoxChatResults results) => [
         for (final match in results.matches.take(8)) '- ${askodoxOptionContext(match)}',
       ].join('\n');
@@ -898,12 +937,15 @@ class _AskodoxPrimaryHomeScreenState
   /// after this can the option's Send request / Connect be used.
   Future<void> _askAboutMatch(String? dealId, UniversalMatch match) async {
     _focusedMatch = match;
+    _traceEvent(_resultsContaining(match), 'result_selected',
+        {'title': match.title, 'source': match.source, 'segment': match.segment});
     setState(() => _actionableMatchKeys.add(_matchKey(dealId, match)));
-    _pendingAiContext = 'Option the user is asking about: ${askodoxOptionContext(match)}';
+    _pendingAiContext = 'Option the user is asking about: ${askodoxOptionContext(match)}\n'
+        '$askodoxGroundingRule';
     _pendingDiscussOnly = true;
     await _send(_te
         ? '"${match.title}" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు'
-        : 'Tell me more about "${match.title}": price, distance, quality, availability and reviews');
+        : 'Tell me more about "${match.title}"');
   }
 
   void _onRequestSent(String? dealId, UniversalMatch match, String? orderId) {
@@ -1011,6 +1053,17 @@ class _AskodoxPrimaryHomeScreenState
   /// self-service `/api/products/mine` endpoint) instead of only running a
   /// buyer-style search against it. Returns a user-facing confirmation or
   /// error message plus whether it represents a failure.
+  /// A real listing is created only when the user said they sell / the
+  /// active role is Seller -- never from an AI guess while browsing.
+  bool _userMeansToSell(String text, UniversalDeal deal) {
+    if (ref.read(askodoxRoleProvider).active == AskodoxUserRole.seller) return true;
+    for (final said in [text, deal.rawText]) {
+      final detection = askodoxDetectRole(said);
+      if (detection?.role == AskodoxUserRole.seller && !detection!.ambiguous) return true;
+    }
+    return false;
+  }
+
   Future<(String?, bool)> _createRealListing(UniversalDeal deal) async {
     try {
       final result =
@@ -1062,6 +1115,7 @@ class _AskodoxPrimaryHomeScreenState
         scopeMessage: result.scopeMessage,
         advice: result.advice,
         nextActions: result.nextActions,
+        traceKey: result.traceKey,
       );
     } on DealNeedsDetailsException catch (error) {
       if (error.missingFields.isNotEmpty) {
@@ -1204,15 +1258,13 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     final latestResults = _latestResults();
+    final actionable = _latestActionableResults();
     final explicitContext = _pendingAiContext;
-    // "yes" / "order it" / "send request" / "book it" / "confirm" with real
+    // "yes" / "order it" / "I want this" / "contact seller" with real
     // options on screen performs the SAME backend action as the card's
     // Send request button -- it is never answered with text alone.
-    if (explicitContext == null &&
-        latestResults != null &&
-        latestResults.hasLocal &&
-        askodoxConfirmsAction(text)) {
-      await _actOnConfirmation(text, latestResults, speakResponse);
+    if (explicitContext == null && actionable != null && askodoxConfirmsAction(text)) {
+      await _actOnConfirmation(text, actionable, speakResponse);
       return;
     }
     final wantsHuman = latestResults != null &&
@@ -1236,7 +1288,7 @@ class _AskodoxPrimaryHomeScreenState
     final aiMessage = explicitContext != null
         ? '$text\n$explicitContext'
         : discussOnly && latestResults != null
-            ? '$text\nOptions already shown to the user:\n${_resultsContext(latestResults)}'
+            ? '$text\nOptions already shown to the user:\n${_resultsContext(latestResults)}\n$askodoxGroundingRule'
             : text;
     if (wantsHuman) {
       setState(() {
@@ -1379,6 +1431,10 @@ class _AskodoxPrimaryHomeScreenState
       }
       final budget = askodoxBudgetRange(text);
       if (!budget.isEmpty) notifier.applyBudget(min: budget.min, max: budget.max);
+      // "Tata" / "show Samsung instead": the named brand replaces the old
+      // one in the active search (constraints persist, brand updates).
+      final brand = askodoxDetectBrand(text);
+      if (brand != null) notifier.applyBrand(brand);
       // A subject polluted by budget/filler words ("TV ₹20,000 లో కావాలి")
       // is cleaned once, universally.
       final rawSubject = ref.read(universalDealControllerProvider).deal?.subject;
@@ -1419,15 +1475,17 @@ class _AskodoxPrimaryHomeScreenState
               ((showNow || repeating) && (deal.subject?.trim().isNotEmpty ?? false)));
       if (searchNow && !deal.readyToMatch) detailQuestion = repeating ? null : detailQuestion;
       if (deal != null && searchNow && needClarification == null) {
-        if (deal.intent == DealIntent.sell) {
+        if (deal.intent == DealIntent.sell && _userMeansToSell(text, deal)) {
           // A completed "sell" deal is a real listing to save, not a buyer
           // search -- see `_createRealListing`.
           final outcome = await _createRealListing(deal);
           listingBanner = outcome.$1;
           listingBannerIsError = outcome.$2;
         } else {
-          matchedDeal = deal;
-          results = await _findUniversalMatches(deal);
+          // A "sell" guess the user never said is a buyer search.
+          final searchDeal = deal.intent == DealIntent.sell ? deal.copyWith(intent: DealIntent.buy) : deal;
+          matchedDeal = searchDeal;
+          results = await _findUniversalMatches(searchDeal);
         }
       }
     } else if (!continuingActiveDeal && !discussOnly) {
@@ -1662,6 +1720,8 @@ class _AskodoxPrimaryHomeScreenState
           ? '"${target.title}" కి అభ్యర్థన ఇప్పటికే పంపబడింది${orderId == null ? '' : ' (#$orderId)'}. వారి సమాధానం కోసం వేచి ఉన్నాం.'
           : 'Your request to "${target.title}" was already sent${orderId == null ? '' : ' (#$orderId)'}. Waiting for their reply.';
     } else {
+      _traceEvent(results, 'action_attempted',
+          {'action': chatResultActionFor(target).name, 'title': target.title, 'via': 'chat'});
       final result = await askodoxExecuteMatchAction(
         ref,
         match: target,
@@ -1670,6 +1730,15 @@ class _AskodoxPrimaryHomeScreenState
         requestContext: _requestContextFor(results.dealId),
         question: _pendingSellerQuestion,
       );
+      _traceEvent(results, 'action_result', {
+        'action': chatResultActionFor(target).name,
+        'ok': result.success,
+        if (result.order?.id != null) 'order_id': result.order!.id,
+        if (!result.success) 'reason': result.needsSignIn ? 'sign_in_required' : (result.message ?? 'failed'),
+      });
+      if (result.needsSignIn) {
+        _pendingSignInAction = (text: text, results: results, target: target);
+      }
       if (result.success) {
         _focusedMatch = target; // "order it" next time means this option
         _onRequestSent(results.dealId, target, result.order?.id);
@@ -1684,6 +1753,7 @@ class _AskodoxPrimaryHomeScreenState
     if (!mounted) return;
     setState(() {
       _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+      if (_pendingSignInAction != null) _signInTurn = _turns.length - 1;
       _dealRefreshTick++;
       _sending = false;
     });
@@ -1691,6 +1761,21 @@ class _AskodoxPrimaryHomeScreenState
     await _saveSnapshot();
     _scrollBottom();
     if (speakResponse) await _speakReply(reply, userText: text);
+  }
+
+  /// Phone + OTP sign-in, then the pending action runs exactly as asked.
+  Future<void> _signInAndRetry() async {
+    final pending = _pendingSignInAction;
+    if (pending == null) return;
+    await context.push<bool>('/onboarding?signin=1');
+    if (!mounted || ref.read(authSessionProvider).user == null) return;
+    setState(() {
+      _pendingSignInAction = null;
+      _signInTurn = null;
+      _sending = true;
+    });
+    _focusedMatch = pending.target;
+    await _actOnConfirmation(pending.text, pending.results, false);
   }
 
   /// No ASKODOX provider has this yet: create a real referral invite (code
@@ -2316,6 +2401,19 @@ class _AskodoxPrimaryHomeScreenState
                         fontWeight: FontWeight.w500)),
               ),
             ),
+            if (_signInTurn == index && _pendingSignInAction != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: FilledButton.icon(
+                    key: const ValueKey('askodoxSignInToAct'),
+                    onPressed: _sending ? null : _signInAndRetry,
+                    icon: const Icon(Icons.phone_iphone_rounded),
+                    label: Text(te ? 'సైన్ ఇన్ చేసి పంపండి' : 'Sign in and send'),
+                  ),
+                ),
+              ),
             if (_roleNoticeByTurn[index] case final notice?)
               _RoleNotice(text: notice),
             if (_roleQuestionByTurn[index] case final role?)
@@ -3117,6 +3215,20 @@ class _ChatResultsView extends StatelessWidget {
               onSupport: onSupport,
             ),
         ],
+        if (results.sourcesWith('needs_location').isNotEmpty)
+          Padding(
+            key: const Key('askodoxNeedsLocation'),
+            padding: const EdgeInsets.only(top: 2, bottom: 4),
+            child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 6, children: [
+              Text(te ? 'దగ్గరలోని షాపుల కోసం మీ ప్రాంతం చెప్పండి.' : 'Set your location to see nearby shops.',
+                  style: const TextStyle(color: _muted, fontSize: 12)),
+              TextButton(
+                key: const Key('askodoxSetLocation'),
+                onPressed: () => context.push('/location'),
+                child: Text(te ? 'ప్రాంతం ఎంచుకోండి' : 'Set location'),
+              ),
+            ]),
+          ),
         if (_sourceNote(te) case final note?)
           Padding(
             key: const Key('askodoxSourceStatus'),
@@ -3137,6 +3249,7 @@ class _ChatResultsView extends StatelessWidget {
           'used_deals' => te ? 'వాడినవి / డీల్స్' : 'used & deals',
           'online' => te ? 'ఆన్‌లైన్ స్టోర్లు' : 'online stores',
           'videos' => te ? 'వీడియోలు' : 'videos',
+          'jobs' => te ? 'ఉద్యోగ సైట్లు' : 'job sites',
           _ => key,
         };
     final none = results.sourcesWith('no_results').map(label).toList();
@@ -3160,6 +3273,7 @@ class _ChatResultsView extends StatelessWidget {
         AskodoxResultSegment.nearbyExternal ||
         AskodoxResultSegment.widerLocal =>
           Icons.near_me_rounded,
+        AskodoxResultSegment.jobs => Icons.work_outline_rounded,
         AskodoxResultSegment.online => Icons.public_rounded,
         AskodoxResultSegment.video => Icons.play_circle_outline_rounded,
       };
@@ -3265,6 +3379,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
 
   bool _placing = false;
   bool _orderFailed = false;
+  bool _needsSignIn = false;
   String? _orderStatusMessage;
 
   UniversalMatch get _match => widget.match;
@@ -3299,6 +3414,13 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     }
   }
 
+  /// Phone + OTP sign-in, then the same Send request runs again.
+  Future<void> _signInAndSend() async {
+    await context.push<bool>('/onboarding?signin=1');
+    if (!mounted || ref.read(authSessionProvider).user == null) return;
+    await _sendRequest();
+  }
+
   Future<void> _sendRequest() async {
     if (_placing) return;
     setState(() {
@@ -3319,6 +3441,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     if (result.success) widget.onRequestSent(result.order?.id);
     setState(() {
       _placing = false;
+      _needsSignIn = result.needsSignIn;
       _orderFailed = !result.success;
       _orderStatusMessage = result.success
           ? (_te
@@ -3434,6 +3557,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                         '★ ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount})'),
                   if (distance != null) _meta(distance),
                   if (price != null) _meta(price),
+                  if (match.salaryText?.trim().isNotEmpty == true)
+                    _meta(te ? 'జీతం (పేజీ ప్రకారం): ${match.salaryText}' : 'Salary (as listed): ${match.salaryText}'),
                   if (match.offerTitle?.trim().isNotEmpty == true) _meta('🏷 ${match.offerTitle!.trim()}'),
                   if (match.locationLabel?.trim().isNotEmpty == true)
                     _meta(match.locationLabel!),
@@ -3453,6 +3578,13 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 fontWeight: FontWeight.w700,
                 fontSize: 13),
           ),
+          if (_needsSignIn)
+            FilledButton.icon(
+              key: ValueKey('askodoxCardSignIn-${match.id}'),
+              onPressed: _signInAndSend,
+              icon: const Icon(Icons.phone_iphone_rounded, size: 16),
+              label: Text(te ? 'సైన్ ఇన్ చేసి పంపండి' : 'Sign in and send'),
+            ),
           const SizedBox(height: 8),
         ],
         // Compact, left-aligned actions side by side; they wrap to the next
@@ -3502,7 +3634,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 label: Text(action == ChatResultAction.watchVideo
                     ? (te ? 'వీడియో చూడండి' : 'Watch')
                     : action == ChatResultAction.openLink
-                        ? (te ? 'తెరవండి' : 'Open')
+                        ? (match.isJob ? (te ? 'తెరిచి అప్లై చేయండి' : 'Open & apply') : (te ? 'తెరవండి' : 'Open'))
                         : (te ? 'వివరాలు చూడండి' : 'View details')),
               ),
             if (widget.onCompare != null && action != ChatResultAction.watchVideo)

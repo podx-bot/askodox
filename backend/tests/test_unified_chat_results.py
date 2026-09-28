@@ -94,6 +94,8 @@ def test_no_local_match_reports_real_online_and_videos_without_counting_them(mon
     owner = "app-unified-" + uuid.uuid4().hex
     demand_id = container.universal_demand_repository.create({
         "user_id": owner, "side": "NEED", "domain": "PRODUCT", "subject": "pressure cooker", "source": "app",
+        # The customer asked for reviews: videos are relevant to this request.
+        "constraints": {"wants_videos": True},
     })
     client = TestClient(app)
 

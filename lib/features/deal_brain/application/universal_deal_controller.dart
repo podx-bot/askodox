@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../domain/brand_lexicon.dart';
 import '../domain/deal_quote.dart';
 import '../domain/deal_quote_collection.dart';
 import '../domain/deal_quote_result.dart';
@@ -311,6 +312,26 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
         if (min != null) 'budget_min': min,
         if (max != null) 'budget_max': max,
       },
+    )));
+  }
+
+  /// The customer named a brand ("Tata"): it drives the search from now on
+  /// and replaces the earlier brand/model ("Maruti 800").
+  void applyBrand(String brand) {
+    final current = state.deal;
+    final clean = brand.trim();
+    if (current == null || clean.isEmpty) return;
+    final previous = '${current.dynamicFields['brand'] ?? ''}';
+    if (previous.toLowerCase() == clean.toLowerCase() &&
+        (current.subject ?? '').toLowerCase().contains(clean.toLowerCase())) {
+      return;
+    }
+    final subject = current.subject?.trim();
+    final model = current.model;
+    _setSession(_sessionFor(current.copyWith(
+      subject: subject == null || subject.isEmpty ? null : askodoxSubjectWithBrand(subject, clean),
+      model: model != null && !model.toLowerCase().contains(clean.toLowerCase()) ? '' : model,
+      dynamicFields: {...current.dynamicFields, 'brand': clean},
     )));
   }
 
