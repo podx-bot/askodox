@@ -37,6 +37,9 @@ class Settings:
     session_token_secret: str
     # Market the discovery engine serves first (Brave country, Places region).
     search_country: str = "IN"
+    # Public https base of this backend (tracked partner redirects, postback
+    # URLs). Empty -> taken from the request (x-forwarded-proto/host).
+    public_base_url: str = ""
 
 
 def _database_path() -> str:
@@ -155,4 +158,5 @@ def load_settings() -> Settings:
         search_country=(os.getenv("ASKODOX_SEARCH_COUNTRY", "IN").strip().upper() or "IN"),
         admin_seed_key=os.getenv("ADMIN_SEED_KEY", "").strip(),
         session_token_secret=_session_token_secret(),
+        public_base_url=os.getenv("ASKODOX_PUBLIC_BASE_URL", "").strip().rstrip("/"),
     )

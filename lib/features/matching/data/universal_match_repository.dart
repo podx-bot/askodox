@@ -93,6 +93,8 @@ class UniversalMatch {
     this.offerTitle,
     this.salaryText,
     this.pageType,
+    this.clickId,
+    this.redirectPath,
   });
 
   final String id;
@@ -141,6 +143,11 @@ class UniversalMatch {
   /// directory...), as classified by the backend.
   final String? pageType;
 
+  /// Partner Hub rows: the backend's click id for this shown result and the
+  /// ASKODOX tracked-redirect path (`/go/{click id}`).
+  final String? clickId;
+  final String? redirectPath;
+
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
 
   double get totalValueScore {
@@ -185,6 +192,8 @@ class UniversalMatch {
           offerTitle: (json['offer'] is Map ? (json['offer'] as Map)['title'] : json['offer_title'])?.toString(),
           salaryText: json['salary_text']?.toString(),
           pageType: json['page_type']?.toString(),
+          clickId: json['click_id']?.toString(),
+          redirectPath: json['redirect_path']?.toString(),
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -214,6 +223,8 @@ class UniversalMatch {
         'offer_title': offerTitle,
         'salary_text': salaryText,
         'page_type': pageType,
+        'click_id': clickId,
+        'redirect_path': redirectPath,
       };
 }
 

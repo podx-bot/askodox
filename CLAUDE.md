@@ -109,6 +109,17 @@ this file, don't trust it blindly.
   rule rows evaluated by `offers_engine.py` (never hard-coded promotions);
   rewards accrue only on customer-confirmed completion and need admin
   APPROVED -> PAID. Paid plans stay PENDING_PAYMENT (no gateway).
+- Affiliate / Partner Hub + Revenue Center live in `partner_revenue_repository.py`
+  (tables `partners`, `partner_secrets`, `revenue_events`,
+  `partner_conversions`, `revenue_entries`), `affiliate_partner_service.py`,
+  `revenue_center_service.py` and `routes/partners.py` (admin
+  `/admin/cc/partners|revenue`, permissions `partners:*`, `revenue:*`).
+  Partner rows join `_discover` AFTER local + online (segment `partner`);
+  opens go through `/go/{click_id}` (only URLs stored with an impression);
+  conversions come only from token-verified postbacks or CSV imports.
+  Secrets are never returned by any API. Revenue = confirmed + paid
+  commission + recorded entries; "why" findings are rule-based and graded
+  CONFIRMED / POSSIBLE_CORRELATION / INSUFFICIENT_EVIDENCE.
 - Customer shell (`app_shell.dart`): Home · History · centre mic (starts
   voice via `AskodoxChatRequest.voice()`) · Updates · Profile. No drawer.
   One place per function: request status lives in Updates
@@ -178,6 +189,10 @@ this file, don't trust it blindly.
   Advisory is rule-based, not LLM-generated.
 - Pre-existing: `deal-completion-memory-smoke` block 2 fails when run
   outside its workflow env (same on `main` before PR #101).
+- Partner Hub: partner secrets are stored unencrypted in the SQLite DB
+  (never returned by an API); `/api/partners/event` is public (rate-limited,
+  needs a click id ASKODOX issued); impressions are one row per shown partner
+  result (no retention job yet). No real partner is configured.
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

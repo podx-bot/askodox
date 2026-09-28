@@ -35,6 +35,7 @@ import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
 import '../../growth/data/growth_repository.dart';
+import '../../growth/data/partner_tracking.dart';
 import '../../location/presentation/map_pin_picker.dart';
 import '../domain/active_role.dart';
 import '../domain/chat_action_intent.dart';
@@ -1766,6 +1767,8 @@ class _AskodoxPrimaryHomeScreenState
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => ConversationTurnRecord(text: deal.rawText, isUser: true));
     return {
       'query': lastUser.text,
+      // The conversation language (admin traces + Revenue Center breakdown).
+      'language': _lang,
       'intent': _lastDecision?.action.isNotEmpty == true ? _lastDecision!.action : deal.intent.name,
       'domain': _lastDecision?.domain ?? deal.category,
       'categories': categories ?? [if (deal.subject != null) deal.subject!],
@@ -3547,6 +3550,7 @@ class _ChatResultsView extends StatelessWidget {
           Icons.near_me_rounded,
         AskodoxResultSegment.jobs => Icons.work_outline_rounded,
         AskodoxResultSegment.online => Icons.public_rounded,
+        AskodoxResultSegment.partner => Icons.storefront_rounded,
         AskodoxResultSegment.video => Icons.play_circle_outline_rounded,
       };
 
@@ -3678,13 +3682,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   }
 
   Future<void> _openDestination() async {
-    final raw = _match.destinationUrl?.trim();
-    if (raw == null || raw.isEmpty) return;
-    final uri = Uri.tryParse(raw);
+    // Partner rows open through ASKODOX's tracked redirect; the tap itself
+    // is reported as a click (fire-and-forget, never blocks opening).
+    final tracker = ref.read(askodoxPartnerTrackerProvider);
+    final uri = tracker.openUri(_match);
+    if (uri == null) return;
+    tracker.track(_match, 'click');
     var opened = false;
     try {
-      opened = uri != null &&
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       opened = false;
     }
@@ -3938,7 +3944,10 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               ),
             TextButton.icon(
               key: ValueKey('askodoxDetails-${match.id}'),
-              onPressed: () => _showDetails(context),
+              onPressed: () {
+                ref.read(askodoxPartnerTrackerProvider).track(match, 'card_view');
+                _showDetails(context);
+              },
               style: _compactText,
               icon: const Icon(Icons.info_outline_rounded, size: 16),
               label: Text(_l('details', 'వివరాలు', 'Details')),

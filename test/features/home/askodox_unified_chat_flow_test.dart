@@ -17,6 +17,7 @@ import 'package:podx/core/providers/backend_providers.dart';
 import 'package:podx/features/deal_brain/application/universal_deal_controller.dart';
 import 'package:podx/features/deal_brain/domain/universal_deal.dart';
 import 'package:podx/features/growth/data/growth_repository.dart';
+import 'package:podx/features/growth/data/partner_tracking.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
@@ -390,6 +391,7 @@ class _Harness {
   final lifecycle = _FakeLifecycle();
   final listings = _FakeSellerListingRepository();
   final growth = _FakeGrowth();
+  final partnerTracker = _FakePartnerTracker();
 
   Future<void> pump(WidgetTester tester, {String? locale}) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -446,6 +448,7 @@ class _Harness {
         orderLifecycleRepositoryProvider.overrideWithValue(lifecycle),
         sellerListingRepositoryProvider.overrideWithValue(listings),
         growthRepositoryProvider.overrideWithValue(growth),
+        askodoxPartnerTrackerProvider.overrideWithValue(partnerTracker),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
@@ -493,6 +496,14 @@ class _TestAuth extends AuthController {
       expiresAt: DateTime.now().add(const Duration(days: 1)),
     );
   }
+}
+
+class _FakePartnerTracker extends AskodoxPartnerTracker {
+  _FakePartnerTracker() : super(MockApiClient(), Uri.parse('https://api.askodox.test'));
+  final events = <(String, String)>[];
+
+  @override
+  void track(UniversalMatch match, String event) => events.add((match.clickId ?? '', event));
 }
 
 /// Stand-in for the phone-OTP screen: "Verify" signs the test user in and
@@ -1928,6 +1939,35 @@ void main() {
       await _Harness.settle(tester);
       expect(h.orders.placed, ['42'], reason: 'the exact action resumes after sign-in');
       expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
+    });
+
+    testWidgets('partner (affiliate) rows show last as "Partner stores", open via the tracked redirect',
+        (tester) async {
+      const partner = UniversalMatch(
+        id: 'partner-example-mart', title: '43 inch TV on Example Mart', source: 'online', segment: 'partner',
+        sourceName: 'Example Mart', affiliate: true, disclosure: 'Partner link -- ASKODOX may earn a commission.',
+        destinationUrl: 'https://mart.example/s?k=43+inch+TV&subid=ck1', clickId: 'ck1', redirectPath: '/go/ck1',
+        priceVerified: false,
+      );
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '956', matches: [_registeredTv, partner]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, '43 inch TV ₹30,000 show me');
+      expect(find.text('Partner stores'), findsOneWidget);
+      final partnerY = tester.getTopLeft(find.text('Partner stores')).dy;
+      expect(tester.getTopLeft(find.text('ASKODOX sellers')).dy, lessThan(partnerY), reason: 'local first');
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxDetails-partner-example-mart')));
+      await tester.tap(find.byKey(const ValueKey('askodoxDetails-partner-example-mart')));
+      await _Harness.settle(tester);
+      await tester.tapAt(const Offset(5, 5));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxOpen-partner-example-mart')));
+      await tester.tap(find.byKey(const ValueKey('askodoxOpen-partner-example-mart')));
+      await _Harness.settle(tester);
+      expect(h.partnerTracker.events, [('ck1', 'card_view'), ('ck1', 'click')]);
+      expect(h.partnerTracker.openUri(partner).toString(), 'https://api.askodox.test/go/ck1');
+      expect(h.partnerTracker.openUri(_registeredTv), isNull, reason: 'non-partner rows keep their own link');
     });
 
     testWidgets('a live offer shows on the registered result card', (tester) async {

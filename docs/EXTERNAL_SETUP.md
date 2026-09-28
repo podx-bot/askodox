@@ -67,7 +67,30 @@ What already works on the server (`backend/app/services/push_service.py`):
   go to the buyer
 - account deletion removes the user's device tokens
 
-## 3. Already configured (no action)
+## 3. Affiliate / partner programs (Command Center -> Partner Hub)
+
+Nothing to set in Railway except, optionally, `ASKODOX_PUBLIC_BASE_URL`
+(the backend's public https address, e.g. the Railway domain). It is used
+for tracked links (`/go/<click id>`) and the postback URL shown to you;
+without it the address is taken from the incoming request.
+
+For each partner (any company, any category):
+1. Apply on the partner's affiliate / partner program page (store it as
+   "Affiliate program signup URL"; notes under "How / where to apply").
+2. After approval, copy your tracking / tag ID and build a deep-link template
+   in the partner's link tool; paste both. Set the partner's sub-ID parameter
+   so ASKODOX's click id comes back in their reports.
+3. Level 2 (optional): if the partner gives a product API / feed, fill "Product
+   feed/API" and paste the key with "Set key" (stored on the server only).
+4. Level 3 (optional): "Postback URL" generates a token and the URL to paste
+   into the partner's conversion / postback settings (shown once).
+5. Level 4 (always): "Import report" takes the partner's conversion CSV.
+6. Press "Test", then "Enable".
+
+An affiliate link alone never gives ASKODOX the partner's product database,
+orders or customer care -- only what the partner actually provides.
+
+## 4. Already configured (no action)
 
 `BRAVE_SEARCH_API_KEY`, `SARVAM_API_KEY`, `GEMINI_API_KEY`,
 `OPENAI_API_KEY` and the WhatsApp variables exist in Railway. Do not

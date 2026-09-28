@@ -189,6 +189,8 @@ enum AskodoxResultSegment {
   widerLocal,
   jobs,
   online,
+  // Affiliate / partner stores (Partner Hub): after local and normal online.
+  partner,
   video,
 }
 
@@ -210,6 +212,8 @@ AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
       return AskodoxResultSegment.widerLocal;
     case 'jobs':
       return AskodoxResultSegment.jobs;
+    case 'partner':
+      return AskodoxResultSegment.partner;
   }
   return switch (chatResultActionFor(match)) {
     ChatResultAction.watchVideo => AskodoxResultSegment.video,
@@ -229,6 +233,7 @@ String askodoxSegmentLabel(String segment) => switch (segment) {
       'nearby_external' => 'Nearby shop',
       'wider_local' => 'Wider local area',
       'jobs' => 'Job opening (from a job site)',
+      'partner' => 'Partner store (affiliate link)',
       _ => segment,
     };
 
@@ -239,6 +244,9 @@ String askodoxSegmentTitle(
   String lang = 'en',
 }) {
   // Other app languages: the online/no-local headings from the label table.
+  if (lang != 'en' && lang != 'te' && segment == AskodoxResultSegment.partner) {
+    return askodoxChatLabel('partner', lang);
+  }
   if (lang != 'en' && lang != 'te' && segment == AskodoxResultSegment.online) {
     return hasLocal
         ? askodoxChatLabel('online', lang)
@@ -258,6 +266,7 @@ String askodoxSegmentTitle(
       AskodoxResultSegment.online => hasLocal
           ? 'ఆన్‌లైన్ ఎంపికలు'
           : 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు',
+      AskodoxResultSegment.partner => 'భాగస్వామి స్టోర్లు',
       AskodoxResultSegment.video => 'వీడియోలు & రివ్యూలు',
     };
   }
@@ -273,6 +282,7 @@ String askodoxSegmentTitle(
     AskodoxResultSegment.jobs => 'Job openings',
     AskodoxResultSegment.online =>
       hasLocal ? 'Online options' : 'No local match yet -- online options',
+    AskodoxResultSegment.partner => 'Partner stores',
     AskodoxResultSegment.video => 'Videos & reviews',
   };
 }

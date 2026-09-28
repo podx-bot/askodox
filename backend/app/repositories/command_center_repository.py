@@ -44,6 +44,11 @@ PERMISSIONS = (
     # Offers, rewards/attribution, referrals, plans/subscriptions, catalog AI.
     "growth:view",
     "growth:manage",
+    # Affiliate / Partner Hub and the Revenue Center.
+    "partners:view",
+    "partners:manage",
+    "revenue:view",
+    "revenue:manage",
 )
 
 ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
@@ -63,12 +68,14 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "catalog_manager": (
         "overview:view", "catalog:view", "catalog:manage", "nomatch:view", "nomatch:manage",
     ),
-    "analyst": ("overview:view", "analytics:view", "analytics:export", "health:view", "nomatch:view"),
+    "analyst": ("overview:view", "analytics:view", "analytics:export", "health:view", "nomatch:view", "revenue:view"),
     "integrations_manager": (
         "overview:view", "integrations:view", "integrations:manage", "config:view", "config:manage", "health:view",
     ),
-    "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view"),
-    "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view"),
+    "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view", "revenue:view",
+                         "revenue:manage", "analytics:export"),
+    "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view",
+                       "partners:view", "partners:manage", "revenue:view"),
 }
 
 # ----------------------------------------------------------- feature flags --

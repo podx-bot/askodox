@@ -279,6 +279,10 @@ def create_app() -> FastAPI:
 
     app.include_router(growth_router)
     app.include_router(growth_admin_router)
+    from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router
+
+    app.include_router(partners_router)
+    app.include_router(partners_admin_router)
 
     # Persist external API usage per day (Admin "API usage", cost estimate).
     try:

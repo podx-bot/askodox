@@ -373,6 +373,10 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         constraints.setdefault("radius_km", radius)
     if _VIDEO_ASK.search(str(payload.raw_text or "")):
         constraints["wants_videos"] = True
+    # The conversation language (Revenue Center breakdown only).
+    language = str((getattr(payload, "trace", None) or {}).get("language") or "").strip()[:8]
+    if language:
+        constraints["language"] = language
     return {
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
@@ -556,7 +560,7 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
     trace_key = f"browse:{_uuid.uuid4().hex[:16]}"
     gate = "" if viewer else "guest browsing (no sign-in needed to view results)"
     _trace_request(container, trace_key, payload, viewer, auth_gate=gate)
-    discovered = _discover(container, demand)
+    discovered = _discover(container, demand, trace_key=trace_key)
     _trace_results(container, trace_key, discovered)
     matches = discovered["matches"]
     return {
@@ -732,7 +736,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
     matches.extend(_demo_discovery_matches(container, demand, existing_ids))
 
     primary_count = len(matches)
-    discovered = _discover(container, demand, matches)
+    discovered = _discover(container, demand, matches, trace_key=f"deal:{deal_id}")
     matches = discovered["matches"]
     local_match_count = discovered["local_match_count"]
     source_status = discovered["source_status"]
@@ -769,7 +773,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
     }
 
 
-def _discover(container, demand: dict, matches: list[dict] | None = None) -> dict:
+def _discover(container, demand: dict, matches: list[dict] | None = None, *, trace_key: str = "") -> dict:
     """The ONE universal discovery pipeline (any category): affiliate +
     ASKODOX registered + nearby/wider local + used/surplus/deals + online +
     videos, filtered by admin switches, de-duplicated across sources.
@@ -858,6 +862,38 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         if url_key:
             seen_urls.add(url_key)
         matches.append(item)
+    # Affiliate / partner results (Partner Hub) come AFTER ASKODOX
+    # registered + nearby/local + normal online: ASKODOX stays local-first.
+    partner_rows: list[dict] = []
+    if flags.get("results.affiliate", True):
+        try:
+            from app.api.routes.partners import partner_repo
+            from app.services.affiliate_partner_service import partner_results
+
+            partner_rows, partner_errors = partner_results(
+                partner_repo(container), demand, trace_key=trace_key,
+                country=str(getattr(container.settings, "search_country", "IN") or "IN"),
+            )
+            errors.extend(partner_errors)
+        except Exception as error:  # a partner never breaks discovery
+            errors.append(f"partner:{type(error).__name__}")
+        for item in partner_rows:
+            if str(item.get("id")) in seen:
+                continue
+            seen.add(str(item.get("id")))
+            matches.append(item)
+    try:
+        from app.api.routes.partners import partner_repo
+
+        constraints = demand.get("constraints") or {}
+        partner_repo(container).record_event(
+            "search", trace_key=trace_key or None, category=str(demand.get("domain") or ""),
+            subject=str(demand.get("subject") or ""), location=str(demand.get("location_text") or ""),
+            language=str(constraints.get("language") or ""),
+            detail={"results": len(matches), "partner_results": len(partner_rows)},
+        )
+    except Exception:
+        pass
     _annotate_offers(container, matches)
     local_match_count = sum(
         1 for item in matches if item.get("match_source") in {"interest", "demo_discovery", "registered"}
@@ -871,6 +907,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
                       and m.get("segment") not in {"used", "surplus", "deals"}),
         "used_surplus_deals": sum(1 for m in matches if m.get("segment") in {"used", "surplus", "deals"}),
         "affiliate": sum(1 for m in matches if m.get("affiliate")),
+        "partner": len(partner_rows),
         "videos": sum(1 for m in matches if m.get("match_source") == "video"),
     }
     if not online_on:

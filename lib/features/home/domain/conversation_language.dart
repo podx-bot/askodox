@@ -129,6 +129,7 @@ const _labels = <String, Map<String, String>>{
     'open': 'Open',
     'compare': 'Compare',
     'price_unverified': 'Price not verified',
+    'partner': 'Partner stores',
   },
   'te': {
     'found': '{n} ఎంపికలు దొరికాయి',
@@ -142,6 +143,7 @@ const _labels = <String, Map<String, String>>{
     'open': 'తెరవండి',
     'compare': 'పోల్చండి',
     'price_unverified': 'ధర ధృవీకరించలేదు',
+    'partner': 'భాగస్వామి స్టోర్లు',
   },
   'hi': {
     'found': '{n} विकल्प मिले',
@@ -155,6 +157,7 @@ const _labels = <String, Map<String, String>>{
     'open': 'खोलें',
     'compare': 'तुलना करें',
     'price_unverified': 'कीमत सत्यापित नहीं',
+    'partner': 'पार्टनर स्टोर',
   },
   'or': {
     'found': '{n}ଟି ବିକଳ୍ପ ମିଳିଲା',
@@ -168,5 +171,6 @@ const _labels = <String, Map<String, String>>{
     'open': 'ଖୋଲନ୍ତୁ',
     'compare': 'ତୁଳନା କରନ୍ତୁ',
     'price_unverified': 'ମୂଲ୍ୟ ଯାଞ୍ଚ ହୋଇନାହିଁ',
+    'partner': 'ସହଯୋଗୀ ଷ୍ଟୋର୍',
   },
 };
