@@ -62,6 +62,27 @@ void main() {
     c.dispose();
   });
 
+  test('a hand-picked place survives an app restart and the phone never overrides it', () async {
+    final gps = FakeDeviceLocationGateway(
+        position: const GeoPoint(16.30, 80.40), alreadyAllowed: LocationPermissionStatus.granted);
+    final first = LocationController(null, gps, placeNamer: namer);
+    await first.restoreAndRefresh();
+    await first.selectManualLocation(const BuyerSavedLocation(
+        id: 'manual', name: 'My shop area', address: 'Market Road, Town', point: GeoPoint(17.0, 81.0), type: SavedLocationType.custom));
+    first.dispose();
+
+    // New process: same storage, the phone is now somewhere else.
+    final gps2 = FakeDeviceLocationGateway(
+        position: const GeoPoint(16.60, 80.40), alreadyAllowed: LocationPermissionStatus.granted);
+    final second = LocationController(null, gps2, placeNamer: namer);
+    await second.restoreAndRefresh();
+    expect(second.state.headerLocation, 'Market Road');
+    expect(second.state.defaultLocation?.point.latitude, 17.0);
+    expect(second.state.followsDevice, isFalse);
+    expect(gps2.watchers, 0, reason: 'no movement following over a manual choice');
+    second.dispose();
+  });
+
   test('an unnamed place is re-named on the next resume (no stuck "Current location")', () async {
     var online = false;
     final gps = FakeDeviceLocationGateway(

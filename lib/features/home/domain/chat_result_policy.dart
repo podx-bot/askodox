@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../matching/data/universal_match_repository.dart';
+import 'conversation_language.dart';
 
 /// What a result card embedded in the ASKODOX chat lets the user do.
 ///
@@ -235,7 +236,14 @@ String askodoxSegmentTitle(
   AskodoxResultSegment segment, {
   required bool telugu,
   required bool hasLocal,
+  String lang = 'en',
 }) {
+  // Other app languages: the online/no-local headings from the label table.
+  if (lang != 'en' && lang != 'te' && segment == AskodoxResultSegment.online) {
+    return hasLocal
+        ? askodoxChatLabel('online', lang)
+        : '${askodoxChatLabel('no_local', lang)} -- ${askodoxChatLabel('online', lang)}';
+  }
   if (telugu) {
     return switch (segment) {
       AskodoxResultSegment.askodoxMatches => 'ASKODOX మ్యాచ్‌లు',

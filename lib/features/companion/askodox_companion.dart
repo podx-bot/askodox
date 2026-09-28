@@ -562,7 +562,11 @@ class AskodoxCompanionBar extends StatelessWidget {
     this.onTap,
     this.showLine = true,
     this.size = 64,
+    this.foundLabel,
   });
+
+  /// "Found N options" in the conversation language when it is not te/en.
+  final String? foundLabel;
 
   final AskodoxCompanionMood mood;
   final bool telugu;
@@ -583,7 +587,9 @@ class AskodoxCompanionBar extends StatelessWidget {
               child: Text(
                 mood == AskodoxCompanionMood.idle
                     ? (telugu ? 'ఇంకా ఏమైనా కావాలా? అడగండి.' : 'Anything else? Just ask.')
-                    : askodoxCompanionLine(mood, telugu: telugu, results: results),
+                    : (foundLabel != null && results > 0 && mood == AskodoxCompanionMood.explaining)
+                        ? foundLabel!
+                        : askodoxCompanionLine(mood, telugu: telugu, results: results),
                 key: const Key('askodoxCompanionLine'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

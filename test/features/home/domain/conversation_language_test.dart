@@ -1,0 +1,51 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/home/domain/conversation_language.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  test('script detection works for every supported script, not only Telugu', () {
+    expect(askodoxScriptLanguage('నాకు TV కావాలి'), 'te');
+    expect(askodoxScriptLanguage('मुझे टीवी चाहिए'), 'hi');
+    expect(askodoxScriptLanguage('எனக்கு டிவி வேண்டும்'), 'ta');
+    expect(askodoxScriptLanguage('ನನಗೆ ಟಿವಿ ಬೇಕು'), 'kn');
+    expect(askodoxScriptLanguage('എനിക്ക് ടിവി വേണം'), 'ml');
+    expect(askodoxScriptLanguage('আমার টিভি চাই'), 'bn');
+    expect(askodoxScriptLanguage('ମୋତେ ଟିଭି ଦରକାର'), 'or');
+    expect(askodoxScriptLanguage('I want a TV'), isNull);
+  });
+
+  test('sticky: short Latin replies keep the language; a real English sentence or an explicit ask switches', () {
+    String next(String current, String msg) => askodoxNextConversationLanguage(current: current, message: msg);
+    expect(next('te', 'yes'), 'te');
+    expect(next('te', 'show me'), 'te');
+    expect(next('te', '43 inch Samsung'), 'te');
+    expect(next('te', 'I would like to see cheaper options please'), 'en');
+    expect(next('te', 'reply in English'), 'en');
+    expect(next('en', 'telugu lo cheppu'), 'te');
+    expect(next('en', 'हिंदी में बताओ'), 'hi');
+  });
+
+  test('labels exist for every app language and fall back to English for others', () {
+    for (final lang in ['en', 'te', 'hi', 'or']) {
+      for (final key in ['found', 'no_local', 'online', 'refer', 'join', 'send_request', 'details', 'open', 'compare']) {
+        expect(askodoxChatLabel(key, lang), isNot(key), reason: '$lang/$key');
+      }
+    }
+    expect(askodoxChatLabel('found', 'te', count: 3), contains('3'));
+    expect(askodoxChatLabel('open', 'ta'), 'Open');
+  });
+
+  test('the conversation language survives an app restart', () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer();
+    await c.read(askodoxConversationLanguageProvider.notifier).observe('నాకు TV కావాలి');
+    expect(c.read(askodoxReplyLanguageProvider), 'te');
+    c.dispose();
+    final restarted = ProviderContainer();
+    addTearDown(restarted.dispose);
+    restarted.read(askodoxConversationLanguageProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(restarted.read(askodoxReplyLanguageProvider), 'te');
+  });
+}

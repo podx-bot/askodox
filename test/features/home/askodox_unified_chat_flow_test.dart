@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:podx/features/companion/companion_voice.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -429,6 +430,11 @@ class _Harness {
   /// rejects guests with 401); browsing never does.
   bool signedIn = true;
 
+  /// When true the app runs under a GoRouter with a stand-in sign-in screen
+  /// at /onboarding (the real one is phone OTP), so "sign in, then resume
+  /// the exact action" is exercised end to end.
+  bool withRouter = false;
+
   Widget _app({Widget home = const Scaffold(body: AskodoxPrimaryHomeScreen())}) {
     return ProviderScope(
       key: _scopeKey,
@@ -450,7 +456,14 @@ class _Harness {
           return Text('EMBED $uri');
         }),
       ],
-      child: MaterialApp(home: home),
+      child: withRouter
+          ? MaterialApp.router(
+              routerConfig: GoRouter(routes: [
+                GoRoute(path: '/', builder: (_, __) => home),
+                GoRoute(path: '/onboarding', builder: (_, __) => _FakeSignInScreen(onSignIn: () => growth.signedIn = true)),
+              ]),
+            )
+          : MaterialApp(home: home),
     );
   }
 
@@ -469,15 +482,39 @@ class _Harness {
 
 class _TestAuth extends AuthController {
   _TestAuth(super.manager, {required bool signedIn}) {
-    if (signedIn) {
-      state = AuthSession(
-        user: const AuthUser(id: 'phone-919876500000', role: UserRole.buyer, displayName: 'Test buyer'),
-        status: AuthStatus.loggedIn,
-        tokenPlaceholder: 'test-session-token',
-        expiresAt: DateTime.now().add(const Duration(days: 1)),
-      );
-    }
+    if (signedIn) signInForTest();
   }
+
+  void signInForTest() {
+    state = AuthSession(
+      user: const AuthUser(id: 'phone-919876500000', role: UserRole.buyer, displayName: 'Test buyer'),
+      status: AuthStatus.loggedIn,
+      tokenPlaceholder: 'test-session-token',
+      expiresAt: DateTime.now().add(const Duration(days: 1)),
+    );
+  }
+}
+
+/// Stand-in for the phone-OTP screen: "Verify" signs the test user in and
+/// returns to the chat, exactly like a successful OTP.
+class _FakeSignInScreen extends ConsumerWidget {
+  const _FakeSignInScreen({required this.onSignIn});
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+        body: Center(
+          child: ElevatedButton(
+            key: const Key('fakeOtpVerify'),
+            onPressed: () {
+              onSignIn();
+              (ref.read(authSessionProvider.notifier) as _TestAuth).signInForTest();
+              context.pop(true);
+            },
+            child: const Text('Verify OTP'),
+          ),
+        ),
+      );
 }
 
 Future<void> _tapText(WidgetTester tester, String text) async {
@@ -580,6 +617,71 @@ void main() {
     expect(find.textContaining('ధృవీకరించిన స్థానిక match దొరకలేదు'), findsOneWidget);
     expect(find.text('స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు'), findsOneWidget);
     expect(find.text('తెరవండి'), findsOneWidget);
+  });
+
+  group('conversation language (Section 2)', () {
+    testWidgets('Automatic: asked in Telugu -> Telugu replies, headings and actions through results and short follow-ups',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '91', matches: [_onlineMatch]),
+          const UniversalMatchResult(dealId: '92', matches: [_onlineMatch]),
+        ]),
+      );
+      await h.pump(tester); // no Preferred Language chosen = Automatic
+      await h.send(tester, 'నాకు Vijayawada లో mixer grinder కావాలి, చూపించండి');
+      expect(h.assistant.requests.last['locale'], 'te');
+      expect(find.text('స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు'), findsWidgets);
+      expect(find.text('తెరవండి'), findsWidgets);
+      expect(find.text('Open'), findsNothing);
+
+      // Short Latin follow-ups (brand/size/"show me") never flip to English.
+      await h.send(tester, '750 watt show me');
+      expect(h.assistant.requests.last['locale'], 'te');
+      expect(find.text('Online options'), findsNothing);
+      expect(find.text('No local match yet -- online options'), findsNothing);
+    });
+
+    testWidgets('a real English sentence (or "reply in English") switches; Preferred Language always wins',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '1', matches: [_onlineMatch]),
+          const UniversalMatchResult(dealId: '2', matches: [_onlineMatch]),
+        ]),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'నాకు mixer grinder కావాలి చూపించండి');
+      expect(h.assistant.requests.last['locale'], 'te');
+      await h.send(tester, 'please show me the cheapest mixer grinder options now');
+      expect(h.assistant.requests.last['locale'], 'en');
+    });
+
+    testWidgets('explicit Preferred Language stays even when the customer types another script', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '1', matches: [_onlineMatch]),
+        ]),
+      );
+      await h.pump(tester, locale: 'en');
+      await h.send(tester, 'నాకు mixer grinder కావాలి చూపించండి');
+      expect(h.assistant.requests.last['locale'], 'en');
+      expect(find.text('Open'), findsWidgets);
+    });
+
+    testWidgets('Hindi conversation: Hindi locale for the AI + Hindi result labels (not Telugu-only logic)',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '1', matches: [_onlineMatch]),
+        ]),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'मुझे विजयवाड़ा में मिक्सर ग्राइंडर चाहिए, दिखाओ');
+      expect(h.assistant.requests.last['locale'], 'hi');
+      expect(find.text('खोलें'), findsWidgets);
+      expect(find.textContaining('ऑनलाइन विकल्प'), findsWidgets);
+    });
   });
 
   testWidgets('follow-up refinement keeps earlier results and sends conversation history',
@@ -1483,7 +1585,9 @@ void main() {
     );
     await h.pump(tester);
     await h.send(tester, 'నాకు battery TV కావాలి');
-    expect(find.textContaining('Do you mean a portable TV'), findsOneWidget);
+    // Asked in Telugu -> clarified in Telugu (the app UI is English here).
+    expect(find.textContaining('బ్యాటరీతో నడిచే పోర్టబుల్ టీవీ'), findsWidgets);
+    expect(find.textContaining('Do you mean a portable TV'), findsNothing);
     expect(h.matches.deals, isEmpty);
 
     await h.send(tester, 'inverter backup');
@@ -1671,6 +1775,46 @@ void main() {
       expect(find.textContaining('#905 stays open'), findsOneWidget);
     });
 
+    testWidgets('electric scooter: a buyer search with its own slots; web price stays unverified', (tester) async {
+      const shop = UniversalMatch(
+        id: 'online-0-ev.example.in',
+        title: 'Electric scooter 2 kW -- EV Store',
+        source: 'online',
+        destinationUrl: 'https://ev.example.in/p/scooter',
+        price: 89999,
+        priceVerified: false,
+      );
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '907', matches: [shop]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I want to buy an electric scooter in Vijayawada under ₹1,00,000, show me');
+      expect(h.matches.deals, hasLength(1));
+      expect(h.matches.deals.single.intent, DealIntent.buy);
+      expect(askodoxEffectiveSubject(h.matches.deals.single)?.toLowerCase(), contains('scooter'));
+      expect(find.text('Page mentions ₹89999'), findsOneWidget);
+      expect(h.listings.listed, isEmpty, reason: 'a buyer is never switched to Seller');
+    });
+
+    testWidgets('insurance: an online page opens its source link, never a fake "Send request"', (tester) async {
+      const page = UniversalMatch(
+        id: 'online-0-ins.example.in',
+        title: 'Two wheeler insurance -- buy online',
+        source: 'online',
+        destinationUrl: 'https://ins.example.in/buy',
+      );
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '908', matches: [page], nextActions: ['refer_provider']),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need two wheeler insurance in Vijayawada, show me');
+      expect(h.matches.deals, hasLength(1));
+      expect(find.text('Two wheeler insurance -- buy online'), findsOneWidget);
+      expect(find.text('Send request'), findsNothing, reason: 'web pages are link-only');
+      expect(find.byKey(const Key('askodoxReferProvider')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxJoinAsProvider')), findsOneWidget);
+    });
+
     testWidgets('browsing "best selling TV" keeps the Buyer role and never lists an item', (tester) async {
       final h = _Harness(matches: _FakeMatchRepository([
         const UniversalMatchResult(dealId: '906', matches: [_registeredTv]),
@@ -1722,6 +1866,68 @@ void main() {
       await tester.tap(find.byKey(const Key('askodoxReferProvider')));
       await _Harness.settle(tester);
       expect(find.textContaining('Sign in to refer someone'), findsOneWidget);
+    });
+
+    testWidgets('guest refer: sign-in opens, then the SAME referral resumes (category, place, request kept)',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '953', matches: [], nextActions: ['refer_provider']),
+      ]))
+        ..signedIn = false
+        ..withRouter = true;
+      h.growth.signedIn = false;
+      await h.pump(tester);
+      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      await tester.ensureVisible(find.byKey(const Key('askodoxReferProvider')));
+      await tester.tap(find.byKey(const Key('askodoxReferProvider')));
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('fakeOtpVerify')), findsOneWidget, reason: 'guests go to real sign-in');
+      await tester.tap(find.byKey(const Key('fakeOtpVerify')));
+      await _Harness.settle(tester);
+      expect(h.growth.referrals.single.dealId, '953');
+      expect(h.growth.referrals.single.category.toLowerCase(), contains('welder'));
+      expect(find.textContaining('Referral code ASK1A2B3C'), findsOneWidget);
+      expect(find.textContaining('I need a welder in Vijayawada'), findsWidgets, reason: 'the conversation is kept');
+    });
+
+    testWidgets('"Seller or provider? Join ASKODOX" continues in the same chat as the supply side',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '954', matches: [], nextActions: ['refer_provider']),
+        const UniversalMatchResult(dealId: '955', matches: []),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      expect(find.text('Seller or provider? Join ASKODOX'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('askodoxJoinAsProvider')));
+      await tester.tap(find.byKey(const Key('askodoxJoinAsProvider')));
+      await _Harness.settle(tester);
+      final said = find.textContaining(RegExp(r'I provide welder.* service in Vijayawada|I sell welder.* in Vijayawada',
+          caseSensitive: false));
+      expect(said, findsWidgets, reason: 'category and place are carried over');
+      expect(find.textContaining('I need a welder in Vijayawada'), findsWidgets, reason: 'earlier chat is kept');
+    });
+
+    testWidgets('guest "contact the seller" -> sign in -> the SAME Send request runs', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('Sign in required -- no session token was sent')]),
+        products: [
+          {'id': '42', 'title': 'Mixer grinder — 750W', 'subtitle': '₹3,200 • Vijayawada', 'price': 3200, 'provider_id': ''},
+        ],
+      )
+        ..signedIn = false
+        ..withRouter = true;
+      await h.pump(tester);
+      await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+      await h.send(tester, 'Please contact the seller');
+      expect(h.orders.placed, isEmpty);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxSignInToAct')));
+      await tester.tap(find.byKey(const ValueKey('askodoxSignInToAct')));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const Key('fakeOtpVerify')));
+      await _Harness.settle(tester);
+      expect(h.orders.placed, ['42'], reason: 'the exact action resumes after sign-in');
+      expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
     });
 
     testWidgets('a live offer shows on the registered result card', (tester) async {

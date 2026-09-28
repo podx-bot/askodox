@@ -39,6 +39,7 @@ import '../../location/presentation/map_pin_picker.dart';
 import '../domain/active_role.dart';
 import '../domain/chat_action_intent.dart';
 import '../domain/chat_result_policy.dart';
+import '../domain/conversation_language.dart';
 import '../domain/need_clarification.dart';
 import '../domain/need_state.dart';
 import '../domain/home_request_routing.dart';
@@ -270,7 +271,10 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
-  bool get _te => ref.read(appSettingsProvider).locale?.languageCode == 'te';
+  /// The ONE conversation language (Preferred Language, else what the
+  /// customer is speaking) -- replies, headings and actions all follow it.
+  String get _lang => ref.read(askodoxReplyLanguageProvider);
+  bool get _te => _lang == 'te';
 
   static const _device = MethodChannel('com.askodox.app/device');
   static const _voiceSampleInterval = Duration(milliseconds: 200);
@@ -424,7 +428,7 @@ class _AskodoxPrimaryHomeScreenState
     setState(() => _voicePhase = _VoicePhase.transcribing);
     final transcript = await ref
         .read(askodoxVoiceTranscriptionServiceProvider)
-        .transcribeFile(path, locale: te ? 'te' : 'en');
+        .transcribeFile(path, locale: _lang);
     if (!mounted) return;
     if (transcript == null) {
       setState(() => _voicePhase = _VoicePhase.idle);
@@ -1055,7 +1059,7 @@ class _AskodoxPrimaryHomeScreenState
           ].reversed.take(5).toList().reversed.toList(),
           status: _conversationStatus.name,
           activeRole: askodoxUserRoleLabel(ref.read(askodoxRoleProvider).active),
-          locale: _te ? 'te' : 'en',
+          locale: _lang,
           authToken: session.user == null ? null : session.tokenPlaceholder,
         );
     if (!mounted) return;
@@ -1208,6 +1212,10 @@ class _AskodoxPrimaryHomeScreenState
     }
     text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
     if (!speakResponse) unawaited(_stopSpeaking());
+    // Automatic language: follow the language the customer is using now.
+    if (preset == null || speakResponse) {
+      await ref.read(askodoxConversationLanguageProvider.notifier).observe(text);
+    }
 
     if (attachment != null && !_isVideoAttachment(attachment)) {
       final analysis = await ref.read(askodoxVisionServiceProvider).analyze(
@@ -1375,7 +1383,7 @@ class _AskodoxPrimaryHomeScreenState
 
     final decision = await ref.read(askodoxAssistantServiceProvider).decide(
       message: aiMessage,
-      locale: _te ? 'te' : 'en',
+      locale: _lang,
       history: history,
       location: knownLocationLabel,
     );
@@ -1898,30 +1906,62 @@ class _AskodoxPrimaryHomeScreenState
 
   /// No ASKODOX provider has this yet: create a real referral invite (code
   /// + share text with the benefits of joining) the customer can forward.
-  Future<void> _referProvider(int turnIndex, AskodoxChatResults results) async {
+  Future<void> _referProvider(int turnIndex, AskodoxChatResults results, {bool afterSignIn = false}) async {
     final deal = _dealByTurn[turnIndex] ?? ref.read(universalDealControllerProvider).deal;
     final referral = await ref.read(growthRepositoryProvider).refer(
           category: deal?.subject ?? deal?.category ?? '',
           area: deal?.location.label ?? '',
           dealId: results.dealId,
         );
+    // A guest signs in (real OTP), then the SAME referral continues with the
+    // same category/place/request -- never a dead end.
+    if (referral == null &&
+        !afterSignIn &&
+        ref.read(authSessionProvider).user == null &&
+        mounted &&
+        GoRouter.maybeOf(context) != null) {
+      await context.push<bool>('/onboarding?signin=1');
+      if (mounted && ref.read(authSessionProvider).user != null) {
+        return _referProvider(turnIndex, results, afterSignIn: true);
+      }
+      if (!mounted) return;
+    }
     String reply;
     if (referral == null) {
       reply = _te
           ? 'ఎవరినైనా సూచించడానికి సైన్ ఇన్ చేయండి (రిఫరల్ మీ పేరుతో నమోదవుతుంది).'
           : 'Sign in to refer someone (the referral is recorded in your name).';
     } else {
-      // Best effort: the share text is also shown in the reply below.
       unawaited(Clipboard.setData(ClipboardData(text: referral.shareText)).catchError((_) {}));
+      // WhatsApp (or the phone's share/browser) opens with the invite ready;
+      // the reply never waits on the other app.
+      unawaited(launchUrl(Uri.parse('https://wa.me/?text=${Uri.encodeComponent(referral.shareText)}'),
+              mode: LaunchMode.externalApplication)
+          .then((_) {}, onError: (_) {}));
       reply = _te
-          ? 'రిఫరల్ కోడ్ ${referral.code} సిద్ధం. ఈ సందేశం కాపీ అయింది -- వారికి పంపండి:\n${referral.shareText}'
-          : 'Referral code ${referral.code} is ready. This message is copied -- send it to them:\n${referral.shareText}';
+          ? 'రిఫరల్ కోడ్ ${referral.code} సిద్ధం -- WhatsAppలో పంపండి. సందేశం కాపీ అయింది.'
+          : 'Referral code ${referral.code} is ready -- send it on WhatsApp. The message is copied too.';
     }
     if (!mounted) return;
     setState(() => _turns.add(ConversationTurnRecord(text: reply, isUser: false)));
     await _store.save(_turns);
     await _saveSnapshot();
     _scrollBottom();
+  }
+
+  /// "Seller/provider? Join ASKODOX": continue IN THIS chat as the supply
+  /// side of the same need -- category and place prefilled, the Buyer role
+  /// kept (roles are additive), sign-in only when the listing is saved.
+  Future<void> _joinAsProvider(int turnIndex, AskodoxChatResults results) async {
+    final deal = _dealByTurn[turnIndex] ?? ref.read(universalDealControllerProvider).deal;
+    final subject = (deal?.subject ?? deal?.category ?? '').trim();
+    final place = (deal?.location.label ?? ref.read(locationControllerProvider).headerLocation ?? '').trim();
+    final service = deal?.intent == DealIntent.needService || deal?.intent == DealIntent.bookAppointment;
+    final at = place.isEmpty ? '' : (_te ? '$placeలో ' : ' in $place');
+    final text = _te
+        ? (service ? 'నేను $at$subject సర్వీస్ ఇస్తాను' : 'నేను $at$subject అమ్ముతాను')
+        : (service ? 'I provide $subject service$at' : 'I sell $subject$at');
+    await _send(text.replaceAll(RegExp(r'\s+'), ' ').trim());
   }
 
   Future<void> _replyAndSave(String reply, bool speakResponse, String userText) async {
@@ -2374,6 +2414,7 @@ class _AskodoxPrimaryHomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(askodoxReplyLanguageProvider);
     final te = _te;
     return ColoredBox(
         color: const Color(0xFFF9FBFF),
@@ -2388,6 +2429,9 @@ class _AskodoxPrimaryHomeScreenState
               results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
               onTap: _voicePhase == _VoicePhase.idle ? _startVoice : null,
               showLine: _voicePhase == _VoicePhase.idle,
+              foundLabel: _lang == 'te' || _lang == 'en'
+                  ? null
+                  : askodoxChatLabel('found_pick', _lang, count: _latestResults()?.matches.length ?? 0),
             ),
           _composer(te)
         ]));
@@ -2616,6 +2660,7 @@ class _AskodoxPrimaryHomeScreenState
                 key: ValueKey('askodoxChatResults-$index'),
                 results: results,
                 te: te,
+                lang: _lang,
                 retrying: _sending,
                 onRetry: _dealByTurn.containsKey(index)
                     ? () => _retryMatching(index)
@@ -2638,6 +2683,7 @@ class _AskodoxPrimaryHomeScreenState
                 onAlternatives: (rows) => _showAlternatives(results.dealId, rows),
                 onSupport: _dealSupport,
                 onRefer: _sending ? null : () => _referProvider(index, results),
+                onJoin: _sending ? null : () => _joinAsProvider(index, results),
               ),
             if (_clarificationByTurn[index] case final clarification?)
               if (identical(clarification, _pendingClarification) &&
@@ -3281,11 +3327,13 @@ class _ChatResultsView extends StatelessWidget {
     super.key,
     required this.results,
     required this.te,
+    this.lang = 'en',
     required this.retrying,
     required this.isActionable,
     required this.wasRequested,
     required this.onRequestSent,
     this.onRefer,
+    this.onJoin,
     this.onAsk,
     this.onRetry,
     this.onCompare,
@@ -3299,8 +3347,15 @@ class _ChatResultsView extends StatelessWidget {
 
   final AskodoxChatResults results;
   final bool te;
+
+  /// The conversation language (labels in hi/or/... come from the table).
+  final String lang;
   final bool retrying;
+
+  String _l(String key, String telugu, String english) =>
+      lang == 'te' || lang == 'en' ? (te ? telugu : english) : askodoxChatLabel(key, lang);
   final VoidCallback? onRetry;
+  final VoidCallback? onJoin;
   final bool Function(UniversalMatch match) isActionable;
   final bool Function(UniversalMatch match) wasRequested;
   final void Function(UniversalMatch match)? onAsk;
@@ -3355,18 +3410,26 @@ class _ChatResultsView extends StatelessWidget {
         if (results.nextActions.contains('refer_provider') && onRefer != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              // Small, contextual: shown only when no ASKODOX provider has
-              // this yet (seller, service provider, employer -- anyone).
-              child: ActionChip(
+            // Small, contextual: shown only when no ASKODOX provider has this
+            // yet (seller, service provider, employer -- anyone). The online
+            // options above stay; these two grow the local network.
+            child: Wrap(spacing: 6, runSpacing: 4, children: [
+              if (onJoin != null)
+                ActionChip(
+                  key: const Key('askodoxJoinAsProvider'),
+                  onPressed: onJoin,
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.storefront_rounded, size: 16),
+                  label: Text(_l('join', 'మీరు విక్రేత/ప్రొవైడరా? ASKODOXలో చేరండి', 'Seller or provider? Join ASKODOX')),
+                ),
+              ActionChip(
                 key: const Key('askodoxReferProvider'),
                 onPressed: onRefer,
                 visualDensity: VisualDensity.compact,
                 avatar: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                label: Text(te ? 'ఎవరైనా తెలుసా? సూచించండి' : 'Know someone? Refer'),
+                label: Text(_l('refer', 'ఎవరైనా తెలుసా? సూచించండి', 'Know someone? Refer')),
               ),
-            ),
+            ]),
           ),
         if (results.scopeMessage != null)
           _notice(
@@ -3389,7 +3452,7 @@ class _ChatResultsView extends StatelessWidget {
                 : 'Also sent to ${results.broadcastSent} registered ASKODOX provider(s) nearby.',
           ),
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
-          _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal),
+          _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal, lang: lang),
               _segmentIcon(segment)),
           // Several choices: ONE compact horizontal rail (swipe), so the
           // options stay visible without a long vertical feed. A single
@@ -3600,6 +3663,11 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   UniversalMatch get _match => widget.match;
   bool get _te => widget.te;
   ChatResultAction get _action => chatResultActionFor(_match);
+
+  String _l(String key, String telugu, String english) {
+    final lang = ref.watch(askodoxReplyLanguageProvider);
+    return lang == 'te' || lang == 'en' ? (_te ? telugu : english) : askodoxChatLabel(key, lang);
+  }
 
   /// Videos play inside ASKODOX; back returns to this exact chat position.
   Future<void> _openVideo() async {
@@ -3842,7 +3910,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                                 ? (te ? 'మళ్లీ ప్రయత్నించండి' : 'Retry request')
                                 : action == ChatResultAction.connect
                                     ? (te ? 'కనెక్ట్ అభ్యర్థన పంపండి' : 'Connect')
-                                    : (te ? 'అభ్యర్థన పంపండి' : 'Send request'),
+                                    : _l('send_request', 'అభ్యర్థన పంపండి', 'Send request'),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                       ),
               ),
@@ -3857,7 +3925,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 label: Text(action == ChatResultAction.watchVideo
                     ? (te ? 'వీడియో చూడండి' : 'Watch')
                     : action == ChatResultAction.openLink
-                        ? (match.isJob ? (te ? 'తెరిచి అప్లై చేయండి' : 'Open & apply') : (te ? 'తెరవండి' : 'Open'))
+                        ? (match.isJob ? (te ? 'తెరిచి అప్లై చేయండి' : 'Open & apply') : _l('open', 'తెరవండి', 'Open'))
                         : (te ? 'వివరాలు చూడండి' : 'View details')),
               ),
             if (widget.onCompare != null && action != ChatResultAction.watchVideo)
@@ -3866,14 +3934,14 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 onPressed: widget.onCompare,
                 style: _compactText,
                 icon: const Icon(Icons.compare_arrows_rounded, size: 16),
-                label: Text(te ? 'పోల్చండి' : 'Compare'),
+                label: Text(_l('compare', 'పోల్చండి', 'Compare')),
               ),
             TextButton.icon(
               key: ValueKey('askodoxDetails-${match.id}'),
               onPressed: () => _showDetails(context),
               style: _compactText,
               icon: const Icon(Icons.info_outline_rounded, size: 16),
-              label: Text(te ? 'వివరాలు' : 'Details'),
+              label: Text(_l('details', 'వివరాలు', 'Details')),
             ),
           ],
         ),
