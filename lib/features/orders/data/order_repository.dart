@@ -130,10 +130,14 @@ bool orderContactVisible(String? status) =>
     orderContactVisibleStatuses.contains((status ?? '').trim().toUpperCase());
 
 class OrderActionResult {
-  const OrderActionResult({required this.success, this.order, this.message});
+  const OrderActionResult({required this.success, this.order, this.message, this.needsSignIn = false});
   final bool success;
   final Order? order;
   final String? message;
+
+  /// The action needs the user's identity (send a request / contact a
+  /// seller): the UI offers sign-in and retries the SAME action after it.
+  final bool needsSignIn;
 }
 
 abstract interface class OrderRepository {

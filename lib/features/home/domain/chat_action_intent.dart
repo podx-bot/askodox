@@ -8,7 +8,10 @@ import '../../matching/data/universal_match_repository.dart';
 final _confirm = RegExp(
   r'^(yes|yeah|yep|ok|okay|sure|go ahead|proceed|confirm|confirmed|done|do it|please do|go)\b'
   r'|\b(order (it|this|that|now|the)|place (the |an |my )?order|send (the |a |my )?request|send it'
-  r"|book (it|this|that|now)|buy (it|this|that)|i('ll| will) take (it|this|that)|go with)\b"
+  r"|book (it|this|that|now)|buy (it|this|that|now)|i('ll| will) (take|buy) (it|this|that)|go with"
+  r"|i want (this|that|it)( one)?$|i('ll| will) buy|get (it|this|that) for me"
+  r'|(contact|call|message|connect (me )?(with|to)) (the |this |that )?(seller|provider|shop|owner|store)'
+  r'|connect me)\b'
   r'|అవును|సరే|ఓకే|పంపండి|పంపు|ఆర్డర్ చేయ|బుక్ చేయ|కొంటాను'
   r'|हाँ|हां|ठीक है|भेजो|भेज दो|ऑर्डर कर|बुक कर',
   caseSensitive: false,

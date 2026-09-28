@@ -10,7 +10,11 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.signIn = false});
+
+  /// Opened from an action that needs identity (send a request, contact a
+  /// seller): straight to phone + OTP, then back to where the user was.
+  final bool signIn;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -49,9 +53,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    if (prefs.getBool(_completeKey) == true) {
+    if (prefs.getBool(_completeKey) == true && !widget.signIn) {
       context.go('/');
       return;
+    }
+    if (widget.signIn) {
+      _name.text = prefs.getString(_nameKey)?.trim() ?? '';
+      final mobile = prefs.getString(_mobileKey)?.trim() ?? '';
+      if (mobile.isNotEmpty) _mobile.text = mobile;
+      _step = 1;
     }
 
     final saved = prefs.getString(_localeKey)?.trim();
@@ -205,7 +215,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await prefs.setString(_tokenKey, token);
     }
     await prefs.setBool(_completeKey, true);
-    if (mounted) context.go('/');
+    // The session is live at once (no restart needed to act).
+    await ref.read(authSessionProvider.notifier).completeOnboarding(
+          mobile: _mobile.text.trim(),
+          displayName: _name.text.trim(),
+          token: (token == null || token.isEmpty) ? null : token,
+        );
+    if (!mounted) return;
+    if (widget.signIn && context.canPop()) {
+      context.pop(true);
+    } else {
+      context.go('/');
+    }
   }
 
   void _useDeviceLanguage() {

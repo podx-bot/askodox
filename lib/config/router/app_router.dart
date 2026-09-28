@@ -65,13 +65,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
           path: '/onboarding',
-          builder: (context, state) => const OnboardingScreen()),
-      GoRoute(
-          path: '/auth/login',
-          builder: (context, state) => const AuthMessageScreen(
-              title: 'Sign in required',
-              message:
-                  'Choose a demo role in Developer settings to continue.')),
+          builder: (context, state) =>
+              OnboardingScreen(signIn: state.uri.queryParameters['signin'] == '1')),
+      // Real sign-in is phone + OTP (never a developer/demo role screen).
+      GoRoute(path: '/auth/login', redirect: (context, state) => '/onboarding?signin=1'),
       GoRoute(
           path: '/auth/session-expired',
           builder: (context, state) => const AuthMessageScreen(

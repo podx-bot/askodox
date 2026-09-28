@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:podx/core/api/api_client.dart';
+import 'package:podx/core/auth/auth_controller.dart';
+import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/core/config/environment.dart';
 import 'package:podx/core/providers/backend_providers.dart';
@@ -422,11 +424,16 @@ class _Harness {
 
   Key _scopeKey = UniqueKey();
 
+  /// Sending a request / contacting a seller needs identity (the backend
+  /// rejects guests with 401); browsing never does.
+  bool signedIn = true;
+
   Widget _app({Widget home = const Scaffold(body: AskodoxPrimaryHomeScreen())}) {
     return ProviderScope(
       key: _scopeKey,
       overrides: [
         appConfigProvider.overrideWithValue(_config(backend)),
+        authSessionProvider.overrideWith((ref) => _TestAuth(ref.watch(sessionManagerProvider), signedIn: signedIn)),
         universalMatchRepositoryProvider.overrideWithValue(matches),
         orderRepositoryProvider.overrideWithValue(orders),
         orderLifecycleRepositoryProvider.overrideWithValue(lifecycle),
@@ -455,6 +462,19 @@ class _Harness {
   static Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 40));
+    }
+  }
+}
+
+class _TestAuth extends AuthController {
+  _TestAuth(super.manager, {required bool signedIn}) {
+    if (signedIn) {
+      state = AuthSession(
+        user: const AuthUser(id: 'phone-919876500000', role: UserRole.buyer, displayName: 'Test buyer'),
+        status: AuthStatus.loggedIn,
+        tokenPlaceholder: 'test-session-token',
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+      );
     }
   }
 }
@@ -606,7 +626,26 @@ void main() {
     expect(find.text('Ask ASKODOX about this'), findsOneWidget);
   });
 
-  testWidgets('signed-out buyer gets real listings with Send Request as an order request',
+  testWidgets('guest browses real listings; "contact the seller" asks for sign-in instead of a raw error',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([StateError('Sign in required -- no session token was sent')]),
+      products: [
+        {'id': '42', 'title': 'Mixer grinder — 750W', 'subtitle': '₹3,200 • Vijayawada', 'price': 3200, 'provider_id': ''},
+      ],
+    )..signedIn = false;
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+
+    expect(find.text('₹3200'), findsOneWidget, reason: 'browsing never needs sign-in');
+    await h.send(tester, 'Please contact the seller');
+    expect(h.orders.placed, isEmpty);
+    expect(find.textContaining('Sign in with your phone number to send this request'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxSignInToAct')), findsOneWidget);
+    expect(find.textContaining('no session token'), findsNothing, reason: 'raw server errors are never shown');
+  });
+
+  testWidgets('signed-in "contact the seller" / "I want this" runs the same Send request action',
       (tester) async {
     final h = _Harness(
       matches: _FakeMatchRepository([StateError('Sign in required -- no session token was sent')]),
@@ -616,16 +655,11 @@ void main() {
     );
     await h.pump(tester);
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
-
-    expect(find.text('₹3200'), findsOneWidget);
-    expect(find.text('Send request'), findsNothing);
-    // Asking for the seller exposes the request without a new search.
     await h.send(tester, 'Please contact the seller');
-    expect(find.textContaining('Tap Send request on the option you want'), findsOneWidget);
-    await _tapText(tester, 'Send request');
+
     expect(h.orders.placed, ['42']);
     expect(h.matches.accepted, isEmpty);
-    expect(find.text('Request sent'), findsOneWidget);
+    expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
   });
 
   testWidgets('role follows activity: buyer then seller is announced and seller never runs a buyer search',

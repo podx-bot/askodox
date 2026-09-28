@@ -47,9 +47,14 @@ class AskodoxChatResults {
     this.scopeMessage,
     this.advice = const [],
     this.nextActions = const [],
+    this.traceKey,
   });
 
   final String? dealId;
+
+  /// Admin flow trace of this search (selected result / action outcome
+  /// are appended to it).
+  final String? traceKey;
 
   /// At most two short, contextual advice lines (never a lecture).
   final List<({String text, String textTe})> advice;
@@ -181,6 +186,7 @@ enum AskodoxResultSegment {
   deals,
   nearbyExternal,
   widerLocal,
+  jobs,
   online,
   video,
 }
@@ -201,6 +207,8 @@ AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
       return AskodoxResultSegment.nearbyExternal;
     case 'wider_local':
       return AskodoxResultSegment.widerLocal;
+    case 'jobs':
+      return AskodoxResultSegment.jobs;
   }
   return switch (chatResultActionFor(match)) {
     ChatResultAction.watchVideo => AskodoxResultSegment.video,
@@ -219,6 +227,7 @@ String askodoxSegmentLabel(String segment) => switch (segment) {
       'registered' => 'New (ASKODOX seller)',
       'nearby_external' => 'Nearby shop',
       'wider_local' => 'Wider local area',
+      'jobs' => 'Job opening (from a job site)',
       _ => segment,
     };
 
@@ -237,6 +246,7 @@ String askodoxSegmentTitle(
       AskodoxResultSegment.deals => 'డీల్స్ & ఆఫర్లు',
       AskodoxResultSegment.nearbyExternal => 'దగ్గరలోని షాపులు',
       AskodoxResultSegment.widerLocal => 'కొంచెం దూరంలోని షాపులు',
+      AskodoxResultSegment.jobs => 'ఉద్యోగ అవకాశాలు',
       AskodoxResultSegment.online => hasLocal
           ? 'ఆన్‌లైన్ ఎంపికలు'
           : 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు',
@@ -252,6 +262,7 @@ String askodoxSegmentTitle(
     AskodoxResultSegment.deals => 'Deals & offers',
     AskodoxResultSegment.nearbyExternal => 'Nearby shops',
     AskodoxResultSegment.widerLocal => 'Shops a little farther away',
+    AskodoxResultSegment.jobs => 'Job openings',
     AskodoxResultSegment.online =>
       hasLocal ? 'Online options' : 'No local match yet -- online options',
     AskodoxResultSegment.video => 'Videos & reviews',
@@ -317,16 +328,31 @@ bool askodoxIsResultsQuestion(String text) {
   return explicit || comparativeQuestion;
 }
 
+/// Sent with every question about shown options: ASKODOX answers only from
+/// what the source actually provided -- never an invented rating, review,
+/// condition, stock, specification, distance or seller reputation.
+const askodoxGroundingRule =
+    'Answer ONLY from the facts listed for each option. If a fact (price, rating, reviews, condition, stock, '
+    'specifications, distance, seller verification) is "not provided", say it is not provided by the source -- '
+    'never guess it, never say customers generally rate it well. Offer to ask the seller for seller-only facts.';
+
 /// Short, factual description of an option so ASKODOX AI can discuss it.
+/// Facts the source did not give are stated as "not provided".
 String askodoxOptionContext(UniversalMatch match) {
   final parts = <String>[match.title];
   if (match.subtitle?.trim().isNotEmpty == true) parts.add(match.subtitle!.trim());
-  if (match.price != null) parts.add('price ₹${match.price!.toStringAsFixed(0)}');
-  if (match.distanceKm != null) parts.add('${match.distanceKm!.toStringAsFixed(1)} km away');
-  if (match.availability?.trim().isNotEmpty == true) parts.add(match.availability!.trim());
-  if (match.ratingAverage != null) {
-    parts.add('rated ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount} reviews)');
-  }
+  parts.add(match.price == null
+      ? 'price: not provided'
+      : match.priceVerified
+          ? 'price ₹${match.price!.toStringAsFixed(0)}'
+          : 'page text mentions ₹${match.price!.toStringAsFixed(0)} (unverified)');
+  if (match.salaryText?.trim().isNotEmpty == true) parts.add('salary as stated: ${match.salaryText!.trim()}');
+  parts.add(match.distanceKm == null ? 'distance: not provided' : '${match.distanceKm!.toStringAsFixed(1)} km away');
+  parts.add(match.availability?.trim().isNotEmpty == true ? match.availability!.trim() : 'stock/availability: not provided');
+  parts.add(match.ratingAverage == null
+      ? 'rating/reviews: not provided'
+      : 'rated ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount} reviews)');
+  if (match.sourceName?.trim().isNotEmpty == true) parts.add('source: ${match.sourceName!.trim()}');
   if (match.segment?.isNotEmpty == true) parts.add('type: ${match.segment}');
   return parts.join('; ');
 }
