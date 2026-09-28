@@ -7,8 +7,6 @@ import '../../core/providers/backend_providers.dart';
 import '../../features/home/presentation/chat_first_home_host.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
-import '../../features/search/domain/search_models.dart';
-import '../../features/search/presentation/product_discovery_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/selling/presentation/my_listings_screen.dart';
@@ -139,25 +137,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/product/:id',
           builder: (context, state) =>
               ProductDetailsScreen(productId: state.pathParameters['id']!)),
+      // The old barcode/OCR/image/voice discovery screen (system recognizer,
+      // mock catalog) is gone: Main Chat does all of it (+ camera, voice).
+      GoRoute(path: '/discover/:mode', redirect: (context, state) => '/'),
       GoRoute(
           path: '/product-not-found',
           builder: (context, state) => const ProductNotFoundScreen()),
-      GoRoute(
-          path: '/discover/barcode',
-          builder: (context, state) =>
-              const ProductDiscoveryScreen(mode: SearchIntentType.barcode)),
-      GoRoute(
-          path: '/discover/ocr',
-          builder: (context, state) =>
-              const ProductDiscoveryScreen(mode: SearchIntentType.ocr)),
-      GoRoute(
-          path: '/discover/image',
-          builder: (context, state) =>
-              const ProductDiscoveryScreen(mode: SearchIntentType.image)),
-      GoRoute(
-          path: '/discover/voice',
-          builder: (context, state) =>
-              const ProductDiscoveryScreen(mode: SearchIntentType.voice)),
       GoRoute(
           path: '/settings/notifications',
           builder: (context, state) => const NotificationSettingsScreen()),
@@ -195,9 +180,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(
             path: '/alert-simulator',
             builder: (context, state) => const AlertSimulatorScreen()),
-      GoRoute(
-          path: '/analytics/buyer',
-          builder: (context, state) => const BuyerInsightsScreen()),
+      // Demo buyer "insights" (sample charts) are not a customer feature.
+      GoRoute(path: '/analytics/buyer', redirect: (context, state) => '/'),
       GoRoute(path: '/analytics/privacy', redirect: (context, state) => '/privacy'),
       GoRoute(
           path: '/privacy',

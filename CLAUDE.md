@@ -87,6 +87,11 @@ this file, don't trust it blindly.
   (Sarvam-first). Never reintroduce the `RecognizerIntent` fallback there.
 - No Android SDK in the cloud dev container: Kotlin changes compile only in
   CI (`Android APK CI` / `Android Live Build`).
+- `android/app/src/main/kotlin/.../MainActivity.kt` is the ONE native
+  bridge. The Live Build / Flutter CI scripts (`tool/apply_android_*.sh`)
+  used to overwrite it with older heredoc copies (so the phone APK lacked
+  Geocoder naming + notifications); they must never write it again. CI
+  greps guard reverseGeocode/showNotification/speechRange.
 - Chat and card actions share ONE executor
   (`lib/features/home/application/match_action_executor.dart`): a typed
   "yes / order it / book it" must keep calling it, never answer with text.
@@ -112,6 +117,9 @@ this file, don't trust it blindly.
 - Acting (send request / contact) needs identity; the executor returns
   `needsSignIn` and the UI offers `/onboarding?signin=1` (real OTP), then
   retries the same action. `/auth/login` redirects there.
+- Location: no built-in city anywhere (`LocationState.hasPlace`); follows
+  the phone only while allowed + foreground (`watchPosition`, 300 m) and
+  never overrides a hand-picked place (`followsDevice`).
 - Nearby (Places) needs a real place: no location -> source status
   `needs_location`, never a country-wide query. Places/web rows in another
   country are filtered (`place_region_mismatch`, `region_mismatch`).
@@ -121,9 +129,9 @@ this file, don't trust it blindly.
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
 ## Known open issues (verified, not yet fixed)
-- `/discover/voice` (ProductDiscoveryScreen) still uses the Android system
-  `RecognizerIntent`; only Main Chat voice goes through Sarvam. Voice
-  *replies* still use device TTS, not Sarvam TTS.
+- Voice replies: Sarvam Bulbul audio first, device TTS fallback (the old
+  `/discover/*` screen with the system recognizer is removed; the Kotlin
+  `startVoiceSearch` method remains unused).
 - A combined answer ("1 kg curry cut skinless") is stored whole in both
   `cut` and `chickenPreference` (matching still completes).
 - No automated check catches "a route's auth requirement changed but a
@@ -146,8 +154,11 @@ this file, don't trust it blindly.
   listings (`/api/products/brands`), or a short reply that filled nothing.
   A brand the AI misses in the FIRST message and that no listing carries
   can stay in the subject next to a later brand.
-- 3D friend is a procedural canvas mesh (`companion_3d.dart`); no asset
-  avatars are shipped yet (`AskodoxMesh.fromJson` is the loader).
+- 3D friend is a procedural canvas mesh (`companion_3d.dart`: expressions,
+  hands/gestures, blink/gaze, mic-reactive, lip-sync from
+  `companion_voice.dart`); no asset avatars yet (`AskodoxMesh.fromJson`).
+  Lip-sync needs device TTS `onRangeStart` (API 26+) or Sarvam audio
+  position; otherwise text-paced.
 - Monetization/price-benchmark l10n strings still contain demo wording but
   are not reachable from customer screens. No-match "Notify me" not built.
 - Rate limits, the API cache and live counters are per process; daily API
