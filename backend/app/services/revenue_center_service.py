@@ -295,7 +295,8 @@ class RevenueCenter:
                 if top:
                     share = abs(top[0][1]) / abs(revenue_delta) * 100
                     context = (f"{share:.0f}% of the {revenue_delta:+,.2f} total change" if share <= 100 else
-                               f"larger than the {revenue_delta:+,.2f} total change -- other {dim}s moved the other way")
+                               f"larger than the {revenue_delta:+,.2f} total change -- other "
+                               f"{ {'category': 'categories'}.get(dim, dim + 's') } moved the other way")
                     add("CONFIRMED", f"By {dim}: '{top[0][0]}' changed revenue by {top[0][1]:+,.2f} ({context}).",
                         {"dimension": dim, "top_changes": [{"key": k, "delta": d} for k, d in top]})
         # 2. Funnel stages (facts), with rate changes only when volume allows.
