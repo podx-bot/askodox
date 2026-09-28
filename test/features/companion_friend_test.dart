@@ -97,9 +97,13 @@ void main() {
     tearDown(() => AskodoxCompanionPerformance.lite = false);
 
     test('slow real frames switch the session to the light friend', () {
-      expect(AskodoxCompanionPerformance.judge(List.filled(60, 12000)), isFalse);
-      expect(AskodoxCompanionPerformance.judge(List.filled(60, 40000)), isTrue);
-      expect(AskodoxCompanionPerformance.judge(List.filled(10, 40000)), isFalse); // not enough evidence
+      expect(AskodoxCompanionPerformance.judge(List.filled(100, 12000)), isFalse);
+      expect(AskodoxCompanionPerformance.judge(List.filled(100, 40000)), isTrue);
+      expect(AskodoxCompanionPerformance.judge(List.filled(60, 40000)), isFalse); // not enough evidence
+      // Slow warm-up frames (shader compile, first layout) alone never step down.
+      expect(AskodoxCompanionPerformance.judge([...List.filled(30, 90000), ...List.filled(70, 12000)]), isFalse);
+      // A mid-range phone at ~40 fps keeps the human 3D companion.
+      expect(AskodoxCompanionPerformance.judge(List.filled(100, 25000)), isFalse);
     });
 
     testWidgets('lite session draws 2D; friend off draws a plain mic button', (tester) async {

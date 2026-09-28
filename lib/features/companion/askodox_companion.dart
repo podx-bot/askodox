@@ -87,6 +87,8 @@ class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionS
   }
 
   Future<void> update({AskodoxCompanionLook? look, bool? animate, bool? render3d, bool? enabled, String? companion}) async {
+    // An explicit choice always applies (a session step-down never hides it).
+    if (companion != null || render3d == true) AskodoxCompanionPerformance.reset();
     state = AskodoxCompanionSettings(
         look: look ?? state.look,
         animate: animate ?? state.animate,
@@ -136,14 +138,21 @@ class AskodoxCompanionPerformance {
   static bool get lite => level >= 2;
   static set lite(bool value) => level = value ? 2 : 0;
 
-  /// Frames slower than this (build+raster) count as janky.
-  static const jankMicros = 24000;
+  /// Step down only when the MEDIAN frame is slower than ~30 fps.
+  static const jankMicros = 34000;
+
+  /// Frames ignored after the companion starts animating (shader warm-up,
+  /// first layout) -- they are slow on every phone and prove nothing.
+  static const warmupFrames = 30;
 
   static bool judge(List<int> frameMicros) {
-    if (frameMicros.length < 45) return false;
-    final sorted = [...frameMicros]..sort();
+    if (frameMicros.length < warmupFrames + 60) return false;
+    final sorted = frameMicros.sublist(warmupFrames)..sort();
     return sorted[sorted.length ~/ 2] > jankMicros;
   }
+
+  /// The user picked a companion: give 3D a fresh chance this session.
+  static void reset() => level = 0;
 }
 
 /// Which renderer the companion actually uses right now.
@@ -256,7 +265,7 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
     for (final t in timings) {
       _frames.add(t.totalSpan.inMicroseconds);
     }
-    if (_frames.length > 120) _frames.removeRange(0, _frames.length - 120);
+    if (_frames.length > 150) _frames.removeRange(AskodoxCompanionPerformance.warmupFrames, _frames.length - 120);
     if (AskodoxCompanionPerformance.level < 2 && AskodoxCompanionPerformance.judge(_frames)) {
       // Too slow on this phone: step down one level (human -> robot lite ->
       // flat) for this session; the user's choice is kept for next time.
@@ -540,33 +549,47 @@ class _CompanionPainter extends CustomPainter {
       old.t != t || old.mood != mood || old.look != look || old.blinkAmount != blinkAmount;
 }
 
-/// Compact "friend" bar shown above the input while ASKODOX works: the
-/// companion + one short line. Hidden when idle so it never takes space.
+/// The companion docked above the input for the WHOLE conversation
+/// (listening, thinking, speaking, results, follow-ups, idle) -- it never
+/// disappears. [showLine] is off while the voice panel already says the
+/// same status.
 class AskodoxCompanionBar extends StatelessWidget {
-  const AskodoxCompanionBar({super.key, required this.mood, required this.telugu, this.results = 0, this.onTap});
+  const AskodoxCompanionBar({
+    super.key,
+    required this.mood,
+    required this.telugu,
+    this.results = 0,
+    this.onTap,
+    this.showLine = true,
+    this.size = 64,
+  });
 
   final AskodoxCompanionMood mood;
   final bool telugu;
   final int results;
   final VoidCallback? onTap;
+  final bool showLine;
+  final double size;
 
   @override
-  Widget build(BuildContext context) {
-    if (mood == AskodoxCompanionMood.idle) return const SizedBox.shrink();
-    return Padding(
-      key: const Key('askodoxCompanionBar'),
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
-      child: Row(children: [
-        AskodoxCompanion(mood: mood, size: 40, onTap: onTap),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            askodoxCompanionLine(mood, telugu: telugu, results: results),
-            key: const Key('askodoxCompanionLine'),
-            style: const TextStyle(color: Color(0xFF10204A), fontWeight: FontWeight.w700),
-          ),
-        ),
-      ]),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+        key: const Key('askodoxCompanionBar'),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+        child: Row(children: [
+          AskodoxCompanion(mood: mood, size: size, onTap: onTap),
+          const SizedBox(width: 8),
+          if (showLine)
+            Expanded(
+              child: Text(
+                mood == AskodoxCompanionMood.idle
+                    ? (telugu ? 'ఇంకా ఏమైనా కావాలా? అడగండి.' : 'Anything else? Just ask.')
+                    : askodoxCompanionLine(mood, telugu: telugu, results: results),
+                key: const Key('askodoxCompanionLine'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xFF10204A), fontWeight: FontWeight.w700),
+              ),
+            ),
+        ]),
+      );
 }

@@ -218,6 +218,38 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('picking a companion always applies, even after a session step-down', (tester) async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      AskodoxCompanionPerformance.level = 2; // an earlier slow stretch
+      await show(tester, c);
+      expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
+      await c.read(askodoxCompanionSettingsProvider.notifier).update(companion: AskodoxPersona.techExpert.name);
+      await show(tester, c);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Tech Expert')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('the docked companion is present in every state, idle included', (tester) async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      for (final mood in AskodoxCompanionMood.values) {
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: c,
+          child: MaterialApp(home: Scaffold(body: AskodoxCompanionBar(mood: mood, telugu: false))),
+        ));
+        expect(find.byType(AskodoxCompanion), findsOneWidget, reason: '$mood');
+        expect(tester.getSize(find.byType(AskodoxCompanion)).height, greaterThanOrEqualTo(64));
+      }
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: c,
+        child: const MaterialApp(home: Scaffold(body: AskodoxCompanionBar(mood: AskodoxCompanionMood.idle, telugu: false))),
+      ));
+      expect(find.text('Anything else? Just ask.'), findsOneWidget, reason: 'idle keeps the companion + a prompt');
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('background pauses the companion; foreground resumes it', (tester) async {
       final c = ProviderContainer();
       addTearDown(c.dispose);

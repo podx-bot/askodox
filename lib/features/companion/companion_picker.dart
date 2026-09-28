@@ -68,7 +68,8 @@ class AskodoxCompanionPicker extends ConsumerWidget {
           children: [
             option(
               id: AskodoxCompanionSettings.automatic,
-              label: t('Automatic', 'ఆటోమేటిక్'),
+              // Automatic shows who it is right now (it follows the chat).
+              label: '${t('Automatic', 'ఆటోమేటిక్')} · ${askodoxPersonaLabel(askodoxPersonaForDomain(ref.watch(askodoxCompanionDomainProvider)), telugu: telugu)}',
               selected: !off3d && settings.companion == AskodoxCompanionSettings.automatic,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: true),
               preview: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF6C4DFF), size: 34),
@@ -98,6 +99,23 @@ class AskodoxCompanionPicker extends ConsumerWidget {
           ],
         ),
       ),
+      if (!off3d && AskodoxCompanionPerformance.level > 0)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(key: const Key('askodoxCompanionLiteNotice'), children: [
+            const Icon(Icons.speed_rounded, size: 18, color: Color(0xFF8A94A6)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(t('Running the Lite friend for smoothness on this phone.',
+                  'స్మూత్‌గా ఉండేందుకు ఈ ఫోన్‌లో లైట్ స్నేహితుడు నడుస్తోంది.')),
+            ),
+            TextButton(
+              key: const Key('askodoxCompanionRetry3d'),
+              onPressed: () => notifier.update(companion: settings.companion),
+              child: Text(t('Try 3D again', 'మళ్లీ 3D')),
+            ),
+          ]),
+        ),
       if (!off3d && settings.companion == AskodoxCompanionSettings.robotLite)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

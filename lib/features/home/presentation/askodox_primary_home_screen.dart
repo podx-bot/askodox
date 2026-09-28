@@ -2379,14 +2379,15 @@ class _AskodoxPrimaryHomeScreenState
         color: const Color(0xFFF9FBFF),
         child: Column(children: [
           Expanded(child: _active ? _chat(te) : _home(te)),
-          // During voice the existing voice status already says Listening /
-          // Speaking -- the friend bar never repeats it.
-          if (_active && _voicePhase == _VoicePhase.idle)
+          // The companion stays docked for the whole conversation; during
+          // voice the voice panel shows the status text, so no second line.
+          if (_active)
             AskodoxCompanionBar(
               mood: _companionMood,
               telugu: te,
               results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
-              onTap: _startVoice,
+              onTap: _voicePhase == _VoicePhase.idle ? _startVoice : null,
+              showLine: _voicePhase == _VoicePhase.idle,
             ),
           _composer(te)
         ]));
@@ -2830,13 +2831,11 @@ class _AskodoxPrimaryHomeScreenState
       child: Row(children: [
         AnimatedScale(
           key: const Key('askodoxVoicePulse'),
-          scale: listening ? 1 + current * 0.2 : 1,
+          scale: listening ? 1 + current * 0.45 : 1,
           duration: const Duration(milliseconds: 180),
-          child: ref.watch(askodoxCompanionSettingsProvider).enabled
-              // The friend itself listens (mic-reactive), thinks and speaks
-              // (lip-synced) right where the voice status is shown.
-              ? AskodoxCompanion(key: const Key('askodoxVoiceFriend'), mood: _companionMood, size: 36)
-              : CircleAvatar(
+          // The docked companion above listens/thinks/speaks; the panel keeps
+          // the plain mic/speaker cue.
+          child: CircleAvatar(
                   radius: 18,
                   backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
                   child: Icon(
