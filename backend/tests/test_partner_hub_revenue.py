@@ -424,3 +424,35 @@ def test_partner_changes_are_audited_by_field_without_secret_values(api):
     audit = client.get("/admin/cc/audit", headers=OWNER).text
     assert "partner.update" in audit and "tracking_id" in audit and "new-21" not in audit
     assert "partner.secret" in audit and "sk-abcdef123456" not in audit
+
+
+# ------------------------------------------------- S12 admin traces ---
+
+def test_admin_trace_shows_the_whole_request_privacy_safe_and_filterable(api):
+    client, container = api
+    create(client)
+    body = {**tv_request(), "raw_text": "43 inch TV, call me 9876543210 or me@example.com",
+            "trace": {"language": "te", "query": "43 inch TV, call me 9876543210 or me@example.com",
+                      "intent": "buy", "active_role": "buyer", "attachments": [{"kind": "image", "id": "att_1"}]}}
+    found = client.post("/deals/discover", json=body).json()
+    key = found["trace_key"]
+    row = next(m for m in found["matches"] if m.get("segment") == "partner")
+    client.post("/api/partners/event", json={"click_id": row["click_id"], "event": "click"})
+    client.post("/deals/trace-event", json={"trace_key": key, "event": "auth_resumed", "detail": {"title": "x"}})
+
+    items = client.get("/admin/cc/traces", headers=OWNER, params={"q": "43 inch", "language": "te"}).json()["items"]
+    trace = next(t for t in items if t["trace_key"] == key)
+    assert trace["language"] == "te" and trace["role"] == "buyer" and trace["attachments"] == ["image"]
+    assert trace["sources"]["partner"] == 1 and trace["outcome"] == "partner_click"
+    assert "9876543210" not in trace["query"] and "[phone]" in trace["query"] and "[email]" in trace["query"]
+    detail = client.get(f"/admin/cc/traces/{trace['id']}", headers=OWNER).json()
+    events = [e["event"] for e in detail["events"]]
+    assert "partner_click" in events and "auth_resumed" in events
+    assert detail["results"] and "rank" in detail["results"][0], "ranking is visible"
+    assert "filtered" in detail and "fallback" in detail and "timeline" in detail
+    # Filters narrow correctly.
+    assert client.get("/admin/cc/traces", headers=OWNER, params={"language": "hi"}).json()["items"] == []
+    assert all(t["sources"].get("partner") for t in
+               client.get("/admin/cc/traces", headers=OWNER, params={"source": "partner"}).json()["items"])
+    assert client.get("/admin/cc/traces", headers=OWNER, params={"outcome": "action_ok"}).json()["items"] == []
+    assert client.get("/admin/cc/traces").status_code == 401, "admin only"

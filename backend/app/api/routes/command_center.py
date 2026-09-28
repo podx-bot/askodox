@@ -446,27 +446,75 @@ def verify_order_payment(order_id: int, payload: PaymentVerification, request: R
 
 # --------------------------------------------------------- flow traces --
 
+def _trace_outcome(t: dict[str, Any]) -> str:
+    """The final outcome of a request, from what actually happened."""
+    events = t.get("events") or []
+    for event in reversed(events):
+        name = event.get("event")
+        if name == "action_result":
+            return "action_ok" if event.get("ok") else f"action_failed:{event.get('reason') or 'unknown'}"
+        if name in ("partner_opened", "partner_click"):
+            return name
+    if t.get("errors"):
+        return "error"
+    return str(t.get("stage") or "unknown")
+
+
 @router.get("/traces")
-def flow_traces(request: Request, stage: str = "", limit: int = 100) -> dict[str, Any]:
-    """Real per-request pipeline traces: query → intent/categories/slots →
-    questions/answers → sources called and counts → filtered + reasons →
-    fallback → results sent → auth gate → seller request → escalation →
-    deal stage → errors → latency."""
+def flow_traces(request: Request, stage: str = "", limit: int = 100, q: str = "", language: str = "",
+                outcome: str = "", user: str = "", source: str = "", errors_only: bool = False,
+                since: str = "", until: str = "", deal_id: str = "") -> dict[str, Any]:
+    """Real per-request pipeline traces: query → language → intent/role/
+    categories/slots → questions/answers → location → sources called and
+    counts (registered / nearby / partner / web) → filtered + reasons →
+    ranking → fallback → results → selected/clicked → action → auth gate /
+    resume → request/order/deal id → outcome → errors → latency.
+    Filters: q (query/category/title text), language, stage, outcome, user
+    (masked id), source (a source that returned rows), errors_only,
+    since/until (ISO dates), deal_id."""
     _require(request, "requests:view")
-    items = command_center(request.app.state.container).traces(limit=limit, stage=stage or None)
+    items = command_center(request.app.state.container).traces(limit=500, stage=stage or None)
+
+    def keep(t: dict[str, Any]) -> bool:
+        if q:
+            haystack = " ".join(str(v) for v in (t.get("query"), t.get("categories"), t.get("results"),
+                                                  t.get("slots"))).casefold()
+            if q.casefold() not in haystack:
+                return False
+        if language and language not in {str(t.get("reply_language") or ""), str(t.get("language") or "")}:
+            return False
+        if outcome and not _trace_outcome(t).startswith(outcome):
+            return False
+        if user and user != str(t.get("user") or ""):
+            return False
+        if source and not (t.get("source_counts") or {}).get(source):
+            return False
+        if errors_only and not t.get("errors"):
+            return False
+        if since and str(t.get("updated_at") or "") < since:
+            return False
+        if until and str(t.get("created_at") or "") > until + "T23:59:59":
+            return False
+        if deal_id and str(t.get("deal_id") or "") != deal_id:
+            return False
+        return True
+
     compact = [{
-        "id": t["id"], "updated_at": t["updated_at"], "stage": t.get("stage"), "user": t.get("user"),
-        "query": t.get("query"), "intent": t.get("intent"), "categories": t.get("categories"),
+        "id": t["id"], "updated_at": t["updated_at"], "stage": t.get("stage"), "outcome": _trace_outcome(t),
+        "user": t.get("user"), "query": t.get("query"),
+        "language": t.get("reply_language") or t.get("language"), "intent": t.get("intent"),
+        "role": t.get("active_role"), "categories": t.get("categories"),
+        "attachments": [a.get("kind") for a in (t.get("attachments") or [])] or None,
         "results": t.get("results_count"), "sources": t.get("source_counts"), "fallback": t.get("fallback"),
-        "auth_gate": t.get("auth_gate"), "errors": t.get("errors"), "latency_ms": t.get("latency_ms"),
-        "trace_key": t.get("trace_key"), "role": t.get("active_role"),
+        "auth_gate": t.get("auth_gate"), "deal_id": t.get("deal_id"), "errors": t.get("errors"),
+        "latency_ms": t.get("latency_ms"), "trace_key": t.get("trace_key"),
         # Where the search actually looked, and the latest thing the customer
-        # did with the results (selected / action / outcome).
+        # did with the results (selected / clicked / action / outcome).
         "location": (t.get("location_searched") or {}).get("label")
         or ("GPS point" if (t.get("location_searched") or {}).get("has_point") else None),
         "location_failure": (t.get("location_searched") or {}).get("failure"),
         "last_event": ((t.get("events") or [None])[-1]),
-    } for t in items]
+    } for t in items if keep(t)][:max(1, min(limit, 500))]
     return {"items": compact}
 
 

@@ -1771,6 +1771,10 @@ class _AskodoxPrimaryHomeScreenState
       'query': lastUser.text,
       // The conversation language (admin traces + Revenue Center breakdown).
       'language': _lang,
+      // Attachments on the latest customer turn: kind + backend reference only.
+      'attachments': [
+        for (final a in lastUser.attachments) {'kind': a['kind'] ?? '', 'id': a['id'] ?? ''},
+      ],
       'intent': _lastDecision?.action.isNotEmpty == true ? _lastDecision!.action : deal.intent.name,
       'domain': _lastDecision?.domain ?? deal.category,
       'categories': categories ?? [if (deal.subject != null) deal.subject!],
@@ -1906,6 +1910,7 @@ class _AskodoxPrimaryHomeScreenState
       _sending = true;
     });
     _focusedMatch = pending.target;
+    _traceEvent(pending.results, 'auth_resumed', {'title': pending.target.title, 'via': 'sign_in'});
     await _actOnConfirmation(pending.text, pending.results, false);
   }
 

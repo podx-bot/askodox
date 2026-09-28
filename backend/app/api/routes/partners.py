@@ -111,6 +111,7 @@ def partner_redirect(click_id: str, request: Request) -> RedirectResponse:
                       trace_key=context.get("trace_key"), category=context.get("category") or "",
                       subject=context.get("subject") or "", location=context.get("location") or "",
                       language=context.get("language") or "", campaign=context.get("campaign") or "")
+    _trace_partner(request, context, "partner_opened")
     return RedirectResponse(url, status_code=302)
 
 
@@ -136,7 +137,26 @@ def partner_event(payload: PartnerEvent, request: Request) -> dict:
                       trace_key=context.get("trace_key"), category=context.get("category") or "",
                       subject=context.get("subject") or "", location=context.get("location") or "",
                       language=context.get("language") or "", campaign=context.get("campaign") or "")
+    if recorded:
+        _trace_partner(request, context, "partner_" + payload.event)
     return {"recorded": payload.event if recorded else None, "duplicate": not recorded}
+
+
+def _trace_partner(request: Request, context: dict, event: str) -> None:
+    """The customer's click / open on a partner result, on the SAME admin
+    flow trace as the search that showed it (click id + title only)."""
+    key = str(context.get("trace_key") or "")
+    if not key:
+        return
+    try:
+        from app.api.routes.command_center import command_center
+
+        detail = context.get("detail") or {}
+        command_center(request.app.state.container).trace_event(key, {
+            "event": event, "partner_id": context.get("partner_id"), "title": str(detail.get("title") or "")[:80],
+        })
+    except Exception:
+        pass
 
 
 @router.api_route("/api/partners/{slug}/postback", methods=["GET", "POST"])

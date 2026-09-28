@@ -585,7 +585,7 @@ class TraceEventRequest(BaseModel):
 
 
 _TRACE_EVENTS = {"result_selected", "action_attempted", "action_result", "location_failure", "auth_required",
-                 "search_failed"}
+                 "search_failed", "auth_resumed", "attachment_failed"}
 
 
 @router.post("/trace-event")
@@ -1043,6 +1043,16 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
         pass  # tracing never breaks the customer response
 
 
+_PHONE = re.compile(r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)")
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+
+
+def _redact_pii(text: str) -> str:
+    """Admin traces keep what was asked, not who to call: phone numbers and
+    e-mail addresses typed into the chat are masked."""
+    return _EMAIL.sub("[email]", _PHONE.sub("[phone]", text))
+
+
 def _query_language(text: str) -> str:
     """Script of what the customer actually said (te / hi / en / mixed)."""
     telugu = bool(re.search(r"[ఀ-౿]", text))
@@ -1071,15 +1081,18 @@ def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=
             trace_key,
             deal_id=deal_id,
             user=mask_user_id(user_id) if user_id else "guest",
-            query=str(client.get("query") or payload.raw_text or "")[:500],
+            query=_redact_pii(str(client.get("query") or payload.raw_text or ""))[:500],
+            reply_language=str(client.get("language") or "")[:8] or None,
+            attachments=[{"kind": str(a.get("kind") or "")[:12], "id": str(a.get("id") or "")[:40]}
+                         for a in (client.get("attachments") or []) if isinstance(a, dict)][:4] or None,
             language=_query_language(str(client.get("query") or payload.raw_text or "")),
             ui_language=str(client.get("ui_language") or "")[:8] or None,
             intent=str(client.get("intent") or payload.intent or "")[:80],
             domain=str(client.get("domain") or payload.category or "")[:40],
             categories=[str(c)[:60] for c in (client.get("categories") or [payload.subject])][:10],
             slots=slots,
-            questions=[str(q)[:200] for q in (client.get("questions") or [])][:20],
-            answers=[str(a)[:200] for a in (client.get("answers") or [])][:20],
+            questions=[_redact_pii(str(q))[:200] for q in (client.get("questions") or [])][:20],
+            answers=[_redact_pii(str(a))[:200] for a in (client.get("answers") or [])][:20],
             auth_gate=auth_gate or str(client.get("auth_gate") or "")[:120],
             active_role=str(client.get("active_role") or "")[:40],
             missing_slots=[str(m)[:40] for m in (client.get("missing_slots") or [])][:20],
