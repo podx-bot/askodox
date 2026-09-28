@@ -279,6 +279,7 @@ def create_app() -> FastAPI:
 
     app.include_router(growth_router)
     app.include_router(growth_admin_router)
+    _redact_access_log_tokens()
     from app.api.routes.attachments import router as attachments_router
     from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router
 
@@ -301,3 +302,24 @@ def create_app() -> FastAPI:
         container.close()
 
     return app
+
+
+def _redact_access_log_tokens() -> None:
+    """Partner postback URLs carry ?token=...; access logs never show it."""
+    import logging
+    import re
+
+    pattern = re.compile(r"((?:token|api_key|apikey|key|secret)=)[^&\s\"]+", re.IGNORECASE)
+
+    class _Redact(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            if record.args:
+                record.args = tuple(pattern.sub(r"\1[redacted]", a) if isinstance(a, str) else a
+                                    for a in record.args)
+            if isinstance(record.msg, str):
+                record.msg = pattern.sub(r"\1[redacted]", record.msg)
+            return True
+
+    logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _Redact) or type(f).__name__ == "_Redact" for f in logger.filters):
+        logger.addFilter(_Redact())

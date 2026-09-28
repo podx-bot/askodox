@@ -189,10 +189,11 @@ this file, don't trust it blindly.
   Advisory is rule-based, not LLM-generated.
 - Pre-existing: `deal-completion-memory-smoke` block 2 fails when run
   outside its workflow env (same on `main` before PR #101).
-- Partner Hub: partner secrets are stored unencrypted in the SQLite DB
-  (never returned by an API); `/api/partners/event` is public (rate-limited,
-  needs a click id ASKODOX issued); impressions are one row per shown partner
-  result (no retention job yet). No real partner is configured.
+- Partner Hub: secrets are Fernet-encrypted (`ASKODOX_SECRETS_KEY`, fail
+  closed without it); click ids are HMAC-signed, counted once, expire
+  (`ASKODOX_CLICK_TTL_HOURS`); raw events roll up per day after
+  `ASKODOX_EVENT_RETENTION_DAYS` (run lazily at most daily -- no cron). No real
+  partner is configured.
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

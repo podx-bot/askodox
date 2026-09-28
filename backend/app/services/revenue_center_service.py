@@ -105,9 +105,19 @@ class RevenueCenter:
 
     # ----------------------------------------------------------- summary --
 
-    def _window(self, start: str, end: str, filters: Dict[str, str]) -> Dict[str, Any]:
+    def _window(self, start: str, end: str, filters: Dict[str, str], first_day: str = "",
+                last_day: str = "") -> Dict[str, Any]:
         partners = {p["id"]: p for p in self.repo.partners()}
         events = self.repo.events_between(start, end)
+        if first_day and last_day:
+            # Raw events older than the retention window live on as per-day
+            # counts; they are merged in so totals and trends stay exact.
+            for row in self.repo.rollups_between(first_day, last_day):
+                events.append({"occurred_at": f"{row['day']}T12:00:00+05:30", "event": row["event"],
+                               "partner_id": row["partner_id"] or None, "category": row["category"],
+                               "location": row["location"], "language": row["language"],
+                               "campaign": row["campaign"], "count": row["count"], "click_id": None,
+                               "detail": {}})
         conversions = self.repo.conversions_between(start, end)
         entries = self.repo.entries_between(start, end)
 
@@ -130,7 +140,7 @@ class RevenueCenter:
     def _metrics(data: Dict[str, Any]) -> Dict[str, Any]:
         counts: Dict[str, int] = defaultdict(int)
         for event in data["events"]:
-            counts[event["event"]] += 1
+            counts[event["event"]] += event.get("count", 1)
         by_state: Dict[str, float] = defaultdict(float)
         orders = gmv = 0.0
         for conv in data["conversions"]:
@@ -166,7 +176,7 @@ class RevenueCenter:
             table: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
             for event in data["events"]:
                 if event["event"] in ("impression", "click", "search", "lead"):
-                    table[key_fn(event)][_PLURAL[event["event"]]] += 1
+                    table[key_fn(event)][_PLURAL[event["event"]]] += event.get("count", 1)
             for conv in data["conversions"]:
                 row = table[key_fn(conv)]
                 if conv["status"] != "REJECTED":
@@ -203,7 +213,7 @@ class RevenueCenter:
         for event in data["events"]:
             day = days.get(_local_day(event["occurred_at"], zone))
             if day is not None:
-                day[_PLURAL[event["event"]]] += 1
+                day[_PLURAL[event["event"]]] += event.get("count", 1)
         for conv in data["conversions"]:
             day = days.get(_local_day(conv["occurred_at"], zone))
             if day is None:
@@ -234,8 +244,9 @@ class RevenueCenter:
 
     def summary(self, bounds: Dict[str, Any], filters: Dict[str, str] | None = None) -> Dict[str, Any]:
         filters = {k: v for k, v in (filters or {}).items() if v}
-        current = self._window(bounds["start"], bounds["end"], filters)
-        previous = self._window(bounds["previous"]["start"], bounds["previous"]["end"], filters)
+        current = self._window(bounds["start"], bounds["end"], filters, bounds["first_day"], bounds["last_day"])
+        previous = self._window(bounds["previous"]["start"], bounds["previous"]["end"], filters,
+                            bounds["previous"]["first_day"], bounds["previous"]["last_day"])
         now_m, prev_m = self._metrics(current), self._metrics(previous)
         change = {k: _pct(float(now_m[k] or 0), float(prev_m[k] or 0)) for k in now_m
                   if isinstance(now_m[k], (int, float)) or now_m[k] is None}
@@ -261,8 +272,9 @@ class RevenueCenter:
 
     def explain(self, bounds: Dict[str, Any], filters: Dict[str, str] | None = None) -> Dict[str, Any]:
         filters = {k: v for k, v in (filters or {}).items() if v}
-        cur = self._window(bounds["start"], bounds["end"], filters)
-        prev = self._window(bounds["previous"]["start"], bounds["previous"]["end"], filters)
+        cur = self._window(bounds["start"], bounds["end"], filters, bounds["first_day"], bounds["last_day"])
+        prev = self._window(bounds["previous"]["start"], bounds["previous"]["end"], filters,
+                            bounds["previous"]["first_day"], bounds["previous"]["last_day"])
         a, b = self._metrics(cur), self._metrics(prev)
         findings: List[Dict[str, Any]] = []
 
@@ -342,7 +354,8 @@ class RevenueCenter:
         now_rev = {r["key"]: r for r in self._breakdowns(cur)["partner"]}
         for partner in cur["partners"].values():
             before, after = prev_rev.get(partner["name"], {}), now_rev.get(partner["name"], {})
-            errors = [e for e in cur["events"] if e["event"] == "error" and e["partner_id"] == partner["id"]]
+            errors = [e for e in cur["events"] if e["event"] == "error" and e["partner_id"] == partner["id"]
+                      and not e.get("count")]
             if not partner["active"] and (before.get("impressions") or before.get("revenue")) and not after.get("impressions"):
                 add("CONFIRMED", f"Partner '{partner['name']}' is disabled: it had {int(before.get('impressions', 0))} "
                                  f"impressions / {before.get('revenue', 0):,.2f} revenue before and none now.",
@@ -369,7 +382,7 @@ class RevenueCenter:
 
     def export_csv(self, kind: str, bounds: Dict[str, Any], filters: Dict[str, str] | None = None) -> str:
         filters = {k: v for k, v in (filters or {}).items() if v}
-        data = self._window(bounds["start"], bounds["end"], filters)
+        data = self._window(bounds["start"], bounds["end"], filters, bounds["first_day"], bounds["last_day"])
         rows: Iterable[Dict[str, Any]]
         if kind == "events":
             rows = [{k: v for k, v in e.items() if k != "detail"} for e in data["events"]]
@@ -394,7 +407,7 @@ class RevenueCenter:
     def records(self, kind: str, bounds: Dict[str, Any], filters: Dict[str, str] | None = None,
                 limit: int = 200) -> List[Dict[str, Any]]:
         filters = {k: v for k, v in (filters or {}).items() if v}
-        data = self._window(bounds["start"], bounds["end"], filters)
+        data = self._window(bounds["start"], bounds["end"], filters, bounds["first_day"], bounds["last_day"])
         key = {"events": "events", "conversions": "conversions", "entries": "entries"}.get(kind)
         if key is None:
             raise ValueError("kind must be events, conversions or entries")

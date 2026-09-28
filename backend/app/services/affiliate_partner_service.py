@@ -35,8 +35,9 @@ from app.services import external_call_budget
 DISCLOSURE = "Partner link -- ASKODOX may earn a commission. Price and stock are on the partner's site."
 
 
-def new_click_id() -> str:
-    return "ck" + secrets.token_hex(8)
+def new_click_id(repo: PartnerRevenueRepository) -> str:
+    """A signed ASKODOX click id (only ids ASKODOX issued are accepted later)."""
+    return repo.new_click_id()
 
 
 def _https(url: str) -> Optional[str]:
@@ -215,7 +216,7 @@ def partner_results(repo: PartnerRevenueRepository, demand: Dict[str, Any], *, c
         if partner["capabilities"]["level2_feed"]:
             try:
                 for n, item in enumerate(fetch_feed(repo, partner, subject, client=feed_client)):
-                    click_id = new_click_id()
+                    click_id = new_click_id(repo)
                     link = build_link(partner, query=subject, click_id=click_id, target_url=item["url"],
                                       category=category)
                     if not link:
@@ -231,7 +232,7 @@ def partner_results(repo: PartnerRevenueRepository, demand: Dict[str, Any], *, c
                 repo.record_event("error", partner_id=partner["id"], trace_key=trace_key, category=category,
                                   detail={"stage": "feed", "error": str(error)[:200]})
         if not found:
-            click_id = new_click_id()
+            click_id = new_click_id(repo)
             link = build_link(partner, query=subject, click_id=click_id, category=category)
             if link:
                 found.append({

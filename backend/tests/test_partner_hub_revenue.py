@@ -16,6 +16,9 @@ from app.repositories.partner_revenue_repository import PartnerRevenueRepository
 from app.services import affiliate_partner_service as svc
 from app.services import external_call_budget, rate_limit
 from app.services.revenue_center_service import RevenueCenter, period_bounds
+from app.services.secret_box import SecretBox
+
+KEY = SecretBox.generate_key()
 
 OWNER_KEY = "owner-ph-" + uuid.uuid4().hex[:6]
 OWNER = {"X-ASKODOX-Admin-Key": OWNER_KEY}
@@ -40,11 +43,13 @@ def api(monkeypatch, tmp_path):
     from server import app, container
 
     monkeypatch.setattr(container, "settings", dataclasses.replace(container.settings, admin_seed_key=OWNER_KEY,
-                                                                   public_base_url="https://api.askodox.test"))
+                                                                   public_base_url="https://api.askodox.test",
+                                                                   secrets_key=KEY))
     monkeypatch.setattr(container, "command_center_repository",
                         CommandCenterRepository(str(tmp_path / "cc.db")), raising=False)
     monkeypatch.setattr(container, "partner_revenue_repository",
-                        PartnerRevenueRepository(str(tmp_path / "partners.db")), raising=False)
+                        PartnerRevenueRepository(str(tmp_path / "partners.db"), secret_box=SecretBox(KEY),
+                                                 click_key="test-click-key"), raising=False)
     return TestClient(app, follow_redirects=False), container
 
 
@@ -117,7 +122,7 @@ def test_build_link_placeholders_and_https_only():
 
 
 def test_generic_feed_adapter_level2_uses_backend_key_and_real_fields(tmp_path):
-    repo = PartnerRevenueRepository(str(tmp_path / "p.db"))
+    repo = PartnerRevenueRepository(str(tmp_path / "p.db"), secret_box=SecretBox(KEY))
     partner = repo.create_partner({**MART, "feed": {"url": "https://feed.mart.example/search?q={query}",
                                                     "items_path": "data.items", "title": "name", "item_url": "link",
                                                     "price": "price", "auth": "header:X-Api-Key"}})
@@ -314,3 +319,108 @@ def test_admin_web_has_partner_hub_and_revenue_center_tabs(api):
     client, _ = api
     page = client.get("/admin").text
     assert "Partner Hub" in page and "Revenue Center" in page and "Why up / down" in page
+
+
+# ------------------------------------------------ S13 security/data ---
+
+def test_partner_secrets_are_encrypted_at_rest_fail_closed_and_rotatable(api, tmp_path):
+    import sqlite3
+
+    client, container = api
+    partner = create(client)
+    secret = "sk-live-" + uuid.uuid4().hex
+    assert client.put(f"/admin/cc/partners/{partner['id']}/secrets/api_key", headers=OWNER,
+                      json={"value": secret}).status_code == 200
+    repo = container.partner_revenue_repository
+    with sqlite3.connect(repo.db_path) as conn:
+        stored = conn.execute("SELECT value FROM partner_secrets").fetchone()[0]
+    assert stored.startswith("enc:v1:") and secret not in stored, "never plain text in the database"
+    assert repo.secret(partner["id"], "api_key") == secret, "backend can still use it"
+    listed = client.get("/admin/cc/partners", headers=OWNER).json()["items"][0]["secrets"]["api_key"]
+    assert listed == {"set": True, "encrypted": True, "updated_at": listed["updated_at"]}, "not even last 4 chars"
+
+    # Rotation: new key current, old key previous -> everything re-encrypted with the new key.
+    new_key = SecretBox.generate_key()
+    repo.box = SecretBox(new_key, [KEY])
+    assert client.post("/admin/cc/partners/secrets/rotate", headers=OWNER).json()["rewritten"] == 1
+    repo.box = SecretBox(new_key)
+    assert repo.secret(partner["id"], "api_key") == secret, "readable with only the new key"
+
+    # No key configured: refuse to store (never falls back to plain text).
+    repo.box = SecretBox()
+    refused = client.put(f"/admin/cc/partners/{partner['id']}/secrets/feed_token", headers=OWNER,
+                         json={"value": "x" * 20})
+    assert refused.status_code == 503 and "ASKODOX_SECRETS_KEY" in refused.json()["detail"]
+    assert client.get("/admin/cc/partners/security", headers=OWNER).json()["secrets_key_configured"] is False
+
+
+def test_click_ids_are_signed_counted_once_and_expire(api):
+    client, container = api
+    create(client)
+    row = next(m for m in client.post("/deals/discover", json=tv_request()).json()["matches"]
+               if m.get("segment") == "partner")
+    click_id = row["click_id"]
+    repo = container.partner_revenue_repository
+    assert repo.valid_click_id(click_id) and len(click_id) == 28
+    forged = click_id[:-1] + ("0" if click_id[-1] != "0" else "1")
+    assert client.post("/api/partners/event", json={"click_id": forged, "event": "click"}).status_code == 404
+    first = client.post("/api/partners/event", json={"click_id": click_id, "event": "click"}).json()
+    again = client.post("/api/partners/event", json={"click_id": click_id, "event": "click"}).json()
+    assert first == {"recorded": "click", "duplicate": False} and again == {"recorded": None, "duplicate": True}
+    client.get(f"/go/{click_id}")
+    client.get(f"/go/{click_id}")
+    now = datetime.now(timezone.utc)
+    events = repo.events_between((now - timedelta(hours=1)).isoformat(), (now + timedelta(hours=1)).isoformat())
+    assert sum(e["event"] == "click" for e in events) == 1 and sum(e["event"] == "partner_opened" for e in events) == 1
+    # An impression older than the click TTL no longer accepts events.
+    import sqlite3
+
+    with sqlite3.connect(repo.db_path) as conn:
+        conn.execute("UPDATE revenue_events SET occurred_at = ? WHERE click_id = ? AND event = 'impression'",
+                     ((now - timedelta(hours=repo.click_ttl_hours + 1)).isoformat(), click_id))
+    assert client.post("/api/partners/event", json={"click_id": click_id, "event": "card_view"}).status_code == 404
+
+
+def test_retention_rolls_up_old_events_and_totals_stay_exact(tmp_path):
+    repo = PartnerRevenueRepository(str(tmp_path / "ret.db"), secret_box=SecretBox(KEY))
+    mart = repo.create_partner({**MART})
+    old = datetime.now(timezone.utc) - timedelta(days=40)
+    _seed(repo, mart["id"], old, searches=12, impressions=9, clicks=3, orders=2, commission=50)
+    _seed(repo, mart["id"], datetime.now(timezone.utc) - timedelta(hours=1), searches=2, impressions=2, clicks=1,
+          orders=0, commission=0)
+    before = RevenueCenter(repo).summary(period_bounds("custom", start=(old - timedelta(days=1)).date().isoformat(),
+                                                       end=datetime.now(timezone.utc).date().isoformat()))["metrics"]
+    result = repo.run_retention(30)
+    assert result["rolled_up_events"] == 12 + 9 + 3
+    everything = (old - timedelta(days=5)).isoformat(), (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    assert all(e["occurred_at"] >= result["cutoff"] for e in repo.events_between(*everything)), "raw rows deleted"
+    after = RevenueCenter(repo).summary(period_bounds("custom", start=(old - timedelta(days=1)).date().isoformat(),
+                                                      end=datetime.now(timezone.utc).date().isoformat()))["metrics"]
+    for key in ("searches", "impressions", "clicks", "orders", "total_revenue"):
+        assert after[key] == before[key], key
+    assert repo.run_retention(30)["rolled_up_events"] == 0, "idempotent"
+    assert len(repo.conversions_between("2000", "2100")) == 2, "conversions are never deleted"
+
+
+def test_access_logs_redact_postback_tokens():
+    import logging
+
+    import app.api.app_factory  # noqa: F401  (installs the filter when the app is built)
+    from server import app  # noqa: F401
+
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                               ("1.2.3.4", "GET", "/api/partners/x/postback?token=SECRET123&order_id=1", "1.1", 200),
+                               None)
+    for f in logging.getLogger("uvicorn.access").filters:
+        f.filter(record)
+    assert "SECRET123" not in record.getMessage() and "token=[redacted]" in record.getMessage()
+
+
+def test_partner_changes_are_audited_by_field_without_secret_values(api):
+    client, _ = api
+    partner = create(client)
+    client.patch(f"/admin/cc/partners/{partner['id']}", headers=OWNER, json={"tracking_id": "new-21", "active": False})
+    client.put(f"/admin/cc/partners/{partner['id']}/secrets/api_key", headers=OWNER, json={"value": "sk-abcdef123456"})
+    audit = client.get("/admin/cc/audit", headers=OWNER).text
+    assert "partner.update" in audit and "tracking_id" in audit and "new-21" not in audit
+    assert "partner.secret" in audit and "sk-abcdef123456" not in audit

@@ -90,6 +90,38 @@ For each partner (any company, any category):
 An affiliate link alone never gives ASKODOX the partner's product database,
 orders or customer care -- only what the partner actually provides.
 
+### Partner security settings (Railway variables)
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `ASKODOX_SECRETS_KEY` | **Yes, before saving any partner key** | Fernet key that encrypts partner API keys / feed tokens / postback tokens in the database. Without it the Partner Hub refuses to store keys (nothing is ever saved in plain text). |
+| `ASKODOX_SECRETS_KEY_PREVIOUS` | Only during rotation | Old key(s), comma-separated, still allowed to decrypt. |
+| `ASKODOX_PUBLIC_BASE_URL` | Recommended | Public https address of the backend (tracked links, postback URL). |
+| `ASKODOX_EVENT_RETENTION_DAYS` | No (default 90) | Raw search/impression/click rows older than this are rolled up into daily counts and deleted. Totals, trends and breakdowns stay exact. |
+| `ASKODOX_CLICK_TTL_HOURS` | No (default 48) | How long a shown partner result accepts card-view / click events. |
+
+Create a key once (on any computer with Python, or ask Claude to generate one
+for you and paste it only into Railway):
+`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+
+**Rotation:** generate a new key -> set `ASKODOX_SECRETS_KEY_PREVIOUS` = the old
+key and `ASKODOX_SECRETS_KEY` = the new key -> redeploy -> Command Center ->
+Partner Hub -> "Re-encrypt keys" -> when it reports 0 unreadable, remove
+`ASKODOX_SECRETS_KEY_PREVIOUS` and redeploy.
+
+**Recovery (key lost):** stored partner keys cannot be decrypted without it
+(by design). Set a new `ASKODOX_SECRETS_KEY`, then paste each partner's API key
+again ("Set key") and generate a new postback token ("Postback URL") and paste
+it into the partner dashboard. Links, impressions and conversions are not
+affected.
+
+Tracking protections: click ids are HMAC-signed (only ids ASKODOX issued are
+accepted), each card view / click / partner open / lead counts once per click
+id, events are accepted only for recent results, the public endpoints are
+rate-limited per client, postback tokens are compared in constant time and
+redacted from access logs, and every Partner Hub change is written to the
+Command Center audit log (field names only for secrets and links).
+
 ## 4. Already configured (no action)
 
 `BRAVE_SEARCH_API_KEY`, `SARVAM_API_KEY`, `GEMINI_API_KEY`,

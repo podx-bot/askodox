@@ -19,16 +19,24 @@ partner's commission rule is stored with commission_source='rule' (shown as
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import re
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
+from zoneinfo import ZoneInfo
+
+from app.services.secret_box import SecretBox
 
 CONVERSION_STATES = ("PENDING", "CONFIRMED", "PAID", "REJECTED", "REVERSED")
 FUNNEL_EVENTS = ("search", "impression", "card_view", "click", "partner_opened", "lead")
 EVENTS = FUNNEL_EVENTS + ("error",)
+# Counted at most once per ASKODOX click id (replay / double-tap / reload).
+ONCE_PER_CLICK = ("card_view", "click", "partner_opened", "lead")
+ROLLUP_TZ = "Asia/Kolkata"  # roll-up days match the Revenue Center's default time zone
 REVENUE_SOURCES = (
     "affiliate_commission", "subscription", "lead_fee", "service_fee", "promotion", "advertising",
     "transaction_fee", "partner_revenue", "other",
@@ -106,8 +114,13 @@ def capabilities(partner: Dict[str, Any], secret_names: Iterable[str]) -> Dict[s
 
 
 class PartnerRevenueRepository:
-    def __init__(self, db_path: str = "podx.db") -> None:
+    def __init__(self, db_path: str = "podx.db", *, secret_box: SecretBox | None = None, click_key: str = "",
+                 click_ttl_hours: int = 48) -> None:
         self.db_path = db_path
+        self.box = secret_box or SecretBox()
+        # Click ids are HMAC-signed so only ids ASKODOX issued are accepted.
+        self._click_key = (click_key or "askodox-click-ids").encode()
+        self.click_ttl_hours = max(1, int(click_ttl_hours or 48))
         self._ensure_schema()
 
     def _connect(self):
@@ -163,8 +176,23 @@ class PartnerRevenueRepository:
                     campaign TEXT, reference TEXT, note TEXT, created_by TEXT, created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_revenue_entries_time ON revenue_entries(occurred_at);
+                CREATE TABLE IF NOT EXISTS revenue_daily_rollup (
+                    day TEXT NOT NULL, event TEXT NOT NULL, partner_id INTEGER NOT NULL DEFAULT 0,
+                    category TEXT NOT NULL DEFAULT '', location TEXT NOT NULL DEFAULT '',
+                    language TEXT NOT NULL DEFAULT '', campaign TEXT NOT NULL DEFAULT '',
+                    count INTEGER NOT NULL,
+                    PRIMARY KEY (day, event, partner_id, category, location, language, campaign)
+                );
+                CREATE TABLE IF NOT EXISTS revenue_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 """
             )
+            try:  # database-level guarantee on top of the app-level check
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_revenue_events_once ON revenue_events(click_id, event) "
+                    "WHERE click_id IS NOT NULL AND event IN ('card_view', 'click', 'partner_opened', 'lead')"
+                )
+            except sqlite3.Error:
+                pass  # older rows with duplicates: the app-level check still applies
 
     # ---------------------------------------------------------- partners --
 
@@ -180,10 +208,10 @@ class PartnerRevenueRepository:
         secret_rows = conn.execute(
             "SELECT name, value, updated_at FROM partner_secrets WHERE partner_id = ?", (item["id"],)
         ).fetchall()
-        # Secrets never leave the backend: only whether each one is set.
+        # Secrets never leave the backend: only whether each one is set and
+        # encrypted at rest (no characters of the value, not even the last 4).
         item["secrets"] = {
-            r["name"]: {"set": True, "last4": str(r["value"])[-4:] if len(str(r["value"])) >= 8 else "",
-                        "updated_at": r["updated_at"]}
+            r["name"]: {"set": True, "encrypted": str(r["value"]).startswith("enc:v1:"), "updated_at": r["updated_at"]}
             for r in secret_rows
         }
         item["capabilities"] = capabilities(item, item["secrets"].keys())
@@ -244,6 +272,7 @@ class PartnerRevenueRepository:
             return [self._partner_row(r, conn) for r in conn.execute(sql).fetchall()]
 
     def set_secret(self, partner_id: int, name: str, value: str) -> None:
+        """Stores the value ENCRYPTED (fails closed without ASKODOX_SECRETS_KEY)."""
         if name not in SECRET_NAMES:
             raise ValueError(f"secret must be one of {', '.join(SECRET_NAMES)}")
         with self._connect() as conn:
@@ -251,7 +280,7 @@ class PartnerRevenueRepository:
                 conn.execute(
                     "INSERT INTO partner_secrets (partner_id, name, value, updated_at) VALUES (?, ?, ?, ?) "
                     "ON CONFLICT(partner_id, name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-                    (partner_id, name, value, _now()),
+                    (partner_id, name, self.box.encrypt(value), _now()),
                 )
             else:
                 conn.execute("DELETE FROM partner_secrets WHERE partner_id = ? AND name = ?", (partner_id, name))
@@ -262,7 +291,27 @@ class PartnerRevenueRepository:
             row = conn.execute(
                 "SELECT value FROM partner_secrets WHERE partner_id = ? AND name = ?", (partner_id, name)
             ).fetchone()
-        return str(row["value"]) if row else ""
+        return self.box.decrypt(str(row["value"])) if row else ""
+
+    def rotate_secrets(self) -> Dict[str, int]:
+        """Re-encrypt every stored secret with the CURRENT key (after adding a
+        new ASKODOX_SECRETS_KEY and moving the old one to _PREVIOUS), and
+        encrypt any legacy plain rows. Rows no known key can read are
+        reported, never guessed."""
+        rewritten = unreadable = 0
+        with self._connect() as conn:
+            rows = conn.execute("SELECT partner_id, name, value FROM partner_secrets").fetchall()
+            for row in rows:
+                if not self.box.needs_rewrite(row["value"]):
+                    continue
+                plain = self.box.decrypt(row["value"])
+                if not plain:
+                    unreadable += 1
+                    continue
+                conn.execute("UPDATE partner_secrets SET value = ?, updated_at = ? WHERE partner_id = ? AND name = ?",
+                             (self.box.encrypt(plain), _now(), row["partner_id"], row["name"]))
+                rewritten += 1
+        return {"secrets": len(rows), "rewritten": rewritten, "unreadable": unreadable}
 
     def generate_postback_token(self, partner_id: int) -> str:
         token = secrets.token_urlsafe(24)
@@ -279,15 +328,34 @@ class PartnerRevenueRepository:
                  *((now,) if synced and ok else ()), partner_id),
             )
 
+    # ---------------------------------------------------------- click ids --
+
+    def new_click_id(self) -> str:
+        nonce = secrets.token_hex(8)
+        return "ck" + nonce + hmac.new(self._click_key, nonce.encode(), hashlib.sha256).hexdigest()[:10]
+
+    def valid_click_id(self, click_id: str) -> bool:
+        text = str(click_id or "")
+        if len(text) != 28 or not text.startswith("ck"):
+            return False
+        nonce, sig = text[2:18], text[18:]
+        expected = hmac.new(self._click_key, nonce.encode(), hashlib.sha256).hexdigest()[:10]
+        return hmac.compare_digest(sig, expected)
+
     # ------------------------------------------------------------ events --
 
     def record_event(self, event: str, *, partner_id: int | None = None, click_id: str | None = None,
                      trace_key: str | None = None, category: str = "", subject: str = "", location: str = "",
                      language: str = "", campaign: str = "", detail: Dict[str, Any] | None = None,
-                     occurred_at: str | None = None) -> None:
+                     occurred_at: str | None = None) -> bool:
+        """Records the event; False when it was already counted for this
+        click id (card view / click / open / lead count once)."""
         if event not in EVENTS:
             raise ValueError(f"unknown event {event}")
         with self._connect() as conn:
+            if click_id and event in ONCE_PER_CLICK and conn.execute(
+                    "SELECT 1 FROM revenue_events WHERE click_id = ? AND event = ?", (click_id, event)).fetchone():
+                return False
             conn.execute(
                 "INSERT INTO revenue_events (occurred_at, event, partner_id, click_id, trace_key, category, subject, "
                 "location, language, campaign, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -295,9 +363,13 @@ class PartnerRevenueRepository:
                  (subject or "")[:120], (location or "")[:120], (language or "")[:12], (campaign or "")[:80],
                  json.dumps(detail or {})[:2000]),
             )
+        return True
 
-    def impression_context(self, click_id: str) -> Optional[Dict[str, Any]]:
-        """The impression a click / postback refers to (its attributes)."""
+    def impression_context(self, click_id: str, *, max_age_hours: int | None = None) -> Optional[Dict[str, Any]]:
+        """The impression a click / postback refers to (its attributes). Only
+        signed ASKODOX click ids; optionally only recent impressions."""
+        if not self.valid_click_id(click_id):
+            return None
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM revenue_events WHERE click_id = ? AND event = 'impression' ORDER BY id LIMIT 1",
@@ -306,6 +378,13 @@ class PartnerRevenueRepository:
         if row is None:
             return None
         item = dict(row)
+        if max_age_hours is not None:
+            try:
+                seen = datetime.fromisoformat(str(item["occurred_at"]))
+                if datetime.now(timezone.utc) - seen > timedelta(hours=max_age_hours):
+                    return None
+            except ValueError:
+                return None
         item["detail"] = _loads(item.pop("detail_json", None), {})
         return item
 
@@ -404,4 +483,72 @@ class PartnerRevenueRepository:
             return [dict(r) for r in conn.execute(
                 "SELECT * FROM revenue_entries WHERE occurred_at >= ? AND occurred_at < ? ORDER BY occurred_at",
                 (start, end),
+            ).fetchall()]
+
+    # --------------------------------------------------------- retention --
+
+    def meta(self, key: str) -> str:
+        with self._connect() as conn:
+            row = conn.execute("SELECT value FROM revenue_meta WHERE key = ?", (key,)).fetchone()
+        return str(row["value"]) if row else ""
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO revenue_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET "
+                         "value = excluded.value", (key, value))
+
+    def run_retention(self, keep_days: int, *, now: datetime | None = None) -> Dict[str, Any]:
+        """Roll raw funnel events older than keep_days into per-day counts
+        (by partner, category, location, language, campaign), then delete the
+        raw rows. Totals, breakdowns and trends stay exact; only per-event
+        detail (click ids, subjects) of old events goes away. Conversions and
+        revenue entries are never deleted."""
+        keep_days = max(1, int(keep_days))
+        moment = now or datetime.now(timezone.utc)
+        zone = ZoneInfo(ROLLUP_TZ)
+        # Cut at a local-day boundary so a day is never split between raw rows and roll-ups.
+        cut_day = (moment.astimezone(zone) - timedelta(days=keep_days)).date()
+        cutoff = datetime.combine(cut_day, datetime.min.time(), zone).astimezone(timezone.utc).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT occurred_at, event, partner_id, category, location, language, campaign FROM revenue_events "
+                "WHERE occurred_at < ?", (cutoff,)).fetchall()
+            counts: Dict[tuple, int] = {}
+            for row in rows:
+                try:
+                    day = datetime.fromisoformat(str(row["occurred_at"])).astimezone(zone).date().isoformat()
+                except ValueError:
+                    day = str(row["occurred_at"])[:10]
+                key = (day, row["event"], row["partner_id"] or 0, row["category"] or "", row["location"] or "",
+                       row["language"] or "", row["campaign"] or "")
+                counts[key] = counts.get(key, 0) + 1
+            for key, count in counts.items():
+                conn.execute(
+                    "INSERT INTO revenue_daily_rollup (day, event, partner_id, category, location, language, campaign, "
+                    "count) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(day, event, partner_id, category, location, "
+                    "language, campaign) DO UPDATE SET count = count + excluded.count", (*key, count))
+            conn.execute("DELETE FROM revenue_events WHERE occurred_at < ?", (cutoff,))
+            attachments = 0
+            try:  # chat attachment analyses follow the same retention
+                attachments = conn.execute("DELETE FROM chat_attachments WHERE created_at < ?", (cutoff,)).rowcount
+            except sqlite3.Error:
+                pass
+        self.set_meta("retention_last_run", moment.isoformat())
+        return {"cutoff": cutoff, "rolled_up_events": len(rows), "rollup_rows": len(counts),
+                "deleted_attachment_records": attachments, "keep_days": keep_days}
+
+    def maybe_run_retention(self, keep_days: int) -> Optional[Dict[str, Any]]:
+        """At most once a day per database (there is no cron here)."""
+        last = self.meta("retention_last_run")
+        try:
+            if last and datetime.now(timezone.utc) - datetime.fromisoformat(last) < timedelta(hours=24):
+                return None
+        except ValueError:
+            pass
+        return self.run_retention(keep_days)
+
+    def rollups_between(self, first_day: str, last_day: str) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM revenue_daily_rollup WHERE day >= ? AND day <= ? ORDER BY day", (first_day, last_day)
             ).fetchall()]

@@ -20,6 +20,7 @@ analytics:export):
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -34,16 +35,33 @@ from app.repositories.partner_revenue_repository import (
 )
 from app.services import affiliate_partner_service as partners_service
 from app.services.revenue_center_service import RevenueCenter, period_bounds
+from app.services.secret_box import SecretsNotConfigured
 
 router = APIRouter(tags=["partners"])
 admin_router = APIRouter(prefix="/admin/cc", tags=["command-center"])
 
 
 def partner_repo(container: Any) -> PartnerRevenueRepository:
+    settings = container.settings
     repo = getattr(container, "partner_revenue_repository", None)
     if repo is None:
-        repo = PartnerRevenueRepository(container.settings.database_path)
+        from app.services.secret_box import box_from_settings
+
+        repo = PartnerRevenueRepository(
+            settings.database_path, secret_box=box_from_settings(settings),
+            click_key=str(getattr(settings, "session_token_secret", "") or ""),
+            click_ttl_hours=int(getattr(settings, "click_ttl_hours", 48) or 48),
+        )
         container.partner_revenue_repository = repo
+    # Retention without a cron: checked at most hourly per process, runs at
+    # most once a day per database.
+    now = time.monotonic()
+    if now - getattr(repo, "_retention_checked", -1e9) > 3600:
+        repo._retention_checked = now
+        try:
+            repo.maybe_run_retention(int(getattr(settings, "event_retention_days", 90) or 90))
+        except Exception:
+            pass
     return repo
 
 
@@ -83,7 +101,9 @@ def partner_redirect(click_id: str, request: Request) -> RedirectResponse:
 
     rate_limit.check(request, "partner_go", limit=60)
     repo = partner_repo(request.app.state.container)
-    context = repo.impression_context(click_id[:40])
+    # Signed ASKODOX click id + a stored impression; a link from history
+    # keeps working for 30 days (only the first open is counted).
+    context = repo.impression_context(click_id[:40], max_age_hours=24 * 30)
     url = str(((context or {}).get("detail") or {}).get("url") or "")
     if not context or not url.startswith("https://"):
         raise HTTPException(status_code=404, detail="Link expired or unknown")
@@ -103,18 +123,20 @@ class PartnerEvent(BaseModel):
 def partner_event(payload: PartnerEvent, request: Request) -> dict:
     from app.services import rate_limit
 
-    rate_limit.check(request, "partner_event", limit=120)
+    rate_limit.check(request, "partner_event", limit=60)
     if payload.event not in {"card_view", "click"}:
         raise HTTPException(status_code=422, detail="event must be card_view or click")
     repo = partner_repo(request.app.state.container)
-    context = repo.impression_context(payload.click_id)
+    # Only a signed click id ASKODOX issued for a recent impression; each
+    # event counts once per click id (replays / double taps are ignored).
+    context = repo.impression_context(payload.click_id, max_age_hours=repo.click_ttl_hours)
     if context is None:
-        raise HTTPException(status_code=404, detail="Unknown result")
-    repo.record_event(payload.event, partner_id=context["partner_id"], click_id=payload.click_id,
+        raise HTTPException(status_code=404, detail="Unknown or expired result")
+    recorded = repo.record_event(payload.event, partner_id=context["partner_id"], click_id=payload.click_id,
                       trace_key=context.get("trace_key"), category=context.get("category") or "",
                       subject=context.get("subject") or "", location=context.get("location") or "",
                       language=context.get("language") or "", campaign=context.get("campaign") or "")
-    return {"recorded": payload.event}
+    return {"recorded": payload.event if recorded else None, "duplicate": not recorded}
 
 
 @router.api_route("/api/partners/{slug}/postback", methods=["GET", "POST"])
@@ -263,11 +285,17 @@ def admin_create_partner(payload: PartnerPayload, request: Request) -> dict:
 @admin_router.patch("/partners/{partner_id}")
 def admin_update_partner(partner_id: int, payload: PartnerPayload, request: Request) -> dict:
     principal = _require(request, "partners:manage")
-    partner = partner_repo(request.app.state.container).update_partner(partner_id, _checked(payload))
-    if partner is None:
+    repo = partner_repo(request.app.state.container)
+    before = repo.get_partner(partner_id)
+    if before is None:
         raise HTTPException(status_code=404, detail="Partner not found")
+    changes = _checked(payload)
+    partner = repo.update_partner(partner_id, changes)
+    # Audit: WHICH fields changed (+ the active flag / name values); link
+    # templates and IDs are listed by name only.
+    changed = sorted(k for k, v in changes.items() if before.get(k) != v)
     _audit(request, principal, "partner.update", f"partner:{partner_id}",
-           {k: v for k, v in payload.model_dump(exclude_none=True).items() if k in {"active", "name"}})
+           {"changed_fields": changed, **{k: changes[k] for k in ("active", "name") if k in changed}})
     return _with_postback(request, partner)
 
 
@@ -283,6 +311,8 @@ def admin_set_secret(partner_id: int, name: str, payload: SecretPayload, request
         raise HTTPException(status_code=404, detail="Partner not found")
     try:
         repo.set_secret(partner_id, name, payload.value.strip())
+    except SecretsNotConfigured as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     _audit(request, principal, "partner.secret", f"partner:{partner_id}", {"name": name, "set": bool(payload.value)})
@@ -297,10 +327,41 @@ def admin_postback_token(partner_id: int, request: Request) -> dict:
     partner = repo.get_partner(partner_id)
     if partner is None:
         raise HTTPException(status_code=404, detail="Partner not found")
-    token = repo.generate_postback_token(partner_id)
+    try:
+        token = repo.generate_postback_token(partner_id)
+    except SecretsNotConfigured as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     _audit(request, principal, "partner.postback_token", f"partner:{partner_id}", {})
     return {"postback_url": _with_postback(request, partner)["postback_url"].replace("<token>", token),
             "note": "Copy this now -- the token is not shown again (generate a new one to rotate)."}
+
+
+@admin_router.post("/partners/secrets/rotate")
+def admin_rotate_secrets(request: Request) -> dict:
+    """After putting a NEW key in ASKODOX_SECRETS_KEY and the old one in
+    ASKODOX_SECRETS_KEY_PREVIOUS: re-encrypt every stored credential with
+    the new key (then the old key can be removed)."""
+    principal = _require(request, "partners:manage")
+    repo = partner_repo(request.app.state.container)
+    if not repo.box.configured:
+        raise HTTPException(status_code=503, detail="Set ASKODOX_SECRETS_KEY first")
+    result = repo.rotate_secrets()
+    _audit(request, principal, "partner.secrets_rotate", "partners:all", result)
+    return result
+
+
+@admin_router.get("/partners/security")
+def admin_partner_security(request: Request) -> dict:
+    _require(request, "partners:view")
+    container = request.app.state.container
+    repo = partner_repo(container)
+    return {
+        "secrets_key_configured": repo.box.configured,
+        "click_ttl_hours": repo.click_ttl_hours,
+        "event_retention_days": int(getattr(container.settings, "event_retention_days", 90) or 90),
+        "retention_last_run": repo.meta("retention_last_run") or None,
+        "public_base_url_configured": bool(getattr(container.settings, "public_base_url", "")),
+    }
 
 
 @admin_router.post("/partners/{partner_id}/test")
@@ -438,6 +499,20 @@ def admin_revenue_entry(payload: EntryPayload, request: Request) -> dict:
     _audit(request, principal, "revenue.entry", f"revenue_entry:{entry['id']}",
            {"source": entry["source"], "amount": entry["amount"]})
     return entry
+
+
+class RetentionRun(BaseModel):
+    keep_days: int | None = Field(default=None, ge=1, le=3650)
+
+
+@admin_router.post("/revenue/retention")
+def admin_run_retention(payload: RetentionRun, request: Request) -> dict:
+    principal = _require(request, "revenue:manage")
+    container = request.app.state.container
+    days = payload.keep_days or int(getattr(container.settings, "event_retention_days", 90) or 90)
+    result = partner_repo(container).run_retention(days)
+    _audit(request, principal, "revenue.retention", "revenue_events:all", result)
+    return result
 
 
 @admin_router.get("/revenue/meta")
