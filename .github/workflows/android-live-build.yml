@@ -222,7 +222,8 @@ jobs:
           norm() { tr -d ': ' | tr 'A-F' 'a-f'; }
           cert() {
             "$BT/apksigner" verify --print-certs "$1" > /tmp/certs.txt 2>&1 || true
-            sed -n 's/.*Signer #1 certificate SHA-256 digest: *//p' /tmp/certs.txt | head -n 1 | norm
+            # "Signer #1 certificate ..." (v3) or "V2 Signer: certificate ..." (v2 only)
+            sed -n 's/.*[Ss]igner[^:]*:\{0,1\} *certificate SHA-256 digest: *//p' /tmp/certs.txt | head -n 1 | norm
           }
           badge() { "$BT/aapt2" dump badging "$1" > /tmp/badge.txt 2>/dev/null || true; sed -n 1p /tmp/badge.txt; }
           pkg() { badge "$1" | sed -n "s/.*name='\([^']*\)'.*/\1/p"; }
@@ -230,7 +231,7 @@ jobs:
           "$BT/apksigner" verify --verbose "$REL" > verify.log
           grep -E 'Verified using|Verifies' verify.log
           # Public certificate details of the release APK (no secrets).
-          "$BT/apksigner" verify --print-certs "$REL" 2>&1 | grep -E '^Signer #1 certificate (DN|SHA-256)' || true
+          "$BT/apksigner" verify --print-certs "$REL" 2>&1 | grep -E 'certificate (DN|SHA-256 digest)' | head -n 2 || true
           REL_CERT="$(cert "$REL")"
           # Public fingerprint of the ASKODOX release key (keytool reads the
           # store password from the environment; only fingerprints printed).
