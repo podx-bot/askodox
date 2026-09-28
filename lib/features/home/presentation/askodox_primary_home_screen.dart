@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/material.dart';
@@ -13,11 +11,8 @@ import '../../../core/config/environment.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../services/in_app_assistant_service.dart';
-import '../../../services/document_intelligence_service.dart';
 import '../../../services/real_product_match_service.dart';
-import '../../../services/vision_api_service.dart';
 import '../../../services/multimodal_capture_service.dart';
-import '../../../services/video_analysis_service.dart';
 import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
 import '../../../services/voice_endpointing.dart';
@@ -36,6 +31,8 @@ import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
 import '../../growth/data/growth_repository.dart';
 import '../../growth/data/partner_tracking.dart';
+import '../../../services/chat_attachment_service.dart';
+import '../../../services/media_picker.dart';
 import '../../location/presentation/map_pin_picker.dart';
 import '../domain/active_role.dart';
 import '../domain/chat_action_intent.dart';
@@ -101,8 +98,6 @@ final askodoxAssistantServiceProvider =
     Provider<InAppAssistantService>((ref) => const InAppAssistantService());
 final askodoxRealProductMatchServiceProvider =
     Provider<RealProductMatchService>((ref) => const RealProductMatchService());
-final askodoxVisionServiceProvider =
-    Provider<VisionApiService>((ref) => const VisionApiService());
 final askodoxSupportEscalationServiceProvider =
     Provider<SupportEscalationService>((ref) => const SupportEscalationService());
 final askodoxReplySpeechServiceProvider =
@@ -201,9 +196,12 @@ class _AskodoxPrimaryHomeScreenState
   bool _active = false;
   bool _sending = false;
   _VoicePhase _voicePhase = _VoicePhase.idle;
-  XFile? _attachment;
-  Uint8List? _attachmentPreviewBytes;
-  String? _attachmentLabel;
+  // Real attachments waiting in the composer (bytes + MIME), analyzed by
+  // the backend when sent -- never reduced to a file name.
+  final List<ChatAttachment> _attachments = [];
+  bool _analyzingAttachments = false;
+  int _attachmentJob = 0;
+  static const _maxAttachments = 4;
 
   // Shown instead of `_matches` when the completed deal is a "sell" listing
   // rather than a buyer-side search -- see `_createRealListing`.
@@ -502,54 +500,54 @@ class _AskodoxPrimaryHomeScreenState
         ),
       );
       if (!mounted || choice == null) return;
-      if (choice == 'camera' || choice == 'photos' || choice == 'video') {
-      final capture = MultimodalCaptureService();
-      final file = choice == 'camera'
-          ? await capture.captureCamera()
-          : choice == 'video'
-              ? await capture.chooseVideo()
-              : await capture.chooseGallery();
-      if (file == null || !mounted) return;
-      final previewBytes = await file.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _attachment = file;
-        _attachmentPreviewBytes = previewBytes;
-        _attachmentLabel = file.name;
-      });
-        return;
+      final picked = await ref.read(askodoxMediaPickerProvider).pick(choice);
+      for (final attachment in picked) {
+        if (!mounted || !_addAttachment(attachment)) break;
       }
-      final picked = await FilePicker.pickFiles();
-      if (picked.isEmpty) return;
-      final file = picked.first;
-      final bytes = await file.readAsBytes();
-      final analyzed = await const DocumentIntelligenceService().analyzeBytes(
-        bytes: bytes,
-        filename: file.name,
-        mimeType: askodoxAttachmentMimeType(file.name),
-      );
+    } on MultimodalCaptureException {
       if (!mounted) return;
-      setState(() {
-        _attachmentPreviewBytes = null;
-        _attachmentLabel = file.name;
-      });
-      if (analyzed == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_te
-              ? 'ఫైల్ తెరుచుకుంది, కానీ దాన్ని విశ్లేషించలేకపోయాం. మళ్లీ ప్రయత్నించండి.'
-              : 'The file opened, but analysis failed. Please try again.'),
-        ));
-        return;
-      }
-      setState(() => _controller.text = analyzed.conversationSeed());
+      _attachmentNotice('attach_permission');
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_te
-            ? 'అటాచ్‌మెంట్‌ను తెరవడం లేదా విశ్లేషించడం సాధ్యం కాలేదు.'
-            : 'The attachment could not be opened or analyzed. Please try again.'),
-      ));
+      _attachmentNotice('attach_open_failed');
     }
+  }
+
+  /// Adds a picked attachment; false when no more can be added.
+  bool _addAttachment(ChatAttachment attachment) {
+    if (attachment.bytes.isEmpty) {
+      _attachmentNotice('attach_open_failed');
+      return true;
+    }
+    if (attachment.kind == 'unsupported') {
+      _attachmentNotice('attach_unsupported');
+      return true;
+    }
+    if (_attachments.length >= _maxAttachments) {
+      _attachmentNotice('attach_limit');
+      return false;
+    }
+    setState(() => _attachments.add(attachment));
+    return true;
+  }
+
+  void _attachmentNotice(String key, {VoidCallback? retry}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      key: ValueKey('askodoxAttachmentNotice-$key'),
+      content: Text(askodoxChatLabel(key, _lang)),
+      action: retry == null
+          ? null
+          : SnackBarAction(label: askodoxChatLabel('retry', _lang), onPressed: retry),
+    ));
+  }
+
+  /// Stops waiting for an attachment analysis; the attachments stay.
+  void _cancelAttachmentAnalysis() {
+    setState(() {
+      _attachmentJob++;
+      _analyzingAttachments = false;
+    });
   }
 
   @override
@@ -1018,7 +1016,7 @@ class _AskodoxPrimaryHomeScreenState
   Future<void> _escalateToSupport(int assistantTurn) async {
     final assessment = _supportByTurn[assistantTurn];
     if (assessment == null) return;
-    final userTurns = [for (final turn in _turns.take(assistantTurn)) if (turn.isUser) turn.text];
+    final userTurns = [for (final turn in _turns.take(assistantTurn)) if (turn.isUser) turn.reasoningText];
     final issue = userTurns.lastWhere(askodoxLooksLikeIssue,
         orElse: () => userTurns.isEmpty ? 'Support requested' : userTurns.last);
     final deal = ref.read(universalDealControllerProvider).deal;
@@ -1038,7 +1036,7 @@ class _AskodoxPrimaryHomeScreenState
           critical: assessment.critical,
           conversation: [
             for (final turn in _turns.take(assistantTurn + 1))
-              {'role': turn.isUser ? 'user' : 'assistant', 'text': turn.text},
+              {'role': turn.isUser ? 'user' : 'assistant', 'text': turn.reasoningText},
           ],
           requirement: deal == null
               ? const {}
@@ -1205,64 +1203,68 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   Future<void> _send([String? preset, bool speakResponse = false]) async {
-    final attachment = _attachment;
-    var text = (preset ?? _controller.text).trim();
-    if (_sending ||
-        (text.isEmpty && attachment == null && _attachmentLabel == null)) {
+    final attachments = List<ChatAttachment>.of(_attachments);
+    final typed = (preset ?? _controller.text).trim();
+    if (_sending || _analyzingAttachments || (typed.isEmpty && attachments.isEmpty)) {
       return;
     }
-    text = text.isEmpty ? 'Please inspect this attachment and help me.' : text;
+    var text = typed;
     if (!speakResponse) unawaited(_stopSpeaking());
-    // Automatic language: follow the language the customer is using now.
-    if (preset == null || speakResponse) {
-      await ref.read(askodoxConversationLanguageProvider.notifier).observe(text);
+    // Automatic language: follow the language the customer is actually
+    // writing in. Attachments (and an empty caption) inherit it.
+    if (typed.isNotEmpty && (preset == null || speakResponse)) {
+      await ref.read(askodoxConversationLanguageProvider.notifier).observe(typed);
     }
 
-    if (attachment != null && !_isVideoAttachment(attachment)) {
-      final analysis = await ref.read(askodoxVisionServiceProvider).analyze(
-        image: attachment,
-        userText: text,
-        language: _te ? 'te' : 'en',
-      );
-      if (analysis == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_te
-              ? 'ఫోటోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
-              : 'Photo analysis failed. The attachment is still here; please try again.'),
-        ));
+    var attachmentContext = '';
+    final sentAttachments = <Map<String, String>>[];
+    if (attachments.isNotEmpty) {
+      // The ACTUAL bytes go to the backend (image / video / document
+      // processor by MIME type); the facts it returns join the request.
+      final job = ++_attachmentJob;
+      setState(() => _analyzingAttachments = true);
+      final facts = <String>[];
+      Map<String, Object?>? imageAnalysis;
+      Map<String, Object?>? videoAnalysis;
+      try {
+        for (final attachment in attachments) {
+          final result = await ref.read(chatAttachmentServiceProvider).analyze(
+                attachment,
+                userText: typed,
+                language: _lang,
+              );
+          if (job != _attachmentJob || !mounted) return; // cancelled
+          facts.add(attachments.length > 1 ? '${attachment.name}: ${result.facts}' : result.facts);
+          sentAttachments.add({'name': attachment.name, 'kind': result.kind, 'id': result.id});
+          if (result.kind == 'image') imageAnalysis ??= result.analysis;
+          if (result.kind == 'video') videoAnalysis ??= result.analysis;
+        }
+      } on ChatAttachmentException catch (error) {
+        if (job != _attachmentJob || !mounted) return;
+        setState(() => _analyzingAttachments = false);
+        _attachmentNotice(
+          switch (error.code) {
+            'unsupported' => 'attach_unsupported',
+            'too_large' => 'attach_too_large',
+            'unavailable' => 'attach_unavailable',
+            _ => 'attach_failed',
+          },
+          retry: error.retryable ? () => _send(preset, speakResponse) : null,
+        );
         return;
       }
-      if (askodoxWantsToList(text)) {
-        await _draftFromMedia(text, imageAnalysis: analysis, speakResponse: speakResponse);
+      if (!mounted) return;
+      setState(() => _analyzingAttachments = false);
+      attachmentContext = 'Attachment facts: ${facts.join('\n')}';
+      if (typed.isNotEmpty && askodoxWantsToList(typed) && (imageAnalysis != null || videoAnalysis != null)) {
+        await _draftFromMedia(typed,
+            imageAnalysis: imageAnalysis,
+            videoAnalysis: videoAnalysis,
+            speakResponse: speakResponse,
+            attachments: sentAttachments);
         return;
       }
-      text = askodoxAttachmentRequest(
-          text, analysis['summary'] ?? analysis['text']);
-    } else if (attachment != null) {
-      final analysis = await const VideoAnalysisService().analyze(
-        video: attachment,
-        userText: text,
-        language: _te ? 'te' : 'en',
-      );
-      if (analysis == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_te
-              ? 'వీడియోను విశ్లేషించలేకపోయాం. అటాచ్‌మెంట్ అలాగే ఉంది; మళ్లీ ప్రయత్నించండి.'
-              : 'Video analysis failed. The attachment is still here; please try again.'),
-        ));
-        return;
-      }
-      if (askodoxWantsToList(text)) {
-        await _draftFromMedia(text, videoAnalysis: Map<String, Object?>.from(analysis), speakResponse: speakResponse);
-        return;
-      }
-      text = const VideoAnalysisService().combinedRequest(
-        userText: text,
-        visualSummary: analysis['visual_summary']?.toString(),
-        spokenTranscript: analysis['spoken_transcript']?.toString(),
-      );
+      text = askodoxAttachmentRequest(typed.isEmpty ? askodoxAttachmentOnlyAsk : typed, facts.join('\n'));
     }
 
     setState(() {
@@ -1272,21 +1274,21 @@ class _AskodoxPrimaryHomeScreenState
       _listingBanner = null;
       _listingBannerIsError = false;
       _turns.add(ConversationTurnRecord(
-        text: _attachmentLabel == null ? text : '$text\n[Attachment: $_attachmentLabel]',
+        text: typed,
         isUser: true,
+        attachments: sentAttachments,
+        context: attachmentContext,
       ));
+      _attachments.clear();
     });
     _controller.clear();
-    _attachment = null;
-    _attachmentPreviewBytes = null;
-    _attachmentLabel = null;
     _scrollBottom();
 
     final history = _turns
         .take(_turns.length - 1)
         .map((turn) => InAppAssistantTurn(
               role: turn.isUser ? 'user' : 'assistant',
-              text: turn.text,
+              text: turn.reasoningText,
             ))
         .toList(growable: false);
 
@@ -1983,14 +1985,15 @@ class _AskodoxPrimaryHomeScreenState
   /// the analysis and the seller said; missing details are asked, never
   /// invented.
   Future<void> _draftFromMedia(String text,
-      {Map<String, Object?>? imageAnalysis, Map<String, Object?>? videoAnalysis, required bool speakResponse}) async {
+      {Map<String, Object?>? imageAnalysis,
+      Map<String, Object?>? videoAnalysis,
+      required bool speakResponse,
+      List<Map<String, String>> attachments = const []}) async {
     setState(() {
       _sending = true;
       _active = true;
-      _turns.add(ConversationTurnRecord(text: text, isUser: true));
-      _attachment = null;
-      _attachmentPreviewBytes = null;
-      _attachmentLabel = null;
+      _turns.add(ConversationTurnRecord(text: text, isUser: true, attachments: attachments));
+      _attachments.clear();
     });
     _controller.clear();
     final draft = await ref.read(growthRepositoryProvider).draftListing(
@@ -2292,15 +2295,6 @@ class _AskodoxPrimaryHomeScreenState
   }
 
 
-  bool _isVideoAttachment(XFile file) {
-    final mime = file.mimeType?.toLowerCase() ?? '';
-    final name = file.name.toLowerCase();
-    return mime.startsWith('video/') ||
-        name.endsWith('.mp4') ||
-        name.endsWith('.mov') ||
-        name.endsWith('.m4v') ||
-        name.endsWith('.webm');
-  }
 
   String _fallbackAssistantReply(String text, bool te) {
     final q = text.toLowerCase();
@@ -2626,11 +2620,42 @@ class _AskodoxPrimaryHomeScreenState
                     border: turn.isUser
                         ? null
                         : Border.all(color: const Color(0xFFE1E8F2))),
-                child: Text(turn.text,
-                    style: TextStyle(
-                        color: turn.isUser ? Colors.white : _ink,
-                        height: 1.35,
-                        fontWeight: FontWeight.w500)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final attachment in turn.attachments)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(
+                            switch (attachment['kind']) {
+                              'video' => Icons.videocam_rounded,
+                              'image' => Icons.image_rounded,
+                              _ => Icons.description_rounded,
+                            },
+                            size: 16,
+                            color: turn.isUser ? Colors.white : _blue,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(attachment['name'] ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: turn.isUser ? Colors.white : _ink,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ]),
+                      ),
+                    if (turn.text.isNotEmpty)
+                      Text(turn.text,
+                          style: TextStyle(
+                              color: turn.isUser ? Colors.white : _ink,
+                              height: 1.35,
+                              fontWeight: FontWeight.w500)),
+                  ],
+                ),
               ),
             ),
             if (_signInTurn == index && _pendingSignInAction != null)
@@ -2768,7 +2793,7 @@ class _AskodoxPrimaryHomeScreenState
             border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_voicePhase != _VoicePhase.idle) _voicePanel(te),
-        if (_attachmentLabel != null) _attachmentPreview(te),
+        if (_attachments.isNotEmpty) _attachmentPreview(te),
         Row(children: [
         if (_voicePhase == _VoicePhase.recording)
           IconButton(
@@ -2838,6 +2863,7 @@ class _AskodoxPrimaryHomeScreenState
           ),
         )),
         IconButton(
+          key: const Key('askodoxAttach'),
           onPressed: _showAttachmentMenu,
           constraints: const BoxConstraints.tightFor(width: 40, height: 40),
           padding: EdgeInsets.zero,
@@ -2959,58 +2985,91 @@ class _AskodoxPrimaryHomeScreenState
     return index < 0 ? 0 : _voiceLevels[index];
   }
 
-    Widget _attachmentPreview(bool te) => Container(
-      key: const Key('askodoxAttachmentPreview'),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F6FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD7E3F5))),
-        child: Row(children: [
-        if (_attachmentPreviewBytes != null && !_isVideoName(_attachmentLabel))
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(_attachmentPreviewBytes!,
-            width: 48, height: 48, fit: BoxFit.cover))
-        else
+  Widget _attachmentPreview(bool te) => Container(
+        key: const Key('askodoxAttachmentPreview'),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF2F6FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFD7E3F5))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(
-              _isVideoName(_attachmentLabel)
-                  ? Icons.video_file_outlined
-                  : Icons.insert_drive_file_outlined,
-              color: _blue,
-            ),
+            height: 64,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (index, attachment) in _attachments.indexed)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Stack(children: [
+                    Container(
+                      key: ValueKey('askodoxAttachment-$index'),
+                      width: 150,
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                          color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                      child: Row(children: [
+                        if (attachment.isImage)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.memory(attachment.bytes,
+                                width: 44, height: 44, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _attachmentIcon(attachment.kind)),
+                          )
+                        else
+                          _attachmentIcon(attachment.kind),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(attachment.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+                        ),
+                      ]),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: InkWell(
+                        key: ValueKey('askodoxRemoveAttachment-$index'),
+                        onTap: _sending || _analyzingAttachments
+                            ? null
+                            : () => setState(() => _attachments.removeAt(index)),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(Icons.close_rounded, size: 16, color: _muted),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+            ]),
           ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(_attachmentLabel!,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _ink, fontWeight: FontWeight.w700))),
-        IconButton(
-          tooltip: te ? 'తొలగించండి' : 'Remove attachment',
-          onPressed: _sending
-            ? null
-            : () => setState(() {
-              _attachment = null;
-              _attachmentPreviewBytes = null;
-              _attachmentLabel = null;
-              }),
-          icon: const Icon(Icons.close_rounded, color: _muted)),
-      ]),
+          if (_analyzingAttachments)
+            Row(key: const Key('askodoxAttachmentAnalyzing'), children: [
+              const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(askodoxChatLabel('attach_analyzing', _lang))),
+              TextButton(
+                key: const Key('askodoxCancelAttachment'),
+                onPressed: _cancelAttachmentAnalysis,
+                child: Text(askodoxChatLabel('cancel', _lang)),
+              ),
+            ]),
+        ]),
       );
 
-  bool _isVideoName(String? name) {
-    final value = (name ?? '').toLowerCase();
-    return value.endsWith('.mp4') ||
-        value.endsWith('.mov') ||
-        value.endsWith('.m4v') ||
-        value.endsWith('.webm');
-  }
+  Widget _attachmentIcon(String kind) => SizedBox(
+        width: 44,
+        height: 44,
+        child: Icon(
+          switch (kind) {
+            'video' => Icons.video_file_outlined,
+            'image' => Icons.image_outlined,
+            _ => Icons.insert_drive_file_outlined,
+          },
+          color: _blue,
+        ),
+      );
 
   @override
   void dispose() {

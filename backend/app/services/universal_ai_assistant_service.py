@@ -22,6 +22,29 @@ from app.services.runtime_time_context import grounded_search_query, needs_live_
 logger = logging.getLogger(__name__)
 
 
+
+_LANGUAGE_NAMES = {
+    "en": "English", "te": "Telugu", "hi": "Hindi", "ta": "Tamil", "kn": "Kannada", "ml": "Malayalam",
+    "bn": "Bengali", "mr": "Marathi", "gu": "Gujarati", "pa": "Punjabi", "or": "Odia", "ur": "Urdu",
+    "as": "Assamese", "mni": "Manipuri", "sat": "Santali",
+}
+
+
+def _reply_language_rule(locale: str) -> str:
+    """The app sends the CONVERSATION language (the user's Preferred Language,
+    or the one they have been using). It is authoritative: a short reply
+    such as 'yes', 'ok', 'go' or '?' must never switch the reply to English."""
+    code = str(locale or "").strip().lower().split("-")[0].split("_")[0]
+    name = _LANGUAGE_NAMES.get(code)
+    if not name:
+        return "Locale hint: auto\n"
+    return (
+        f"Reply language: {name} ({code}). Write reply in {name}{'' if code == 'en' else ' (native script)'} for EVERY turn, including short "
+        "answers like yes / ok / go / ? and messages that contain English words, brand names or numbers. "
+        "Only a clear request to change language changes this. Keep brand names, product names and source "
+        "titles as they are.\n"
+    )
+
 class UniversalAIAssistantService:
     GENERAL_MARKER = "OASAT domain=GENERAL;"
     ALLOWED_DOMAINS = {
@@ -262,7 +285,7 @@ class UniversalAIAssistantService:
             "location again, and do not include a location question in reply. Only ask about "
             "location if the user is explicitly asking to use a different/new location than the "
             "known one. You may still copy the known location into entities.location when relevant.\n"
-            f"Locale hint: {locale or 'auto'}\n"
+            + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
             + (

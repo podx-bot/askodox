@@ -116,6 +116,13 @@ class AskodoxChatResults {
       ];
 }
 
+/// The ask used for reasoning when an attachment is sent without words. It
+/// is never shown as the customer's message and never decides the language
+/// (the reply follows the conversation language).
+const askodoxAttachmentOnlyAsk =
+    'The customer sent this attachment without a question. Say what it is and help with the likely need '
+    '(where to get it nearby or online, a service for it, or what the document means).';
+
 /// Combines the user's words with facts extracted from an attached photo or
 /// file so the same intent → category → questions → matching pipeline runs
 /// on both.

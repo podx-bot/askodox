@@ -24,6 +24,8 @@ import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 import 'package:podx/services/real_product_match_service.dart';
+import 'package:podx/services/chat_attachment_service.dart';
+import 'package:podx/services/media_picker.dart';
 import 'dart:async';
 
 import 'package:podx/features/home/presentation/video_viewer_screen.dart';
@@ -392,6 +394,8 @@ class _Harness {
   final listings = _FakeSellerListingRepository();
   final growth = _FakeGrowth();
   final partnerTracker = _FakePartnerTracker();
+  final picker = _FakePicker();
+  final attachments = _FakeAttachments();
 
   Future<void> pump(WidgetTester tester, {String? locale}) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -449,6 +453,8 @@ class _Harness {
         sellerListingRepositoryProvider.overrideWithValue(listings),
         growthRepositoryProvider.overrideWithValue(growth),
         askodoxPartnerTrackerProvider.overrideWithValue(partnerTracker),
+        askodoxMediaPickerProvider.overrideWithValue(picker),
+        chatAttachmentServiceProvider.overrideWithValue(attachments),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
@@ -498,6 +504,43 @@ class _TestAuth extends AuthController {
   }
 }
 
+class _FakePicker implements AskodoxMediaPicker {
+  final sources = <String>[];
+  List<ChatAttachment> next = const [];
+
+  @override
+  Future<List<ChatAttachment>> pick(String source) async {
+    sources.add(source);
+    return next;
+  }
+}
+
+/// Stands in for POST /api/attachments/analyze: records the ACTUAL bytes it
+/// was given and answers with facts like the backend does.
+class _FakeAttachments implements ChatAttachmentService {
+  final calls = <({ChatAttachment attachment, String userText, String language})>[];
+  final failures = <ChatAttachmentException>[];
+  Completer<void>? hold;
+
+  @override
+  Future<ChatAttachmentResult> analyze(ChatAttachment attachment,
+      {required String userText, required String language, String conversationId = ''}) async {
+    calls.add((attachment: attachment, userText: userText, language: language));
+    if (hold != null) await hold!.future;
+    if (failures.isNotEmpty) throw failures.removeAt(0);
+    return ChatAttachmentResult(
+      id: 'att_${calls.length}',
+      kind: attachment.kind,
+      facts: attachment.isVideo
+          ? 'Video shows: a scooter with a flat tyre'
+          : 'Shows: pressure cooker\nBrand: Prestige\nVisible text: Prestige 5L',
+      analysis: const {'subject': 'pressure cooker', 'brand': 'Prestige'},
+    );
+  }
+}
+
+final _photoBytes = Uint8List.fromList(List<int>.generate(64, (i) => i));
+
 class _FakePartnerTracker extends AskodoxPartnerTracker {
   _FakePartnerTracker() : super(MockApiClient(), Uri.parse('https://api.askodox.test'));
   final events = <(String, String)>[];
@@ -536,6 +579,141 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 }
 
 void main() {
+  group('attachments reach real multimodal processing (Section 14)', () {
+    Future<void> attach(WidgetTester tester, _Harness h, String menuLabel, List<ChatAttachment> files) async {
+      h.picker.next = files;
+      await tester.tap(find.byKey(const Key('askodoxAttach')));
+      await _Harness.settle(tester);
+      await tester.tap(find.text(menuLabel).last);
+      await _Harness.settle(tester);
+    }
+
+    testWidgets('photo + Telugu question: the actual bytes are analyzed and the facts drive a Telugu reply',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '970', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await attach(tester, h, 'Photos', [ChatAttachment(name: 'IMG_2031.jpg', bytes: _photoBytes, mimeType: 'image/jpeg')]);
+      expect(find.byKey(const Key('askodoxAttachmentPreview')), findsOneWidget);
+      expect(find.text('IMG_2031.jpg'), findsOneWidget);
+      await h.send(tester, 'ఇది ఏమిటి? దగ్గరలో ఎక్కడ దొరుకుతుంది?');
+
+      final call = h.attachments.calls.single;
+      expect(call.attachment.bytes, _photoBytes, reason: 'the real image bytes, not a file name');
+      expect(call.attachment.mimeType, 'image/jpeg');
+      expect(call.userText, 'ఇది ఏమిటి? దగ్గరలో ఎక్కడ దొరుకుతుంది?', reason: 'caption + attachment together');
+      expect(call.language, 'te');
+      final message = h.assistant.requests.first['message'] as String;
+      expect(message, contains('pressure cooker'));
+      expect(message, contains('ఇది ఏమిటి?'));
+      expect(message, isNot(contains('[Attachment')));
+      expect(message, isNot(contains('Please inspect this attachment')));
+      expect(h.assistant.requests.first['locale'], 'te', reason: 'the reply follows the conversation language');
+      expect(find.textContaining('[Attachment'), findsNothing, reason: 'no placeholder shown as the request');
+      expect(find.textContaining('Attachment facts'), findsNothing, reason: 'facts are context, not the user text');
+      expect(find.text('IMG_2031.jpg'), findsOneWidget, reason: 'the chat bubble shows the attachment');
+      expect(find.byKey(const Key('askodoxAttachmentPreview')), findsNothing);
+    });
+
+    testWidgets('an attachment with no words inherits the conversation language and still gets analyzed',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '971', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'నమస్తే, నాకు సహాయం కావాలి');
+      await attach(tester, h, 'ఫైల్స్', [ChatAttachment(name: 'cooker.png', bytes: _photoBytes)]);
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await _Harness.settle(tester);
+      expect(h.attachments.calls.single.attachment.mimeType, 'image/png', reason: 'MIME from the extension');
+      expect(h.attachments.calls.single.language, 'te');
+      final message = h.assistant.requests.last['message'] as String;
+      expect(message, contains('pressure cooker'));
+      expect(h.assistant.requests.last['locale'], 'te');
+      expect(find.textContaining('without a question'), findsNothing, reason: 'the hidden ask is never shown');
+    });
+
+    testWidgets('Section 15: after Telugu, "yes" / "ok" / "?" keep Telugu (no "telugu lo" needed)', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '975', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'నాకు ఒక మంచి మిక్సర్ గ్రైండర్ కావాలి');
+      for (final short in ['yes', 'ok', '?']) {
+        await h.send(tester, short);
+      }
+      final locales = [for (final r in h.assistant.requests) r['locale']];
+      expect(locales, everyElement('te'));
+      expect(locales.length, greaterThanOrEqualTo(3));
+    });
+
+    testWidgets('upload failure keeps the attachment and Retry sends it; nothing is sent meanwhile',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '972', matches: [_localMatch]),
+      ]));
+      h.attachments.failures.add(const ChatAttachmentException('network', 'offline'));
+      await h.pump(tester);
+      await attach(tester, h, 'Camera', [ChatAttachment(name: 'camera.jpg', bytes: _photoBytes, mimeType: 'image/jpeg')]);
+      await h.send(tester, 'what is this');
+      expect(h.assistant.requests, isEmpty, reason: 'no placeholder request after a failed upload');
+      expect(find.byKey(const Key('askodoxAttachmentPreview')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxAttachmentNotice-attach_failed')), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await _Harness.settle(tester);
+      expect(h.attachments.calls, hasLength(2));
+      expect(h.assistant.requests.single['message'] as String, contains('pressure cooker'));
+    });
+
+    testWidgets('unsupported files are refused clearly; unavailable video is never pretended', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '973', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await attach(tester, h, 'Files', [ChatAttachment(name: 'backup.zip', bytes: _photoBytes)]);
+      expect(find.byKey(const ValueKey('askodoxAttachmentNotice-attach_unsupported')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxAttachmentPreview')), findsNothing);
+      await tester.pump(const Duration(seconds: 5));
+      await _Harness.settle(tester);
+
+      h.attachments.failures.add(const ChatAttachmentException('unavailable', 'video analysis is not available'));
+      await attach(tester, h, 'Video', [ChatAttachment(name: 'clip.mp4', bytes: _photoBytes, mimeType: 'video/mp4')]);
+      await h.send(tester, 'what happened here');
+      expect(find.byKey(const ValueKey('askodoxAttachmentNotice-attach_unavailable')), findsOneWidget);
+      expect(h.assistant.requests, isEmpty);
+    });
+
+    testWidgets('several attachments are all analyzed and their facts combined; cancel keeps them',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '974', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await attach(tester, h, 'Photos', [
+        ChatAttachment(name: 'front.jpg', bytes: _photoBytes, mimeType: 'image/jpeg'),
+      ]);
+      await attach(tester, h, 'Video', [ChatAttachment(name: 'clip.mp4', bytes: _photoBytes, mimeType: 'video/mp4')]);
+      h.attachments.hold = Completer<void>();
+      await tester.enterText(find.byType(TextField), 'fix this');
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxAttachmentAnalyzing')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxCancelAttachment')));
+      h.attachments.hold!.complete();
+      h.attachments.hold = null;
+      await _Harness.settle(tester);
+      expect(h.assistant.requests, isEmpty, reason: 'cancelled: nothing sent');
+      expect(find.text('front.jpg'), findsOneWidget, reason: 'attachments stay after cancel');
+
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await _Harness.settle(tester);
+      final message = h.assistant.requests.single['message'] as String;
+      expect(message, contains('front.jpg: Shows: pressure cooker'));
+      expect(message, contains('clip.mp4: Video shows: a scooter with a flat tyre'));
+    });
+  });
+
   testWidgets('English buyer product request shows local match inside chat and Connect keeps contact hidden',
       (tester) async {
     final h = _Harness(

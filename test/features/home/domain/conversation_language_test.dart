@@ -48,4 +48,19 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(restarted.read(askodoxReplyLanguageProvider), 'te');
   });
+
+  test('Section 15: short replies never reset the language; romanized Indian languages are recognised', () {
+    for (final short in ['yes', 'ok', 'go', '?', '? ', 'Sony', '43 inch', 'show me', 'order it']) {
+      expect(askodoxNextConversationLanguage(current: 'te', message: short), 'te', reason: short);
+      expect(askodoxNextConversationLanguage(current: 'hi', message: short), 'hi', reason: short);
+    }
+    expect(askodoxNextConversationLanguage(current: 'en', message: 'naku 43 inch TV kavali ekkada dorukutundi'), 'te');
+    expect(askodoxNextConversationLanguage(current: 'en', message: 'mujhe AC service chahiye kahan milega'), 'hi');
+    expect(askodoxNextConversationLanguage(current: 'te', message: '? telugu lo'), 'te');
+    expect(askodoxNextConversationLanguage(current: 'te', message: 'Can you please show me the cheapest options nearby'), 'en',
+        reason: 'a real English sentence still switches');
+    expect(askodoxNextConversationLanguage(current: 'en', message: 'I need a good AC mechanic near me today'), 'en',
+        reason: 'plain English is never mistaken for a romanized language');
+    expect(askodoxRomanizedLanguage('kya'), isNull, reason: 'one marker is not enough');
+  });
 }

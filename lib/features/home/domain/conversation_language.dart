@@ -57,6 +57,40 @@ final _explicitSwitch = <RegExp, String>{
   RegExp(r'\b(in|reply in|speak in|switch to)\s+odia\b|ଓଡ଼ିଆରେ', caseSensitive: false): 'or',
 };
 
+/// Very common function words of Indian languages typed in English letters
+/// ("naku TV kavali", "mujhe AC chahiye"). Two or more distinct markers of
+/// one language (and more than any other) mean the customer is using that
+/// language -- universal table, not a per-language special case.
+const _romanizedMarkers = <String, Set<String>>{
+  'te': {'naku', 'nenu', 'kavali', 'kaavali', 'ekkada', 'enti', 'emiti', 'undi', 'ledu', 'cheppu', 'cheppandi',
+         'kosam', 'entha', 'ela', 'ivvandi', 'chupinchu', 'dorukutundi', 'ikkada', 'meeru', 'manchi', 'unnaya',
+         'kavalante', 'ayindi', 'chesi', 'cheyali', 'emaina'},
+  'hi': {'mujhe', 'chahiye', 'kahan', 'kya', 'nahi', 'kitna', 'kitne', 'kaise', 'batao', 'dikhao', 'mera', 'meri',
+         'aap', 'karo', 'hain', 'wala', 'wali', 'sasta', 'accha', 'kaha', 'milega', 'chahie'},
+  'ta': {'enakku', 'venum', 'venam', 'enga', 'enna', 'irukku', 'illa', 'sollunga', 'evvalavu', 'kidaikkum'},
+  'kn': {'nanage', 'beku', 'elli', 'yenu', 'ide', 'illa', 'heli', 'eshtu', 'sigutte'},
+  'ml': {'enikku', 'venam', 'evide', 'entha', 'undo', 'illa', 'parayu', 'ethra', 'kittum'},
+  'bn': {'amar', 'lagbe', 'kothay', 'ki', 'ache', 'nei', 'bolo', 'koto', 'pabo'},
+};
+
+String? askodoxRomanizedLanguage(String message) {
+  final words = message.toLowerCase().split(RegExp(r'[^a-z]+')).where((w) => w.isNotEmpty).toSet();
+  String? best;
+  var bestHits = 0;
+  var tie = false;
+  for (final entry in _romanizedMarkers.entries) {
+    final hits = words.where(entry.value.contains).length;
+    if (hits > bestHits) {
+      best = entry.key;
+      bestHits = hits;
+      tie = false;
+    } else if (hits == bestHits && hits > 0) {
+      tie = true;
+    }
+  }
+  return bestHits >= 2 && !tie ? best : null;
+}
+
 /// The conversation language after [message], given the [current] one.
 String askodoxNextConversationLanguage({required String current, required String message}) {
   for (final entry in _explicitSwitch.entries) {
@@ -64,6 +98,8 @@ String askodoxNextConversationLanguage({required String current, required String
   }
   final script = askodoxScriptLanguage(message);
   if (script != null) return script;
+  final romanized = askodoxRomanizedLanguage(message);
+  if (romanized != null) return romanized;
   // Latin-only: a short answer, number, brand or command keeps the language;
   // a real English sentence (5+ words) means the customer switched.
   final words = message.trim().split(RegExp(r'\s+')).where((w) => RegExp(r'[A-Za-z]{2,}').hasMatch(w)).length;
@@ -130,6 +166,16 @@ const _labels = <String, Map<String, String>>{
     'compare': 'Compare',
     'price_unverified': 'Price not verified',
     'partner': 'Partner stores',
+    'attach_analyzing': 'Reading your attachment…',
+    'attach_failed': 'The attachment could not be analyzed. It is still here -- try again.',
+    'attach_unsupported': 'ASKODOX cannot read this file type yet. Send a photo, short video, PDF, Word, Excel, CSV or text file.',
+    'attach_too_large': 'This file is too large. Please send a smaller one.',
+    'attach_unavailable': 'Analysis for this type is not available right now; nothing was analyzed.',
+    'attach_permission': 'Allow camera / photos access for ASKODOX in phone settings, then try again.',
+    'attach_open_failed': 'The file could not be opened. Please try again.',
+    'attach_limit': 'You can attach up to 4 files at a time.',
+    'retry': 'Retry',
+    'cancel': 'Cancel',
   },
   'te': {
     'found': '{n} ఎంపికలు దొరికాయి',
@@ -144,6 +190,16 @@ const _labels = <String, Map<String, String>>{
     'compare': 'పోల్చండి',
     'price_unverified': 'ధర ధృవీకరించలేదు',
     'partner': 'భాగస్వామి స్టోర్లు',
+    'attach_analyzing': 'మీ అటాచ్‌మెంట్ చదువుతున్నాం…',
+    'attach_failed': 'అటాచ్‌మెంట్‌ను విశ్లేషించలేకపోయాం. అది అలాగే ఉంది -- మళ్లీ ప్రయత్నించండి.',
+    'attach_unsupported': 'ఈ ఫైల్ రకాన్ని ASKODOX ఇంకా చదవలేదు. ఫోటో, చిన్న వీడియో, PDF, Word, Excel, CSV లేదా టెక్స్ట్ పంపండి.',
+    'attach_too_large': 'ఈ ఫైల్ చాలా పెద్దది. చిన్నది పంపండి.',
+    'attach_unavailable': 'ఈ రకం విశ్లేషణ ప్రస్తుతం అందుబాటులో లేదు; ఏదీ విశ్లేషించలేదు.',
+    'attach_permission': 'ఫోన్ సెట్టింగ్స్‌లో ASKODOXకి కెమెరా / ఫోటోల అనుమతి ఇవ్వండి, తర్వాత మళ్లీ ప్రయత్నించండి.',
+    'attach_open_failed': 'ఫైల్ తెరవలేకపోయాం. మళ్లీ ప్రయత్నించండి.',
+    'attach_limit': 'ఒకేసారి 4 ఫైల్స్ వరకు జత చేయవచ్చు.',
+    'retry': 'మళ్లీ',
+    'cancel': 'రద్దు',
   },
   'hi': {
     'found': '{n} विकल्प मिले',
@@ -158,6 +214,16 @@ const _labels = <String, Map<String, String>>{
     'compare': 'तुलना करें',
     'price_unverified': 'कीमत सत्यापित नहीं',
     'partner': 'पार्टनर स्टोर',
+    'attach_analyzing': 'आपका अटैचमेंट पढ़ रहे हैं…',
+    'attach_failed': 'अटैचमेंट का विश्लेषण नहीं हो सका। वह अभी भी यहीं है -- फिर कोशिश करें।',
+    'attach_unsupported': 'ASKODOX यह फ़ाइल प्रकार अभी नहीं पढ़ सकता। फ़ोटो, छोटा वीडियो, PDF, Word, Excel, CSV या टेक्स्ट भेजें।',
+    'attach_too_large': 'यह फ़ाइल बहुत बड़ी है। छोटी फ़ाइल भेजें।',
+    'attach_unavailable': 'इस प्रकार का विश्लेषण अभी उपलब्ध नहीं है; कुछ भी विश्लेषित नहीं हुआ।',
+    'attach_permission': 'फ़ोन सेटिंग्स में ASKODOX को कैमरा / फ़ोटो अनुमति दें, फिर कोशिश करें।',
+    'attach_open_failed': 'फ़ाइल नहीं खुल सकी। फिर कोशिश करें।',
+    'attach_limit': 'एक बार में 4 फ़ाइलें तक जोड़ सकते हैं।',
+    'retry': 'फिर से',
+    'cancel': 'रद्द करें',
   },
   'or': {
     'found': '{n}ଟି ବିକଳ୍ପ ମିଳିଲା',
@@ -172,5 +238,15 @@ const _labels = <String, Map<String, String>>{
     'compare': 'ତୁଳନା କରନ୍ତୁ',
     'price_unverified': 'ମୂଲ୍ୟ ଯାଞ୍ଚ ହୋଇନାହିଁ',
     'partner': 'ସହଯୋଗୀ ଷ୍ଟୋର୍',
+    'attach_analyzing': 'ଆପଣଙ୍କ ଆଟାଚମେଣ୍ଟ ପଢୁଛୁ…',
+    'attach_failed': 'ଆଟାଚମେଣ୍ଟ ବିଶ୍ଳେଷଣ ହୋଇପାରିଲା ନାହିଁ। ଏହା ଏଠାରେ ଅଛି -- ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
+    'attach_unsupported': 'ASKODOX ଏହି ଫାଇଲ ପ୍ରକାର ଏବେ ପଢିପାରେ ନାହିଁ। ଫଟୋ, ଛୋଟ ଭିଡିଓ, PDF, Word, Excel, CSV କିମ୍ବା ଟେକ୍ସଟ ପଠାନ୍ତୁ।',
+    'attach_too_large': 'ଏହି ଫାଇଲ ବହୁତ ବଡ। ଛୋଟ ଫାଇଲ ପଠାନ୍ତୁ।',
+    'attach_unavailable': 'ଏହି ପ୍ରକାରର ବିଶ୍ଳେଷଣ ଏବେ ଉପଲବ୍ଧ ନାହିଁ; କିଛି ବିଶ୍ଳେଷଣ ହୋଇନାହିଁ।',
+    'attach_permission': 'ଫୋନ ସେଟିଂସରେ ASKODOX କୁ କ୍ୟାମେରା / ଫଟୋ ଅନୁମତି ଦିଅନ୍ତୁ, ତାପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
+    'attach_open_failed': 'ଫାଇଲ ଖୋଲିପାରିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
+    'attach_limit': 'ଥରକେ 4ଟି ଫାଇଲ ପର୍ଯ୍ୟନ୍ତ ଯୋଡିପାରିବେ।',
+    'retry': 'ପୁଣି',
+    'cancel': 'ବାତିଲ',
   },
 };
