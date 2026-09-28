@@ -9,6 +9,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.media.MediaPlayer
@@ -138,6 +139,11 @@ class MainActivity : FlutterActivity() {
                         ),
                     )
                     "consumeLaunchRoute" -> { result.success(launchRoute); launchRoute = null }
+                    "reverseGeocode" -> reverseGeocode(
+                        call.argument<Double>("latitude"),
+                        call.argument<Double>("longitude"),
+                        result,
+                    )
                     else -> result.notImplemented()
                 }
             }
@@ -537,6 +543,35 @@ class MainActivity : FlutterActivity() {
         }
         val values = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
         result.success(values?.firstOrNull())
+    }
+
+    // --------------------------------------------------------- location ----
+
+    // Names the GPS point with the phone's own geocoder (no API key, works
+    // on most Android phones). Returns null when the device cannot name it;
+    // the app then asks the backend, and never invents a place.
+    @Suppress("DEPRECATION")
+    private fun reverseGeocode(latitude: Double?, longitude: Double?, result: MethodChannel.Result) {
+        if (latitude == null || longitude == null || !Geocoder.isPresent()) {
+            result.success(null)
+            return
+        }
+        Thread {
+            val place = try {
+                Geocoder(this, Locale("en", "IN")).getFromLocation(latitude, longitude, 1)?.firstOrNull()
+            } catch (_: Exception) {
+                null
+            }
+            val named = place?.let {
+                mapOf(
+                    "subLocality" to it.subLocality,
+                    "locality" to (it.locality ?: it.subAdminArea),
+                    "adminArea" to it.adminArea,
+                    "countryCode" to it.countryCode,
+                )
+            }
+            runOnUiThread { result.success(named) }
+        }.start()
     }
 
     // ------------------------------------------------------ notifications --

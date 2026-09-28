@@ -32,7 +32,7 @@ class UniversalAIAssistantService:
         "subject", "category", "role", "skill", "quantity", "unit", "headcount",
         "date", "time", "timing", "location", "from", "to", "budget", "price",
         "salary", "pay", "pay_basis", "duration", "shift", "context", "variant",
-        "quality", "size", "model", "fulfilment", "availability", "specialist",
+        "quality", "size", "model", "brand", "fulfilment", "availability", "specialist",
         "service_type", "job_type", "seats", "notes",
     }
     # Phrases that indicate the model's reply is asking the user for their
@@ -241,7 +241,9 @@ class UniversalAIAssistantService:
             "reply, domain, transactional, action, confidence, entities. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
             "PARCEL, RIDE, PRODUCT, FOOD, EVENT, APPOINTMENT, LEDGER, UNKNOWN. transactional is boolean. action is a short snake_case string. "
             "entities must be a JSON object containing only facts actually supplied or unambiguously inherited from the conversation. "
-            "Useful entity keys include subject, category, role, skill, quantity, unit, headcount, date, time, timing, location, from, to, budget, price, salary, pay, pay_basis, duration, shift, context, variant, quality, size, model, fulfilment, availability, specialist, service_type, job_type, seats, notes. "
+            "Useful entity keys include subject, category, role, skill, quantity, unit, headcount, date, time, timing, location, from, to, budget, price, salary, pay, pay_basis, duration, shift, context, variant, quality, size, model, brand, fulfilment, availability, specialist, service_type, job_type, seats, notes. "
+            "brand = the maker/brand/company the user named for the thing wanted (any category, e.g. Tata, Voltas, a local shop brand); "
+            "a later message naming another brand replaces it. "
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
             "Do not claim a booking, payment, message, search or match happened. "
             "Important distinction: 'delivery job kavali' is JOB_SEEKER; 'delivery boys/staff kavali na shop ki' is STAFFING; "

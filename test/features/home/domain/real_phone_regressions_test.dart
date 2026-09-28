@@ -3,6 +3,7 @@ import 'package:podx/features/deal_brain/domain/brand_lexicon.dart';
 import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/domain/chat_action_intent.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
+import 'package:podx/features/home/domain/need_state.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 
 /// Real-phone regressions, fixed in the shared (universal) layer.
@@ -42,17 +43,34 @@ void main() {
     });
   });
 
-  group('brand changes update the active search (any category)', () {
-    test('Maruti 800 -> Tata replaces brand and its model', () {
-      expect(askodoxDetectBrand('Tata'), 'Tata');
-      expect(askodoxSubjectWithBrand('Maruti 800 car', 'Tata'), 'Tata car');
+  group('brand changes update the active search (any category, NO fixed brand list)', () {
+    test('a short refinement reply is the brand -- including brands no list ever had', () {
+      expect(askodoxQualifierReply('Tata'), 'Tata');
+      expect(askodoxQualifierReply('blue star'), 'Blue Star');
+      expect(askodoxQualifierReply('Kalyani'), 'Kalyani', reason: 'any maker, not a curated list');
+    });
+    test('how people say it names the brand', () {
+      expect(askodoxDetectBrand('show only Tata cars'), 'Tata');
+      expect(askodoxDetectBrand('Voltas brand AC please'), 'Voltas');
+      expect(askodoxDetectBrand('brand: Prestige'), 'Prestige');
+      expect(askodoxDetectBrand('Hero instead'), 'Hero');
+    });
+    test('brands real listings carry are recognised inside a sentence', () {
+      expect(askodoxDetectBrand('I want a sony 43 inch TV', known: {'Sony'}), 'Sony');
+    });
+    test('Maruti 800 -> Tata replaces the previous brand and its model', () {
+      expect(askodoxSubjectWithBrand('Maruti 800 car', 'Tata', previous: 'Maruti'), 'Tata car');
+      expect(askodoxSubjectWithBrand('Maruti 800 car', 'Tata', known: {'Maruti'}), 'Tata car');
     });
     test('sizes and capacities are kept', () {
-      expect(askodoxSubjectWithBrand('Samsung 43 inch TV', 'Sony'), 'Sony 43 inch TV');
+      expect(askodoxSubjectWithBrand('Samsung 43 inch TV', 'Sony', previous: 'Samsung'), 'Sony 43 inch TV');
       expect(askodoxSubjectWithBrand('Samsung 43 inch TV', 'Samsung'), 'Samsung 43 inch TV');
       expect(askodoxSubjectWithBrand('250 l fridge', 'LG'), 'LG 250 l fridge');
     });
-    test('ordinary words are not brands', () {
+    test('ordinary words, commands, numbers and sizes are not brands', () {
+      for (final said in ['yes', 'cheaper', 'used', '1 kg', 'show me', 'go', 'nearby', 'thanks']) {
+        expect(askodoxQualifierReply(said), isNull, reason: said);
+      }
       expect(askodoxDetectBrand('shop on MG Road'), isNull);
       expect(askodoxDetectBrand('1 kg apple'), isNull);
       expect(askodoxDetectBrand('1.5 hp motor'), isNull);
@@ -72,6 +90,13 @@ void main() {
       const match = UniversalMatch(id: 'o1', title: 'TV', source: 'online', price: 24990, priceVerified: false);
       expect(askodoxOptionContext(match), contains('(unverified)'));
     });
+  });
+
+  group('"show me / search / go" run the search (EN/TE/HI)', () {
+    for (final said in ['show me', 'search', 'go', 'go ahead', 'find it', 'చూపించండి', 'ढूंढो']) {
+      test('"$said"', () => expect(askodoxWantsResultsNow(said), isTrue));
+    }
+    test('ordinary words are not commands', () => expect(askodoxWantsResultsNow('good morning'), isFalse));
   });
 
   group('jobs are job openings, never products', () {

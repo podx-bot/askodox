@@ -205,3 +205,94 @@ def test_discover_without_location_reports_the_location_failure(api, monkeypatch
     assert data["source_status"]["nearby"] in {"needs_location", "unavailable"}
     trace = _trace(client, admin, data["trace_key"])
     assert "location_searched" in str(trace)
+
+
+class _Resp:
+    def __init__(self, data):
+        self.data = data
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.data
+
+
+class _GeoClient:
+    """Geocoding API denied on the key (as on the real phone); Places works."""
+
+    def get(self, url, **kwargs):
+        return _Resp({"status": "REQUEST_DENIED", "results": []})
+
+    def post(self, url, **kwargs):
+        assert url.endswith("searchNearby")
+        return _Resp({"places": [{"displayName": {"text": "Vuyyuru"}, "addressComponents": [
+            {"longText": "Andhra Pradesh", "types": ["administrative_area_level_1"]}]}]})
+
+
+def test_current_location_is_named_even_when_geocoding_is_denied():
+    from app.services import external_call_budget
+    from app.services.google_maps_service import GoogleMapsService
+
+    external_call_budget.reset_for_tests()
+    maps = GoogleMapsService(api_key="test-key", client=_GeoClient())
+    place = maps.reverse_geocode(16.365, 80.844)
+    assert place["city"] == "Vuyyuru"
+    assert place["label"] == "Vuyyuru, Andhra Pradesh"
+
+
+def test_job_cards_are_short_and_never_invent_fields():
+    from app.services.universal_multi_source_result_service import job_card_title
+
+    assert job_card_title("369 Latest Delivery Vacancies in Hyderabad 2026 - Naukri.com") == ("Delivery jobs", "Hyderabad")
+    assert job_card_title("Computer Operator Jobs in Vijayawada | Indeed") == ("Computer Operator jobs", "Vijayawada")
+    assert job_card_title("Data entry work from home") == ("Data entry work from home jobs", None)
+
+
+def test_trace_records_the_language_the_customer_used():
+    from app.api.routes.universal_deals import _query_language
+
+    assert _query_language("నాకు 43-inch TV కావాలి") == "te+en"
+    assert _query_language("मुझे फ्रिज चाहिए") == "hi"
+    assert _query_language("AC installation near me") == "en"
+
+
+class _StatusResp:
+    def __init__(self, code, data):
+        self.status_code, self._data = code, data
+
+    def json(self):
+        return self._data
+
+
+class _MixedGoogle:
+    """Geocoding + Routes not enabled on the key; Places enabled."""
+
+    def get(self, url, **kwargs):
+        return _StatusResp(200, {"status": "REQUEST_DENIED",
+                                 "error_message": "This API project is not authorized to use this API."})
+
+    def post(self, url, **kwargs):
+        if "routes.googleapis.com" in url:
+            return _StatusResp(403, {"error": {"message": "Routes API has not been used in project 123 before"}})
+        return _StatusResp(200, {"places": []})
+
+
+def test_admin_maps_check_names_each_api_and_never_the_key():
+    from app.services.google_maps_service import GoogleMapsService
+
+    status = GoogleMapsService(api_key="secret-key-value", client=_MixedGoogle()).api_status()
+    assert status["places_text_search"] == "OK" and status["places_nearby"] == "OK"
+    assert status["geocoding"].startswith("FAILED") and "not authorized" in status["geocoding"]
+    assert status["routes"].startswith("FAILED (HTTP 403)")
+    assert "secret-key-value" not in str(status)
+
+
+def test_brand_vocabulary_is_learned_from_real_listings():
+    import uuid as _uuid
+
+    from server import app, container
+
+    brand = "Zz" + _uuid.uuid4().hex[:6]
+    container.product_catalog_repository.upsert_product("app-phone-91brand", "43 inch TV", brand=brand, price=25000)
+    assert brand in TestClient(app).get("/api/products/brands").json()["brands"]

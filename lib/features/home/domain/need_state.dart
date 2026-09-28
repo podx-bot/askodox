@@ -8,8 +8,9 @@
 library;
 
 final _showNow = RegExp(
-  r'\b(show( me)?|results?|options?|find (it|them|me)|search( now)?|what do you have|let me see)\b'
-  r'|చూపించు|చూపించండి|చూపు|చూపండి|ఆప్షన్స్|రిజల్ట్స్|వెతుకు|దిఖా|दिखा',
+  r'\b(show( me)?|results?|options?|find( it| them| me)?|search( now| it)?|what do you have|let me see'
+  r'|go( ahead)?|proceed)\b'
+  r'|చూపించు|చూపించండి|చూపు|చూపండి|ఆప్షన్స్|రిజల్ట్స్|వెతుకు|దిఖా|दिखा|ढूंढो|ढूँढो|खोजो',
   caseSensitive: false,
 );
 

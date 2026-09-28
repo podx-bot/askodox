@@ -168,6 +168,29 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(next));
   }
 
+  /// A short brand-like reply ("Tata") to a question it does not answer
+  /// (new/used, quantity, delivery...): it names the brand instead of being
+  /// forced into that question's slot. Returns true when used as the brand.
+  /// Questions that take any name (model, variant, skill, place, subject)
+  /// keep their normal answer.
+  bool answerOrBrand(String text, {String? brand, Set<String> known = const {}}) {
+    final current = state.deal;
+    final value = text.trim();
+    if (current == null || value.isEmpty) {
+      answer(text);
+      return false;
+    }
+    final missing = current.missingForMatch;
+    const takesAnyName = {'subject', 'model', 'variant', 'skill', 'from', 'to', 'location', 'timing', 'brand'};
+    final semantic = missing.isEmpty ? null : _semanticAnswer(current, missing, value);
+    if (semantic == null && (missing.isEmpty || !takesAnyName.contains(missing.first))) {
+      applyBrand(brand ?? value, known: known);
+      return true;
+    }
+    answer(text);
+    return false;
+  }
+
   /// A pickup/drop chosen on the map: fills that end of the route with a
   /// readable label AND its real coordinates, so it is never asked again.
   void setRoutePoint({
@@ -320,7 +343,7 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
 
   /// The customer named a brand ("Tata"): it drives the search from now on
   /// and replaces the earlier brand/model ("Maruti 800").
-  void applyBrand(String brand) {
+  void applyBrand(String brand, {Set<String> known = const {}}) {
     final current = state.deal;
     final clean = brand.trim();
     if (current == null || clean.isEmpty) return;
@@ -332,7 +355,9 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     final subject = current.subject?.trim();
     final model = current.model;
     _setSession(_sessionFor(current.copyWith(
-      subject: subject == null || subject.isEmpty ? null : askodoxSubjectWithBrand(subject, clean),
+      subject: subject == null || subject.isEmpty
+          ? null
+          : askodoxSubjectWithBrand(subject, clean, previous: previous, known: known),
       model: model != null && !model.toLowerCase().contains(clean.toLowerCase()) ? '' : model,
       dynamicFields: {...current.dynamicFields, 'brand': clean},
     )));

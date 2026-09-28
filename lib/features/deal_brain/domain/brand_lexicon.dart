@@ -1,55 +1,101 @@
-/// Words that are also ordinary words or places ("MG Road", "1.5 HP pump",
-/// "1 kg apple", "Usha" the person) are deliberately left out.
-/// Brands people name while refining ANY request (cars, TVs, fridges, ACs,
-/// phones, bikes...). One universal vocabulary -- not a per-category flow:
-/// when the customer names a brand, it becomes part of what is searched
-/// and replaces the brand (and that brand's model) searched before.
+/// Universal brand / qualifier handling -- for ANY category, with NO
+/// hard-coded brand list. A brand is recognised from:
+///  1. how people say it: "Tata brand", "brand Tata", "only Tata",
+///     "Tata only", "Tata instead", "prefer Tata", "show me Tata";
+///  2. brands real ASKODOX listings carry (`GET /api/products/brands`,
+///     learned from data, passed in as [known]);
+///  3. a short refinement reply ("Tata") while a search is active that
+///     answered no other question (see [askodoxQualifierReply]).
+/// The chosen brand replaces the previous brand and that brand's model in
+/// the searched subject; sizes/capacities ("43 inch", "250 l") are kept.
 library;
 
-const _brands = <String>[
-  // vehicles
-  'maruti suzuki', 'maruti', 'suzuki', 'tata', 'mahindra', 'hyundai', 'honda', 'toyota', 'kia', 'renault',
-  'nissan', 'skoda', 'volkswagen', 'mg motor', 'ford', 'citroen', 'bajaj', 'hero motocorp', 'tvs', 'royal enfield',
-  'yamaha', 'ola electric', 'ather',
-  // electronics & appliances
-  'samsung', 'lg', 'sony', 'tcl', 'xiaomi', 'redmi', 'oneplus', 'vu', 'panasonic', 'philips', 'haier',
-  'whirlpool', 'godrej', 'voltas', 'blue star', 'daikin', 'hitachi', 'lloyd', 'ifb', 'bosch',
-  'iphone', 'realme', 'vivo', 'oppo', 'motorola', 'nokia', 'dell', 'lenovo', 'asus', 'acer',
-  'bajaj electricals', 'havells', 'prestige', 'butterfly', 'preethi', 'crompton', 'kent ro', 'aquaguard',
-];
-
-final _brandPattern = RegExp(
-  '\\b(${(_brands.toList()..sort((a, b) => b.length.compareTo(a.length))).map(RegExp.escape).join('|')})\\b',
-  caseSensitive: false,
-);
-
-/// The brand named in [text], in display case ("Tata"), or null.
-String? askodoxDetectBrand(String text) {
-  final match = _brandPattern.firstMatch(text);
-  if (match == null) return null;
-  return match.group(0)!.split(' ').map((w) => w.length <= 2 ? w.toUpperCase() : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}').join(' ');
-}
+// Words that are never a brand when said alone or in the patterns above.
+const _notBrands = {
+  'yes', 'no', 'ok', 'okay', 'sure', 'go', 'show', 'me', 'it', 'this', 'that', 'these', 'those', 'one', 'any',
+  'new', 'used', 'old', 'second', 'hand', 'cheap', 'cheaper', 'cheapest', 'best', 'good', 'better', 'fine',
+  'thanks', 'thank', 'please', 'more', 'other', 'another', 'next', 'same', 'nearby', 'near', 'online', 'local',
+  'today', 'tomorrow', 'now', 'later', 'here', 'there', 'price', 'budget', 'size', 'colour', 'color', 'small',
+  'big', 'large', 'medium', 'fresh', 'delivery', 'pickup', 'cash', 'upi', 'buy', 'sell', 'order', 'book',
+  'search', 'find', 'results', 'options', 'option', 'first', 'third', 'all', 'none', 'brand',
+  'company', 'make', 'model', 'what', 'which', 'why', 'how', 'where', 'when', 'hi', 'hello', 'the', 'a', 'an',
+  'and', 'or', 'only', 'instead', 'prefer', 'want', 'need', 'like', 'car', 'tv', 'phone', 'fridge',
+  'ac', 'bike', 'job', 'jobs', 'work', 'service', 'repair', 'chicken', 'mutton', 'fish', 'veg', 'nonveg',
+};
 
 const _units = {'inch', 'inches', 'in', 'kg', 'g', 'l', 'litre', 'liter', 'litres', 'ltr', 'ton', 'tons', 'cc',
-  'gb', 'tb', 'mah', 'w', 'watt', 'hp', 'seater', 'door', 'star'};
+  'gb', 'tb', 'mah', 'w', 'watt', 'hp', 'seater', 'door', 'lakh', 'lakhs', 'k'};
 
-/// [subject] with [brand] as its brand: a DIFFERENT brand and that brand's
-/// model number ("Maruti 800") are removed, never mixed ("Tata Maruti 800").
-/// Sizes/capacities ("43 inch", "250 l") are kept.
-String askodoxSubjectWithBrand(String subject, String brand) {
-  final words = subject.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-  final wanted = brand.toLowerCase();
+final _explicit = [
+  RegExp(r"\b([A-Za-z][A-Za-z0-9&'.-]{1,24})\s+(?:brand|company|make)\b", caseSensitive: false),
+  RegExp(r"\b(?:brand|company|make)\s*[:\-]?\s*([A-Za-z][A-Za-z0-9&'.-]{1,24})\b", caseSensitive: false),
+  RegExp(r"\bonly\s+([A-Za-z][A-Za-z0-9&'.-]{1,24})\b", caseSensitive: false),
+  RegExp(r"\b([A-Za-z][A-Za-z0-9&'.-]{1,24})\s+(?:only|instead)\b", caseSensitive: false),
+  RegExp(r"\b(?:prefer|try)\s+([A-Z][A-Za-z0-9&'.-]{1,24})\b"),
+];
+
+String _display(String word) => word.length <= 3 && word == word.toUpperCase()
+    ? word
+    : word.length <= 2
+        ? word.toUpperCase()
+        : '${word[0].toUpperCase()}${word.substring(1)}';
+
+bool _brandLike(String word) {
+  final w = word.toLowerCase();
+  return w.length >= 2 && !_notBrands.contains(w) && !_units.contains(w) && !RegExp(r'^\d').hasMatch(w);
+}
+
+/// The brand the customer named in [text] (display case), or null.
+String? askodoxDetectBrand(String text, {Set<String> known = const {}}) {
+  for (final brand in known) {
+    if (brand.trim().length < 2) continue;
+    if (RegExp('\\b${RegExp.escape(brand.trim())}\\b', caseSensitive: false).hasMatch(text)) return brand.trim();
+  }
+  for (final pattern in _explicit) {
+    final match = pattern.firstMatch(text);
+    final word = match?.group(1);
+    if (word != null && _brandLike(word)) return _display(word);
+  }
+  return null;
+}
+
+/// A short reply ("Tata", "Blue Star") that refines the active search and
+/// answered no other question: treated as the brand/maker the customer
+/// wants. Commands, yes/no, numbers, sizes and common words never qualify.
+String? askodoxQualifierReply(String text) {
+  final words = text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty || words.length > 2) return null;
+  if (!words.every((w) => RegExp(r"^[A-Za-z][A-Za-z&'.-]*$").hasMatch(w))) return null;
+  if (!words.every(_brandLike)) return null;
+  return words.map(_display).join(' ');
+}
+
+/// [subject] with [brand] as its brand. The [previous] brand (and any
+/// [known] brand) plus that brand's model number are removed -- never
+/// "Tata Maruti 800". Sizes/capacities are kept.
+String askodoxSubjectWithBrand(String subject, String brand, {String? previous, Set<String> known = const {}}) {
+  final remove = <String>{
+    for (final b in [previous, ...known])
+      if (b != null && b.trim().isNotEmpty && b.trim().toLowerCase() != brand.toLowerCase()) b.trim().toLowerCase(),
+  };
+  var words = subject.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  // Drop the new brand if already present (it is put in front below).
+  final newWords = brand.toLowerCase().split(' ');
+  for (var i = 0; i + newWords.length <= words.length; i++) {
+    if (words.sublist(i, i + newWords.length).map((w) => w.toLowerCase()).join(' ') == newWords.join(' ')) {
+      words = [...words.sublist(0, i), ...words.sublist(i + newWords.length)];
+      break;
+    }
+  }
   final kept = <String>[];
   var i = 0;
   while (i < words.length) {
-    // Longest brand phrase starting here (e.g. "maruti suzuki").
     String? hit;
-    for (final length in [3, 2, 1]) {
-      if (i + length > words.length) continue;
-      final phrase = words.sublist(i, i + length).join(' ');
-      final m = _brandPattern.matchAsPrefix(phrase);
-      if (m != null && m.end == phrase.length) {
-        hit = phrase;
+    for (final old in remove) {
+      final parts = old.split(' ');
+      if (i + parts.length <= words.length &&
+          words.sublist(i, i + parts.length).map((w) => w.toLowerCase()).join(' ') == old) {
+        hit = old;
         break;
       }
     }
@@ -58,12 +104,7 @@ String askodoxSubjectWithBrand(String subject, String brand) {
       i++;
       continue;
     }
-    final span = hit.split(' ').length;
-    if (hit.toLowerCase() == wanted) {
-      i += span; // re-added in front below
-      continue;
-    }
-    i += span;
+    i += hit.split(' ').length;
     // The old brand's model number goes with it -- unless it is a size.
     if (i < words.length && RegExp(r'\d').hasMatch(words[i])) {
       final next = i + 1 < words.length ? words[i + 1].toLowerCase() : '';

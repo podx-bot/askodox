@@ -10,16 +10,6 @@ import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/search/domain/search_models.dart';
 import '../../features/search/presentation/product_discovery_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
-import '../../features/seller/presentation/add_seller_product_screen.dart';
-import '../../features/seller/presentation/request_new_product_screen.dart';
-import '../../features/seller/presentation/seller_dashboard_screen.dart';
-import '../../features/seller/presentation/seller_login_screen.dart';
-import '../../features/seller/presentation/seller_insights_screen.dart';
-import '../../features/seller/presentation/seller_profile_screen.dart';
-import '../../features/seller/presentation/seller_products_screen.dart';
-import '../../features/seller/presentation/seller_registration_screen.dart';
-import '../../features/seller/presentation/seller_requests_screen.dart';
-import '../../features/seller/presentation/seller_shell.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/selling/presentation/my_listings_screen.dart';
 import '../../features/notifications/presentation/notification_settings_screen.dart';
@@ -33,20 +23,16 @@ import '../../features/admin/presentation/localized_admin_entry.dart';
 import '../../features/admin/presentation/localized_admin_sections.dart';
 import '../../features/location/presentation/location_setup_screen.dart';
 import '../../features/location/presentation/shop_details_screen.dart';
-import '../../features/location/presentation/seller_location_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
 import '../../features/developer/presentation/storage_usage_screen.dart';
 import '../../features/developer/presentation/performance_monitor_screen.dart';
-import '../../features/monetization/presentation/monetization_screens.dart';
 import '../../features/monetization/presentation/admin_monetization_screen.dart';
-import '../../features/communication/presentation/localized_seller_communication_screens.dart';
 import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/orders/presentation/order_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
-import '../../features/analytics/presentation/localized_analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
 
@@ -57,8 +43,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         title: 'Page not found',
         message:
             'This link is unavailable or no longer exists. (${state.uri.path})'),
-    redirect: (context, state) =>
-        const RouteGuard().redirect(session, state.matchedLocation),
+    redirect: (context, state) {
+      // The old mock seller area (mock OTP, mock plans/payments, demo
+      // analytics) is gone: sellers manage their REAL listings in one place.
+      final path = state.uri.path;
+      if (path == '/seller' || path.startsWith('/seller/')) return '/listings/mine';
+      return const RouteGuard().redirect(session, state.matchedLocation);
+    },
     initialLocation: '/onboarding',
     routes: [
       GoRoute(
@@ -218,92 +209,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(
             path: '/developer/feedback',
             builder: (context, state) => const SubmittedFeedbackScreen()),
-      GoRoute(
-          path: '/seller/login',
-          builder: (context, state) => const SellerLoginScreen()),
-      GoRoute(
-          path: '/seller/register',
-          builder: (context, state) => const SellerRegistrationScreen()),
-      ShellRoute(
-          builder: (context, state, child) => SellerShell(child: child),
-          routes: [
-            GoRoute(
-                path: '/seller/dashboard',
-                builder: (context, state) => const SellerDashboardScreen()),
-            GoRoute(
-                path: '/seller/products',
-                builder: (context, state) => const SellerProductsScreen(),
-                routes: [
-                  GoRoute(
-                      path: 'add',
-                      builder: (context, state) =>
-                          const AddSellerProductScreen()),
-                  GoRoute(
-                      path: 'request',
-                      builder: (context, state) =>
-                          const RequestNewProductScreen())
-                ]),
-            GoRoute(
-                path: '/seller/requests',
-                builder: (context, state) => const SellerRequestsScreen()),
-            GoRoute(
-                path: '/seller/insights',
-                builder: (context, state) => const SellerInsightsScreen()),
-            GoRoute(
-                path: '/seller/profile',
-                builder: (context, state) => const SellerProfileScreen()),
-            GoRoute(
-                path: '/seller/location',
-                builder: (context, state) => const SellerLocationScreen()),
-            GoRoute(
-                path: '/seller/usage',
-                builder: (context, state) => const UsageScreen()),
-            GoRoute(
-                path: '/seller/plans',
-                builder: (context, state) => const PricingScreen(),
-                routes: [
-                  GoRoute(
-                      path: 'compare',
-                      builder: (context, state) =>
-                          const PlanComparisonScreen()),
-                  GoRoute(
-                      path: 'review',
-                      builder: (context, state) => const OrderReviewScreen()),
-                  GoRoute(
-                      path: 'payment',
-                      builder: (context, state) => const PaymentScreen())
-                ]),
-            GoRoute(
-                path: '/seller/subscription',
-                builder: (context, state) => const SubscriptionScreen()),
-            GoRoute(
-                path: '/seller/invoices',
-                builder: (context, state) => const InvoiceHistoryScreen()),
-            GoRoute(
-                path: '/seller/engagement',
-                builder: (context, state) =>
-                    const LocalizedSellerEngagementScreen()),
-            GoRoute(
-                path: '/seller/analytics',
-                builder: (context, state) =>
-                    const LocalizedSellerAnalyticsScreen()),
-            GoRoute(
-                path: '/seller/analytics/products',
-                builder: (context, state) =>
-                    const LocalizedProductPerformanceScreen()),
-            GoRoute(
-                path: '/seller/analytics/market',
-                builder: (context, state) =>
-                    const LocalizedSellerMarketAnalyticsScreen()),
-            GoRoute(
-                path: '/seller/analytics/privacy',
-                builder: (context, state) =>
-                    const AnalyticsPrivacyScreen(seller: true)),
-            GoRoute(
-                path: '/seller/notifications',
-                builder: (context, state) =>
-                    const LocalizedSellerNotificationCenterScreen()),
-          ]),
       GoRoute(
           path: '/admin/subscriptions',
           builder: (context, state) => const AdminMonetizationScreen()),

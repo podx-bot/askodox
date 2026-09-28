@@ -70,6 +70,55 @@ class GoogleMapsService:
             "place_id": str(first.get("place_id") or ""),
         }
 
+    def api_status(self, latitude: float = 16.5062, longitude: float = 80.6480) -> dict[str, str]:
+        """Live, per-API readiness of THIS key (Admin: Integrations → Check).
+
+        Each Google API is enabled separately on the key's Cloud project;
+        this names which ones answer and quotes Google's own error for the
+        others (e.g. "This API project is not authorized to use this API").
+        The key itself is never returned. Not cached.
+        """
+        if not self.enabled:
+            return {"key": "missing (GOOGLE_MAPS_API_KEY not set)"}
+
+        def call(method: str, url: str, **kwargs) -> tuple[int, Any]:
+            try:
+                response = getattr(self.client, method)(url, timeout=self.timeout_seconds, **kwargs)
+                try:
+                    return response.status_code, response.json()
+                except ValueError:
+                    return response.status_code, {}
+            except httpx.HTTPError as error:
+                return 0, {"error": {"message": type(error).__name__}}
+
+        def verdict(code: int, data: Any, ok: bool) -> str:
+            if ok:
+                return "OK"
+            message = str(((data or {}).get("error") or {}).get("message")
+                          or (data or {}).get("error_message") or (data or {}).get("status") or "")
+            return f"FAILED (HTTP {code}) {message[:160]}".strip()
+
+        status: dict[str, str] = {}
+        code, data = call("get", self.GEOCODE_URL,
+                          params={"latlng": f"{latitude},{longitude}", "key": self.api_key})
+        status["geocoding"] = verdict(code, data, str((data or {}).get("status")) == "OK")
+        headers = {"X-Goog-Api-Key": self.api_key, "X-Goog-FieldMask": "places.displayName"}
+        code, data = call("post", self.PLACES_TEXT_URL, headers=headers,
+                          json={"textQuery": "AC repair near Vijayawada", "regionCode": "IN", "maxResultCount": 1})
+        status["places_text_search"] = verdict(code, data, code == 200)
+        code, data = call("post", self.PLACES_NEARBY_URL, headers=headers, json={
+            "includedTypes": ["locality"], "maxResultCount": 1,
+            "locationRestriction": {"circle": {"center": {"latitude": latitude, "longitude": longitude},
+                                               "radius": 10000.0}}})
+        status["places_nearby"] = verdict(code, data, code == 200)
+        code, data = call("post", self.ROUTES_URL, headers={
+            "X-Goog-Api-Key": self.api_key, "X-Goog-FieldMask": "routes.distanceMeters"}, json={
+            "origin": {"location": {"latLng": {"latitude": latitude, "longitude": longitude}}},
+            "destination": {"location": {"latLng": {"latitude": latitude + 0.05, "longitude": longitude + 0.05}}},
+            "travelMode": "DRIVE"})
+        status["routes"] = verdict(code, data, code == 200)
+        return status
+
     _AREA_TYPES = ("sublocality_level_1", "sublocality", "neighborhood", "sublocality_level_2")
 
     def reverse_geocode(self, latitude: float, longitude: float) -> dict[str, Any] | None:
@@ -101,7 +150,9 @@ class GoogleMapsService:
             self.last_error = True
             return None
         if str((payload or {}).get("status") or "").upper() != "OK":
-            return None
+            # Geocoding API not enabled on the key (REQUEST_DENIED) or no
+            # result: name the town from the nearest Places locality instead.
+            return self._locality_from_places(lat, lon)
         parts: dict[str, str] = {}
         for result in (payload.get("results") or [])[:5]:
             for component in (result or {}).get("address_components") or []:
@@ -127,6 +178,45 @@ class GoogleMapsService:
         label_parts = [parts.get("area"), parts.get("city") or parts.get("district"), parts.get("state")]
         label = ", ".join(dict.fromkeys(p for p in label_parts if p))
         return {**parts, "label": label, "latitude": lat, "longitude": lon}
+
+    PLACES_NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
+
+    def _locality_from_places(self, lat: float, lon: float) -> dict[str, Any] | None:
+        """Nearest town/locality around the point (Places API), or None."""
+        body = {
+            "includedTypes": ["locality", "sublocality", "neighborhood"],
+            "maxResultCount": 3,
+            "rankPreference": "DISTANCE",
+            "locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lon}, "radius": 10000.0}},
+        }
+
+        def fetch() -> Any:
+            response = self.client.post(
+                self.PLACES_NEARBY_URL,
+                json=body,
+                headers={"X-Goog-Api-Key": self.api_key,
+                         "X-Goog-FieldMask": "places.displayName,places.addressComponents"},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        try:
+            payload = external_call_budget.cached_call("google_places", ("locality", round(lat, 3), round(lon, 3)), fetch)
+        except (httpx.HTTPError, ValueError, TypeError):
+            return None
+        for place in (payload or {}).get("places") or []:
+            name = str(((place or {}).get("displayName") or {}).get("text") or "").strip()
+            if not name:
+                continue
+            state = ""
+            for component in place.get("addressComponents") or []:
+                if "administrative_area_level_1" in (component.get("types") or []):
+                    state = str(component.get("longText") or "").strip()
+            label = ", ".join(p for p in (name, state) if p)
+            return {"city": name, "state": state or None, "label": label, "latitude": lat, "longitude": lon,
+                    "source": "places"}
+        return None
 
     def search_places(
         self,

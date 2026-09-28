@@ -69,6 +69,14 @@ class LocationState {
     return address.isNotEmpty ? address : location.name.trim();
   }
 
+  /// Short name for the header ("Vuyyuru" from "Vuyyuru, Andhra Pradesh").
+  /// It is the SAME location every search uses (full label + coordinates).
+  String? get headerLocation {
+    final full = displayLocation;
+    if (full == null || full.isEmpty) return null;
+    return full.split(',').first.trim();
+  }
+
   LocationState copyWith({
     LocationPermissionStatus? permission,
     List<BuyerSavedLocation>? locations,
@@ -114,8 +122,19 @@ class LocationController extends StateNotifier<LocationState> {
 
   Future<void> restoreAndRefresh() async {
     await _restore();
+    // Location already allowed: read where the phone is NOW and name it
+    // (no prompt). A place the user picked by hand is kept as chosen.
+    final current = state.defaultLocation;
+    final followsDevice = current == null || current.type == SavedLocationType.currentLocation;
+    if (followsDevice && await _deviceLocation.checkPermission() == LocationPermissionStatus.granted) {
+      await requestPermission();
+      return;
+    }
     await refresh();
   }
+
+  /// "Refresh my location": re-read GPS and re-name it.
+  Future<void> refreshCurrentLocation() => requestPermission();
 
   /// Requests real device location permission and, once granted, reads the
   /// device's current GPS position and saves it as the default location.
