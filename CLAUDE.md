@@ -132,14 +132,24 @@ this file, don't trust it blindly.
   key; otherwise the app honestly keeps "Current location".
 - Provider leads (`/deals/leads`) are in-app only (home-screen inbox +
   Updates): WhatsApp-only providers are not targeted.
-- Notifications are local + silent and appear only while the app is open/
-  resumed (60 s poll of real orders/leads). No push service (FCM) or
-  background worker yet.
-- Brand switching uses a fixed Indian brand vocabulary
-  (`brand_lexicon.dart`); unknown brands don't replace the old one.
-- Legacy mock screens still exist but are unlinked: seller shell
-  (`/seller/*`, mock OTP), old `HomeScreen`, Explore, Nearby Shops,
-  monetization/price-benchmark l10n strings. No-match "Notify me" not built.
+- Background push: server side is built (`push_service.py`, FCM HTTP v1,
+  silent channel, once per event) but sends nothing until
+  `FIREBASE_SERVICE_ACCOUNT_JSON` is set in Railway; the Android FCM client
+  is added only once a Firebase app / google-services.json exists. Until
+  then notifications are local + silent while the app is open/resumed.
+  Exact steps: `docs/EXTERNAL_SETUP.md`.
+- Maps: Places/Geocoding/Routes are enabled per API on the key's Cloud
+  project -- check live status in Admin -> Integrations -> Google Maps ->
+  Check (per-API OK / Google error). Naming the current place also works
+  without Geocoding (Android Geocoder, then nearest Places locality).
+- Brands: no fixed list -- AI `brand` entity, phrasing, brands on real
+  listings (`/api/products/brands`), or a short reply that filled nothing.
+  A brand the AI misses in the FIRST message and that no listing carries
+  can stay in the subject next to a later brand.
+- 3D friend is a procedural canvas mesh (`companion_3d.dart`); no asset
+  avatars are shipped yet (`AskodoxMesh.fromJson` is the loader).
+- Monetization/price-benchmark l10n strings still contain demo wording but
+  are not reachable from customer screens. No-match "Notify me" not built.
 - Rate limits, the API cache and live counters are per process; daily API
   usage (and the ₹ estimate) is persisted in `growth_api_usage`.
 - Route distance needs the Routes API on the Maps key; map tiles use the
