@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'backend/app/api/routes/attachments.py'
+      - 'backend/app/services/attachment_facts.py'
+      - 'lib/services/chat_attachment_service.dart'
+      - 'lib/services/media_picker.dart'
       - 'backend/app/api/routes/vision.py'
       - 'backend/app/api/app_factory.py'
       - 'backend/app/services/universal_image_service.py'
@@ -14,6 +18,10 @@ on:
       - '.github/workflows/multimodal-intelligence-gate.yml'
   pull_request:
     paths:
+      - 'backend/app/api/routes/attachments.py'
+      - 'backend/app/services/attachment_facts.py'
+      - 'lib/services/chat_attachment_service.dart'
+      - 'lib/services/media_picker.dart'
       - 'backend/app/api/routes/vision.py'
       - 'backend/app/api/app_factory.py'
       - 'backend/app/services/universal_image_service.py'
@@ -120,8 +128,24 @@ jobs:
           assert '/vision/analyze' in vision_client
           assert 'ImageSource.camera' in capture
           assert 'ImageSource.gallery' in capture
-          assert 'capture.captureCamera()' in screen
-          assert 'capture.chooseGallery()' in screen
+          # Main Chat: Camera / Photos / Video / Files go through ONE injectable
+          # picker and ONE attachment endpoint; the real bytes are uploaded
+          # (never just a file name / placeholder).
+          picker = (root / 'lib/services/media_picker.dart').read_text(encoding='utf-8')
+          attach_client = (root / 'lib/services/chat_attachment_service.dart').read_text(encoding='utf-8')
+          attach_route = Path('app/api/routes/attachments.py').read_text(encoding='utf-8')
+          assert 'capture.captureCamera()' in picker
+          assert 'capture.chooseGallery()' in picker
+          assert 'capture.chooseVideo()' in picker
+          assert 'FilePicker.pickFiles()' in picker
+          assert 'askodoxMediaPickerProvider' in screen
+          assert 'chatAttachmentServiceProvider' in screen
+          assert "'/api/attachments/analyze'" in attach_client
+          assert "'file_base64': base64Encode(attachment.bytes)" in attach_client
+          assert 'image_service.analyze(' in attach_route and 'image_service.analyze_video(' in attach_route
+          assert 'attachment_facts(kind, analysis)' in attach_route
+          assert '[Attachment: ' not in screen, 'a file name must never stand in for the attachment'
+          assert 'Please inspect this attachment and help me.' not in screen
           assert 'Camera OCR is being connected' not in screen
           assert 'Image understanding is being connected' not in screen
           assert 'String _visionText(Map<String, dynamic> analysis)' in controller
