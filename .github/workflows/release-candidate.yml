@@ -55,7 +55,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash tool/apply_home_robot_layout_fix.sh
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test

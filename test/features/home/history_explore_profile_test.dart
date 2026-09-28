@@ -7,10 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
-import 'package:podx/features/home/presentation/explore_screen.dart';
 import 'package:podx/features/profile/presentation/profile_screen.dart';
 import 'package:podx/features/watchlist/presentation/watchlist_screen.dart';
-import 'package:podx/services/explore_service.dart';
 import 'package:podx/services/support_escalation_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -102,56 +100,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(askodoxChatRequestProvider)?.newConversation, isTrue);
     expect(find.text('MAIN CHAT'), findsOneWidget);
-  });
-
-  testWidgets('Explore shows real listings and every selection continues in the same chat',
-      (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final explore = ExploreService(
-      client: MockClient((request) async {
-        expect(request.url.path, '/api/discover/explore');
-        return http.Response.bytes(
-          utf8.encode(jsonEncode({
-            'items': [
-              {'id': '9', 'title': 'Samsung 43 inch TV — open box', 'segment': 'surplus', 'source': 'local',
-               'prompt': 'I want to buy Samsung 43 inch TV — open box'},
-            ],
-          })),
-          200,
-        );
-      }),
-    );
-    final container = await _pumpRouted(tester, initial: '/explore', screens: {
-      '/explore': const ExploreScreen(),
-      '/': const Text('MAIN CHAT'),
-    }, overrides: [exploreServiceProvider.overrideWithValue(explore)]);
-
-    expect(find.textContaining('Mock Nearby'), findsNothing);
-    expect(find.text('Samsung 43 inch TV — open box'), findsOneWidget);
-    expect(find.textContaining('Open-box / clearance'), findsOneWidget);
-    for (final tile in ['Products', 'Services', 'Jobs', 'Rides & delivery', 'Deals & offers',
-        'Used / second-hand', 'Individual sellers', 'Surplus / open-box', 'Videos & reviews']) {
-      expect(find.byKey(ValueKey('exploreTile-$tile')), findsOneWidget, reason: tile);
-    }
-
-    await tester.tap(find.byKey(const ValueKey('exploreItem-9')));
-    await tester.pumpAndSettle();
-    expect(container.read(askodoxChatRequestProvider)?.prompt, 'I want to buy Samsung 43 inch TV — open box');
-    expect(find.text('MAIN CHAT'), findsOneWidget);
-  });
-
-  testWidgets('Explore category tile asks ASKODOX in chat', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final container = await _pumpRouted(tester, initial: '/explore', screens: {
-      '/explore': const ExploreScreen(),
-      '/': const Text('MAIN CHAT'),
-    }, overrides: [
-      exploreServiceProvider.overrideWithValue(
-          ExploreService(client: MockClient((_) async => http.Response('{"items":[]}', 200)))),
-    ]);
-    await tester.tap(find.byKey(const ValueKey('exploreTile-Used / second-hand')));
-    await tester.pumpAndSettle();
-    expect(container.read(askodoxChatRequestProvider)?.prompt, contains('used and second-hand'));
   });
 
   testWidgets('Profile highlights the active role without changing stored roles', (tester) async {

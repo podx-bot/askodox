@@ -11,7 +11,7 @@ on:
       - 'lib/services/multimodal_capture_service.dart'
       - 'lib/features/search/application/product_discovery_controller.dart'
       - 'lib/features/search/presentation/product_discovery_screen.dart'
-      - 'lib/features/home/presentation/home_screen.dart'
+      - 'lib/features/home/presentation/askodox_primary_home_screen.dart'
       - '.github/workflows/multimodal-intelligence-gate.yml'
   pull_request:
     paths:
@@ -22,7 +22,7 @@ on:
       - 'lib/services/multimodal_capture_service.dart'
       - 'lib/features/search/application/product_discovery_controller.dart'
       - 'lib/features/search/presentation/product_discovery_screen.dart'
-      - 'lib/features/home/presentation/home_screen.dart'
+      - 'lib/features/home/presentation/askodox_primary_home_screen.dart'
       - '.github/workflows/multimodal-intelligence-gate.yml'
   workflow_dispatch:
 
