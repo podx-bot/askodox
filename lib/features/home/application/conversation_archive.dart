@@ -138,18 +138,29 @@ final askodoxConversationArchiveProvider =
 class AskodoxChatRequest {
   AskodoxChatRequest.restore(this.conversationId)
       : prompt = null,
-        newConversation = false;
+        newConversation = false,
+        voice = false;
   AskodoxChatRequest.newConversation()
       : conversationId = null,
         prompt = null,
-        newConversation = true;
+        newConversation = true,
+        voice = false;
   AskodoxChatRequest.ask(this.prompt)
       : conversationId = null,
-        newConversation = false;
+        newConversation = false,
+        voice = false;
+
+  /// The centre ASKODOX button: open Main Chat and start listening at once.
+  AskodoxChatRequest.voice()
+      : conversationId = null,
+        prompt = null,
+        newConversation = false,
+        voice = true;
 
   final String? conversationId;
   final String? prompt;
   final bool newConversation;
+  final bool voice;
 }
 
 final askodoxChatRequestProvider = StateProvider<AskodoxChatRequest?>((ref) => null);

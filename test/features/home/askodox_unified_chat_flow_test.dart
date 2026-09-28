@@ -662,6 +662,28 @@ void main() {
     expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
   });
 
+  testWidgets('results stay ABOVE; the conversation about them continues BELOW; input stays at the bottom',
+      (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '5', matches: [_localMatch]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+    await _tapText(tester, 'Ask ASKODOX about this');
+    await h.send(tester, 'is it available today?');
+
+    final results = find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxChatResults-'));
+    expect(results, findsOneWidget, reason: 'the selected result is not re-pinned elsewhere');
+    final resultsTop = tester.getTopLeft(results).dy;
+    final laterQuestion = tester.getTopLeft(find.text('is it available today?')).dy;
+    final composer = tester.getTopLeft(find.byType(TextField)).dy;
+    expect(laterQuestion, greaterThan(resultsTop), reason: 'conversation continues below the results');
+    expect(composer, greaterThan(laterQuestion), reason: 'the input stays at the bottom');
+  });
+
   testWidgets('role follows activity: buyer then seller is announced and seller never runs a buyer search',
       (tester) async {
     final h = _Harness(

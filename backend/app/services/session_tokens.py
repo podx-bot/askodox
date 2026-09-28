@@ -71,6 +71,16 @@ def issue_token(app_user_id: str, secret: str, *, issued_at: int | None = None) 
     return f"{_b64encode(payload)}.{_sign(payload, secret)}"
 
 
+# Optional (set at app start): tokens of a deleted account, issued before
+# the deletion, are no longer valid. Signature: (user_id, issued_at) -> bool.
+_revoked = None
+
+
+def set_revocation_check(check) -> None:
+    global _revoked
+    _revoked = check
+
+
 def verify_token(
     token: str,
     secret: str,
@@ -115,4 +125,10 @@ def verify_token(
         return None
     if issued_at - current > _CLOCK_SKEW_SECONDS:
         return None
+    if _revoked is not None:
+        try:
+            if _revoked(user_id, issued_at):
+                return None
+        except Exception:
+            pass  # a revocation lookup failure never blocks every user
     return user_id

@@ -153,6 +153,9 @@ class _AskodoxPrimaryHomeScreenState
   ({String text, AskodoxChatResults results, UniversalMatch target})? _pendingSignInAction;
   int? _signInTurn;
 
+  /// The chosen location last applied to a deal ("lat,lng").
+  String? _appliedLocationKey;
+
   /// A catalog draft (from photo/video/text) waiting for the seller's review.
   AskodoxCatalogDraft? _pendingDraft;
 
@@ -582,6 +585,10 @@ class _AskodoxPrimaryHomeScreenState
     if (!mounted) return;
     if (request.newConversation) {
       await _startNewConversation();
+      return;
+    }
+    if (request.voice) {
+      if (!_sending) await _startVoice();
       return;
     }
     final id = request.conversationId;
@@ -1422,12 +1429,22 @@ class _AskodoxPrimaryHomeScreenState
       }
 
       if (selectedLocation != null) {
+        final key = '${selectedLocation.point.latitude},${selectedLocation.point.longitude}';
+        final dealLocation = ref.read(universalDealControllerProvider).deal?.location;
+        // The deal took the PREVIOUS chosen location (not a place the user
+        // typed): a newly chosen location replaces it.
+        final fromOldDefault = _appliedLocationKey != null &&
+            _appliedLocationKey != key &&
+            dealLocation?.latitude != null &&
+            '${dealLocation!.latitude},${dealLocation.longitude}' == _appliedLocationKey;
         notifier.applySelectedLocation(
           label: knownLocationLabel ?? '',
           latitude: selectedLocation.point.latitude,
           longitude: selectedLocation.point.longitude,
           radiusKm: locationState.radiusMetres / 1000,
+          replace: fromOldDefault,
         );
+        _appliedLocationKey = key;
       }
       final budget = askodoxBudgetRange(text);
       if (!budget.isEmpty) notifier.applyBudget(min: budget.min, max: budget.max);

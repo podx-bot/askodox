@@ -107,6 +107,8 @@ class LocationController extends StateNotifier<LocationState> {
   final PlaceNamer? _placeNamer;
 
   static const _storageKey = 'askodox.selected_location.v1';
+  // Recently used places (max 5) shown under "Use my location / Search".
+  static const _recentKey = 'askodox.recent_locations.v1';
   final GeoRepository? _repository;
   final DeviceLocationGateway _deviceLocation;
 
@@ -295,21 +297,69 @@ class LocationController extends StateNotifier<LocationState> {
     }
   }
 
+  static Map<String, Object?> _encode(BuyerSavedLocation location) => {
+        'id': location.id,
+        'name': location.name,
+        'address': location.address,
+        'latitude': location.point.latitude,
+        'longitude': location.point.longitude,
+        'type': location.type.name,
+      };
+
+  static BuyerSavedLocation? _decode(Object? json, {bool isDefault = false}) {
+    if (json is! Map) return null;
+    final latitude = (json['latitude'] as num?)?.toDouble();
+    final longitude = (json['longitude'] as num?)?.toDouble();
+    if (latitude == null || longitude == null) return null;
+    final point = GeoPoint(latitude, longitude);
+    if (!point.isValid) return null;
+    final typeName = json['type']?.toString();
+    return BuyerSavedLocation(
+      id: json['id']?.toString() ?? 'saved-location',
+      name: json['name']?.toString() ?? 'Saved location',
+      address: json['address']?.toString() ?? '',
+      point: point,
+      type: SavedLocationType.values.where((value) => value.name == typeName).firstOrNull ?? SavedLocationType.custom,
+      isDefault: isDefault,
+    );
+  }
+
   Future<void> _persist(BuyerSavedLocation location) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _storageKey,
-        jsonEncode({
-          'id': location.id,
-          'name': location.name,
-          'address': location.address,
-          'latitude': location.point.latitude,
-          'longitude': location.point.longitude,
-          'type': location.type.name,
-        }),
-      );
+      await prefs.setString(_storageKey, jsonEncode(_encode(location)));
+      final label = location.address.isNotEmpty ? location.address : location.name;
+      final recents = [
+        _encode(location),
+        for (final item in (jsonDecode(prefs.getString(_recentKey) ?? '[]') as List))
+          if (item is Map && '${item['address']?.toString().isNotEmpty == true ? item['address'] : item['name']}' != label)
+            Map<String, Object?>.from(item),
+      ].take(5).toList();
+      await prefs.setString(_recentKey, jsonEncode(recents));
     } catch (_) {}
+  }
+
+  /// Privacy: forget the saved and recent places on this device.
+  Future<void> clearSaved() async {
+    state = state.copyWith(locations: const []);
+    await _clearPersisted();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recentKey);
+    } catch (_) {}
+  }
+
+  /// Recently used places (newest first), for one-tap reuse.
+  Future<List<BuyerSavedLocation>> recentPlaces() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return [
+        for (final item in (jsonDecode(prefs.getString(_recentKey) ?? '[]') as List))
+          if (_decode(item) case final place?) place,
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> _clearPersisted() async {

@@ -180,3 +180,13 @@ def my_listings(request: Request, seller_user_id: str = "") -> MyListingsRespons
     rows = container.product_catalog_repository.list_active_for_seller(user_id)
     profile = container.seller_profile_repository.get(user_id)
     return MyListingsResponse(items=rows, seller_tier=(profile["tier"] if profile else None))
+
+
+@router.delete("/mine/{product_id}")
+def remove_my_listing(product_id: int, request: Request) -> dict:
+    """The seller removes their own listing (it stops appearing in search)."""
+    container: Any = request.app.state.container
+    user_id = _authenticated_app_user(request)
+    if not container.product_catalog_repository.deactivate_for_seller(product_id, user_id):
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return {"removed": True, "id": product_id}
