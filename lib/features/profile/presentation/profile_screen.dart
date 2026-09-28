@@ -274,6 +274,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ]),
                 ),
                 SwitchListTile(
+                  key: const Key('askodoxCompanion3d'),
+                  title: Text(t('3D friend', '3D స్నేహితుడు')),
+                  subtitle: Text(t('Turn off on older phones for a simple flat friend.',
+                      'పాత ఫోన్లలో ఆఫ్ చేస్తే సింపుల్ ఫ్లాట్ స్నేహితుడు.')),
+                  value: ref.watch(askodoxCompanionSettingsProvider).render3d,
+                  onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(render3d: on),
+                ),
+                SwitchListTile(
                   key: const Key('askodoxCompanionMotion'),
                   title: Text(t('Friend moves while it works', 'పని చేస్తున్నప్పుడు కదులుతుంది')),
                   value: ref.watch(askodoxCompanionSettingsProvider).animate,

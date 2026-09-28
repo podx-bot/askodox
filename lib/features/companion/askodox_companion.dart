@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'companion_3d.dart';
+
 /// What the ASKODOX friend is doing right now. Driven by the SAME chat /
 /// voice / results state as the rest of the app -- the companion is a view
 /// of the one conversation, never a second workflow.
@@ -16,23 +18,24 @@ enum AskodoxCompanionMood { idle, greeting, listening, thinking, speaking, expla
 /// chat or actions.
 enum AskodoxCompanionLook { robot, friendlyFace, simpleOrb }
 
-/// 3D companion renderer switch (off until a lightweight 3D asset pipeline
-/// ships; low-end phones always keep the 2D look).
-const askodoxCompanion3dEnabled = bool.fromEnvironment('ASKODOX_COMPANION_3D');
-
 class AskodoxCompanionSettings {
-  const AskodoxCompanionSettings({this.look = AskodoxCompanionLook.robot, this.animate = true});
+  const AskodoxCompanionSettings({this.look = AskodoxCompanionLook.robot, this.animate = true, this.render3d = true});
 
   final AskodoxCompanionLook look;
 
   /// Off = a still image (battery saver / low-end phones / motion comfort).
   final bool animate;
 
-  Map<String, Object?> toJson() => {'look': look.name, 'animate': animate};
+  /// The real-time 3D friend (companion_3d.dart). Off = the flat 2D friend
+  /// (also used automatically when the phone asks for reduced motion).
+  final bool render3d;
+
+  Map<String, Object?> toJson() => {'look': look.name, 'animate': animate, 'render3d': render3d};
 
   static AskodoxCompanionSettings fromJson(Map<String, Object?> json) => AskodoxCompanionSettings(
         look: AskodoxCompanionLook.values.where((l) => l.name == json['look']).firstOrNull ?? AskodoxCompanionLook.robot,
         animate: json['animate'] != false,
+        render3d: json['render3d'] != false,
       );
 }
 
@@ -52,8 +55,9 @@ class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionS
     } catch (_) {}
   }
 
-  Future<void> update({AskodoxCompanionLook? look, bool? animate}) async {
-    state = AskodoxCompanionSettings(look: look ?? state.look, animate: animate ?? state.animate);
+  Future<void> update({AskodoxCompanionLook? look, bool? animate, bool? render3d}) async {
+    state = AskodoxCompanionSettings(
+        look: look ?? state.look, animate: animate ?? state.animate, render3d: render3d ?? state.render3d);
     try {
       await (await SharedPreferences.getInstance()).setString(_key, jsonEncode(state.toJson()));
     } catch (_) {}
@@ -118,10 +122,25 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
     }
   }
 
+  AskodoxMesh? _mesh;
+  (AskodoxCompanionLook, int)? _meshKey;
+
+  AskodoxMesh _meshFor(AskodoxCompanionLook look) {
+    final accent = _CompanionPainter(mood: widget.mood, look: look, t: 0)._accent;
+    final key = (look, accent.toARGB32());
+    if (_mesh == null || _meshKey != key) {
+      _mesh = AskodoxMesh.forLook(look, accent);
+      _meshKey = key;
+    }
+    return _mesh!;
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(askodoxCompanionSettingsProvider);
     _syncAnimation(settings.animate);
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final use3d = settings.render3d && !reduceMotion;
     return Semantics(
       label: 'ASKODOX ${widget.mood.name}',
       button: widget.onTap != null,
@@ -132,7 +151,10 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
           child: AnimatedBuilder(
             animation: _clock,
             builder: (context, _) => CustomPaint(
-              painter: _CompanionPainter(mood: widget.mood, look: settings.look, t: _clock.value),
+              key: ValueKey(use3d ? 'askodoxCompanion3d' : 'askodoxCompanion2d'),
+              painter: use3d
+                  ? AskodoxCompanion3dPainter(mesh: _meshFor(settings.look), mood: widget.mood, t: _clock.value)
+                  : _CompanionPainter(mood: widget.mood, look: settings.look, t: _clock.value),
             ),
           ),
         ),

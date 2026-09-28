@@ -6,6 +6,7 @@ import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
 import 'package:podx/features/companion/askodox_companion.dart';
+import 'package:podx/features/companion/companion_3d.dart';
 import 'package:podx/features/growth/data/growth_repository.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/notifications/application/askodox_notifications.dart';
@@ -96,17 +97,30 @@ void main() {
   testWidgets('AI friend: every mood draws in every look (no assets/3D needed), look persists', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    for (final look in AskodoxCompanionLook.values) {
-      await container.read(askodoxCompanionSettingsProvider.notifier).update(look: look);
-      for (final mood in AskodoxCompanionMood.values) {
-        await tester.pumpWidget(UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(home: Center(child: AskodoxCompanion(mood: mood))),
-        ));
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.takeException(), isNull, reason: '$look / $mood');
+    for (final render3d in [true, false]) {
+      for (final look in AskodoxCompanionLook.values) {
+        await container.read(askodoxCompanionSettingsProvider.notifier).update(look: look, render3d: render3d);
+        for (final mood in AskodoxCompanionMood.values) {
+          await tester.pumpWidget(UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(home: Center(child: AskodoxCompanion(mood: mood))),
+          ));
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(tester.takeException(), isNull, reason: '$look / $mood / 3d=$render3d');
+          expect(find.byKey(ValueKey(render3d ? 'askodoxCompanion3d' : 'askodoxCompanion2d')), findsOneWidget);
+        }
       }
     }
+    // Reduced motion on the phone -> the flat 2D friend, even with 3D on.
+    await container.read(askodoxCompanionSettingsProvider.notifier).update(render3d: true);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MediaQuery(
+        data: MediaQueryData(disableAnimations: true),
+        child: MaterialApp(home: Center(child: AskodoxCompanion(mood: AskodoxCompanionMood.thinking))),
+      ),
+    ));
+    expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
     final restarted = ProviderContainer();
     addTearDown(restarted.dispose);
     await tester.pump(const Duration(milliseconds: 50));
@@ -115,6 +129,21 @@ void main() {
     expect(restarted.read(askodoxCompanionSettingsProvider).look, AskodoxCompanionLook.simpleOrb);
     expect(askodoxCompanionLine(AskodoxCompanionMood.success, telugu: false, results: 1), 'Found 1 option');
     expect(askodoxCompanionLine(AskodoxCompanionMood.idle, telugu: false), 'Ready');
+  });
+
+  test('3D friend: a real lit mesh per look; meshes load from data (future avatars)', () {
+    for (final look in AskodoxCompanionLook.values) {
+      final mesh = AskodoxMesh.forLook(look, const Color(0xFF7A4DFF));
+      expect(mesh.triangleCount, greaterThan(300), reason: '$look is a 3D mesh, not a flat icon');
+      expect(mesh.parts.map((p) => p.name), contains('head'));
+    }
+    final loaded = AskodoxMesh.fromJson({
+      'parts': [
+        {'name': 'head', 'color': '#1769FF', 'vertices': [[0, 0, 0], [1, 0, 0], [0, 1, 0]], 'triangles': [0, 1, 2]},
+      ],
+    });
+    expect(loaded.triangleCount, 1);
+    expect(loaded.parts.single.color, const Color(0xFF1769FF));
   });
 
   test('notifications: ON and silent by default, choices persist across restarts', () async {
