@@ -25,7 +25,7 @@ Public / app:
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -936,3 +936,62 @@ async def payment_webhook(provider: str, request: Request) -> dict:
 def inbox(request: Request) -> dict:
     user = _user(request)
     return {"items": _pf(request).notifications.inbox(user_ref(user))}
+
+
+# ---------------------------------------------------- discovery pipeline --
+# universal_deals._discover calls these; every one is best-effort and never
+# breaks discovery.
+
+def discovery_affiliate_rows(container: Any, demand: Dict[str, Any], *, trace_key: str = "") -> List[Dict[str, Any]]:
+    """Command Center affiliate links matching the need (disclosed, tracked
+    via /go/af). Callers skip service needs and supply-side requests."""
+    return platform(container).affiliate.rows(demand, trace_key=trace_key)
+
+
+def discovery_video_rows(container: Any, demand: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Reviewed videos relevant to the need. Organic first; the caller puts
+    sponsored ones after every organic row."""
+    pf = platform(container)
+    rows = pf.videos.rows(demand)
+    for row in rows:
+        pf.repo.record_event("video_impression", video_id=row["video_id"], creator_id=row.get("creator_id"),
+                             category=str(demand.get("domain") or ""), source="discover")
+    return rows
+
+
+def annotate_merchant_offers(container: Any, matches: List[Dict[str, Any]]) -> None:
+    """A registered seller's live, reviewed offer rides on their result."""
+    catalog = getattr(container, "product_catalog_repository", None)
+    owners: Dict[str, List[Dict[str, Any]]] = {}
+    for item in matches:
+        if item.get("match_source") != "registered" or not str(item.get("id") or "").isdigit() or catalog is None:
+            continue
+        listing = catalog.get(int(item["id"])) or {}
+        seller = str(listing.get("seller_user_id") or "")
+        if seller:
+            owners.setdefault(seller, []).append(item)
+    if not owners:
+        return
+    pf = platform(container)
+    for seller, offer in pf.offers.live_for(owners).items():
+        for item in owners[seller]:
+            item["merchant_offer"] = {"id": offer["id"], "title": offer["data"].get("title"),
+                                      "summary": pf.offers.summary(offer),
+                                      "min_bill": offer["data"].get("min_bill"),
+                                      "valid_to": offer["data"].get("valid_to"),
+                                      "claim_path": f"/api/merchant-offers/{offer['id']}/claim"}
+
+
+def record_search(container: Any, demand: Dict[str, Any], matches: List[Dict[str, Any]], *,
+                  trace_key: str = "") -> None:
+    """search + no_match events with stable ids for the attribution funnel."""
+    pf = platform(container)
+    constraints = demand.get("constraints") or {}
+    # No user reference here: the public discovery body's user id is not
+    # token-proven. Signed-in funnel steps come through /api/track.
+    common = {"category": str(demand.get("domain") or "")[:80], "location": str(demand.get("location_text") or "")[:120],
+              "language": str(constraints.get("language") or (demand.get("trace") or {}).get("language") or "")[:12],
+              "search_id": trace_key[:80] or None}
+    pf.repo.record_event("search", detail={"results": len(matches)}, **common)
+    if not matches:
+        pf.repo.record_event("no_match", detail={"subject": str(demand.get("subject") or "")[:120]}, **common)

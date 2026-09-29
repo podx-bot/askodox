@@ -889,6 +889,38 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
                 continue
             seen.add(str(item.get("id")))
             matches.append(item)
+    # Command Center affiliate links (disclosed, tracked) follow the Partner
+    # Hub rows -- same local-first rule, never for a service need.
+    platform_affiliate: list[dict] = []
+    if flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER" and not service_need:
+        try:
+            from app.api.routes.platform import discovery_affiliate_rows
+
+            platform_affiliate = discovery_affiliate_rows(container, demand, trace_key=trace_key)
+        except Exception as error:
+            errors.append(f"affiliate_links:{type(error).__name__}")
+        for item in platform_affiliate:
+            url_key = _url_key(item.get("destination_url"))
+            if str(item.get("id")) in seen or (url_key and url_key in seen_urls):
+                continue
+            seen.add(str(item.get("id")))
+            if url_key:
+                seen_urls.add(url_key)
+            matches.append(item)
+    # Reviewed Command Center videos, only when the customer asked for
+    # videos/reviews (same rule as web videos). Sponsored ones wait below.
+    sponsored_videos: list[dict] = []
+    if videos_on and (demand.get("constraints") or {}).get("wants_videos"):
+        try:
+            from app.api.routes.platform import discovery_video_rows
+
+            for item in discovery_video_rows(container, demand):
+                if str(item.get("id")) in seen:
+                    continue
+                seen.add(str(item.get("id")))
+                (sponsored_videos if item.get("sponsored") else matches).append(item)
+        except Exception as error:
+            errors.append(f"videos:{type(error).__name__}")
     # Sponsored campaigns (Command Center): paid placements are appended in
     # their own labelled section AFTER every organic row -- they never enter
     # or reorder the organic ranking, and are served only when targeted.
@@ -902,6 +934,9 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         except Exception as error:  # an ad never breaks discovery
             errors.append(f"sponsored:{type(error).__name__}")
         matches.extend(sponsored_rows)
+    # Sponsored videos are paid placements too: after every organic row.
+    sponsored_rows = sponsored_rows + sponsored_videos
+    matches.extend(sponsored_videos)
     try:
         from app.api.routes.sponsored import sponsored_repo
 
@@ -922,6 +957,14 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         pass
     _annotate_offers(container, matches)
     _annotate_benefits(container, matches, demand, trace_key)
+    try:
+        from app.api.routes.platform import annotate_merchant_offers, record_search
+
+        if flags.get("offers.merchant", True):
+            annotate_merchant_offers(container, matches)
+        record_search(container, demand, matches, trace_key=trace_key)
+    except Exception as error:  # the platform layer never breaks discovery
+        errors.append(f"platform:{type(error).__name__}")
     local_match_count = sum(
         1 for item in matches if item.get("match_source") in {"interest", "demo_discovery", "registered"}
     )
