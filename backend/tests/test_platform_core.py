@@ -539,3 +539,21 @@ def test_events_fire_admin_rules_into_the_customer_inbox(api):
     assert {e["detail"]["channel"]: e["detail"]["status"] for e in sent} == {
         "in_app": "sent", "push": "skipped_needs_configuration"}
     del template
+
+
+def test_dashboard_hides_money_from_roles_without_finance_access(api):
+    client, _ = api
+    moderator = staff(client, "content_moderator")
+    finance = staff(client, "finance")
+    seen = client.get(f"{BASE}/dashboard", headers=moderator).json()
+    assert seen["revenue"] is None and seen["payments"] is None
+    money = client.get(f"{BASE}/dashboard", headers=finance).json()
+    assert money["revenue"] is not None and money["payments"] is not None
+
+
+def test_console_page_is_served_without_data_or_secrets(api):
+    client, _ = api
+    page = client.get("/admin/console")
+    assert page.status_code == 200 and "ASKODOX Console" in page.text
+    assert page.headers["x-frame-options"] == "DENY" and page.headers["cache-control"] == "no-store"
+    assert OWNER_KEY not in page.text

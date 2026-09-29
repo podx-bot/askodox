@@ -258,7 +258,8 @@ def global_search(request: Request, q: str = "") -> dict:
 
 @admin_router.get("/dashboard")
 def dashboard(request: Request) -> dict:
-    _require(request, "overview:view")
+    principal = _require(request, "overview:view")
+    perms = principal.get("permissions") or set()
     pf = _pf(request)
     counts: Dict[str, Dict[str, int]] = {}
     for record in pf.repo.all_records(ps.RESOURCES):
@@ -270,9 +271,11 @@ def dashboard(request: Request) -> dict:
     alerts = [i for i in fin.insights(pf.repo, days=7) if i["severity"] in ("warning", "critical")]
     pending_review = sum(n for per in counts.values() for s, n in per.items() if s == "PENDING_REVIEW")
     stats = fin.analytics(pf.repo, days=30)
+    # Money figures only for people allowed to see money.
     return {"resources": counts, "pending_review": pending_review, "integrations": summary,
-            "alerts": alerts[:8], "funnel": stats["funnel"], "revenue": pf.ledger.summary(),
-            "payments": pf.payments.reconcile()["totals_by_state"]}
+            "alerts": alerts[:8], "funnel": stats["funnel"],
+            "revenue": pf.ledger.summary() if "finance:view" in perms else None,
+            "payments": pf.payments.reconcile()["totals_by_state"] if "payments:view" in perms else None}
 
 
 @admin_router.get("/r/{resource}")

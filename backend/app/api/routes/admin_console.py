@@ -1,0 +1,309 @@
+"""ASKODOX Command Center console (premium SaaS shell).
+
+One self-contained page at /admin/console. It holds no secrets and no data:
+everything comes from the existing, permission-checked /admin/cc APIs with
+the owner key or a staff token (kept in sessionStorage for the tab only).
+Resource pages are generated from /admin/cc/platform/schema, so every
+platform resource gets the same controls: add, edit, view, delete, lifecycle
+actions, duplicate, archive/restore, search, filter, sort, export and audit
+history. The older /admin page stays available.
+"""
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+router = APIRouter(tags=["admin-console"])
+
+PAGE = r'''<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASKODOX Console</title><link rel="icon" href="data:,">
+<style>
+:root{--bg:#f4f6fb;--panel:#fff;--ink:#101828;--muted:#667085;--line:#e4e7ec;--brand:#5b3df5;--brand2:#7a5af8;
+--side:#0f1629;--side2:#1a2340;--ok:#067647;--okbg:#dcfae6;--warn:#b54708;--warnbg:#fef0c7;--bad:#b42318;--badbg:#fee4e2;
+--info:#175cd3;--infobg:#d1e9ff;--grey:#475467;--greybg:#f2f4f7;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--panel:#121a2e;--ink:#e6e9f2;--muted:#98a2b3;--line:#253050;
+--greybg:#1d2742;--okbg:#0b3b24;--warnbg:#4a2a06;--badbg:#4a1210;--infobg:#0b2a55}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
+.app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+aside{background:var(--side);color:#cfd6e6;padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto}
+.logo{display:flex;align-items:center;gap:10px;padding:4px 10px 18px;color:#fff;font-weight:800;font-size:17px;letter-spacing:.2px}
+.logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--brand),#22c1ee);display:inline-block}
+.grp{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#7d89a8;padding:14px 10px 6px}
+aside a{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;color:#cfd6e6;text-decoration:none;font-size:14px;cursor:pointer}
+aside a:hover{background:var(--side2);color:#fff}aside a.on{background:var(--brand);color:#fff}
+aside a .n{font-size:11px;background:#ffffff22;border-radius:99px;padding:1px 7px}
+main{min-width:0}
+.top{display:flex;align-items:center;gap:12px;padding:12px 22px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top .search{flex:1;position:relative}.top input.q{width:100%;max-width:520px;padding:9px 12px 9px 34px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.top .search:before{content:"⌕";position:absolute;left:12px;top:6px;color:var(--muted);font-size:17px}
+.hits{position:absolute;top:42px;left:0;width:520px;max-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px #0002;display:none;max-height:60vh;overflow:auto}
+.hits div{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}.hits div:hover{background:var(--greybg)}
+.who{font-size:13px;color:var(--muted);white-space:nowrap}
+.page{padding:22px;max-width:1320px}
+h1{font-size:22px;margin:0 0 4px}.sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi,.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px #1018280d}
+.kpi .l{font-size:12px;color:var(--muted)}.kpi .v{font-size:24px;font-weight:800;margin-top:6px}.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px}
+.card h3{margin:0 0 10px;font-size:14px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--greybg);color:var(--grey);white-space:nowrap}
+.badge:before{content:"";width:6px;height:6px;border-radius:99px;background:currentColor}
+.b-ok{background:var(--okbg);color:var(--ok)}.b-warn{background:var(--warnbg);color:var(--warn)}.b-bad{background:var(--badbg);color:var(--bad)}.b-info{background:var(--infobg);color:var(--info)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--panel);color:var(--ink)}
+textarea{width:100%;min-height:80px}
+button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 12px;cursor:pointer}
+button.p{background:var(--brand);border-color:var(--brand);color:#fff}button.d{color:var(--bad)}button:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:13px}th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}tr.r:hover td{background:var(--greybg);cursor:pointer}
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.drawer{position:fixed;top:0;right:0;width:min(560px,100%);height:100vh;background:var(--panel);border-left:1px solid var(--line);box-shadow:-20px 0 60px #0003;z-index:20;display:none;flex-direction:column}
+.drawer.show{display:flex}.dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.db{padding:16px 18px;overflow:auto;flex:1}.df{padding:12px 18px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px}
+.f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}.f input,.f select,.f textarea{color:var(--ink);font-size:14px}
+.f .req{color:var(--bad)}.err{color:var(--bad);font-size:13px;margin:6px 0}.okm{color:var(--ok);font-size:13px}
+.funnel .row{display:grid;grid-template-columns:150px 1fr 60px;gap:8px;align-items:center;font-size:12.5px;margin:5px 0}
+.funnel .track{background:var(--greybg);border-radius:6px;height:12px;overflow:hidden}.funnel .fill{height:12px;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:6px}
+.login{max-width:420px;margin:12vh auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
+.login h2{margin:0 0 6px}.login input{width:100%;margin:8px 0}
+.hist{font-size:12.5px;border-left:2px solid var(--line);padding-left:12px}.hist div{margin-bottom:10px}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}.muted{color:var(--muted)}.right{margin-left:auto}
+.menu{display:none}
+@media(max-width:900px){#env,.who{display:none}.hits{width:92vw}.app{grid-template-columns:1fr}aside{position:fixed;left:-260px;width:248px;z-index:30;transition:left .2s}aside.open{left:0}.menu{display:inline-block}.page{padding:14px}}
+</style></head><body>
+<div id="login" class="login" style="display:none">
+  <h2>ASKODOX Console</h2><div class="muted">Sign in with the owner admin key or your staff token.</div>
+  <input id="cred" type="password" placeholder="Admin key or staff token (stf_...)" autocomplete="off">
+  <button class="p" onclick="signIn()">Sign in</button> <span id="lerr" class="err"></span>
+</div>
+<div id="app" class="app" style="display:none">
+  <aside id="side"></aside>
+  <main>
+    <div class="top">
+      <button class="menu" onclick="document.querySelector('#side').classList.toggle('open')">☰</button>
+      <div class="search"><input class="q" id="q" placeholder="Search programs, links, offers, videos, payments…" oninput="globalSearch(this.value)"><div class="hits" id="hits"></div></div>
+      <span id="env"></span><span class="who" id="who"></span><button onclick="signOut()">Sign out</button>
+    </div>
+    <div class="page" id="page"></div>
+  </main>
+</div>
+<div class="drawer" id="drawer"><div class="dh"><b id="dt"></b><button onclick="closeDrawer()">✕</button></div><div class="db" id="db"></div><div class="df" id="df"></div></div>
+<script>
+let CRED=sessionStorage.getItem("askodox_console")||"", ME=null, SCHEMA=null, VIEW="dashboard", STATE={};
+const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hdr=()=>CRED.startsWith("stf_")?{"X-ASKODOX-Staff-Token":CRED}:{"X-ASKODOX-Admin-Key":CRED};
+async function call(path,method="GET",body){const r=await fetch(path.startsWith("/")?path:"/admin/cc/"+path,{method,headers:{...hdr(),...(body!==undefined?{"Content-Type":"application/json"}:{})},body:body===undefined?undefined:JSON.stringify(body)});
+  const t=await r.text();let d;try{d=t?JSON.parse(t):{}}catch(e){d=t}if(!r.ok)throw new Error(typeof d==="object"&&d.detail?(typeof d.detail==="string"?d.detail:JSON.stringify(d.detail)):(t||r.status));return d}
+const can=p=>ME&&ME.permissions.includes(p);
+function badge(s){s=String(s??"");const u=s.toUpperCase();let c="";
+  if(["ACTIVE","LIVE","APPROVED","PAID","CONFIRMED","SETTLED","REDEEMED","RESOLVED","MET","OK","SENT","ENABLED","VERIFIED","ON_TRACK"].includes(u))c="b-ok";
+  else if(["PENDING_REVIEW","PENDING","TEST","SCHEDULED","EXPECTED","DUE_SOON","IN_PROGRESS","CREATED","CLAIMED","LOCKED","PARTIALLY_REFUNDED","WAITING_FOR_USER","DRAFT","OPEN"].includes(u))c="b-warn";
+  else if(["ERROR","FAILED","REJECTED","DISPUTED","OVERDUE","BREACHED","REVERSED","BLOCKED","URGENT","CRITICAL"].includes(u))c="b-bad";
+  else if(["NEEDS_CONFIGURATION","AVAILABLE","HIGH","INFO"].includes(u))c="b-info";
+  return '<span class="badge '+c+'">'+esc(s.replace(/_/g," "))+'</span>'}
+const money=v=>{if(v==null)return "—";const n=Number(v);return "₹"+n.toLocaleString("en-IN",Number.isInteger(n)?{}:{minimumFractionDigits:2,maximumFractionDigits:2})};
+const when=v=>v?new Date(v).toLocaleString():"—";
+
+/* ------------------------------------------------------------ navigation -- */
+function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.name===n)||{}).label||n,perm:(SCHEMA.resources.find(x=>x.name===n)||{}).permission+":view"});
+  return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"}]],
+  ["Growth & ads",[{id:"sponsored",label:"Sponsored campaigns",perm:"sponsored:view"},r("affiliate_programs"),r("affiliate_links"),r("smart_links"),{id:"benefits",label:"Offers & coupons",perm:"growth:view"},r("merchant_offers"),{id:"referrals",label:"Referrals",perm:"growth:view"}]],
+  ["Content",[r("videos"),r("creators"),r("video_sources"),r("reviews")]],
+  ["Money",[{id:"payments",label:"Payments",perm:"payments:view"},{id:"ledger",label:"Revenue ledger",perm:"finance:view"},{id:"rewards",label:"Rewards ledger",perm:"rewards:view"},{id:"transactions",label:"Transactions",perm:"finance:view"},r("subscription_promos")]],
+  ["Customers",[{id:"support",label:"Support tickets",perm:"support:view"},{id:"accounts",label:"Users & accounts",perm:"users:view"},r("notification_templates"),r("notification_rules")]],
+  ["System",[{id:"integrations",label:"Integrations",perm:"integrations:view"},{id:"flags",label:"Feature flags",perm:"config:view"},{id:"staff",label:"Staff & roles",perm:"staff:manage"},{id:"audit",label:"Audit log",perm:"audit:view"},{id:"events",label:"Event stream",perm:"analytics:view"}]]]}
+function renderNav(){const counts=STATE.pending||{};document.querySelector("#side").innerHTML='<div class="logo"><i></i>ASKODOX</div>'+navModel().map(([g,items])=>{const vis=items.filter(i=>can(i.perm));
+  return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
+function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
+async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
+  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events}[VIEW];await (f||dashboard)()}
+  catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
+
+/* ---------------------------------------------------------------- auth -- */
+async function signIn(){CRED=document.querySelector("#cred").value.trim()||CRED;try{await boot();sessionStorage.setItem("askodox_console",CRED)}catch(e){document.querySelector("#lerr").textContent="Sign-in failed: "+e.message;document.querySelector("#login").style.display="block";document.querySelector("#app").style.display="none"}}
+function signOut(){sessionStorage.removeItem("askodox_console");CRED="";location.reload()}
+async function boot(){ME=await call("me");SCHEMA=(await call("platform/schema"));document.querySelector("#login").style.display="none";document.querySelector("#app").style.display="grid";
+  document.querySelector("#who").textContent=ME.name+" · "+String(ME.role).replace(/_/g," ");
+  try{if(can("integrations:view")){const ig=(await call("platform/integrations")).items.filter(i=>i.group==="payments"&&!i.internal);
+      const live=ig.filter(i=>i.status==="LIVE").length,test=ig.filter(i=>i.status==="TEST").length;
+      document.querySelector("#env").innerHTML=live?badge("Gateways LIVE"):test?badge("Gateways TEST"):'<span title="Only direct payments (COD / cash / direct UPI) work until a gateway is configured">'+badge("NEEDS CONFIGURATION")+'</span>'}
+    const d=await call("platform/dashboard");STATE.dash=d;
+    STATE.pending={};for(const [res,by] of Object.entries(d.resources))if(by.PENDING_REVIEW)STATE.pending["r:"+res]=by.PENDING_REVIEW}catch(e){}
+  VIEW=(location.hash||"#dashboard").slice(1);renderNav();render()}
+
+/* ------------------------------------------------------------ search -- */
+let st;function globalSearch(q){clearTimeout(st);const h=document.querySelector("#hits");if(q.trim().length<2){h.style.display="none";return}
+  st=setTimeout(async()=>{try{const d=await call("platform/search?q="+encodeURIComponent(q));h.innerHTML=d.items.length?d.items.map(i=>'<div onclick="openHit(\''+i.resource+'\',\''+esc(i.id)+'\')"><b>'+esc(i.name)+'</b> <span class="muted">'+esc(i.resource_label)+'</span> '+badge(i.status)+'</div>').join(""):'<div class="muted">No matches</div>';h.style.display="block"}catch(e){}},220)}
+function openHit(res,id){document.querySelector("#hits").style.display="none";if(res==="payments"){go("payments");return}VIEW="r:"+res;renderNav();resourcePage(res).then(()=>openRecord(res,id))}
+document.addEventListener("click",e=>{if(!e.target.closest(".search"))document.querySelector("#hits").style.display="none"});
+
+/* --------------------------------------------------------- dashboard -- */
+async function dashboard(){const [o,d]=await Promise.all([can("overview:view")?call("overview").catch(()=>({})):{},call("platform/dashboard")]);STATE.dash=d;
+  const p=o.participants||{},rev=d.revenue||{},i=d.integrations||{};const k=(l,v,s)=>'<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+(s||"")+'</div></div>';
+  const fmax=Math.max(1,...d.funnel.map(s=>s.count));
+  document.querySelector("#page").innerHTML='<h1>Dashboard</h1><div class="sub">Live state of the platform. Nothing here is estimated or invented.</div><div class="kpis">'+
+   k("Buyers",p.buyers??"—")+k("Sellers",p.sellers??"—")+k("Active requests",o.requests?.active??"—")+k("Pending review",d.pending_review,"across all resources")+
+   (d.revenue?k("Revenue confirmed",money((rev.by_state||{}).CONFIRMED||0),"paid "+money((rev.by_state||{}).PAID||0)):"")+k("Support open",o.support_open??"—")+
+   k("Integrations",(i.LIVE||0)+" live",(i.NEEDS_CONFIGURATION||0)+" need configuration")+k("Alerts",d.alerts.length,"last 7 days")+'</div>'+
+   '<div class="cols"><div class="card"><h3>Conversion funnel (30 days)</h3><div class="funnel">'+d.funnel.map(s=>'<div class="row"><span>'+esc(s.step.replace(/_/g," "))+'</span><div class="track"><div class="fill" style="width:'+(s.count/fmax*100)+'%"></div></div><b>'+s.count+'</b></div>').join("")+'</div></div>'+
+   '<div class="card"><h3>Alerts & suggestions</h3>'+(d.alerts.length?d.alerts.map(a=>'<div style="margin-bottom:10px">'+badge(a.severity)+' <b>'+esc(a.title)+'</b><div class="muted">'+esc(a.suggestion||"")+'</div></div>').join(""):'<div class="muted">No warnings.</div>')+'</div>'+
+   '<div class="card"><h3>Integrations</h3>'+Object.entries(i).map(([s,n])=>'<div style="display:flex;justify-content:space-between;margin:6px 0">'+badge(s)+'<b>'+n+'</b></div>').join("")+'<button onclick="go(\'integrations\')">Manage integrations</button></div>'+
+   (d.payments==null?'':'<div class="card"><h3>Payments by state</h3>'+(Object.keys(d.payments||{}).length?Object.entries(d.payments).map(([s,v])=>'<div style="display:flex;justify-content:space-between;margin:6px 0">'+badge(s)+'<b>'+money(v)+'</b></div>').join(""):'<div class="muted">No payments yet.</div>')+'</div>')+'</div>'}
+
+/* ---------------------------------------------- schema-driven resources -- */
+const R=n=>SCHEMA.resources.find(r=>r.name===n);
+async function resourcePage(name){const res=R(name);const s=STATE[name]||(STATE[name]={q:"",status:"",archived:false,sort:"-updated_at",f:{}});
+  const qs=new URLSearchParams({q:s.q,status:s.status,archived:s.archived,sort:s.sort,...Object.fromEntries(Object.entries(s.f).filter(([k,v])=>v).map(([k,v])=>["f_"+k,v]))});
+  const d=await call("platform/r/"+name+"?"+qs);const cols=res.fields.filter(f=>f.list_column&&f.name!==res.name_field).slice(0,4);const manage=can(res.permission+":manage");
+  const filt=res.fields.filter(f=>f.filter);
+  document.querySelector("#page").innerHTML='<h1>'+esc(res.label)+'</h1><div class="sub">'+esc(res.description||"")+(res.flag?' · feature flag <span class="mono">'+esc(res.flag)+'</span>':'')+'</div>'+
+   '<div class="bar"><input placeholder="Search…" value="'+esc(s.q)+'" onchange="STATE[\''+name+'\'].q=this.value;resourcePage(\''+name+'\')">'+
+   '<select onchange="STATE[\''+name+'\'].status=this.value;resourcePage(\''+name+'\')"><option value="">All statuses</option>'+res.statuses.map(x=>'<option '+(s.status===x?"selected":"")+'>'+x+'</option>').join("")+'</select>'+
+   filt.map(f=>f.options.length?'<select onchange="STATE[\''+name+'\'].f.'+f.name+'=this.value;resourcePage(\''+name+'\')"><option value="">'+esc(f.label)+': any</option>'+f.options.map(o=>'<option '+(s.f[f.name]===o?"selected":"")+'>'+esc(o)+'</option>').join("")+'</select>':'<input placeholder="'+esc(f.label)+'" value="'+esc(s.f[f.name]||"")+'" onchange="STATE[\''+name+'\'].f.'+f.name+'=this.value;resourcePage(\''+name+'\')">').join("")+
+   '<label class="muted"><input type="checkbox" '+(s.archived?"checked":"")+' onchange="STATE[\''+name+'\'].archived=this.checked;resourcePage(\''+name+'\')"> Archived</label>'+
+   '<span class="right"></span>'+(can("analytics:export")?'<button onclick="exportCsv(\''+name+'\')">Export CSV</button>':'')+(manage?'<button class="p" onclick="openForm(\''+name+'\')">+ New</button>':'')+'</div>'+
+   '<div class="tbl">'+(d.items.length?'<table><thead><tr>'+['name',...cols.map(c=>c.name),'status','updated_at'].map(c=>'<th onclick="sortBy(\''+name+'\',\''+c+'\')">'+esc(c==="name"?"Name":c==="updated_at"?"Updated":(res.fields.find(f=>f.name===c)||{}).label||c)+(s.sort.replace("-","")===c?(s.sort.startsWith("-")?" ↓":" ↑"):"")+'</th>').join("")+'</tr></thead><tbody>'+
+     d.items.map(it=>'<tr class="r" onclick="openRecord(\''+name+'\',\''+esc(it.id)+'\')"><td><b>'+esc(it.name)+'</b><div class="muted mono">'+esc(it.id)+'</div></td>'+cols.map(c=>'<td>'+cell(it.data[c.name],c)+'</td>').join("")+'<td>'+badge(it.status)+(it.archived?' '+badge("archived"):'')+'</td><td class="muted">'+when(it.updated_at)+'</td></tr>').join("")+'</tbody></table>'
+     :'<div class="empty">Nothing here yet.'+(manage?' Use <b>+ New</b> to add the first one.':'')+'</div>')+'</div>'}
+function cell(v,f){if(v==null||v==="")return '<span class="muted">—</span>';if(Array.isArray(v))return esc(v.join(", "));if(typeof v==="boolean")return v?badge("yes"):'<span class="muted">no</span>';if(f&&f.kind==="url")return '<a href="'+esc(v)+'" target="_blank" rel="noopener">'+esc(String(v).slice(0,40))+'</a>';return esc(typeof v==="object"?JSON.stringify(v):v)}
+function sortBy(n,c){const s=STATE[n];s.sort=s.sort===c?"-"+c:c;resourcePage(n)}
+async function exportCsv(n){const r=await fetch("/admin/cc/platform/r/"+n+"/export.csv",{headers:hdr()});if(!r.ok){alert(await r.text());return}const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download="askodox-"+n+".csv";a.click()}
+function input(f,v){const id="fld_"+f.name,val=v??"",req=f.required?' <span class="req">*</span>':'';
+  let el;if(f.kind==="enum")el='<select id="'+id+'"><option value=""></option>'+f.options.map(o=>'<option '+(val===o?"selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
+  else if(f.kind==="bool")el='<select id="'+id+'"><option value="false">No</option><option value="true" '+(val===true?"selected":"")+'>Yes</option></select>';
+  else if(f.kind==="longtext")el='<textarea id="'+id+'">'+esc(val)+'</textarea>';
+  else if(f.kind==="json")el='<textarea id="'+id+'" class="mono">'+esc(val&&Object.keys(val).length?JSON.stringify(val,null,1):"")+'</textarea>';
+  else if(f.kind==="list")el='<input id="'+id+'" value="'+esc(Array.isArray(val)?val.join(", "):val)+'" placeholder="comma separated">';
+  else el='<input id="'+id+'" type="'+(f.kind==="number"||f.kind==="int"?"number":f.kind==="date"?"text":"text")+'" value="'+esc(val)+'" placeholder="'+(f.kind==="date"?"YYYY-MM-DD":f.kind==="url"?"https://…":f.kind==="deeplink"?"app://… or https://…":"")+'">';
+  return '<label class="f">'+esc(f.label)+req+el+'</label>'}
+function readForm(res,partial){const out={};for(const f of res.fields){const el=document.querySelector("#fld_"+f.name);if(!el)continue;let v=el.value;
+  if(f.kind==="list")v=v.split(",").map(x=>x.trim()).filter(Boolean);else if(f.kind==="bool")v=v==="true";else if(f.kind==="json"){try{v=v.trim()?JSON.parse(v):{}}catch(e){throw new Error(f.label+": invalid JSON")}}
+  else if((f.kind==="number"||f.kind==="int")&&v!=="")v=Number(v);else if(v==="")v=null;out[f.name]=v}return out}
+function openForm(name,rec){const res=R(name);drawer((rec?"Edit ":"New ")+res.label.replace(/s$/,""),res.fields.map(f=>input(f,rec?rec.data[f.name]:undefined)).join("")+'<div id="ferr" class="err"></div>',
+  '<button class="p" onclick="saveForm(\''+name+'\','+(rec?'\''+esc(rec.id)+'\','+rec.version:'null,null')+')">Save</button><button onclick="closeDrawer()">Cancel</button>')}
+async function saveForm(name,id,version){const res=R(name);try{const data=readForm(res);const r=id?await call("platform/r/"+name+"/"+id,"PATCH",{data,version}):await call("platform/r/"+name,"POST",{data});await resourcePage(name);openRecord(name,r.id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function openRecord(name,id){const res=R(name);const [rec,h]=await Promise.all([call("platform/r/"+name+"/"+id),call("platform/r/"+name+"/"+id+"/history")]);const manage=can(res.permission+":manage");
+  const hide={feature:rec.data.featured===true,unfeature:rec.data.featured!==true,verify:rec.data.verified===true,unverify:rec.data.verified!==true,enable:rec.status==="ACTIVE",disable:rec.status==="DISABLED"};
+  const acts=res.actions.filter(a=>!rec.archived&&!hide[a.name]&&(!a.from_status.length||a.from_status.includes(rec.status))&&(a.manage?manage:true));
+  drawer(rec.name,'<div style="margin-bottom:12px">'+badge(rec.status)+(rec.archived?' '+badge("archived"):'')+' <span class="muted mono">'+esc(rec.id)+' · v'+rec.version+'</span></div>'+
+   (rec.data.health?'<div class="card" style="margin-bottom:12px"><b>Link health</b> '+badge(rec.data.health.state)+'<div class="muted">'+when(rec.data.health.checked_at)+'</div>'+rec.data.health.results.map(r=>'<div class="mono">'+esc(r.kind)+' → '+esc(r.status)+'</div>').join("")+'</div>':'')+
+   '<table>'+res.fields.map(f=>'<tr><td class="muted" style="width:40%">'+esc(f.label)+'</td><td>'+cell(rec.data[f.name],f)+'</td></tr>').join("")+'</table>'+
+   '<h3 style="margin:18px 0 8px;font-size:14px">Audit history</h3><div class="hist">'+h.items.map(x=>'<div><b>'+esc(x.action)+'</b> by '+esc(x.actor)+' <span class="muted">'+when(x.at)+'</span>'+(x.from_status!==x.to_status&&x.to_status?'<div>'+badge(x.from_status||"—")+' → '+badge(x.to_status)+'</div>':'')+'</div>').join("")+'</div><div id="ferr" class="err"></div><div id="aout"></div>',
+   (manage?'<button class="p" onclick=\'editRecord("'+name+'","'+esc(rec.id)+'")\'>Edit</button>':'')+acts.map(a=>'<button onclick="doAction(\''+name+'\',\''+esc(rec.id)+'\',\''+a.name+'\','+a.confirm+')">'+esc(a.label)+'</button>').join("")+
+   (manage?'<button onclick="doAction(\''+name+'\',\''+esc(rec.id)+'\',\'duplicate\',false)">Duplicate</button><button onclick="doAction(\''+name+'\',\''+esc(rec.id)+'\',\''+(rec.archived?"restore":"archive")+'\',false)">'+(rec.archived?"Restore":"Archive")+'</button><button class="d" onclick="delRecord(\''+name+'\',\''+esc(rec.id)+'\')">Delete</button>':''))}
+async function editRecord(n,id){openForm(n,await call("platform/r/"+n+"/"+id))}
+async function doAction(n,id,a,conf){if(conf&&!confirm("Confirm: "+a+"?"))return;let params={};if(a==="schedule"){const s=prompt("Start date (YYYY-MM-DD)");if(!s)return;params.start=s}
+  if(a==="preview"){const v=prompt("Sample values as JSON",'{"name":"Ravi","order":"A1"}');try{params.values=JSON.parse(v||"{}")}catch(e){}}
+  try{const r=await call("platform/r/"+n+"/"+id+"/actions/"+a,"POST",{params,confirm:true});await resourcePage(n);await openRecord(n,r.id||id);if(r.result)document.querySelector("#aout").innerHTML='<div class="card mono">'+esc(JSON.stringify(r.result,null,1))+'</div>'}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function delRecord(n,id){if(!confirm("Delete permanently? Archive keeps history."))return;try{await call("platform/r/"+n+"/"+id+"?confirm=true","DELETE");closeDrawer();resourcePage(n)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function drawer(t,b,f){document.querySelector("#dt").textContent=t;document.querySelector("#db").innerHTML=b;document.querySelector("#df").innerHTML=f||"";document.querySelector("#drawer").classList.add("show")}
+function closeDrawer(){document.querySelector("#drawer").classList.remove("show")}
+
+/* ------------------------------------------------------ table helper -- */
+function grid(items,cols,onclick){if(!items||!items.length)return '<div class="tbl"><div class="empty">Nothing here yet.</div></div>';
+  return '<div class="tbl"><table><thead><tr>'+cols.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+items.map((it,i)=>'<tr class="'+(onclick?"r":"")+'" '+(onclick?'onclick="'+onclick+'('+i+')"':'')+'>'+cols.map(c=>'<td>'+(c[2]?c[2](it[c[0]],it):cell(it[c[0]]))+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>'}
+const head=(t,s,extra)=>'<h1>'+t+'</h1><div class="sub">'+s+'</div>'+(extra?'<div class="bar">'+extra+'</div>':'');
+
+/* ------------------------------------------------------------ sponsored -- */
+async function sponsored(){const d=await call("sponsored");STATE.sp=d.campaigns;const m=can("sponsored:manage");
+  document.querySelector("#page").innerHTML=head("Sponsored campaigns","Paid placements are labelled and always shown after organic results; untargeted ads are never served.",m?'<button class="p" onclick="spForm()">+ New campaign</button>':'')+
+  grid(d.campaigns,[["name","Campaign"],["kind","Kind"],["status","Status",badge],["label","Label"],["stats","Impr.",s=>s.impressions],["stats","Clicks",s=>s.clicks],["stats","CTR",s=>s.ctr==null?"—":s.ctr+"%"],["stats","Leads/Orders",s=>s.leads+" / "+s.orders],["stats","Spend",s=>money(s.spend)],["budget","Budget",money]],"spOpen")}
+function spForm(c){const F=[["advertiser_id","Advertiser id"],["name","Name"],["kind","Kind"],["title","Title"],["subtitle","Subtitle"],["destination_url","Destination (https)"],["deep_link","Deep link"],["tracking_url","Tracking URL (https)"],["image_url","Image URL"],["categories","Categories (comma)"],["keywords","Keywords (comma)"],["locations","Locations (comma)"],["radius_km","Radius km"],["language","Language (en/te…)"],["audience","Audience"],["objective","Objective"],["format","Format"],["starts_at","Start"],["ends_at","End"],["budget","Total budget ₹"],["daily_budget","Daily budget ₹"],["cost_per_click","Cost per click ₹"],["cost_per_thousand","Cost per 1000 ₹"],["max_impressions","Max impressions"],["max_clicks","Max clicks"],["priority","Priority"]];
+  drawer(c?"Edit campaign":"New campaign",F.map(([k,l])=>'<label class="f">'+l+'<input id="sp_'+k+'" value="'+esc(c?(Array.isArray(c[k])?c[k].join(", "):c[k]??""):"")+'"></label>').join("")+'<div id="ferr" class="err"></div>',
+  '<button class="p" onclick="spSave('+(c?c.id:"null")+')">Save</button>')}
+async function spSave(id){const body={};document.querySelectorAll("[id^=sp_]").forEach(e=>{const k=e.id.slice(3);let v=e.value.trim();if(["categories","keywords","locations"].includes(k))v=v?v.split(",").map(x=>x.trim()):[];if(v!=="")body[k]=v});
+  try{id?await call("sponsored/campaigns/"+id,"PATCH",body):await call("sponsored/campaigns","POST",body);closeDrawer();sponsored()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function spOpen(i){const c=STATE.sp[i],m=can("sponsored:manage");drawer(c.name,'<div>'+badge(c.status)+(c.archived?' '+badge("archived"):'')+'</div><table>'+Object.entries(c).filter(([k])=>k!=="stats").map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><h3>Performance</h3><table>'+Object.entries(c.stats).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+esc(v??"—")+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',
+  m?['APPROVED','PAUSED','DISABLED'].map(s=>'<button onclick="spAct('+c.id+',\'status\',\''+s+'\')">'+(s==="APPROVED"?"Approve":s==="PAUSED"?"Pause":"Disable")+'</button>').join("")+'<button onclick=\'spForm(STATE.sp['+i+'])\'>Edit</button><button onclick="spAct('+c.id+',\'duplicate\')">Duplicate</button><button onclick="spAct('+c.id+',\''+(c.archived?"restore":"archive")+'\')">'+(c.archived?"Restore":"Archive")+'</button>':'')}
+async function spAct(id,a,s){try{a==="status"?await call("sponsored/campaigns/"+id+"/status","POST",{status:s}):await call("sponsored/campaigns/"+id+"/"+a,"POST");closeDrawer();sponsored()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+
+/* ------------------------------------------------- offers / referrals -- */
+async function benefits(){const d=await call("benefits");STATE.bf=d.items;document.querySelector("#page").innerHTML=head("Offers & coupons","Bank / card / UPI and partner offers go live only with a source URL and verification — never invented.")+
+  grid(d.items,[["name","Offer"],["offer_type","Type"],["active","Live",v=>v?badge("ACTIVE"):badge("off")],["eligibility","Customers"],["claims","Claims"],["redemptions","Redeemed"],["coupons_available","Codes left"],["verified_at","Verified",when]],"bfOpen")}
+async function bfOpen(i){const c=STATE.bf[i];const r=await call("benefits/"+c.id+"/report");const m=can("growth:manage");
+  drawer(c.name,'<h3>Usage</h3><table>'+Object.entries(r.usage).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><h3>Definition</h3><table>'+Object.entries(c).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',
+  m?'<button onclick="bfAct('+c.id+',\'active\','+(!c.active)+')">'+(c.active?"Pause":"Activate")+'</button><button onclick="bfAct('+c.id+',\'clone\')">Clone</button><button onclick="bfAct('+c.id+',\''+(c.archived?"restore":"archive")+'\')">'+(c.archived?"Restore":"Archive")+'</button>':'')}
+async function bfAct(id,a,v){try{if(a==="active")await call("benefits/"+id,"PATCH",{active:v});else if(a==="clone")await call("benefits/"+id+"/clone","POST");else await call("benefits/"+id+"/archive"+(a==="restore"?"?restore=true":""),"POST");closeDrawer();benefits()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function referrals(){const d=await call("growth/referrals");document.querySelector("#page").innerHTML=head("Referrals","One credit per person, no self or circular referrals, daily invite cap. Bursts are flagged for review.")+
+  grid(d.items,[["code","Code"],["referrer_user_id","Referrer"],["category","Category"],["area","Area"],["status","Status",badge],["review","Review",v=>v?badge("REVIEW")+" "+esc(v):""],["created_at","Created",when]])}
+
+/* ------------------------------------------------------------- money -- */
+async function payments(){const d=await call("platform/payments");STATE.pay=d.items;const rc=d.reconciliation;const m=can("payments:manage");
+  document.querySelector("#page").innerHTML=head("Payments","Direct methods (COD, cash, direct UPI) work today. Gateways stay unavailable until configured in Integrations. Card data is never stored.",m?'<button class="p" onclick="payForm()">+ Record payment</button>':'')+
+  '<div class="kpis">'+Object.entries(rc.totals_by_state||{}).map(([s,v])=>'<div class="kpi"><div class="l">'+badge(s)+'</div><div class="v">'+money(v)+'</div></div>').join("")+'<div class="kpi"><div class="l">Needs attention</div><div class="v">'+(rc.issues||[]).length+'</div></div></div>'+
+  grid(d.items,[["id","Payment"],["order_ref","Order"],["method","Method"],["provider","Provider"],["amount","Amount",money],["refunded_amount","Refunded",money],["status","Status",badge],["updated_at","Updated",when]],"payOpen")}
+function payForm(){drawer("Record payment",'<label class="f">Idempotency key<input id="p_k" value="pay-'+Date.now()+'"></label><label class="f">Method<select id="p_m">'+SCHEMA.payment_methods.map(x=>'<option>'+x+'</option>').join("")+'</select></label><label class="f">Amount ₹<input id="p_a" type="number"></label><label class="f">Order ref<input id="p_o"></label><label class="f">Provider (gateway methods)<input id="p_p" placeholder="razorpay / cashfree / …"></label><div id="ferr" class="err"></div>',
+  '<button class="p" onclick="paySave()">Create</button>')}
+async function paySave(){const v=s=>document.querySelector(s).value;try{await call("platform/payments","POST",{idempotency_key:v("#p_k"),method:v("#p_m"),amount:Number(v("#p_a")),order_ref:v("#p_o")||null,provider:v("#p_p")||null});closeDrawer();payments()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function payOpen(i){const p=STATE.pay[i],m=can("payments:manage");drawer(p.id,'<table>'+Object.entries(p).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',
+  m?[["confirm","Mark received"],["refund","Refund"],["settle","Settle"],["cancel","Cancel"],["fail","Mark failed"],["dispute","Dispute"]].map(([a,l])=>'<button onclick="payAct(\''+p.id+'\',\''+a+'\')">'+l+'</button>').join(""):'')}
+async function payAct(id,a){const body={confirm:true};if(a==="refund"){const x=prompt("Refund amount (empty = full)");if(x===null)return;if(x)body.amount=Number(x)}if(a==="settle"||a==="confirm"){const x=prompt(a==="settle"?"Settlement reference":"Payment reference (optional)");if(x===null)return;body.reference=x}
+  if(!["confirm","settle"].includes(a)&&!confirm("Confirm "+a+"?"))return;try{await call("platform/payments/"+id+"/"+a,"POST",body);closeDrawer();payments()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function ledger(){const d=await call("platform/ledger");STATE.lg=d.items;const s=d.summary;document.querySelector("#page").innerHTML=head("Revenue ledger","Expected → Pending → Confirmed → Paid (or Rejected / Reversed). Confirmed and paid are real revenue; expected is not.",can("finance:manage")?'<button class="p" onclick="lgForm()">+ Add entry</button>':'')+
+  '<div class="kpis">'+Object.entries(s.by_state||{}).map(([k,v])=>'<div class="kpi"><div class="l">'+badge(k)+'</div><div class="v">'+money(v)+'</div></div>').join("")+'</div>'+
+  grid(d.items,[["kind","Kind"],["amount","Amount",money],["state","State",badge],["partner_id","Partner"],["campaign_id","Campaign"],["order_ref","Order"],["note","Note"],["updated_at","Updated",when]],"lgOpen")}
+function lgForm(){drawer("Add ledger entry",'<label class="f">Idempotency key<input id="l_k" value="led-'+Date.now()+'"></label><label class="f">Kind<select id="l_t">'+SCHEMA.ledger_kinds.map(x=>'<option>'+x+'</option>').join("")+'</select></label><label class="f">Amount ₹<input id="l_a" type="number"></label><label class="f">State<select id="l_s">'+SCHEMA.ledger_states.map(x=>'<option>'+x+'</option>').join("")+'</select></label><label class="f">Note<input id="l_n"></label><div id="ferr" class="err"></div>','<button class="p" onclick="lgSave()">Add</button>')}
+async function lgSave(){const v=s=>document.querySelector(s).value;try{await call("platform/ledger","POST",{idempotency_key:v("#l_k"),kind:v("#l_t"),amount:Number(v("#l_a")),state:v("#l_s"),note:v("#l_n")});closeDrawer();ledger()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function lgOpen(i){const e=STATE.lg[i];drawer(e.kind,'<table>'+Object.entries(e).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',can("finance:manage")?SCHEMA.ledger_states.map(s=>'<button onclick="lgState(\''+e.id+'\',\''+s+'\')">'+s+'</button>').join(""):'')}
+async function lgState(id,s){if(["PAID","REVERSED"].includes(s)&&!confirm("Mark "+s+"?"))return;try{await call("platform/ledger/"+id+"/state","POST",{state:s,confirm:true});closeDrawer();ledger()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function rewards(){const d=await call("platform/rewards");STATE.rw=d.items;document.querySelector("#page").innerHTML=head("Rewards ledger","Cashback, points, merchant and referral rewards with their full state history.")+
+  '<div class="kpis">'+Object.entries(d.by_state).map(([k,v])=>'<div class="kpi"><div class="l">'+badge(k)+'</div><div class="v">'+v+'</div></div>').join("")+'</div>'+
+  grid(d.items,[["title","Reward"],["reward_type","Type"],["amount","Amount",money],["points","Points"],["state","State",badge],["source","Source"],["expires_at","Expires",when]],"rwOpen")}
+function rwOpen(i){const r=STATE.rw[i];drawer(r.title||r.reward_type,'<table>'+Object.entries(r).filter(([k])=>k!=="idempotency_key").map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',can("rewards:manage")?["AVAILABLE","LOCKED","REDEEMED","EXPIRED","REVERSED"].map(s=>'<button onclick="rwState(\''+r.id+'\',\''+s+'\')">'+s+'</button>').join(""):'')}
+async function rwState(id,s){try{await call("platform/rewards/"+id+"/state","POST",{state:s,confirm:true});closeDrawer();rewards()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function transactions(){const s=STATE.tx||(STATE.tx={kind:"",status:"",q:""});const d=await call("platform/transactions?"+new URLSearchParams(s));
+  document.querySelector("#page").innerHTML=head("Transaction center","Payments, refunds, settlements, commissions, rewards, conversions and orders in one place.",'<input placeholder="Search" value="'+esc(s.q)+'" onchange="STATE.tx.q=this.value;transactions()"><select onchange="STATE.tx.kind=this.value;transactions()"><option value="">All kinds</option>'+d.kinds.map(k=>'<option '+(s.kind===k?"selected":"")+'>'+k+'</option>').join("")+'</select>')+
+  grid(d.items,[["kind","Kind"],["id","Id"],["amount","Amount",money],["status","Status",badge],["ref","Reference"],["party","Party"],["at","When",when]])}
+
+/* ---------------------------------------------------------- customers -- */
+async function support(){const s=STATE.sup||(STATE.sup={status:"",priority:"",sla:""});const d=await call("escalations?"+new URLSearchParams(s));STATE.tk=d.items;
+  document.querySelector("#page").innerHTML=head("Support tickets","SLA: urgent 2 h · high 8 h · normal 24 h · low 72 h. Requesters are masked.",
+   ['status','priority','sla'].map(k=>'<select onchange="STATE.sup.'+k+'=this.value;support()"><option value="">'+k+': any</option>'+({status:["OPEN","IN_PROGRESS","WAITING_FOR_USER","RESOLVED","CLOSED"],priority:["URGENT","HIGH","NORMAL","LOW"],sla:["ON_TRACK","DUE_SOON","OVERDUE","MET","BREACHED"]}[k]).map(o=>'<option '+(s[k]===o?"selected":"")+'>'+o+'</option>').join("")+'</select>').join("")+Object.entries(d.sla_summary||{}).map(([k,v])=>badge(k)+' '+v).join(" "))+
+  grid(d.items,[["id","#"],["issue","Issue",v=>esc(String(v).slice(0,70))],["category","Category"],["priority","Priority",badge],["channel","Channel"],["status","Status",badge],["sla_state","SLA",badge],["assigned_to","Assigned"],["created_at","Opened",when]],"tkOpen")}
+async function tkOpen(i){const t=await call("escalations/"+STATE.tk[i].id);const m=can("support:manage");
+  drawer("Ticket #"+t.id,'<div>'+badge(t.status)+' '+badge(t.priority)+' '+badge(t.sla_state)+' <span class="muted">'+esc(t.channel)+' · due '+when(t.sla_due_at)+'</span></div><p>'+esc(t.issue)+'</p><table>'+[["Requester",t.requester],["Category",t.category],["Assigned",t.assigned_to],["First response",when(t.first_response_at)],["Resolved",when(t.resolved_at)],["Resolution",t.resolution_note],["Attachments",(t.attachments||[]).join(", ")]].map(([k,v])=>'<tr><td class="muted">'+k+'</td><td>'+esc(v??"—")+'</td></tr>').join("")+'</table>'+
+   (m?'<h3>Update</h3><label class="f">Status<select id="t_s"><option value=""></option>'+["OPEN","IN_PROGRESS","WAITING_FOR_USER","RESOLVED","CLOSED"].map(x=>'<option>'+x+'</option>').join("")+'</select></label><label class="f">Priority<select id="t_p"><option value=""></option>'+["URGENT","HIGH","NORMAL","LOW"].map(x=>'<option>'+x+'</option>').join("")+'</select></label><label class="f">Assign to<input id="t_a" value="'+esc(t.assigned_to||"")+'"></label><label class="f">Internal note<textarea id="t_n"></textarea></label><label class="f">Resolution note<textarea id="t_r"></textarea></label>':'')+
+   '<h3>History</h3><div class="hist">'+t.history.map(h=>'<div><b>'+esc(h.action)+'</b> by '+esc(h.actor)+' <span class="muted">'+when(h.at)+'</span><div class="mono muted">'+esc(JSON.stringify(h.detail))+'</div></div>').join("")+'</div><div id="ferr" class="err"></div>',
+   m?'<button class="p" onclick="tkSave('+t.id+','+i+')">Save</button>':'')}
+async function tkSave(id,i){const v=s=>document.querySelector(s).value.trim();const b={confirm:true};if(v("#t_s"))b.status=v("#t_s");if(v("#t_p"))b.priority=v("#t_p");if(v("#t_a"))b.assigned_to=v("#t_a");if(v("#t_n"))b.note=v("#t_n");if(v("#t_r"))b.resolution_note=v("#t_r");
+  try{await call("escalations/"+id,"PATCH",b);await support();tkOpen(i)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function accounts(){const [u,st]=await Promise.all([call("users"),call("platform/accounts/user")]);const s={};st.items.forEach(x=>s[x.subject_ref]=x);STATE.us=u.items;
+  document.querySelector("#page").innerHTML=head("Users & accounts","Contact details stay masked. Blocking signs the person out everywhere at once.")+
+  grid(u.items.map(x=>({...x,state:s[x.user_ref]||{}})),[["user","User"],["role","Role"],["business_name","Business"],["active_listings","Listings"],["state","Verified",v=>v.verified?badge("VERIFIED"):""],["state","Access",v=>v.blocked?badge("BLOCKED"):badge("ACTIVE")]],"usOpen")}
+function usOpen(i){const u=STATE.us[i],m=can("users:manage");drawer(u.user,'<table>'+Object.entries(u).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><label class="f">Note<input id="u_n"></label><div id="ferr" class="err"></div>',
+  m?[["blocked",true,"Block"],["blocked",false,"Unblock"],["verified",true,"Verify"],["verified",false,"Unverify"]].map(([k,v,l])=>'<button '+(l==="Block"?'class="d"':'')+' onclick="usSet(\''+u.user_ref+'\',\''+k+'\','+v+')">'+l+'</button>').join(""):'')}
+async function usSet(ref,k,v){if(k==="blocked"&&v&&!confirm("Block this account? All sessions stop."))return;try{await call("platform/accounts/user/"+ref,"POST",{[k]:v,confirm:true,note:document.querySelector("#u_n").value});closeDrawer();accounts()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+
+/* ------------------------------------------------------------- system -- */
+async function integrations(){const d=await call("platform/integrations");STATE.ig=d.items;const groups={};d.items.forEach(x=>(groups[x.group]=groups[x.group]||[]).push(x));
+  document.querySelector("#page").innerHTML=head("Integrations","Secrets are encrypted and write-only; nothing is marked LIVE until a live check passes.")+
+  Object.entries(groups).map(([g,items])=>'<h3 style="margin:18px 0 8px;text-transform:capitalize">'+esc(g)+'</h3><div class="cols">'+items.map(x=>'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>'+esc(x.label)+'</b>'+badge(x.status)+'</div><div class="muted" style="margin:6px 0">'+(x.internal?"Built in":x.missing.length?"Missing: "+esc(x.missing.join(", ")):"Configured · "+esc(x.mode||""))+(x.last_check_at?'<br>Last check '+when(x.last_check_at)+' '+esc(x.last_check_detail||""):'')+'</div>'+(can("integrations:manage")&&!x.internal?'<button onclick="igForm(\''+x.provider+'\')">Configure</button> <button onclick="igCheck(\''+x.provider+'\')">Check</button>':'')+'</div>').join("")+'</div>').join("")}
+function igForm(p){const x=STATE.ig.find(i=>i.provider===p);drawer("Configure "+x.label,'<div class="muted">Secret values are never shown again after saving.</div>'+x.missing.concat(x.secrets_set).filter((v,i,a)=>a.indexOf(v)===i).map(k=>'<label class="f">'+esc(k)+(x.secrets_set.includes(k)?' <span class="muted">(set — leave empty to keep)</span>':'')+'<input id="ig_'+k+'" type="'+(x.config[k]!==undefined||/_id$|key_id|publishable/.test(k)?"text":"password")+'" value="'+esc(x.config[k]||"")+'" autocomplete="off"></label>').join("")+
+  '<label class="f">Mode<select id="ig_mode"><option '+(x.mode==="test"?"selected":"")+'>test</option><option '+(x.mode==="live"?"selected":"")+'>live</option></select></label><label class="f">Enabled<select id="ig_en"><option value="true" '+(x.enabled?"selected":"")+'>Yes</option><option value="false" '+(!x.enabled?"selected":"")+'>No</option></select></label><div id="ferr" class="err"></div>','<button class="p" onclick="igSave(\''+p+'\')">Save</button>')}
+async function igSave(p){const x=STATE.ig.find(i=>i.provider===p);const config={},secrets={};document.querySelectorAll("[id^=ig_]").forEach(e=>{const k=e.id.slice(3);if(["mode","en"].includes(k)||!e.value)return;(/_id$|key_id|publishable|merchant_id|client_id/.test(k)?config:secrets)[k]=e.value});
+  try{await call("platform/integrations/"+p,"PUT",{enabled:document.querySelector("#ig_en").value==="true",mode:document.querySelector("#ig_mode").value,config,secrets});closeDrawer();integrations()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function igCheck(p){try{const r=await call("platform/integrations/"+p+"/check","POST");alert(r.note||("Status: "+r.status));integrations()}catch(e){alert(e.message)}}
+async function flags(){const d=await call("config");document.querySelector("#page").innerHTML=head("Feature flags","Every module can be switched off without a release. Switching off needs confirmation and is audited.")+
+  grid(d.flags,[["key","Flag",v=>'<span class="mono">'+esc(v)+'</span>'],["description","What it controls"],["enabled","State",v=>v?badge("ENABLED"):badge("DISABLED")],["updated_by","Changed by"],["key","",(k,f)=>can("config:manage")?'<button onclick="flagSet(\''+k+'\','+(!f.enabled)+')">'+(f.enabled?"Switch off":"Switch on")+'</button>':""]])}
+async function flagSet(k,v){if(!v&&!confirm("Switch off "+k+"?"))return;try{await call("config/"+k,"PUT",{enabled:v,confirm:true});flags()}catch(e){alert(e.message)}}
+async function staff(){const d=await call("staff");document.querySelector("#page").innerHTML=head("Staff & roles","Staff get a one-time token. A manager can only grant permissions they hold.",'<input id="s_n" placeholder="Name"><select id="s_r">'+Object.keys(d.roles).map(r=>'<option>'+r+'</option>').join("")+'</select><button class="p" onclick="staffAdd()">+ Add staff</button><span id="s_out" class="okm"></span>')+
+  grid(d.items,[["name","Name"],["role","Role"],["active","Active",v=>v?badge("ACTIVE"):badge("DISABLED")],["permissions","Permissions",v=>'<span class="muted">'+esc((v||[]).length)+'</span>'],["created_at","Added",when]])+'<h3 style="margin-top:18px">Role presets</h3>'+grid(Object.entries(d.roles).map(([r,p])=>({role:r,permissions:p.join(", ")})),[["role","Role"],["permissions","Permissions"]])}
+async function staffAdd(){try{const r=await call("staff","POST",{name:document.querySelector("#s_n").value,role:document.querySelector("#s_r").value});await staff();document.querySelector("#s_out").textContent="Token (shown once): "+r.token}catch(e){alert(e.message)}}
+async function audit(){const d=await call("audit");document.querySelector("#page").innerHTML=head("Audit log","Every admin action, with who, what and when. Secret values are never logged.")+grid(d.items,[["created_at","When",when],["actor","Who"],["action","Action"],["entity_type","Entity"],["entity_id","Id"],["reason","Note"]])}
+async function events(){const d=await call("platform/events?limit=200");document.querySelector("#page").innerHTML=head("Event stream","Attribution events with stable ids (search → impression → click → lead → order → conversion).")+grid(d.items,[["at","When",when],["event","Event"],["category","Category"],["video_id","Video"],["click_id","Click"],["campaign_id","Campaign"],["offer_id","Offer"],["value","Value",money],["source","Source"]])}
+async function analytics(){const s=STATE.an||(STATE.an={days:30,category:"",location:""});const d=await call("platform/analytics?"+new URLSearchParams(s));const bar=(rows)=>{const mx=Math.max(1,...rows.map(r=>r.count));return '<div class="funnel">'+rows.map(r=>'<div class="row"><span>'+esc(r.step.replace(/_/g," "))+'</span><div class="track"><div class="fill" style="width:'+(r.count/mx*100)+'%"></div></div><b>'+r.count+'</b></div>').join("")+'</div>'};
+  document.querySelector("#page").innerHTML=head("Analytics","Filter by period, category and location. Counts come from recorded events only.",'<select onchange="STATE.an.days=this.value;analytics()">'+[7,30,90,365].map(x=>'<option '+(s.days==x?"selected":"")+' value="'+x+'">Last '+x+' days</option>').join("")+'</select><input placeholder="Category" value="'+esc(s.category)+'" onchange="STATE.an.category=this.value;analytics()"><input placeholder="Location" value="'+esc(s.location)+'" onchange="STATE.an.location=this.value;analytics()">')+
+  '<div class="kpis"><div class="kpi"><div class="l">Searches</div><div class="v">'+d.searches+'</div></div><div class="kpi"><div class="l">No match</div><div class="v">'+d.no_match+'</div></div><div class="kpi"><div class="l">Active users (24 h)</div><div class="v">'+d.daily_active_users+'</div></div><div class="kpi"><div class="l">Coupon claims / redeemed</div><div class="v">'+d.coupon_claims+' / '+d.coupon_redemptions+'</div></div></div>'+
+  '<div class="cols"><div class="card"><h3>Commerce funnel</h3>'+bar(d.funnel)+'</div><div class="card"><h3>Video funnel</h3>'+bar(d.video_funnel)+'</div></div>'}
+async function insights(){const d=await call("platform/insights");document.querySelector("#page").innerHTML=head("AI insights",esc(d.note))+'<div class="cols">'+d.items.map(i=>'<div class="card">'+badge(i.severity)+' <b>'+esc(i.title)+'</b><div class="muted" style="margin-top:6px">'+esc(i.evidence?JSON.stringify(i.evidence):"")+'</div>'+(i.suggestion?'<div style="margin-top:8px">💡 '+esc(i.suggestion)+'</div>':'')+'</div>').join("")+'</div>'}
+
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==VIEW&&ME){VIEW=h;renderNav();render()}});
+if(CRED)signIn();else document.querySelector("#login").style.display="block";
+document.querySelector("#cred").addEventListener("keydown",e=>{if(e.key==="Enter")signIn()});
+</script></body></html>'''
+
+
+@router.get("/admin/console", response_class=HTMLResponse, include_in_schema=False)
+def admin_console() -> HTMLResponse:
+    return HTMLResponse(PAGE, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
+                                       "Referrer-Policy": "no-referrer"})

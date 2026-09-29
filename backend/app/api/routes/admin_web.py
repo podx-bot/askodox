@@ -28,7 +28,7 @@ button.ghost{background:white;color:#111827}textarea{width:100%;border:1px solid
 svg text{font-size:10px;fill:#52514e}.error{color:#b91c1c}.ok{color:#15803d}
 @media(max-width:650px){.login{flex-direction:column}.wrap{padding:10px}table{display:block;overflow:auto}}
 </style></head><body>
-<header><div><div class="brand">ASKODOX Command Center</div><div class="sub">Control · Wiring · AI · Analytics · Staff · System Health</div></div><div id="who">Not signed in</div></header>
+<header><div><div class="brand">ASKODOX Command Center</div><div class="sub">Control · Wiring · AI · Analytics · Staff · System Health</div></div><div><a href="/admin/console" style="color:#c7d2fe;margin-right:14px">Open the new console →</a><span id="who">Not signed in</span></div></header>
 <div class="wrap">
 <div class="login"><input id="key" type="password" placeholder="Owner Admin Key"><button onclick="signIn()">Owner Sign in</button><span id="msg"></span></div>
 <nav id="nav"></nav><main id="main"></main>
