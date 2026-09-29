@@ -29,6 +29,10 @@ import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
+import '../../profile/data/user_profile_repository.dart';
+import '../../selling/data/catalogue_repository.dart';
+import '../../selling/domain/seller_catalogue.dart';
+import '../../selling/presentation/catalogue_widgets.dart';
 import '../../growth/data/growth_repository.dart';
 import '../../growth/data/partner_tracking.dart';
 import '../../growth/presentation/benefits_widgets.dart';
@@ -132,6 +136,10 @@ class _AskodoxPrimaryHomeScreenState
   final Map<int, AskodoxChatResults> _resultsByTurn = {};
   final Map<int, UniversalDeal> _dealByTurn = {};
   final Map<int, String> _roleNoticeByTurn = {};
+  // A ready-made seller catalogue open in the conversation.
+  AskodoxCatalogueTemplate? _catalogue;
+  final Set<String> _catalogueSelected = {};
+  int? _catalogueTurn;
   DealIntent? _lastIntent;
 
   // History: every conversation is saved as a snapshot under this id.
@@ -1320,6 +1328,9 @@ class _AskodoxPrimaryHomeScreenState
       await _reviewDraft(text, speakResponse);
       return;
     }
+    // Seller catalogue ("ready-made grocery catalogue", "all", "yes"): the
+    // seller's own task -- never a buyer search, never a role flip.
+    if (await _handleSellerCatalogue(text, speakResponse)) return;
     final latestResults = _latestResults();
     final actionable = _latestActionableResults();
     final explicitContext = _pendingAiContext;
@@ -1447,8 +1458,12 @@ class _AskodoxPrimaryHomeScreenState
             (aiUsable
                 ? (decision!.transactional || AskodoxSemanticDealInput.isConcreteNeed(decision))
                 : AskodoxHomeRequestRouting.isTransactional(text) || askodoxStatesANeed(text)));
+    // A Seller / Provider describing what they offer ("grocery", "fashion
+    // items") is never rewritten into a purchase; only an explicit "I want
+    // to buy" is.
+    final actsAsSupplier = askodoxActsAsSupplier(ref.read(askodoxRoleProvider).active, text);
     final routedText =
-        aiUsable ? AskodoxSemanticDealInput.build(text, decision!) : text;
+        aiUsable ? AskodoxSemanticDealInput.build(text, decision!, supplySide: actsAsSupplier) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
     AskodoxChatResults? results;
     UniversalDeal? matchedDeal;
@@ -1640,14 +1655,14 @@ class _AskodoxPrimaryHomeScreenState
       // What people say about themselves ("I repair ACs") beats a
       // demand-side intent guess from a keyword like "repair", and a guessed
       // supply intent never flips a Buyer (role scoped to this request).
-      final detected = askodoxContextRole(spoken: detection, fromIntent: dealRole);
       final current = ref.read(askodoxRoleProvider).active;
+      final detected = askodoxContextRole(spoken: detection, fromIntent: dealRole, current: current);
       // A general (non-commerce) "I need ..." is not a buying intent.
       final generalBuyerHint = !transactional && detected == AskodoxUserRole.buyer;
       if (detected != null && detected != current && !generalBuyerHint) {
         final ambiguous = (detection?.ambiguous ?? false) ||
             (detection == null && aiUsable && decision!.confidence < 0.55);
-        if (ambiguous && askodoxRoleSwitchIsHighImpact(detected)) {
+        if (ambiguous && askodoxRoleSwitchIsHighImpact(detected, from: current)) {
           roleQuestion = detected;
         } else {
           ref.read(askodoxRoleProvider.notifier).setActive(detected);
@@ -1849,6 +1864,120 @@ class _AskodoxPrimaryHomeScreenState
     await _saveSnapshot();
     _scrollBottom();
     if (speakResponse) await _speakReply(intro, userText: text);
+  }
+
+  /// The seller's catalogue task. Returns true when this message belonged
+  /// to it (a catalogue request, or a short reply while one is open).
+  Future<bool> _handleSellerCatalogue(String text, bool speakResponse) async {
+    final open = _catalogue;
+    String? reply;
+    var openEditor = false;
+    if (open != null) {
+      final short = askodoxCatalogueReply(text);
+      final named = [
+        for (final c in open.categories)
+          if (c.names.values.any((n) => n.trim().isNotEmpty && text.toLowerCase().contains(n.toLowerCase()))) c.key,
+      ];
+      if (short == AskodoxCatalogueReply.all) {
+        _catalogueSelected
+          ..clear()
+          ..addAll(open.categories.map((c) => c.key));
+        reply = askodoxCatalogueSelectedReply(open, _catalogueSelected, _lang);
+        openEditor = true;
+      } else if (short == AskodoxCatalogueReply.yes) {
+        if (_catalogueSelected.isEmpty) _catalogueSelected.addAll(open.categories.map((c) => c.key));
+        reply = askodoxCatalogueSelectedReply(open, _catalogueSelected, _lang);
+        openEditor = true;
+      } else if (short == AskodoxCatalogueReply.no) {
+        reply = askodoxCatalogueClosedReply(_lang);
+        _catalogue = null;
+        _catalogueTurn = null;
+        _catalogueSelected.clear();
+      } else if (named.isNotEmpty) {
+        _catalogueSelected.addAll(named);
+        reply = askodoxCatalogueSelectedReply(open, _catalogueSelected, _lang);
+      }
+    }
+    final active = ref.read(askodoxRoleProvider).active;
+    String? roleNotice;
+    if (reply == null) {
+      if (!askodoxWantsSellerCatalogue(text, active)) return false;
+      setState(() => _sending = true);
+      final repo = ref.read(askodoxCatalogueRepositoryProvider);
+      final key = askodoxCatalogueTemplateFor(text) ??
+          ref.read(askodoxUserProfileProvider).valueOrNull?.businessCategory;
+      final template = key == null ? null : await repo.template(key);
+      if (!mounted) return true;
+      if (template == null) {
+        final available = await repo.templates();
+        if (!mounted) return true;
+        reply = askodoxCatalogueNoTemplateReply([for (final t in available) t.names[_lang] ?? t.names['en'] ?? t.key],
+            _lang, asked: key != null);
+      } else {
+        _catalogue = template;
+        _catalogueSelected.clear();
+        reply = askodoxCatalogueOfferReply(template, _lang);
+      }
+      // Asking for a catalogue for one's own shop IS acting as a Seller.
+      if (!askodoxSupplyRoles.contains(active)) {
+        ref.read(askodoxRoleProvider.notifier).setActive(AskodoxUserRole.seller);
+        roleNotice = askodoxRoleChangedMessage(active, AskodoxUserRole.seller, telugu: _te);
+      }
+    }
+    if (!mounted) return true;
+    setState(() {
+      if (roleNotice != null) _roleNoticeByTurn[_turns.length - 1] = roleNotice;
+      _turns.add(ConversationTurnRecord(text: reply!, isUser: false));
+      if (_catalogue != null && open == null) _catalogueTurn = _turns.length - 1;
+      _sending = false;
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) await _speakReply(reply, userText: text);
+    if (openEditor) unawaited(_openCatalogueEditor());
+    return true;
+  }
+
+  Future<void> _openCatalogueEditor() async {
+    final template = _catalogue;
+    if (template == null || _catalogueSelected.isEmpty) return;
+    if (ref.read(authSessionProvider).user == null) {
+      await context.push<bool>('/onboarding?signin=1');
+      if (!mounted || ref.read(authSessionProvider).user == null) return;
+    }
+    AskodoxUserProfile? profile;
+    try {
+      profile = await ref.read(askodoxUserProfileProvider.future);
+    } catch (_) {
+      profile = null; // offline: the seller types the shop details
+    }
+    if (!mounted) return;
+    final result = await showModalBottomSheet<AskodoxCataloguePublishResult>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => AskodoxCatalogueEditorSheet(
+        template: template,
+        categoryKeys: Set.of(_catalogueSelected),
+        lang: _lang,
+        shopName: profile?.businessName ?? profile?.name,
+        shopAddress: profile?.businessAddress ?? profile?.address ?? ref.read(locationControllerProvider).headerLocation,
+      ),
+    );
+    if (result == null || !mounted) return;
+    ref.invalidate(askodoxUserProfileProvider);
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: askodoxCataloguePublishedReply(result, _lang), isUser: false));
+      if (result.ok) {
+        _catalogue = null;
+        _catalogueTurn = null;
+        _catalogueSelected.clear();
+      }
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
   }
 
   /// Typed confirmation -> the shared executor (same endpoint, same order
@@ -2703,6 +2832,18 @@ class _AskodoxPrimaryHomeScreenState
                     : 'Stay ${askodoxUserRoleLabel(ref.watch(askodoxRoleProvider).active)}',
                 onSwitch: () => _switchRole(role, questionTurn: index),
                 onKeep: () => _keepRole(index),
+              ),
+            if (_catalogueTurn == index && _catalogue != null)
+              AskodoxCatalogueCard(
+                template: _catalogue!,
+                selected: _catalogueSelected,
+                lang: _lang,
+                onToggle: (key) => setState(() =>
+                    _catalogueSelected.contains(key) ? _catalogueSelected.remove(key) : _catalogueSelected.add(key)),
+                onSelectAll: () => setState(() => _catalogueSelected
+                  ..clear()
+                  ..addAll(_catalogue!.categories.map((c) => c.key))),
+                onOpenEditor: _openCatalogueEditor,
               ),
             if (_resultsByTurn[index] case final results?)
               _ChatResultsView(

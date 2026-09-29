@@ -17,7 +17,10 @@ class AskodoxSemanticDealInput {
     return subject != null && subject.trim().length >= 2;
   }
 
-  static String build(String original, InAppAssistantDecision decision) {
+  /// [supplySide]: the user is acting as a Seller / Provider (their active
+  /// role) and did not explicitly ask to buy -- "grocery", "fashion" then
+  /// describes what THEY offer, never a purchase.
+  static String build(String original, InAppAssistantDecision decision, {bool supplySide = false}) {
     final subject = _firstText(decision,
         const ['subject', 'product', 'item', 'service', 'role', 'skill']);
     final quantity = decision.entityNumber('quantity');
@@ -62,7 +65,7 @@ class AskodoxSemanticDealInput {
     }
 
     final payload = parts.isEmpty ? original.trim() : parts.join(' ').trim();
-    final offering = _isOfferingSide(original, decision);
+    final offering = supplySide || _isOfferingSide(original, decision);
     return switch (decision.domain) {
       'STAFFING' => 'need staff $payload',
       'JOB_SEEKER' => 'need a job $payload',

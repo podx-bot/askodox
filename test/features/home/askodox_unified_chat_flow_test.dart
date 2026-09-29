@@ -35,6 +35,8 @@ import 'package:podx/services/support_escalation_service.dart';
 import 'package:podx/services/voice_transcription_service.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/home/domain/active_role.dart';
+import 'package:podx/features/profile/data/user_profile_repository.dart';
+import 'package:podx/features/selling/data/catalogue_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------- fakes --
@@ -369,6 +371,71 @@ class _FakeSupport extends SupportEscalationService {
   Future<Map<String, Object?>?> caseStatus(String caseId, {String? authToken}) async => caseReply;
 }
 
+class _FakeCatalogue implements AskodoxCatalogueRepository {
+  final published = <(String, List<AskodoxCatalogueEntry>, String?, String?)>[];
+  final requested = <String>[];
+
+  static final grocery = AskodoxCatalogueTemplate.fromJson({
+    'key': 'grocery',
+    'name': {'en': 'Grocery (kirana)', 'te': 'కిరాణా', 'hi': 'किराना'},
+    'categories': [
+      {
+        'key': 'dals',
+        'name': {'en': 'Dals & pulses', 'te': 'పప్పులు', 'hi': 'दालें'},
+        'items': [
+          {'key': 'dals.toor', 'name': {'en': 'Toor dal', 'te': 'కంది పప్పు', 'hi': 'तूर दाल'}, 'unit': 'kg', 'sizes': ['500 g', '1 kg']},
+        ],
+      },
+      {
+        'key': 'oils_ghee',
+        'name': {'en': 'Oils & ghee', 'te': 'నూనెలు & నెయ్యి', 'hi': 'तेल और घी'},
+        'items': [
+          {'key': 'oils_ghee.ghee', 'name': {'en': 'Ghee', 'te': 'నెయ్యి', 'hi': 'घी'}, 'unit': 'L', 'sizes': ['500 ml']},
+        ],
+      },
+    ],
+  });
+
+  @override
+  String? get authToken => 'token';
+
+  @override
+  Future<AskodoxCatalogueTemplate?> template(String key) async {
+    requested.add(key);
+    return key == 'grocery' ? grocery : null;
+  }
+
+  @override
+  Future<List<({String key, Map<String, String> names, int items})>> templates() async => [
+        (key: 'grocery', names: const {'en': 'Grocery (kirana)'}, items: 2),
+      ];
+
+  @override
+  Future<AskodoxCataloguePublishResult> publish(String key, List<AskodoxCatalogueEntry> entries,
+      {String? businessName, String? businessAddress, String language = 'en'}) async {
+    published.add((key, entries, businessName, businessAddress));
+    final priced = entries.where((e) => e.price != null).length;
+    return AskodoxCataloguePublishResult(published: priced, drafts: entries.length - priced);
+  }
+}
+
+class _FakeProfile implements AskodoxUserProfileRepository {
+  AskodoxUserProfile? stored = const AskodoxUserProfile(
+      userId: 'app-phone-919999999999', name: 'Lakshmi', address: 'Vuyyuru', businessName: 'Sri Lakshmi Kirana');
+
+  @override
+  String? get authToken => 'token';
+
+  @override
+  Future<AskodoxUserProfile?> load() async => stored;
+
+  @override
+  Future<AskodoxUserProfile?> save(Map<String, Object?> fields) async => stored;
+
+  @override
+  Future<AskodoxUserProfile?> setPhoto(Uint8List? jpeg) async => stored;
+}
+
 // -------------------------------------------------------------- harness --
 
 class _Harness {
@@ -398,6 +465,8 @@ class _Harness {
   final picker = _FakePicker();
   final benefits = _FakeBenefits();
   final attachments = _FakeAttachments();
+  final catalogue = _FakeCatalogue();
+  final profile = _FakeProfile();
 
   Future<void> pump(WidgetTester tester, {String? locale}) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -458,6 +527,8 @@ class _Harness {
         askodoxMediaPickerProvider.overrideWithValue(picker),
         askodoxBenefitsRepositoryProvider.overrideWithValue(benefits),
         chatAttachmentServiceProvider.overrideWithValue(attachments),
+        askodoxCatalogueRepositoryProvider.overrideWithValue(catalogue),
+        askodoxUserProfileRepositoryProvider.overrideWithValue(profile),
         askodoxAssistantServiceProvider.overrideWithValue(assistant.service()),
         askodoxRealProductMatchServiceProvider.overrideWithValue(productSearch),
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
@@ -609,6 +680,83 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 }
 
 void main() {
+  group('seller role + ready-made catalogue (real-phone 1265 bug)', () {
+    ProviderContainer scope(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+
+    testWidgets('a Seller asking for a grocery catalogue stays Seller, gets the catalogue, "all" selects all',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([]));
+      await h.pump(tester);
+      scope(tester).read(askodoxRoleProvider.notifier).setActive(AskodoxUserRole.seller);
+      await _Harness.settle(tester);
+
+      await h.send(tester, 'Do you have ready-made grocery catalogue?');
+      expect(scope(tester).read(askodoxRoleProvider).active, AskodoxUserRole.seller, reason: 'never Seller -> Buyer');
+      expect(find.textContaining('→ Buyer'), findsNothing);
+      expect(h.matches.deals, isEmpty, reason: 'no buyer search, no online shopping cards');
+      expect(h.assistant.requests, isEmpty, reason: 'handled as the seller task, not a new AI search');
+      expect(h.catalogue.requested, ['grocery']);
+      expect(find.byKey(const ValueKey('askodoxCatalogueCard-grocery')), findsOneWidget);
+      expect(find.textContaining('ready-made Grocery (kirana) catalogue'), findsOneWidget);
+
+      await h.send(tester, 'all');
+      expect(h.matches.deals, isEmpty, reason: '"all" resolves inside the catalogue, not a web search');
+      expect(find.textContaining('2 categories selected (2 items)'), findsOneWidget);
+      expect(find.byKey(const Key('askodoxCatalogueReviewButton')), findsOneWidget, reason: 'editor opened');
+
+      await tester.enterText(find.byKey(const ValueKey('askodoxCataloguePrice-dals.toor')), '160');
+      await tester.tap(find.byKey(const Key('askodoxCatalogueReviewButton')));
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxCatalogueReview')), findsOneWidget);
+      expect(find.text('1 will be published'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxCataloguePublish')));
+      await _Harness.settle(tester);
+
+      final (key, entries, shop, address) = h.catalogue.published.single;
+      expect(key, 'grocery');
+      expect(entries.map((e) => e.item.key), ['dals.toor', 'oils_ghee.ghee']);
+      expect(entries.first.price, 160);
+      expect(entries.last.price, isNull, reason: 'no price is never invented');
+      expect(shop, 'Sri Lakshmi Kirana', reason: 'prefilled from the stored profile');
+      expect(address, 'Vuyyuru');
+      expect(find.textContaining('Published 1 item(s)'), findsOneWidget);
+      expect(scope(tester).read(askodoxRoleProvider).active, AskodoxUserRole.seller);
+    });
+
+    testWidgets('Telugu seller: "కిరాణా కేటలాగ్ ఉందా?" then "అన్నీ" -- Telugu replies, no search', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([]));
+      await h.pump(tester, locale: 'te');
+      scope(tester).read(askodoxRoleProvider.notifier).setActive(AskodoxUserRole.seller);
+      await h.send(tester, 'కిరాణా కేటలాగ్ ఉందా?');
+      expect(find.textContaining('రెడీమేడ్ కిరాణా కేటలాగ్'), findsOneWidget);
+      await h.send(tester, 'అన్నీ');
+      expect(find.textContaining('2 విభాగాలు ఎంచుకున్నారు'), findsOneWidget);
+      expect(h.matches.deals, isEmpty);
+      expect(scope(tester).read(askodoxRoleProvider).active, AskodoxUserRole.seller);
+    });
+
+    testWidgets('a Buyer asking for a catalogue for their own shop becomes Seller (announced)', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([]));
+      await h.pump(tester);
+      await h.send(tester, 'I need a ready-made catalogue for my shop, grocery');
+      expect(scope(tester).read(askodoxRoleProvider).active, AskodoxUserRole.seller);
+      expect(find.textContaining('Buyer → Seller'), findsOneWidget);
+      expect(h.matches.deals, isEmpty);
+    });
+
+    testWidgets('an unsupported catalogue is said honestly with a real next step', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([]));
+      await h.pump(tester);
+      scope(tester).read(askodoxRoleProvider.notifier).setActive(AskodoxUserRole.seller);
+      await h.send(tester, 'do you have a mobile accessories catalogue?');
+      expect(find.textContaining('Which catalogue do you need?'), findsOneWidget);
+      expect(find.textContaining('price list'), findsOneWidget);
+      expect(find.byType(Card).evaluate().where((e) => e.widget.key.toString().contains('askodoxCatalogueCard')), isEmpty);
+      expect(h.matches.deals, isEmpty);
+    });
+  });
+
   group('attachments reach real multimodal processing (Section 14)', () {
     Future<void> attach(WidgetTester tester, _Harness h, String menuLabel, List<ChatAttachment> files) async {
       h.picker.next = files;

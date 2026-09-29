@@ -120,19 +120,52 @@ const askodoxParticipationRoles = {
 /// the current request: the user's own words win; an inferred deal intent
 /// may only move between demand-side roles (Buyer <-> Employer). Browsing a
 /// TV therefore can never turn a Buyer into a Seller.
+///
+/// Once the user acts as a Seller / Provider ([current] is a supply role),
+/// that role stays for the task: product words ("grocery", "catalogue",
+/// "price", "online"), a generic "I want / కావాలి" or a guessed buy intent
+/// never switch it back to Buyer. Only an explicit request to buy ("I want
+/// to buy", "కొనాలి", "switch to buyer") or another role the user states
+/// moves it.
 AskodoxUserRole? askodoxContextRole({
   required AskodoxRoleDetection? spoken,
   required AskodoxUserRole? fromIntent,
+  AskodoxUserRole? current,
 }) {
+  if (current != null && askodoxSupplyRoles.contains(current)) {
+    if (spoken == null) return current;
+    if (spoken.role == AskodoxUserRole.buyer) return spoken.explicitBuy ? AskodoxUserRole.buyer : current;
+    return spoken.role;
+  }
   if (spoken != null && spoken.role != AskodoxUserRole.buyer) return spoken.role;
   if (spoken?.role == AskodoxUserRole.buyer) return AskodoxUserRole.buyer;
   if (fromIntent != null && askodoxSupplyRoles.contains(fromIntent)) return null;
   return fromIntent;
 }
 
+/// True when the user is acting as a supplier right now and did not
+/// explicitly ask to buy: their product words describe what they offer.
+bool askodoxActsAsSupplier(AskodoxUserRole current, String text) =>
+    askodoxSupplyRoles.contains(current) && !(askodoxDetectRole(text)?.explicitBuy ?? false);
+
+/// Words a seller uses about their own shop: catalogue, stock, price list,
+/// "my shop" ... (en / te / hi). Used with the active role, never alone.
+bool askodoxSellerShopCue(String message) => RegExp(
+      r'\b(catalog(ue)?s?|inventory|stock list|price ?list|my (shop|store|products|items|business)|'
+      r'add (my )?(products|items)|list (my )?(products|items)|upload (my )?(products|items)|template)\b|'
+      r'కేటలాగ్|కాటలాగ్|క్యాటలాగ్|స్టాక్|నా (షాప్|దుకాణం|కొట్టు)|ధరల జాబితా|'
+      r'कैटलॉग|कॅटलॉग|सूची|स्टॉक|मेरी दुकान|रेट लिस्ट',
+      caseSensitive: false,
+    ).hasMatch(message);
+
 class AskodoxRoleDetection {
-  const AskodoxRoleDetection(this.role, {this.ambiguous = false});
+  const AskodoxRoleDetection(this.role, {this.ambiguous = false, this.explicitBuy = false});
   final AskodoxUserRole role;
+
+  /// The user explicitly asked to BUY ("I want to buy", "కొనాలి", "switch
+  /// to buyer") -- a generic "I want / I need / కావాలి" is not enough to
+  /// take a Seller out of their role.
+  final bool explicitBuy;
 
   /// True when the message only hints at the role (a question about it, or
   /// mixed buy/sell cues). High-impact switches are then confirmed first.
@@ -176,13 +209,26 @@ AskodoxRoleDetection? askodoxDetectRole(String message) {
     r'అమ్మాలి',
     r'అమ్ముతున్నాను',
   ]);
-  final buyer = _any(text, [
-    r'\b(want|need) to buy\b',
-    r'\bi (want|need)\b',
-    r'\bbuy\b',
-    r'కావాలి',
+  final explicitBuy = _any(text, [
+    r'\b(want|need|going|like) to (buy|purchase|order)\b',
+    r"\bi('ll| will| wanna) (buy|purchase|order)\b",
+    r'\b(switch|change|go) (to|back to) buy(er|ing)\b',
+    r"\b(as|i('m| am)) a buyer\b",
+    r'\bbuyer mode\b',
     r'కొనాలి',
+    r'కొంటాను',
+    r'కొనుక్కోవాలి',
+    r'खरीदना',
+    r'ख़रीदना',
+    r'खरीदूं',
   ]);
+  final buyer = explicitBuy ||
+      _any(text, [
+        r'\bi (want|need)\b',
+        r'\bbuy\b',
+        r'కావాలి',
+        r'चाहिए',
+      ]);
 
   // Participation / trade roles, only from how people describe themselves.
   final participation = <AskodoxUserRole, List<String>>{
@@ -220,13 +266,15 @@ AskodoxRoleDetection? askodoxDetectRole(String message) {
   }
   if (role == null) return null;
   final mixed = seller && buyer && !_any(text, [r'\bsell my\b', r'\bwant to sell\b']);
-  return AskodoxRoleDetection(role, ambiguous: question || mixed);
+  return AskodoxRoleDetection(role,
+      ambiguous: question || mixed, explicitBuy: role == AskodoxUserRole.buyer && explicitBuy);
 }
 
 /// Supply-side switches change what ASKODOX does for the user (listing,
-/// accepting requests), so an ambiguous hint asks before switching.
-bool askodoxRoleSwitchIsHighImpact(AskodoxUserRole to) =>
-    to != AskodoxUserRole.buyer;
+/// accepting requests), and leaving a supply role ends their seller task --
+/// so an ambiguous hint asks before switching in either case.
+bool askodoxRoleSwitchIsHighImpact(AskodoxUserRole to, {AskodoxUserRole? from}) =>
+    to != AskodoxUserRole.buyer || (from != null && askodoxSupplyRoles.contains(from));
 
 String askodoxRoleChangedMessage(
   AskodoxUserRole from,
