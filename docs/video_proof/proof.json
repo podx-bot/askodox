@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-29T14:23:07Z",
+ "generated_at": "2026-09-29T14:58:39Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:df63cdf9a8544e89",
+   "trace_key": "browse:7fac8548030b41cb",
    "videos": [
     {
      "video_id": "yt_cgQhFuIFREs",
@@ -29,17 +29,16 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are review videos for the Samsung 43-inch TV.",
-    "domain": "GENERAL",
+    "reply": "Here are some popular review videos for Samsung 43-inch TVs to help you check picture quality, features, and performance.",
+    "domain": "PRODUCT",
     "transactional": false,
     "action": "search_reviews",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "TV review videos",
      "brand": "Samsung",
+     "subject": "TV review videos",
      "size": "43 inch",
-     "category": "electronics",
      "location": "Vijayawada"
     }
    },
@@ -87,13 +86,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube\"",
-    "reply": "Based on the details from creator Udrawat, this review covers the Samsung 43 Inch Crystal UHD 4K Vision AI TV [2026] featuring 30W speakers, HDR, and Tizen OS (creator's opinion, not verified by ASKODOX). Specific details like price, stock availability, ratings, and distance are not provided by the source. Let me know if you would like help finding prices or purchasing options.",
+    "reply": "Based on the title from Udrawat, this video covers the Samsung 43 Inch Crystal UHD 4K Vision AI TV (2026) featuring 30W speakers, HDR, and Tizen OS. Note that this is the creator's opinion and has not been verified by ASKODOX. Detailed specifications, price, rating, and stock are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Yes, it is generally considered a good budget 4K TV for its display quality and 30W audio. Would you like me to check local store availability or prices in Vijayawada?",
+    "follow_reply": "The Samsung 43 Inch Crystal UHD TV generally offers good picture quality with HDR and Tizen OS for its price range, though its 30W speakers and AI features vary by user preference. You can find it at local electronics retailers like Reliance Digital, Bajaj Electronics, or Samsung SmartPlaza in Vijayawada.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "find_product"
+    "follow_action": "get_product_info"
    },
    "next": {
     "step": "find_local",
@@ -203,7 +202,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:5d9e6de5c3694b2e",
+   "trace_key": "browse:1bfd741b6c8448ca",
    "videos": [
     {
      "video_id": "yt_cgQhFuIFREs",
@@ -225,8 +224,8 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియోల గురించి ఏ విషయాలు తెలుసుకోవాలనుకుంటున్నారు? పిక్చర్ క్వాలిటీ, సౌండ్ లేదా స్మార్ట్ ఫీచర్లా?",
-    "domain": "PRODUCT",
+    "reply": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియోల సమాచారం కోసం చూస్తున్నాను. మీకు నిర్దిష్టమైన మోడల్ రివ్యూ కావాలా?",
+    "domain": "GENERAL",
     "transactional": false,
     "action": "search_reviews",
     "confidence": 0.95,
@@ -282,13 +281,13 @@
    },
    "ai": {
     "question": "\"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "Samsung 43 Inch Crystal UHD 4K Vision AI TV కి సంబంధించి నాణ్యతలో 30W స్పీకర్లు, HDR, Tizen OS వంటి ఫీచర్లు ఉన్నాయని టైటిల్ లో ఉంది. అయితే దీని ధర, అందుబాటు వివరాలు, స్టోర్ దూరం మరియు రివ్యూలకు సంబంధించిన సమాచారం ప్రస్తుతం అందుబాటులో లేదు (Not provided). వివరాల కోసం మీరు విక్రేతను లేదా షోరూమ్‌ను సంప్రదించమంటారా?",
+    "reply": "Samsung 43 Inch Crystal UHD 4K Vision AI TV కి సంబంధించిన వివరాలు: ఇది 30W స్పీకర్లు, HDR, Tizen OS తో వస్తుంది. ధర, దూరం, అందుబాటు మరియు కస్టమర్ రివ్యూల వివరాలు అందుబాటులో లేవు. యూట్యూబర్ Udrawat అభిప్రాయం మాత్రమే ఇందులో ఉంది, ఇది ASKODOX ద్వారా ధృవీకరించబడలేదు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "అవును, 43 అంగుళాల టీవీ సాధారణంగా 8 నుండి 10 అడుగుల వీక్షణ దూరం ఉన్న చిన్న లేదా మధ్యస్థ పరిమాణం గల గదికి బాగా సరిపోతుంది.",
+    "follow_reply": "అవును, 43 అంగుళాల టీవీ చిన్న లేదా మోస్తరు గదికి (సుమారు 8 నుండి 10 అడుగుల వీక్షణ దూరం ఉన్న గదికి) సరిగ్గా సరిపోతుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "answer_question"
+    "follow_action": "get_product_info"
    },
    "next": {
     "step": "deals",
@@ -398,7 +397,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:f93d9ee8a62a4395",
+   "trace_key": "browse:f0212b5982d346be",
    "videos": [
     {
      "video_id": "yt_i2FYVv-qa4w",
@@ -420,16 +419,16 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here is information on the Redmi Note 13 Pro review video. It features a 200MP camera, Snapdragon 7s Gen 2 processor, and 67W fast charging.",
+    "reply": "Here is a quick overview of the Redmi Note 13 Pro review video.",
     "domain": "PRODUCT",
     "transactional": false,
-    "action": "get_product_info",
+    "action": "view_review_video",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "review video",
      "brand": "Redmi",
      "model": "Note 13 Pro",
-     "subject": "review video",
      "location": "Vijayawada"
     }
    },
@@ -477,13 +476,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro Review - Not again! - YouTube\"",
-    "reply": "The video 'Redmi Note 13 Pro Review - Not again!' is created by Izzi Boye. Please note that this reflects the creator's personal opinion and has not been verified by ASKODOX. Specific details like price, full specifications, ratings, and stock availability are not provided in the source metadata.",
+    "reply": "This video is 'Redmi Note 13 Pro Review - Not again!' created by Izzi Boye, covering an unboxing and review of the Redmi Note 13 Pro 4G. Note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like price, specifications, stock, and ratings are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "It depends on your priorities—it offers a great display and camera, but processor performance in its segment varies by preference. You can buy it online via Mi.com/Amazon or visit local electronics stores in Vijayawada like Bajaj Electronics, Poorvika, or Reliance Digital.",
+    "follow_reply": "The Redmi Note 13 Pro offers strong features like an AMOLED display and high-resolution camera, making it a popular mid-range choice. You can find it locally in Vijayawada at Mi Stores, local electronics retailers like Supreme or Bajaj Electronics, or online via Amazon and Flipkart.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "check_availability"
+    "follow_action": "search_product"
    },
    "next": {
     "step": "deals",
@@ -594,7 +593,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:1ae99eceef0e45cd",
+   "trace_key": "browse:0e177f447f9d41d7",
    "videos": [
     {
      "video_id": "yt_PC-ztrSrDMo",
@@ -616,14 +615,14 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are the review videos and detailed overviews for the Tata Nexon.",
-    "domain": "PRODUCT",
+    "reply": "Here are some popular review videos for the Tata Nexon.",
+    "domain": "GENERAL",
     "transactional": false,
-    "action": "search_product",
+    "action": "search_media",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Nexon review video",
+     "subject": "review video",
      "brand": "Tata",
      "model": "Nexon",
      "location": "Vijayawada"
@@ -673,13 +672,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube\"",
-    "reply": "This video by carandbike covers their 3-month, 3000 km long-term experience with the Tata Nexon, highlighting 3 reasons to buy and 3 reasons to avoid it. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like price, rating, and specifications were not provided in the source.",
+    "reply": "This long-term review video by carandbike shares the creator's opinion based on using the Tata Nexon for 3 months and 3,000 km. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, ratings, or detailed specifications were not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The Nexon offers strong safety, good build quality, and feature-rich options, though some users note minor infotainment glitches and service variability. In Vijayawada, you can test drive and purchase it at authorized Tata Motors dealerships like Jasper Tata or Lakshmi Tata.",
+    "follow_reply": "The Tata Nexon is generally considered a strong value-for-money compact SUV known for its 5-star safety rating, comfortable ride, and features. You can test drive and purchase it at authorized Tata Motors showrooms in Vijayawada.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "provide_information"
+    "follow_action": "get_product_info"
    },
    "next": {
     "step": "find_local",
@@ -790,27 +789,335 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:421132090fc24cc1",
-   "videos": [],
-   "production_video_rows": 0,
-   "result": "no relevant videos"
+   "trace_key": "browse:1d827684cc464853",
+   "videos": [
+    {
+     "video_id": "yt_KOYoiZG5_3E",
+     "title": "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube",
+     "source_name": "Crazyy Unboxing",
+     "duration": "07:37",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/KOYoiZG5_3E?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/oH40s_ZZ7KV1Yi-J_X8WVp1CokfndhFMdrlth0RAVOQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9L/T1lvaVpHNV8zRS9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=KOYoiZG5_3E",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [],
+     "services": [
+      "ac service"
+     ]
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are some helpful AC service videos you can watch.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_videos",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "AC service video",
+     "category": "AC service",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_KOYoiZG5_3E",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube",
+     "Urban Company Vs NoBroker AC Service 🧹❄️ | Full Honest Review | Kaun Jeeta?Bhaiyon aur behno!",
+     "🤭Garmi aayi nahi, AC ki yaad aa gayi!Isliye humne kiya Urban ..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Crazyy Unboxing",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=KOYoiZG5_3E",
+    "question": "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "ac service near me"
+     },
+     {
+      "action": "local_service",
+      "label": "Book a local service",
+      "ask": "ac service near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "ac service offers"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare ac service with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "ac service reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube\"",
+    "reply": "This video by Crazyy Unboxing compares Urban Company and NoBroker AC services in an honest review style. Please note, this reflects the creator's personal opinion and is not verified by ASKODOX. Specific details like exact pricing, ratings, or availability are not provided in the source description.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "AC servicing is generally worth it to maintain cooling efficiency and prevent breakdowns before summer. In Vijayawada, you can book AC servicing through local technician apps or contact authorized service centers directly.",
+    "follow_source": "universal_ai",
+    "follow_domain": "SERVICE",
+    "follow_action": "get_service_info"
+   },
+   "next": {
+    "step": "local_service",
+    "ask": "ac service service near me",
+    "segments": [],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "not_applicable",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Professional AC service & repair experts in Vijayawada, India",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.urbancompany.com",
+      "price": 3000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.urbancompany.com/vijayawada-ac-service-repair",
+      "image_url": "https://imgs.search.brave.com/M07R7jeyX6AxGy0ptFRrnJr8vCqaBPXKYpJrYN4Ncto/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvY2F0ZWdv/cnlfdjIvY2F0ZWdv/cnlfZWYyYjc5ZDAu/cG5n",
+      "location_label": null
+     },
+     {
+      "title": "Split AC Services in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.vijayhomeservices.com",
+      "price": 299.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijayhomeservices.com/services/split-ac-service-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/Q_TWfwqy2_3v_c90lXCD2GIaa2KWx6T9a591lfBqGUo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlob21lc2Vy/dmljZXMuY29tL2Zh/dmljb24uaWNv",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.sulekha.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.sulekha.com/ac-repair-services/vijayawada",
+      "image_url": "https://imgs.search.brave.com/wEGWohsWisuNnTKb9-vzrKFA43i8dAN5ulIzcAotyS4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2xraW1ncy5jb20v/Y29udGVudC9pbWFn/ZXMvc3VsZWtoYS1s/b2dvLWZiLnBuZw",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.justdial.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.justdial.com/Vijayawada/AC-Repair-Services/nct-10890481",
+      "image_url": "https://imgs.search.brave.com/Y37zrttGhiwWIy6aD0EU7jX2KevWg2UXQJy9fTdDASk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jb250/ZW50LmpkbWFnaWNi/b3guY29tL2NvbXAv/dmlqYXlhd2FkYS96/OS8wODY2cHg4NjYu/eDg2Ni4xOTA3MzEx/OTE4NTMubDd6OS9j/YXRhbG9ndWUvYTEt/ZWxlY3Ryb25pYy1z/ZXJ2aWNlcy12aWph/eWF3YWRhLWV4Yzk0/OXV2d2EuanBn",
+      "location_label": null
+     }
+    ]
+   }
   },
   {
    "label": "home-service",
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:1da30dcb499b4a5d",
-   "videos": [],
-   "production_video_rows": 0,
-   "result": "no relevant videos"
+   "trace_key": "browse:3faa400f5eb84520",
+   "videos": [
+    {
+     "video_id": "yt_rd7ZsCBTu5c",
+     "title": "Get More Plumbing Reviews FAST — Proven Strategy Revealed - YouTube",
+     "source_name": "Plumber Marketing with Tyler Williams",
+     "duration": "06:16",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/rd7ZsCBTu5c?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/buh0Vir-gq1xO72ef_ooes1uy3YTyQXxuUN_8d6jB9w/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9y/ZDdac0NCVHU1Yy9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=rd7ZsCBTu5c",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [],
+     "services": [
+      "plumbing repair"
+     ]
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are some top video tutorials on how to repair a leaking or clogged kitchen sink pipe.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_videos",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "kitchen sink plumbing repair video",
+     "category": "plumbing repair",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_rd7ZsCBTu5c",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "Get More Plumbing Reviews FAST — Proven Strategy Revealed - YouTube",
+     "Schedule your consult with my team:https://www.mammothforplumbers.com/free-marketing-consult/?utm_source=youtubeWant more customers?",
+     "Start by boosting your G"
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Plumber Marketing with Tyler Williams",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=rd7ZsCBTu5c",
+    "question": "Get More Plumbing Reviews FAST — Proven Strategy Revealed - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "plumbing repair near me"
+     },
+     {
+      "action": "local_service",
+      "label": "Book a local service",
+      "ask": "plumbing repair service near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "plumbing repair offers"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare plumbing repair with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "plumbing repair reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"Get More Plumbing Reviews FAST — Proven Strategy Revealed - YouTube\"",
+    "reply": "This video by Plumber Marketing with Tyler Williams focuses on strategies to get more Google reviews for plumbing businesses. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like price, rating, and stock are not provided by the source. Let me know if you would like me to help find local plumbing services instead.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "The video itself isn't a physical product to buy, but a marketing guide for plumbing business owners. If you're looking for professional plumbing repair services or supplies in Vijayawada instead, let me know what you need!",
+    "follow_source": "universal_ai",
+    "follow_domain": "SERVICE",
+    "follow_action": "provide_information"
+   },
+   "next": {
+    "step": "local_service",
+    "ask": "plumbing repair service near me",
+    "segments": [],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "not_applicable",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Book Plumber Repair Service Vijayawada Service On Wheel:Ph-8237611222 / 8087911222",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.serviceonwheel.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.serviceonwheel.com/vijayawada/service/plumber.html",
+      "image_url": "https://imgs.search.brave.com/OBibdOVF-tymAWAW4JoX6s9WEDvummeRiOg1grvLIsI/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2VydmljZW9ud2hl/ZWwuY29tL3VwbG9h/ZHMvc2VydmljZS84/OTAxMTU4NDA3OTAz/OC5wbmc",
+      "location_label": null
+     },
+     {
+      "title": "Plumber in India | Book Trusted Plumbing Services at Home | Urban Company",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.urbancompany.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.urbancompany.com/vijayawada-plumbers",
+      "image_url": "https://imgs.search.brave.com/9jVup9LyZ4JQg6_qpYHAeLw3jnGUTtVyI8FKPS6Kwh8/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvaG9tZV9z/Y3JlZW4vcGx1bWJl/ci5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Plumbing services near me in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "atozservice.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://atozservice.in/near-me/vijayawada/plumbing-services.html",
+      "image_url": "https://imgs.search.brave.com/hufhYSzsbo7S5dfvW2i2cokTZZb3C6zBxOqOAyuCXwU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hdG96/c2VydmljZS5pbi9p/bWFnZXMvbmVhcm1l/L3BsdW0uanBn",
+      "location_label": null
+     },
+     {
+      "title": "Plumbers @7065012902 Vijayawada - Mannubhai.com",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.mannubhai.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.mannubhai.com/vijayawada/plumber",
+      "image_url": "https://imgs.search.brave.com/tH9Fgh9eERcrb6XdN8eYgLdRX6SKZno7X0M53FFYXzA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/bWFubnViaGFpLmNv/bS9hc3NldHMvaW1h/Z2VzL2xvZ28ucG5n",
+      "location_label": null
+     }
+    ]
+   }
   },
   {
    "label": "food",
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:2a4782e1c5774cf3",
+   "trace_key": "browse:506a21447d5a4d6f",
    "videos": [
     {
      "video_id": "yt_kYRcu5ZWxbo",
@@ -832,7 +1139,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some popular video reviews for Hyderabadi biryani that you can check out on YouTube.",
+    "reply": "Here are some popular Hyderabadi biryani review videos you can check out on YouTube, featuring top food reviewers visiting iconic spots like Bawarchi, Paradise, and Cafe Bahar.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_content",
@@ -888,13 +1195,13 @@
    },
    "ai": {
     "question": "Tell me more about \"HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube\"",
-    "reply": "This video is 'HYDERABADI CHICKEN DUM BIRYANI RECIPE' by Chef Sanjyot Keer from Your Food Lab. Note that this is the creator's opinion and method, not verified by ASKODOX. Specific details like exact measurements, ratings, or step-by-step transcript are not provided in the source metadata.",
+    "reply": "This is a popular Hyderabadi Chicken Dum Biryani recipe video by Chef Sanjyot Keer on Your Food Lab. Please note that this is the creator's opinion and not verified by ASKODOX, as I cannot analyze the full video content. Details like rating, reviews, or full step-by-step specifications are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Are you looking to order Hyderabadi Chicken Biryani for delivery from a local restaurant in Vijayawada?",
+    "follow_reply": "Chef Sanjyot Keer's recipe video is highly rated and worth following if you want to cook authentic Hyderabadi biryani at home. If you prefer to order biryani directly in Vijayawada, let me know if you would like recommendations for local restaurants.",
     "follow_source": "universal_ai",
-    "follow_domain": "FOOD",
-    "follow_action": "search_food"
+    "follow_domain": "GENERAL",
+    "follow_action": "provide_information"
    },
    "next": {
     "step": "find_local",
@@ -990,7 +1297,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:cffedf77ef1b4ffb",
+   "trace_key": "browse:a4e86155e5c0480e",
    "videos": [
     {
      "video_id": "yt_NWiBFTd5aD0",
@@ -1012,7 +1319,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some popular travel review videos for the Araku Valley trip that show the route, attractions, and best experiences.",
+    "reply": "Here are some popular travel review videos and vlogs covering trips to Araku Valley.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_content",
@@ -1020,7 +1327,7 @@
     "source": "universal_ai",
     "entities": {
      "subject": "Araku valley trip review video",
-     "location": "Araku Valley"
+     "location": "Vijayawada"
     }
    },
    "explain": {
@@ -1067,12 +1374,12 @@
    },
    "ai": {
     "question": "Tell me more about \"Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube\"",
-    "reply": "Based on the description from Let's Discover India, 'Ultimate Araku Valley Travel Guide' covers top things to see including Borra Caves and Anantagiri Waterfalls. Please note this reflects the creator's opinion and is not verified by ASKODOX. The video itself has not been analyzed, and details like price or specific reviews are not provided by the source.",
+    "reply": "According to the video 'Ultimate Araku Valley Travel Guide: Top Things to Do and See' by Let's Discover India, it covers destinations like Borra Caves and Anantagiri Waterfalls. Please note that these are the creator's opinions and have not been verified by ASKODOX. Specific details such as pricing or ratings are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Are you asking about a specific item or souvenir from Araku Valley, like Araku coffee or local handicrafts? Please let me know what product you are looking to buy.",
+    "follow_reply": "Could you please clarify what specific product or service from the Araku Valley guide you are referring to?",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "GENERAL",
     "follow_action": "clarify_need"
    },
    "next": {
@@ -1137,7 +1444,7 @@
       "segment": null,
       "match_source": "online",
       "source_name": "www.makemytrip.com",
-      "price": 100.0,
+      "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
@@ -1182,7 +1489,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:7a13c7dd9c40420a",
+   "trace_key": "browse:4433739aad6a4e51",
    "videos": [
     {
      "video_id": "yt_88rgLE_eNJk",
@@ -1204,7 +1511,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some review videos of the used Royal Enfield Classic 350 to help you evaluate its performance and common issues.",
+    "reply": "Here are some review videos for the used Royal Enfield Classic 350.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_media",
@@ -1214,7 +1521,6 @@
      "subject": "used Royal Enfield Classic 350 review video",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "context": "used",
      "location": "Vijayawada"
     }
    },
@@ -1262,13 +1568,13 @@
    },
    "ai": {
     "question": "Tell me more about \"The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube\"",
-    "reply": "The video 'The Truth About the Royal Enfield Classic 350 (2025 Review)' by creator Jack Brock focuses on a no-nonsense review of the bike, avoiding over-produced cinematic shots. Please note that these are the creator's opinions and not verified facts by ASKODOX. Details like price, rating, and stock are not provided by the source.",
+    "reply": "This video by Jack Brock is titled 'The Truth About the Royal Enfield Classic 350 (2025 Review)'. The creator mentions being tired of over-produced 20-minute reviews and aims to focus directly on the bike itself. Please note that this is the creator's opinion and not verified by ASKODOX. Specific details like price, bike specifications, condition, rating, and availability are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The Classic 350 is generally well-regarded for its refined engine and classic styling, though it has a heavy build. In Vijayawada, you can check authorized Royal Enfield showrooms or local pre-owned bike dealerships.",
+    "follow_reply": "The Classic 350 is widely praised for its refined J-series engine, smooth ride, and classic retro styling, though it is heavy for city traffic. Are you looking for a new model or a second-hand bike in Vijayawada?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "search_product_availability"
+    "follow_action": "search_product"
    },
    "next": {
     "step": "find_local",
@@ -1378,7 +1684,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:8663e1642c534fcf",
+   "trace_key": "browse:5501a647c48b47e7",
    "videos": [
     {
      "video_id": "yt_DJ5BkFUoKxg",
@@ -1400,10 +1706,10 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some popular review videos covering the iPhone 15 features, camera test, and latest deal offers.",
+    "reply": "Here is a review video covering the latest offers, features, and overall value of the iPhone 15.",
     "domain": "GENERAL",
     "transactional": false,
-    "action": "search_media",
+    "action": "view_content",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
@@ -1457,13 +1763,13 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 in 2026 - worth it? (Review) - YouTube\"",
-    "reply": "This video by 91Tech discusses whether the iPhone 15 is still worth buying in 2026. Note that this reflects the creator's opinion and is not verified by ASKODOX. According to the video description, the iPhone 15 and 15 Plus are solid midrange smartphones featuring USB-C. Specific details like exact price, stock availability, and ratings are not provided in the source.",
+    "reply": "According to the video 'iPhone 15 in 2026 - worth it?' by 91Tech, the iPhone 15 and 15 Plus are solid midrange smartphones featuring USB-C. Please note that this is the creator's opinion and not verified by ASKODOX. Specific details like price, stock availability, and ratings are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The iPhone 15 offers a great balance of performance, dynamic island, and USB-C. You can check local electronics retailers or official Apple resellers in Vijayawada for current availability and offers.",
+    "follow_reply": "The iPhone 15 is generally considered a solid choice for its camera and USB-C features. To check local availability in Vijayawada, which storage capacity or color variant are you looking for?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "get_product_info"
+    "follow_action": "check_product_availability"
    },
    "next": {
     "step": "deals",
@@ -1574,24 +1880,178 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:3120b53fb33c48fc",
-   "videos": [],
-   "production_video_rows": 0,
-   "result": "no relevant videos"
+   "trace_key": "browse:2b21fbb9b6794771",
+   "videos": [
+    {
+     "video_id": "yt_KOYoiZG5_3E",
+     "title": "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube",
+     "source_name": "Crazyy Unboxing",
+     "duration": "07:37",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/KOYoiZG5_3E?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/oH40s_ZZ7KV1Yi-J_X8WVp1CokfndhFMdrlth0RAVOQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9L/T1lvaVpHNV8zRS9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=KOYoiZG5_3E",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [],
+     "services": [
+      "ac service"
+     ]
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "AC సర్వీస్ వీడియో కోసం యూట్యూబ్ లేదా ఇంటర్నెట్‌లో వెతకవచ్చు. మీకు దగ్గరలోని ఏసీ సర్వీసింగ్ టెక్నీషియన్ ఫోన్ నంబర్ ఏమైనా కావాలా?",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "provide_information",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "AC service video",
+     "service_type": "AC service",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_KOYoiZG5_3E",
+    "analyzed": false,
+    "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
+    "from_source": [
+     "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube",
+     "Urban Company Vs NoBroker AC Service 🧹❄️ | Full Honest Review | Kaun Jeeta?Bhaiyon aur behno!",
+     "🤭Garmi aayi nahi, AC ki yaad aa gayi!Isliye humne kiya Urban ..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Crazyy Unboxing",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=KOYoiZG5_3E",
+    "question": "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "దగ్గరలో కనుగొనండి",
+      "ask": "ac service near me"
+     },
+     {
+      "action": "local_service",
+      "label": "స్థానిక సేవ",
+      "ask": "ac service near me"
+     },
+     {
+      "action": "deals",
+      "label": "డీల్స్ చూపించండి",
+      "ask": "ac service offers"
+     },
+     {
+      "action": "compare",
+      "label": "పోల్చండి",
+      "ask": "Compare ac service with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "రివ్యూలు",
+      "ask": "ac service reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "\"Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "reply": "Crazyy Unboxing ఛానెల్ వీడియో నుండి ఈ పోలిక అందించబడింది (ఇది సృష్టికర్త అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు). వీడియో వివరాల ప్రకారం:\n• ధర: సమాచారం అందుబాటులో లేదు (not provided)\n• దూరం: సమాచారం అందుబాటులో లేదు (not provided)\n• నాణ్యత / అందుబాటు: సమాచారం అందుబాటులో లేదు (not provided)\n• రివ్యూలు / రేటింగ్: సమాచారం అందుబాటులో లేదు (not provided)\n\nవీడియోలో Urban Company మరియు NoBroker AC సేవల నిజాయితీ సమీక్షను అందించడానికి ప్రయత్నించారు, కానీ నిర్దిష్ట వివరాలు లేదా ఫలితాలు అందుబాటులో లేవు.",
+    "source": "universal_ai",
+    "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
+    "follow_reply": "చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను (1 Ton) ఏసీ బాగా సరిపోతుంది. మీ గది పరిమాణం లేదా నిర్దిష్ట ఏసీ మోడల్ చెబితే సరిగ్గా సరిపోతుందో లేదో వివరంగా చెప్పగలను.",
+    "follow_source": "universal_ai",
+    "follow_domain": "GENERAL",
+    "follow_action": "general_inquiry"
+   },
+   "next": {
+    "step": "local_service",
+    "ask": "ac service service near me",
+    "segments": [],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "not_applicable",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Professional AC service & repair experts in Vijayawada, India",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.urbancompany.com",
+      "price": 3000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.urbancompany.com/vijayawada-ac-service-repair",
+      "image_url": "https://imgs.search.brave.com/M07R7jeyX6AxGy0ptFRrnJr8vCqaBPXKYpJrYN4Ncto/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvY2F0ZWdv/cnlfdjIvY2F0ZWdv/cnlfZWYyYjc5ZDAu/cG5n",
+      "location_label": null
+     },
+     {
+      "title": "Split AC Services in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.vijayhomeservices.com",
+      "price": 299.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijayhomeservices.com/services/split-ac-service-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/Q_TWfwqy2_3v_c90lXCD2GIaa2KWx6T9a591lfBqGUo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlob21lc2Vy/dmljZXMuY29tL2Zh/dmljb24uaWNv",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.sulekha.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.sulekha.com/ac-repair-services/vijayawada",
+      "image_url": "https://imgs.search.brave.com/wEGWohsWisuNnTKb9-vzrKFA43i8dAN5ulIzcAotyS4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2xraW1ncy5jb20v/Y29udGVudC9pbWFn/ZXMvc3VsZWtoYS1s/b2dvLWZiLnBuZw",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.justdial.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.justdial.com/Vijayawada/AC-Repair-Services/nct-10890481",
+      "image_url": "https://imgs.search.brave.com/Y37zrttGhiwWIy6aD0EU7jX2KevWg2UXQJy9fTdDASk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jb250/ZW50LmpkbWFnaWNi/b3guY29tL2NvbXAv/dmlqYXlhd2FkYS96/OS8wODY2cHg4NjYu/eDg2Ni4xOTA3MzEx/OTE4NTMubDd6OS9j/YXRhbG9ndWUvYTEt/ZWxlY3Ryb25pYy1z/ZXJ2aWNlcy12aWph/eWF3YWRhLWV4Yzk0/OXV2d2EuanBn",
+      "location_label": null
+     }
+    ]
+   }
   }
  ],
  "video_funnel": [
   {
    "step": "video_impression",
-   "count": 8
+   "count": 11
   },
   {
    "step": "video_open",
-   "count": 8
+   "count": 11
   },
   {
    "step": "video_watch_start",
-   "count": 8
+   "count": 11
   },
   {
    "step": "video_watch_complete",
@@ -1599,7 +2059,7 @@
   },
   {
    "step": "video_ask",
-   "count": 8
+   "count": 11
   },
   {
    "step": "video_product_click",
@@ -1607,7 +2067,7 @@
   },
   {
    "step": "video_service_click",
-   "count": 0
+   "count": 3
   },
   {
    "step": "video_local_search",
@@ -1649,7 +2109,7 @@
   },
   {
    "step": "click",
-   "count": 8
+   "count": 11
   },
   {
    "step": "claim",
@@ -1680,6 +2140,6 @@
    "count": 0
   }
  ],
- "event_count": 62,
+ "event_count": 77,
  "youtube_data_api": "needs_configuration (no YOUTUBE_API_KEY in this run)"
 }
