@@ -1,0 +1,1685 @@
+{
+ "generated_at": "2026-09-29T14:23:07Z",
+ "production": "https://podx-ai-connect-production-3279.up.railway.app",
+ "cases": [
+  {
+   "label": "electronics",
+   "language": "en",
+   "text": "Samsung 43 inch TV review videos",
+   "subject": "samsung 43 inch tv",
+   "trace_key": "browse:df63cdf9a8544e89",
+   "videos": [
+    {
+     "video_id": "yt_cgQhFuIFREs",
+     "title": "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube",
+     "source_name": "Udrawat",
+     "duration": "15:39",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/cgQhFuIFREs?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/-0gZNXuhuNC5AITZ9bkAjf7nKwButeg4hbuWXalNr-k/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9j/Z1FoRnVJRlJFcy9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=cgQhFuIFREs",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "samsung 43 inch tv"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are review videos for the Samsung 43-inch TV.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_reviews",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "TV review videos",
+     "brand": "Samsung",
+     "size": "43 inch",
+     "category": "electronics",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_cgQhFuIFREs",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube",
+     "Samsung Crystal43\": https://link.amazon/B03sWYNpr [Amazon]50\": https://link.amazon/B0i2g7kKa [Amazon]55\": https://link.amazon/B00Enb8SH [Amazon]65\": https://"
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Udrawat",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=cgQhFuIFREs",
+    "question": "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "samsung 43 inch tv near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "samsung 43 inch tv offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used samsung 43 inch tv"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare samsung 43 inch tv with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "samsung 43 inch tv reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube\"",
+    "reply": "Based on the details from creator Udrawat, this review covers the Samsung 43 Inch Crystal UHD 4K Vision AI TV [2026] featuring 30W speakers, HDR, and Tizen OS (creator's opinion, not verified by ASKODOX). Specific details like price, stock availability, ratings, and distance are not provided by the source. Let me know if you would like help finding prices or purchasing options.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "Yes, it is generally considered a good budget 4K TV for its display quality and 30W audio. Would you like me to check local store availability or prices in Vijayawada?",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "find_product"
+   },
+   "next": {
+    "step": "find_local",
+    "ask": "samsung 43 inch tv near me",
+    "segments": [
+     "deals",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "samsung 43 inches tv | Used TV & DVD & Multimedia in Bangalore | Electronics & Appliances Quikr Bazaar Bangalore",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.quikr.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.quikr.com/electronics-appliances/samsung-43-inches-tv+TV-DVD-Multimedia+Bangalore+x217f",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43-inch TVs Price List in India (September 2026)",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.bajajfinserv.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bajajfinserv.in/insights/samsung-43-inch-tv-price-list-in-india",
+      "image_url": "https://imgs.search.brave.com/SATfjvXJvZ1sxb26oKkDd7b8ycp9KxfuGLBJh9mV_oA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jbXMt/YXNzZXRzLmJhamFq/Zmluc2Vydi5pbi9p/cy9pbWFnZS9iYWph/amZpbmFuY2Uvc2Ft/c3VuZy00My1pbmNo/LXR2LXByaWNlLWxp/c3QtaW4taW5kaWE_/c2NsPTE",
+      "location_label": null
+     },
+     {
+      "title": "Second Hand TV - Old TV Latest Price, Manufacturers & Suppliers",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "dir.indiamart.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://dir.indiamart.com/impcat/second-hand-tv.html",
+      "image_url": "https://imgs.search.brave.com/WiUsGK2XuT3EjkjpAbZo4qvDMhaAph2lbnR4TItXCQg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly81Lmlt/aW1nLmNvbS9kYXRh/NS9TWC9KQy9WRC9H/TEFETUlOLTY4MTU1/L3NlY29uZC1oYW5k/LXR2LTUwMHg1MDAu/anBn",
+      "location_label": null
+     },
+     {
+      "title": "Buy Refurbished / Used TV & DVD in Vijayawada | Second Hand TV / Television For Sale Online | QuikrBazaar",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.quikr.com",
+      "price": 11500.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.quikr.com/electronics-appliances/TV+TV-DVD-Multimedia+Vijayawada+w18222210911fj",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.mysmartprice.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 4K TV 43 inch - Samsung 4K Television Latest Price, Dealers & Retailers in India",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "dir.indiamart.com",
+      "price": 12500.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://dir.indiamart.com/impcat/samsung-4k-tv/screen-size-43-inch-q15261393/",
+      "image_url": "https://imgs.search.brave.com/IMW1nebttF8rWp_w2LzFWMCvccnpV7wdy1SEknNn0sY/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly81Lmlt/aW1nLmNvbS9kYXRh/NS9HTEFETUlOL0Rl/ZmF1bHQvMjAyMy8x/Mi8zNjg4NTc3NDAv/RkQvT1AvS0UvMjM2/Njkvc2Ftc3VuZy00/ay10di01MDB4NTAw/LmpwZw",
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "electronics-te",
+   "language": "te",
+   "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
+   "subject": "samsung 43 inch tv",
+   "trace_key": "browse:5d9e6de5c3694b2e",
+   "videos": [
+    {
+     "video_id": "yt_cgQhFuIFREs",
+     "title": "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube",
+     "source_name": "Udrawat",
+     "duration": "15:39",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/cgQhFuIFREs?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/-0gZNXuhuNC5AITZ9bkAjf7nKwButeg4hbuWXalNr-k/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9j/Z1FoRnVJRlJFcy9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=cgQhFuIFREs",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "samsung 43 inch tv"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియోల గురించి ఏ విషయాలు తెలుసుకోవాలనుకుంటున్నారు? పిక్చర్ క్వాలిటీ, సౌండ్ లేదా స్మార్ట్ ఫీచర్లా?",
+    "domain": "PRODUCT",
+    "transactional": false,
+    "action": "search_reviews",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "brand": "Samsung",
+     "size": "43 inches",
+     "subject": "TV review video",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_cgQhFuIFREs",
+    "analyzed": false,
+    "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
+    "from_source": [
+     "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube",
+     "Samsung Crystal43\": https://link.amazon/B03sWYNpr [Amazon]50\": https://link.amazon/B0i2g7kKa [Amazon]55\": https://link.amazon/B00Enb8SH [Amazon]65\": https://"
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Udrawat",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=cgQhFuIFREs",
+    "question": "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "దగ్గరలో కనుగొనండి",
+      "ask": "samsung 43 inch tv near me"
+     },
+     {
+      "action": "deals",
+      "label": "డీల్స్ చూపించండి",
+      "ask": "samsung 43 inch tv offers"
+     },
+     {
+      "action": "used",
+      "label": "వాడినది / తక్కువ ధర",
+      "ask": "used samsung 43 inch tv"
+     },
+     {
+      "action": "compare",
+      "label": "పోల్చండి",
+      "ask": "Compare samsung 43 inch tv with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "రివ్యూలు",
+      "ask": "samsung 43 inch tv reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "\"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "reply": "Samsung 43 Inch Crystal UHD 4K Vision AI TV కి సంబంధించి నాణ్యతలో 30W స్పీకర్లు, HDR, Tizen OS వంటి ఫీచర్లు ఉన్నాయని టైటిల్ లో ఉంది. అయితే దీని ధర, అందుబాటు వివరాలు, స్టోర్ దూరం మరియు రివ్యూలకు సంబంధించిన సమాచారం ప్రస్తుతం అందుబాటులో లేదు (Not provided). వివరాల కోసం మీరు విక్రేతను లేదా షోరూమ్‌ను సంప్రదించమంటారా?",
+    "source": "universal_ai",
+    "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
+    "follow_reply": "అవును, 43 అంగుళాల టీవీ సాధారణంగా 8 నుండి 10 అడుగుల వీక్షణ దూరం ఉన్న చిన్న లేదా మధ్యస్థ పరిమాణం గల గదికి బాగా సరిపోతుంది.",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "answer_question"
+   },
+   "next": {
+    "step": "deals",
+    "ask": "samsung 43 inch tv offers",
+    "segments": [
+     "deals",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "samsung 43 inches tv | Used TV & DVD & Multimedia in Bangalore | Electronics & Appliances Quikr Bazaar Bangalore",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.quikr.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.quikr.com/electronics-appliances/samsung-43-inches-tv+TV-DVD-Multimedia+Bangalore+x217f",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43-inch TVs Price List in India (September 2026)",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.bajajfinserv.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bajajfinserv.in/insights/samsung-43-inch-tv-price-list-in-india",
+      "image_url": "https://imgs.search.brave.com/SATfjvXJvZ1sxb26oKkDd7b8ycp9KxfuGLBJh9mV_oA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jbXMt/YXNzZXRzLmJhamFq/Zmluc2Vydi5pbi9p/cy9pbWFnZS9iYWph/amZpbmFuY2Uvc2Ft/c3VuZy00My1pbmNo/LXR2LXByaWNlLWxp/c3QtaW4taW5kaWE_/c2NsPTE",
+      "location_label": null
+     },
+     {
+      "title": "Second Hand TV - Old TV Latest Price, Manufacturers & Suppliers",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "dir.indiamart.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://dir.indiamart.com/impcat/second-hand-tv.html",
+      "image_url": "https://imgs.search.brave.com/WiUsGK2XuT3EjkjpAbZo4qvDMhaAph2lbnR4TItXCQg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly81Lmlt/aW1nLmNvbS9kYXRh/NS9TWC9KQy9WRC9H/TEFETUlOLTY4MTU1/L3NlY29uZC1oYW5k/LXR2LTUwMHg1MDAu/anBn",
+      "location_label": null
+     },
+     {
+      "title": "Buy Refurbished / Used TV & DVD in Vijayawada | Second Hand TV / Television For Sale Online | QuikrBazaar",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.quikr.com",
+      "price": 11500.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.quikr.com/electronics-appliances/TV+TV-DVD-Multimedia+Vijayawada+w18222210911fj",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.mysmartprice.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 4K TV 43 inch - Samsung 4K Television Latest Price, Dealers & Retailers in India",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "dir.indiamart.com",
+      "price": 12500.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://dir.indiamart.com/impcat/samsung-4k-tv/screen-size-43-inch-q15261393/",
+      "image_url": "https://imgs.search.brave.com/IMW1nebttF8rWp_w2LzFWMCvccnpV7wdy1SEknNn0sY/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly81Lmlt/aW1nLmNvbS9kYXRh/NS9HTEFETUlOL0Rl/ZmF1bHQvMjAyMy8x/Mi8zNjg4NTc3NDAv/RkQvT1AvS0UvMjM2/Njkvc2Ftc3VuZy00/ay10di01MDB4NTAw/LmpwZw",
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "phone",
+   "language": "en",
+   "text": "Redmi Note 13 Pro review video",
+   "subject": "redmi note 13 pro",
+   "trace_key": "browse:f93d9ee8a62a4395",
+   "videos": [
+    {
+     "video_id": "yt_i2FYVv-qa4w",
+     "title": "Redmi Note 13 Pro Review - Not again! - YouTube",
+     "source_name": "Izzi Boye",
+     "duration": "10:08",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/i2FYVv-qa4w?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/n4-MUb27UeTQSKTbpX6gku03rUGWGOI5C9Ets13Rh7o/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9p/MkZZVnYtcWE0dy9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=i2FYVv-qa4w",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "redmi note 13 pro"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here is information on the Redmi Note 13 Pro review video. It features a 200MP camera, Snapdragon 7s Gen 2 processor, and 67W fast charging.",
+    "domain": "PRODUCT",
+    "transactional": false,
+    "action": "get_product_info",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "brand": "Redmi",
+     "model": "Note 13 Pro",
+     "subject": "review video",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_i2FYVv-qa4w",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "Redmi Note 13 Pro Review - Not again! - YouTube",
+     "Redmi Note 13 Pro 4G Unboxing and Review **AI PDF Editors with OCR: UPDF - Save 71% Now: https://bit.ly/3UZCRky **Try UPDF AI: https://bit.ly/3IijQSB Redmi N..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Izzi Boye",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=i2FYVv-qa4w",
+    "question": "Redmi Note 13 Pro Review - Not again! - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "redmi note 13 pro near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "redmi note 13 pro offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used redmi note 13 pro"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare redmi note 13 pro with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "redmi note 13 pro reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"Redmi Note 13 Pro Review - Not again! - YouTube\"",
+    "reply": "The video 'Redmi Note 13 Pro Review - Not again!' is created by Izzi Boye. Please note that this reflects the creator's personal opinion and has not been verified by ASKODOX. Specific details like price, full specifications, ratings, and stock availability are not provided in the source metadata.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "It depends on your priorities—it offers a great display and camera, but processor performance in its segment varies by preference. You can buy it online via Mi.com/Amazon or visit local electronics stores in Vijayawada like Bajaj Electronics, Poorvika, or Reliance Digital.",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "check_availability"
+   },
+   "next": {
+    "step": "deals",
+    "ask": "redmi note 13 pro offers",
+    "segments": [
+     "deals",
+     "surplus",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Buy Old Used Xiaomi Redmi Note 13 Pro 4G Phones Under ...",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.oruphones.com",
+      "price": 10000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.oruphones.com/buy-old-used-phones/Xiaomi/Xiaomi-Redmi-Note-13-Pro-4G/location/Andhra-Pradesh/Vijayawada/phones-under/10000",
+      "image_url": "https://imgs.search.brave.com/fEaBhlKYTmTzKN2_6d0eSfzPBdUZrfjwErPn55gZvAQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9vcnVw/aG9uZXMuY29tL2lj/b25zL2FwcGxlLXRv/dWNoLWljb24ucG5n",
+      "location_label": null
+     },
+     {
+      "title": "Open Box Store",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijaysales.com/event-pages/open-box-store",
+      "image_url": "https://imgs.search.brave.com/G-5poGlVvEZL-PY1bHnsG9MGX0CtsG4pGLrX39iNvKg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlzYWxlcy5j/b20vY29udGVudC9k/YW0vdmlqYXlzYWxl/c3dlYnNpdGUvaW4v/ZW4vY29tbW9uL2hl/YWRlci9pbWFnZXMv/dnMtbG9nby5zdmc",
+      "location_label": null
+     },
+     {
+      "title": "Redmi Note 13 5G, Note 13 Pro 5G, Note 13 Pro+ 5G goes on sale on Vijay Sales - Times of India",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "timesofindia.indiatimes.com",
+      "price": 2000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://timesofindia.indiatimes.com/gadgets-news/redmi-note-13-5g-note-13-pro-5g-note-13-pro-5g-goes-on-sale-on-vijay-sales/articleshow/106862076.cms",
+      "image_url": "https://imgs.search.brave.com/0cTEksO_25FzPTK8SUsh2rOeet8wa1yAQoXxIEbVm0M/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdGF0/aWMudG9paW1nLmNv/bS90aHVtYi9yZXNp/emVtb2RlLTQsd2lk/dGgtMTI4MCxoZWln/aHQtNzIwLG1zaWQt/MTA2ODYyMDMwLzEw/Njg2MjAzMC5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Buy Refurbished and Second Hand Xiaomi Redmi Note 13 Pro 5G Online at Cashify Store",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.cashify.in",
+      "price": 16599.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.cashify.in/buy-refurbished-mobile-phones/renewed-xiaomi-redmi-note-13-pro",
+      "image_url": "https://imgs.search.brave.com/fNuXmQekBOWXoeGzeTERQMtfPE_2rDxj1E_TbzZsGn4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zM24u/Y2FzaGlmeS5pbi9j/YXNoaWZ5L3N0b3Jl/L3Byb2R1Y3QvMmQ5/MjEyZDA1NmI3NDIy/NGFmYWJkNGUzMzVl/NGM0OWIuanBn",
+      "location_label": null
+     },
+     {
+      "title": "Redmi Note 13 Pro+ 5G Dual Sim Smartphone (12GB RAM, 512GB Storage) 6.67 inch 3D Curved AMOLED Display | MediaTek Dimensity 7200-Ultra (Fusion Black) | Vijay sa",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "stores.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://stores.vijaysales.com/vijay-sales-vijayawada-electronics-retail-and-repair-shop-m-g-road-vijayawada-281014/ProductDetails/224959",
+      "image_url": "https://imgs.search.brave.com/Kqmaiof6aZb1BfYvqmy2VdCdOrkjUG3o_eMQyb6ukq0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdG9y/ZXMudmlqYXlzYWxl/cy5jb20vZmlsZXMv/b3V0bGV0L291dGxl/dF9mYWNlYm9va19p/bWFnZXMvb3V0bGV0/X2NvdmVyX3Bob3Rv/LzI4MDUwNi9CYW5u/ZXJfNF9qcGcuanBn",
+      "location_label": null
+     },
+     {
+      "title": "Buy & Sell Second Hand 13+13 in India, Used Mi Mobile Phones in India | OLX",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.olx.in",
+      "price": 17000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.olx.in/mi-mobile-phones_c1453/q-13+13?filter=make_eq_mi-phone",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "vehicle",
+   "language": "en",
+   "text": "Tata Nexon review video",
+   "subject": "tata nexon",
+   "trace_key": "browse:1ae99eceef0e45cd",
+   "videos": [
+    {
+     "video_id": "yt_PC-ztrSrDMo",
+     "title": "Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube",
+     "source_name": "carandbike",
+     "duration": "08:18",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/PC-ztrSrDMo?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/fD9UMpg92n5H6LmbrcTAcECafGk5YORVRaQkOKLuAZc/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9Q/Qy16dHJTckRNby9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=PC-ztrSrDMo",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "tata nexon"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are the review videos and detailed overviews for the Tata Nexon.",
+    "domain": "PRODUCT",
+    "transactional": false,
+    "action": "search_product",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "Nexon review video",
+     "brand": "Tata",
+     "model": "Nexon",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_PC-ztrSrDMo",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube",
+     "Our long term Tata Nexon finally went back and after spending 3 months at the car&bike garage we have understood why the subcompact SUV is so much talked abo..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "carandbike",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=PC-ztrSrDMo",
+    "question": "Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "tata nexon near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "tata nexon offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used tata nexon"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare tata nexon with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "tata nexon reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube\"",
+    "reply": "This video by carandbike covers their 3-month, 3000 km long-term experience with the Tata Nexon, highlighting 3 reasons to buy and 3 reasons to avoid it. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like price, rating, and specifications were not provided in the source.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "The Nexon offers strong safety, good build quality, and feature-rich options, though some users note minor infotainment glitches and service variability. In Vijayawada, you can test drive and purchase it at authorized Tata Motors dealerships like Jasper Tata or Lakshmi Tata.",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "provide_information"
+   },
+   "next": {
+    "step": "find_local",
+    "ask": "tata nexon near me",
+    "segments": [
+     "deals",
+     "surplus",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Tata NEXON Used Cars in Vijayawada | Second Hand Tata NEXON Cars in Vijayawada - Cars24",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.cars24.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.cars24.com/buy-used-tata-nexon-cars-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/6DXKiWAHkxOoCjqBbCfmD-OU2fM8_bP4KXHD7sghwkM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tYXJr/ZXRwbGFjZS1jZG4u/Y2FyczI0LmNvbS92/aXNpby9wcm9kLzEy/MTAxNTk0MTI3L21h/aW5pbWFnZS9Gcm9u/dFJpZ2h0U2lkZS1U/cmFuc3BhcmVudC9z/aGFkb3dCYWNrZ3Jv/dW5kLzE3ODEyNTE0/NzExNzFORjZCMFMu/cG5n",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.autocarindia.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.autocarindia.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/KTPUpSv2ilSXFkEdYn5J5Ux4aIabM07c3dXKy_uDMxc/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZG4t/czMuYXV0b2Nhcmlu/ZGlhLmNvbS9UYXRh/L25leG9uL19CRTA3/Mzg0LkpQRw",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon May 2026 Offers in Vijayawada - Latest Discount & EMI Offers",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.cardekho.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.cardekho.com/tata/nexon/offers-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/2LIBODwubQDjWTv6OoDPkDJy3IqB-nLLRK5Dbu5hWMo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdGlt/Zy5jYXJkZWtoby5j/b20vaW1hZ2VzL2Nh/ci1pbWFnZXMvbGFy/Z2UvVGF0YS9OZXhv/bi0yMDIzLzk2NzUv/MTY5MzY0NTQ3NjI4/NC8yMjZfcHJpc2l0/bmUtd2hpdGVfZDVk/NWQ1LmpwZw",
+      "location_label": null
+     },
+     {
+      "title": "7+ Used Tata Nexon Cars in Vijayawada - Second Hand Tata Nexon Cars in Vijayawada",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.cardekho.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.cardekho.com/used-tata-nexon+cars+in+vijayawada",
+      "image_url": "https://imgs.search.brave.com/s5XnPLDsxer2u72IpjYIiOpPkmwwmTpirPIXxxSPVz0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdGlt/Zy5jYXJkZWtoby5j/b20vcHdhL2ltZy9E/ZXNrdG9wLWxvZ28u/c3Zn",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon Price in Vijayawada - July On-road Price and Offers | CarWale",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.carwale.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.carwale.com/tata-cars/nexon/price-in-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/4egovMrKMsFCsQcB4UGeALFtMsb823IrSX9OsLd_zuw/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWdk/LmFlcGxjZG4uY29t/LzEyODB4NzIwL24v/Y3cvZWMvMTQxODY3/L25leG9uLWV4dGVy/aW9yLXJpZ2h0LWZy/b250LXRocmVlLXF1/YXJ0ZXItNzkucG5n/P2lzaWc9MCZxPTgw",
+      "location_label": null
+     },
+     {
+      "title": "Used Tata Nexon EV Cars In Vijayawada, Second Hand Tata Nexon EV Cars In Vijayawada - CarWale",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.carwale.com",
+      "price": 800000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.carwale.com/used/vijayawada/tata-nexon-ev/",
+      "image_url": "https://imgs.search.brave.com/z-i7B_WdWuD-K0yL_cTN8_qyIc1a7HZeJhK_upSrX70/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWdk/LmFlcGxjZG4uY29t/LzB4MC9jdy9zdGF0/aWMvbG9nb3MvY2Fy/d2FsZS1sb2dvLmpw/Zw",
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "service",
+   "language": "en",
+   "text": "AC service video",
+   "subject": "ac service",
+   "trace_key": "browse:421132090fc24cc1",
+   "videos": [],
+   "production_video_rows": 0,
+   "result": "no relevant videos"
+  },
+  {
+   "label": "home-service",
+   "language": "en",
+   "text": "kitchen sink plumbing repair video",
+   "subject": "plumbing repair",
+   "trace_key": "browse:1da30dcb499b4a5d",
+   "videos": [],
+   "production_video_rows": 0,
+   "result": "no relevant videos"
+  },
+  {
+   "label": "food",
+   "language": "en",
+   "text": "Hyderabadi biryani review video",
+   "subject": "hyderabadi biryani",
+   "trace_key": "browse:2a4782e1c5774cf3",
+   "videos": [
+    {
+     "video_id": "yt_kYRcu5ZWxbo",
+     "title": "HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube",
+     "source_name": "Your Food Lab",
+     "duration": "35:45",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/kYRcu5ZWxbo?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/mxG2PP3Ldn37Jv8nBHs5-cDsoELTqnnguXJchCS-5Qo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9r/WVJjdTVaV3hiby9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=kYRcu5ZWxbo",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "hyderabadi biryani"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are some popular video reviews for Hyderabadi biryani that you can check out on YouTube.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_content",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "Hyderabadi biryani review video",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_kYRcu5ZWxbo",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube",
+     "This is just the beginning of Biryanis of India.Tell me in the comments which biryani you want me to cover next.",
+     "I'll be reading every suggestion, and hopefu..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Your Food Lab",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=kYRcu5ZWxbo",
+    "question": "HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "hyderabadi biryani near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "hyderabadi biryani offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used hyderabadi biryani"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare hyderabadi biryani with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "hyderabadi biryani reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube\"",
+    "reply": "This video is 'HYDERABADI CHICKEN DUM BIRYANI RECIPE' by Chef Sanjyot Keer from Your Food Lab. Note that this is the creator's opinion and method, not verified by ASKODOX. Specific details like exact measurements, ratings, or step-by-step transcript are not provided in the source metadata.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "Are you looking to order Hyderabadi Chicken Biryani for delivery from a local restaurant in Vijayawada?",
+    "follow_source": "universal_ai",
+    "follow_domain": "FOOD",
+    "follow_action": "search_food"
+   },
+   "next": {
+    "step": "find_local",
+    "ask": "hyderabadi biryani near me",
+    "segments": [
+     "deals",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Biryani - Used Kitchen & Other Appliances for sale in India | OLX",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.olx.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.olx.in/en-in/kitchen-other-appliances_c1417/q-biryani",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Biryani Blues | Order Authentic Hyderabadi Dum Biryani Online",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "biryaniblues.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://biryaniblues.com/",
+      "image_url": "https://imgs.search.brave.com/0G5jjIJGmGJzFtzK4HtlktnRpg5-MdLcNk4AOP00Iu8/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/YmlyeWFuaWJsdWVz/LmNvbS9vZy1pbWFn/ZS5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.eatsure.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
+      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
+      "location_label": null
+     },
+     {
+      "title": "Order Online – HYDERABAD BIRYANI POINT",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "hyderabadbiryanipoint.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://hyderabadbiryanipoint.com/store/",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Vijayawada Restaurants, Restaurants in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.zomato.com",
+      "price": 100.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.zomato.com/vijayawada/order-biryani-online",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "travel",
+   "language": "en",
+   "text": "Araku valley trip review video",
+   "subject": "araku valley trip",
+   "trace_key": "browse:cffedf77ef1b4ffb",
+   "videos": [
+    {
+     "video_id": "yt_NWiBFTd5aD0",
+     "title": "Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube",
+     "source_name": "Let's Discover India",
+     "duration": "12:03",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/NWiBFTd5aD0?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/QXfsg5GfFaj7KTtdWIuB6_-w4aBErCNQ_6J0p9wFQpE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9O/V2lCRlRkNWFEMC9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=NWiBFTd5aD0",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "araku valley trip"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are some popular travel review videos for the Araku Valley trip that show the route, attractions, and best experiences.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_content",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "Araku valley trip review video",
+     "location": "Araku Valley"
+    }
+   },
+   "explain": {
+    "video_id": "yt_NWiBFTd5aD0",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube",
+     "Discover the Hidden Gems of Araku Valley: Borra Caves & Anantagiri Waterfalls 🌄Join us on an unforgettable journey to the picturesque landscapes of Araku Va..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Let's Discover India",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=NWiBFTd5aD0",
+    "question": "Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "araku valley trip near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "araku valley trip offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used araku valley trip"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare araku valley trip with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "araku valley trip reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube\"",
+    "reply": "Based on the description from Let's Discover India, 'Ultimate Araku Valley Travel Guide' covers top things to see including Borra Caves and Anantagiri Waterfalls. Please note this reflects the creator's opinion and is not verified by ASKODOX. The video itself has not been analyzed, and details like price or specific reviews are not provided by the source.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "Are you asking about a specific item or souvenir from Araku Valley, like Araku coffee or local handicrafts? Please let me know what product you are looking to buy.",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "clarify_need"
+   },
+   "next": {
+    "step": "reviews",
+    "ask": "araku valley trip reviews",
+    "segments": [
+     "deals"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "ok",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Araku Valley Tour Packages from Vijayawada, Flat 20% Off - Book at Lowest Price",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.trawell.in",
+      "price": 6785.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.trawell.in/tour-packages/araku-valley-from-vijayawada",
+      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
+      "location_label": null
+     },
+     {
+      "title": "5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.trawell.in",
+      "price": 6785.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.trawell.in/tour-packages/araku-valley",
+      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
+      "location_label": null
+     },
+     {
+      "title": "Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.ritualholidays.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.ritualholidays.com/tour-packages/araku-valley-tour-packages/araku-valley-tour-packages-from-vijayawada.php",
+      "image_url": "https://imgs.search.brave.com/1xj_WpvN48lQf_stT6kQqaaXYHZ3B25RpGlOh3juAf0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/cml0dWFsaG9saWRh/eXMuY29tL2ltYWdl/cy9yaXR1YWwtaG9s/aWRheXMtbG9nby5n/aWY.jpeg",
+      "location_label": null
+     },
+     {
+      "title": "Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.makemytrip.com",
+      "price": 100.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.makemytrip.com/railways/vijayawada-araku-valley-train-tickets.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Araku Valley Packages From Vijaywada - Vijaywada to Araku Valley Packages @ ₹10379",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.makemytrip.com",
+      "price": 10379.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.makemytrip.com/holidays-india/araku_valley-packages-from-vijaywada.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube",
+      "segment": null,
+      "match_source": "video",
+      "source_name": "Let's Discover India",
+      "price": null,
+      "price_verified": null,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.youtube.com/watch?v=NWiBFTd5aD0",
+      "image_url": "https://imgs.search.brave.com/QXfsg5GfFaj7KTtdWIuB6_-w4aBErCNQ_6J0p9wFQpE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9O/V2lCRlRkNWFEMC9t/YXhyZXNkZWZhdWx0/LmpwZw",
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "used-item",
+   "language": "en",
+   "text": "used Royal Enfield Classic 350 review video",
+   "subject": "used royal enfield classic 350",
+   "trace_key": "browse:7a13c7dd9c40420a",
+   "videos": [
+    {
+     "video_id": "yt_88rgLE_eNJk",
+     "title": "The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube",
+     "source_name": "Jack Brock",
+     "duration": "17:12",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/88rgLE_eNJk?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/5z9-qL2OjRQSIQxRbJpS5ndcj5lB4Zg8NDks6DWw5bo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS84/OHJnTEVfZU5Kay9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=88rgLE_eNJk",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "used royal enfield classic 350"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are some review videos of the used Royal Enfield Classic 350 to help you evaluate its performance and common issues.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_media",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "used Royal Enfield Classic 350 review video",
+     "brand": "Royal Enfield",
+     "model": "Classic 350",
+     "context": "used",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_88rgLE_eNJk",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube",
+     "I’m getting sick of over produced 20 minute motorcycle reviews that spend more time showing off cinematic shots than actually talking about the bike."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "Jack Brock",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=88rgLE_eNJk",
+    "question": "The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "used royal enfield classic 350 near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "used royal enfield classic 350 offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used used royal enfield classic 350"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare used royal enfield classic 350 with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "used royal enfield classic 350 reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube\"",
+    "reply": "The video 'The Truth About the Royal Enfield Classic 350 (2025 Review)' by creator Jack Brock focuses on a no-nonsense review of the bike, avoiding over-produced cinematic shots. Please note that these are the creator's opinions and not verified facts by ASKODOX. Details like price, rating, and stock are not provided by the source.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "The Classic 350 is generally well-regarded for its refined engine and classic styling, though it has a heavy build. In Vijayawada, you can check authorized Royal Enfield showrooms or local pre-owned bike dealerships.",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "search_product_availability"
+   },
+   "next": {
+    "step": "find_local",
+    "ask": "used royal enfield classic 350 near me",
+    "segments": [
+     "deals",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "13 Used Royal Enfield Classic in Vijayawada. Buy from Owners and Dealers - Bikes4Sale",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.bikes4sale.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bikes4sale.in/used/buy/royalenfield-classic-in-vijayawada/",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "9 Used Royal Enfield Classic 350 Bikes in Vijayawada - Buy & Sell Second Hand Bikes",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.olx.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.olx.in/en-in/vijayawada_g4058591/motorcycles_c81?filter=model_eq_motorcycles-royal-enfield-classic-350",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 price in Vijayawada - September 2026 on road price of Classic 350 in Vijayawada",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.bikewale.com",
+      "price": 225638.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bikewale.com/royalenfield-bikes/classic-350/price-in-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/n4psHzLXo5Uma6NKu35MUaj0HjVveazhH-NS9QUTP8Q/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWdk/LmFlcGxjZG4uY29t/LzEyODB4NzIwL24v/Y3cvZWMvMTAxNDg3/L2NsYXNzaWMtMzUw/LXJpZ2h0LXNpZGUt/dmlldy0yMC5wbmc_/aXNpZz0w",
+      "location_label": null
+     },
+     {
+      "title": "Used Royal Enfield Classic 350 Bikes in Vijayawada - Second Hand Royal Enfield Classic 350 Bikes for Sale in Vijayawada",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.carandbike.com",
+      "price": 1200.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.carandbike.com/used/royal-enfield-classic-350-bikes-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/bkLeiP-WxTayLpsILpplrF4OBirnE52ymJCzcPxUUnk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuY2FyYW5kYmlr/ZS5jb20vYmlrZS1p/bWFnZXMvbWVkaXVt/L3JveWFsLWVuZmll/bGQvY2xhc3NpYy0z/NTAvcm95YWwtZW5m/aWVsZC1jbGFzc2lj/LTM1MC5qcGc_dj0x/XzE",
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 Price in Vijayawada-March 2026 Classic 350 On Road Price",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": 2000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/bikes/royalenfield/classic-350/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/E7sC-T0D8aFLHXdtMHYA0t0DnbTBuW95PUxxC2ckALI/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2ltYWdlcy85/MXdoZWVsc19vZy5w/bmc",
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 On Road Price Vijayawada Aug 2026 - ₹2.22L",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.zigwheels.com",
+      "price": 221768.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "deal",
+   "language": "en",
+   "text": "iPhone 15 offer review video",
+   "subject": "iphone 15",
+   "trace_key": "browse:8663e1642c534fcf",
+   "videos": [
+    {
+     "video_id": "yt_DJ5BkFUoKxg",
+     "title": "iPhone 15 in 2026 - worth it? (Review) - YouTube",
+     "source_name": "91Tech",
+     "duration": "13:55",
+     "platform": "youtube",
+     "embed_url": "https://www.youtube-nocookie.com/embed/DJ5BkFUoKxg?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://imgs.search.brave.com/xG6wIf1-HIgmchVx8SU0RHnS8PPXpyrvw6N7ESfPk0A/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pLnl0/aW1nLmNvbS92aS9E/SjVCa0ZVb0t4Zy9t/YXhyZXNkZWZhdWx0/LmpwZw",
+     "destination_url": "https://www.youtube.com/watch?v=DJ5BkFUoKxg",
+     "disclosure": "Creator's opinion -- not verified by ASKODOX",
+     "sponsored": false,
+     "products": [
+      "iphone 15"
+     ],
+     "services": []
+    }
+   ],
+   "production_video_rows": 1,
+   "search_decision": {
+    "reply": "Here are some popular review videos covering the iPhone 15 features, camera test, and latest deal offers.",
+    "domain": "GENERAL",
+    "transactional": false,
+    "action": "search_media",
+    "confidence": 0.95,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "iPhone 15 offer review video",
+     "brand": "Apple",
+     "model": "iPhone 15",
+     "location": "Vijayawada"
+    }
+   },
+   "explain": {
+    "video_id": "yt_DJ5BkFUoKxg",
+    "analyzed": false,
+    "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
+    "from_source": [
+     "iPhone 15 in 2026 - worth it? (Review) - YouTube",
+     "Already over 2 years old and discontinued only recently, the iPhone 15 & 15 Plus are solid midrange smartphones that include modern features like USB-C and t..."
+    ],
+    "relationship": "creator",
+    "relationship_label": "Creator's opinion -- not verified by ASKODOX",
+    "creator": "91Tech",
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=DJ5BkFUoKxg",
+    "question": "iPhone 15 in 2026 - worth it? (Review) - YouTube",
+    "next": [
+     {
+      "action": "find_local",
+      "label": "Find near me",
+      "ask": "iphone 15 near me"
+     },
+     {
+      "action": "deals",
+      "label": "Show deals",
+      "ask": "iphone 15 offers"
+     },
+     {
+      "action": "used",
+      "label": "Used / cheaper",
+      "ask": "used iphone 15"
+     },
+     {
+      "action": "compare",
+      "label": "Compare",
+      "ask": "Compare iphone 15 with alternatives"
+     },
+     {
+      "action": "reviews",
+      "label": "More reviews",
+      "ask": "iphone 15 reviews"
+     }
+    ]
+   },
+   "ai": {
+    "question": "Tell me more about \"iPhone 15 in 2026 - worth it? (Review) - YouTube\"",
+    "reply": "This video by 91Tech discusses whether the iPhone 15 is still worth buying in 2026. Note that this reflects the creator's opinion and is not verified by ASKODOX. According to the video description, the iPhone 15 and 15 Plus are solid midrange smartphones featuring USB-C. Specific details like exact price, stock availability, and ratings are not provided in the source.",
+    "source": "universal_ai",
+    "follow_up": "Is it worth buying, and where can I get it here?",
+    "follow_reply": "The iPhone 15 offers a great balance of performance, dynamic island, and USB-C. You can check local electronics retailers or official Apple resellers in Vijayawada for current availability and offers.",
+    "follow_source": "universal_ai",
+    "follow_domain": "PRODUCT",
+    "follow_action": "get_product_info"
+   },
+   "next": {
+    "step": "deals",
+    "ask": "iphone 15 offers",
+    "segments": [
+     "deals",
+     "surplus",
+     "used"
+    ],
+    "status": {
+     "askodox": "no_results",
+     "nearby": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "not_applicable",
+     "jobs": "not_applicable"
+    },
+    "options": [
+     {
+      "title": "Buy & Sell Second Hand iPhones in Vijayawada, Used Apple Mobile Phones in Vijayawada | OLX",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.olx.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.olx.in/vijayawada_g4058591/mobile-phones_c1453?filter=make_eq_iphone",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Apple Open Box",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijaysales.com/sale/apple-open-box",
+      "image_url": "https://imgs.search.brave.com/G-5poGlVvEZL-PY1bHnsG9MGX0CtsG4pGLrX39iNvKg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlzYWxlcy5j/b20vY29udGVudC9k/YW0vdmlqYXlzYWxl/c3dlYnNpdGUvaW4v/ZW4vY29tbW9uL2hl/YWRlci9pbWFnZXMv/dnMtbG9nby5zdmc",
+      "location_label": null
+     },
+     {
+      "title": "iPhone 15 is available for less than Rs 35,000 on Vijay Sales, here is how the deal works - India Today",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.indiatoday.in",
+      "price": 35000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.indiatoday.in/technology/news/story/iphone-15-is-available-for-less-than-rs-35000-on-vijay-sales-here-is-how-the-deal-works-2895155-2026-04-12",
+      "image_url": "https://imgs.search.brave.com/dQSQKn0y29oByvZABrqfRTYMgX4FdcGdi1OzQY9oVxU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9ha20t/aW1nLWEtaW4udG9z/c2h1Yi5jb20vaW5k/aWF0b2RheS9pbWFn/ZXMvc3RvcnkvMjAy/NjA0L2lwaG9uZS0x/NS1wcmljZS1kcm9w/LTEzNTQwMTMwLTE2/eDkuanBnP1ZlcnNp/b25JZD1ERW8zMkcu/WllPa255U2t5RDNl/UUV5V3hnV0VSazhj/NCZzaXplPTEyODA6/NzIw",
+      "location_label": null
+     },
+     {
+      "title": "Buy & Sell Second Hand Iphone in Vijayawada, Used Mobiles in Vijayawada | OLX",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.olx.in",
+      "price": 44300.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.olx.in/vijayawada_g4058591/mobiles_c1411/q-iphone",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Open Box iPhones",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijaysales.com/sale/open-box-iphones",
+      "image_url": "https://imgs.search.brave.com/G-5poGlVvEZL-PY1bHnsG9MGX0CtsG4pGLrX39iNvKg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlzYWxlcy5j/b20vY29udGVudC9k/YW0vdmlqYXlzYWxl/c3dlYnNpdGUvaW4v/ZW4vY29tbW9uL2hl/YWRlci9pbWFnZXMv/dnMtbG9nby5zdmc",
+      "location_label": null
+     },
+     {
+      "title": "iPhone 15 gets massive discount on Vijay Sales Apple Days sale",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.indiatoday.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.indiatoday.in/visualstories/technology/iphone-15-gets-massive-discount-on-vijay-sales-apple-days-sale-278350-11-04-2026",
+      "image_url": "https://imgs.search.brave.com/fQo4Edoap6ECRprReO52Ok6wxiWgpJTTGoexG_66mIU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZi1p/bWctYS1pbi50b3Nz/aHViLmNvbS9zaXRl/cy92aXN1YWxzdG9y/eS93cC8yMDI2LzAz/L2Nyb3BwZWQtaW1h/Z2VJVEctMTc3Mzk4/OTQ5NDk4OS5wbmc_/c2l6ZT05MDA6MTIw/MA",
+      "location_label": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "service-te",
+   "language": "te",
+   "text": "ఏసీ సర్వీస్ వీడియో",
+   "subject": "ac service",
+   "trace_key": "browse:3120b53fb33c48fc",
+   "videos": [],
+   "production_video_rows": 0,
+   "result": "no relevant videos"
+  }
+ ],
+ "video_funnel": [
+  {
+   "step": "video_impression",
+   "count": 8
+  },
+  {
+   "step": "video_open",
+   "count": 8
+  },
+  {
+   "step": "video_watch_start",
+   "count": 8
+  },
+  {
+   "step": "video_watch_complete",
+   "count": 0
+  },
+  {
+   "step": "video_ask",
+   "count": 8
+  },
+  {
+   "step": "video_product_click",
+   "count": 4
+  },
+  {
+   "step": "video_service_click",
+   "count": 0
+  },
+  {
+   "step": "video_local_search",
+   "count": 4
+  },
+  {
+   "step": "video_affiliate_click",
+   "count": 0
+  },
+  {
+   "step": "video_contact",
+   "count": 0
+  },
+  {
+   "step": "lead",
+   "count": 0
+  },
+  {
+   "step": "order",
+   "count": 0
+  },
+  {
+   "step": "conversion",
+   "count": 0
+  }
+ ],
+ "funnel": [
+  {
+   "step": "search",
+   "count": 11
+  },
+  {
+   "step": "impression",
+   "count": 0
+  },
+  {
+   "step": "result_view",
+   "count": 0
+  },
+  {
+   "step": "click",
+   "count": 8
+  },
+  {
+   "step": "claim",
+   "count": 0
+  },
+  {
+   "step": "lead",
+   "count": 0
+  },
+  {
+   "step": "order",
+   "count": 0
+  },
+  {
+   "step": "payment",
+   "count": 0
+  },
+  {
+   "step": "redemption",
+   "count": 0
+  },
+  {
+   "step": "conversion",
+   "count": 0
+  },
+  {
+   "step": "commission",
+   "count": 0
+  }
+ ],
+ "event_count": 62,
+ "youtube_data_api": "needs_configuration (no YOUTUBE_API_KEY in this run)"
+}
