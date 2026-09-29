@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/companion/companion_hub.dart';
+import 'package:podx/features/companion/companion_human2d.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -190,6 +193,93 @@ void main() {
           'స్పాన్సర్డ్');
       expect(AskodoxResultSegment.sponsored.index, greaterThan(AskodoxResultSegment.online.index));
       expect(AskodoxResultSegment.sponsored.index, greaterThan(AskodoxResultSegment.partner.index));
+    });
+  });
+
+  group('one companion identity everywhere', () {
+    test('every state resolves to a bundled photo of the same person', () {
+      final files = {for (final n in AskodoxHuman2d.bundled) n: File('${AskodoxHuman2d.dir}/$n.jpg')};
+      for (final entry in files.entries) {
+        expect(entry.value.existsSync(), isTrue, reason: entry.key);
+      }
+      for (final mood in AskodoxCompanionMood.values) {
+        final asset = AskodoxHuman2d.assetFor(mood);
+        expect(File(asset).existsSync(), isTrue, reason: '$mood -> $asset');
+        expect(asset.startsWith(AskodoxHuman2d.dir), isTrue, reason: 'no other face for $mood');
+      }
+      // Missing states fall back to the neutral photo (not another face).
+      expect(AskodoxHuman2d.assetFor(AskodoxCompanionMood.speaking), '${AskodoxHuman2d.dir}/neutral.jpg');
+      expect(AskodoxHuman2d.assetFor(AskodoxCompanionMood.listening), '${AskodoxHuman2d.dir}/listening.jpg');
+      expect(AskodoxHuman2d.assetFor(AskodoxCompanionMood.thinking), '${AskodoxHuman2d.dir}/thinking.jpg');
+    });
+
+    testWidgets('chat stage, home, nav button and floating companion all render the same human', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(askodoxInAppFloatProvider.notifier).setEnabled(true);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Stack(children: [
+              const Column(children: [
+                AskodoxCompanionBar(mood: AskodoxCompanionMood.idle, telugu: false), // chat stage
+                AskodoxCompanion(key: Key('home'), size: 170), // Home
+                AskodoxCompanion(key: Key('nav'), size: 54), // bottom navigation
+              ]),
+              Positioned.fill(child: AskodoxInAppFloatingCompanion(lang: 'en', onAction: (_) {})),
+            ]),
+          ),
+        ),
+      ));
+      await tester.pump();
+      final faces = tester.widgetList<AskodoxHuman2d>(find.byType(AskodoxHuman2d)).toList();
+      expect(faces, hasLength(4));
+      final assets = tester
+          .widgetList<Image>(find.descendant(of: find.byType(AskodoxHuman2d), matching: find.byType(Image)))
+          .map((i) => (i.image as AssetImage).assetName)
+          .toSet();
+      expect(assets, {'${AskodoxHuman2d.dir}/neutral.jpg'}, reason: 'one identity, one photo set');
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsNothing);
+      expect(find.byKey(const ValueKey('askodoxCompanion3d')), findsNothing, reason: 'no robot substitute');
+    });
+  });
+
+  group('floating companion: keyboard and navigation', () {
+    testWidgets('stays above the keyboard and keeps its side after the screen is rebuilt', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(askodoxInAppFloatProvider.notifier)
+        ..setEnabled(true)
+        ..dropAt(0, 1); // left edge, lowest position
+      Widget screen({double keyboard = 0}) => UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(size: const Size(360, 780), viewInsets: EdgeInsets.only(bottom: keyboard)),
+                child: Scaffold(body: AskodoxInAppFloatingCompanion(lang: 'en', onAction: (_) {})),
+              ),
+            ),
+          );
+      await tester.pumpWidget(screen());
+      final noKeyboard = tester.getRect(find.byKey(const Key('askodoxFloatingCompanion')));
+      await tester.pumpWidget(screen(keyboard: 300));
+      final withKeyboard = tester.getRect(find.byKey(const Key('askodoxFloatingCompanion')));
+      expect(withKeyboard.bottom, lessThanOrEqualTo(780 - 300), reason: 'never under the keyboard');
+      expect(withKeyboard.top, lessThan(noKeyboard.top), reason: 'moves up with the keyboard');
+      // Navigating away and back rebuilds the screen: same side, same height.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(screen());
+      final back = tester.getRect(find.byKey(const Key('askodoxFloatingCompanion')));
+      expect(back.left, noKeyboard.left);
+      expect(back.top, noKeyboard.top);
+      expect(back.left, lessThan(40), reason: 'left edge kept');
     });
   });
 }

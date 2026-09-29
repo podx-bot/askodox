@@ -3052,6 +3052,75 @@ void main() {
     expect(again.matches.single.id, 'online-0');
   });
 
+  testWidgets('comparison flow: kind tabs filter, paid rows disclosed, Chat continues the SAME chat, Open is tracked',
+      (tester) async {
+    const local = UniversalMatch(id: '401', title: 'Sri Sai AC Services', source: 'local', segment: 'registered',
+        ratingAverage: 4.6, reviewCount: 38, distanceKm: 1.2);
+    const paid = UniversalMatch(id: 'sponsored-7', title: 'Blue Star 1.5 T AC', source: 'sponsored',
+        segment: 'sponsored', sponsored: true, sponsoredLabel: 'Sponsored', clickId: 'spk1',
+        redirectPath: '/go/sp/spk1', destinationUrl: 'https://ads.example/ac');
+    const online = UniversalMatch(id: 'online-0-shop.example', title: 'LG 1.5 Ton AC', source: 'online',
+        price: 42490, sourceName: 'shop.example', destinationUrl: 'https://shop.example/ac');
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '41', matches: [local, paid, online]),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a 1.5 ton AC in Vijayawada');
+
+    // Only the kinds this request returned, in column order.
+    for (final kind in ['all', 'local', 'sponsored', 'online']) {
+      expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsOneWidget, reason: kind);
+    }
+    for (final kind in ['deals', 'affiliate', 'used', 'surplus', 'videos', 'jobs']) {
+      expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsNothing, reason: kind);
+    }
+    final x = [local, paid, online]
+        .map((m) => tester.getTopLeft(find.byKey(ValueKey('askodoxResultCard-${m.source}-${m.id}'))).dx)
+        .toList();
+    expect(x[0] < x[1] && x[1] < x[2], isTrue, reason: 'LOCAL | SPONSORED | ONLINE');
+    // The paid row carries its disclosure, never the organic LOCAL label.
+    expect(find.byKey(const ValueKey('askodoxPaidBadge-sponsored-7')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxKindLabel-sponsored-7')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxKindLabel-401')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxPaidBadge-401')), findsNothing, reason: 'organic stays unlabelled as paid');
+
+    // A tab shows only that kind; tapping it again (or All) shows every kind.
+    await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-sponsored')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('askodoxResultCard-sponsored-sponsored-7')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxResultCard-local-401')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-all')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('askodoxResultCard-local-401')), findsOneWidget);
+
+    // Paid links open through ASKODOX's tracked redirect; organic links open directly.
+    expect(h.partnerTracker.openUri(paid).toString(), 'https://api.askodox.test/go/sp/spk1');
+    expect(h.partnerTracker.openUri(online).toString(), 'https://shop.example/ac');
+
+    // Chat on a card: the conversation continues below, no new search.
+    final searches = h.matches.deals.length;
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxAsk-401')));
+    await tester.tap(find.byKey(const ValueKey('askodoxAsk-401')));
+    await _Harness.settle(tester);
+    expect(find.textContaining('Sri Sai AC Services'), findsWidgets);
+    expect(h.matches.deals, hasLength(searches), reason: 'asking about an option is not a new search');
+    final results = tester.getTopLeft(find.byKey(const ValueKey('askodoxComparison'))).dy;
+    final composer = tester.getTopLeft(find.byType(TextField)).dy;
+    expect(results, lessThan(composer), reason: 'results above, input at the bottom');
+  });
+
+  testWidgets('a single option stays one full card (no comparison board)', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([
+      const UniversalMatchResult(dealId: '42', matches: [_localMatch]),
+    ]));
+    await h.pump(tester);
+    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+    expect(find.byKey(const Key('askodoxComparison')), findsNothing);
+    expect(find.byKey(ValueKey('askodoxResultCard-${_localMatch.source}-${_localMatch.id}')), findsOneWidget);
+  });
+
   // Visual renders for comparison with the approved reference (opt-in:
   // ASKODOX_RENDER=1 flutter test --update-goldens --plain-name "Home render").
   testWidgets('Home render: home, local, comparison, selected + chat, companion actions, floating',
