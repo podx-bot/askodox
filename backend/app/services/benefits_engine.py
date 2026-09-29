@@ -29,7 +29,7 @@ def _parse(value: Any) -> Optional[datetime]:
 
 def live(campaign: Dict[str, Any], now: datetime | None = None) -> bool:
     now = now or datetime.now(timezone.utc)
-    if not campaign.get("active"):
+    if not campaign.get("active") or campaign.get("archived"):
         return False
     start, end = _parse(campaign.get("starts_at")), _parse(campaign.get("ends_at"))
     if start and now < start:

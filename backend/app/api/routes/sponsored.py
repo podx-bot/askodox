@@ -64,8 +64,9 @@ def sponsored_results(container: Any, demand: dict, *, limit: int = 2) -> list[d
     category = str(demand.get("domain") or "").strip().lower()
     location = str(demand.get("location_text") or "")
     rows: list[dict] = []
+    language = str((demand.get("constraints") or {}).get("language") or "")
     for campaign in repo.eligible(category=category, subject=str(demand.get("subject") or ""),
-                                  location=location, limit=limit,
+                                  location=location, limit=limit, language=language,
                                   kinds=SERVICE_CAMPAIGN_KINDS if service_need else None):
         click_id = repo.record_impression(int(campaign["id"]), category=category, location=location)
         rows.append({
@@ -82,6 +83,8 @@ def sponsored_results(container: Any, demand: dict, *, limit: int = 2) -> list[d
             "sponsored": True,
             "sponsored_label": campaign.get("label") or "Sponsored",
             "sponsored_kind": campaign.get("kind"),
+            "deep_link": campaign.get("deep_link") or None,
+            "sponsored_format": campaign.get("format") or "result_card",
             "disclosure": f"{campaign.get('label') or 'Sponsored'} -- a paid placement, shown separately "
                           f"from ASKODOX's own ranking.",
             "price_verified": False,
@@ -216,6 +219,49 @@ def campaign_conversion(campaign_id: int, body: ConversionBody, request: Request
     _audit(request, principal, "sponsored.conversion.record", f"sponsored_campaign:{campaign_id}",
            {"amount": body.amount, "note": body.note})
     return stats
+
+
+class OutcomeBody(BaseModel):
+    event: str
+    amount: float | None = None
+    note: str = ""
+
+
+@admin_router.post("/campaigns/{campaign_id}/outcomes")
+def campaign_outcome(campaign_id: int, body: OutcomeBody, request: Request) -> dict:
+    principal = _require(request, "sponsored:manage")
+    try:
+        stats = sponsored_repo(request.app.state.container).record_outcome(
+            campaign_id, body.event, amount=body.amount, note=body.note)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Campaign not found") from None
+    except SponsoredError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from None
+    _audit(request, principal, f"sponsored.{body.event}.record", f"sponsored_campaign:{campaign_id}",
+           {"amount": body.amount})
+    return stats
+
+
+@admin_router.post("/campaigns/{campaign_id}/{action}")
+def campaign_lifecycle(campaign_id: int, action: str, request: Request) -> dict:
+    """duplicate (DRAFT copy) / archive (keeps history, stops serving) /
+    restore (back to DRAFT, needs approval again)."""
+    principal = _require(request, "sponsored:manage")
+    repo = sponsored_repo(request.app.state.container)
+    try:
+        if action == "duplicate":
+            item = repo.duplicate(campaign_id)
+        elif action in ("archive", "restore"):
+            item = repo.set_archived(campaign_id, action == "archive")
+        else:
+            raise HTTPException(status_code=404, detail="Unknown action")
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Campaign not found") from None
+    except SponsoredError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from None
+    _audit(request, principal, f"sponsored.campaign.{action}", f"sponsored_campaign:{campaign_id}",
+           {"result_id": item.get("id")})
+    return item
 
 
 @admin_router.get("/analytics")

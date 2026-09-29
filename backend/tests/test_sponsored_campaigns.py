@@ -198,3 +198,49 @@ def test_service_request_gets_providers_not_product_ads_or_partner_stores(api):
     shopping = sponsored_results(container, {"domain": "PRODUCT", "subject": "AC", "raw_text": "buy an AC",
                                              "side": "NEED"})
     assert {r["title"] for r in shopping} == {"1.5 ton AC sale", "Cool Air AC installation"}
+
+
+def test_extended_fields_caps_language_duplicate_archive_and_outcomes(api):
+    client, container = api
+    bad = client.post("/admin/cc/sponsored/campaigns", headers=OWNER, json={
+        "name": "x", "kind": "deal", "title": "x", "deep_link": "javascript://alert(1)"})
+    assert bad.status_code == 400
+    assert client.post("/admin/cc/sponsored/campaigns", headers=OWNER, json={
+        "name": "x", "kind": "deal", "title": "x", "objective": "world_domination"}).status_code == 400
+    item = campaign(client, objective="traffic", format="result_card", audience="all", language="te",
+                    radius_km=10, max_impressions=1, deep_link="askodox://deal/9",
+                    tracking_url="https://track.example/c/1")
+    assert item["objective"] == "traffic" and item["max_impressions"] == 1 and item["language"] == "te"
+    client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/status", headers=OWNER, json={"status": "APPROVED"})
+    english = tv_request()
+    assert not [m for m in client.post("/deals/discover", json=english).json()["matches"] if m.get("sponsored")], \
+        "a Telugu-language campaign is not shown to an English conversation"
+    telugu = tv_request() | {"trace": {"language": "te"}}
+    first = [m for m in client.post("/deals/discover", json=telugu).json()["matches"] if m.get("sponsored")]
+    assert len(first) == 1 and first[0]["deep_link"] == "askodox://deal/9"
+    again = [m for m in client.post("/deals/discover", json=telugu).json()["matches"] if m.get("sponsored")]
+    assert again == [], "max_impressions caps delivery"
+    copy = client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/duplicate", headers=OWNER).json()
+    assert copy["id"] != item["id"] and copy["status"] == "DRAFT" and copy["name"].endswith("(copy)")
+    archived = client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/archive", headers=OWNER).json()
+    assert archived["archived"] == 1 and archived["status"] == "PAUSED"
+    assert client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/status", headers=OWNER,
+                       json={"status": "APPROVED"}).status_code == 400, "restore first"
+    restored = client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/restore", headers=OWNER).json()
+    assert restored["archived"] == 0 and restored["status"] == "DRAFT"
+    client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/outcomes", headers=OWNER, json={"event": "lead"})
+    stats = client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/outcomes", headers=OWNER,
+                        json={"event": "order", "amount": 27990}).json()
+    assert stats["leads"] == 1 and stats["orders"] == 1 and stats["revenue"] == 27990.0
+    assert client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/outcomes", headers=OWNER,
+                       json={"event": "sale"}).status_code == 400
+
+
+def test_daily_budget_stops_serving_for_the_day(api):
+    client, _ = api
+    item = campaign(client, cost_per_click=50, daily_budget=40)
+    client.post(f"/admin/cc/sponsored/campaigns/{item['id']}/status", headers=OWNER, json={"status": "APPROVED"})
+    row = [m for m in client.post("/deals/discover", json=tv_request()).json()["matches"] if m.get("sponsored")][0]
+    assert client.get(f"/go/sp/{row['click_id']}").status_code in (302, 307)
+    assert not [m for m in client.post("/deals/discover", json=tv_request()).json()["matches"]
+                if m.get("sponsored")], "today's budget is used up"

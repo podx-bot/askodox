@@ -35,7 +35,10 @@ CAMPAIGN_KINDS = (
 STATUSES = ("DRAFT", "APPROVED", "PAUSED", "DISABLED")
 LABELS = ("Sponsored", "Promoted")
 PLACEMENTS = ("chat_results", "explore_top")
-EVENTS = ("impression", "click", "conversion")
+EVENTS = ("impression", "click", "conversion", "lead", "order")
+OBJECTIVES = ("awareness", "traffic", "leads", "orders", "app_installs", "store_visits")
+FORMATS = ("result_card", "video", "banner", "deal_card")
+AUDIENCES = ("all", "new_users", "returning_users", "buyers", "sellers")
 
 # Changing any of these on an APPROVED campaign needs a new approval.
 _CONTENT_FIELDS = {
@@ -47,7 +50,17 @@ CAMPAIGN_FIELDS = (
     "advertiser_id", "name", "kind", "label", "placement", "title", "subtitle", "image_url", "destination_url",
     "categories", "keywords", "locations", "starts_at", "ends_at", "budget", "cost_per_click",
     "cost_per_thousand", "priority", "notes",
+    # Extended targeting / delivery (2026-09-29).
+    "objective", "format", "audience", "language", "radius_km", "daily_budget", "max_impressions", "max_clicks",
+    "deep_link", "tracking_url",
 )
+# Columns added after the first release (added in place, never a rebuild).
+_EXTRA_COLUMNS = {
+    "objective": "TEXT", "format": "TEXT", "audience": "TEXT", "language": "TEXT", "radius_km": "REAL",
+    "daily_budget": "REAL", "max_impressions": "INTEGER", "max_clicks": "INTEGER", "deep_link": "TEXT",
+    "tracking_url": "TEXT", "archived": "INTEGER NOT NULL DEFAULT 0",
+}
+_BLOCKED_SCHEMES = ("javascript:", "data:", "file:", "vbscript:", "about:", "content:")
 
 
 def _now() -> datetime:
@@ -136,6 +149,10 @@ class SponsoredRepository:
                 );
                 """
             )
+            have = {r["name"] for r in conn.execute("PRAGMA table_info(sponsored_campaigns)").fetchall()}
+            for column, kind in _EXTRA_COLUMNS.items():
+                if column not in have:
+                    conn.execute(f"ALTER TABLE sponsored_campaigns ADD COLUMN {column} {kind}")
 
     # ----------------------------------------------------------- advertisers --
 
@@ -226,7 +243,42 @@ class SponsoredRepository:
                 if placement not in PLACEMENTS:
                     raise SponsoredError(f"placement must be one of {', '.join(PLACEMENTS)}")
                 fields[key] = placement
-            elif key in ("destination_url", "image_url"):
+            elif key in ("objective", "format", "audience"):
+                choice = str(value or "").strip().lower()
+                options = {"objective": OBJECTIVES, "format": FORMATS, "audience": AUDIENCES}[key]
+                if choice and choice not in options:
+                    raise SponsoredError(f"{key} must be one of {', '.join(options)}")
+                fields[key] = choice or None
+            elif key == "deep_link":
+                link = str(value or "").strip()
+                if link and (link.lower().startswith(_BLOCKED_SCHEMES) or "://" not in link):
+                    raise SponsoredError("deep_link must be an app link (scheme://...) or https URL")
+                fields[key] = link[:1000] or None
+            elif key in ("radius_km", "daily_budget"):
+                if value in (None, ""):
+                    fields[key] = None
+                else:
+                    try:
+                        number = float(value)
+                    except (TypeError, ValueError):
+                        raise SponsoredError(f"{key} must be a number") from None
+                    if number < 0:
+                        raise SponsoredError(f"{key} cannot be negative")
+                    fields[key] = number
+            elif key in ("max_impressions", "max_clicks"):
+                if value in (None, ""):
+                    fields[key] = None
+                else:
+                    try:
+                        whole = int(value)
+                    except (TypeError, ValueError):
+                        raise SponsoredError(f"{key} must be a whole number") from None
+                    if whole < 1:
+                        raise SponsoredError(f"{key} must be at least 1")
+                    fields[key] = whole
+            elif key == "language":
+                fields[key] = str(value or "").strip().lower()[:8] or None
+            elif key in ("destination_url", "image_url", "tracking_url"):
                 url = str(value or "").strip()
                 if url and not url.startswith("https://"):
                     raise SponsoredError(f"{key} must be an https:// URL")
@@ -261,6 +313,8 @@ class SponsoredRepository:
             raise SponsoredError("name is required")
         if "title" in fields and not fields["title"]:
             raise SponsoredError("title is required")
+        if fields.get("starts_at") and fields.get("ends_at") and str(fields["ends_at"]) < str(fields["starts_at"]):
+            raise SponsoredError("ends_at is before starts_at")
         return fields
 
     def save_campaign(self, data: Dict[str, Any], campaign_id: int | None = None) -> Dict[str, Any]:
@@ -303,6 +357,40 @@ class SponsoredRepository:
             row = conn.execute("SELECT * FROM sponsored_campaigns WHERE id=?", (campaign_id,)).fetchone()
         return self._campaign(row)
 
+    def duplicate(self, campaign_id: int) -> Dict[str, Any]:
+        """A DRAFT copy (needs its own approval); stats are not copied."""
+        campaign = self.campaign(campaign_id)
+        if campaign is None:
+            raise KeyError(campaign_id)
+        data = {k: campaign.get(k) for k in CAMPAIGN_FIELDS if campaign.get(k) is not None}
+        data["name"] = f"{campaign['name']} (copy)"[:200]
+        return self.save_campaign(data)
+
+    def set_archived(self, campaign_id: int, archived: bool) -> Dict[str, Any]:
+        """Archive keeps history and stats; an archived campaign is never
+        served and is paused. Restore brings it back as DRAFT."""
+        if self.campaign(campaign_id) is None:
+            raise KeyError(campaign_id)
+        with self._connect() as conn:
+            conn.execute("UPDATE sponsored_campaigns SET archived=?, status=?, updated_at=? WHERE id=?",
+                         (int(archived), "PAUSED" if archived else "DRAFT", _iso(), campaign_id))
+        return self.campaign(campaign_id) or {}
+
+    def record_outcome(self, campaign_id: int, event: str, *, amount: float | None = None,
+                       note: str = "") -> Dict[str, Any]:
+        """Leads / orders attributed to a campaign (admin-recorded or from a
+        verified source) -- counted in its report."""
+        if event not in ("lead", "order"):
+            raise SponsoredError("event must be lead or order")
+        if self.campaign(campaign_id) is None:
+            raise KeyError(campaign_id)
+        if amount is not None and amount < 0:
+            raise SponsoredError("amount cannot be negative")
+        with self._connect() as conn:
+            conn.execute("INSERT INTO sponsored_events (campaign_id, event, amount, note, created_at) "
+                         "VALUES (?, ?, ?, ?, ?)", (campaign_id, event, amount, str(note or "")[:300], _iso()))
+        return self.campaign_stats().get(campaign_id, self._empty_stats())
+
     def set_status(self, campaign_id: int, status: str, *, actor: str = "") -> Dict[str, Any]:
         status = str(status or "").strip().upper()
         if status not in STATUSES:
@@ -310,6 +398,8 @@ class SponsoredRepository:
         campaign = self.campaign(campaign_id)
         if campaign is None:
             raise KeyError(campaign_id)
+        if campaign.get("archived") and status != "DISABLED":
+            raise SponsoredError("restore the campaign first")
         if status == "APPROVED":
             if not str(campaign.get("destination_url") or "").startswith("https://"):
                 raise SponsoredError("an https destination URL is required before approval")
@@ -330,7 +420,8 @@ class SponsoredRepository:
 
     @staticmethod
     def _empty_stats() -> Dict[str, Any]:
-        return {"impressions": 0, "clicks": 0, "conversions": 0, "conversion_value": 0.0, "spend": 0.0, "ctr": None}
+        return {"impressions": 0, "clicks": 0, "conversions": 0, "conversion_value": 0.0, "spend": 0.0, "ctr": None,
+                "leads": 0, "orders": 0, "revenue": 0.0, "spend_today": 0.0}
 
     def campaign_stats(self, since: datetime | None = None) -> Dict[int, Dict[str, Any]]:
         query = ("SELECT campaign_id, event, COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount "
@@ -354,6 +445,24 @@ class SponsoredRepository:
             elif row["event"] == "conversion":
                 item["conversions"] = int(row["n"])
                 item["conversion_value"] = round(float(row["amount"] or 0), 2)
+            elif row["event"] == "lead":
+                item["leads"] = int(row["n"])
+            elif row["event"] == "order":
+                item["orders"] = int(row["n"])
+                item["revenue"] = round(float(row["amount"] or 0), 2)
+        today = _iso(_now().replace(hour=0, minute=0, second=0, microsecond=0))
+        with self._connect() as conn:
+            today_rows = conn.execute(
+                "SELECT campaign_id, event, COUNT(*) AS n FROM sponsored_events WHERE created_at >= ? "
+                "AND event IN ('impression', 'click') GROUP BY campaign_id, event", (today,)).fetchall()
+        today_counts: Dict[int, Dict[str, int]] = {}
+        for row in today_rows:
+            today_counts.setdefault(int(row["campaign_id"]), {})[row["event"]] = int(row["n"])
+        for campaign_id, counts in today_counts.items():
+            stats.setdefault(campaign_id, self._empty_stats())
+            cpc, cpm = prices.get(campaign_id, (None, None))
+            stats[campaign_id]["spend_today"] = round(counts.get("click", 0) * float(cpc or 0)
+                                                      + counts.get("impression", 0) / 1000 * float(cpm or 0), 2)
         for campaign_id, item in stats.items():
             cpc, cpm = prices.get(campaign_id, (None, None))
             item["spend"] = round(item["clicks"] * float(cpc or 0) + item["impressions"] / 1000 * float(cpm or 0), 2)
@@ -382,14 +491,14 @@ class SponsoredRepository:
 
     def eligible(self, *, category: str = "", subject: str = "", location: str = "",
                  placement: str = "chat_results", limit: int = 2, now: datetime | None = None,
-                 kinds: tuple[str, ...] | None = None) -> List[Dict[str, Any]]:
+                 kinds: tuple[str, ...] | None = None, language: str = "") -> List[Dict[str, Any]]:
         now = now or _now()
         category = str(category or "").strip().lower()
         text = f" {str(subject or '').strip().lower()} {category} "
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT c.* FROM sponsored_campaigns c LEFT JOIN sponsored_advertisers a ON a.id = c.advertiser_id "
-                "WHERE c.status='APPROVED' AND c.placement=? AND (c.advertiser_id IS NULL OR a.active=1) "
+                "WHERE c.status='APPROVED' AND COALESCE(c.archived, 0)=0 AND c.placement=? AND (c.advertiser_id IS NULL OR a.active=1) "
                 "ORDER BY c.priority DESC, COALESCE(c.cost_per_click, 0) DESC, c.id",
                 (placement,),
             ).fetchall()
@@ -405,7 +514,17 @@ class SponsoredRepository:
             if ends and now >= ends + (timedelta(days=1) if len(str(campaign.get("ends_at"))) <= 10 else timedelta()):
                 continue
             budget = campaign.get("budget")
-            if budget is not None and stats.get(int(campaign["id"]), {}).get("spend", 0) >= float(budget):
+            used = stats.get(int(campaign["id"]), self._empty_stats())
+            if budget is not None and used["spend"] >= float(budget):
+                continue
+            if campaign.get("daily_budget") is not None and used["spend_today"] >= float(campaign["daily_budget"]):
+                continue  # today's budget is used up; serves again tomorrow
+            if campaign.get("max_impressions") and used["impressions"] >= int(campaign["max_impressions"]):
+                continue
+            if campaign.get("max_clicks") and used["clicks"] >= int(campaign["max_clicks"]):
+                continue
+            wanted = str(campaign.get("language") or "")
+            if wanted and language and wanted != str(language).lower()[:len(wanted)]:
                 continue
             if not str(campaign.get("destination_url") or "").startswith("https://"):
                 continue

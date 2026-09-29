@@ -38,7 +38,10 @@ FIELDS = (
     "cashback_amount", "cashback_percent", "credit_amount", "free_benefit", "starts_at", "ends_at",
     "per_user_limit", "total_budget", "total_cap", "funding_source", "partner_share_percent", "terms",
     "source_url", "source_kind", "verified_at", "active", "priority", "tracking_params",
+    "eligibility", "archived",
 )
+ELIGIBILITY = ("all", "new", "existing")
+_EXTRA_COLUMNS = {"eligibility": "TEXT NOT NULL DEFAULT 'all'", "archived": "INTEGER NOT NULL DEFAULT 0"}
 
 
 def _now() -> str:
@@ -104,6 +107,10 @@ class BenefitsRepository:
                 CREATE INDEX IF NOT EXISTS idx_benefit_claims_time ON benefit_claims(created_at);
                 """
             )
+            have = {r["name"] for r in conn.execute("PRAGMA table_info(benefit_campaigns)").fetchall()}
+            for column, kind in _EXTRA_COLUMNS.items():
+                if column not in have:
+                    conn.execute(f"ALTER TABLE benefit_campaigns ADD COLUMN {column} {kind}")
 
     # ---------------------------------------------------------- campaigns --
 
@@ -115,8 +122,8 @@ class BenefitsRepository:
             value = data[field]
             if field in _JSON:
                 values[f"{field}_json"] = json.dumps(value if value is not None else _JSON[field])
-            elif field == "active":
-                values["active"] = 1 if value else 0
+            elif field in ("active", "archived"):
+                values[field] = 1 if value else 0
             else:
                 values[field] = value.strip() if isinstance(value, str) else value
         return values
@@ -129,6 +136,8 @@ class BenefitsRepository:
         for field, default in _JSON.items():
             item[field] = _loads(item.pop(f"{field}_json", None), default)
         item["active"] = bool(item["active"])
+        item["archived"] = bool(item.get("archived"))
+        item["eligibility"] = item.get("eligibility") or "all"
         return item
 
     def create_campaign(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -177,6 +186,36 @@ class BenefitsRepository:
             item["budget_committed"] = float(use.get("committed") or 0)
             item["coupons_available"] = int(coupons.get(item["id"], 0))
         return items
+
+    def clone_campaign(self, campaign_id: int) -> Dict[str, Any]:
+        """An inactive, unverified copy: re-check the source before it goes live."""
+        source = self.campaign(campaign_id)
+        if source is None:
+            raise KeyError(campaign_id)
+        data = {k: source.get(k) for k in FIELDS if k not in ("verified_at", "active", "archived")}
+        data["name"] = f"{source['name']} (copy)"[:120]
+        return self.create_campaign(data | {"active": False})
+
+    def usage_report(self, campaign_id: int) -> Dict[str, Any]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT status, COUNT(*) AS n, COALESCE(SUM(value), 0) AS value, "
+                                "COALESCE(SUM(order_value), 0) AS order_value, COALESCE(SUM(askodox_cost), 0) AS "
+                                "askodox_cost, COALESCE(SUM(partner_cost), 0) AS partner_cost FROM benefit_claims "
+                                "WHERE campaign_id=? GROUP BY status", (campaign_id,)).fetchall()
+            coupons = {r["status"]: r["n"] for r in conn.execute(
+                "SELECT status, COUNT(*) AS n FROM benefit_coupons WHERE campaign_id=? GROUP BY status",
+                (campaign_id,))}
+            users = conn.execute("SELECT COUNT(DISTINCT user_id) AS n FROM benefit_claims WHERE campaign_id=?",
+                                 (campaign_id,)).fetchone()["n"]
+        by_status = {r["status"]: int(r["n"]) for r in rows}
+        redeemed = next((dict(r) for r in rows if r["status"] == "REDEEMED"), {})
+        return {"claims": sum(by_status.values()), "by_status": by_status, "unique_customers": int(users or 0),
+                "redemption_rate": round(by_status.get("REDEEMED", 0) / sum(by_status.values()) * 100, 1)
+                if by_status else None,
+                "order_value": round(float(redeemed.get("order_value") or 0), 2),
+                "askodox_cost": round(float(redeemed.get("askodox_cost") or 0), 2),
+                "partner_cost": round(float(redeemed.get("partner_cost") or 0), 2),
+                "coupons": coupons}
 
     # ------------------------------------------------------------ coupons --
 

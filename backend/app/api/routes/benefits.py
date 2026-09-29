@@ -146,6 +146,13 @@ def claim_benefit(campaign_id: int, payload: ClaimRequest, request: Request) -> 
         raise HTTPException(status_code=404, detail="Offer not available")
     if campaign["offer_type"] in _EXTERNAL:
         raise HTTPException(status_code=409, detail="This offer is applied by the bank/partner at payment")
+    eligibility = campaign.get("eligibility") or "all"
+    if eligibility != "all":
+        from app.api.routes.platform import platform
+
+        is_new = platform(request.app.state.container)._is_new_customer(user)
+        if is_new != (eligibility == "new"):
+            raise HTTPException(status_code=409, detail=f"This offer is for {eligibility} customers")
     return _issue(request, campaign, user, trigger_ref="", kind="claim", price=payload.order_value)
 
 
@@ -214,6 +221,7 @@ class CampaignPayload(BaseModel):
     active: bool | None = None
     priority: int | None = Field(default=None, ge=-100, le=100)
     tracking_params: dict[str, str] | None = None
+    eligibility: str | None = None
 
 
 def _checked(payload: CampaignPayload, *, creating: bool) -> dict:
@@ -227,6 +235,8 @@ def _checked(payload: CampaignPayload, *, creating: bool) -> dict:
         raise HTTPException(status_code=422, detail=f"offer_type must be one of {', '.join(OFFER_TYPES)}")
     if "offer_type" in data and data["offer_type"] not in OFFER_TYPES:
         raise HTTPException(status_code=422, detail="unknown offer_type")
+    if "eligibility" in data and data["eligibility"] not in ("all", "new", "existing"):
+        raise HTTPException(status_code=422, detail="eligibility must be all, new or existing")
     if "funding_source" in data and data["funding_source"] not in FUNDING:
         raise HTTPException(status_code=422, detail=f"funding_source must be one of {', '.join(FUNDING)}")
     if "source_kind" in data and data["source_kind"] not in SOURCE_KINDS:
@@ -294,6 +304,40 @@ def admin_update_campaign(campaign_id: int, payload: CampaignPayload, request: R
     campaign = repo.update_campaign(campaign_id, data)
     _audit(request, principal, "benefit.update", f"benefit:{campaign_id}", {"changed_fields": sorted(data)})
     return campaign
+
+
+@admin_router.post("/{campaign_id}/clone")
+def admin_clone_campaign(campaign_id: int, request: Request) -> dict:
+    principal = _require(request, "growth:manage")
+    try:
+        campaign = benefits_repo(request.app.state.container).clone_campaign(campaign_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Campaign not found") from None
+    _audit(request, principal, "benefit.clone", f"benefit:{campaign_id}", {"copy": campaign["id"]})
+    return campaign
+
+
+@admin_router.post("/{campaign_id}/archive")
+def admin_archive_campaign(campaign_id: int, request: Request, restore: bool = False) -> dict:
+    """Archive stops the campaign (claims and history are kept); restore
+    brings it back inactive, to be re-checked and switched on."""
+    principal = _require(request, "growth:manage")
+    repo = benefits_repo(request.app.state.container)
+    if repo.campaign(campaign_id) is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    campaign = repo.update_campaign(campaign_id, {"archived": not restore, "active": False})
+    _audit(request, principal, "benefit.restore" if restore else "benefit.archive", f"benefit:{campaign_id}")
+    return campaign
+
+
+@admin_router.get("/{campaign_id}/report")
+def admin_campaign_report(campaign_id: int, request: Request) -> dict:
+    _require(request, "growth:view")
+    repo = benefits_repo(request.app.state.container)
+    campaign = repo.campaign(campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return {"campaign": campaign, "usage": repo.usage_report(campaign_id)}
 
 
 class CouponsPayload(BaseModel):

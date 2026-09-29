@@ -181,3 +181,33 @@ def test_offers_reach_search_results_and_partner_postback_redeems_coupons(api):
         "token": token, "order_id": "B-1", "order_value": "5000", "status": "approved", "coupon": "PB300"}).json()
     assert replay["coupon"] == "redeemed"  # idempotent (same reference)
     assert container.benefits_repository.claim(claim["claim_id"])["partner_cost"] == 300
+
+
+def test_coupon_eligibility_clone_archive_and_usage_report(api, monkeypatch):
+    client, container = api
+    from app.api.routes.platform import platform
+
+    monkeypatch.setattr(container, "platform", None, raising=False)
+    new_only = campaign(client, name="New customer ₹200", offer_type="coupon", discount_amount=200,
+                        eligibility="new", funding_source="askodox")
+    assert client.post("/admin/cc/benefits", headers=OWNER, json={
+        "name": "x", "offer_type": "coupon", "eligibility": "vip"}).status_code == 422
+    client.post(f"/admin/cc/benefits/{new_only['id']}/coupons", headers=OWNER, json={"codes": ["NEW200A"]})
+    returning = "app-phone-91" + "7" * 10
+    monkeypatch.setattr(type(platform(container)), "_is_new_customer", lambda self, user: user != returning)
+    refused = client.post(f"/api/benefits/{new_only['id']}/claim", headers=auth(container, returning), json={})
+    assert refused.status_code == 409 and "new customers" in refused.json()["detail"]
+    ok = client.post(f"/api/benefits/{new_only['id']}/claim", headers=auth(container, "app-phone-91" + "8" * 10),
+                     json={}).json()
+    assert ok["code"] == "NEW200A"
+    report = client.get(f"/admin/cc/benefits/{new_only['id']}/report", headers=OWNER).json()["usage"]
+    assert report["claims"] == 1 and report["unique_customers"] == 1 and report["by_status"] == {"ISSUED": 1}
+    assert "NEW200A" not in str(report)
+    copy = client.post(f"/admin/cc/benefits/{new_only['id']}/clone", headers=OWNER).json()
+    assert copy["id"] != new_only["id"] and not copy["active"] and copy["name"].endswith("(copy)")
+    assert copy["eligibility"] == "new" and copy["verified_at"] is None
+    archived = client.post(f"/admin/cc/benefits/{new_only['id']}/archive", headers=OWNER).json()
+    assert archived["archived"] and not archived["active"]
+    assert client.get(f"/api/benefits/{new_only['id']}").status_code == 404, "archived offers are never live"
+    restored = client.post(f"/admin/cc/benefits/{new_only['id']}/archive?restore=true", headers=OWNER).json()
+    assert not restored["archived"] and not restored["active"], "restored inactive, to be re-checked"
