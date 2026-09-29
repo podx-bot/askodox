@@ -198,10 +198,14 @@ enum AskodoxResultSegment {
   online,
   // Affiliate / partner stores (Partner Hub): after local and normal online.
   partner,
+  // Paid placements (Command Center sponsored campaigns): their own labelled
+  // section, never ranked among organic results.
+  sponsored,
   video,
 }
 
 AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
+  if (match.sponsored) return AskodoxResultSegment.sponsored;
   switch (match.segment) {
     case 'registered':
       return AskodoxResultSegment.registered;
@@ -241,6 +245,7 @@ String askodoxSegmentLabel(String segment) => switch (segment) {
       'wider_local' => 'Wider local area',
       'jobs' => 'Job opening (from a job site)',
       'partner' => 'Partner store (affiliate link)',
+      'sponsored' => 'Sponsored (paid placement)',
       _ => segment,
     };
 
@@ -251,6 +256,13 @@ String askodoxSegmentTitle(
   String lang = 'en',
 }) {
   // Other app languages: the online/no-local headings from the label table.
+  if (segment == AskodoxResultSegment.sponsored) {
+    return switch (lang) {
+      'te' => 'స్పాన్సర్డ్',
+      'hi' => 'प्रायोजित',
+      _ => telugu ? 'స్పాన్సర్డ్' : 'Sponsored',
+    };
+  }
   if (lang != 'en' && lang != 'te' && segment == AskodoxResultSegment.partner) {
     return askodoxChatLabel('partner', lang);
   }
@@ -274,6 +286,7 @@ String askodoxSegmentTitle(
           ? 'ఆన్‌లైన్ ఎంపికలు'
           : 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు',
       AskodoxResultSegment.partner => 'భాగస్వామి స్టోర్లు',
+      AskodoxResultSegment.sponsored => 'స్పాన్సర్డ్',
       AskodoxResultSegment.video => 'వీడియోలు & రివ్యూలు',
     };
   }
@@ -290,6 +303,7 @@ String askodoxSegmentTitle(
     AskodoxResultSegment.online =>
       hasLocal ? 'Online options' : 'No local match yet -- online options',
     AskodoxResultSegment.partner => 'Partner stores',
+    AskodoxResultSegment.sponsored => 'Sponsored',
     AskodoxResultSegment.video => 'Videos & reviews',
   };
 }

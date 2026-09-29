@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../companion/companion_hub.dart';
+
 /// History status filters.
 enum AskodoxConversationStatus { active, matched, completed }
 
@@ -139,24 +141,38 @@ class AskodoxChatRequest {
   AskodoxChatRequest.restore(this.conversationId)
       : prompt = null,
         newConversation = false,
-        voice = false;
+        voice = false,
+        hubAction = null;
   AskodoxChatRequest.newConversation()
       : conversationId = null,
         prompt = null,
         newConversation = true,
-        voice = false;
+        voice = false,
+        hubAction = null;
   AskodoxChatRequest.ask(this.prompt)
       : conversationId = null,
         newConversation = false,
-        voice = false;
+        voice = false,
+        hubAction = null;
 
   /// The centre ASKODOX button: open Main Chat and start listening at once.
   AskodoxChatRequest.voice()
       : conversationId = null,
         prompt = null,
         newConversation = false,
-        voice = true;
+        voice = true,
+        hubAction = null;
 
+  /// A companion action (Voice, Chat, Camera, Photos, Video, Files,
+  /// Location) chosen outside Main Chat -- nav avatar or floating companion
+  /// -- carried into the SAME conversation.
+  AskodoxChatRequest.action(AskodoxHubAction this.hubAction)
+      : conversationId = null,
+        prompt = null,
+        newConversation = false,
+        voice = false;
+
+  final AskodoxHubAction? hubAction;
   final String? conversationId;
   final String? prompt;
   final bool newConversation;

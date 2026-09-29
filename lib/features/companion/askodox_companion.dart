@@ -198,12 +198,34 @@ String askodoxCompanionLine(AskodoxCompanionMood mood,
   return lines[mood]!;
 }
 
-/// Session-wide guard for low-end phones: when real frames of the 3D friend
-/// are too slow, the friend drops to the light 2D drawing for the rest of
-/// the session (the user's 3D setting is not changed).
+/// Session-wide guard for slower phones. When real frames are too slow the
+/// companion steps down -- but keeps its human face and identity:
+/// 0 = full motion, 1 = lighter motion (short gestures instead of continuous
+/// loops), 2 = lightweight still pose per state. After [retryAfter] it tries
+/// one level up again (step back up when the phone copes). The robot is only
+/// a last resort when the human renderer itself fails.
 class AskodoxCompanionPerformance {
-  /// 0 = human 3D allowed, 1 = robot lite, 2 = flat 2D (this session only).
   static int level = 0;
+
+  /// When the last step down happened (for stepping back up).
+  static DateTime? steppedDownAt;
+  static Duration retryAfter = const Duration(minutes: 2);
+
+  static void stepDown() {
+    if (level >= 2) return;
+    level++;
+    steppedDownAt = DateTime.now();
+  }
+
+  /// Called when motion starts: try one level up after a quiet period.
+  static void maybeStepUp([DateTime? now]) {
+    final at = steppedDownAt;
+    if (level == 0 || at == null) return;
+    if ((now ?? DateTime.now()).difference(at) >= retryAfter) {
+      level--;
+      steppedDownAt = level == 0 ? null : (now ?? DateTime.now());
+    }
+  }
 
   static bool get lite => level >= 2;
   static set lite(bool value) => level = value ? 2 : 0;
@@ -228,6 +250,7 @@ class AskodoxCompanionPerformance {
   /// The user picked a companion: give 3D a fresh chance this session.
   static void reset() {
     level = 0;
+    steppedDownAt = null;
     vrmFallback = null;
   }
 }
@@ -344,9 +367,9 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
     }
     if (_frames.length > 150) _frames.removeRange(AskodoxCompanionPerformance.warmupFrames, _frames.length - 120);
     if (AskodoxCompanionPerformance.level < 2 && AskodoxCompanionPerformance.judge(_frames)) {
-      // Too slow on this phone: step down one level (human -> robot lite ->
-      // flat) for this session; the user's choice is kept for next time.
-      AskodoxCompanionPerformance.level++;
+      // Too slow on this phone: lighter motion, then a still pose -- same
+      // human companion; the user's choice is kept for next time.
+      AskodoxCompanionPerformance.stepDown();
       _frames.clear();
       _stopFrameWatch();
       if (mounted) setState(() {});
@@ -385,8 +408,20 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
       AskodoxCompanionMood.explaining,
       AskodoxCompanionMood.success,
     };
-    final allowed = animate && !reduceMotion && !_paused;
-    if (allowed && continuous.contains(widget.mood)) {
+    AskodoxCompanionPerformance.maybeStepUp();
+    final level = AskodoxCompanionPerformance.level;
+    // Level 2: still pose per state (no motion at all).
+    final allowed = animate && !reduceMotion && !_paused && level < 2;
+    // Level 1: continuous loops become short gestures.
+    if (allowed && level == 1 && continuous.contains(widget.mood)) {
+      if (_burstMood != widget.mood) {
+        _burstMood = widget.mood;
+        _clock
+          ..stop()
+          ..value = 0
+          ..repeat(count: 2);
+      }
+    } else if (allowed && continuous.contains(widget.mood)) {
       _burstMood = null;
       if (!_clock.isAnimating) _clock.repeat();
     } else if (allowed && burst.contains(widget.mood)) {
@@ -429,12 +464,12 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
 
   AskodoxCompanionRender _renderFor(AskodoxCompanionSettings settings, bool reduceMotion) {
     if (!settings.enabled) return AskodoxCompanionRender.off;
-    if (!settings.render3d || reduceMotion || AskodoxCompanionPerformance.level >= 2) {
+    if (!settings.render3d || reduceMotion) {
       return AskodoxCompanionRender.flat2d;
     }
-    if (settings.companion == AskodoxCompanionSettings.robotLite ||
-        AskodoxCompanionPerformance.level == 1 ||
-        _humanFailed) {
+    // The robot only when chosen, or as the last resort when the human
+    // renderer fails -- slow phones keep the human face (lighter motion).
+    if (settings.companion == AskodoxCompanionSettings.robotLite || _humanFailed) {
       return AskodoxCompanionRender.robot3d;
     }
     if (settings.companion == AskodoxCompanionSettings.humanHd && AskodoxCompanionPerformance.vrmFallback == null) {
@@ -461,6 +496,7 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
       _syncAnimation(false, false);
       // Friend off: a plain, still mic button with the same tap action.
       return Semantics(
+        container: true,
         label: 'ASKODOX ${widget.mood.name}',
         button: widget.onTap != null,
         child: GestureDetector(
@@ -495,6 +531,7 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
         ),
       );
       return Semantics(
+        container: true,
         label: 'ASKODOX Human HD ${widget.mood.name}',
         button: widget.onTap != null,
         child: GestureDetector(
@@ -516,6 +553,7 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
     final human = persona == null ? null : _humanMesh(persona);
     final robot = render == AskodoxCompanionRender.robot3d ? _robotMesh(settings.look) : null;
     return Semantics(
+      container: true,
       label: 'ASKODOX ${persona == null ? '' : '${askodoxPersonaLabel(persona)} '}${widget.mood.name}',
       button: widget.onTap != null,
       child: GestureDetector(
@@ -686,7 +724,12 @@ class AskodoxCompanionBar extends StatelessWidget {
     this.foundLabel,
     this.lang,
     this.subject,
+    this.guidance,
   });
+
+  /// Contextual guidance from the conversation (local vs online, set your
+  /// location, "tap me again to stop" ...); replaces the plain mood line.
+  final String? guidance;
 
   /// Conversation language code (te / en / hi ...); null = [telugu].
   final String? lang;
@@ -705,30 +748,50 @@ class AskodoxCompanionBar extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        key: const Key('askodoxCompanionBar'),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-        child: Row(children: [
-          AskodoxCompanion(mood: mood, size: size, onTap: onTap),
-          const SizedBox(width: 8),
-          if (showLine)
-            Expanded(
+  Widget build(BuildContext context) {
+    final line = guidance ??
+        (mood == AskodoxCompanionMood.idle
+            ? switch (lang ?? (telugu ? 'te' : 'en')) {
+                'te' => 'ఇంకా ఏమైనా కావాలా? అడగండి.',
+                'hi' => 'और कुछ चाहिए? बस पूछिए।',
+                _ => 'Anything else? Just ask.',
+              }
+            : (foundLabel != null && results > 0 && mood == AskodoxCompanionMood.explaining)
+                ? foundLabel!
+                : askodoxCompanionLine(mood, telugu: telugu, results: results, lang: lang, subject: subject));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        AskodoxCompanion(key: const Key('askodoxCompanionStage'), mood: mood, size: size, onTap: onTap),
+        const SizedBox(width: 6),
+        if (showLine)
+          Expanded(
+            // A speech bubble next to the companion: what it is doing or
+            // suggesting right now.
+            child: Container(
+              margin: EdgeInsets.only(bottom: size * .35),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(4),
+                ),
+                border: Border.all(color: const Color(0xFFE2DDFF)),
+                boxShadow: const [BoxShadow(color: Color(0x146C4DFF), blurRadius: 10, offset: Offset(0, 3))],
+              ),
               child: Text(
-                mood == AskodoxCompanionMood.idle
-                    ? switch (lang ?? (telugu ? 'te' : 'en')) {
-                        'te' => 'ఇంకా ఏమైనా కావాలా? అడగండి.',
-                        'hi' => 'और कुछ चाहिए? बस पूछिए।',
-                        _ => 'Anything else? Just ask.',
-                      }
-                    : (foundLabel != null && results > 0 && mood == AskodoxCompanionMood.explaining)
-                        ? foundLabel!
-                        : askodoxCompanionLine(mood, telugu: telugu, results: results, lang: lang, subject: subject),
+                line,
                 key: const Key('askodoxCompanionLine'),
-                maxLines: 2,
+                maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF10204A), fontWeight: FontWeight.w700),
+                style: const TextStyle(color: Color(0xFF10204A), fontWeight: FontWeight.w700, height: 1.3),
               ),
             ),
-        ]),
-      );
+          ),
+      ]),
+    );
+  }
 }

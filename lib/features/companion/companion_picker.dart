@@ -113,8 +113,8 @@ class AskodoxCompanionPicker extends ConsumerWidget {
             const Icon(Icons.speed_rounded, size: 18, color: Color(0xFF8A94A6)),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(t('Running the Lite friend for smoothness on this phone.',
-                  'స్మూత్‌గా ఉండేందుకు ఈ ఫోన్‌లో లైట్ స్నేహితుడు నడుస్తోంది.')),
+              child: Text(t('Lighter motion for smoothness on this phone (same companion).',
+                  'ఈ ఫోన్‌లో స్మూత్‌గా ఉండేందుకు తేలికపాటి కదలికలు (అదే సహచరుడు).')),
             ),
             TextButton(
               key: const Key('askodoxCompanionRetry3d'),

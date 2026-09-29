@@ -49,6 +49,9 @@ PERMISSIONS = (
     "partners:manage",
     "revenue:view",
     "revenue:manage",
+    # Sponsored listings: advertisers, campaigns, approvals, analytics.
+    "sponsored:view",
+    "sponsored:manage",
 )
 
 ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
@@ -75,7 +78,7 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view", "revenue:view",
                          "revenue:manage", "analytics:export"),
     "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view",
-                       "partners:view", "partners:manage", "revenue:view"),
+                       "partners:view", "partners:manage", "revenue:view", "sponsored:view", "sponsored:manage"),
 }
 
 # ----------------------------------------------------------- feature flags --
@@ -85,6 +88,7 @@ FEATURE_FLAGS: Dict[str, str] = {
     "results.nearby_external": "Nearby/wider external shops (Google Places)",
     "results.online": "Online product results (web discovery)",
     "results.affiliate": "Affiliate partner results",
+    "results.sponsored": "Sponsored campaign results (labelled, after organic results)",
     "results.used": "Used / second-hand results",
     "results.surplus": "Surplus / clearance / open-box results",
     "results.deals": "Deals & offers results",

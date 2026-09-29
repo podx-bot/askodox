@@ -293,6 +293,10 @@ def create_app() -> FastAPI:
 
     app.include_router(benefits_router)
     app.include_router(benefits_admin_router)
+    from app.api.routes.sponsored import admin_router as sponsored_admin_router, router as sponsored_router
+
+    app.include_router(sponsored_router)
+    app.include_router(sponsored_admin_router)
 
     app.include_router(partners_router)
     app.include_router(partners_admin_router)

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show File, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -38,6 +39,7 @@ import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/application/saved_options.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/selling/data/catalogue_repository.dart';
+import 'package:podx/shared/widgets/app_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------- fakes --
@@ -513,6 +515,10 @@ class _Harness {
   /// the exact action" is exercised end to end.
   bool withRouter = false;
 
+  /// When true Main Chat runs inside the real app shell (header + bottom
+  /// navigation) -- used by the Home render.
+  bool withShell = false;
+
   Widget _app({Widget home = const Scaffold(body: AskodoxPrimaryHomeScreen())}) {
     return ProviderScope(
       key: _scopeKey,
@@ -540,7 +546,22 @@ class _Harness {
           return Text('EMBED $uri');
         }),
       ],
-      child: withRouter
+      child: withShell
+          ? MaterialApp.router(
+              debugShowCheckedModeBanner: false,
+              routerConfig: GoRouter(routes: [
+                StatefulShellRoute.indexedStack(
+                  builder: (context, state, shell) => AppShell(shell: shell),
+                  branches: [
+                    StatefulShellBranch(routes: [GoRoute(path: '/', builder: (_, __) => home)]),
+                    for (final path in ['/search', '/watchlist', '/updates', '/profile'])
+                      StatefulShellBranch(
+                          routes: [GoRoute(path: path, builder: (_, __) => Center(child: Text(path)))]),
+                  ],
+                ),
+              ]),
+            )
+          : withRouter
           ? MaterialApp.router(
               routerConfig: GoRouter(routes: [
                 GoRoute(path: '/', builder: (_, __) => home),
@@ -807,9 +828,10 @@ void main() {
   group('attachments reach real multimodal processing (Section 14)', () {
     Future<void> attach(WidgetTester tester, _Harness h, String menuLabel, List<ChatAttachment> files) async {
       h.picker.next = files;
-      await tester.tap(find.byKey(const Key('askodoxAttach')));
-      await _Harness.settle(tester);
-      await tester.tap(find.text(menuLabel).last);
+      // Attachments come from the companion's actions (no separate +).
+      await _openCompanionHub(tester);
+      const telugu = {'కెమెరా': 'camera', 'ఫోటోలు': 'photos', 'వీడియో': 'video', 'ఫైల్స్': 'files'};
+      await tester.tap(find.byKey(ValueKey('askodoxHubAction-${telugu[menuLabel] ?? menuLabel.toLowerCase()}')));
       await _Harness.settle(tester);
     }
 
@@ -2620,7 +2642,7 @@ void main() {
             }),
       );
       await h.pump(tester, locale: 'te');
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 20));
       expect(methods(), isNot(contains('stopVoiceRecording')),
           reason: 'still speaking at 20 s: no premature stop');
@@ -2664,7 +2686,7 @@ void main() {
             }),
       );
       await h.pump(tester, locale: 'te');
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 58));
       expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'still speaking at 58 s');
 
@@ -2699,7 +2721,7 @@ void main() {
             }),
       );
       await h.pump(tester, locale: 'te');
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 18));
 
       final speak = calls.lastWhere((c) => c.method == 'speakReply');
@@ -2714,11 +2736,11 @@ void main() {
         voiceTranscript: 'I need AC repair',
       );
       await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 3));
-      expect(find.byTooltip('Stop and send'), findsOneWidget);
+      expect(find.textContaining('Tap the companion again to stop'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await _Harness.settle(tester);
 
       expect(methods(), contains('stopVoiceRecording'));
@@ -2730,7 +2752,7 @@ void main() {
       mockRecorder(levels: quiet(const Duration(seconds: 30)));
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 10));
       expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'not at 10 s');
       await runFor(tester, const Duration(seconds: 6));
@@ -2745,7 +2767,7 @@ void main() {
       mockRecorder(levels: speech(const Duration(seconds: 60)));
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 2));
       await tester.tap(find.byKey(const Key('askodoxVoiceCancel')));
       await _Harness.settle(tester);
@@ -2753,7 +2775,9 @@ void main() {
       expect(methods(), contains('cancelVoiceRecording'));
       expect(methods(), isNot(contains('stopVoiceRecording')));
       expect(h.voice.calls, isEmpty);
-      expect(find.byIcon(Icons.mic_rounded), findsWidgets);
+      // Back to idle: the voice panel (and its stop hint) is gone.
+      expect(find.byKey(const Key('askodoxVoiceStopHint')), findsNothing);
+      expect(find.byKey(const Key('askodoxVoiceElapsed')), findsNothing);
     });
 
     testWidgets('microphone permission denied shows a clear error and no fallback recognizer',
@@ -2761,7 +2785,7 @@ void main() {
       mockRecorder(startError: PlatformException(code: 'mic_denied'));
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await _Harness.settle(tester);
 
       expect(find.textContaining('Microphone permission is off'), findsOneWidget);
@@ -2777,7 +2801,7 @@ void main() {
       ]);
       final failing = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await failing.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 8));
       expect(find.textContaining('could not understand'), findsOneWidget);
       expect(failing.assistant.requests, isEmpty);
@@ -2802,7 +2826,7 @@ void main() {
       ]);
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await tester.pump();
       expect(find.byKey(const Key('askodoxVoicePanel')), findsOneWidget);
 
@@ -2856,7 +2880,7 @@ void main() {
       await h.pump(tester);
       final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
 
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 1));
       expect(find.text('Listening…'), findsOneWidget);
 
@@ -2900,7 +2924,7 @@ void main() {
       );
       await h.pump(tester, locale: 'te');
       final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 8));
 
       expect(h.replySpeech.calls.single.$2, 'te');
@@ -2927,11 +2951,11 @@ void main() {
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]), voiceTranscript: 'hi');
       h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
       await h.pump(tester);
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 8));
       expect(find.text('Speaking…'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('askodoxVoiceButton')));
+      await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 1));
       expect(methods(), contains('stopSpeaking'));
       expect(find.text('Listening…'), findsOneWidget);
@@ -3003,6 +3027,47 @@ void main() {
     expect(expiredClient.posts.map((p) => p.$1), ['/deals', '/deals/discover']);
     expect(again.matches.single.id, 'online-0');
   });
+
+  // Home render for comparison with the approved reference (opt-in:
+  // ASKODOX_RENDER=1 flutter test --update-goldens --plain-name "Home render").
+  testWidgets('Home render: idle, companion actions open, chat with results',
+      skip: !Platform.environment.containsKey('ASKODOX_RENDER'), (tester) async {
+    Future<void> font(String family, List<String> files) async {
+      final loader = FontLoader(family);
+      for (final f in files) {
+        loader.addFont(File(f).readAsBytes().then((b) => ByteData.view(b.buffer)));
+      }
+      await loader.load();
+    }
+
+    const fonts = '/root/sdk/flutter/bin/cache/artifacts/material_fonts';
+    await tester.runAsync(() async {
+      await font('Roboto', ['$fonts/Roboto-Regular.ttf', '$fonts/Roboto-Medium.ttf', '$fonts/Roboto-Bold.ttf',
+          '$fonts/Roboto-Black.ttf']);
+      await font('MaterialIcons', ['$fonts/MaterialIcons-Regular.otf']);
+    });
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '5', matches: [_localMatch, _onlineMatch]),
+      ]),
+    )..withShell = true;
+    await h.pump(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/home_idle.png'));
+
+    await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/home_actions_open.png'));
+    await tester.tap(find.byKey(const Key('askodoxHubScrim')), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
+    await tester.pump(const Duration(milliseconds: 500));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/home_chat_results.png'));
+  });
 }
 
 class _RecordingClient extends _ScriptedClient {
@@ -3057,4 +3122,35 @@ class _ScriptedClient implements ApiClient {
           required String fileName,
           ApiRequestOptions options = const ApiRequestOptions()}) async =>
       ApiSuccess<Uri>(Uri.parse('https://files.example/$fileName'));
+}
+
+
+/// The companion (in-chat stage, or the Home companion before the first
+/// message).
+Finder _companion() => find.byKey(const Key('askodoxCompanionStage')).evaluate().isNotEmpty
+    ? find.byKey(const Key('askodoxCompanionStage'))
+    : find.byKey(const Key('askodoxHomeOrb'));
+
+Future<void> _openCompanionHub(WidgetTester tester) async {
+  await tester.ensureVisible(_companion().first);
+  await tester.pump();
+  await tester.tap(_companion().first);
+  await tester.pump();
+  expect(find.byKey(const Key('askodoxCompanionHub')), findsOneWidget);
+}
+
+/// Voice is the companion's: tap it -> Voice starts listening; while
+/// listening, a tap on the companion stops ("tap again to stop").
+Future<void> _tapVoice(WidgetTester tester) async {
+  final listening = find.byKey(const Key('askodoxVoiceElapsed')).evaluate().isNotEmpty;
+  if (listening) {
+    await tester.ensureVisible(_companion().first);
+    await tester.pump();
+    await tester.tap(_companion().first);
+    await tester.pump();
+    return;
+  }
+  await _openCompanionHub(tester);
+  await tester.tap(find.byKey(const ValueKey('askodoxHubAction-voice')));
+  await tester.pump();
 }

@@ -30,7 +30,8 @@ class AskodoxPartnerTracker {
   /// Fire-and-forget: tracking never blocks or breaks the customer's action.
   void track(UniversalMatch match, String event) {
     final clickId = match.clickId?.trim();
-    if (clickId == null || clickId.isEmpty) return;
+    // Sponsored campaigns count their own opens via /go/sp/ (not partner events).
+    if (clickId == null || clickId.isEmpty || match.sponsored) return;
     _client
         .post<Map<String, Object?>>('/api/partners/event', body: {'click_id': clickId, 'event': event})
         .then((_) {}, onError: (_) {});

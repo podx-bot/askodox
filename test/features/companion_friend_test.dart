@@ -121,7 +121,8 @@ void main() {
       AskodoxCompanionPerformance.lite = true;
       await tester.pumpWidget(const SizedBox());
       await show();
-      expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget,
+          reason: 'a slow phone keeps the human face (still pose), not a different character');
 
       await container.read(askodoxCompanionSettingsProvider.notifier).update(enabled: false);
       await show();

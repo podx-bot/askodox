@@ -98,6 +98,8 @@ class UniversalMatch {
     this.benefits,
     this.latitude,
     this.longitude,
+    this.sponsored = false,
+    this.sponsoredLabel,
   });
 
   final String id;
@@ -159,7 +161,26 @@ class UniversalMatch {
   final double? latitude;
   final double? longitude;
 
+  /// A paid placement (Command Center sponsored campaign). Served in its own
+  /// section after the organic results -- never mixed into their ranking.
+  final bool sponsored;
+
+  /// The disclosure the campaign carries ("Sponsored" / "Promoted").
+  final String? sponsoredLabel;
+
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
+
+  /// The visible paid-placement badge, or null for an organic result:
+  /// sponsored campaigns show their own label, affiliate / partner links
+  /// (ASKODOX may earn a commission) show "Sponsored".
+  String? get paidPlacementLabel {
+    if (sponsored) {
+      final label = sponsoredLabel?.trim() ?? '';
+      return label == 'Promoted' ? 'Promoted' : 'Sponsored';
+    }
+    if (affiliate || segment == 'partner' || source == 'partner') return 'Sponsored';
+    return null;
+  }
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -208,6 +229,8 @@ class UniversalMatch {
           clickId: json['click_id']?.toString(),
           redirectPath: json['redirect_path']?.toString(),
           benefits: json['benefits'] is Map ? Map<String, Object?>.from(json['benefits'] as Map) : null,
+          sponsored: json['sponsored'] == true,
+          sponsoredLabel: json['sponsored_label']?.toString(),
       );
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
@@ -242,6 +265,8 @@ class UniversalMatch {
         'click_id': clickId,
         'redirect_path': redirectPath,
         'benefits': benefits,
+        if (sponsored) 'sponsored': true,
+        if (sponsoredLabel != null) 'sponsored_label': sponsoredLabel,
       };
 }
 

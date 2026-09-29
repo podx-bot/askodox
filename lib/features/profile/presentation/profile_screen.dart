@@ -8,6 +8,7 @@ import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../companion/askodox_companion.dart';
 import '../../companion/companion_floating.dart';
+import '../../companion/companion_hub.dart';
 import '../../companion/companion_picker.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/application/saved_options.dart';
@@ -335,6 +336,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             'ఈ సెషన్‌లో లైట్ హ్యూమన్ చూపిస్తున్నాం.'),
                         style: const TextStyle(fontSize: 12, color: Color(0xFF9A5B00))),
                   ),
+                SwitchListTile(
+                  key: const Key('askodoxInAppFloating'),
+                  title: Text(t('Floating companion in ASKODOX', 'ASKODOXలో తేలియాడే సహచరుడు')),
+                  subtitle: Text(t(
+                      'Keeps your companion on Explore, Orders and Profile. Drag it anywhere; it snaps to the side '
+                          'and remembers where you left it.',
+                      'ఎక్స్‌ప్లోర్, ఆర్డర్లు, ప్రొఫైల్‌లో కూడా మీ సహచరుడు ఉంటారు. ఎక్కడికైనా లాగండి; పక్కకు అతుక్కుంటారు, '
+                          'మీరు వదిలిన చోటు గుర్తుంచుకుంటారు.')),
+                  value: ref.watch(askodoxInAppFloatProvider).enabled,
+                  onChanged: (on) => ref.read(askodoxInAppFloatProvider.notifier).setEnabled(on),
+                ),
                 Builder(builder: (context) {
                   final bubble = ref.watch(askodoxBubbleProvider);
                   return SwitchListTile(

@@ -204,12 +204,14 @@ void main() {
       expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
 
       await n.update(render3d: true);
-      AskodoxCompanionPerformance.level = 1; // frames too slow for the human
+      // Slow frames: lighter motion, then a still pose -- the SAME human
+      // face (the robot is never the performance fallback).
+      AskodoxCompanionPerformance.level = 1;
       await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanion3d')), findsOneWidget);
-      AskodoxCompanionPerformance.level = 2; // still too slow
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
+      AskodoxCompanionPerformance.level = 2;
       await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
       AskodoxCompanionPerformance.level = 0;
 
       await n.update(enabled: false);
@@ -223,7 +225,7 @@ void main() {
       addTearDown(c.dispose);
       AskodoxCompanionPerformance.level = 2; // an earlier slow stretch
       await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget, reason: 'still the human face');
       await c.read(askodoxCompanionSettingsProvider.notifier).update(companion: AskodoxPersona.techExpert.name);
       await show(tester, c);
       expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);

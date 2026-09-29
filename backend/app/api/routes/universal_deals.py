@@ -882,6 +882,25 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
                 continue
             seen.add(str(item.get("id")))
             matches.append(item)
+    # Sponsored campaigns (Command Center): paid placements are appended in
+    # their own labelled section AFTER every organic row -- they never enter
+    # or reorder the organic ranking, and are served only when targeted.
+    sponsored_rows: list[dict] = []
+    organic_count = len(matches)
+    if flags.get("results.sponsored", True):
+        try:
+            from app.api.routes.sponsored import sponsored_results
+
+            sponsored_rows = [row for row in sponsored_results(container, demand) if str(row.get("id")) not in seen]
+        except Exception as error:  # an ad never breaks discovery
+            errors.append(f"sponsored:{type(error).__name__}")
+        matches.extend(sponsored_rows)
+    try:
+        from app.api.routes.sponsored import sponsored_repo
+
+        sponsored_repo(container).tally_search(organic=organic_count, sponsored=len(sponsored_rows))
+    except Exception:
+        pass
     try:
         from app.api.routes.partners import partner_repo
 
@@ -909,6 +928,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         "used_surplus_deals": sum(1 for m in matches if m.get("segment") in {"used", "surplus", "deals"}),
         "affiliate": sum(1 for m in matches if m.get("affiliate")),
         "partner": len(partner_rows),
+        "sponsored": len(sponsored_rows),
         "videos": sum(1 for m in matches if m.get("match_source") == "video"),
     }
     if not online_on:

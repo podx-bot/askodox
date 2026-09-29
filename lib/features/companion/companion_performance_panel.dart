@@ -141,8 +141,8 @@ class _AskodoxCompanionPerformancePanelState extends ConsumerState<AskodoxCompan
       ('Companion', '${settings.companion}${settings.render3d ? '' : ' (3D off)'}'),
       ('Step-down level', switch (AskodoxCompanionPerformance.level) {
         0 => 'full 3D',
-        1 => 'robot lite (slow frames)',
-        _ => 'flat 2D (slow frames)',
+        1 => 'lighter motion (slow frames)',
+        _ => 'still pose (slow frames)',
       }),
       if (AskodoxCompanionPerformance.vrmFallback != null) ('Human HD', 'fell back: ${AskodoxCompanionPerformance.vrmFallback}'),
       ('Frames measured', '${_frames.frames}'),

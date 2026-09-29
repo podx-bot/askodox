@@ -128,4 +128,15 @@ void main() {
     expect(find.byKey(const Key('askodoxPerfCompanion')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  test('slow frames step down (lighter motion, still pose) and step back up after a quiet period', () {
+    final t0 = DateTime(2026, 9, 29, 10);
+    AskodoxCompanionPerformance.stepDown();
+    AskodoxCompanionPerformance.steppedDownAt = t0;
+    expect(AskodoxCompanionPerformance.level, 1);
+    AskodoxCompanionPerformance.maybeStepUp(t0.add(const Duration(seconds: 30)));
+    expect(AskodoxCompanionPerformance.level, 1, reason: 'not yet');
+    AskodoxCompanionPerformance.maybeStepUp(t0.add(const Duration(minutes: 3)));
+    expect(AskodoxCompanionPerformance.level, 0, reason: 'tries full quality again when the phone copes');
+  });
 }

@@ -55,12 +55,42 @@ a visible screen or a microphone-type foreground service -- we do not run
 one); Google Play requires the overlay + special-use declarations in the
 Play Console before a store release; Android 7 and older: not available.
 
+## Companion as the app's entry point (Home + nav)
+- Bottom navigation: Home | Explore | [companion face] | Orders | Profile.
+  The centre item is the live companion (same mood as Main Chat via
+  `askodoxCompanionLiveProvider`), not a microphone.
+- Tapping it opens the action ring (`AskodoxCompanionHub`): Voice, Chat,
+  Camera, Photos, Video, Files, Location. Tap outside, tap again or double
+  tap closes it. The ring is never a permanent row on Home.
+- Voice lives only in the companion: while listening, a tap on the companion
+  (nav, Home stage or floating) stops it ("Tap the companion again to stop").
+  The composer has no mic or attach button any more; attachments go through
+  the one attachment pipeline.
+- Home order: header (ASKODOX, location, language, notifications) -> earlier
+  turns -> current results -> the companion with its contextual line ->
+  the current question / follow-ups right above the input.
+
+## In-app floating companion -- built, opt-in
+Profile > "Floating companion in ASKODOX" (off by default): a small avatar
+over the other ASKODOX screens (not on Main Chat, which already shows it).
+Draggable, snaps to the nearest side, keeps clear of the status bar, the
+bottom navigation and the keyboard, and remembers its side / height across
+navigation and restarts (`askodox.companion.float.v1`). Tap = compact panel
+(Ask about this, Voice, Chat, Camera, Photos, Video, Files, Location,
+Minimize, Hide). Every action continues the SAME Main Chat conversation
+(`AskodoxChatRequest.action` / `.ask`), same language and persona.
+Evidence so far is widget tests only -- drag, snap, persistence, panel and
+keyboard behaviour still need real-phone acceptance.
+
 ## Performance
 The rig is procedural (0 bytes of model assets); release APK sizes are
 written to `APK_SIZES.txt` by the Live Build. At runtime the median frame
-time is watched and the friend steps down human 3D -> robot Lite -> flat 2D
-for the session (`AskodoxCompanionPerformance`); motion runs only while a
-state is active, and never with the phone's "remove animations" setting.
+time is watched and the friend steps down WITHOUT changing who it is:
+level 1 = lighter motion (short bursts instead of continuous loops),
+level 2 = still pose; after 2 minutes it tries the full level again
+(`AskodoxCompanionPerformance.stepDown` / `maybeStepUp`). The robot is
+shown only if chosen or if the human renderer fails; flat 2D only when 3D
+is switched off or the phone's "remove animations" setting is on.
 Profile > Companion performance shows, on the phone itself, with a live
 companion animating: sustainable fps, build/raster p50/p90 (Flutter frame
 timings), app RSS/PSS and free phone memory, battery %, temperature,

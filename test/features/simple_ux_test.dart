@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/companion/askodox_companion.dart';
+import 'package:podx/features/companion/companion_hub.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
-import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/companion/companion_3d.dart';
 import 'package:podx/features/growth/data/growth_repository.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
@@ -264,9 +265,21 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxNavUpdates')));
     await tester.pumpAndSettle();
     expect(find.text('UPDATES'), findsOneWidget);
+    // The centre item is the companion's face (not a mic): a tap opens its
+    // actions on Main Chat; a double tap closes them.
+    expect(find.byKey(const Key('askodoxNavCompanion')), findsOneWidget);
+    expect(find.byIcon(Icons.mic_rounded), findsNothing, reason: 'no microphone in the navigation');
     await tester.tap(find.byKey(const Key('askodoxNavSpeak')));
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.text('HOME'), findsOneWidget);
-    expect(container.read(askodoxChatRequestProvider)?.voice, isTrue);
+    expect(container.read(askodoxCompanionHubOpenProvider), isTrue);
+    // While listening, the same tap stops listening in the SAME chat.
+    container.read(askodoxCompanionLiveProvider.notifier).state =
+        const AskodoxCompanionLive(mood: AskodoxCompanionMood.listening, listening: true);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('askodoxNavSpeak')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(askodoxChatRequestProvider)?.hubAction, AskodoxHubAction.voice);
   });
 }

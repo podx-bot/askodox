@@ -29,6 +29,7 @@ import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
+import '../../companion/companion_hub.dart';
 import '../application/saved_options.dart';
 import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
@@ -56,7 +57,6 @@ import 'video_viewer_screen.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
-const _accent = Color(0xFFFFC928);
 const _blue = Color(0xFF1769FF);
 
 String askodoxAttachmentMimeType(String filename) {
@@ -484,37 +484,10 @@ class _AskodoxPrimaryHomeScreenState
   }
 
 
-  Future<void> _showAttachmentMenu() async {
+  /// Camera / Photos / Video / Files from the companion -> the ONE
+  /// attachment pipeline (real bytes, analyzed on Send).
+  Future<void> _pickAttachment(String choice) async {
     try {
-      final choice = await showModalBottomSheet<String>(
-        context: context,
-        showDragHandle: true,
-        builder: (context) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.camera_alt_outlined),
-            title: Text(_te ? 'కెమెరా' : 'Camera'),
-            onTap: () => Navigator.pop(context, 'camera'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: Text(_te ? 'ఫోటోలు' : 'Photos'),
-            onTap: () => Navigator.pop(context, 'photos'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.video_library_outlined),
-            title: Text(_te ? 'వీడియో' : 'Video'),
-            onTap: () => Navigator.pop(context, 'video'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.attach_file_rounded),
-            title: Text(_te ? 'ఫైల్స్' : 'Files'),
-            onTap: () => Navigator.pop(context, 'files'),
-          ),
-        ]),
-        ),
-      );
-      if (!mounted || choice == null) return;
       final picked = await ref.read(askodoxMediaPickerProvider).pick(choice);
       for (final attachment in picked) {
         if (!mounted || !_addAttachment(attachment)) break;
@@ -633,6 +606,10 @@ class _AskodoxPrimaryHomeScreenState
     }
     if (request.voice) {
       if (!_sending) await _startVoice();
+      return;
+    }
+    if (request.hubAction case final action?) {
+      await _companionAction(action);
       return;
     }
     final id = request.conversationId;
@@ -2578,27 +2555,110 @@ class _AskodoxPrimaryHomeScreenState
   Widget build(BuildContext context) {
     ref.watch(askodoxReplyLanguageProvider);
     final te = _te;
+    _publishCompanion();
+    final hubOpen = ref.watch(askodoxCompanionHubOpenProvider);
     return ColoredBox(
         color: const Color(0xFFF9FBFF),
-        child: Column(children: [
-          Expanded(child: _active ? _chat(te) : _home(te)),
-          // The companion stays docked for the whole conversation; during
-          // voice the voice panel shows the status text, so no second line.
-          if (_active)
-            AskodoxCompanionBar(
-              mood: _companionMood,
-              telugu: te,
-              results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
-              onTap: _voicePhase == _VoicePhase.idle ? _startVoice : null,
-              showLine: _voicePhase == _VoicePhase.idle,
-              foundLabel: _lang == 'te' || _lang == 'en' || _lang == 'hi'
-                  ? null
-                  : askodoxChatLabel('found_pick', _lang, count: _latestResults()?.matches.length ?? 0),
-              lang: _lang,
-              subject: ref.watch(universalDealControllerProvider).deal?.subject,
+        child: Stack(children: [
+          Column(children: [
+            // Results above, the companion in the middle, the current
+            // conversation at the bottom next to the input (see _chat).
+            Expanded(child: _active ? _chat(te) : _home(te)),
+            _composer(te)
+          ]),
+          // The companion's actions appear only while the user is
+          // interacting with it -- never as a permanent row of buttons.
+          if (hubOpen)
+            Positioned.fill(
+              child: AskodoxCompanionHub(
+                lang: _lang,
+                onAction: _companionAction,
+                onClose: () => ref.read(askodoxCompanionHubOpenProvider.notifier).state = false,
+              ),
             ),
-          _composer(te)
         ]));
+  }
+
+  /// The ONE companion state, shared with the nav avatar and the floating
+  /// companion (same assistant, same conversation).
+  void _publishCompanion() {
+    final live = AskodoxCompanionLive(
+      mood: _companionMood,
+      listening: _voicePhase == _VoicePhase.recording,
+      line: _companionGuidance(),
+    );
+    if (ref.read(askodoxCompanionLiveProvider) == live) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(askodoxCompanionLiveProvider.notifier).state = live;
+    });
+  }
+
+  /// A tap on the companion: while listening it stops listening ("tap
+  /// again to stop"); otherwise it opens / closes its actions.
+  void _onCompanionTap() {
+    if (_voicePhase == _VoicePhase.recording) {
+      unawaited(_startVoice()); // stop and send
+      return;
+    }
+    final hub = ref.read(askodoxCompanionHubOpenProvider.notifier);
+    hub.state = !hub.state;
+  }
+
+  /// Voice, Chat, Camera, Photos, Video, Files, Location -- from the ring,
+  /// the nav avatar or the floating companion -- into THIS conversation.
+  Future<void> _companionAction(AskodoxHubAction action) async {
+    ref.read(askodoxCompanionHubOpenProvider.notifier).state = false;
+    switch (action) {
+      case AskodoxHubAction.voice:
+        if (!_sending) await _startVoice();
+      case AskodoxHubAction.chat:
+        _focusNode.requestFocus();
+      case AskodoxHubAction.camera:
+        await _pickAttachment('camera');
+      case AskodoxHubAction.photos:
+        await _pickAttachment('photos');
+      case AskodoxHubAction.video:
+        await _pickAttachment('video');
+      case AskodoxHubAction.files:
+        await _pickAttachment('files');
+      case AskodoxHubAction.location:
+        if (mounted) await context.push('/location');
+    }
+  }
+
+  /// What the companion says right now, from the real conversation state
+  /// (null = its normal line for the mood). Never a generic tip.
+  String? _companionGuidance() {
+    String pick({required String en, required String te, required String hi}) =>
+        switch (_lang) { 'te' => te, 'hi' => hi, _ => en };
+    if (_voicePhase == _VoicePhase.recording) {
+      return pick(en: 'Listening… tap me again to stop.', te: 'వింటున్నాను… ఆపడానికి నన్ను మళ్లీ నొక్కండి.',
+          hi: 'सुन रहे हैं… रोकने के लिए मुझे फिर से दबाएँ।');
+    }
+    if (_sending || _analyzingAttachments || _voicePhase != _VoicePhase.idle) return null;
+    if (_catalogue != null) {
+      return pick(en: 'Pick the categories you sell, or say "all".', te: 'మీరు అమ్మే విభాగాలు ఎంచుకోండి, లేదా "అన్నీ" అనండి.',
+          hi: 'जो श्रेणियाँ आप बेचते हैं चुनें, या "सब" कहें।');
+    }
+    if (_pendingSignInAction != null) {
+      return pick(en: 'Sign in once and I will send it for you.', te: 'ఒకసారి సైన్ ఇన్ చేయండి, నేను పంపుతాను.',
+          hi: 'एक बार साइन इन करें, मैं भेज दूँगा।');
+    }
+    final results = _turns.isNotEmpty && !_turns.last.isUser ? _resultsByTurn[_turns.length - 1] : null;
+    if (results == null) return null;
+    if (results.sourcesWith('needs_location').isNotEmpty && results.matches.isEmpty) {
+      return pick(en: 'Set your location and I will show shops near you.', te: 'మీ లొకేషన్ సెట్ చేయండి, దగ్గరి షాపులు చూపిస్తాను.',
+          hi: 'अपनी लोकेशन सेट करें, पास की दुकानें दिखाऊँगा।');
+    }
+    final summary = AskodoxLocalOnlineSummary.of(results.matches);
+    if (summary != null && summary.localPrice != null && summary.onlinePrice != null) {
+      final local = '₹${summary.localPrice!.toStringAsFixed(0)}', online = '₹${summary.onlinePrice!.toStringAsFixed(0)}';
+      return pick(
+          en: 'Nearby from $local, online from $online. Tap a card and I will help with the next step.',
+          te: 'దగ్గరలో $local నుండి, ఆన్‌లైన్ $online నుండి. ఒక కార్డ్ నొక్కండి, తర్వాత దశలో సహాయం చేస్తాను.',
+          hi: 'पास में $local से, ऑनलाइन $online से। कोई कार्ड दबाएँ, आगे मैं मदद करूँगा।');
+    }
+    return null;
   }
 
   /// The friend's mood comes from what ASKODOX is actually doing (voice,
@@ -2662,45 +2722,52 @@ class _AskodoxPrimaryHomeScreenState
                 ]),
               ),
             ),
-          const SizedBox(height: 8),
-          Center(
-              child: AskodoxCompanion(
+          const SizedBox(height: 24),
+          // AI-first Home: the companion greets the user -- no shortcut grid,
+          // no suggestion cards without a request. Tap it for Voice, Chat,
+          // Camera, Photos, Video, Files or Location.
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            AskodoxCompanion(
                 key: const Key('askodoxHomeOrb'),
                 mood: _companionMood == AskodoxCompanionMood.idle ? AskodoxCompanionMood.greeting : _companionMood,
-                onTap: _startVoice)),
-          const SizedBox(height: 16),
-          Text(
-              te ? 'మీకు ఏ విధంగా సహాయం చేయగలను?' : 'How can I help you today?',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 27, fontWeight: FontWeight.w900, color: _ink)),
-          const SizedBox(height: 8),
-          Text(
-              te
-                  ? 'ఉద్యోగం, సర్వీస్, లోకల్ కొనుగోలు, రైడ్ లేదా డెలివరీ — మీ అవసరాన్ని సహజంగా చెప్పండి.'
-                  : 'Jobs, services, local buying, rides or delivery — just tell me naturally what you need.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: _muted,
-                  fontSize: 15,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 24),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _quick(te ? 'ఉద్యోగం కావాలి' : 'I need a job',
-                  Icons.work_outline_rounded),
-              _quick(te ? 'AC రిపేర్ కావాలి' : 'I need AC repair',
-                  Icons.home_repair_service_outlined),
-              _quick(te ? 'చికెన్ కొనాలి' : 'Buy chicken nearby',
-                  Icons.storefront_outlined),
-              _quick(te ? 'పార్సెల్ పంపాలి' : 'Send a parcel',
-                  Icons.local_shipping_outlined),
-            ],
-          ),
+                size: 170,
+                onTap: _onCompanionTap),
+            Expanded(
+              child: Container(
+                key: const Key('askodoxHomeGreeting'),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
+                    bottomRight: Radius.circular(18),
+                    bottomLeft: Radius.circular(4),
+                  ),
+                  border: Border.all(color: const Color(0xFFE2DDFF)),
+                  boxShadow: const [BoxShadow(color: Color(0x146C4DFF), blurRadius: 12, offset: Offset(0, 4))],
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                      _companionGuidance() ??
+                          switch (_lang) {
+                            'te' => 'నమస్తే! ఏం కావాలి? సహాయం చేద్దాం.',
+                            'hi' => 'नमस्ते! बताइए, क्या चाहिए?',
+                            _ => 'Hi! How can I help you today?',
+                          },
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: _ink, height: 1.25)),
+                  const SizedBox(height: 6),
+                  Text(
+                      switch (_lang) {
+                        'te' => 'నన్ను నొక్కండి -- మాట్లాడండి, ఫోటో లేదా ఫైల్ పంపండి, లేదా కింద టైప్ చేయండి.',
+                        'hi' => 'मुझे दबाएँ -- बोलें, फ़ोटो या फ़ाइल भेजें, या नीचे लिखें।',
+                        _ => 'Tap me to talk, send a photo or file -- or type below.',
+                      },
+                      style: const TextStyle(color: _muted, fontSize: 13, height: 1.35, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+          ]),
           // Demo profiles are fake local businesses: only ever shown in the
           // mock/sandbox build, never against the live REST backend.
           if (ref.watch(appConfigProvider).backendProvider ==
@@ -2765,20 +2832,35 @@ class _AskodoxPrimaryHomeScreenState
         ],
       );
 
-  Widget _quick(String text, IconData icon) => ActionChip(
-        backgroundColor: Colors.white,
-        side: const BorderSide(color: Color(0xFFD7E3F5)),
-        avatar: Icon(icon, size: 18, color: _blue),
-        label: Text(text,
-            style: const TextStyle(color: _ink, fontWeight: FontWeight.w800)),
-        onPressed: _sending ? null : () => _send(text),
+
+  /// Index of the user's latest message: where the current exchange starts.
+  int get _currentExchangeStart {
+    for (var i = _turns.length - 1; i >= 0; i--) {
+      if (_turns[i].isUser) return i;
+    }
+    return 0;
+  }
+
+  /// The companion between the results and the conversation: its face,
+  /// state and what it is saying / guiding right now.
+  Widget _companionStage(bool te) => AskodoxCompanionBar(
+        key: const Key('askodoxCompanionBar'),
+        mood: _companionMood,
+        telugu: te,
+        lang: _lang,
+        size: 88,
+        results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
+        onTap: _onCompanionTap,
+        showLine: _voicePhase == _VoicePhase.idle || _voicePhase == _VoicePhase.recording,
+        guidance: _companionGuidance(),
+        subject: ref.watch(universalDealControllerProvider).deal?.subject,
+        foundLabel: _lang == 'te' || _lang == 'en' || _lang == 'hi'
+            ? null
+            : askodoxChatLabel('found_pick', _lang, count: _latestResults()?.matches.length ?? 0),
       );
 
-  Widget _chat(bool te) => ListView(
-        controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
-        children: [
-          for (final (index, turn) in _turns.indexed) ...[
+  /// A turn's message bubble and its notices.
+  List<Widget> _turnHead(int index, ConversationTurnRecord turn, bool te) => [
             Align(
               alignment:
                   turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -2856,6 +2938,10 @@ class _AskodoxPrimaryHomeScreenState
                 onSwitch: () => _switchRole(role, questionTurn: index),
                 onKeep: () => _keepRole(index),
               ),
+      ];
+
+  /// What a turn found: catalogue / result cards.
+  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te) => [
             if (_catalogueTurn == index && _catalogue != null)
               AskodoxCatalogueCard(
                 template: _catalogue!,
@@ -2898,6 +2984,10 @@ class _AskodoxPrimaryHomeScreenState
                 onRefer: _sending ? null : () => _referProvider(index, results),
                 onJoin: _sending ? null : () => _joinAsProvider(index, results),
               ),
+      ];
+
+  /// Follow-ups under a turn: clarification choices, map pins, support.
+  List<Widget> _turnFollowUps(int index, ConversationTurnRecord turn, bool te) => [
             if (_clarificationByTurn[index] case final clarification?)
               if (identical(clarification, _pendingClarification) &&
                   index == _turns.length - 1)
@@ -2950,7 +3040,30 @@ class _AskodoxPrimaryHomeScreenState
                 onChat: () => _escalateToSupport(index),
                 onOpen: _openExternal,
               ),
-          ],
+      ];
+
+  Widget _chat(bool te) => ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
+        children: [
+          // Earlier exchanges (their results + messages) scroll up...
+          for (final (index, turn) in _turns.indexed)
+            if (index < _currentExchangeStart) ...[
+              ..._turnHead(index, turn, te),
+              ..._turnResults(index, turn, te),
+              ..._turnFollowUps(index, turn, te),
+            ],
+          // ...then the CURRENT exchange: its results first, the companion
+          // in the middle, and the conversation itself at the bottom next to
+          // the input -- however many results there are.
+          for (final (index, turn) in _turns.indexed)
+            if (index >= _currentExchangeStart) ..._turnResults(index, turn, te),
+          _companionStage(te),
+          for (final (index, turn) in _turns.indexed)
+            if (index >= _currentExchangeStart) ...[
+              ..._turnHead(index, turn, te),
+              ..._turnFollowUps(index, turn, te),
+            ],
           if (_sending)
             const Align(
               alignment: Alignment.centerLeft,
@@ -2986,38 +3099,6 @@ class _AskodoxPrimaryHomeScreenState
             onPressed: _cancelVoice,
             tooltip: te ? 'రద్దు చేయండి' : 'Cancel voice',
             icon: const Icon(Icons.close_rounded, color: _muted)),
-        IconButton.filled(
-          key: const Key('askodoxVoiceButton'),
-          onPressed: _voicePhase == _VoicePhase.transcribing ||
-                  _voicePhase == _VoicePhase.thinking
-              ? null
-              : _startVoice,
-          tooltip: switch (_voicePhase) {
-            _VoicePhase.recording => te ? 'ఆపండి' : 'Stop and send',
-            _VoicePhase.transcribing => te ? 'అర్థం చేసుకుంటున్నాను…' : 'Transcribing…',
-            _VoicePhase.thinking => te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…',
-            _VoicePhase.speaking || _VoicePhase.idle => te ? 'మాట్లాడండి' : 'Speak',
-          },
-          style: IconButton.styleFrom(
-            backgroundColor: _voicePhase == _VoicePhase.recording
-                ? const Color(0xFFE5484D)
-                : _accent,
-            minimumSize: const Size(40, 40),
-            padding: EdgeInsets.zero),
-          icon: _voicePhase == _VoicePhase.transcribing ||
-                  _voicePhase == _VoicePhase.thinking
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: _ink))
-              : Icon(
-                  _voicePhase == _VoicePhase.recording
-                      ? Icons.stop_rounded
-                      : Icons.mic_rounded,
-                  color: _voicePhase == _VoicePhase.recording
-                      ? Colors.white
-                      : _ink)),
-        const SizedBox(width: 6),
         Expanded(
           child: TextField(
           controller: _controller,
@@ -3047,13 +3128,6 @@ class _AskodoxPrimaryHomeScreenState
               color: Color(0xFF6C4DFF), width: 2)),
           ),
         )),
-        IconButton(
-          key: const Key('askodoxAttach'),
-          onPressed: _showAttachmentMenu,
-          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-          padding: EdgeInsets.zero,
-          tooltip: te ? 'జోడించండి' : 'Add attachment',
-          icon: const Icon(Icons.add_circle_outline_rounded, color: _ink)),
         IconButton.filled(
           onPressed: _sending ? null : _send,
           style: IconButton.styleFrom(
@@ -3110,9 +3184,26 @@ class _AskodoxPrimaryHomeScreenState
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text(status,
-                  key: const Key('askodoxVoiceStatus'),
-                  style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+              Flexible(
+                child: Text(status,
+                    key: const Key('askodoxVoiceStatus'),
+                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+              ),
+              if (listening) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                      switch (_lang) {
+                        'te' => 'ఆపడానికి సహచరుడిని మళ్లీ నొక్కండి',
+                        'hi' => 'रोकने के लिए साथी को फिर दबाएँ',
+                        _ => 'Tap the companion again to stop',
+                      },
+                      key: const Key('askodoxVoiceStopHint'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+              ],
               if (listening) ...[
                 const Spacer(),
                 Text('$mm:$ss',
@@ -3796,6 +3887,7 @@ class _ChatResultsView extends StatelessWidget {
         AskodoxResultSegment.jobs => Icons.work_outline_rounded,
         AskodoxResultSegment.online => Icons.public_rounded,
         AskodoxResultSegment.partner => Icons.storefront_rounded,
+        AskodoxResultSegment.sponsored => Icons.campaign_rounded,
         AskodoxResultSegment.video => Icons.play_circle_outline_rounded,
       };
 
@@ -4141,6 +4233,23 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                if (match.paidPlacementLabel case final paid?)
+                  Container(
+                    key: ValueKey('askodoxPaidBadge-${match.id}'),
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF4D6),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFE0B64A)),
+                    ),
+                    child: Text(
+                        paid == 'Promoted'
+                            ? (te ? 'ప్రమోట్ చేయబడింది' : 'Promoted')
+                            : (te ? 'స్పాన్సర్డ్' : 'Sponsored'),
+                        style: const TextStyle(
+                            color: Color(0xFF7A5A00), fontSize: 11, fontWeight: FontWeight.w800)),
+                  ),
                 Text(match.title,
                     maxLines: compact ? 2 : 3,
                     overflow: TextOverflow.ellipsis,
