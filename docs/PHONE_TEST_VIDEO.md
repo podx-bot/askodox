@@ -18,12 +18,14 @@ uninstall. Location allowed (Vijayawada area). Each step says what must happen; 
    * says it has not watched the video (only title/description/channel are known),
    * separates what the creator says from ASKODOX's own explanation,
    * invents no specs, prices or ratings.
-6. **Follow-up (continuity).** Type *"Is it worth buying, and where can I get it here?"* → the answer refers to the
-   same TV/video without repeating the question.
+6. **Follow-up (continuity).** Type *"Is it worth buying, and where can I get it here?"* → ASKODOX searches the
+   same TV (no new questions) and shows real local / online options. It must **never** name shops or dealers
+   (e.g. "Poorvika", "Reliance Digital") that are not on a result card.
 7. **Next step.** Open the video again → tap **Find near me** / **Show deals** / **Compare** / **Used / cheaper** →
    the chat searches that text and shows real local / online / deal options in the same conversation.
-8. **Service video.** New chat: *"AC service video"* → service videos; the viewer shows **Book a local service**;
-   tapping it searches *"ac service near me"* and shows local providers (not product stores).
+8. **Service video.** New chat: *"AC service video"* → service videos straight away (no "tutorial or book a
+   technician?" question); the viewer shows **Book a local service**; tapping it searches *"ac service near me"* and
+   shows local providers (not product stores). A plumbing search never shows marketing videos made for plumbers.
 
 ## Telugu
 

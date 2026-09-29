@@ -2634,6 +2634,35 @@ void main() {
         reason: 'never an AI claim of results');
   });
 
+  testWidgets('a video ask shows videos even when the AI asks a clarifying question (real production decision)',
+      (tester) async {
+    const video = UniversalMatch(
+      id: 'video-yt_KOYoiZG5_3E', title: 'Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best??',
+      source: 'video', segment: 'video', sourceName: 'Crazyy Unboxing', videoId: 'yt_KOYoiZG5_3E',
+      destinationUrl: 'https://www.youtube.com/watch?v=KOYoiZG5_3E',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/KOYoiZG5_3E?playsinline=1&rel=0',
+      disclosure: "Creator's opinion -- not verified by ASKODOX",
+    );
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: 'v1', matches: [video], sourceStatus: {'videos': 'ok'}),
+      ]),
+      // What production's model answered for "AC service video" (proof run 36599793393).
+      assistant: _Assistant((_) => {
+            'reply': 'Are you looking for an AC service tutorial video, or do you want to book an AC servicing technician?',
+            'domain': 'SERVICE', 'transactional': true, 'action': 'clarify_need', 'confidence': 0.8,
+            'source': 'universal_ai',
+            'entities': {'subject': 'AC service', 'clarify_options': ['AC service tutorial video', 'Book AC service technician']},
+          }),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'AC service video');
+    await tester.pumpAndSettle();
+    expect(find.text('Book AC service technician'), findsNothing, reason: 'no clarifying question for a video ask');
+    expect(h.matches.deals, isNotEmpty, reason: 'the video ask ran the real discovery');
+    expect(find.textContaining('Urban Company AC Service'), findsWidgets, reason: 'real video shown');
+  });
+
   // Real-content video proof (opt-in; run by .github/workflows/
   // video-real-content-proof.yml): the rows, thumbnails, explanations and
   // AI answers are the REAL ones that run captured.
@@ -2738,7 +2767,7 @@ void main() {
       await h.send(tester, c['text'] as String);
       await shot('${label}_1_search_videos');
       final thumb = find.byKey(ValueKey('askodoxVideoThumb-video-${videos.first['video_id']}'));
-      if (thumb.evaluate().isEmpty) continue;
+      expect(thumb, findsWidgets, reason: '$label: the real video must be shown for the video ask');
       await centre(thumb);
       await tester.tap(thumb);
       await tester.pumpAndSettle();

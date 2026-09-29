@@ -1620,7 +1620,9 @@ class _AskodoxPrimaryHomeScreenState
         _lastIntent = deal.intent;
         // Understand the actual product first: a genuinely ambiguous need
         // gets ONE concise question instead of a guessed search.
-        if (clarified == null && !detailAnswer) {
+        // Someone who asked for videos said what they want: show the real
+        // videos (a clarifying question here left them with none).
+        if (clarified == null && !detailAnswer && !videoAsk) {
           // The AI flags genuine ambiguity for any category; the fixed
           // rules only cover the offline case.
           final aiOptions = aiUsable && decision!.action == 'clarify_need'
