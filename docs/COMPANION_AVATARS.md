@@ -55,6 +55,28 @@ a visible screen or a microphone-type foreground service -- we do not run
 one); Google Play requires the overlay + special-use declarations in the
 Play Console before a store release; Android 7 and older: not available.
 
+## Production companion: natural human, 2D photo states (current default)
+The procedural 3D rig is stylized/low-poly and the VRM "Human HD" model is
+anime-style, so neither is the approved natural human. Until a natural human
+3D model is ready, the companion is ONE natural human identity -- the "Smart
+Advisor" (see SMART_ADVISOR_VROID_SPEC.md) -- shown as photographic states
+in `assets/companion/human2d/` (`AskodoxHuman2d`), everywhere: Home, the
+centre nav button, chat, floating companion, voice.
+- Photos in this build: neutral, listening, thinking (generated from one
+  base portrait; identity kept by editing that same image).
+- speaking / explaining / happy use the neutral photo with a state treatment
+  (speaking pulse driven by the voice level, explaining / success glow) until
+  their photos are added: drop `speaking.jpg`, `explaining.jpg`, `happy.jpg`
+  (512x512, same person, same framing) into the folder and add the names to
+  `AskodoxHuman2d.bundled`.
+- Motion: slow breathing, listening rings follow the microphone level,
+  thinking dots, cross-fade between states; still with "remove animations".
+- 3D personas and Human HD remain opt-in in Profile ("3D beta"); any 3D
+  failure returns to this same human, never to the robot or another face.
+  The robot appears only if the user picks it.
+- The saved companion preference moved to `askodox.companion.v2`, so an
+  older 3D pick is not carried over after the update.
+
 ## Companion as the app's entry point (Home + nav)
 - Bottom navigation: Home | Explore | [companion face] | Orders | Profile.
   The centre item is the live companion (same mood as Main Chat via

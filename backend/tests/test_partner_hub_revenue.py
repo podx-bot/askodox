@@ -456,3 +456,14 @@ def test_admin_trace_shows_the_whole_request_privacy_safe_and_filterable(api):
                client.get("/admin/cc/traces", headers=OWNER, params={"source": "partner"}).json()["items"])
     assert client.get("/admin/cc/traces", headers=OWNER, params={"outcome": "action_ok"}).json()["items"] == []
     assert client.get("/admin/cc/traces").status_code == 401, "admin only"
+
+
+def test_service_request_never_gets_product_partner_stores(api):
+    client, _ = api
+    create(client, name="AC Mart", categories=["ac"], deep_link_template="https://acmart.example/s?k={query}")
+    body = dict(tv_request(), raw_text="AC installation in Vuyyuru", subject="AC installation", category="product",
+                location={"label": "Vuyyuru", "latitude": 16.36, "longitude": 80.84, "radius_km": 5})
+    rows = client.post("/deals/discover", json=body).json()["matches"]
+    assert not [m for m in rows if m.get("segment") == "partner"], "a service need gets providers, not AC stores"
+    shopping = client.post("/deals/discover", json=dict(body, raw_text="buy an AC in Vuyyuru", subject="AC")).json()
+    assert [m for m in shopping["matches"] if m.get("segment") == "partner"], "a product search still can"

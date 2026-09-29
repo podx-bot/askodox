@@ -174,3 +174,27 @@ def test_admin_page_has_the_sponsored_tab(api):
     from app.api.routes.admin_web import PAGE
 
     assert '["Sponsored","sponsored"]' in PAGE and "async function sponsoredTab()" in PAGE
+
+
+def test_service_request_gets_providers_not_product_ads_or_partner_stores(api):
+    """'AC installation in Vuyyuru' is a SERVICE need even if tagged PRODUCT:
+    no product campaign / partner store, only provider promotions."""
+    from app.api.routes.sponsored import sponsored_results
+    from app.services.universal_multi_source_result_service import NEED_PRODUCT, NEED_SERVICE, need_kind
+
+    client, container = api
+    assert need_kind({"domain": "PRODUCT", "subject": "AC installation", "raw_text": "AC installation in Vuyyuru"}) \
+        == NEED_SERVICE
+    assert need_kind({"domain": "PRODUCT", "subject": "AC", "raw_text": "buy AC with installation"}) == NEED_PRODUCT
+    assert need_kind({"domain": "PRODUCT", "subject": "Samsung TV", "raw_text": "TV with service warranty"}) \
+        == NEED_PRODUCT
+    product = campaign(client, keywords=["ac"], title="1.5 ton AC sale")
+    provider = campaign(client, keywords=["ac"], title="Cool Air AC installation", kind="provider_promotion")
+    for c in (product, provider):
+        container.sponsored_repository.set_status(c["id"], "APPROVED")
+    rows = sponsored_results(container, {"domain": "PRODUCT", "subject": "AC installation",
+                                         "raw_text": "AC installation in Vuyyuru", "side": "NEED"})
+    assert [r["title"] for r in rows] == ["Cool Air AC installation"]
+    shopping = sponsored_results(container, {"domain": "PRODUCT", "subject": "AC", "raw_text": "buy an AC",
+                                             "side": "NEED"})
+    assert {r["title"] for r in shopping} == {"1.5 ton AC sale", "Cool Air AC installation"}

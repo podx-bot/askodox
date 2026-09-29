@@ -3790,6 +3790,23 @@ class _ChatResultsView extends StatelessWidget {
                 : 'Also sent to ${results.broadcastSent} registered ASKODOX provider(s) nearby.',
           ),
         if (AskodoxLocalOnlineSummary.of(results.matches) case final summary?) _compareStrip(summary),
+        // Several kinds of results (local, sponsored, online, ...): ONE
+        // compact horizontal comparison, like the approved reference. A
+        // single kind, or an option with a live request/order, keeps the
+        // sectioned layout below.
+        if (_comparison case final groups?
+            when !groups.any((g) => g.$1 == AskodoxCompareKind.local) &&
+                groups.any((g) => g.$1 == AskodoxCompareKind.online))
+          _heading(askodoxSegmentTitle(AskodoxResultSegment.online, telugu: te, hasLocal: false, lang: lang),
+              Icons.public_rounded),
+        if (_comparison case final groups?)
+          _ComparisonBoard(
+            key: const Key('askodoxComparison'),
+            groups: groups,
+            lang: te ? 'te' : lang,
+            card: (match, kind) => _card(match, compact: true, kind: kind),
+          )
+        else
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
           _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal, lang: lang),
               _segmentIcon(segment)),
@@ -3833,9 +3850,18 @@ class _ChatResultsView extends StatelessWidget {
     );
   }
 
-  Widget _card(UniversalMatch match, {bool compact = false}) => _MatchCard(
+  List<(AskodoxCompareKind, List<UniversalMatch>)>? get _comparison {
+    if (results.matches.any((m) => (orderIdFor?.call(m) ?? '').isNotEmpty)) return null;
+    final groups = askodoxCompareGroups(results.matches);
+    // Two or more options (of any kinds) compare side by side; a single
+    // option stays a full card.
+    return results.matches.length >= 2 ? groups : null;
+  }
+
+  Widget _card(UniversalMatch match, {bool compact = false, AskodoxCompareKind? kind}) => _MatchCard(
         match: match,
         compact: compact,
+        kind: kind,
         dealId: results.dealId,
         te: te,
         actionable: isActionable(match),
@@ -3975,6 +4001,84 @@ class _ChatResultsView extends StatelessWidget {
       );
 }
 
+Color _kindColor(AskodoxCompareKind kind) => switch (kind) {
+      AskodoxCompareKind.local => const Color(0xFF0F7B3F),
+      AskodoxCompareKind.jobs => const Color(0xFF1769FF),
+      AskodoxCompareKind.deals => const Color(0xFFD9344F),
+      AskodoxCompareKind.sponsored => const Color(0xFF7A5A00),
+      AskodoxCompareKind.online => const Color(0xFF1769FF),
+      AskodoxCompareKind.affiliate => const Color(0xFF6C4DFF),
+      AskodoxCompareKind.used => const Color(0xFF8A5A00),
+      AskodoxCompareKind.surplus => const Color(0xFF00897B),
+      AskodoxCompareKind.videos => const Color(0xFFD9344F),
+    };
+
+/// The compact comparison after a request: a row of kind tabs (only the
+/// kinds this request returned, with counts) above ONE horizontal rail of
+/// labelled cards. "All" keeps every kind in column order.
+class _ComparisonBoard extends StatefulWidget {
+  const _ComparisonBoard({super.key, required this.groups, required this.card, required this.lang});
+
+  final List<(AskodoxCompareKind, List<UniversalMatch>)> groups;
+  final Widget Function(UniversalMatch match, AskodoxCompareKind kind) card;
+  final String lang;
+
+  @override
+  State<_ComparisonBoard> createState() => _ComparisonBoardState();
+}
+
+class _ComparisonBoardState extends State<_ComparisonBoard> {
+  AskodoxCompareKind? _only;
+
+  @override
+  Widget build(BuildContext context) {
+    final all = switch (widget.lang) { 'te' => 'అన్నీ', 'hi' => 'सभी', _ => 'All' };
+    final total = widget.groups.fold<int>(0, (n, g) => n + g.$2.length);
+    Widget tab(String key, String label, int count, Color color, bool selected, VoidCallback onTap) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: InkWell(
+            key: ValueKey('askodoxCompareTab-$key'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? color : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: selected ? color : const Color(0xFFE1E8F2)),
+              ),
+              child: Text('$label  $count',
+                  style: TextStyle(
+                      color: selected ? Colors.white : color, fontWeight: FontWeight.w800, fontSize: 12.5)),
+            ),
+          ),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // One kind only: its label is on every card; no tab row needed.
+      if (widget.groups.length >= 2)
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          tab('all', all, total, const Color(0xFF10204A), _only == null, () => setState(() => _only = null)),
+          for (final (kind, rows) in widget.groups)
+            tab(kind.name, askodoxCompareLabel(kind, widget.lang), rows.length, _kindColor(kind), _only == kind,
+                () => setState(() => _only = _only == kind ? null : kind)),
+        ]),
+      ),
+      SingleChildScrollView(
+        key: const Key('askodoxComparisonRail'),
+        scrollDirection: Axis.horizontal,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final (kind, rows) in widget.groups)
+            if (_only == null || _only == kind)
+              for (final match in rows) widget.card(match, kind),
+        ]),
+      ),
+    ]);
+  }
+}
+
 class _MatchCard extends ConsumerStatefulWidget {
   const _MatchCard({
     required this.match,
@@ -3992,8 +4096,12 @@ class _MatchCard extends ConsumerStatefulWidget {
     this.onAlternatives,
     this.onSupport,
     this.compact = false,
+    this.kind,
   });
   final UniversalMatch match;
+
+  /// The comparison column this card sits in (its visible label).
+  final AskodoxCompareKind? kind;
   final String? dealId;
   final bool te;
 
@@ -4193,6 +4301,35 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE1E8F2))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // The column label (LOCAL / ONLINE / DEALS ...); paid rows carry
+        // their Sponsored / Promoted badge instead.
+        if (widget.kind case final kind? when match.paidPlacementLabel == null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Container(
+              key: ValueKey('askodoxKindLabel-${match.id}'),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: _kindColor(kind).withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(askodoxCompareLabel(kind, _te ? 'te' : 'en').toUpperCase(),
+                  style: TextStyle(color: _kindColor(kind), fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: .6)),
+            ),
+          ),
+        if (compact && action != ChatResultAction.watchVideo && _match.imageUrl?.trim().isNotEmpty == true) ...[
+          ClipRRect(
+            key: ValueKey('askodoxCardImage-${match.id}'),
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 112,
+              width: double.infinity,
+              child: Image.network(_resolvedImage(_match.imageUrl!),
+                  fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: _sourceIcon())),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (action == ChatResultAction.watchVideo &&
             match.imageUrl?.trim().isNotEmpty == true) ...[
           GestureDetector(
@@ -4218,6 +4355,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           const SizedBox(height: 10),
         ],
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (!(compact && _match.imageUrl?.trim().isNotEmpty == true)) ...[
           SizedBox(
               width: 64,
               height: 64,
@@ -4229,6 +4367,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                           errorBuilder: (_, __, ___) => _sourceIcon()))
                   : _sourceIcon()),
           const SizedBox(width: 12),
+          ],
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4269,7 +4408,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 ],
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 6, children: [
-                  _meta(_sourceLabel(_match.source)),
+                  if (widget.kind == null) _meta(_sourceLabel(_match.source)),
                   if (match.sourceName?.trim().isNotEmpty == true)
                     _meta(match.sourceName!.trim()),
                   if (match.duration?.trim().isNotEmpty == true)
@@ -4326,7 +4465,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 onPressed: widget.onAsk,
                 style: _compact,
                 icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-                label: Text(te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this'),
+                label: Text(compact
+                    ? _l('chat', 'చాట్', 'Chat')
+                    : (te ? 'దీని గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this')),
               ),
             if (showRequest)
               FilledButton(
@@ -4362,7 +4503,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                         ? (match.isJob ? (te ? 'తెరిచి అప్లై చేయండి' : 'Open & apply') : _l('open', 'తెరవండి', 'Open'))
                         : (te ? 'వివరాలు చూడండి' : 'View details')),
               ),
-            if (widget.onCompare != null && action != ChatResultAction.watchVideo)
+            if (compact && widget.onCompare != null && action != ChatResultAction.watchVideo)
+              IconButton(
+                key: ValueKey('askodoxCompare-${match.id}'),
+                tooltip: _l('compare', 'పోల్చండి', 'Compare'),
+                visualDensity: VisualDensity.compact,
+                onPressed: widget.onCompare,
+                icon: const Icon(Icons.compare_arrows_rounded, size: 20),
+              ),
+            if (!compact && widget.onCompare != null && action != ChatResultAction.watchVideo)
               TextButton.icon(
                 key: ValueKey('askodoxCompare-${match.id}'),
                 onPressed: widget.onCompare,
@@ -4370,7 +4519,16 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 icon: const Icon(Icons.compare_arrows_rounded, size: 16),
                 label: Text(_l('compare', 'పోల్చండి', 'Compare')),
               ),
-            if (action != ChatResultAction.watchVideo && match.source != 'online' && !match.affiliate)
+            if (compact && action != ChatResultAction.watchVideo && match.source != 'online' && !match.affiliate)
+              if (askodoxDirectionsUri(match) case final directions?)
+                IconButton(
+                  key: ValueKey('askodoxDirections-${match.id}'),
+                  tooltip: _l('directions', 'దారి చూపించు', 'Directions'),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _openDirections(directions),
+                  icon: const Icon(Icons.directions_rounded, size: 20),
+                ),
+            if (!compact && action != ChatResultAction.watchVideo && match.source != 'online' && !match.affiliate)
               if (askodoxDirectionsUri(match) case final directions?)
                 TextButton.icon(
                   key: ValueKey('askodoxDirections-${match.id}'),
@@ -4406,7 +4564,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               },
               style: _compactText,
               icon: const Icon(Icons.info_outline_rounded, size: 16),
-              label: Text(_l('details', 'వివరాలు', 'Details')),
+              label: Text(compact ? _l('view', 'చూడండి', 'View') : _l('details', 'వివరాలు', 'Details')),
             ),
           ],
         ),

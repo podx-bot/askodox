@@ -381,7 +381,8 @@ class SponsoredRepository:
         return True
 
     def eligible(self, *, category: str = "", subject: str = "", location: str = "",
-                 placement: str = "chat_results", limit: int = 2, now: datetime | None = None) -> List[Dict[str, Any]]:
+                 placement: str = "chat_results", limit: int = 2, now: datetime | None = None,
+                 kinds: tuple[str, ...] | None = None) -> List[Dict[str, Any]]:
         now = now or _now()
         category = str(category or "").strip().lower()
         text = f" {str(subject or '').strip().lower()} {category} "
@@ -396,6 +397,8 @@ class SponsoredRepository:
         out: List[Dict[str, Any]] = []
         for row in rows:
             campaign = self._campaign(row)
+            if kinds is not None and campaign.get("kind") not in kinds:
+                continue
             starts, ends = _parse_day(campaign.get("starts_at")), _parse_day(campaign.get("ends_at"))
             if starts and now < starts:
                 continue

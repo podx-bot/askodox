@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'companion_3d.dart';
 import 'companion_avatar_packs.dart';
 import 'companion_human.dart';
+import 'companion_human2d.dart';
 import 'companion_voice.dart';
 import 'companion_vrm_view.dart';
 
@@ -51,6 +52,8 @@ class AskodoxCompanionSettings {
     this.companion = automatic,
   });
 
+  /// The approved ASKODOX companion (the "Smart Advisor" natural human,
+  /// 2D photo states -- see [AskodoxHuman2d]). Automatic = this companion.
   static const automatic = 'auto';
   static const robotLite = 'robot';
 
@@ -99,7 +102,9 @@ class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionS
     _load();
   }
 
-  static const _key = 'askodox.companion.v1';
+  // v2: the approved natural human companion became the default; an older
+  // saved pick (low-poly persona / VRM) is not carried over.
+  static const _key = 'askodox.companion.v2';
 
   Future<void> _load() async {
     try {
@@ -256,7 +261,7 @@ class AskodoxCompanionPerformance {
 }
 
 /// Which renderer the companion actually uses right now.
-enum AskodoxCompanionRender { humanHd, human3d, robot3d, flat2d, off }
+enum AskodoxCompanionRender { human2d, humanHd, human3d, robot3d, flat2d, off }
 
 /// The ASKODOX friend. By default a human-like 3D companion (persona chosen
 /// in Profile or Automatic), with expressions, gestures, blinking, gaze,
@@ -464,18 +469,20 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
 
   AskodoxCompanionRender _renderFor(AskodoxCompanionSettings settings, bool reduceMotion) {
     if (!settings.enabled) return AskodoxCompanionRender.off;
-    if (!settings.render3d || reduceMotion) {
-      return AskodoxCompanionRender.flat2d;
+    // The approved natural human (2D photo states) is the companion
+    // everywhere. The experimental 3D renderers run only when explicitly
+    // picked in Profile, and any failure comes back to the same human --
+    // never to a different identity.
+    final c = settings.companion;
+    if (c == AskodoxCompanionSettings.robotLite) {
+      return settings.render3d && !reduceMotion ? AskodoxCompanionRender.robot3d : AskodoxCompanionRender.flat2d;
     }
-    // The robot only when chosen, or as the last resort when the human
-    // renderer fails -- slow phones keep the human face (lighter motion).
-    if (settings.companion == AskodoxCompanionSettings.robotLite || _humanFailed) {
-      return AskodoxCompanionRender.robot3d;
-    }
-    if (settings.companion == AskodoxCompanionSettings.humanHd && AskodoxCompanionPerformance.vrmFallback == null) {
+    if (!settings.render3d || reduceMotion || _humanFailed) return AskodoxCompanionRender.human2d;
+    if (c == AskodoxCompanionSettings.humanHd && AskodoxCompanionPerformance.vrmFallback == null) {
       return AskodoxCompanionRender.humanHd;
     }
-    return AskodoxCompanionRender.human3d;
+    if (settings.persona != null) return AskodoxCompanionRender.human3d;
+    return AskodoxCompanionRender.human2d;
   }
 
   void _humanError() {
@@ -515,8 +522,30 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
         ),
       );
     }
-    _syncAnimation(settings.animate, render != AskodoxCompanionRender.flat2d);
+    _syncAnimation(settings.animate,
+        render != AskodoxCompanionRender.flat2d && render != AskodoxCompanionRender.human2d);
     final voice = ref.watch(askodoxCompanionVoiceProvider);
+    if (render == AskodoxCompanionRender.human2d) {
+      return Semantics(
+        container: true,
+        label: 'ASKODOX ${widget.mood.name}',
+        button: widget.onTap != null,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedBuilder(
+            animation: _clock,
+            builder: (context, _) => AskodoxHuman2d(
+              mood: widget.mood,
+              size: widget.size,
+              t: _clock.value,
+              level: widget.mood == AskodoxCompanionMood.listening
+                  ? voice.micLevel
+                  : (widget.mood == AskodoxCompanionMood.speaking && voice.speaking ? voice.mouthOpenness() : 0),
+            ),
+          ),
+        ),
+      );
+    }
     final persona = render == AskodoxCompanionRender.human3d || render == AskodoxCompanionRender.humanHd
         ? (settings.persona ?? askodoxPersonaForDomain(ref.watch(askodoxCompanionDomainProvider)))
         : null;
@@ -550,7 +579,7 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
         ),
       );
     }
-    final human = persona == null ? null : _humanMesh(persona);
+    final human = render == AskodoxCompanionRender.human3d && persona != null ? _humanMesh(persona) : null;
     final robot = render == AskodoxCompanionRender.robot3d ? _robotMesh(settings.look) : null;
     return Semantics(
       container: true,

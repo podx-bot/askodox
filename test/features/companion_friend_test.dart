@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/companion/askodox_companion.dart';
+import 'package:podx/features/companion/companion_human2d.dart';
 import 'package:podx/features/companion/companion_3d.dart';
 import 'package:podx/features/companion/companion_human.dart';
 import 'package:podx/features/companion/companion_voice.dart';
@@ -116,18 +117,18 @@ void main() {
           ));
 
       await show();
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget, reason: 'human 3D by default');
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget, reason: 'the approved human by default');
 
       AskodoxCompanionPerformance.lite = true;
       await tester.pumpWidget(const SizedBox());
       await show();
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget,
-          reason: 'a slow phone keeps the human face (still pose), not a different character');
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget,
+          reason: 'a slow phone keeps the human face, not a different character');
 
       await container.read(askodoxCompanionSettingsProvider.notifier).update(enabled: false);
       await show();
       expect(find.byKey(const ValueKey('askodoxCompanionOff')), findsOneWidget);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsNothing);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsNothing);
       expect(container.read(askodoxCompanionSettingsProvider).toJson()['enabled'], false);
       await tester.pumpWidget(const SizedBox());
     });
@@ -142,8 +143,13 @@ void main() {
         child: const MaterialApp(home: Center(child: AskodoxCompanion(mood: AskodoxCompanionMood.speaking))),
       ));
       await tester.pump(const Duration(milliseconds: 200));
+      // The 2D human's speaking pulse follows the same voice state.
+      expect(tester.widget<AskodoxHuman2d>(find.byType(AskodoxHuman2d)).level, greaterThanOrEqualTo(0));
+      expect(tester.widget<AskodoxHuman2d>(find.byType(AskodoxHuman2d)).mood, AskodoxCompanionMood.speaking);
+      await container.read(askodoxCompanionSettingsProvider.notifier).update(companion: 'friendlyAssistant');
+      await tester.pump(const Duration(milliseconds: 200));
       final paint = tester.widget<CustomPaint>(find.byKey(const ValueKey('askodoxCompanionHuman3d')));
-      expect((paint.painter! as AskodoxHuman3dPainter).signals.mouthOpen, isNotNull);
+      expect((paint.painter! as AskodoxHuman3dPainter).signals.mouthOpen, isNotNull, reason: '3D beta lip-sync');
       container.read(askodoxCompanionVoiceProvider).speechEnd();
       await tester.pumpWidget(const SizedBox());
     });

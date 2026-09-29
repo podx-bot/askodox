@@ -11,6 +11,7 @@ import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/companion/companion_3d.dart';
 import 'package:podx/features/companion/companion_avatar_packs.dart';
 import 'package:podx/features/companion/companion_human.dart';
+import 'package:podx/features/companion/companion_human2d.dart';
 import 'package:podx/features/companion/companion_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -154,21 +155,18 @@ void main() {
           child: MaterialApp(home: Center(child: AskodoxCompanion(mood: mood))),
         ));
 
-    testWidgets('default is Automatic: the persona follows the ASKODOX brain domain', (tester) async {
+    testWidgets('default is the approved natural human companion (2D photo states), the same everywhere',
+        (tester) async {
       final c = ProviderContainer();
       addTearDown(c.dispose);
       await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('Friendly Assistant')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsNothing, reason: 'no low-poly default');
+      // The brain's domain no longer swaps the face: one identity.
       c.read(askodoxCompanionDomainProvider.notifier).state = 'SERVICE';
       await tester.pump();
-      expect(find.bySemanticsLabel(RegExp('Service Expert')), findsOneWidget);
-      c.read(askodoxCompanionDomainProvider.notifier).state = 'RIDE';
-      await tester.pump();
-      expect(find.bySemanticsLabel(RegExp('Travel Guide')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget);
       expect(askodoxPersonaForDomain('LEDGER'), AskodoxPersona.financeAdvisor);
-      expect(askodoxPersonaForDomain('JOB_SEEKER'), AskodoxPersona.professionalGuide);
-      expect(askodoxPersonaForDomain('PRODUCT'), AskodoxPersona.friendlyAssistant);
       await tester.pumpWidget(const SizedBox());
     });
 
@@ -190,7 +188,8 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('Robot (Lite), 3D off, friend off, slow phone steps down, human failure -> robot', (tester) async {
+    testWidgets('Robot (Lite) only when chosen; still photo, slow phone and friend off keep the same human',
+        (tester) async {
       final c = ProviderContainer();
       addTearDown(c.dispose);
       final n = c.read(askodoxCompanionSettingsProvider.notifier);
@@ -201,17 +200,14 @@ void main() {
 
       await n.update(companion: AskodoxCompanionSettings.automatic, render3d: false);
       await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanion2d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget, reason: 'still photo, same face');
 
       await n.update(render3d: true);
-      // Slow frames: lighter motion, then a still pose -- the SAME human
-      // face (the robot is never the performance fallback).
-      AskodoxCompanionPerformance.level = 1;
-      await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
-      AskodoxCompanionPerformance.level = 2;
-      await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
+      for (final level in [1, 2]) {
+        AskodoxCompanionPerformance.level = level;
+        await show(tester, c);
+        expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget, reason: 'level $level');
+      }
       AskodoxCompanionPerformance.level = 0;
 
       await n.update(enabled: false);
@@ -220,16 +216,17 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('picking a companion always applies, even after a session step-down', (tester) async {
+    testWidgets('an experimental 3D pick that fails comes back to the approved human, never the robot',
+        (tester) async {
       final c = ProviderContainer();
       addTearDown(c.dispose);
-      AskodoxCompanionPerformance.level = 2; // an earlier slow stretch
-      await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget, reason: 'still the human face');
       await c.read(askodoxCompanionSettingsProvider.notifier).update(companion: AskodoxPersona.techExpert.name);
       await show(tester, c);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('Tech Expert')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget, reason: 'explicit 3D pick');
+      AskodoxCompanionPerformance.level = 2;
+      await show(tester, c);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget, reason: 'same face, still pose');
+      AskodoxCompanionPerformance.level = 0;
       await tester.pumpWidget(const SizedBox());
     });
 
@@ -256,9 +253,7 @@ void main() {
       final c = ProviderContainer();
       addTearDown(c.dispose);
       await show(tester, c, mood: AskodoxCompanionMood.speaking);
-      double t() => (tester.widget<CustomPaint>(find.byKey(const ValueKey('askodoxCompanionHuman3d'))).painter!
-              as AskodoxHuman3dPainter)
-          .t;
+      double t() => tester.widget<AskodoxHuman2d>(find.byType(AskodoxHuman2d)).t;
       await tester.pump(const Duration(milliseconds: 300));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();

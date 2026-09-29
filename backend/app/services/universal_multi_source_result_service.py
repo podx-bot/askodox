@@ -92,6 +92,23 @@ def _public_image(value: Any) -> str | None:
     return text if text.startswith("https://") else None
 
 
+# Service wording: "AC installation", "fridge repair", "bike servicing" ask
+# for a PROVIDER, even when the object named is a product the AI may have
+# tagged as PRODUCT. Explicit buying wording keeps it a product search.
+_SERVICE_WORDS = re.compile(
+    r"\b(install(ation|ing|er)?|uninstall(ation)?|repair(s|ing|er)?|servic(e|es|ing)|fix(ing)?|mechanic|"
+    r"plumb(er|ing)|electrician|carpenter|technician|cleaning|painting|painter|maintenance|fitting|wiring|"
+    r"pest control|gas (refill|filling)|tutor(ing)?|tuition|driver|mason|welder|shifting|packers?)\b",
+    re.IGNORECASE,
+)
+_BUY_WORDS = re.compile(r"\b(buy|purchase|price of|for sale|order|shop for|new [a-z]+ with|warranty)\b", re.IGNORECASE)
+
+
+def is_service_wording(text: str) -> bool:
+    text = str(text or "")
+    return bool(_SERVICE_WORDS.search(text)) and not _BUY_WORDS.search(text)
+
+
 def need_kind(demand: dict[str, Any]) -> str:
     domain = str(demand.get("domain") or "").strip().upper()
     if domain in _JOB_DOMAINS and str(demand.get("side") or "").upper() == "OFFER":
@@ -99,6 +116,10 @@ def need_kind(demand: dict[str, Any]) -> str:
     if domain in _PARTY_DOMAINS:
         return NEED_PARTY
     if domain in _SERVICE_DOMAINS:
+        return NEED_SERVICE
+    if domain in {"", "PRODUCT", "PRODUCTS", "GENERAL", "OTHER"} and is_service_wording(
+        f"{demand.get('subject') or ''} {demand.get('raw_text') or ''}"
+    ):
         return NEED_SERVICE
     return NEED_PRODUCT
 

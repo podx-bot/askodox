@@ -40,6 +40,7 @@ import 'package:podx/features/home/application/saved_options.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/selling/data/catalogue_repository.dart';
 import 'package:podx/shared/widgets/app_shell.dart';
+import 'package:podx/features/companion/companion_hub.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------- fakes --
@@ -694,6 +695,26 @@ class _FakeSignInScreen extends ConsumerWidget {
       );
 }
 
+/// "Ask ASKODOX about this" (full card) / "Chat" (comparison card): the
+/// same action, found by its key.
+/// A result kind is shown as its comparison tab (LOCAL / ONLINE / ...), or
+/// -- when it is the only kind -- as the label on its cards.
+void _expectKind(String kind) => expect(
+    find.byWidgetPredicate((w) =>
+        w.key == ValueKey('askodoxCompareTab-$kind') ||
+        (w is Text && w.data == kind.toUpperCase())),
+    findsWidgets,
+    reason: kind);
+
+Finder _askButtons() => find.byWidgetPredicate(
+    (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxAsk-'));
+
+Future<void> _tapAsk(WidgetTester tester) async {
+  await tester.ensureVisible(_askButtons().first);
+  await tester.tap(_askButtons().first);
+  await _Harness.settle(tester);
+}
+
 Future<void> _tapText(WidgetTester tester, String text) async {
   final finder = find.text(text);
   await tester.ensureVisible(finder.first);
@@ -982,16 +1003,18 @@ void main() {
     expect(h.matches.deals.single.intent, DealIntent.buy);
     expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget,
         reason: 'results render under the assistant reply, in the chat');
-    expect(find.text('ASKODOX matches'), findsOneWidget);
-    expect(find.text('82% match'), findsOneWidget);
+    _expectKind('local');
+    // Comparison cards keep the real facts (rating, distance, price); the
+    // internal match score stays out of the compact card.
+    expect(find.text('82% match'), findsNothing);
     expect(find.text('★ 4.5 (2)'), findsOneWidget);
-    expect(find.text('Videos & reviews'), findsOneWidget);
+    _expectKind('videos');
     expect(find.text('Watch'), findsOneWidget);
     expect(find.textContaining('app-seller-1'), findsNothing);
 
     // AI-first: the first card offers a conversation, not a request.
     expect(find.text('Connect'), findsNothing);
-    await _tapText(tester, 'Ask ASKODOX about this');
+    await _tapAsk(tester);
     expect(h.matches.deals, hasLength(1), reason: 'discussing an option never re-runs matching');
     expect(h.assistant.requests.last['message'], contains('Option the user is asking about: Interested match'));
     expect(find.textContaining('Here is what I know about this option'), findsOneWidget);
@@ -1044,7 +1067,7 @@ void main() {
 
     expect(h.matches.deals.single.intent, DealIntent.needService);
     expect(find.text('I found AC technicians near you.'), findsOneWidget);
-    expect(find.text('Ask ASKODOX about this'), findsOneWidget);
+    expect(_askButtons(), findsOneWidget);
     expect(find.text('Connect'), findsNothing);
   });
 
@@ -1170,7 +1193,7 @@ void main() {
     await _Harness.settle(tester);
 
     expect(find.byKey(const Key('askodoxResultsFailed')), findsNothing);
-    expect(find.text('Ask ASKODOX about this'), findsOneWidget);
+    expect(_askButtons(), findsOneWidget);
   });
 
   testWidgets('guest browses real listings; "contact the seller" asks for sign-in instead of a raw error',
@@ -1305,7 +1328,7 @@ void main() {
     await h.pump(tester);
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
 
-    expect(find.byKey(const ValueKey('askodoxRail-online')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxComparisonRail')), findsOneWidget);
     final card = tester.getSize(find.byKey(const ValueKey('askodoxResultCard-online-online-0-a')));
     expect(card.width, lessThanOrEqualTo(282), reason: 'compact fixed-width card (272 + gap)');
     expect(find.text('Page mentions ₹3200'), findsOneWidget, reason: 'unverified price is labelled');
@@ -1323,7 +1346,7 @@ void main() {
     );
     await h.pump(tester);
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
-    await _tapText(tester, 'Ask ASKODOX about this');
+    await _tapAsk(tester);
     await h.send(tester, 'is it available today?');
 
     final results = find.byWidgetPredicate(
@@ -1410,9 +1433,9 @@ void main() {
     expect(deal.dynamicFields['cut'], 'curry cut');
     expect(deal.dynamicFields['chickenPreference'], 'skinless');
     expect(deal.fulfilment, 'delivery');
-    expect(find.text('ASKODOX matches'), findsOneWidget);
-    expect(find.text('Online options'), findsOneWidget);
-    expect(find.text('Videos & reviews'), findsOneWidget);
+    _expectKind('local');
+    _expectKind('online');
+    _expectKind('videos');
     expect(find.byKey(const ValueKey('askodoxChatResults-11')), findsOneWidget,
         reason: 'results sit under the last assistant reply in the same chat');
   });
@@ -1470,7 +1493,7 @@ void main() {
 
     expect(find.text('What TV screen size do you prefer?'), findsNothing);
     expect(h.matches.deals.single.size, '43 inch');
-    expect(find.text('ASKODOX matches'), findsOneWidget);
+    _expectKind('local');
     expect(find.text('Affiliate link'), findsOneWidget);
     expect(find.text('Watch'), findsOneWidget);
 
@@ -1562,11 +1585,9 @@ void main() {
     await h.send(tester, 'I want to buy a 43 inch TV in Vijayawada');
 
     for (final heading in [
-      'ASKODOX sellers', 'Individual sellers', 'Used / second-hand',
-      'Surplus / clearance / open-box', 'Deals & offers', 'Nearby shops',
-      'Online options', 'Videos & reviews',
+      'local', 'used', 'surplus', 'deals', 'online', 'videos',
     ]) {
-      expect(find.text(heading), findsOneWidget, reason: heading);
+      _expectKind(heading);
     }
     // Nearby shop not on ASKODOX: open its real map page / ask ASKODOX,
     // never a request to a seller who is not on ASKODOX.
@@ -1574,7 +1595,7 @@ void main() {
     expect(find.text('Affiliate link'), findsOneWidget);
     // AI-first: no request buttons on first results.
     expect(find.text('Send request'), findsNothing);
-    expect(find.text('Ask ASKODOX about this'), findsNWidgets(8));
+    expect(_askButtons(), findsNWidgets(8));
 
     // A comparison question stays in the conversation (no new search) ...
     await h.send(tester, 'Which one is better, new or used?');
@@ -1657,7 +1678,7 @@ void main() {
     await h.pump(tester);
     final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
-    await _tapText(tester, 'Ask ASKODOX about this');
+    await _tapAsk(tester);
     await _tapText(tester, 'Connect');
     expect(find.text('Request sent'), findsOneWidget);
 
@@ -1678,7 +1699,7 @@ void main() {
     expect(find.text('I want to buy a mixer grinder in Vijayawada'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
     expect(find.text('Request sent'), findsOneWidget, reason: 'deal state restored');
-    expect(find.text('Videos & reviews'), findsOneWidget);
+    _expectKind('videos');
     expect(container.read(universalDealControllerProvider).deal?.subject, contains('mixer grinder'));
     expect(h.matches.deals, hasLength(1), reason: 'restoring never re-runs matching');
   });
@@ -1694,7 +1715,7 @@ void main() {
       );
       await h.pump(tester);
       await h.send(tester, ask);
-      await _tapText(tester, 'Ask ASKODOX about this');
+      await _tapAsk(tester);
       await _tapText(tester, 'Connect');
       expect(find.text('Request sent'), findsOneWidget);
       return (h, ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen))));
@@ -1721,7 +1742,7 @@ void main() {
       expect(find.text(ask), findsOneWidget);
       expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
       expect(find.text('Request sent'), findsOneWidget, reason: 'selected option + request state restored');
-      expect(find.text('Videos & reviews'), findsOneWidget);
+      _expectKind('videos');
       expect(c.read(universalDealControllerProvider).deal?.subject, contains('mixer grinder'));
       expect(h.matches.deals, hasLength(1), reason: 'History restore never re-runs matching');
     });
@@ -2398,7 +2419,7 @@ void main() {
       expect(find.textContaining('Request sent to "Mixer grinder — 750W"'), findsOneWidget);
     });
 
-    testWidgets('partner (affiliate) rows show last as "Partner stores", open via the tracked redirect',
+    testWidgets('partner (affiliate) rows come after local ones, are labelled, open via the tracked redirect',
         (tester) async {
       const partner = UniversalMatch(
         id: 'partner-example-mart', title: '43 inch TV on Example Mart', source: 'online', segment: 'partner',
@@ -2411,9 +2432,12 @@ void main() {
       ]));
       await h.pump(tester);
       await h.send(tester, '43 inch TV ₹30,000 show me');
-      expect(find.text('Partner stores'), findsOneWidget);
-      final partnerY = tester.getTopLeft(find.text('Partner stores')).dy;
-      expect(tester.getTopLeft(find.text('ASKODOX sellers')).dy, lessThan(partnerY), reason: 'local first');
+      _expectKind('affiliate');
+      final partnerCard = find.byKey(const ValueKey('askodoxResultCard-online-partner-example-mart'));
+      final localCard = find.byKey(ValueKey('askodoxResultCard-${_registeredTv.source}-${_registeredTv.id}'));
+      expect(tester.getTopLeft(localCard).dx, lessThan(tester.getTopLeft(partnerCard).dx), reason: 'local first');
+      expect(find.byKey(const ValueKey('askodoxPaidBadge-partner-example-mart')), findsOneWidget,
+          reason: 'affiliate rows are disclosed');
       await tester.ensureVisible(find.byKey(const ValueKey('askodoxDetails-partner-example-mart')));
       await tester.tap(find.byKey(const ValueKey('askodoxDetails-partner-example-mart')));
       await _Harness.settle(tester);
@@ -2532,8 +2556,8 @@ void main() {
     await h.pump(tester);
     await h.send(tester, 'I want to buy a 43 inch TV in Vijayawada');
 
-    for (final heading in ['ASKODOX sellers', 'Used / second-hand', 'Online options', 'Videos & reviews']) {
-      expect(find.text(heading), findsOneWidget, reason: heading);
+    for (final kind in ['local', 'used', 'online', 'videos']) {
+      _expectKind(kind);
     }
     expect(find.textContaining('No results from: nearby shops'), findsOneWidget);
     expect(find.text('shop.example'), findsOneWidget, reason: 'real source name');
@@ -3028,9 +3052,9 @@ void main() {
     expect(again.matches.single.id, 'online-0');
   });
 
-  // Home render for comparison with the approved reference (opt-in:
+  // Visual renders for comparison with the approved reference (opt-in:
   // ASKODOX_RENDER=1 flutter test --update-goldens --plain-name "Home render").
-  testWidgets('Home render: idle, companion actions open, chat with results',
+  testWidgets('Home render: home, local, comparison, selected + chat, companion actions, floating',
       skip: !Platform.environment.containsKey('ASKODOX_RENDER'), (tester) async {
     Future<void> font(String family, List<String> files) async {
       final loader = FontLoader(family);
@@ -3049,24 +3073,87 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
+    Future<void> shot(String name) async {
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+        await _Harness.settle(tester);
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/$name.png'));
+    }
+
+    // Real-looking fixtures: only facts a source would return (nothing
+    // invented by the app).
+    const acLocal1 = UniversalMatch(id: '301', title: 'Sri Sai AC Services', subtitle: 'AC installation & repair',
+        source: 'local', segment: 'registered', ratingAverage: 4.6, reviewCount: 38, distanceKm: 1.2,
+        availability: 'Available today', locationLabel: 'Vuyyuru');
+    const acLocal2 = UniversalMatch(id: 'external-p9', title: 'Cool Point Refrigeration', subtitle: 'Split AC installation',
+        source: 'external', segment: 'nearby_external', ratingAverage: 4.3, reviewCount: 112, distanceKm: 2.8,
+        sourceName: 'Google Maps', destinationUrl: 'https://maps.google.com/?cid=1', locationLabel: 'Vuyyuru');
+    const sponsoredRow = UniversalMatch(id: 'sponsored-4', title: 'Blue Star 1.5 T Inverter AC', subtitle: 'Free installation',
+        source: 'sponsored', segment: 'sponsored', sponsored: true, sponsoredLabel: 'Sponsored', price: 38990,
+        priceVerified: false, sourceName: 'Advertiser', destinationUrl: 'https://ads.example/ac', offerTitle: '10% bank offer');
+    const onlineRow = UniversalMatch(id: 'online-0-shop.example', title: 'LG 1.5 Ton 5 Star Split AC', source: 'online',
+        price: 42490, sourceName: 'shop.example', availability: 'In stock', destinationUrl: 'https://shop.example/ac');
     final h = _Harness(
+      // What the AI router returns for these two asks (service, then product).
+      assistant: _Assistant((message) => message.contains('Tell me more') || message.contains('tomorrow')
+          ? {
+              'reply': message.contains('tomorrow')
+                  ? 'I will ask Sri Sai AC Services about tomorrow and tell you here.'
+                  : 'Sri Sai AC Services is 1.2 km away, rated 4.6 from 38 reviews, available today.',
+              'transactional': false,
+              'source': 'universal_ai',
+            }
+          : message.contains('installation')
+          ? {
+              'reply': 'Here are AC installation providers near Vuyyuru.',
+              'domain': 'SERVICE',
+              'transactional': true,
+              'action': 'need_service',
+              'confidence': 0.9,
+              'source': 'universal_ai',
+              'entities': {'service': 'AC installation', 'location': 'Vuyyuru'},
+            }
+          : {
+              'reply': 'Here are 1.5 ton ACs -- local, sponsored and online, side by side.',
+              'domain': 'PRODUCT',
+              'transactional': true,
+              'action': 'buy',
+              'confidence': 0.9,
+              'source': 'universal_ai',
+              'entities': {'subject': '1.5 ton AC', 'location': 'Vuyyuru'},
+            }),
       matches: _FakeMatchRepository([
-        const UniversalMatchResult(dealId: '5', matches: [_localMatch, _onlineMatch]),
+        const UniversalMatchResult(dealId: '31', matches: [acLocal1, acLocal2]),
+        const UniversalMatchResult(dealId: '32', matches: [acLocal1, sponsoredRow, onlineRow]),
       ]),
     )..withShell = true;
     await h.pump(tester);
-    await tester.pump(const Duration(milliseconds: 500));
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/home_idle.png'));
+    await shot('01_home');
 
-    await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
-    await tester.pump(const Duration(milliseconds: 300));
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/home_actions_open.png'));
+    await h.send(tester, 'I need AC installation service in Vuyyuru');
+    await shot('02_local_results');
+
+    await h.send(tester, 'I want to buy a 1.5 ton AC in Vuyyuru');
+    await shot('03_comparison');
+
+    await _tapAsk(tester);
+    await h.send(tester, 'Can they install it tomorrow?');
+    await shot('04_selected_and_chat');
+
+    await tester.tap(find.byKey(const Key('askodoxNavSpeak')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await shot('05_companion_actions');
     await tester.tap(find.byKey(const Key('askodoxHubScrim')), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 300));
 
-    await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
-    await tester.pump(const Duration(milliseconds: 500));
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('renders/home_chat_results.png'));
+    final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+    container.read(askodoxInAppFloatProvider.notifier).setEnabled(true);
+    await tester.tap(find.byKey(const Key('askodoxNavUpdates')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const Key('askodoxFloatingCompanion')));
+    await shot('06_floating_companion');
   });
 }
 

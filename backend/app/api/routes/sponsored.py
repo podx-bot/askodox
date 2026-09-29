@@ -36,6 +36,8 @@ from app.repositories.sponsored_repository import (
 )
 
 router = APIRouter(tags=["sponsored"])
+
+SERVICE_CAMPAIGN_KINDS = ("provider_promotion", "seller_promotion", "influencer_video")
 admin_router = APIRouter(prefix="/admin/cc/sponsored", tags=["command-center"])
 
 
@@ -53,12 +55,18 @@ def sponsored_results(container: Any, demand: dict, *, limit: int = 2) -> list[d
     opens through the tracked /go/sp/ redirect."""
     if str(demand.get("side") or "").upper() == "OFFER":
         return []  # a seller / provider listing their own supply sees no ads
+    from app.services.universal_multi_source_result_service import NEED_SERVICE, need_kind
+
+    # A service request only sees provider / seller promotions (and videos),
+    # never a product listing, deal or affiliate link.
+    service_need = need_kind(demand) == NEED_SERVICE
     repo = sponsored_repo(container)
     category = str(demand.get("domain") or "").strip().lower()
     location = str(demand.get("location_text") or "")
     rows: list[dict] = []
     for campaign in repo.eligible(category=category, subject=str(demand.get("subject") or ""),
-                                  location=location, limit=limit):
+                                  location=location, limit=limit,
+                                  kinds=SERVICE_CAMPAIGN_KINDS if service_need else None):
         click_id = repo.record_impression(int(campaign["id"]), category=category, location=location)
         rows.append({
             "id": f"sponsored-{campaign['id']}",

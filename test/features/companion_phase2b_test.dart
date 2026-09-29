@@ -77,9 +77,9 @@ void main() {
       expect(AskodoxCompanionSettings.fromJson({'companion': 'humanHd'}).companion, AskodoxCompanionSettings.humanHd);
     });
 
-    testWidgets('Human HD renders through the engine; a failure hands over to the light human for the session',
+    testWidgets('Human HD renders through the engine; a failure hands over to the approved human for the session',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'askodox.companion.v1': '{"companion":"humanHd"}'});
+      SharedPreferences.setMockInitialValues({'askodox.companion.v2': '{"companion":"humanHd"}'});
       void Function(String)? fail;
       AskodoxCompanionMood? shown;
       await tester.pumpWidget(ProviderScope(
@@ -99,7 +99,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.byKey(const Key('fakeVrm')), findsNothing);
-      expect(find.byKey(const ValueKey('askodoxCompanionHuman3d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompanionHuman2d')), findsOneWidget, reason: 'same approved human');
       expect(AskodoxCompanionPerformance.vrmFallback, 'slow');
     });
   });

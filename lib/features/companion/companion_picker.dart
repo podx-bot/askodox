@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'askodox_companion.dart';
 import 'companion_3d.dart';
 import 'companion_human.dart';
+import 'companion_human2d.dart';
 
 /// Profile > ASKODOX friend: pick the companion once (remembered). Options:
 /// Automatic, the human 3D personas, the lightweight robot (Lite) and 3D
@@ -68,16 +69,16 @@ class AskodoxCompanionPicker extends ConsumerWidget {
           children: [
             option(
               id: AskodoxCompanionSettings.automatic,
-              // Automatic shows who it is right now (it follows the chat).
-              label: '${t('Automatic', 'ఆటోమేటిక్')} · ${askodoxPersonaLabel(askodoxPersonaForDomain(ref.watch(askodoxCompanionDomainProvider)), telugu: telugu)}',
+              // The approved ASKODOX companion (natural human, one identity).
+              label: t('ASKODOX Advisor', 'ASKODOX సలహాదారు'),
               selected: !off3d && settings.companion == AskodoxCompanionSettings.automatic,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: true),
-              preview: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF6C4DFF), size: 34),
+              preview: ClipOval(child: Image.asset('${AskodoxHuman2d.dir}/neutral.jpg', fit: BoxFit.cover)),
             ),
             for (final persona in AskodoxPersona.values)
               option(
                 id: persona.name,
-                label: askodoxPersonaLabel(persona, telugu: telugu),
+                label: '${askodoxPersonaLabel(persona, telugu: telugu)} · 3D beta',
                 selected: !off3d && settings.companion == persona.name,
                 onTap: () => notifier.update(companion: persona.name, render3d: true),
                 preview: _PersonaPreview(persona: persona),
@@ -98,10 +99,10 @@ class AskodoxCompanionPicker extends ConsumerWidget {
             ),
             option(
               id: 'off3d',
-              label: t('3D off', '3D ఆఫ్'),
-              selected: off3d,
-              onTap: () => notifier.update(render3d: false),
-              preview: const Icon(Icons.crop_square_rounded, color: Color(0xFF8A94A6), size: 34),
+              label: t('Still photo', 'స్టిల్ ఫోటో'),
+              selected: off3d && settings.companion == AskodoxCompanionSettings.automatic,
+              onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: false),
+              preview: const Icon(Icons.photo_rounded, color: Color(0xFF8A94A6), size: 34),
             ),
           ],
         ),

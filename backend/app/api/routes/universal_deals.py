@@ -390,6 +390,7 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         "longitude": location.get("longitude"),
         "location_text": location.get("label"),
         "constraints": constraints,
+        "raw_text": str(payload.raw_text or "")[:500],
         "source": "app",
     }
 
@@ -793,7 +794,13 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     errors: list[str] = []
     affiliate_rows: list[dict] = []
     affiliate_config = getattr(container, "affiliate_provider_config", None)
-    if affiliate_config is not None and flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER":
+    # A service request ("AC installation in Vuyyuru") wants local PROVIDERS:
+    # product stores (affiliate / partner links) are never shown for it.
+    from app.services.universal_multi_source_result_service import NEED_SERVICE, need_kind
+
+    service_need = need_kind(demand) == NEED_SERVICE
+    if (affiliate_config is not None and flags.get("results.affiliate", True)
+            and str(demand.get("side") or "").upper() != "OFFER" and not service_need):
         category = str(demand.get("domain") or "").strip().lower()
         subject = str(demand.get("subject") or "").strip()
         providers = []
@@ -865,7 +872,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     # Affiliate / partner results (Partner Hub) come AFTER ASKODOX
     # registered + nearby/local + normal online: ASKODOX stays local-first.
     partner_rows: list[dict] = []
-    if flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER":
+    if flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER" and not service_need:
         try:
             from app.api.routes.partners import partner_repo
             from app.services.affiliate_partner_service import partner_results
