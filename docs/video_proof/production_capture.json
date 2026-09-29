@@ -899,7 +899,7 @@
   ],
   "video_status": "ok",
   "next_step": "local_service",
-  "next_ask": "ac service service near me",
+  "next_ask": "ac service near me",
   "next_matches": [
    {
     "id": "online-0-urbancompany.com",
@@ -1477,7 +1477,7 @@
     "match_id": "deals-0-olx.in",
     "provider_id": "olx.in",
     "title": "9 Used Royal Enfield Classic 350 Bikes in Vijayawada - Buy & Sell Second Hand Bikes",
-    "subtitle": "Can I buy a second hand Royal Enfield ... OLX in Vijayawada? Yes, OLX offers several listings for second hand Royal Enfield Classic 350 bikes equipped with ABS, self-start, and other premium features. Filter by features and connect directly with verified owners for a quick and se",
+    "subtitle": "Can I buy a second hand Royal Enfield Classic 350 with ABS or self start feature on OLX in Vijayawada? Yes, OLX offers several listings for second hand Royal Enfield Classic 350 bikes equipped with ABS, self-start, and other premium features. Filter by features and connect direct",
     "destination_url": "https://www.olx.in/en-in/vijayawada_g4058591/motorcycles_c81?filter=model_eq_motorcycles-royal-enfield-classic-350",
     "image_url": null,
     "source_name": "www.olx.in",
@@ -1748,13 +1748,13 @@
     "match_id": "deals-1-indiatoday.in",
     "provider_id": "indiatoday.in",
     "title": "iPhone 15 gets massive discount on Vijay Sales Apple Days sale",
-    "subtitle": "iPhone 15 available at a discounted price during Vijay Sales Apple Days sale with bank and exchange offers.",
+    "subtitle": "iPhone 15 is currently listed for Rs 59,900; during the Apple Days sale, Vijay Sales is offering it for Rs 56,900.",
     "destination_url": "https://www.indiatoday.in/visualstories/technology/iphone-15-gets-massive-discount-on-vijay-sales-apple-days-sale-278350-11-04-2026",
     "image_url": "https://imgs.search.brave.com/fQo4Edoap6ECRprReO52Ok6wxiWgpJTTGoexG_66mIU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZi1p/bWctYS1pbi50b3Nz/aHViLmNvbS9zaXRl/cy92aXN1YWxzdG9y/eS93cC8yMDI2LzAz/L2Nyb3BwZWQtaW1h/Z2VJVEctMTc3Mzk4/OTQ5NDk4OS5wbmc_/c2l6ZT05MDA6MTIw/MA",
     "source_name": "www.indiatoday.in",
-    "price": null,
+    "price": 59900.0,
     "price_verified": false,
-    "price_source": null,
+    "price_source": "page_text",
     "page_type": "store",
     "source": "online",
     "match_source": "online",
@@ -1929,7 +1929,7 @@
   ],
   "video_status": "ok",
   "next_step": "local_service",
-  "next_ask": "ac service service near me",
+  "next_ask": "ac service near me",
   "next_matches": [
    {
     "id": "online-0-urbancompany.com",
