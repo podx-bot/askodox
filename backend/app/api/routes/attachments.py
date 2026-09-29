@@ -112,6 +112,16 @@ def analyze_attachment(payload: AttachmentRequest, request: Request) -> dict:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except Exception as error:
             raise HTTPException(status_code=502, detail="document could not be read") from error
+        # A scanned PDF has no text layer: read it with the multimodal brain.
+        image_service = getattr(container, "universal_image_service", None)
+        if mime == "application/pdf" and not attachment_facts("document", analysis) and image_service is not None \
+                and hasattr(image_service, "analyze_pdf"):
+            try:
+                scanned = image_service.analyze_pdf(data, caption=caption)
+            except Exception:
+                scanned = None
+            if scanned:
+                analysis = {**analysis, **scanned, "scanned": True}
     else:
         image_service = getattr(container, "universal_image_service", None)
         if image_service is None:

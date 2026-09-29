@@ -40,7 +40,7 @@ class ChatAttachmentResult {
 }
 
 class ChatAttachmentException implements Exception {
-  const ChatAttachmentException(this.code, this.message, {this.statusCode, this.endpoint});
+  const ChatAttachmentException(this.code, this.message, {this.statusCode, this.endpoint, this.kind});
 
   /// unsupported | too_large | unavailable | not_understood | failed |
   /// timeout | network
@@ -52,6 +52,9 @@ class ChatAttachmentException implements Exception {
 
   /// Which backend path answered ('unified' or 'legacy').
   final String? endpoint;
+
+  /// image | video | document (null when not known).
+  final String? kind;
 
   bool get retryable => code == 'failed' || code == 'network' || code == 'timeout' || code == 'unavailable';
 
@@ -128,6 +131,8 @@ class ApiChatAttachmentService implements ChatAttachmentService {
   /// to the per-kind routes.
   bool _unifiedMissing = false;
 
+  static const legacyVideoLimit = 19 * 1024 * 1024;
+
   static const _legacyPaths = {
     'image': '/vision/analyze',
     'video': '/vision/analyze-video',
@@ -177,7 +182,7 @@ class ApiChatAttachmentService implements ChatAttachmentService {
       }
       final failure = (result as ApiError<Map<String, Object?>>).failure;
       if (failure.statusCode != 404 && failure.statusCode != 405) {
-        throw _exception(failure, 'unified');
+        throw _exception(failure, 'unified', attachment.kind);
       }
       _unifiedMissing = true;
     }
@@ -191,6 +196,12 @@ class ApiChatAttachmentService implements ChatAttachmentService {
     required String language,
   }) async {
     final kind = attachment.kind;
+    // The older video route sends the clip inline to the video brain, which
+    // cannot take more than ~20 MB: say so instead of uploading in vain.
+    if (kind == 'video' && attachment.bytes.length > legacyVideoLimit) {
+      throw const ChatAttachmentException('too_large', 'video too large for this server',
+          endpoint: 'legacy', kind: 'video');
+    }
     final body = switch (kind) {
       'image' => {
           'image_base64': encoded,
@@ -215,10 +226,10 @@ class ApiChatAttachmentService implements ChatAttachmentService {
       if (facts.isEmpty) throw const ChatAttachmentException('not_understood', 'empty analysis', endpoint: 'legacy');
       return ChatAttachmentResult(id: '', kind: kind, facts: facts, analysis: analysis);
     }
-    throw _exception((result as ApiError<Map<String, Object?>>).failure, 'legacy');
+    throw _exception((result as ApiError<Map<String, Object?>>).failure, 'legacy', kind);
   }
 
-  ChatAttachmentException _exception(ApiFailure failure, String endpoint) {
+  ChatAttachmentException _exception(ApiFailure failure, String endpoint, String kind) {
     final code = switch (failure.statusCode) {
       415 => 'unsupported',
       413 => 'too_large',
@@ -228,11 +239,14 @@ class ApiChatAttachmentService implements ChatAttachmentService {
       null => 'network',
       _ => 'failed',
     };
-    return ChatAttachmentException(code, failure.message ?? code, statusCode: failure.statusCode, endpoint: endpoint);
+    return ChatAttachmentException(code, failure.message ?? code,
+        statusCode: failure.statusCode, endpoint: endpoint, kind: kind);
   }
 }
 
 String _factText(Object? value) {
+  // "[Page 1]" markers alone (a PDF without a text layer) are not content.
+  if ('${value ?? ''}'.replaceAll(RegExp(r'\[Page \d+\]'), '').trim().isEmpty) return '';
   final text = '${value ?? ''}'.trim().split(RegExp(r'\s+')).join(' ');
   return const {'', 'null', 'none', 'unknown'}.contains(text.toLowerCase()) ? '' : text;
 }

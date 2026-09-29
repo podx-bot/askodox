@@ -32,7 +32,7 @@ class MultimodalCaptureService {
     try {
       return await _picker.pickVideo(
         source: source,
-        maxDuration: const Duration(seconds: 60),
+        maxDuration: const Duration(seconds: 30),
       );
     } catch (error) {
       throw MultimodalCaptureException('video', error);

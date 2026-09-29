@@ -113,3 +113,84 @@ def test_reply_language_is_authoritative_even_for_short_replies():
     assert "Reply language: Telugu (te)" in rule and "yes / ok / go / ?" in rule
     assert _reply_language_rule("hi-IN").startswith("Reply language: Hindi (hi)")
     assert _reply_language_rule("") == "Locale hint: auto\n"
+
+
+def _blank_pdf() -> bytes:
+    """A real one-page PDF with no text layer (like a scanned page)."""
+    from pypdf import PdfWriter
+    import io
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def test_scanned_pdf_without_text_is_read_by_the_multimodal_brain(api):
+    client, container, brain = api
+    seen = []
+
+    def analyze_pdf(pdf_bytes, caption=None):
+        seen.append(pdf_bytes)
+        return {"document_type": "price list", "visible_text": "Rice 5 kg 300", "summary": "grocery price list"}
+
+    brain.analyze_pdf = analyze_pdf
+    pdf = _blank_pdf()
+    response = client.post("/api/attachments/analyze", json=body(pdf, "scan.pdf", "application/pdf"))
+    assert response.status_code == 200, response.text
+    assert seen == [pdf], "the actual PDF bytes reach the brain"
+    facts = response.json()["facts"]
+    assert "price list" in facts and "Rice 5 kg 300" in facts and "[Page" not in facts
+
+
+def test_scanned_pdf_with_no_brain_answer_is_422_not_page_markers(api):
+    client, container, brain = api
+    brain.analyze_pdf = lambda pdf_bytes, caption=None: None
+    response = client.post("/api/attachments/analyze", json=body(_blank_pdf(), "scan.pdf", "application/pdf"))
+    assert response.status_code == 422
+    assert attachment_facts("document", {"text": "[Page 1]\n\n[Page 2]\n"}) == ""
+
+
+class _Files:
+    def __init__(self):
+        self.uploaded, self.deleted, self.polls = [], [], 0
+
+    def upload(self, file, config):
+        self.uploaded.append((file.read(), config["mime_type"]))
+        return type("F", (), {"name": "files/v1", "state": type("S", (), {"name": "PROCESSING"})()})()
+
+    def get(self, name):
+        self.polls += 1
+        return type("F", (), {"name": name, "state": type("S", (), {"name": "ACTIVE"})()})()
+
+    def delete(self, name):
+        self.deleted.append(name)
+
+
+class _Models:
+    def __init__(self):
+        self.contents = []
+
+    def generate_content(self, model, contents, config):
+        self.contents.append(contents[0])
+        return type("R", (), {"text": '{"visual_summary": "a leaking tap", "spoken_transcript": "fix this"}'})()
+
+
+def test_large_video_goes_through_the_files_api_and_small_video_inline(monkeypatch):
+    from app.services import universal_image_service as module
+
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    client = type("C", (), {})()
+    client.files, client.models = _Files(), _Models()
+    service = module.UniversalImageService(api_key="", model="m", pending_repository=None,
+                                           live_capture_service=None, client=client)
+    monkeypatch.setattr(service, "INLINE_MEDIA_LIMIT", 1024)
+    big = b"\x00\x00\x00\x18ftypmp42" + b"v" * 4096
+    result = service.analyze_video(big, "video/mp4", caption="what is this")
+    assert result["visual_summary"] == "a leaking tap" and result["spoken_transcript"] == "fix this"
+    assert client.files.uploaded == [(big, "video/mp4")] and client.files.polls == 1
+    assert client.files.deleted == ["files/v1"], "the uploaded clip is removed after reading"
+    small = b"\x00\x00\x00\x18ftypmp42" + b"v" * 10
+    service.analyze_video(small, "video/mp4")
+    assert len(client.files.uploaded) == 1, "small clips stay inline"

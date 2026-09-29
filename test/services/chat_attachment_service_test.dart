@@ -214,4 +214,28 @@ void main() {
             'image', {'subject': 'rice', 'quantity': 5, 'unit': 'kg', 'price': 300, 'currency': 'INR'}),
         'Shows: rice\nQuantity: 5 kg\nPrice visible: INR 300');
   });
+
+  test('scanned PDF on the older route (only page markers) is reported as not understood', () async {
+    final client = RestApiClient(
+        baseUrl: Uri.parse('https://api.test'),
+        httpClient: MockClient((request) async => request.url.path == '/documents/analyze'
+            ? _res(jsonEncode({'status': 'success', 'analysis': {'kind': 'pdf', 'text': '[Page 1]\n\n[Page 2]'}}), 200)
+            : _res('{"detail":"Not Found"}', 404)));
+    final error = await ApiChatAttachmentService(client)
+        .analyze(ChatAttachment(name: 'scan.pdf', bytes: _pdf), userText: '', language: 'te')
+        .then<ChatAttachmentException?>((_) => null, onError: (Object e) => e as ChatAttachmentException);
+    expect(error!.code, 'not_understood');
+    expect(askodoxAttachmentFacts('document', {'text': '[Page 1]', 'visible_text': 'Rice 5 kg 300'}), 'Rice 5 kg 300');
+  });
+
+  test('a long video is refused before upload on the older route (inline limit), with the video kind', () async {
+    final backend = _Backend(unified: false);
+    final big = Uint8List(ApiChatAttachmentService.legacyVideoLimit + 1)..setAll(0, _mp4.take(12));
+    final error = await ApiChatAttachmentService(backend.client)
+        .analyze(ChatAttachment(name: 'long.mp4', bytes: big), userText: '', language: 'en')
+        .then<ChatAttachmentException?>((_) => null, onError: (Object e) => e as ChatAttachmentException);
+    expect(error!.code, 'too_large');
+    expect(error.kind, 'video');
+    expect(backend.calls, ['/api/attachments/analyze'], reason: 'no doomed upload to /vision/analyze-video');
+  });
 }

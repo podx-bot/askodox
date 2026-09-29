@@ -1252,7 +1252,7 @@ class _AskodoxPrimaryHomeScreenState
         _attachmentNotice(
           switch (error.code) {
             'unsupported' => 'attach_unsupported',
-            'too_large' => 'attach_too_large',
+            'too_large' => error.kind == 'video' ? 'attach_video_too_large' : 'attach_too_large',
             'unavailable' => 'attach_unavailable',
             'not_understood' => 'attach_not_understood',
             _ => 'attach_failed',

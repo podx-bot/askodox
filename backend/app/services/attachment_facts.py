@@ -11,13 +11,20 @@ used; nothing is invented.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
 
 _MAX = 1500
 
 
+_PAGE_MARKER = re.compile(r"\[Page \d+\]")
+
+
 def _text(value: Any) -> str:
+    # "[Page 1]" markers alone (a PDF without a text layer) are not content.
     text = str(value or "").strip()
+    if not _PAGE_MARKER.sub("", text).strip():
+        return ""
     return "" if text.casefold() in {"", "null", "none", "unknown"} else " ".join(text.split())
 
 
@@ -56,7 +63,7 @@ def attachment_facts(kind: str, analysis: Dict[str, Any] | None) -> str:
     else:
         add("Document", data.get("title") or data.get("document_type"))
         add("Summary", data.get("summary"))
-        add("", data.get("text") or data.get("visible_text"))
+        add("", _text(data.get("text")) or data.get("visible_text"))
         for page in (data.get("pages") or [])[:6]:
             if isinstance(page, dict):
                 add("", page.get("text"))
