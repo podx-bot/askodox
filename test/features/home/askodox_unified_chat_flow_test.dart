@@ -2603,6 +2603,37 @@ void main() {
   });
 
 
+  testWidgets('a video ask searches even when the AI files it as chat (real production decision)',
+      (tester) async {
+    const video = UniversalMatch(
+      id: 'video-yt_cgQhFuIFREs', title: 'Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026]',
+      source: 'video', segment: 'video', sourceName: 'Udrawat', videoId: 'yt_cgQhFuIFREs',
+      destinationUrl: 'https://www.youtube.com/watch?v=cgQhFuIFREs',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/cgQhFuIFREs?playsinline=1&rel=0',
+      disclosure: "Creator's opinion -- not verified by ASKODOX",
+    );
+    final h = _Harness(
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: 'v1', matches: [video], sourceStatus: {'videos': 'ok'}),
+      ]),
+      // Exactly what production's model answered (proof run 36581475451).
+      assistant: _Assistant((_) => {
+            'reply': 'Here are review videos for the Samsung 43-inch TV.', 'domain': 'GENERAL',
+            'transactional': false, 'action': 'search_reviews', 'confidence': 0.95, 'source': 'universal_ai',
+            'entities': {'subject': 'TV review videos', 'brand': 'Samsung', 'size': '43 inch',
+                'location': 'Vijayawada'},
+          }),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'Samsung 43 inch TV review videos in Vijayawada');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('screen size'), findsNothing, reason: 'no purchase questions for a video ask');
+    expect(h.matches.deals, isNotEmpty, reason: 'the video ask ran the real discovery');
+    expect(find.textContaining('Samsung 43 Inch Crystal UHD'), findsWidgets, reason: 'real video shown');
+    expect(find.text('Here are review videos for the Samsung 43-inch TV.'), findsNothing,
+        reason: 'never an AI claim of results');
+  });
+
   // Real-content video proof (opt-in; run by .github/workflows/
   // video-real-content-proof.yml): the rows, thumbnails, explanations and
   // AI answers are the REAL ones that run captured.

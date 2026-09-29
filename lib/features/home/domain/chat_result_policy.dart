@@ -670,3 +670,13 @@ String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang
           AskodoxCompareKind.videos => 'Videos',
         },
     };
+
+
+/// The customer asked for videos / reviews / demos (English, Telugu, Hindi).
+/// Such a message is always a real search -- the chat never answers it with
+/// an AI "here are the videos" claim that shows nothing.
+final _videoAsk = RegExp(
+    r'\b(videos?|reviews?|youtube|unboxing|demo|comparison)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|वीडियो|रिव्यू|समीक्षा)',
+    caseSensitive: false);
+
+bool askodoxAsksForVideos(String text) => _videoAsk.hasMatch(text);

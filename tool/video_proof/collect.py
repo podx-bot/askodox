@@ -33,7 +33,12 @@ captured = {}
 for label, language, text, subject, category, intent, step in CASES:
     # Production's own "wants videos" detector reads English words, so the
     # source query carries "review video"; the branch run uses the real text.
-    source = discover(f"{subject} review video", subject, category, intent, "en")
+    # Production (main) never searches videos for SERVICE needs (this branch
+    # changes that), so service cases take their real video rows from a
+    # product-category source query for the same subject; the branch run
+    # then treats them as the service need.
+    source_category, source_intent = ("product", "buy") if category == "service" else (category, intent)
+    source = discover(f"{subject} review video", subject, source_category, source_intent, "en")
     videos = [m for m in source["matches"] if m.get("match_source") == "video"]
     time.sleep(3)
     ask = NEXT_ASK[step].format(s=subject)

@@ -1420,7 +1420,11 @@ class _AskodoxPrimaryHomeScreenState
     // "show me / results / options" = search now with what is known.
     // A "show me" said before a clarification question still counts once the
     // customer picks what they meant.
-    final showNow = askodoxWantsResultsNow(text) || (clarified != null && _showNowAfterClarification);
+    // "X review videos" is a search even when the AI files it as general
+    // chat, and it searches NOW with what is known: someone asking for
+    // videos is not asked purchase details first.
+    final videoAsk = !discussOnly && explicitContext == null && askodoxAsksForVideos(text);
+    final showNow = askodoxWantsResultsNow(text) || videoAsk || (clarified != null && _showNowAfterClarification);
     final showOnly = showNow && askodoxNeedSubject(text).isEmpty;
     // A short answer such as "curry cut", "1 kg" or "skinless" is not
     // transactional on its own, but it *is* transactional when ASKODOX is
@@ -1451,6 +1455,7 @@ class _AskodoxPrimaryHomeScreenState
         (askodoxQualifierReply(text) != null || askodoxDetectBrand(text, known: listedBrands) != null);
     final transactional = !discussOnly &&
         (clarified != null ||
+            videoAsk ||
             detailAnswer ||
             brandRefinement ||
             (showNow && activeDealSession.deal != null) ||
@@ -1631,7 +1636,7 @@ class _AskodoxPrimaryHomeScreenState
       final searchNow = deal != null &&
           (deal.readyToMatch ||
               ((showNow || repeating) && (deal.subject?.trim().isNotEmpty ?? false)));
-      if (searchNow && !deal.readyToMatch) detailQuestion = repeating ? null : detailQuestion;
+      if (searchNow && !deal.readyToMatch) detailQuestion = repeating || videoAsk ? null : detailQuestion;
       if (deal != null && searchNow && needClarification == null) {
         if (deal.intent == DealIntent.sell && _userMeansToSell(text, deal)) {
           // A completed "sell" deal is a real listing to save, not a buyer
@@ -1684,6 +1689,12 @@ class _AskodoxPrimaryHomeScreenState
         _looksLikeGeneralFollowUp(text.toLowerCase()));
     var reply = needClarification != null
       ? (_te ? needClarification.teluguQuestion : needClarification.question)
+      // A video ask answers from the REAL results (or the next detail it
+      // needs), never with an AI claim of results / specs it did not fetch.
+      : videoAsk && results != null
+        ? askodoxResultsReply(results, telugu: _te)
+      : videoAsk && detailQuestion != null && detailQuestion.trim().isNotEmpty
+        ? askodoxDetailQuestionReply(detailQuestion, telugu: _te)
       : aiUsable &&
         !(isGeneralContinuation &&
           askodoxIsGenericAssistantReply(decision!.reply))
@@ -4616,7 +4627,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                   match.disclosure?.trim().isNotEmpty == true
-                      ? match.disclosure!
+                      ? askodoxVideoDisclosure(match.disclosure, telugu: _te)
                       : 'Affiliate link',
                   style: const TextStyle(color: _muted, fontSize: 11)),
             ),

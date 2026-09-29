@@ -22,6 +22,8 @@ lines = ["# Real video content proof", "",
          "* AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app "
          "sends (question + grounding from this branch's explain).",
          "* Next-step options: **real**, from production's discovery for the step's text.",
+         "* Service cases: production (main) does not search videos for service needs, so their real video rows "
+         "come from a product-category source query for the same subject; this branch runs them as service needs.",
          f"* YouTube Data API: {proof['youtube_data_api']}.", "",
          "| Case | Lang | Videos | Top video | Channel | Plays in app | Disclosure | AI answer | Follow-up | Next step → options |",
          "|---|---|---|---|---|---|---|---|---|---|"]

@@ -335,6 +335,17 @@ _VIDEO_ASK = re.compile(r"\b(videos?|reviews?|review|youtube|compare|comparison|
 _VIDEO_ASK_LOCAL = re.compile(r"(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|డెమో|वीडियो|रिव्यू|समीक्षा)")
 
 
+_VIDEO_WORDS = re.compile(r"\b(review|reviews|video|videos|youtube|unboxing|demo|clips?)\b|"
+                          r"(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|यूट्यूब|वीडियो|रिव्यू|समीक्षा)", re.IGNORECASE)
+
+
+def _without_video_words(subject: str) -> str:
+    """"Samsung TV review videos" searches for the TV (videos are shown
+    because the customer asked; the thing searched is the TV)."""
+    cleaned = " ".join(_VIDEO_WORDS.sub(" ", subject).split())
+    return cleaned or subject
+
+
 def _subject_with_brand(subject: str, constraints: dict) -> str:
     """The brand the customer chose is part of WHAT is searched ("Tata car",
     not the earlier "Maruti 800") -- slots never sit unused beside the query."""
@@ -383,7 +394,7 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
         "domain": _DOMAIN_BY_CATEGORY.get(category, category.upper() or "PRODUCT"),
-        "subject": _subject_with_brand(str(payload.subject).strip(), constraints),
+        "subject": _subject_with_brand(_without_video_words(str(payload.subject).strip()), constraints),
         "quantity": payload.quantity,
         "unit": payload.unit,
         "price": payload.price,

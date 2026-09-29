@@ -234,3 +234,60 @@ def test_telugu_video_ask_shows_videos(api):
     rows = videos(discover(client, "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో", "samsung 43 inch tv", language="te"))
     assert rows and rows[0]["video_id"] == "yt_AbCdEfGhIj1"
     assert videos(discover(client, "శామ్‌సంగ్ 43 అంగుళాల టీవీ కావాలి", "samsung 43 inch tv", language="te")) == []
+
+
+def test_video_words_are_not_searched_as_part_of_the_subject(api):
+    client, container, _ = api
+    rows = videos(discover(client, "Samsung 43 inch TV review videos", "samsung 43 inch tv review videos"))
+    assert rows, "videos still shown (the customer asked)"
+    assert container.brave_web_search_provider.queries[-1] == "samsung 43 inch tv review"
+    assert rows[0]["products"] == ["samsung 43 inch tv"]
+
+
+class _FakeModel:
+    """Returns the decision production's model actually gave (captured by
+    the real-content proof run 36581475451)."""
+
+    def __init__(self, decision):
+        import json as _json
+
+        self.text = _json.dumps(decision)
+        self.models = self
+
+    def generate_content(self, **_):
+        return self
+
+
+@pytest.mark.parametrize("locale,decision,expected", [
+    ("en", {"reply": "Here is information on the Redmi Note 13 Pro review video. It features a 200MP camera.",
+            "domain": "PRODUCT", "transactional": False, "action": "get_product_info", "confidence": 0.95,
+            "entities": {"subject": "review video", "brand": "Redmi", "model": "Note 13 Pro"}},
+     "looking for real videos"),
+    ("te", {"reply": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియోల గురించి ఏ విషయాలు తెలుసుకోవాలనుకుంటున్నారు?",
+            "domain": "PRODUCT", "transactional": False, "action": "search_reviews", "confidence": 0.95,
+            "entities": {"subject": "TV review video", "brand": "Samsung"}},
+     "వెతుకుతున్నాను"),
+    ("en", {"reply": "Here are review videos for the Samsung 43-inch TV.", "domain": "GENERAL",
+            "transactional": False, "action": "search_reviews", "confidence": 0.95,
+            "entities": {"subject": "TV review videos", "brand": "Samsung"}}, "looking for real videos"),
+])
+def test_a_video_ask_is_a_search_and_the_reply_never_claims_results(locale, decision, expected):
+    from app.services.universal_ai_assistant_service import UniversalAIAssistantService
+
+    service = UniversalAIAssistantService(None, api_key="test", model="m", client=_FakeModel(decision))
+    message = "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో" if locale == "te" else "Samsung 43 inch TV review videos"
+    out = service.decide(message, history=[], locale=locale, location="Vijayawada")
+    assert out["transactional"] is True and out["action"] == "search_videos"
+    assert out["domain"] == "PRODUCT"
+    assert expected in out["reply"]
+    assert "200MP" not in out["reply"] and "Here are" not in out["reply"], "no claimed results, no invented specs"
+
+
+def test_a_normal_question_keeps_the_models_reply():
+    from app.services.universal_ai_assistant_service import UniversalAIAssistantService
+
+    decision = {"reply": "A 43 inch TV suits a 10-12 ft viewing distance.", "domain": "GENERAL",
+                "transactional": False, "action": "answer", "confidence": 0.9, "entities": {}}
+    service = UniversalAIAssistantService(None, api_key="test", model="m", client=_FakeModel(decision))
+    out = service.decide("What size TV for a small room?", history=[], locale="en", location="Vijayawada")
+    assert out["transactional"] is False and out["reply"].startswith("A 43 inch TV")

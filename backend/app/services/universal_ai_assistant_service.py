@@ -137,6 +137,22 @@ class UniversalAIAssistantService:
         lowered = sentence.lower()
         return any(keyword.lower() in lowered for keyword in cls._LOCATION_ASK_KEYWORDS)
 
+    _VIDEO_ASK = re.compile(
+        r"\b(videos?|reviews?|youtube|unboxing|demo|comparison)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|వీడియోలు|वीडियो|रिव्यू|समीक्षा)",
+        re.IGNORECASE)
+
+    @classmethod
+    def _asks_for_videos(cls, text: str) -> bool:
+        return bool(cls._VIDEO_ASK.search(text or ""))
+
+    @staticmethod
+    def _video_search_reply(locale: str) -> str:
+        if str(locale or "").lower().startswith("te"):
+            return "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి."
+        if str(locale or "").lower().startswith("hi"):
+            return "ठीक है, असली वीडियो और रिव्यू ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
+        return "Sure -- looking for real videos and reviews; the results appear below."
+
     @classmethod
     def _strip_location_question(cls, reply: str, locale: str) -> str:
         """Deterministically remove any location question from a reply.
@@ -273,6 +289,9 @@ class UniversalAIAssistantService:
             "Never use clarify_need for brand, budget, size, quantity or anything a normal follow-up can ask. "
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
             "Do not claim a booking, payment, message, search or match happened. "
+            "If the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
+            "set transactional true, action search_videos, entities.subject = the thing itself (without the words "
+            "video/review), and never say 'here are' results or describe specs -- the app shows the real results. "
             "Important distinction: 'delivery job kavali' is JOB_SEEKER; 'delivery boys/staff kavali na shop ki' is STAFFING; "
             "'parcel/courier pampali' is PARCEL; temporary catering/function workers are STAFFING. General planning/chat is GENERAL. "
             "Conversation continuity rule: if the current message supplies a missing detail, correction, quantity, date, time, location, budget, salary, "
@@ -357,6 +376,15 @@ class UniversalAIAssistantService:
                 reply = self._strip_location_question(reply, locale)
             if not reply:
                 return None
+            if self._asks_for_videos(clean):
+                # Deterministic: a video / review ask is a real search. The
+                # app shows the real videos; the reply never claims results
+                # or describes specs it did not get from a source.
+                transactional = True
+                action = "search_videos"
+                if domain in {"GENERAL", "UNKNOWN"}:
+                    domain = "PRODUCT"
+                reply = self._video_search_reply(locale)
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
