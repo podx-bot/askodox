@@ -296,3 +296,37 @@ def test_a_normal_question_keeps_the_models_reply():
     service = UniversalAIAssistantService(None, api_key="test", model="m", client=_FakeModel(decision))
     out = service.decide("What size TV for a small room?", history=[], locale="en", location="Vijayawada")
     assert out["transactional"] is False and out["reply"].startswith("A 43 inch TV")
+
+
+@pytest.mark.parametrize("locale,message,reply,expected", [
+    # Production's real answers (proof run 36598467805): shop names from memory.
+    ("en", "Is it worth buying, and where can I get it here?",
+     "You can buy it in Vijayawada at local electronics stores like Poorvika, Lot Mobile, Bajaj Electronics.",
+     "real sellers"),
+    ("en", "where to buy tata nexon",
+     "You can visit authorized Tata Motors showrooms in Vijayawada like Trendset Tata.", "real sellers"),
+    ("te", "ఇది ఎక్కడ దొరుకుతుంది?", "విజయవాడలో Poorvika లో దొరుకుతుంది.", "వెతుకుతున్నాను"),
+])
+def test_where_to_get_is_a_search_and_never_names_shops_from_memory(locale, message, reply, expected):
+    from app.services.universal_ai_assistant_service import UniversalAIAssistantService
+
+    decision = {"reply": reply, "domain": "GENERAL", "transactional": False, "action": "answer",
+                "confidence": 0.9, "entities": {}}
+    service = UniversalAIAssistantService(None, api_key="test", model="m", client=_FakeModel(decision))
+    out = service.decide(message, history=[], locale=locale, location="Vijayawada")
+    assert out["transactional"] is True and out["action"] == "find_local" and out["domain"] == "PRODUCT"
+    assert expected in out["reply"]
+    for shop in ("Poorvika", "Trendset", "Lot Mobile"):
+        assert shop not in out["reply"]
+
+
+def test_videos_made_for_businesses_are_not_shown_to_customers():
+    from app.services.video_content import aimed_at_businesses
+
+    # Real row production returned for "kitchen sink plumbing repair" (proof run 36598467805).
+    assert aimed_at_businesses({"title": "Get More Plumbing Reviews FAST — Proven Strategy Revealed - YouTube",
+                                "source_name": "Plumber Marketing with Tyler Williams"})
+    for title in ("Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid",
+                  "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best??",
+                  "How to fix a leaking kitchen sink", "iPhone 15 in 2026 - worth it? (Review)"):
+        assert not aimed_at_businesses({"title": title, "source_name": "carandbike"}), title

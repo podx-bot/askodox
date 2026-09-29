@@ -219,10 +219,23 @@ def link_subject(demand: Dict[str, Any]) -> tuple[List[str], List[str]]:
     return ([], [subject]) if need_kind(demand) == NEED_SERVICE else ([subject], [])
 
 
+# Videos made for businesses (marketing to plumbers, "get more reviews",
+# SEO) are not what a customer asking about a product/service wants.
+_FOR_BUSINESSES = re.compile(
+    r"\bmarketing\b|\bseo\b|\b(get|getting|grow|more) (more )?(\w+ )?(reviews|customers|leads|clients)\b"
+    r"|\bfor (plumbers|contractors|electricians|business owners|agencies|small business(es)?)\b",
+    re.IGNORECASE)
+
+
+def aimed_at_businesses(row: Dict[str, Any]) -> bool:
+    return bool(_FOR_BUSINESSES.search(str(row.get("title") or ""))
+                or _FOR_BUSINESSES.search(str(row.get("source_name") or "")))
+
+
 def enrich_rows(rows: Iterable[Dict[str, Any]], demand: Dict[str, Any], *, store: WebVideoStore,
                 oembed: Optional[YouTubeOEmbed] = None, category: str = "") -> List[Dict[str, Any]]:
     """Web video result rows -> trackable, linkable, honestly labelled rows."""
-    rows = [r for r in rows if isinstance(r, dict) and r.get("destination_url")]
+    rows = [r for r in rows if isinstance(r, dict) and r.get("destination_url") and not aimed_at_businesses(r)]
     products, services = link_subject(demand)
     checks: Dict[str, Dict[str, Any]] = {}
     if oembed is not None:

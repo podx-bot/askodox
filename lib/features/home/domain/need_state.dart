@@ -9,8 +9,8 @@ library;
 
 final _showNow = RegExp(
   r'\b(show( me)?|results?|options?|find( it| them| me)?|search( now| it)?|what do you have|let me see'
-  r'|go( ahead)?|proceed)\b'
-  r'|చూపించు|చూపించండి|చూపు|చూపండి|ఆప్షన్స్|రిజల్ట్స్|వెతుకు|దిఖా|दिखा|ढूंढो|ढूँढो|खोजो',
+  r'|go( ahead)?|proceed|where (can|do|should|could) (i|we) (get|buy|find|book)|where to (get|buy|find|book))\b'
+  r'|ఎక్కడ దొరుకు|ఎక్కడ కొన|कहाँ मिल|कहां मिल|చూపించు|చూపించండి|చూపు|చూపండి|ఆప్షన్స్|రిజల్ట్స్|వెతుకు|దిఖా|दिखा|ढूंढो|ढूँढो|खोजो',
   caseSensitive: false,
 );
 

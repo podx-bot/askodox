@@ -145,6 +145,24 @@ class UniversalAIAssistantService:
     def _asks_for_videos(cls, text: str) -> bool:
         return bool(cls._VIDEO_ASK.search(text or ""))
 
+    _WHERE_TO_GET = re.compile(
+        r"\bwhere (can|do|should|could) (i|we) (get|buy|find|purchase|book)\b|\bwhere to (get|buy|find|book)\b"
+        r"|\b(shops?|stores?|dealers?|showrooms?) (near|nearby|around)\b"
+        r"|ఎక్కడ (దొరుకు|కొన|లభి)|ఎక్కడ దొరుకుతుంది|कहाँ मिल|कहां मिल|कहाँ से खरीद|कहां से खरीद",
+        re.IGNORECASE)
+
+    @classmethod
+    def _asks_where_to_get(cls, text: str) -> bool:
+        return bool(cls._WHERE_TO_GET.search(text or ""))
+
+    @staticmethod
+    def _local_search_reply(locale: str) -> str:
+        if str(locale or "").lower().startswith("te"):
+            return "సరే, మీ దగ్గర నిజంగా ఉన్న షాపులు, విక్రేతలు, ఆన్‌లైన్ ఆప్షన్లు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి."
+        if str(locale or "").lower().startswith("hi"):
+            return "ठीक है, आपके पास असली दुकानें, विक्रेता और ऑनलाइन विकल्प ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
+        return "Let me check real sellers, shops and online options near you -- the results appear below."
+
     @staticmethod
     def _video_search_reply(locale: str) -> str:
         if str(locale or "").lower().startswith("te"):
@@ -292,6 +310,8 @@ class UniversalAIAssistantService:
             "If the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
             "set transactional true, action search_videos, entities.subject = the thing itself (without the words "
             "video/review), and never say 'here are' results or describe specs -- the app shows the real results. "
+            "Never name specific shops, stores, dealers, showrooms or service companies from memory: if the user asks where "
+            "to get or buy something, that is a search (transactional true) and the app shows real sellers. "
             "Important distinction: 'delivery job kavali' is JOB_SEEKER; 'delivery boys/staff kavali na shop ki' is STAFFING; "
             "'parcel/courier pampali' is PARCEL; temporary catering/function workers are STAFFING. General planning/chat is GENERAL. "
             "Conversation continuity rule: if the current message supplies a missing detail, correction, quantity, date, time, location, budget, salary, "
@@ -385,6 +405,16 @@ class UniversalAIAssistantService:
                 if domain in {"GENERAL", "UNKNOWN"}:
                     domain = "PRODUCT"
                 reply = self._video_search_reply(locale)
+            elif self._asks_where_to_get(clean):
+                # Deterministic: "where can I get it here" is a real search.
+                # Shop / dealer names come only from real results, never
+                # from the model's memory.
+                transactional = True
+                if action not in {"search", "find_local", "order", "book"}:
+                    action = "find_local"
+                if domain in {"GENERAL", "UNKNOWN"}:
+                    domain = "PRODUCT"
+                reply = self._local_search_reply(locale)
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"

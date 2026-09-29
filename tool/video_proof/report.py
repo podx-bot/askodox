@@ -55,7 +55,10 @@ for c in proof["cases"]:
               f"Label: {ex.get('relationship_label')}", "",
               f"**User:** {ai['question']}", "", f"**ASKODOX AI (production):** {cut(ai.get('reply'), 900)}", "",
               f"**User (follow-up, same conversation):** {ai['follow_up']}", "",
-              f"**ASKODOX AI:** {cut(ai.get('follow_reply'), 700)}", "",
+              (f"**Production (main) AI:** {cut(ai.get('follow_reply'), 700)}  \n"
+               f"**This branch:** {ai['branch_follow']['reply']} (action `{ai['branch_follow']['action']}`: "
+               f"the real options below are the answer; shop names never come from the AI's memory)")
+              if ai.get("branch_follow") else f"**ASKODOX AI:** {cut(ai.get('follow_reply'), 700)}", "",
               f"**Next step:** \"{c['next']['ask']}\" → " + "; ".join(
                   f"{o['title']} [{o.get('segment') or o.get('match_source')}]" for o in c["next"]["options"][:4]), ""]
 lines += ["## Attribution (branch Command Center)", "",

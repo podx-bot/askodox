@@ -36,6 +36,7 @@ capture = json.loads((OUT / "production_capture.json").read_text())
 
 from server import app, container  # noqa: E402
 from app.services.session_tokens import issue_token  # noqa: E402
+from app.services.universal_ai_assistant_service import UniversalAIAssistantService as AI  # noqa: E402
 
 
 class ReplayWebVideos:
@@ -146,6 +147,10 @@ for label, language, text, subject, category, intent, step in CASES:
     case["ai"] = {"question": question, "reply": first.get("reply"), "source": first.get("source"),
                   "follow_up": follow_q, "follow_reply": second.get("reply"), "follow_source": second.get("source"),
                   "follow_domain": second.get("domain"), "follow_action": second.get("action")}
+    if AI._asks_where_to_get(follow_q):
+        # Production runs main; this branch turns "where can I get it" into a
+        # real search deterministically (same rule, applied to the same text).
+        case["ai"]["branch_follow"] = {"reply": AI._local_search_reply(language), "action": "find_local"}
     # Attribution: the funnel the viewer reports, tied to the same reference.
     # (video_ask was already recorded once by the explain call above.)
     for event in ("video_open", "video_watch_start" if top.get("embed_url") else "video_contact",

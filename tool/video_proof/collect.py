@@ -38,7 +38,9 @@ for label, language, text, subject, category, intent, step in CASES:
     # product-category source query for the same subject; the branch run
     # then treats them as the service need.
     source_category, source_intent = ("product", "buy") if category == "service" else (category, intent)
-    source = discover(f"{subject} review video", subject, source_category, source_intent, "en")
+    # Same query wording as the branch: services are "explained", products "review".
+    source = discover(f"{subject} {'explained' if category == 'service' else 'review'} video", subject,
+                      source_category, source_intent, "en")
     videos = [m for m in source["matches"] if m.get("match_source") == "video"]
     time.sleep(3)
     # Same wording rule as the app: "ac service near me", "plumbing repair service near me".
