@@ -272,9 +272,10 @@ def create_app() -> FastAPI:
 
     app.include_router(account_privacy_router)
     # Sessions of a deleted account stop working everywhere at once.
-    session_tokens.set_revocation_check(
-        lambda user_id, issued_at: deleted_before(container.settings.database_path, user_id, issued_at)
-    )
+    # ... and so do sessions of an account blocked in the Command Center.
+    from app.api.routes.platform import revocation_check
+
+    session_tokens.set_revocation_check(revocation_check(container, deleted_before))
     from app.api.routes.growth import admin_router as growth_admin_router, router as growth_router
 
     app.include_router(growth_router)
@@ -300,6 +301,10 @@ def create_app() -> FastAPI:
 
     app.include_router(partners_router)
     app.include_router(partners_admin_router)
+    from app.api.routes.platform import admin_router as platform_admin_router, router as platform_router
+
+    app.include_router(platform_router)
+    app.include_router(platform_admin_router)
 
     # Persist external API usage per day (Admin "API usage", cost estimate).
     try:

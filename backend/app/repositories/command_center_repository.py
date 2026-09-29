@@ -52,6 +52,23 @@ PERMISSIONS = (
     # Sponsored listings: advertisers, campaigns, approvals, analytics.
     "sponsored:view",
     "sponsored:manage",
+    # Commercial platform: affiliate programs/links, smart links, merchant
+    # offers, videos/creators/reviews, notification templates, finance
+    # (payments ledger, revenue ledger), rewards ledger, AI insights.
+    "affiliate:view",
+    "affiliate:manage",
+    "links:view",
+    "links:manage",
+    "offers:view",
+    "offers:manage",
+    "content:view",
+    "content:manage",
+    "notifications:manage",
+    "finance:view",
+    "finance:manage",
+    "rewards:view",
+    "rewards:manage",
+    "insights:view",
 )
 
 ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
@@ -63,7 +80,7 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
         "health:view", "integrations:view", "config:view", "audit:view", "growth:view",
     ),
     "support_agent": (
-        "overview:view", "support:view", "support:manage", "requests:view", "notifications:view",
+        "overview:view", "support:view", "support:manage", "requests:view", "notifications:view", "users:view",
     ),
     "seller_manager": (
         "overview:view", "users:view", "users:manage", "catalog:view", "catalog:manage", "notifications:view",
@@ -78,7 +95,19 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view", "revenue:view",
                          "revenue:manage", "analytics:export"),
     "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view",
-                       "partners:view", "partners:manage", "revenue:view", "sponsored:view", "sponsored:manage"),
+                       "partners:view", "partners:manage", "revenue:view", "sponsored:view", "sponsored:manage",
+                       "offers:view", "offers:manage", "rewards:view", "links:view", "insights:view"),
+    "campaign_manager": ("overview:view", "sponsored:view", "sponsored:manage", "links:view", "links:manage",
+                         "offers:view", "analytics:view", "insights:view"),
+    "affiliate_manager": ("overview:view", "affiliate:view", "affiliate:manage", "partners:view", "partners:manage",
+                          "links:view", "links:manage", "revenue:view", "analytics:view"),
+    "finance": ("overview:view", "payments:view", "payments:manage", "finance:view", "finance:manage",
+                "revenue:view", "revenue:manage", "rewards:view", "rewards:manage", "analytics:view",
+                "analytics:export", "audit:view"),
+    "content_moderator": ("overview:view", "content:view", "content:manage", "notifications:view"),
+    "merchant_manager": ("overview:view", "users:view", "users:manage", "offers:view", "offers:manage",
+                         "catalog:view", "catalog:manage", "support:view"),
+    "analytics_viewer": ("overview:view", "analytics:view", "insights:view", "health:view"),
 }
 
 # ----------------------------------------------------------- feature flags --
@@ -98,6 +127,17 @@ FEATURE_FLAGS: Dict[str, str] = {
     "payments.subscriptions": "Optional payment / subscription flows",
     "ai.assistant": "Universal AI assistant replies in Main Chat",
     "voice.sarvam_tts": "Sarvam Bulbul reply voice (device TTS fallback when off)",
+    "links.smart": "Smart / deep links (/l/{slug}) with app -> web fallback",
+    "offers.merchant": "Merchant-created offers (reviewed) on results and claims",
+    "payments.online": "Online payment gateways (only once a gateway is configured)",
+    "rewards": "Rewards ledger (cashback, points, merchant rewards)",
+    "coupons": "Coupons and promo codes",
+    "referrals": "Refer & earn",
+    "support.whatsapp": "WhatsApp support channel (needs WhatsApp configuration)",
+    "notifications.push": "Push notifications (needs Firebase configuration)",
+    "notifications.email": "Email notifications (needs an email provider)",
+    "notifications.sms": "SMS notifications (needs an SMS provider)",
+    "notifications.whatsapp": "WhatsApp notifications (needs WhatsApp configuration)",
 }
 
 ESCALATION_STATUSES = ("OPEN", "IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED", "CLOSED")
