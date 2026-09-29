@@ -247,10 +247,9 @@ class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScr
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   key: const Key('askodoxVideoAsk'),
-                  onPressed: () {
-                    ref.read(askodoxVideoServiceProvider).track('video_ask', video.videoId);
-                    Navigator.of(context).pop(askodoxVideoAskResult);
-                  },
+                  // The ask itself is recorded once, by the backend, when
+                  // the chat asks /api/videos/{id}/explain.
+                  onPressed: () => Navigator.of(context).pop(askodoxVideoAskResult),
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: Text(telugu ? 'ఈ వీడియో గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this video'),
                 ),

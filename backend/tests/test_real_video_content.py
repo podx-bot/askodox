@@ -227,3 +227,10 @@ def test_video_funnel_and_attribution_use_the_same_reference(api):
                            json={"event": event, "ids": {"video_id": "yt_AbCdEfGhIj1"}}).json()["recorded"]
     funnel = {s["step"]: s["count"] for s in client.get(f"{BASE}/analytics", headers=OWNER).json()["video_funnel"]}
     assert funnel["video_impression"] >= 1 and funnel["video_open"] == 1 and funnel["video_local_search"] == 1
+
+
+def test_telugu_video_ask_shows_videos(api):
+    client, _, _ = api
+    rows = videos(discover(client, "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో", "samsung 43 inch tv", language="te"))
+    assert rows and rows[0]["video_id"] == "yt_AbCdEfGhIj1"
+    assert videos(discover(client, "శామ్‌సంగ్ 43 అంగుళాల టీవీ కావాలి", "samsung 43 inch tv", language="te")) == []

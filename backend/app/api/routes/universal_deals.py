@@ -331,6 +331,8 @@ def _fill_subject(payload: UniversalDealCreateRequest) -> None:
 # Videos/reviews are shown only when the customer asks for them.
 _VIDEO_ASK = re.compile(r"\b(videos?|reviews?|review|youtube|compare|comparison|vs|unboxing|demo|how to)\b",
                         re.IGNORECASE)
+# The same ask in Telugu (and common Hindi): video, review, comparison, demo.
+_VIDEO_ASK_LOCAL = re.compile(r"(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|డెమో|वीडियो|रिव्यू|समीक्षा)")
 
 
 def _subject_with_brand(subject: str, constraints: dict) -> str:
@@ -371,7 +373,7 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     radius = location.get("radius_km")
     if _present(radius):
         constraints.setdefault("radius_km", radius)
-    if _VIDEO_ASK.search(str(payload.raw_text or "")):
+    if _VIDEO_ASK.search(str(payload.raw_text or "")) or _VIDEO_ASK_LOCAL.search(str(payload.raw_text or "")):
         constraints["wants_videos"] = True
     # The conversation language (Revenue Center breakdown only).
     language = str((getattr(payload, "trace", None) or {}).get("language") or "").strip()[:8]

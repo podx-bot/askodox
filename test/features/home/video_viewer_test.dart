@@ -176,13 +176,13 @@ void main() {
     expect(api.trackedEvents.last, 'video_local_search');
   });
 
-  testWidgets('Ask ASKODOX returns to chat and is tracked', (tester) async {
+  testWidgets('Ask ASKODOX returns to chat (the ask is counted once, by the backend)', (tester) async {
     final (api, _, popped) = await _pump(tester, _video({}));
     await tester.ensureVisible(find.byKey(const Key('askodoxVideoAsk')));
     await tester.tap(find.byKey(const Key('askodoxVideoAsk')));
     await tester.pumpAndSettle();
     expect(popped.single, askodoxVideoAskResult);
-    expect(api.trackedEvents.last, 'video_ask');
+    expect(api.trackedEvents, isNot(contains('video_ask')), reason: 'recorded once, server-side, by explain');
   });
 
   test('explanation grounding never lets the assistant claim unanalyzed content', () async {

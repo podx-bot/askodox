@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io' show File, Platform;
+import 'dart:io' show Directory, File, Platform;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,8 @@ import 'package:podx/features/growth/data/growth_repository.dart';
 import 'package:podx/features/growth/data/partner_tracking.dart';
 import 'package:podx/features/growth/data/benefits.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
+import 'package:podx/features/location/application/location_controller.dart';
+import 'package:podx/features/location/domain/geo_models.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
@@ -472,6 +475,13 @@ class _Harness {
   final catalogue = _FakeCatalogue();
   final profile = _FakeProfile();
 
+  /// Optional API client (video explain / tracking) -- the real-content
+  /// proof render replays the branch backend's real answers through it.
+  ApiClient? api;
+
+  /// Optional theme (the proof render adds a Telugu fallback font).
+  ThemeData? theme;
+
   Future<void> pump(WidgetTester tester, {String? locale}) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       if (locale != null) 'askodox.locale': locale,
@@ -542,6 +552,7 @@ class _Harness {
         askodoxVoiceTranscriptionServiceProvider.overrideWithValue(voice),
         askodoxSupportEscalationServiceProvider.overrideWithValue(support),
         askodoxReplySpeechServiceProvider.overrideWithValue(replySpeech),
+        if (api != null) apiClientProvider.overrideWithValue(api!),
         askodoxVideoEmbedBuilderProvider.overrideWithValue((uri) {
           embeddedVideos.add(uri);
           return Text('EMBED $uri');
@@ -569,7 +580,7 @@ class _Harness {
                 GoRoute(path: '/onboarding', builder: (_, __) => _FakeSignInScreen(onSignIn: () => growth.signedIn = true)),
               ]),
             )
-          : MaterialApp(home: home),
+          : MaterialApp(home: home, theme: theme, debugShowCheckedModeBanner: theme == null),
     );
   }
 
@@ -2591,6 +2602,130 @@ void main() {
     expect(h.matches.deals, hasLength(1), reason: 'asking about a video never re-runs matching');
   });
 
+
+  // Real-content video proof (opt-in; run by .github/workflows/
+  // video-real-content-proof.yml): the rows, thumbnails, explanations and
+  // AI answers are the REAL ones that run captured.
+  //   ASKODOX_VIDEO_PROOF=<dir with proof.json, thumbs.json, thumbs/>
+  //   flutter test --update-goldens --plain-name "Real video proof"
+  testWidgets('Real video proof render: search, videos, watch, ask, next step (EN + TE)',
+      skip: !Platform.environment.containsKey('ASKODOX_VIDEO_PROOF'), (tester) async {
+    final dir = Platform.environment['ASKODOX_VIDEO_PROOF']!;
+    final proof = jsonDecode(File('$dir/proof.json').readAsStringSync()) as Map<String, dynamic>;
+    final thumbs = jsonDecode(File('$dir/thumbs.json').readAsStringSync()) as Map<String, dynamic>;
+    final out = Directory('$dir/renders')..createSync(recursive: true);
+    Future<void> font(String family, List<String> files) async {
+      final loader = FontLoader(family);
+      for (final f in files.where((f) => File(f).existsSync())) {
+        loader.addFont(File(f).readAsBytes().then((b) => ByteData.view(b.buffer)));
+      }
+      await loader.load();
+    }
+
+    final flutterRoot = Platform.environment['FLUTTER_ROOT'] ?? '/root/sdk/flutter';
+    final fonts = '$flutterRoot/bin/cache/artifacts/material_fonts';
+    final telugu = Platform.environment['ASKODOX_TELUGU_FONT'] ?? '$dir/NotoSansTelugu-Regular.ttf';
+    await tester.runAsync(() async {
+      // Telugu glyphs come from Noto Sans Telugu in the same family.
+      await font('Roboto', ['$fonts/Roboto-Regular.ttf', '$fonts/Roboto-Medium.ttf', '$fonts/Roboto-Bold.ttf',
+          '$fonts/Roboto-Black.ttf']);
+      await font('NotoSansTelugu', [telugu]);
+      await font('MaterialIcons', ['$fonts/MaterialIcons-Regular.otf']);
+      // Real thumbnails, pre-decoded into the image cache under their URLs.
+      for (final entry in thumbs.entries) {
+        final file = File('$dir/thumbs/${entry.value}');
+        if (!file.existsSync()) continue;
+        try {
+          final codec = await ui.instantiateImageCodec(file.readAsBytesSync());
+          final frame = await codec.getNextFrame();
+          PaintingBinding.instance.imageCache.putIfAbsent(
+              NetworkImage(entry.key), () => OneFrameImageStreamCompleter(Future.value(ImageInfo(image: frame.image))));
+        } catch (_) {
+          // an undecodable image keeps the card's normal fallback
+        }
+      }
+    });
+    Future<void> shot(String name) async {
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+        await _Harness.settle(tester);
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile(Uri.file('${out.path}/$name.png')));
+    }
+
+    for (final label in ['electronics', 'electronics-te', 'service']) {
+      final c = (proof['cases'] as List).cast<Map<String, dynamic>>().firstWhere((c) => c['label'] == label,
+          orElse: () => <String, dynamic>{});
+      final videos = (c['videos'] as List? ?? const []).cast<Map<String, dynamic>>();
+      if (videos.isEmpty) continue;
+      final te = c['language'] == 'te';
+      final videoMatches = [
+        for (final v in videos)
+          UniversalMatch.fromJson({
+            ...v, 'id': 'video-${v['video_id']}', 'source': 'video', 'match_source': 'video', 'segment': 'video',
+            'subtitle': null,
+          }),
+      ];
+      final nextOptions = [
+        for (final (i, o) in ((c['next'] as Map?)?['options'] as List? ?? const []).cast<Map<String, dynamic>>().indexed)
+          UniversalMatch.fromJson({...o, 'id': 'next-$i', 'source': o['match_source'] ?? 'online'}),
+      ];
+      final ai = (c['ai'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          UniversalMatchResult(dealId: 'proof-$label', matches: videoMatches, sourceStatus: const {'videos': 'ok'}),
+          UniversalMatchResult(dealId: 'proof-$label-next', matches: nextOptions,
+              sourceStatus: ((c['next'] as Map?)?['status'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
+                  const {}),
+        ]),
+        // The REAL production AI decisions captured by the proof run: for
+        // the search message itself and for "tell me more about this video".
+        assistant: _Assistant((message) => message.contains('Option the user is asking about')
+            ? {'reply': ai['reply'] ?? '', 'domain': 'PRODUCT', 'transactional': false, 'source': 'universal_ai'}
+            : message.trim() == (c['text'] as String).trim()
+                ? (c['search_decision'] as Map?)?.cast<String, Object?>()
+                : null),
+      );
+      h.api = _ProofApi(c['explain'] as Map<String, dynamic>?);
+      h.theme = ThemeData(fontFamily: 'Roboto', fontFamilyFallback: const ['NotoSansTelugu'], useMaterial3: true);
+      await h.pump(tester, locale: te ? 'te' : 'en');
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3;
+      // The phone's location (as in the real app); discovery is local-first.
+      final scope = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+      await tester.runAsync(() => scope.read(locationControllerProvider.notifier).selectManualLocation(
+          const BuyerSavedLocation(id: 'proof', name: 'Vijayawada', address: 'Vijayawada, Andhra Pradesh',
+              point: GeoPoint(16.5062, 80.648), type: SavedLocationType.custom)));
+      await _Harness.settle(tester);
+      await h.send(tester, c['text'] as String);
+      await shot('${label}_1_search_videos');
+      final thumb = find.byKey(ValueKey('askodoxVideoThumb-video-${videos.first['video_id']}'));
+      if (thumb.evaluate().isEmpty) continue;
+      await tester.ensureVisible(thumb);
+      await tester.tap(thumb);
+      await tester.pumpAndSettle();
+      await shot('${label}_2_watch');
+      await tester.ensureVisible(find.byKey(const Key('askodoxVideoAsk')));
+      await tester.tap(find.byKey(const Key('askodoxVideoAsk')));
+      await _Harness.settle(tester);
+      await tester.pumpAndSettle();
+      await shot('${label}_3_ask_ai_answer');
+      await tester.ensureVisible(thumb);
+      await tester.tap(thumb);
+      await tester.pumpAndSettle();
+      final step = (c['next'] as Map?)?['step'] as String? ?? 'find_local';
+      final chip = find.byKey(Key('askodoxVideoNext_$step'));
+      await tester.ensureVisible(chip);
+      await tester.tap(chip);
+      await _Harness.settle(tester);
+      await tester.pumpAndSettle();
+      await shot('${label}_4_next_step_options');
+      expect(h.matches.deals, hasLength(2), reason: 'the next step ran the same discovery in the same chat');
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   group('Main Chat voice uses the ASKODOX/Sarvam pipeline', () {
     const channel = MethodChannel('com.askodox.app/device');
     final calls = <MethodCall>[];
@@ -3309,4 +3444,33 @@ Future<void> _tapVoice(WidgetTester tester) async {
   await _openCompanionHub(tester);
   await tester.tap(find.byKey(const ValueKey('askodoxHubAction-voice')));
   await tester.pump();
+}
+
+
+/// Replays the branch backend's real explain answer for the proof render.
+class _ProofApi implements ApiClient {
+  _ProofApi(this.explain);
+  final Map<String, dynamic>? explain;
+
+  @override
+  Future<ApiResult<T>> post<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) async {
+    if (path.endsWith('/explain') && explain != null) return ApiSuccess(Map<String, Object?>.from(explain!) as T);
+    return ApiSuccess(<String, Object?>{'recorded': true} as T);
+  }
+
+  @override
+  Future<ApiResult<T>> get<T>(String path, {ApiRequestOptions options = const ApiRequestOptions()}) async =>
+      ApiSuccess(<String, Object?>{} as T);
+  @override
+  Future<ApiResult<T>> put<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) =>
+      post<T>(path, body: body);
+  @override
+  Future<ApiResult<T>> patch<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) =>
+      post<T>(path, body: body);
+  @override
+  Future<ApiResult<T>> delete<T>(String path, {ApiRequestOptions options = const ApiRequestOptions()}) => get<T>(path);
+  @override
+  Future<ApiResult<Uri>> upload(String path,
+          {required List<int> bytes, required String fileName, ApiRequestOptions options = const ApiRequestOptions()}) async =>
+      ApiSuccess(Uri.parse('mock://$fileName'));
 }
