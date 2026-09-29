@@ -195,6 +195,10 @@ class _AskodoxPrimaryHomeScreenState
   String? _lastAskedQuestion;
   List<String> _lastMissing = const [];
   String? _pendingAiContext;
+
+  /// The next message is a search ASKODOX itself offered (a video's "Find
+  /// near me" / "Book a local service" ...): search with what is known.
+  bool _pendingForcedSearch = false;
   bool _pendingDiscussOnly = false;
 
   // One concise clarification for an ambiguous need, asked before search.
@@ -622,7 +626,11 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     final prompt = request.prompt;
-    if (prompt != null && prompt.trim().isNotEmpty) await _send(prompt);
+    if (prompt != null && prompt.trim().isNotEmpty) {
+      _pendingForcedSearch = request.search;
+      await _send(prompt);
+      _pendingForcedSearch = false;
+    }
   }
 
   Future<void> _restore() async {
@@ -1423,7 +1431,9 @@ class _AskodoxPrimaryHomeScreenState
     // "X review videos" is a search even when the AI files it as general
     // chat, and it searches NOW with what is known: someone asking for
     // videos is not asked purchase details first.
-    final videoAsk = !discussOnly && explicitContext == null && askodoxAsksForVideos(text);
+    final forcedSearch = _pendingForcedSearch;
+    _pendingForcedSearch = false;
+    final videoAsk = !discussOnly && explicitContext == null && (forcedSearch || askodoxAsksForVideos(text));
     final showNow = askodoxWantsResultsNow(text) || videoAsk || (clarified != null && _showNowAfterClarification);
     final showOnly = showNow && askodoxNeedSubject(text).isEmpty;
     // A short answer such as "curry cut", "1 kg" or "skinless" is not
@@ -4223,7 +4233,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     } else if (result != null && result.startsWith(askodoxVideoFollowUpPrefix)) {
       // "Find near me" / "Show deals"...: the same conversation, same discovery.
       final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
-      if (ask.isNotEmpty) ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(ask);
+      if (ask.isNotEmpty) {
+        ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(ask, search: true);
+      }
     }
   }
 
