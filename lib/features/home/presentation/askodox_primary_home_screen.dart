@@ -53,6 +53,7 @@ import '../domain/semantic_deal_input.dart';
 import '../../companion/askodox_companion.dart';
 import '../../companion/companion_voice.dart';
 import 'deal_lifecycle_panel.dart';
+import '../data/askodox_video_service.dart';
 import 'video_viewer_screen.dart';
 
 const _ink = Color(0xFF10204A);
@@ -968,7 +969,18 @@ class _AskodoxPrimaryHomeScreenState
     _traceEvent(_resultsContaining(match), 'result_selected',
         {'title': match.title, 'source': match.source, 'segment': match.segment});
     setState(() => _actionableMatchKeys.add(_matchKey(dealId, match)));
-    _pendingAiContext = 'Option the user is asking about: ${askodoxOptionContext(match)}\n'
+    // A reviewed video: ground the answer on what ASKODOX actually knows
+    // about it (analyzed transcript lines, or honestly only its title).
+    var videoFacts = '';
+    final videoId = match.videoId;
+    if (videoId != null && videoId.isNotEmpty) {
+      final explanation = await ref
+          .read(askodoxVideoServiceProvider)
+          .explain(videoId, question: match.title, language: _te ? 'te' : 'en');
+      if (!mounted) return;
+      if (explanation != null) videoFacts = '\n${explanation.groundingContext()}';
+    }
+    _pendingAiContext = 'Option the user is asking about: ${askodoxOptionContext(match)}$videoFacts\n'
         '$askodoxGroundingRule';
     _pendingDiscussOnly = true;
     await _send(_te
@@ -4195,7 +4207,13 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     final result = await Navigator.of(context).push<String>(MaterialPageRoute(
       builder: (_) => AskodoxVideoViewerScreen(video: _match, telugu: _te),
     ));
-    if (result == askodoxVideoAskResult) widget.onAsk?.call();
+    if (result == askodoxVideoAskResult) {
+      widget.onAsk?.call();
+    } else if (result != null && result.startsWith(askodoxVideoFollowUpPrefix)) {
+      // "Find near me" / "Show deals"...: the same conversation, same discovery.
+      final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
+      if (ask.isNotEmpty) ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(ask);
+    }
   }
 
   Future<void> _openDestination() async {

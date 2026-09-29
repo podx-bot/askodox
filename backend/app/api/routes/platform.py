@@ -892,6 +892,50 @@ def redeem_claim(claim_code: str, body: RedeemBody, request: Request) -> dict:
     return {k: v for k, v in result.items() if k not in ("user_ref", "idempotency_key")}
 
 
+def _self_service_user(request: Request) -> str:
+    user = _user(request)
+    if _pf(request).repo.account_state("user", user_ref(user))["blocked"]:
+        raise HTTPException(status_code=403, detail="Account blocked")
+    return user
+
+
+@router.get("/api/merchant/videos")
+def my_videos(request: Request) -> dict:
+    user = _user(request)
+    return {"items": _pf(request).resources.list("videos", owner_ref=user, archived=False)}
+
+
+@router.post("/api/merchant/videos")
+def submit_my_video(body: RecordBody, request: Request) -> dict:
+    """A business adds a video about its own product / service: always
+    labelled "From the business" and reviewed before customers see it."""
+    user = _self_service_user(request)
+    data = {k: v for k, v in body.data.items() if k not in ("featured", "campaign_id", "affiliate_link_id",
+                                                              "creator_id", "source_id", "transcript")}
+    data.update(relationship="merchant", merchant_ref=user_ref(user))
+    try:
+        return _pf(request).resources.create("videos", data, actor=f"user:{user_ref(user)}", owner_ref=user,
+                                             status="PENDING_REVIEW")
+    except Exception as error:
+        raise _err(error) from None
+
+
+@router.post("/api/creators/apply")
+def apply_as_creator(body: RecordBody, request: Request) -> dict:
+    """A creator / influencer applies; ASKODOX verifies before any badge."""
+    user = _self_service_user(request)
+    pf = _pf(request)
+    if pf.resources.list("creators", owner_ref=user, archived=True) or pf.resources.list("creators", owner_ref=user):
+        raise HTTPException(status_code=409, detail="You have already applied")
+    data = {k: v for k, v in body.data.items() if k in ("name", "platform", "profile_url", "handle", "categories",
+                                                          "languages", "notes")}
+    try:
+        return pf.resources.create("creators", data | {"relationship": "none", "verified": False},
+                                   actor=f"user:{user_ref(user)}", owner_ref=user, status="PENDING_REVIEW")
+    except Exception as error:
+        raise _err(error) from None
+
+
 @router.get("/api/rewards/ledger/mine")
 def my_rewards(request: Request) -> dict:
     user = _user(request)

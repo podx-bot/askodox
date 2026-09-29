@@ -276,3 +276,32 @@ def test_reviews_are_labelled_and_independent_average_excludes_paid(api):
     assert pending["id"] not in {i["id"] for i in data["items"]}
     assert data["independent_average"] == 3.0, "paid reviews never lift the independent score"
     assert any(i.get("label") == "Sponsored review" for i in data["items"])
+
+
+def test_merchant_video_and_creator_application_are_reviewed_and_labelled(api):
+    client, container = api
+    merchant = {"Authorization": f"Bearer {issue_token('app-merchant-v', container.settings.session_token_secret)}"}
+    assert client.post("/api/merchant/videos", json={"data": {}}).status_code == 401
+    submitted = client.post("/api/merchant/videos", headers=merchant, json={"data": {
+        "title": "Our AC service team at work", "platform": "youtube", "url": "https://youtu.be/abcdefghijk",
+        "keywords": ["ac service"], "services": ["AC service"], "relationship": "sponsored", "featured": True}})
+    assert submitted.status_code == 200, submitted.text
+    record = submitted.json()
+    assert record["status"] == "PENDING_REVIEW" and record["data"]["relationship"] == "merchant"
+    assert not record["data"]["featured"], "a merchant cannot feature or relabel its own video"
+    assert client.get("/api/videos/search", params={"q": "ac service"}).json()["items"] == []
+    approve(client, "videos", record["id"])
+    card = client.get("/api/videos/search", params={"q": "ac service"}).json()["items"][0]
+    assert card["disclosure"] == "From the business"
+    assert [v["id"] for v in client.get("/api/merchant/videos", headers=merchant).json()["items"]] == [record["id"]]
+
+    creator = client.post("/api/creators/apply", headers=merchant, json={"data": {
+        "name": "Example Tech Telugu", "platform": "youtube", "profile_url": "https://youtube.com/@example",
+        "verified": True}})
+    assert creator.status_code == 200 and creator.json()["status"] == "PENDING_REVIEW"
+    assert creator.json()["data"]["verified"] is False, "verification is ASKODOX's decision"
+    assert client.post("/api/creators/apply", headers=merchant,
+                       json={"data": {"name": "Again", "platform": "youtube"}}).status_code == 409
+    verified = client.post(f"{BASE}/r/creators/{creator.json()['id']}/actions/verify", headers=OWNER,
+                           json={"confirm": True})
+    assert verified.json()["data"]["verified"] is True

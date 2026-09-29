@@ -100,6 +100,14 @@ class UniversalMatch {
     this.longitude,
     this.sponsored = false,
     this.sponsoredLabel,
+    this.videoId,
+    this.embedUrl,
+    this.videoPlatform,
+    this.relationship,
+    this.videoAnalyzed = false,
+    this.relatedProducts = const [],
+    this.relatedServices = const [],
+    this.merchantOffer,
   });
 
   final String id;
@@ -168,6 +176,22 @@ class UniversalMatch {
   /// The disclosure the campaign carries ("Sponsored" / "Promoted").
   final String? sponsoredLabel;
 
+  /// Command Center (reviewed) video: its id for Ask / tracking, the
+  /// official embed URL (null -> open in its own app / web), the platform,
+  /// the commercial relationship (organic / merchant / creator / affiliate /
+  /// sponsored), whether a transcript exists, and what it is about.
+  final String? videoId;
+  final String? embedUrl;
+  final String? videoPlatform;
+  final String? relationship;
+  final bool videoAnalyzed;
+  final List<String> relatedProducts;
+  final List<String> relatedServices;
+
+  /// A registered seller's live, reviewed merchant offer ({id, title,
+  /// summary, min_bill, valid_to, claim_path}).
+  final Map<String, Object?>? merchantOffer;
+
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
 
   /// The visible paid-placement badge, or null for an organic result:
@@ -223,7 +247,11 @@ class UniversalMatch {
           sourceName: json['source_name']?.toString(),
           duration: json['duration']?.toString(),
           priceVerified: json['price_verified'] != false,
-          offerTitle: (json['offer'] is Map ? (json['offer'] as Map)['title'] : json['offer_title'])?.toString(),
+          offerTitle: (json['offer'] is Map
+                  ? (json['offer'] as Map)['title']
+                  : json['offer_title'] ??
+                      (json['merchant_offer'] is Map ? (json['merchant_offer'] as Map)['summary'] : null))
+              ?.toString(),
           salaryText: json['salary_text']?.toString(),
           pageType: json['page_type']?.toString(),
           clickId: json['click_id']?.toString(),
@@ -231,7 +259,20 @@ class UniversalMatch {
           benefits: json['benefits'] is Map ? Map<String, Object?>.from(json['benefits'] as Map) : null,
           sponsored: json['sponsored'] == true,
           sponsoredLabel: json['sponsored_label']?.toString(),
+          videoId: json['video_id']?.toString(),
+          embedUrl: json['embed_url']?.toString(),
+          videoPlatform: json['platform']?.toString(),
+          relationship: json['relationship']?.toString(),
+          videoAnalyzed: json['analyzed'] == true,
+          relatedProducts: _strings(json['products']),
+          relatedServices: _strings(json['services']),
+          merchantOffer: json['merchant_offer'] is Map
+              ? Map<String, Object?>.from(json['merchant_offer'] as Map)
+              : null,
       );
+
+  static List<String> _strings(Object? value) =>
+      value is List ? [for (final v in value) if (v != null && '$v'.trim().isNotEmpty) '$v'] : const [];
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
   Map<String, Object?> toJson() => {
@@ -267,6 +308,14 @@ class UniversalMatch {
         'benefits': benefits,
         if (sponsored) 'sponsored': true,
         if (sponsoredLabel != null) 'sponsored_label': sponsoredLabel,
+        if (videoId != null) 'video_id': videoId,
+        if (embedUrl != null) 'embed_url': embedUrl,
+        if (videoPlatform != null) 'platform': videoPlatform,
+        if (relationship != null) 'relationship': relationship,
+        if (videoAnalyzed) 'analyzed': true,
+        if (relatedProducts.isNotEmpty) 'products': relatedProducts,
+        if (relatedServices.isNotEmpty) 'services': relatedServices,
+        if (merchantOffer != null) 'merchant_offer': merchantOffer,
       };
 }
 
