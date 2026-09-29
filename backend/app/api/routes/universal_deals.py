@@ -889,6 +889,18 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
                 continue
             seen.add(str(item.get("id")))
             matches.append(item)
+    # Real web videos (YouTube Data when configured, web video search):
+    # trackable, embeddable only where YouTube allows, linked to the need.
+    if videos_on:
+        try:
+            from app.api.routes.platform import enrich_discovery_videos
+
+            enrich_discovery_videos(container, demand, matches,
+                                    wants_videos=bool((demand.get("constraints") or {}).get("wants_videos")),
+                                    trace_key=trace_key)
+            seen.update(str(m.get("id")) for m in matches)
+        except Exception as error:
+            errors.append(f"web_videos:{type(error).__name__}")
     # Command Center affiliate links (disclosed, tracked) follow the Partner
     # Hub rows -- same local-first rule, never for a service need.
     platform_affiliate: list[dict] = []

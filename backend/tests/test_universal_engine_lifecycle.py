@@ -132,7 +132,9 @@ def test_sources_follow_the_kind_of_need_not_the_category_name():
     web, maps = _Web(), _Maps()
     svc = UniversalMultiSourceResultService(catalog=None, ranking=None, seller_profiles=None, maps=maps, web_search=web)
     svc.collect({"subject": "yoga teacher", "domain": "SERVICES", "location_text": "Guntur", "latitude": 16.3, "longitude": 80.4})
-    svc.online_and_videos(category="SERVICES", subject="yoga teacher", include_online=True, location_text="Guntur")
+    # Discovery asks for videos only when the customer asked for them.
+    svc.online_and_videos(category="SERVICES", subject="yoga teacher", include_online=True, location_text="Guntur",
+                          include_videos=False)
     # Nothing nearby: the SAME need is searched in widening scopes
     # (nearby -> city -> region -> state), never a different query.
     assert maps.queries == ["yoga teacher service near Guntur"] * 4
@@ -140,6 +142,13 @@ def test_sources_follow_the_kind_of_need_not_the_category_name():
     assert web.queries == ["yoga teacher service in Guntur book"], "no used/surplus/deals/video queries for a service"
     status = svc.source_status()
     assert status["used_deals"] == status["videos"] == "not_applicable"
+    # "yoga teacher videos": a service need may show how-to / review videos.
+    asked = UniversalMultiSourceResultService(catalog=None, ranking=None, seller_profiles=None, maps=_Maps(),
+                                              web_search=_Web())
+    asked.collect({"subject": "yoga teacher", "domain": "SERVICES", "location_text": "Guntur"})
+    asked.online_and_videos(category="SERVICES", subject="yoga teacher", include_online=False,
+                            location_text="Guntur", include_videos=True)
+    assert asked.source_status()["videos"] != "not_applicable"
 
     party = UniversalMultiSourceResultService(catalog=None, ranking=None, seller_profiles=None, maps=_Maps(), web_search=_Web())
     party.collect({"subject": "delivery job", "domain": "JOBS"})

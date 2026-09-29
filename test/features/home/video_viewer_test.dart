@@ -205,6 +205,15 @@ void main() {
     expect(api.trackedEvents, ['video_open']);
   });
 
+
+  test('disclosures read in Telugu when the conversation is Telugu', () {
+    expect(askodoxVideoDisclosure("Creator's opinion -- not verified by ASKODOX", telugu: true),
+        'క్రియేటర్ అభిప్రాయం -- ASKODOX ధృవీకరించలేదు');
+    expect(askodoxVideoDisclosure('Includes paid promotion (declared on YouTube)'),
+        'Includes paid promotion (declared on YouTube)');
+    expect(askodoxVideoDisclosure(null, telugu: true), '');
+  });
+
   // Render evidence (opt-in, like the Home renders):
   // ASKODOX_RENDER=1 flutter test --update-goldens test/features/home/video_viewer_test.dart
   testWidgets('Video render: in-app embed with disclosure, no-embed fallback',

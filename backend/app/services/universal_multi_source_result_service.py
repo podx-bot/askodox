@@ -66,7 +66,7 @@ _PARTY_DOMAINS = {"JOB", "JOBS", "WORK", "WORKERS", "JOB_SEEKER", "RIDE", "MOBIL
 _JOB_DOMAINS = {"JOB", "JOBS", "WORK", "JOB_SEEKER"}
 SOURCE_PLAN = {
     NEED_PRODUCT: {"askodox", "nearby", "used_deals", "online", "videos"},
-    NEED_SERVICE: {"askodox", "nearby", "online"},
+    NEED_SERVICE: {"askodox", "nearby", "online", "videos"},  # videos only when asked
     NEED_PARTY: {"askodox"},
     # A job seeker: ASKODOX employers first, then real job openings online.
     NEED_JOB: {"askodox", "jobs"},

@@ -81,6 +81,38 @@ class Platform:
         self.resources = ResourceService(self.repo, effects={
             "link_test": self._link_test, "preview": self._preview}, ref_exists=self._ref_exists)
         self._blocked_cache: tuple[float, set[str]] = (0.0, set())
+        from app.services.video_content import WebVideoStore
+
+        self.web_videos = WebVideoStore(settings.database_path)
+
+    # real video sources -------------------------------------------------
+    def http_json(self, url: str, params: Dict[str, str]) -> tuple[int, Any]:
+        """GET a JSON API (injectable as container.video_fetcher in tests)."""
+        fetcher = getattr(self.container, "video_fetcher", None)
+        if fetcher is not None:
+            return fetcher(url, params)
+        import httpx
+
+        response = httpx.get(url, params=params, timeout=4.0, follow_redirects=True,
+                             headers={"User-Agent": "ASKODOX/2.0"})
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        return response.status_code, body
+
+    def youtube_key(self) -> str:
+        return self.registry.secret("youtube_data", "api_key") or self.registry.env.get("YOUTUBE_API_KEY", "")
+
+    def oembed(self):
+        from app.services import external_call_budget
+        from app.services.video_content import YouTubeOEmbed
+
+        def cached(url: str, params: Dict[str, str]) -> tuple[int, Any]:
+            return external_call_budget.cached_call(
+                "youtube_oembed", (params.get("url"),), lambda: self.http_json(url, params), ttl=24 * 3600)
+
+        return YouTubeOEmbed(cached)
 
     # effects / helpers -------------------------------------------------
     def _is_new_customer(self, user_id: str) -> bool:
@@ -838,7 +870,13 @@ def video_explain(video_id: str, body: ExplainBody, request: Request) -> dict:
     try:
         result = pf.videos.explain(video_id, body.question, language=body.language)
     except KeyError:
-        raise HTTPException(status_code=404, detail="Video not found") from None
+        # A real web video ASKODOX showed (YouTube / web search).
+        from app.services.video_content import explain_web
+
+        web = pf.web_videos.get(video_id)
+        if not web:
+            raise HTTPException(status_code=404, detail="Video not found") from None
+        result = explain_web(web, body.question, language=body.language)
     user = _optional_user(request)
     pf.repo.record_event("video_ask", video_id=video_id, user_ref=user_ref(user) if user else None,
                          language=body.language, detail={"analyzed": result["analyzed"]})
@@ -1031,6 +1069,56 @@ def discovery_video_rows(container: Any, demand: Dict[str, Any]) -> List[Dict[st
         pf.repo.record_event("video_impression", video_id=row["video_id"], creator_id=row.get("creator_id"),
                              category=str(demand.get("domain") or ""), source="discover")
     return rows
+
+
+def enrich_discovery_videos(container: Any, demand: Dict[str, Any], matches: List[Dict[str, Any]], *,
+                            wants_videos: bool, trace_key: str = "") -> Dict[str, Any]:
+    """Real web videos in the results become trackable, playable-where-allowed,
+    linked to the need and honestly labelled. With a YouTube Data API key,
+    YouTube's own search leads (with its paid-promotion declaration)."""
+    from app.services import external_call_budget
+    from app.services.video_content import enrich_rows, video_ref, youtube_rows_as_results, YouTubeDataSource
+
+    pf = platform(container)
+    info: Dict[str, Any] = {"youtube_data": "needs_configuration", "web": 0}
+    subject = str(demand.get("subject") or "").strip()
+    youtube_rows: List[Dict[str, Any]] = []
+    key = pf.youtube_key()
+    if key and wants_videos and subject:
+        language = str((demand.get("constraints") or {}).get("language") or "")[:2]
+        source = YouTubeDataSource(key, pf.http_json,
+                                   region=str(getattr(container.settings, "search_country", "IN") or "IN"))
+        try:
+            raw = external_call_budget.cached_call(
+                "youtube_data", ("search", subject.lower(), language),
+                lambda: source.search(f"{subject} review", limit=6, language=language), ttl=6 * 3600)
+            youtube_rows = youtube_rows_as_results(raw or [], subject)
+            info["youtube_data"] = "ok" if youtube_rows else "no_results"
+        except Exception as error:
+            external_call_budget.record_error("youtube_data")
+            info["youtube_data"] = f"error:{type(error).__name__}"
+    web_positions = [i for i, m in enumerate(matches) if m.get("match_source") == "video" and not m.get("video_id")]
+    web_rows = [matches[i] for i in web_positions]
+    seen = {video_ref(r["destination_url"]) for r in youtube_rows}
+    web_rows = [r for r in web_rows if video_ref(str(r.get("destination_url") or "")) not in seen]
+    category = str(demand.get("domain") or "")
+    enriched = enrich_rows(youtube_rows[:4] + web_rows, demand, store=pf.web_videos, oembed=pf.oembed(),
+                           category=category)
+    info["web"] = len(enriched)
+    # Replace the web rows in place (keeps their position after the local
+    # results); YouTube Data rows lead the video section.
+    for index in reversed(web_positions):
+        matches.pop(index)
+    insert_at = web_positions[0] if web_positions else len(matches)
+    organic = [r for r in enriched if not r.get("sponsored")]
+    paid = [r for r in enriched if r.get("sponsored")]
+    matches[insert_at:insert_at] = organic
+    matches.extend(paid)  # declared paid promotion: after every organic row
+    for row in enriched:
+        pf.repo.record_event("video_impression", video_id=row["video_id"], search_id=trace_key[:80] or None,
+                             category=category[:80], source=row.get("platform") or "web",
+                             detail={"kind": "web", "embeddable": row.get("embeddable")})
+    return info
 
 
 def annotate_merchant_offers(container: Any, matches: List[Dict[str, Any]]) -> None:

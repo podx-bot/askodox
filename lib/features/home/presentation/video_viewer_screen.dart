@@ -61,6 +61,22 @@ class _WebVideoEmbedState extends State<_WebVideoEmbed> {
 /// conversation through the same discovery.
 const askodoxVideoFollowUpPrefix = 'follow:';
 
+/// The video's disclosure in the conversation language (the backend sends
+/// the English wording; Telugu is shown for the ones ASKODOX writes).
+String askodoxVideoDisclosure(String? disclosure, {bool telugu = false}) {
+  final text = disclosure?.trim() ?? '';
+  if (!telugu) return text;
+  return switch (text) {
+    "Creator's opinion -- not verified by ASKODOX" => 'క్రియేటర్ అభిప్రాయం -- ASKODOX ధృవీకరించలేదు',
+    'Includes paid promotion (declared on YouTube)' => 'చెల్లింపు ప్రమోషన్ ఉంది (YouTubeలో ప్రకటించారు)',
+    'From the business' => 'వ్యాపారం నుండి',
+    "Creator's opinion" => 'క్రియేటర్ అభిప్రాయం',
+    'Sponsored' => 'స్పాన్సర్డ్',
+    'Affiliate -- ASKODOX may earn a commission' => 'అఫిలియేట్ -- ASKODOXకి కమీషన్ రావచ్చు',
+    _ => text,
+  };
+}
+
 /// Contextual next steps for a video: local / deals / compare / reviews and
 /// used (products) or a local service (services). Pure, so it is testable.
 List<({String action, String label, String ask, String event})> askodoxVideoNextSteps(UniversalMatch video,
@@ -149,7 +165,7 @@ class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScr
     final url = video.destinationUrl ?? '';
     final embed = _embed;
     final label = video.paidPlacementLabel;
-    final disclosure = video.disclosure?.trim() ?? '';
+    final disclosure = askodoxVideoDisclosure(video.disclosure, telugu: telugu);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
