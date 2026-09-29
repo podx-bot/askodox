@@ -354,12 +354,25 @@ def categories(request: Request) -> dict[str, Any]:
 # ------------------------------------------------------ support / disputes --
 
 @router.get("/escalations")
-def escalations(request: Request, status: str = "", category: str = "") -> dict[str, Any]:
+def escalations(request: Request, status: str = "", category: str = "", priority: str = "", assigned_to: str = "",
+                sla: str = "", channel: str = "") -> dict[str, Any]:
     _require(request, "support:view")
-    items = _escalations(request.app.state.container).list(status=status.upper() or None, category=category or None)
+    items = _escalations(request.app.state.container).list(status=status.upper() or None, category=category or None,
+                                                           limit=500)
+    if priority:
+        items = [i for i in items if i["priority"] == priority.upper()]
+    if assigned_to:
+        items = [i for i in items if (i.get("assigned_to") or "") == assigned_to]
+    if sla:
+        items = [i for i in items if i["sla_state"] == sla.upper()]
+    if channel:
+        items = [i for i in items if i["channel"] == channel]
     for item in items:
         item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
-    return {"items": items}
+    summary: dict[str, int] = {}
+    for item in items:
+        summary[item["sla_state"]] = summary.get(item["sla_state"], 0) + 1
+    return {"items": items, "sla_summary": summary}
 
 
 @router.get("/escalations/{escalation_id}")
@@ -369,6 +382,7 @@ def escalation(escalation_id: int, request: Request) -> dict[str, Any]:
     if not item:
         raise HTTPException(status_code=404, detail="Escalation not found")
     item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
+    item["history"] = _escalations(request.app.state.container).history(escalation_id)
     return item
 
 
@@ -376,6 +390,10 @@ class EscalationUpdate(BaseModel):
     status: str | None = None
     assigned_to: str | None = Field(default=None, max_length=120)
     resolution_note: str | None = Field(default=None, max_length=2000)
+    priority: str | None = None
+    channel: str | None = None
+    attachments: list[str] | None = None
+    note: str | None = Field(default=None, max_length=2000)
     confirm: bool = False
 
 
@@ -393,10 +411,20 @@ def update_escalation(escalation_id: int, payload: EscalationUpdate, request: Re
         _require_confirm(payload.confirm, f"mark escalation {escalation_id} {status}")
         if not (payload.resolution_note or before.get("resolution_note") or "").strip():
             raise HTTPException(status_code=422, detail="A resolution note is required to resolve or close")
+    try:
+        repo.set_ticket_fields(escalation_id, actor=principal["id"], priority=payload.priority,
+                               channel=payload.channel, attachments=payload.attachments, note=payload.note)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
     updated = repo.update(escalation_id, status=status, assigned_to=payload.assigned_to,
-                          resolution_note=payload.resolution_note)
+                          resolution_note=payload.resolution_note, actor=principal["id"])
     if status in ("RESOLVED", "CLOSED"):
         _resolve_linked_order(request.app.state.container, before)
+    if status and status != before.get("status"):
+        from app.api.routes.platform import notify
+
+        notify(request.app.state.container, "support_update", before["requester_user_id"],
+               {"ticket": escalation_id, "status": status.replace("_", " ").lower()})
     command_center(request.app.state.container).audit(
         principal["id"], "escalation_update", "escalation", escalation_id,
         {k: before.get(k) for k in ("status", "assigned_to")},

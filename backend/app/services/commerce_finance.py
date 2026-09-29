@@ -394,7 +394,8 @@ class NotificationDispatcher:
                 return t
         return candidates[0] if candidates else None
 
-    def dispatch(self, event: str, *, user_ref: str, values: Dict[str, Any], language: str = "en") -> List[Dict]:
+    def dispatch(self, event: str, *, user_ref: str, values: Dict[str, Any], language: str = "en",
+                 channel_on: Callable[[str], bool] | None = None) -> List[Dict]:
         results = []
         for rule in self.repo.list("notification_rules", status="ACTIVE"):
             d = rule["data"]
@@ -416,7 +417,9 @@ class NotificationDispatcher:
                 title = self.render(template["data"]["title"], values)
                 body = self.render(template["data"]["body"], values)
                 status = "sent"
-                if channel != "in_app":
+                if channel_on is not None and not channel_on(channel):
+                    status = "skipped_switched_off"  # feature flag notifications.<channel>
+                elif channel != "in_app":
                     provider = self.CHANNEL_PROVIDER[channel]
                     if self.registry.status(provider)["status"] not in (STATUS_LIVE, STATUS_TEST):
                         status = "skipped_needs_configuration"

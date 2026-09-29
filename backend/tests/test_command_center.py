@@ -123,6 +123,49 @@ def test_support_escalation_workflow_with_single_notification(cc):
     assert any(a["action"] == "escalation_update" and str(a["entity_id"]) == str(case_id) for a in audit)
 
 
+def test_support_ticket_priority_sla_channel_history(cc):
+    client, container, _ = cc
+    user = "app-phone-91" + str(uuid.uuid4().int)[:10]
+    case_id = client.post("/api/in-app/support/escalate", headers=_user_headers(container, user), json={
+        "issue": "Seller did not deliver", "category": "ORDER", "critical": False}).json()["case_id"]
+    _, agent = _staff(client, "support_agent")
+    ticket = client.get(f"/admin/cc/escalations/{case_id}", headers=agent).json()
+    assert ticket["priority"] == "NORMAL" and ticket["channel"] == "in_app" and ticket["sla_state"] == "ON_TRACK"
+    assert [h["action"] for h in ticket["history"]] == ["created"]
+    assert client.patch(f"/admin/cc/escalations/{case_id}", headers=agent,
+                        json={"priority": "WHENEVER"}).status_code == 422
+    raised = client.patch(f"/admin/cc/escalations/{case_id}", headers=agent, json={
+        "priority": "URGENT", "channel": "whatsapp", "attachments": ["att_123"], "note": "Customer shared a photo",
+        "assigned_to": "Ravi"}).json()
+    assert raised["priority"] == "URGENT" and raised["channel"] == "whatsapp" and raised["attachments"] == ["att_123"]
+    assert raised["first_response_at"], "the first staff action is the first response"
+    assert raised["sla_due_at"] < ticket["sla_due_at"], "urgent tightens the SLA"
+    urgent = client.get("/admin/cc/escalations", headers=agent, params={"priority": "urgent"}).json()
+    assert case_id in [i["id"] for i in urgent["items"]] and urgent["sla_summary"]
+    assert all(i["priority"] == "URGENT" for i in urgent["items"])
+    done = client.patch(f"/admin/cc/escalations/{case_id}", headers=agent, json={
+        "status": "RESOLVED", "confirm": True, "resolution_note": "Seller delivered"}).json()
+    assert done["resolved_at"] and done["sla_state"] == "MET"
+    history = client.get(f"/admin/cc/escalations/{case_id}", headers=agent).json()["history"]
+    assert [h["action"] for h in history] == ["created", "fields", "note", "update", "update"]
+    assert user not in str(history)
+
+
+def test_sla_state_rules():
+    from datetime import datetime, timedelta, timezone
+
+    from app.repositories.hybrid_support_repository import SupportEscalationRepository as R
+
+    now = datetime(2026, 9, 29, 12, tzinfo=timezone.utc)
+    created = (now - timedelta(hours=20)).isoformat()
+    due = (now + timedelta(hours=4)).isoformat()
+    assert R.sla_state({"created_at": created, "sla_due_at": due}, now) == "DUE_SOON"
+    assert R.sla_state({"created_at": created, "sla_due_at": (now - timedelta(minutes=1)).isoformat()}, now) == \
+        "OVERDUE"
+    assert R.sla_state({"created_at": created, "sla_due_at": due, "resolved_at": (now + timedelta(hours=5))
+                        .isoformat()}, now) == "BREACHED"
+
+
 def test_no_match_is_queued_once_and_notified_once(cc):
     client, container, repo = cc
     owner = "app-nomatch-" + uuid.uuid4().hex

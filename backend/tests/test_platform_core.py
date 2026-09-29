@@ -514,3 +514,28 @@ def test_dashboard_and_insights_are_suggestions_only(api):
     assert "integrations" in json.dumps(dash).lower()
     insights = client.get(f"{BASE}/insights", headers=OWNER).json()
     assert insights["note"].startswith("Suggestions only")
+
+
+def test_events_fire_admin_rules_into_the_customer_inbox(api):
+    client, container = api
+    merchant, buyer = user(container, "app-merchant-n"), user(container, "app-buyer-n")
+    template = create(client, "notification_templates", {"key": "offer_claimed", "channel": "in_app",
+                                                          "type": "offer", "title": "Offer claimed",
+                                                          "body": "A customer claimed {offer}."})
+    create(client, "notification_templates", {"key": "offer_claimed", "channel": "push", "type": "offer",
+                                              "title": "Offer claimed", "body": "{offer}"})
+    rule = create(client, "notification_rules", {"name": "Tell merchants", "event": "offer_claimed",
+                                                 "template_key": "offer_claimed", "channels": ["in_app", "push"]})
+    act(client, "notification_rules", rule["id"], "enable")
+    offer = client.post("/api/merchant/offers", headers=merchant, json={"data": {
+        "title": "Free delivery", "offer_kind": "free_item"}}).json()
+    act(client, "merchant_offers", offer["id"], "approve")
+    assert client.get("/api/notifications/inbox", headers=merchant).json()["items"] == []
+    client.post(f"/api/merchant-offers/{offer['id']}/claim", headers=buyer)
+    inbox = client.get("/api/notifications/inbox", headers=merchant).json()["items"]
+    assert len(inbox) == 1 and "claimed" in inbox[0]["body"]
+    assert client.get("/api/notifications/inbox", headers=buyer).json()["items"] == []
+    sent = client.get(f"{BASE}/events?event=notification_sent", headers=OWNER).json()["items"]
+    assert {e["detail"]["channel"]: e["detail"]["status"] for e in sent} == {
+        "in_app": "sent", "push": "skipped_needs_configuration"}
+    del template

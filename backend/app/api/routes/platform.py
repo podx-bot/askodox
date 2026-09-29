@@ -156,6 +156,21 @@ def revocation_check(container: Any, deleted_before: Any):
         or is_blocked_user(container, user_id))
 
 
+def notify(container: Any, event: str, user_id: str, values: Dict[str, Any], *, language: str = "en") -> List[Dict]:
+    """Fire an event through the admin's notification rules (nothing is
+    sent unless a rule + template exist; channels switched off by flag or
+    without credentials are skipped and recorded). Never raises."""
+    try:
+        from app.api.routes.command_center import command_center
+
+        flags = command_center(container).flags_map()
+        return platform(container).notifications.dispatch(
+            event, user_ref=user_ref(user_id), values=values, language=language,
+            channel_on=lambda channel: flags.get(f"notifications.{channel}", True) if channel != "in_app" else True)
+    except Exception:
+        return []
+
+
 def user_ref(user_id: str) -> str:
     from app.api.routes.command_center import _ref
 
@@ -612,6 +627,13 @@ def grant_reward(body: RewardBody, request: Request) -> dict:
     except Exception as error:
         raise _err(error) from None
     _audit(request, principal, "reward.grant", f"reward:{reward['id']}", {"type": body.reward_type})
+    if created and reward["state"] == "AVAILABLE":
+        # Admin grants address users by their opaque reference already.
+        try:
+            _pf(request).notifications.dispatch("reward_available", user_ref=body.user_ref,
+                                                values={"reward": body.title or body.reward_type})
+        except Exception:
+            pass
     return reward | {"created": created}
 
 
@@ -875,6 +897,11 @@ def claim_offer(offer_id: str, request: Request) -> dict:
         result = _pf(request).offers.claim(offer_id, user)
     except Exception as error:
         raise _err(error) from None
+    if not result.get("already"):
+        offer = _pf(request).repo.get(offer_id) or {}
+        if offer.get("owner_ref"):
+            notify(request.app.state.container, "offer_claimed", offer["owner_ref"],
+                   {"offer": result.get("offer") or "", "code": result.get("claim_code") or ""})
     return {k: v for k, v in result.items() if k not in ("user_ref", "idempotency_key")}
 
 
