@@ -11,6 +11,7 @@ import 'companion_3d.dart';
 import 'companion_avatar_packs.dart';
 import 'companion_human.dart';
 import 'companion_voice.dart';
+import 'companion_vrm_view.dart';
 
 /// What the ASKODOX friend is doing right now. Driven by the SAME chat /
 /// voice / results state as the rest of the app -- the companion is a view
@@ -53,6 +54,10 @@ class AskodoxCompanionSettings {
   static const automatic = 'auto';
   static const robotLite = 'robot';
 
+  /// Human HD (beta): a real VRM human rendered by the WebView engine
+  /// (companion_vrm_view.dart); falls back to the light human rig.
+  static const humanHd = 'humanHd';
+
   /// Which companion: [automatic] (the persona follows what ASKODOX is
   /// helping with), an [AskodoxPersona] name (human 3D), or [robotLite].
   final String companion;
@@ -84,7 +89,7 @@ class AskodoxCompanionSettings {
 
   static String _validCompanion(Object? value) {
     final v = '${value ?? automatic}';
-    if (v == automatic || v == robotLite || AskodoxPersona.values.any((p) => p.name == v)) return v;
+    if (v == automatic || v == robotLite || v == humanHd || AskodoxPersona.values.any((p) => p.name == v)) return v;
     return automatic;
   }
 }
@@ -216,12 +221,19 @@ class AskodoxCompanionPerformance {
     return sorted[sorted.length ~/ 2] > jankMicros;
   }
 
+  /// Why Human HD handed over to the light rig this session (error,
+  /// timeout, slow); null = not tried or working.
+  static String? vrmFallback;
+
   /// The user picked a companion: give 3D a fresh chance this session.
-  static void reset() => level = 0;
+  static void reset() {
+    level = 0;
+    vrmFallback = null;
+  }
 }
 
 /// Which renderer the companion actually uses right now.
-enum AskodoxCompanionRender { human3d, robot3d, flat2d, off }
+enum AskodoxCompanionRender { humanHd, human3d, robot3d, flat2d, off }
 
 /// The ASKODOX friend. By default a human-like 3D companion (persona chosen
 /// in Profile or Automatic), with expressions, gestures, blinking, gaze,
@@ -425,6 +437,9 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
         _humanFailed) {
       return AskodoxCompanionRender.robot3d;
     }
+    if (settings.companion == AskodoxCompanionSettings.humanHd && AskodoxCompanionPerformance.vrmFallback == null) {
+      return AskodoxCompanionRender.humanHd;
+    }
     return AskodoxCompanionRender.human3d;
   }
 
@@ -466,9 +481,38 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
     }
     _syncAnimation(settings.animate, render != AskodoxCompanionRender.flat2d);
     final voice = ref.watch(askodoxCompanionVoiceProvider);
-    final persona = render == AskodoxCompanionRender.human3d
+    final persona = render == AskodoxCompanionRender.human3d || render == AskodoxCompanionRender.humanHd
         ? (settings.persona ?? askodoxPersonaForDomain(ref.watch(askodoxCompanionDomainProvider)))
         : null;
+    if (render == AskodoxCompanionRender.humanHd) {
+      // The light human rig shows while the HD model loads, and takes over
+      // for the session if the engine fails or is slow on this phone.
+      final light = AnimatedBuilder(
+        animation: _clock,
+        builder: (context, _) => CustomPaint(
+          painter: AskodoxHuman3dPainter(
+              mesh: _humanMesh(persona!), mood: widget.mood, t: _clock.value, signals: _signals(voice), onError: _humanError),
+        ),
+      );
+      return Semantics(
+        label: 'ASKODOX Human HD ${widget.mood.name}',
+        button: widget.onTap != null,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: ref.watch(askodoxVrmViewBuilderProvider)(
+            mood: widget.mood,
+            size: widget.size,
+            fallback: light,
+            onFallback: (reason) {
+              AskodoxCompanionPerformance.vrmFallback = reason;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {});
+              });
+            },
+          ),
+        ),
+      );
+    }
     final human = persona == null ? null : _humanMesh(persona);
     final robot = render == AskodoxCompanionRender.robot3d ? _robotMesh(settings.look) : null;
     return Semantics(

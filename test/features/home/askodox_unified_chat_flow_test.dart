@@ -889,6 +889,8 @@ void main() {
       expect(find.textContaining('(failed · HTTP 502 · unified)'), findsOneWidget,
           reason: 'the real status is shown, not only the generic sentence');
       expect(find.textContaining('bad gateway'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp(r'help$')), findsWidgets,
+          reason: 'the companion shows recovery for the real failure');
       await tester.tap(find.text('Retry'));
       await _Harness.settle(tester);
       expect(h.attachments.calls, hasLength(2));

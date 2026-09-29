@@ -140,6 +140,10 @@ class _AskodoxPrimaryHomeScreenState
   final Map<int, String> _roleNoticeByTurn = {};
   // A ready-made seller catalogue open in the conversation.
   AskodoxCatalogueTemplate? _catalogue;
+
+  /// Something the user just tried failed (attachment, publish): the
+  /// companion shows recovery until the next message.
+  bool _companionError = false;
   final Set<String> _catalogueSelected = {};
   int? _catalogueTurn;
   DealIntent? _lastIntent;
@@ -1225,6 +1229,7 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     var text = typed;
+    _companionError = false;
     if (!speakResponse) unawaited(_stopSpeaking());
     // Automatic language: follow the language the customer is actually
     // writing in. Attachments (and an empty caption) inherit it.
@@ -1257,7 +1262,10 @@ class _AskodoxPrimaryHomeScreenState
         }
       } on ChatAttachmentException catch (error) {
         if (job != _attachmentJob || !mounted) return;
-        setState(() => _analyzingAttachments = false);
+        setState(() {
+          _analyzingAttachments = false;
+          _companionError = true;
+        });
         debugPrint('ASKODOX attachment analysis failed: ${error.diagnostic}');
         _attachmentNotice(
           switch (error.code) {
@@ -1978,6 +1986,8 @@ class _AskodoxPrimaryHomeScreenState
     ref.invalidate(askodoxUserProfileProvider);
     setState(() {
       _turns.add(ConversationTurnRecord(text: askodoxCataloguePublishedReply(result, _lang), isUser: false));
+      _companionError = !result.ok;
+      _actionConfirmed = result.ok && result.published > 0;
       if (result.ok) {
         _catalogue = null;
         _catalogueTurn = null;
@@ -2607,6 +2617,7 @@ class _AskodoxPrimaryHomeScreenState
         break;
     }
     if (_analyzingAttachments) return AskodoxCompanionMood.understanding;
+    if (_companionError) return AskodoxCompanionMood.help;
     if (ref.watch(askodoxActionsInFlightProvider) > 0) return AskodoxCompanionMood.guiding;
     if (_sending) return AskodoxCompanionMood.thinking;
     if (_actionConfirmed) return AskodoxCompanionMood.success;

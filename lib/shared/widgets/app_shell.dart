@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/application/conversation_archive.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import '../../features/companion/companion_floating.dart';
 
 const _navInk = Color(0xFF10204A);
 const _navAccent = Color(0xFF4F46FF);
@@ -49,6 +50,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final location = ref.read(locationControllerProvider.notifier);
     if (state == AppLifecycleState.resumed) {
       _onForeground();
+      // The floating bubble service may only be (re)started while ASKODOX
+      // is on screen -- e.g. right after the overlay permission was granted.
+      unawaited(ref.read(askodoxBubbleProvider.notifier).sync());
       // Back in the app: re-read where the phone is now (no prompt) and keep
       // following it -- unless the user picked a place by hand.
       unawaited(location.onResume());

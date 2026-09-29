@@ -83,6 +83,13 @@ class AskodoxCompanionPicker extends ConsumerWidget {
                 preview: _PersonaPreview(persona: persona),
               ),
             option(
+              id: AskodoxCompanionSettings.humanHd,
+              label: t('Human HD (beta)', 'హ్యూమన్ HD (బీటా)'),
+              selected: !off3d && settings.companion == AskodoxCompanionSettings.humanHd,
+              onTap: () => notifier.update(companion: AskodoxCompanionSettings.humanHd, render3d: true),
+              preview: const Icon(Icons.face_retouching_natural_rounded, color: Color(0xFF6C4DFF), size: 34),
+            ),
+            option(
               id: AskodoxCompanionSettings.robotLite,
               label: t('Robot (Lite)', 'రోబోట్ (లైట్)'),
               selected: !off3d && settings.companion == AskodoxCompanionSettings.robotLite,

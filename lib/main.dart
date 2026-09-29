@@ -7,11 +7,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/providers/backend_providers.dart';
 import 'core/update/askodox_update_service.dart';
+import 'features/companion/companion_performance_panel.dart';
 import 'features/analytics/application/analytics_providers.dart';
 import 'features/analytics/domain/analytics_models.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  AskodoxStartupMetrics.markMain();
   runApp(const ProviderScope(child: _AnalyticsBootstrap()));
 }
 

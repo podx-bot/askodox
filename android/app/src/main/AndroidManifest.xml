@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Floating ASKODOX bubble: only after the user turns it on in Profile
+         and grants "Display over other apps". No microphone / screen access. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -36,6 +41,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <service
+            android:name=".AskodoxFloatingCompanionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Optional floating assistant bubble the user turns on; tapping it returns to the app. No audio or screen access." />
+        </service>
             <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.askodox.fileprovider"

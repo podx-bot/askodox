@@ -7,6 +7,7 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../companion/askodox_companion.dart';
+import '../../companion/companion_floating.dart';
 import '../../companion/companion_picker.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/application/saved_options.dart';
@@ -321,6 +322,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   title: Text(t('Friend moves while it works', 'పని చేస్తున్నప్పుడు కదులుతుంది')),
                   value: ref.watch(askodoxCompanionSettingsProvider).animate,
                   onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(animate: on),
+                ),
+                if (ref.watch(askodoxCompanionSettingsProvider).companion == AskodoxCompanionSettings.humanHd &&
+                    AskodoxCompanionPerformance.vrmFallback != null)
+                  Padding(
+                    key: const Key('askodoxHumanHdFallbackNotice'),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                        t('Human HD could not run smoothly on this phone (${AskodoxCompanionPerformance.vrmFallback}); '
+                            'the light human is shown this session.',
+                            'ఈ ఫోన్‌లో హ్యూమన్ HD సాఫీగా నడవలేదు (${AskodoxCompanionPerformance.vrmFallback}); '
+                            'ఈ సెషన్‌లో లైట్ హ్యూమన్ చూపిస్తున్నాం.'),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF9A5B00))),
+                  ),
+                Builder(builder: (context) {
+                  final bubble = ref.watch(askodoxBubbleProvider);
+                  return SwitchListTile(
+                    key: const Key('askodoxFloatingBubble'),
+                    title: Text(t('Floating ASKODOX bubble', 'తేలియాడే ASKODOX బబుల్')),
+                    subtitle: Text(switch (bubble) {
+                      AskodoxBubbleState.needsPermission => t(
+                          'Allow "Display over other apps" for ASKODOX, then come back.',
+                          'ASKODOX కి "ఇతర యాప్‌లపై చూపించు" అనుమతి ఇచ్చి తిరిగి రండి.'),
+                      AskodoxBubbleState.unsupported =>
+                        t('Not available on this Android version.', 'ఈ Android వెర్షన్‌లో అందుబాటులో లేదు.'),
+                      _ => t(
+                          'A small bubble over other apps -- tap it to come back to ASKODOX. It never listens or '
+                              'reads your screen. Android shows a notification while it is on.',
+                          'ఇతర యాప్‌లపై చిన్న బబుల్ -- నొక్కితే ASKODOX కి తిరిగి వస్తారు. ఇది వినదు, స్క్రీన్ చదవదు. '
+                              'ఆన్‌లో ఉన్నప్పుడు Android నోటిఫికేషన్ చూపిస్తుంది.'),
+                    }),
+                    value: bubble == AskodoxBubbleState.enabled || bubble == AskodoxBubbleState.needsPermission,
+                    onChanged: (on) => on
+                        ? ref.read(askodoxBubbleProvider.notifier).enable()
+                        : ref.read(askodoxBubbleProvider.notifier).disable(),
+                  );
+                }),
+                ListTile(
+                  key: const Key('askodoxCompanionPerformance'),
+                  leading: const Icon(Icons.speed_rounded),
+                  title: Text(t('Companion performance', 'సహచరుడి పనితీరు')),
+                  subtitle: Text(t('Frames, memory, battery and startup on this phone.',
+                      'ఈ ఫోన్‌లో ఫ్రేమ్‌లు, మెమరీ, బ్యాటరీ, స్టార్ట్‌అప్.')),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/companion-performance'),
                 ),
                 ],
               ])),

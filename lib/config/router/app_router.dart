@@ -32,6 +32,8 @@ import '../../features/orders/presentation/order_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
+import '../../features/companion/companion_performance_panel.dart';
+import '../../features/companion/companion_vrm_engine.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -181,6 +183,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Demo buyer "insights" (sample charts) are not a customer feature.
       GoRoute(path: '/analytics/buyer', redirect: (context, state) => '/'),
       GoRoute(path: '/analytics/privacy', redirect: (context, state) => '/privacy'),
+      // Profile > Companion: real-device performance + the Human HD engine lab.
+      GoRoute(path: '/companion-performance', builder: (context, state) => const AskodoxCompanionPerformancePanel()),
+      GoRoute(path: '/companion-lab', builder: (context, state) => const AskodoxCompanionEngineLab()),
       GoRoute(
           path: '/privacy',
           builder: (context, state) => const PrivacyCenterScreen()),

@@ -166,6 +166,26 @@ class MainActivity : FlutterActivity() {
                         result,
                     )
                     "geocodeName" -> geocodeName(call.argument<String>("query"), result)
+                    "floatingBubbleStatus" -> result.success(
+                        mapOf(
+                            "supported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O),
+                            "canDrawOverlays" to AskodoxFloatingCompanionService.canDraw(this),
+                            "running" to (AskodoxFloatingCompanionService.instance != null),
+                        ),
+                    )
+                    "openOverlaySettings" -> {
+                        startActivity(
+                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(true)
+                    }
+                    "startFloatingBubble" -> result.success(startFloatingBubble())
+                    "stopFloatingBubble" -> {
+                        stopService(Intent(this, AskodoxFloatingCompanionService::class.java))
+                        result.success(true)
+                    }
+                    "deviceHealth" -> result.success(deviceHealth())
                     else -> result.notImplemented()
                 }
             }
@@ -814,6 +834,63 @@ class MainActivity : FlutterActivity() {
         } else {
             result.error("location_denied", "Location permission denied", null)
         }
+    }
+
+    // ----------------------------------------------------- floating bubble --
+
+    // Started only while ASKODOX is on screen (Android 12+ forbids starting
+    // a foreground service from the background) and only with the overlay
+    // permission the user granted.
+    private fun startFloatingBubble(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !AskodoxFloatingCompanionService.canDraw(this)) return false
+        return try {
+            ContextCompat.startForegroundService(this, Intent(this, AskodoxFloatingCompanionService::class.java))
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AskodoxFloatingCompanionService.instance?.setVisible(false)
+    }
+
+    override fun onStop() {
+        AskodoxFloatingCompanionService.instance?.setVisible(true)
+        super.onStop()
+    }
+
+    // ------------------------------------------------------- device health --
+
+    // Battery, temperature, thermal state and memory for the in-app
+    // performance panel (read-only, nothing leaves the phone).
+    private fun deviceHealth(): Map<String, Any?> {
+        val battery = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = battery?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val status = battery?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val temp = battery?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE) ?: Int.MIN_VALUE
+        val power = getSystemService(POWER_SERVICE) as android.os.PowerManager
+        val activity = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        val memory = android.app.ActivityManager.MemoryInfo().also { activity.getMemoryInfo(it) }
+        return mapOf(
+            "batteryPercent" to (if (level >= 0 && scale > 0) level * 100 / scale else null),
+            "charging" to (status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == android.os.BatteryManager.BATTERY_STATUS_FULL),
+            "batteryTempC" to (if (temp != Int.MIN_VALUE) temp / 10.0 else null),
+            "thermalStatus" to (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) power.currentThermalStatus else null),
+            "powerSave" to power.isPowerSaveMode,
+            "appPssKb" to android.os.Debug.getPss(),
+            "deviceAvailMb" to memory.availMem / (1024 * 1024),
+            "deviceTotalMb" to memory.totalMem / (1024 * 1024),
+            "lowMemory" to memory.lowMemory,
+            "memoryClassMb" to activity.memoryClass,
+            "sdk" to Build.VERSION.SDK_INT,
+            "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            "processUptimeMs" to (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                android.os.SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime() else null),
+        )
     }
 
     override fun onPause() {

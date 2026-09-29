@@ -26,17 +26,34 @@ up, smile), help (open palms, shrug, concerned brows). Blink + glances every
 2.5-6 s. Lines are en / te / hi (Hindi avoids gendered first-person verbs);
 other languages use the chat labels.
 
-## Floating / minimized companion outside the app -- NOT built
-Android allows drawing over other apps only with the special
-`SYSTEM_ALERT_WINDOW` ("Display over other apps") permission, granted by the
-user on a Settings screen (not a runtime dialog). Google Play restricts it to
-apps whose core function needs it, Android 12+ blocks touches through
-untrusted overlays, and the mic can only be used from a visible activity or a
-`microphone`-type foreground service with a persistent notification (Android
-14+). A floating friend would therefore need: an explicit opt-in screen, the
-permission, a foreground service (battery cost), and a Play policy
-declaration. Until that is approved it is not implemented; the companion
-lives docked in Main Chat only.
+## Human HD (beta) -- a real VRM human
+Profile > Your companion > "Human HD (beta)": a VRM model rendered by
+three.js 0.169 + @pixiv/three-vrm 3.5.5 inside Android's system WebView
+(`assets/companion/engine.html`, ~700 KB; `companion_vrm_view.dart`). Same
+mood / lip-sync / mic signals as every companion (newer states map to the
+engine's closest body language). The light human rig shows while it loads
+and takes over for the session on an engine error, a 25 s load timeout or
+< 18 fps median. Default model: the stand-in "Seed-san" (VirtualCast, Inc.,
+VRM Public License 1.0), downloaded at runtime -- NOT the final ASKODOX
+character; our own VRoid export replaces it with
+`--dart-define=ASKODOX_VRM_MODEL_URL=...` (spec: SMART_ADVISOR_VROID_SPEC.md).
+Stylized anime-style human, not a photoreal scan.
+
+## Floating bubble (Android) -- built, opt-in
+Profile > "Floating ASKODOX bubble" (off by default):
+- asks for Android's "Display over other apps" (SYSTEM_ALERT_WINDOW) on the
+  system Settings page; nothing runs until it is granted;
+- runs `AskodoxFloatingCompanionService` (foreground service, type
+  specialUse -- Android requires a service + a silent notification to keep
+  an overlay alive); started only while ASKODOX is on screen (Android 12+
+  forbids starting it from the background);
+- the bubble appears when you leave ASKODOX and hides when you return;
+  drag to move, tap = back to ASKODOX, x = hide, notification "Turn off" =
+  setting off; no timers (battery), no microphone, no screen capture.
+Limits: voice from the bubble is not offered (the mic may only be used from
+a visible screen or a microphone-type foreground service -- we do not run
+one); Google Play requires the overlay + special-use declarations in the
+Play Console before a store release; Android 7 and older: not available.
 
 ## Performance
 The rig is procedural (0 bytes of model assets); release APK sizes are
@@ -44,8 +61,14 @@ written to `APK_SIZES.txt` by the Live Build. At runtime the median frame
 time is watched and the friend steps down human 3D -> robot Lite -> flat 2D
 for the session (`AskodoxCompanionPerformance`); motion runs only while a
 state is active, and never with the phone's "remove animations" setting.
-Real-phone FPS, memory, CPU/GPU and battery numbers are not measured in CI
-(no device there) -- they come from phone testing.
+Profile > Companion performance shows, on the phone itself, with a live
+companion animating: sustainable fps, build/raster p50/p90 (Flutter frame
+timings), app RSS/PSS and free phone memory, battery %, temperature,
+thermal state, battery saver, startup (Dart main -> first frame and process
+start -> first frame) and "Copy report". GPU counters are not exposed to
+apps; CI has no device, so these numbers come from the phone. The Human HD
+engine lab (fps, worst frame, triangles, draw calls, JS heap) is linked
+there.
 
 ## Optional avatar packs (richer models, not bundled)
 Build with `--dart-define=ASKODOX_AVATAR_BASE_URL=https://<cdn>/avatars` and
