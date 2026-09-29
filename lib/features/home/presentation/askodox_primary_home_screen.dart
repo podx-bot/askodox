@@ -2440,9 +2440,11 @@ class _AskodoxPrimaryHomeScreenState
               results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
               onTap: _voicePhase == _VoicePhase.idle ? _startVoice : null,
               showLine: _voicePhase == _VoicePhase.idle,
-              foundLabel: _lang == 'te' || _lang == 'en'
+              foundLabel: _lang == 'te' || _lang == 'en' || _lang == 'hi'
                   ? null
                   : askodoxChatLabel('found_pick', _lang, count: _latestResults()?.matches.length ?? 0),
+              lang: _lang,
+              subject: ref.watch(universalDealControllerProvider).deal?.subject,
             ),
           _composer(te)
         ]));
@@ -2455,6 +2457,7 @@ class _AskodoxPrimaryHomeScreenState
       case _VoicePhase.recording:
         return AskodoxCompanionMood.listening;
       case _VoicePhase.transcribing:
+        return AskodoxCompanionMood.understanding;
       case _VoicePhase.thinking:
         return AskodoxCompanionMood.thinking;
       case _VoicePhase.speaking:
@@ -2462,11 +2465,15 @@ class _AskodoxPrimaryHomeScreenState
       case _VoicePhase.idle:
         break;
     }
+    if (_analyzingAttachments) return AskodoxCompanionMood.understanding;
+    if (ref.watch(askodoxActionsInFlightProvider) > 0) return AskodoxCompanionMood.guiding;
     if (_sending) return AskodoxCompanionMood.thinking;
     if (_actionConfirmed) return AskodoxCompanionMood.success;
     if (_turns.isNotEmpty && !_turns.last.isUser) {
       final results = _resultsByTurn[_turns.length - 1];
       if (results != null && results.failed) return AskodoxCompanionMood.help;
+      // ASKODOX asked for the one detail it still needs.
+      if (results == null && (_lastAskedQuestion ?? '').trim().isNotEmpty) return AskodoxCompanionMood.suggesting;
       // Real options on screen: the companion turns to them and guides;
       // the cards stay fully usable.
       if (results != null && results.matches.isNotEmpty) return AskodoxCompanionMood.explaining;

@@ -15,7 +15,26 @@ import 'companion_voice.dart';
 /// What the ASKODOX friend is doing right now. Driven by the SAME chat /
 /// voice / results state as the rest of the app -- the companion is a view
 /// of the one conversation, never a second workflow.
-enum AskodoxCompanionMood { idle, greeting, listening, thinking, speaking, explaining, success, help }
+///
+/// * understanding -- reading what was sent (voice being transcribed, a
+///   photo / video / document being analyzed);
+/// * suggesting -- ASKODOX asked for the one detail it still needs;
+/// * explaining -- real options are on screen (it turns to them);
+/// * guiding -- a real action (send request / connect) is in flight;
+/// * help -- something failed; recovery is offered.
+enum AskodoxCompanionMood {
+  idle,
+  greeting,
+  listening,
+  understanding,
+  thinking,
+  speaking,
+  suggesting,
+  explaining,
+  guiding,
+  success,
+  help,
+}
 
 /// How the friend looks. The ASKODOX robot is the default brand look; other
 /// looks are neutral (no gender is ever assumed). New looks/meshes plug into
@@ -111,22 +130,68 @@ final askodoxCompanionSettingsProvider =
 /// (moods, gestures, lip-sync) is the same for every persona.
 final askodoxCompanionDomainProvider = StateProvider<String?>((ref) => null);
 
-/// One short, friendly line for the mood (never a lecture).
-String askodoxCompanionLine(AskodoxCompanionMood mood, {required bool telugu, int results = 0}) => switch (mood) {
-      AskodoxCompanionMood.greeting => telugu ? 'నమస్తే! మీకు ఏం కావాలో చెప్పండి.' : 'Hi! Tell me what you need.',
-      AskodoxCompanionMood.listening => telugu ? 'వింటున్నాను…' : 'Listening…',
-      AskodoxCompanionMood.thinking => telugu ? 'వెతుకుతున్నాను…' : 'Finding real options…',
-      AskodoxCompanionMood.speaking => telugu ? 'చెబుతున్నాను…' : 'Speaking…',
-      AskodoxCompanionMood.explaining => results > 0
-          ? (telugu
-              ? '$results ఎంపికలు దొరికాయి — ఒకటి ఎంచుకోండి'
-              : 'Found $results option${results == 1 ? '' : 's'} — pick one to continue')
-          : (telugu ? 'ఇదిగో వివరాలు' : 'Here is what I found'),
-      AskodoxCompanionMood.success =>
-        results > 0 ? (telugu ? '$results ఎంపికలు దొరికాయి' : 'Found $results option${results == 1 ? '' : 's'}') : (telugu ? 'పూర్తయింది! అప్‌డేట్స్‌లో తెలియజేస్తాను.' : 'Done! I’ll keep you posted in Updates.'),
-      AskodoxCompanionMood.help => telugu ? 'చిన్న సమస్య. మళ్లీ ప్రయత్నిద్దాం.' : 'Something went wrong. Let’s try again.',
-      AskodoxCompanionMood.idle => telugu ? 'సిద్ధంగా ఉన్నాను' : 'Ready',
-    };
+/// One short, friendly line for the mood (never a lecture), in the
+/// conversation language ([lang] wins over [telugu]; Hindi lines avoid
+/// gendered first-person verbs -- the companion never assumes a gender).
+/// [subject] is what ASKODOX understood (only used when it asks for more).
+String askodoxCompanionLine(AskodoxCompanionMood mood,
+    {required bool telugu, int results = 0, String? lang, String? subject}) {
+  final code = lang ?? (telugu ? 'te' : 'en');
+  final about = (subject ?? '').trim();
+  final plural = results == 1 ? '' : 's';
+  final lines = switch (code) {
+    'te' => {
+        AskodoxCompanionMood.greeting: 'నమస్తే! మీకు ఏం కావాలో చెప్పండి.',
+        AskodoxCompanionMood.listening: 'వింటున్నాను…',
+        AskodoxCompanionMood.understanding: 'మీరు పంపింది చదువుతున్నాను…',
+        AskodoxCompanionMood.thinking: 'వెతుకుతున్నాను…',
+        AskodoxCompanionMood.speaking: 'చెబుతున్నాను…',
+        AskodoxCompanionMood.suggesting: about.isEmpty
+            ? 'ఇంకో వివరం చెబితే వెతుకుతాను.'
+            : '"$about" అర్థమైంది. ఇంకో వివరం చెబితే వెతుకుతాను.',
+        AskodoxCompanionMood.explaining:
+            results > 0 ? '$results ఎంపికలు దొరికాయి — ఒకటి ఎంచుకోండి' : 'ఇదిగో వివరాలు',
+        AskodoxCompanionMood.guiding: 'మీ అభ్యర్థన పంపుతున్నాను…',
+        AskodoxCompanionMood.success:
+            results > 0 ? '$results ఎంపికలు దొరికాయి' : 'పూర్తయింది! అప్‌డేట్స్‌లో తెలియజేస్తాను.',
+        AskodoxCompanionMood.help: 'చిన్న సమస్య. మళ్లీ ప్రయత్నిద్దాం.',
+        AskodoxCompanionMood.idle: 'సిద్ధంగా ఉన్నాను',
+      },
+    'hi' => {
+        AskodoxCompanionMood.greeting: 'नमस्ते! बताइए, आपको क्या चाहिए।',
+        AskodoxCompanionMood.listening: 'बोलिए…',
+        AskodoxCompanionMood.understanding: 'आपका भेजा हुआ पढ़ा जा रहा है…',
+        AskodoxCompanionMood.thinking: 'असली विकल्प खोजे जा रहे हैं…',
+        AskodoxCompanionMood.speaking: 'जवाब…',
+        AskodoxCompanionMood.suggesting: about.isEmpty
+            ? 'एक और जानकारी दीजिए, फिर खोज शुरू होगी।'
+            : '"$about" समझ आ गया। एक और जानकारी दीजिए, फिर खोज शुरू होगी।',
+        AskodoxCompanionMood.explaining: results > 0 ? '$results विकल्प मिले — एक चुनें' : 'यह रहा जो मिला',
+        AskodoxCompanionMood.guiding: 'आपका अनुरोध भेजा जा रहा है…',
+        AskodoxCompanionMood.success: results > 0 ? '$results विकल्प मिले' : 'हो गया! अपडेट्स में बताया जाएगा।',
+        AskodoxCompanionMood.help: 'कुछ गड़बड़ हुई। फिर कोशिश करें।',
+        AskodoxCompanionMood.idle: 'तैयार',
+      },
+    _ => {
+        AskodoxCompanionMood.greeting: 'Hi! Tell me what you need.',
+        AskodoxCompanionMood.listening: 'Listening…',
+        AskodoxCompanionMood.understanding: 'Reading what you sent…',
+        AskodoxCompanionMood.thinking: 'Finding real options…',
+        AskodoxCompanionMood.speaking: 'Speaking…',
+        AskodoxCompanionMood.suggesting: about.isEmpty
+            ? 'One more detail and I can search.'
+            : 'Got it: "$about". One more detail and I can search.',
+        AskodoxCompanionMood.explaining:
+            results > 0 ? 'Found $results option$plural — pick one to continue' : 'Here is what I found',
+        AskodoxCompanionMood.guiding: 'Sending your request…',
+        AskodoxCompanionMood.success:
+            results > 0 ? 'Found $results option$plural' : 'Done! I’ll keep you posted in Updates.',
+        AskodoxCompanionMood.help: 'Something went wrong. Let’s try again.',
+        AskodoxCompanionMood.idle: 'Ready',
+      },
+  };
+  return lines[mood]!;
+}
 
 /// Session-wide guard for low-end phones: when real frames of the 3D friend
 /// are too slow, the friend drops to the light 2D drawing for the rest of
@@ -298,10 +363,16 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
     // (battery friendly, never distracting) that still blinks.
     const continuous = {
       AskodoxCompanionMood.listening,
+      AskodoxCompanionMood.understanding,
       AskodoxCompanionMood.thinking,
       AskodoxCompanionMood.speaking,
+      AskodoxCompanionMood.guiding,
     };
-    const burst = {AskodoxCompanionMood.explaining, AskodoxCompanionMood.success};
+    const burst = {
+      AskodoxCompanionMood.suggesting,
+      AskodoxCompanionMood.explaining,
+      AskodoxCompanionMood.success,
+    };
     final allowed = animate && !reduceMotion && !_paused;
     if (allowed && continuous.contains(widget.mood)) {
       _burstMood = null;
@@ -443,8 +514,9 @@ class _CompanionPainter extends CustomPainter {
   static const _blue = Color(0xFF1769FF);
 
   Color get _accent => switch (mood) {
-        AskodoxCompanionMood.listening => const Color(0xFF1FA2FF),
-        AskodoxCompanionMood.speaking || AskodoxCompanionMood.success => const Color(0xFF1B8A3B),
+        AskodoxCompanionMood.listening || AskodoxCompanionMood.understanding => const Color(0xFF1FA2FF),
+        AskodoxCompanionMood.speaking || AskodoxCompanionMood.success || AskodoxCompanionMood.guiding =>
+          const Color(0xFF1B8A3B),
         AskodoxCompanionMood.help => const Color(0xFFE08A00),
         _ => _violet,
       };
@@ -463,7 +535,7 @@ class _CompanionPainter extends CustomPainter {
             Paint()..color = _accent.withValues(alpha: .35 * (1 - p))..style = PaintingStyle.stroke..strokeWidth = 3);
       }
     }
-    if (mood == AskodoxCompanionMood.thinking) {
+    if (mood == AskodoxCompanionMood.thinking || mood == AskodoxCompanionMood.understanding) {
       for (var i = 0; i < 3; i++) {
         final a = (t + i / 3) * 2 * math.pi;
         canvas.drawCircle(c + Offset(math.cos(a), math.sin(a)) * r * .9, r * .06, Paint()..color = _accent);
@@ -516,10 +588,15 @@ class _CompanionPainter extends CustomPainter {
     }
     _mouth(canvas, head, headR, wave);
 
-    // Explaining: a small pointing hand toward the results (to the right).
-    if (mood == AskodoxCompanionMood.explaining) {
+    // Explaining / guiding: a small pointing hand toward the results (to
+    // the right); suggesting: an open palm offered below.
+    if (mood == AskodoxCompanionMood.explaining || mood == AskodoxCompanionMood.guiding) {
       final hand = head + Offset(headR * 1.05 + wave * r * .04, headR * .45);
       canvas.drawCircle(hand, r * .12, Paint()..color = _accent);
+    }
+    if (mood == AskodoxCompanionMood.suggesting) {
+      final palm = head + Offset(headR * .8, headR * .95 - wave.abs() * r * .03);
+      canvas.drawOval(Rect.fromCenter(center: palm, width: r * .3, height: r * .14), Paint()..color = _accent);
     }
   }
 
@@ -563,7 +640,15 @@ class AskodoxCompanionBar extends StatelessWidget {
     this.showLine = true,
     this.size = 64,
     this.foundLabel,
+    this.lang,
+    this.subject,
   });
+
+  /// Conversation language code (te / en / hi ...); null = [telugu].
+  final String? lang;
+
+  /// What ASKODOX understood so far (shown when it asks for one more detail).
+  final String? subject;
 
   /// "Found N options" in the conversation language when it is not te/en.
   final String? foundLabel;
@@ -586,10 +671,14 @@ class AskodoxCompanionBar extends StatelessWidget {
             Expanded(
               child: Text(
                 mood == AskodoxCompanionMood.idle
-                    ? (telugu ? 'ఇంకా ఏమైనా కావాలా? అడగండి.' : 'Anything else? Just ask.')
+                    ? switch (lang ?? (telugu ? 'te' : 'en')) {
+                        'te' => 'ఇంకా ఏమైనా కావాలా? అడగండి.',
+                        'hi' => 'और कुछ चाहिए? बस पूछिए।',
+                        _ => 'Anything else? Just ask.',
+                      }
                     : (foundLabel != null && results > 0 && mood == AskodoxCompanionMood.explaining)
                         ? foundLabel!
-                        : askodoxCompanionLine(mood, telugu: telugu, results: results),
+                        : askodoxCompanionLine(mood, telugu: telugu, results: results, lang: lang, subject: subject),
                 key: const Key('askodoxCompanionLine'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

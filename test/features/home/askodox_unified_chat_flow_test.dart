@@ -733,6 +733,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
       await tester.pump();
       expect(find.byKey(const Key('askodoxAttachmentAnalyzing')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'understanding$')), findsOneWidget,
+          reason: 'the companion reads the attachment while it is analyzed');
       await tester.tap(find.byKey(const Key('askodoxCancelAttachment')));
       h.attachments.hold!.complete();
       h.attachments.hold = null;

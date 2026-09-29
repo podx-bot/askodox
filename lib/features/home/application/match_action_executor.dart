@@ -20,6 +20,29 @@ Future<OrderActionResult> askodoxExecuteMatchAction(
   Map<String, Object?>? requestContext,
   String? question,
 }) async {
+  // The companion "guides" exactly while a real action is in flight.
+  final inFlight = ref.read(askodoxActionsInFlightProvider.notifier);
+  inFlight.state++;
+  try {
+    return await _execute(ref,
+        match: match, dealId: dealId, telugu: telugu, requestContext: requestContext, question: question);
+  } finally {
+    if (inFlight.mounted) inFlight.state = inFlight.state > 0 ? inFlight.state - 1 : 0;
+  }
+}
+
+/// How many "act on this option" calls are running right now (card button
+/// or typed confirmation) -- the companion's guiding state.
+final askodoxActionsInFlightProvider = StateProvider<int>((ref) => 0);
+
+Future<OrderActionResult> _execute(
+  WidgetRef ref, {
+  required UniversalMatch match,
+  required String? dealId,
+  required bool telugu,
+  Map<String, Object?>? requestContext,
+  String? question,
+}) async {
   final action = chatResultActionFor(match);
   final needsIdentity = action == ChatResultAction.sendRequest || action == ChatResultAction.connect;
   final signInResult = OrderActionResult(

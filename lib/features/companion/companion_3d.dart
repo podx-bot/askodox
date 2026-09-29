@@ -246,6 +246,26 @@ AskodoxPose askodoxPoseFor(AskodoxCompanionMood mood, double t, [AskodoxCompanio
       pose = AskodoxPose(roll: .22, pitch: .05, yaw: .08 * s, antenna: 1 + .4 * s.abs(), browLift: .06, eyes: 1.1);
       pose.handL = const AskodoxVec3(-1.28, .08, -.2);
       pose.handTiltL = -.5;
+    case AskodoxCompanionMood.understanding:
+      // Reading what was sent: eyes down on it, both hands holding it, a
+      // slow left-right scan.
+      pose = AskodoxPose(yaw: .15 * s, pitch: .16, gaze: Offset(.4 * s, -.6), browLift: .03, mouth: .8, mouthWidth: .8);
+      pose.handL = const AskodoxVec3(-.55, -.6, -1.0);
+      pose.handR = const AskodoxVec3(.55, -.6, -1.0);
+      pose.handTiltL = .4;
+      pose.handTiltR = -.4;
+    case AskodoxCompanionMood.suggesting:
+      // Asking for one more detail: head tilt, raised brows, palm offered.
+      pose = AskodoxPose(roll: .14, pitch: .04 * s.abs(), browLift: .09, eyes: 1.05, mouth: .9);
+      pose.handL = AskodoxVec3(-1.22, -.85 + float, -.35);
+      pose.handR = const AskodoxVec3(1.2, -.35, -.7);
+      pose.handTiltR = .8;
+    case AskodoxCompanionMood.guiding:
+      // An action is running: points to the option and nods it along.
+      pose = AskodoxPose(yaw: .45, pitch: .1 * s.abs(), gaze: const Offset(.8, -.1), browLift: .04, mouth: 1.1);
+      pose.handR = AskodoxVec3(1.5, -.2 + .05 * s, -.8);
+      pose.handTiltR = -1.2;
+      pose.handL = const AskodoxVec3(-1.0, -.6, -.7);
     case AskodoxCompanionMood.thinking:
       // Looks up and around, one brow raised, hand at the chin tapping.
       pose = AskodoxPose(yaw: .5 * s, pitch: -.18, roll: -.08, antenna: 1 + .25 * c.abs(), browTilt: .18, gaze: const Offset(-.6, .7), mouth: .7, mouthWidth: .7);

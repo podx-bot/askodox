@@ -262,6 +262,18 @@ AskodoxHumanPose askodoxHumanPoseFor(AskodoxCompanionMood mood, double t,
     case AskodoxCompanionMood.listening:
       return AskodoxHumanPose(face,
           handL: const AskodoxVec3(-.6, .5, -.12), handR: restR, lean: .08 + .05 * signals.micLevel, smile: .2);
+    case AskodoxCompanionMood.understanding:
+      // Holding what was sent in front, reading it.
+      return AskodoxHumanPose(face,
+          handL: const AskodoxVec3(-.2, -.62, -.92), handR: const AskodoxVec3(.2, -.62, -.92), lean: .05, smile: .1);
+    case AskodoxCompanionMood.suggesting:
+      // One more detail, please: an open palm offered toward the customer.
+      return AskodoxHumanPose(face,
+          handL: restL, handR: AskodoxVec3(.6, -.45 + .03 * s.abs(), -.9), smile: .6, breathe: breathe);
+    case AskodoxCompanionMood.guiding:
+      // Pointing at the option while the request is sent.
+      return AskodoxHumanPose(face,
+          handL: restL, handR: AskodoxVec3(1.02 + .04 * s, -.1, -.62), lean: .04, smile: .5);
     case AskodoxCompanionMood.thinking:
       return AskodoxHumanPose(face,
           handL: const AskodoxVec3(-.05, -.8, -.62), handR: AskodoxVec3(.1, .18 + .02 * math.sin(t * 8 * math.pi), -.6), lean: -.03);
