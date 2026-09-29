@@ -10,6 +10,8 @@ import '../../companion/companion_picker.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
+import '../data/user_profile_repository.dart';
+import 'profile_header.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -144,14 +146,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           const SizedBox(height: 10),
-          const CircleAvatar(
-              radius: 42, child: Icon(Icons.person_rounded, size: 42)),
-          const SizedBox(height: 10),
-          Text(t('Your ASKODOX profile', 'మీ ASKODOX ప్రొఫైల్'),
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 20),
+          // The user's own stored profile (photo, name, mobile, address,
+          // language, roles, business) -- never placeholder data.
+          AskodoxProfileHeader(telugu: te),
+          const SizedBox(height: 12),
           Card(
               elevation: 0,
               child: Padding(
@@ -193,9 +191,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       label: Text(role == roles.active
                                           ? '${askodoxUserRoleLabel(role, telugu: _te)} · ${t('Active now', 'ఇప్పుడు యాక్టివ్')}'
                                           : askodoxUserRoleLabel(role, telugu: _te)),
-                                      onSelected: (value) => ref
-                                          .read(askodoxRoleProvider.notifier)
-                                          .toggleOwned(role, value)),
+                                      onSelected: (value) {
+                                        ref.read(askodoxRoleProvider.notifier).toggleOwned(role, value);
+                                        // Held roles are part of the one stored profile.
+                                        if (ref.read(authSessionProvider).user != null) {
+                                          final held = ref.read(askodoxRoleProvider).owned.map((r) => r.name).toList()
+                                            ..sort();
+                                          ref.read(askodoxUserProfileProvider.notifier).save({'roles': held});
+                                        }
+                                      }),
                               ]);
                         }),
                       ]))),

@@ -178,18 +178,25 @@ def users(request: Request, role: str = "all") -> dict[str, Any]:
     listing_counts = {row["seller_user_id"]: row for row in _rows(
         request,
         "SELECT seller_user_id, SUM(active=1) active_listings, SUM(active=0) disabled_listings FROM seller_products GROUP BY seller_user_id")}
+    # Business details from the user's own profile (public shop facts only;
+    # personal name / phone / photo / home address stay private).
+    business = {row["user_id"]: row for row in _rows(
+        request, "SELECT user_id, business_name, business_category FROM user_profiles")}
     items = []
     for group, ids in people.items():
         if role != "all" and role != group:
             continue
         for user in sorted(ids):
             counts = listing_counts.get(user, {})
+            shop = business.get(user, {})
             items.append({
                 "user": mask_user_id(user),
                 "user_ref": _ref(user),
                 "role": group,
                 "active_listings": int(counts.get("active_listings") or 0),
                 "disabled_listings": int(counts.get("disabled_listings") or 0),
+                "business_name": shop.get("business_name"),
+                "business_category": shop.get("business_category"),
             })
     return {"items": items}
 
