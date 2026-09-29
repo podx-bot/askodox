@@ -29,6 +29,7 @@ import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
+import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../selling/data/catalogue_repository.dart';
 import '../../selling/domain/seller_catalogue.dart';
@@ -1582,6 +1583,13 @@ class _AskodoxPrimaryHomeScreenState
       }
       // A subject polluted by budget/filler words ("TV ₹20,000 లో కావాలి")
       // is cleaned once, universally.
+      // The place is the deal's location, never part of WHAT is wanted.
+      final placed = ref.read(universalDealControllerProvider).deal;
+      final placeLabel = placed?.location.label ?? knownLocationLabel ?? '';
+      if (placed?.subject != null && placeLabel.trim().isNotEmpty) {
+        final without = askodoxWithoutPlace(placed!.subject!, placeLabel);
+        if (without.isNotEmpty && without != placed.subject!.trim()) notifier.refineSubject(without);
+      }
       final rawSubject = ref.read(universalDealControllerProvider).deal?.subject;
       if (rawSubject != null && RegExp(r'₹|\d{4,}|కావాలి|show me|చూపించ|^(a|an|the)\s', caseSensitive: false).hasMatch(rawSubject)) {
         final clean = askodoxNeedSubject(rawSubject);
@@ -2105,10 +2113,13 @@ class _AskodoxPrimaryHomeScreenState
     final subject = (deal?.subject ?? deal?.category ?? '').trim();
     final place = (deal?.location.label ?? ref.read(locationControllerProvider).headerLocation ?? '').trim();
     final service = deal?.intent == DealIntent.needService || deal?.intent == DealIntent.bookAppointment;
-    final at = place.isEmpty ? '' : (_te ? '$placeలో ' : ' in $place');
+    // One composition rule for "<thing> in <place>" -- never repeated, never
+    // mixed connectors (real-phone: "Vuyyuru, Andhra Pradeshలో in Vuyyuru...").
+    final what = askodoxWithPlace(subject, place, _te ? 'te' : 'en');
     final text = _te
-        ? (service ? 'నేను $at$subject సర్వీస్ ఇస్తాను' : 'నేను $at$subject అమ్ముతాను')
-        : (service ? 'I provide $subject service$at' : 'I sell $subject$at');
+        ? (service ? 'నేను $what సర్వీస్ ఇస్తాను' : 'నేను $what అమ్ముతాను')
+        : (service ? 'I provide ${askodoxWithoutPlace(subject, place)} service'
+                '${place.isEmpty ? '' : ' in ${askodoxShortPlace(place)}'}' : 'I sell $what');
     await _send(text.replaceAll(RegExp(r'\s+'), ' ').trim());
   }
 

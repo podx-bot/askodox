@@ -1,4 +1,5 @@
 import '../../../services/in_app_assistant_service.dart';
+import 'place_phrase.dart';
 
 class AskodoxSemanticDealInput {
   const AskodoxSemanticDealInput._();
@@ -36,10 +37,16 @@ class AskodoxSemanticDealInput {
     }
     if (unit != null) parts.add(unit);
     if (subject != null) parts.add(subject);
-    if (location != null) {
+    // A Telugu/Hindi postposition on the AI's location ("Vuyyuruలో") and a
+    // place already inside the subject are never repeated.
+    final place = location == null ? '' : askodoxCleanPlace(location);
+    if (place.isNotEmpty) {
+      if (subject != null && parts.isNotEmpty && parts.last == subject) {
+        parts[parts.length - 1] = askodoxWithoutPlace(subject, place);
+      }
       parts
         ..add('in')
-        ..add(location);
+        ..add(place);
     }
     if (price != null) {
       parts.add(

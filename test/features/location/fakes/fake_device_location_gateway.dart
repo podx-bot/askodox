@@ -6,12 +6,36 @@ import 'package:podx/features/location/domain/geo_models.dart';
 /// Test double for [DeviceLocationGateway]. Never touches real GPS/OS APIs;
 /// results are configured explicitly so permission and current-position
 /// behaviour can be exercised deterministically in tests.
-class FakeDeviceLocationGateway implements DeviceLocationGateway {
+class FakeDeviceLocationGateway extends DeviceLocationGateway {
   FakeDeviceLocationGateway({
     this.permissionResult = LocationPermissionStatus.granted,
     this.position,
     this.alreadyAllowed = LocationPermissionStatus.notRequested,
+    this.lastKnown,
+    this.approximate = false,
   });
+
+  final GeoPoint? lastKnown;
+  final bool approximate;
+  int locationSettingsOpened = 0, appSettingsOpened = 0;
+
+  @override
+  Future<GeoPoint?> getLastKnownPosition() async => lastKnown;
+
+  @override
+  Future<bool> isApproximate() async => approximate;
+
+  @override
+  Future<bool> openLocationSettings() async {
+    locationSettingsOpened++;
+    return true;
+  }
+
+  @override
+  Future<bool> openAppSettings() async {
+    appSettingsOpened++;
+    return true;
+  }
 
   final LocationPermissionStatus permissionResult;
   final GeoPoint? position;
@@ -33,7 +57,7 @@ class FakeDeviceLocationGateway implements DeviceLocationGateway {
   Future<GeoPoint?> getCurrentPosition() async => position;
 
   /// Push a new device position (the phone moved).
-  final movements = StreamController<GeoPoint>.broadcast();
+  StreamController<GeoPoint> movements = StreamController<GeoPoint>.broadcast();
   int watchers = 0;
 
   @override

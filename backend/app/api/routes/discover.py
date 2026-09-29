@@ -147,13 +147,29 @@ def search_places(request: Request, q: str, latitude: float | None = None, longi
     maps = getattr(request.app.state.container, "google_maps_service", None)
     if maps is None or not getattr(maps, "enabled", False):
         return {"items": [], "status": "unavailable"}
+    # A town / area / address ("vijayawada") is GEOCODED first, without the
+    # current-pin bias -- Places Text Search is for shops and landmarks and,
+    # biased to the pin, kept the map near the old place.
+    items: list[dict] = []
+    try:
+        area = maps.geocode(query)
+    except Exception:
+        area = None
+    if area and area.get("latitude") is not None:
+        name = str(area.get("name") or query)
+        items.append({"name": name.split(",")[0].strip() or query, "address": name, "latitude": area["latitude"],
+                      "longitude": area["longitude"], "place_id": area.get("place_id"), "kind": "area"})
     places = maps.search_places(query, latitude=latitude, longitude=longitude, radius_m=30000, limit=6)
-    status = "error" if getattr(maps, "last_error", False) else ("ok" if places else "no_results")
-    return {"status": status, "items": [
-        {"name": p.get("name"), "address": p.get("address"), "latitude": p.get("latitude"),
-         "longitude": p.get("longitude"), "place_id": p.get("place_id")}
-        for p in places if p.get("latitude") is not None and p.get("longitude") is not None
-    ]}
+    for p in places:
+        if p.get("latitude") is None or p.get("longitude") is None:
+            continue
+        if any(abs(p["latitude"] - i["latitude"]) < 0.002 and abs(p["longitude"] - i["longitude"]) < 0.002
+               for i in items):
+            continue
+        items.append({"name": p.get("name"), "address": p.get("address"), "latitude": p.get("latitude"),
+                      "longitude": p.get("longitude"), "place_id": p.get("place_id"), "kind": "place"})
+    status = "ok" if items else ("error" if getattr(maps, "last_error", False) else "no_results")
+    return {"status": status, "items": items[:7]}
 
 
 class RoutePoint(BaseModel):

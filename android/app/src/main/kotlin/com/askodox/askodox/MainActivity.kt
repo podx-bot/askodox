@@ -165,6 +165,7 @@ class MainActivity : FlutterActivity() {
                         call.argument<Double>("longitude"),
                         result,
                     )
+                    "geocodeName" -> geocodeName(call.argument<String>("query"), result)
                     else -> result.notImplemented()
                 }
             }
@@ -667,6 +668,34 @@ class MainActivity : FlutterActivity() {
                 )
             }
             runOnUiThread { result.success(named) }
+        }.start()
+    }
+
+    // Finds a typed place ("vijayawada") with the phone's geocoder when the
+    // backend search has nothing (Maps key without Geocoding / offline).
+    @Suppress("DEPRECATION")
+    private fun geocodeName(query: String?, result: MethodChannel.Result) {
+        val text = query?.trim().orEmpty()
+        if (text.length < 2 || !Geocoder.isPresent()) {
+            result.success(emptyList<Map<String, Any?>>())
+            return
+        }
+        Thread {
+            val found = try {
+                Geocoder(this, Locale("en", "IN")).getFromLocationName(text, 5) ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val places = found.filter { it.countryCode == null || it.countryCode == "IN" }.map {
+                mapOf(
+                    "latitude" to it.latitude,
+                    "longitude" to it.longitude,
+                    "featureName" to it.featureName,
+                    "locality" to (it.locality ?: it.subAdminArea),
+                    "adminArea" to it.adminArea,
+                )
+            }
+            runOnUiThread { result.success(places) }
         }.start()
     }
 

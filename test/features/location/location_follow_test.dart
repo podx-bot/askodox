@@ -108,7 +108,7 @@ void main() {
       final c = LocationController(null, gps, placeNamer: namer);
       await c.requestPermission();
       expect(c.state.defaultLocation, isNull, reason: '$status');
-      expect(c.state.message, contains('not granted'));
+      expect(c.state.message, askodoxLocationStatusMessage(status), reason: 'a specific, honest reason per status');
       expect(gps.watchers, 0, reason: 'never follows without permission');
       final ok = await c.selectManualLocation(const BuyerSavedLocation(
           id: 'm', name: 'Chosen', address: 'Chosen Area, City', point: GeoPoint(17.1, 80.1), type: SavedLocationType.custom));

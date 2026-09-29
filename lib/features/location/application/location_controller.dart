@@ -47,7 +47,12 @@ class LocationState {
     this.offline = false,
     this.selectedShopId,
     this.message,
+    this.approximate = false,
   });
+
+  /// The user allowed only approximate location (Android 12+): places are
+  /// right to ~1-3 km; the app says so instead of claiming precision.
+  final bool approximate;
 
   final LocationPermissionStatus permission;
   final List<BuyerSavedLocation> locations;
@@ -108,8 +113,10 @@ class LocationState {
     String? selectedShopId,
     String? message,
     bool clearMessage = false,
+    bool? approximate,
   }) =>
       LocationState(
+        approximate: approximate ?? this.approximate,
         permission: permission ?? this.permission,
         locations: locations ?? this.locations,
         centre: centre ?? this.centre,
@@ -164,7 +171,10 @@ class LocationController extends StateNotifier<LocationState> {
     if (!mounted || !state.followsDevice) return;
     _following = _deviceLocation
         .watchPosition(distanceFilterMetres: moveThresholdMetres.round())
-        .listen((point) => unawaited(onDeviceMoved(point)), onError: (Object _) {}, cancelOnError: false);
+        .listen((point) => unawaited(onDeviceMoved(point)), onError: (Object _) {}, cancelOnError: false,
+            // GPS switched off / stream ended: allow the next resume or
+            // refresh to start following again (it used to stay "on").
+            onDone: () => _following = null);
   }
 
   Future<void> stopFollowing() async {
@@ -212,6 +222,13 @@ class LocationController extends StateNotifier<LocationState> {
     super.dispose();
   }
 
+  /// Opens the right settings screen for the current problem: the phone's
+  /// Location switch when GPS is off, this app's permissions after "Don't
+  /// ask again". Returns false when nothing could be opened.
+  Future<bool> openFixSettings() => state.permission == LocationPermissionStatus.servicesDisabled
+      ? _deviceLocation.openLocationSettings()
+      : _deviceLocation.openAppSettings();
+
   /// "Refresh my location": re-read GPS and re-name it.
   Future<void> refreshCurrentLocation() => requestPermission();
 
@@ -225,12 +242,17 @@ class LocationController extends StateNotifier<LocationState> {
     final status = await _deviceLocation.ensurePermission();
     state = state.copyWith(
       permission: status,
-      message: status == LocationPermissionStatus.granted ? null : 'Location access was not granted',
+      message: askodoxLocationStatusMessage(status),
       clearMessage: status == LocationPermissionStatus.granted,
     );
     if (status != LocationPermissionStatus.granted) return;
 
-    final point = await _deviceLocation.getCurrentPosition();
+    // A fresh fix first; indoors / weak GPS falls back to the phone's last
+    // known fix rather than failing.
+    final point = await _deviceLocation.getCurrentPosition() ?? await _deviceLocation.getLastKnownPosition();
+    if (await _deviceLocation.isApproximate()) {
+      state = state.copyWith(approximate: true);
+    }
     if (point == null) {
       state = state.copyWith(
         message: 'Location access granted, but the device position could not be read. '
@@ -481,3 +503,13 @@ class LocationController extends StateNotifier<LocationState> {
     } catch (_) {}
   }
 }
+
+/// What to tell the user for each permission outcome (null = all good).
+String? askodoxLocationStatusMessage(LocationPermissionStatus status) => switch (status) {
+      LocationPermissionStatus.granted => null,
+      LocationPermissionStatus.servicesDisabled =>
+        'Location (GPS) is turned off on this phone. Turn it on, or choose a place on the map.',
+      LocationPermissionStatus.deniedPermanently =>
+        'Location permission is blocked for ASKODOX. Allow it in app settings, or choose a place on the map.',
+      _ => 'Location access was not granted. You can allow it, or choose a place on the map.',
+    };

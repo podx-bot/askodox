@@ -129,6 +129,15 @@ class _LocationSetupScreenState extends ConsumerState<LocationSetupScreen> {
               child: Text('${_t('Now', 'ఇప్పుడు')}: $current',
                   key: const Key('askodoxCurrentLocation'), style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
+          if (state.approximate)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                  _t('Approximate location allowed -- nearby results are right to about 1-3 km. Allow "Precise" for exact distances.',
+                      'సుమారు లొకేషన్ మాత్రమే అనుమతించారు -- దగ్గరి ఫలితాలు 1-3 కి.మీ. వరకు సరిగ్గా ఉంటాయి. ఖచ్చితమైన దూరానికి "Precise" అనుమతించండి.'),
+                  key: const Key('askodoxApproximateLocation'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            ),
           FilledButton.icon(
             key: const Key('askodoxUseMyLocation'),
             onPressed: _locating ? null : _useMyLocation,
@@ -144,14 +153,29 @@ class _LocationSetupScreenState extends ConsumerState<LocationSetupScreen> {
               color: const Color(0xFFFFF4E5),
               child: ListTile(
                 leading: const Icon(Icons.location_off_outlined),
-                title: Text(_t('Location is off. Search your area below instead.',
-                    'లొకేషన్ ఆఫ్‌లో ఉంది. కింద మీ ప్రాంతం వెతకండి.')),
+                title: Text(switch (state.permission) {
+                  LocationPermissionStatus.servicesDisabled => _t(
+                      'Location (GPS) is turned off on this phone. Turn it on, or search your area below.',
+                      'ఫోన్‌లో లొకేషన్ (GPS) ఆఫ్‌లో ఉంది. ఆన్ చేయండి, లేదా కింద మీ ప్రాంతం వెతకండి.'),
+                  LocationPermissionStatus.deniedPermanently => _t(
+                      'Location permission is blocked for ASKODOX. Allow it in settings, or search your area below.',
+                      'ASKODOX కి లొకేషన్ అనుమతి బ్లాక్ అయింది. సెట్టింగ్స్‌లో అనుమతించండి, లేదా కింద వెతకండి.'),
+                  _ => _t('Location access was not allowed. Tap "Use my location" to allow, or search your area below.',
+                      'లొకేషన్ అనుమతి ఇవ్వలేదు. అనుమతికి "నా లొకేషన్ వాడండి" నొక్కండి, లేదా కింద వెతకండి.'),
+                }),
                 trailing: state.permission == LocationPermissionStatus.deniedPermanently ||
                         state.permission == LocationPermissionStatus.servicesDisabled
                     ? TextButton(
                         key: const Key('askodoxOpenLocationSettings'),
-                        onPressed: () => ref.read(askodoxDeviceNotificationsProvider).openAppSettings(),
-                        child: Text(_t('Settings', 'సెట్టింగ్స్')),
+                        // GPS off -> the phone's Location switch; blocked ->
+                        // this app's permission page.
+                        onPressed: () async {
+                          final opened = await ref.read(locationControllerProvider.notifier).openFixSettings();
+                          if (!opened) await ref.read(askodoxDeviceNotificationsProvider).openAppSettings();
+                        },
+                        child: Text(_t(
+                            state.permission == LocationPermissionStatus.servicesDisabled ? 'Turn on' : 'Settings',
+                            state.permission == LocationPermissionStatus.servicesDisabled ? 'ఆన్ చేయండి' : 'సెట్టింగ్స్')),
                       )
                     : null,
               ),
