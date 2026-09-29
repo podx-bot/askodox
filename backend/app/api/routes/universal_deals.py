@@ -793,7 +793,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     errors: list[str] = []
     affiliate_rows: list[dict] = []
     affiliate_config = getattr(container, "affiliate_provider_config", None)
-    if affiliate_config is not None and flags.get("results.affiliate", True):
+    if affiliate_config is not None and flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER":
         category = str(demand.get("domain") or "").strip().lower()
         subject = str(demand.get("subject") or "").strip()
         providers = []
@@ -865,7 +865,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     # Affiliate / partner results (Partner Hub) come AFTER ASKODOX
     # registered + nearby/local + normal online: ASKODOX stays local-first.
     partner_rows: list[dict] = []
-    if flags.get("results.affiliate", True):
+    if flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER":
         try:
             from app.api.routes.partners import partner_repo
             from app.services.affiliate_partner_service import partner_results

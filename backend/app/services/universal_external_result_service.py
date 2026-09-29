@@ -275,6 +275,51 @@ def relevant_to(subject: str, *texts: Any) -> bool:
     return len(wanted & hay) >= max(1, -(-len(wanted) // 2))
 
 
+# ----------------------------------------------------- category relevance --
+# A row must belong to the SAME kind of thing the conversation is about. A
+# word overlap alone ("fresh", "home", "store") let Used Cars / classifieds /
+# kitchen-appliance pages into a grocery conversation; these rules drop a row
+# whose own category plainly differs from the requirement's.
+_VEHICLE_HOSTS = ("cars24.com", "spinny.com", "cardekho.com", "carwale.com", "bikedekho.com", "droom.in",
+                  "bikewale.com", "carandbike.com", "truebil.com")
+_CLASSIFIED_HOSTS = ("olx.in", "quikr.com", "click.in", "locanto.")
+_PROPERTY_HOSTS = ("magicbricks.com", "99acres.com", "housing.com", "nobroker.in", "commonfloor.com")
+_VEHICLE_WORDS = re.compile(r"\b(cars?|bikes?|motorcycles?|scooters?|scooty|vehicles?|suv|sedan|hatchback|"
+                            r"two[- ]wheelers?|four[- ]wheelers?|auto ?rickshaw|tractors?)\b", re.IGNORECASE)
+_PROPERTY_WORDS = re.compile(r"\b(flats?|apartments?|plots?|houses? for (sale|rent)|villas?|bhk|real estate|"
+                             r"property|properties)\b", re.IGNORECASE)
+_APPLIANCE_WORDS = re.compile(r"\b(refrigerators?|fridges?|washing machines?|microwaves?|mixer grinders?|"
+                              r"air conditioners?|\bac\b|televisions?|tvs?|kitchen appliances?|home appliances?|"
+                              r"geysers?|chimneys?|induction)\b", re.IGNORECASE)
+_USED_WORDS_RE = re.compile(r"\b(used|second[- ]hand|pre[- ]owned|old)\b", re.IGNORECASE)
+_GOODS_CATEGORIES = {"grocery", "groceries", "kirana", "food", "fruits", "vegetables", "fruits_vegetables",
+                     "fashion", "clothing", "clothes", "apparel", "footwear", "meat", "chicken", "fish", "dairy",
+                     "bakery", "pharmacy", "medicine", "stationery", "cosmetics", "beauty"}
+
+
+def category_conflict(subject: Any, category: Any, url: str, title: Any = "", snippet: Any = "") -> str | None:
+    """Why a row does NOT belong to this requirement's category, or None."""
+    want = f"{subject or ''} {category or ''}"
+    row = f"{title or ''} {snippet or ''}"
+    wants_vehicle = bool(_VEHICLE_WORDS.search(want))
+    wants_property = bool(_PROPERTY_WORDS.search(want))
+    wants_used = bool(_USED_WORDS_RE.search(want))
+    goods = bool(set(re.findall(r"[a-z_]+", str(category or "").casefold())) & _GOODS_CATEGORIES) or bool(
+        set(re.findall(r"[a-z]+", str(subject or "").casefold())) & _GOODS_CATEGORIES)
+    if not wants_vehicle and (_host_matches(url, _VEHICLE_HOSTS) or
+                              (_VEHICLE_WORDS.search(str(title or "")) and not _VEHICLE_WORDS.search(want))):
+        return "vehicle_page"
+    if not wants_property and (_host_matches(url, _PROPERTY_HOSTS) or _PROPERTY_WORDS.search(str(title or ""))):
+        return "property_page"
+    if _host_matches(url, _CLASSIFIED_HOSTS) and (goods or not (wants_used or wants_vehicle or wants_property)):
+        # Classifieds are for used goods / vehicles / property, not a shop's
+        # grocery or clothing catalogue.
+        return "classifieds_page"
+    if goods and _APPLIANCE_WORDS.search(row) and not _APPLIANCE_WORDS.search(want):
+        return "other_category"
+    return None
+
+
 STATUS_OK = "ok"
 STATUS_NO_RESULTS = "no_results"
 STATUS_UNAVAILABLE = "unavailable"
@@ -338,6 +383,9 @@ class UniversalOnlineFallbackService:
             title, snippet = row.get("title"), row.get("snippet")
             if not relevant_to(subject, title, snippet):
                 self._drop("not_relevant")
+                continue
+            if category_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
+                self._drop("other_category")
                 continue
             if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
                 self._drop("wrong_region")

@@ -36,6 +36,7 @@ from app.services.universal_external_result_service import (
     _price_fields,
     _host_matches,
     _tokens,
+    category_conflict,
     classify_page,
     place_region_mismatch,
     region_mismatch,
@@ -216,6 +217,13 @@ class UniversalMultiSourceResultService:
         category = str(demand.get("domain") or "").strip()
         constraints = demand.get("constraints") or {}
         context_text = f"{subject} {constraints}"
+        # The AI's category ("grocery", "fashion" ...) travels with the demand:
+        # every web row must belong to it (category_conflict).
+        self._category = f"{category} {constraints.get('aiCategory') or ''}".strip()
+        setattr(self.fallback, "category_hint", self._category)
+        # A seller / provider (OFFER side) is not shopping: buyer-side web
+        # searches (used, open box, deals, online shops) are not their results.
+        self._supply = str(demand.get("side") or "").upper() == "OFFER" and self._kind == NEED_PRODUCT
         budget = self._number(demand.get("price"))
         lat, lon = demand.get("latitude"), demand.get("longitude")
         location_text = str(demand.get("location_text") or "").strip()
@@ -262,7 +270,7 @@ class UniversalMultiSourceResultService:
             query = f"{subject} service in {where} book"
         rows = (self.fallback.online(category=category, subject=subject, query=query, location_text=location_text,
                                      allow_directories=self._kind == NEED_SERVICE)
-                if include_online and "online" in plan else [])
+                if include_online and "online" in plan and not getattr(self, "_supply", False) else [])
         if "videos" in plan and not include_videos:
             # Reviews/videos only when the customer asked for them (never
             # mixed into "buy a TV" results just because search found some).
@@ -421,6 +429,8 @@ class UniversalMultiSourceResultService:
     def _web_segments(self, subject, location_text) -> list[dict[str, Any]]:
         if not callable(self.web_search) or not getattr(self.web_search, "configured", True):
             return []
+        if getattr(self, "_supply", False):
+            return []
         near = f" {location_text}" if location_text else " India"
         queries = {
             SEGMENT_USED: f"used second hand {subject}{near}",
@@ -443,6 +453,9 @@ class UniversalMultiSourceResultService:
                 # Must be about the requirement AND genuinely this segment.
                 if not relevant_to(subject, title, snippet) or not _mentions(f"{title} {snippet}", words):
                     self._filter("not_relevant")
+                    continue
+                if category_conflict(subject, getattr(self, "_category", ""), url, title, snippet):
+                    self._filter("other_category")
                     continue
                 if region_mismatch(url, title, snippet, wanted_place=location_text):
                     self._filter("wrong_region")
