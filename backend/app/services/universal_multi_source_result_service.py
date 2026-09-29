@@ -85,6 +85,10 @@ GEO_LADDER = (
 
 def _public_image(value: Any) -> str | None:
     text = str(value or "").strip()
+    # A seller's own catalogue photo is served by ASKODOX (the app resolves
+    # the relative path against its API base).
+    if text.startswith("catalog-photo:") and text.split(":", 1)[1].isdigit():
+        return f"/api/catalog/photos/{text.split(':', 1)[1]}"
     return text if text.startswith("https://") else None
 
 
@@ -414,6 +418,9 @@ class UniversalMultiSourceResultService:
                 "review_count": int(place["rating_count"]) if place.get("rating_count") not in (None, "") else None,
                 "availability": ("Open now" if place.get("open_now") is True else None),
                 "destination_url": place.get("maps_url") or None,
+                # Real coordinates for Directions (never a guessed point).
+                "latitude": place.get("latitude"),
+                "longitude": place.get("longitude"),
                 "source": "external",
                 "match_source": "external",
                 "segment": segment,

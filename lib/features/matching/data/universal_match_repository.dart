@@ -96,6 +96,8 @@ class UniversalMatch {
     this.clickId,
     this.redirectPath,
     this.benefits,
+    this.latitude,
+    this.longitude,
   });
 
   final String id;
@@ -153,6 +155,10 @@ class UniversalMatch {
   /// (backend benefits engine: {offers: [...], more, comparison_note}).
   final Map<String, Object?>? benefits;
 
+  /// The option's real place (Directions); null when the source gave none.
+  final double? latitude;
+  final double? longitude;
+
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
 
   double get totalValueScore {
@@ -189,6 +195,8 @@ class UniversalMatch {
           disclosure: json['disclosure']?.toString(),
           affiliate: json['affiliate'] == true,
           ratingAverage: (json['rating_average'] as num?)?.toDouble(),
+          latitude: (json['latitude'] as num?)?.toDouble(),
+          longitude: (json['longitude'] as num?)?.toDouble(),
           reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
           segment: json['segment']?.toString(),
           sourceName: json['source_name']?.toString(),
@@ -221,6 +229,8 @@ class UniversalMatch {
         'disclosure': disclosure,
         'affiliate': affiliate,
         'rating_average': ratingAverage,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
         'review_count': reviewCount,
         'segment': segment,
         'source_name': sourceName,

@@ -121,3 +121,14 @@ def test_seller_side_demand_runs_no_buyer_web_searches():
     assert service.online_and_videos(category="PRODUCT", subject="grocery items", include_online=True,
                                      include_videos=False) == []
     assert not any(q.startswith(("used second hand", "open box")) for q in queries), queries
+
+
+def test_result_rows_carry_the_sellers_own_photo_and_real_coordinates():
+    from app.services.universal_multi_source_result_service import UniversalMultiSourceResultService, _public_image
+
+    assert _public_image("catalog-photo:77") == "/api/catalog/photos/77"
+    assert _public_image("catalog-photo:../etc") is None and _public_image("http://x") is None
+    service = UniversalMultiSourceResultService(catalog=None, web_search=None)
+    rows = service._places_to_rows([{"name": "Sri Rama Kirana", "address": "Main Road, Vuyyuru", "latitude": 16.365,
+                                     "longitude": 80.845, "place_id": "p1"}], 16.36, 80.84, 5, 5)
+    assert rows[0]["latitude"] == 16.365 and rows[0]["longitude"] == 80.845

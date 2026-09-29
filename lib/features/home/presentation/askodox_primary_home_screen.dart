@@ -29,6 +29,7 @@ import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
 import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
+import '../application/saved_options.dart';
 import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../selling/data/catalogue_repository.dart';
@@ -3686,6 +3687,7 @@ class _ChatResultsView extends StatelessWidget {
                 ? 'మీ అభ్యర్థనను ${results.broadcastSent} నమోదైన ASKODOX ప్రొవైడర్లకు కూడా పంపాను.'
                 : 'Also sent to ${results.broadcastSent} registered ASKODOX provider(s) nearby.',
           ),
+        if (AskodoxLocalOnlineSummary.of(results.matches) case final summary?) _compareStrip(summary),
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
           _heading(askodoxSegmentTitle(segment, telugu: te, hasLocal: hasLocal, lang: lang),
               _segmentIcon(segment)),
@@ -3785,6 +3787,50 @@ class _ChatResultsView extends StatelessWidget {
         AskodoxResultSegment.partner => Icons.storefront_rounded,
         AskodoxResultSegment.video => Icons.play_circle_outline_rounded,
       };
+
+  /// Nearby vs online in one line each -- real prices only (a page price is
+  /// marked), nearest distance, the online source.
+  Widget _compareStrip(AskodoxLocalOnlineSummary s) {
+    String money(double? v) => v == null ? _l('no_price', 'ధర అడగాలి', 'price on request') : '₹${v.toStringAsFixed(0)}';
+    return Container(
+      key: const Key('askodoxLocalOnlineCompare'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD6E0FF)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(_l('local_vs_online', 'దగ్గరలో vs ఆన్‌లైన్', 'Nearby vs online'),
+            style: const TextStyle(fontWeight: FontWeight.w900, color: _ink)),
+        const SizedBox(height: 4),
+        Row(children: [
+          const Icon(Icons.near_me_rounded, size: 16, color: _blue),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '${_l('nearby_from', 'దగ్గరలో', 'Nearby from')} ${money(s.localPrice)}'
+              '${s.localDistanceKm == null ? '' : ' · ${s.localDistanceKm!.toStringAsFixed(1)} km'} · ${s.localCount}',
+              key: const Key('askodoxCompareLocal'),
+            ),
+          ),
+        ]),
+        Row(children: [
+          const Icon(Icons.public_rounded, size: 16, color: _blue),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '${_l('online_from', 'ఆన్‌లైన్', 'Online from')} ${money(s.onlinePrice)}'
+              '${s.onlinePrice != null && !s.onlineVerified ? (te ? ' (పేజీలో)' : ' (page price)') : ''}'
+              '${s.onlineSource == null ? '' : ' · ${s.onlineSource}'} · ${s.onlineCount}',
+              key: const Key('askodoxCompareOnline'),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
 
   Widget _heading(String text, IconData icon) => Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -3897,6 +3943,34 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   String? _orderStatusMessage;
 
   UniversalMatch get _match => widget.match;
+
+  /// A seller's own photo is served by ASKODOX as a relative path.
+  String _resolvedImage(String url) {
+    if (!url.startsWith('/')) return url;
+    final base = ref.read(appConfigProvider).apiBaseUrl;
+    return base == null ? url : base.resolve(url).toString();
+  }
+
+  Future<void> _openDirections(Uri uri) async {
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  Future<void> _share() async {
+    final m = _match;
+    final text = [
+      m.title,
+      if (m.price != null) '₹${m.price!.toStringAsFixed(0)}${m.priceVerified ? '' : ' (page)'}',
+      if (m.locationLabel?.trim().isNotEmpty == true) m.locationLabel!.trim(),
+      if (m.destinationUrl?.trim().isNotEmpty == true) m.destinationUrl!.trim(),
+      'via ASKODOX',
+    ].join(' · ');
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_l('copied', 'కాపీ అయింది -- ఎక్కడైనా పేస్ట్ చేసి షేర్ చేయండి.', 'Copied -- paste it anywhere to share.'))));
+    }
+  }
   bool get _te => widget.te;
   ChatResultAction get _action => chatResultActionFor(_match);
 
@@ -4047,7 +4121,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               child: _match.imageUrl?.trim().isNotEmpty == true
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(_match.imageUrl!,
+                      child: Image.network(_resolvedImage(_match.imageUrl!),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _sourceIcon()))
                   : _sourceIcon()),
@@ -4176,6 +4250,34 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 icon: const Icon(Icons.compare_arrows_rounded, size: 16),
                 label: Text(_l('compare', 'పోల్చండి', 'Compare')),
               ),
+            if (action != ChatResultAction.watchVideo && match.source != 'online' && !match.affiliate)
+              if (askodoxDirectionsUri(match) case final directions?)
+                TextButton.icon(
+                  key: ValueKey('askodoxDirections-${match.id}'),
+                  onPressed: () => _openDirections(directions),
+                  style: _compactText,
+                  icon: const Icon(Icons.directions_rounded, size: 16),
+                  label: Text(_l('directions', 'దారి చూపించు', 'Directions')),
+                ),
+            Builder(builder: (context) {
+              final saved = ref.watch(askodoxSavedOptionsProvider).any(
+                  (s) => AskodoxSavedOptions.keyOf(s) == AskodoxSavedOptions.keyOf(match));
+              return IconButton(
+                key: ValueKey('askodoxSave-${match.id}'),
+                tooltip: saved ? _l('saved', 'సేవ్ అయింది', 'Saved') : _l('save', 'సేవ్', 'Save'),
+                visualDensity: VisualDensity.compact,
+                icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, size: 20,
+                    color: saved ? _blue : null),
+                onPressed: () => ref.read(askodoxSavedOptionsProvider.notifier).toggle(match),
+              );
+            }),
+            IconButton(
+              key: ValueKey('askodoxShare-${match.id}'),
+              tooltip: _l('share', 'షేర్', 'Share'),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.share_outlined, size: 20),
+              onPressed: _share,
+            ),
             TextButton.icon(
               key: ValueKey('askodoxDetails-${match.id}'),
               onPressed: () {

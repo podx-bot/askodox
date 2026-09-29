@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
@@ -8,6 +9,7 @@ import '../../../core/update/askodox_update_service.dart';
 import '../../companion/askodox_companion.dart';
 import '../../companion/companion_picker.dart';
 import '../../home/application/conversation_archive.dart';
+import '../../home/application/saved_options.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
 import '../data/user_profile_repository.dart';
@@ -215,6 +217,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         'కొనుగోలుదారులకు కనిపించేవి. తీసివేయండి లేదా కొత్తవి జోడించండి.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/listings/mine'))),
+          if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty)
+            Card(
+                key: const Key('askodoxSavedOptionsTile'),
+                elevation: 0,
+                child: ListTile(
+                    leading: const Icon(Icons.bookmark_rounded),
+                    title: Text('${t('Saved options', 'సేవ్ చేసినవి')} (${ref.watch(askodoxSavedOptionsProvider).length})'),
+                    subtitle: Text(t('Options you saved from conversations.', 'సంభాషణల నుండి మీరు సేవ్ చేసినవి.')),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          builder: (context) => Consumer(builder: (context, ref, _) {
+                            final saved = ref.watch(askodoxSavedOptionsProvider);
+                            return SafeArea(
+                              child: ListView(shrinkWrap: true, children: [
+                                for (final m in saved)
+                                  ListTile(
+                                    title: Text(m.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                    subtitle: Text([
+                                      if (m.price != null) '₹${m.price!.toStringAsFixed(0)}',
+                                      if (m.locationLabel?.trim().isNotEmpty == true) m.locationLabel!,
+                                      if (m.sourceName?.trim().isNotEmpty == true) m.sourceName!,
+                                    ].join(' · ')),
+                                    onTap: () {
+                                      final uri = Uri.tryParse(m.destinationUrl ?? '') ?? askodoxDirectionsUri(m);
+                                      if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    },
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded),
+                                      onPressed: () => ref.read(askodoxSavedOptionsProvider.notifier).toggle(m),
+                                    ),
+                                  ),
+                              ]),
+                            );
+                          }),
+                        ))),
           // Request status (my orders, incoming orders, leads) lives in ONE
           // place: the Updates tab.
           if (ref.watch(authSessionProvider).user == null)

@@ -35,6 +35,7 @@ import 'package:podx/services/support_escalation_service.dart';
 import 'package:podx/services/voice_transcription_service.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/home/domain/active_role.dart';
+import 'package:podx/features/home/application/saved_options.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/selling/data/catalogue_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -680,6 +681,52 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 }
 
 void main() {
+  group('rich result cards in the conversation', () {
+    testWidgets('nearby vs online line, Directions to real coordinates, Save and Share', (tester) async {
+      const shop = UniversalMatch(
+        id: 'external-p1', title: 'Sri Rama Kirana', subtitle: 'Main Road, Vuyyuru', source: 'external',
+        distanceKm: 0.8, ratingAverage: 4.4, reviewCount: 31, latitude: 16.365, longitude: 80.845,
+        locationLabel: 'Main Road, Vuyyuru', availability: 'Open now');
+      const registered = UniversalMatch(
+        id: '77', title: 'Toor dal 1 kg', source: 'local', price: 160, distanceKm: 1.2, locationLabel: 'Vuyyuru',
+        imageUrl: '/api/catalog/photos/77');
+      const online = UniversalMatch(
+        id: 'online-1', title: 'Toor Dal 1kg', source: 'online', price: 175, priceVerified: false,
+        sourceName: 'jiomart.com', destinationUrl: 'https://www.jiomart.com/p/toor-dal');
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '901', matches: [registered, shop, online]),
+      ]));
+      final clipboard = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') clipboard.add('${(call.arguments as Map)['text']}');
+        return null;
+      });
+      await h.pump(tester);
+      await h.send(tester, 'I want to buy toor dal 1 kg in Vuyyuru');
+      if (find.byKey(const Key('askodoxLocalOnlineCompare')).evaluate().isEmpty) await h.send(tester, 'show me');
+
+      expect(find.byKey(const Key('askodoxLocalOnlineCompare')), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('askodoxCompareLocal'))).data, contains('₹160'));
+      expect(tester.widget<Text>(find.byKey(const Key('askodoxCompareOnline'))).data,
+          allOf(contains('₹175'), contains('page price'), contains('jiomart.com')));
+      expect(find.byKey(const ValueKey('askodoxDirections-external-p1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxDirections-online-1')), findsNothing, reason: 'no directions to a website');
+      expect(askodoxDirectionsUri(shop).toString(), contains('destination=16.365,80.845'));
+
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxSave-77')));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('askodoxSave-77')));
+      await _Harness.settle(tester);
+      final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+      expect(container.read(askodoxSavedOptionsProvider).map((m) => m.id), ['77']);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxShare-online-1')));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('askodoxShare-online-1')));
+      await _Harness.settle(tester);
+      expect(clipboard.single, allOf(contains('Toor Dal 1kg'), contains('https://www.jiomart.com/p/toor-dal')));
+    });
+  });
+
   group('seller role + ready-made catalogue (real-phone 1265 bug)', () {
     ProviderContainer scope(WidgetTester tester) =>
         ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
