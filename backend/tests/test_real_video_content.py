@@ -187,6 +187,11 @@ def test_service_need_links_videos_to_the_service(api):
     assert rows and rows[0]["services"] == ["AC service"] and rows[0]["products"] == []
     explained = client.post(f"/api/videos/{rows[0]['video_id']}/explain", json={}).json()
     assert {a["action"] for a in explained["next"]} >= {"local_service", "find_local"}
+    # A service need searches for the work explained, not "reviews" (which
+    # finds marketing videos aimed at the businesses themselves).
+    assert container.brave_web_search_provider.queries[-1] == "AC service explained"
+    local = next(a for a in explained["next"] if a["action"] == "local_service")
+    assert local["ask"] == "AC service near me", "no doubled 'service'"
 
 
 def test_youtube_data_api_leads_when_configured_and_paid_promotion_is_disclosed(api, monkeypatch):

@@ -49,7 +49,7 @@ class ReplayWebVideos:
         return []  # online pages come from production's next-step search
 
     def videos(self, query, limit):
-        subject = query.removesuffix(" review").strip().lower()
+        subject = query.removesuffix(" review").removesuffix(" explained").strip().lower()
         return self.by_subject.get(subject, [])
 
 

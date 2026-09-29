@@ -405,14 +405,16 @@ class UniversalOnlineFallbackService:
         self.status["online"] = STATUS_OK if results else STATUS_NO_RESULTS
         return results
 
-    def videos(self, *, category: str, subject: str, limit: int = 4) -> list[dict[str, Any]]:
+    def videos(self, *, category: str, subject: str, limit: int = 4, service: bool = False) -> list[dict[str, Any]]:
         subject = " ".join(str(subject or "").split())
         if not subject or str(category or "").strip().upper() in _NO_VIDEO_DOMAINS:
             return []
         if not self._search_configured:
             self.status["videos"] = STATUS_UNAVAILABLE
             return []
-        query = f"{subject} review"
+        # A service need wants to see the work explained ("AC service
+        # explained"); "review" finds marketing videos for businesses.
+        query = f"{subject} explained" if service else f"{subject} review"
         video_search = getattr(self.web_search, "videos", None)
         rows: list[dict[str, Any]] = []
         if callable(video_search):

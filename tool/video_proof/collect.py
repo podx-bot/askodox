@@ -27,7 +27,7 @@ def discover(text, subject, category, intent, language):
     raise RuntimeError("rate limited")
 
 
-NEXT_ASK = {"find_local": "{s} near me", "deals": "{s} offers", "local_service": "{s} service near me",
+NEXT_ASK = {"find_local": "{s} near me", "deals": "{s} offers", "local_service": "{service} near me",
             "reviews": "{s} reviews", "used": "used {s}"}
 captured = {}
 for label, language, text, subject, category, intent, step in CASES:
@@ -41,7 +41,9 @@ for label, language, text, subject, category, intent, step in CASES:
     source = discover(f"{subject} review video", subject, source_category, source_intent, "en")
     videos = [m for m in source["matches"] if m.get("match_source") == "video"]
     time.sleep(3)
-    ask = NEXT_ASK[step].format(s=subject)
+    # Same wording rule as the app: "ac service near me", "plumbing repair service near me".
+    service = subject if subject.lower().endswith("service") else f"{subject} service"
+    ask = NEXT_ASK[step].format(s=subject, service=service)
     follow = discover(ask, subject if step != "used" else f"used {subject}", category, intent, language)
     time.sleep(3)
     captured[label] = {

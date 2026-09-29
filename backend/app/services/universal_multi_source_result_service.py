@@ -301,7 +301,8 @@ class UniversalMultiSourceResultService:
             # mixed into "buy a TV" results just because search found some).
             self.fallback.status["videos"] = STATUS_NOT_APPLICABLE
             return rows
-        return rows + (self.fallback.videos(category=category, subject=subject) if "videos" in plan else [])
+        return rows + (self.fallback.videos(category=category, subject=subject, service=self._kind == NEED_SERVICE)
+                       if "videos" in plan else [])
 
     # ----------------------------------------------------------- sources --
 
