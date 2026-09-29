@@ -141,7 +141,15 @@ jobs:
           assert 'askodoxMediaPickerProvider' in screen
           assert 'chatAttachmentServiceProvider' in screen
           assert "'/api/attachments/analyze'" in attach_client
-          assert "'file_base64': base64Encode(attachment.bytes)" in attach_client
+          assert 'final encoded = base64Encode(attachment.bytes);' in attach_client
+          assert "'file_base64': encoded" in attach_client
+          # A backend without the unified route (404/405) is served by the
+          # same processors behind the per-kind routes -- still real bytes.
+          for legacy in ("'/vision/analyze'", "'/vision/analyze-video'", "'/documents/analyze'"):
+              assert legacy in attach_client, f'missing attachment fallback route {legacy}'
+          assert "'image_base64': encoded" in attach_client and "'video_base64': encoded" in attach_client
+          assert 'askodoxAttachmentFacts(kind, analysis)' in attach_client
+          assert 'error.diagnostic' in screen, 'attachment failures must show a safe diagnostic'
           assert 'image_service.analyze(' in attach_route and 'image_service.analyze_video(' in attach_route
           assert 'attachment_facts(kind, analysis)' in attach_route
           assert '[Attachment: ' not in screen, 'a file name must never stand in for the attachment'

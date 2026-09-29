@@ -532,11 +532,16 @@ class _AskodoxPrimaryHomeScreenState
     return true;
   }
 
-  void _attachmentNotice(String key, {VoidCallback? retry}) {
+  void _attachmentNotice(String key, {VoidCallback? retry, String? diagnostic}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       key: ValueKey('askodoxAttachmentNotice-$key'),
-      content: Text(askodoxChatLabel(key, _lang)),
+      content: Text([
+        askodoxChatLabel(key, _lang),
+        // Safe diagnostic (error code + HTTP status only) so a real-phone
+        // failure can be told apart without the logs.
+        if (diagnostic != null && diagnostic.isNotEmpty) '($diagnostic)',
+      ].join(' ')),
       action: retry == null
           ? null
           : SnackBarAction(label: askodoxChatLabel('retry', _lang), onPressed: retry),
@@ -1243,14 +1248,17 @@ class _AskodoxPrimaryHomeScreenState
       } on ChatAttachmentException catch (error) {
         if (job != _attachmentJob || !mounted) return;
         setState(() => _analyzingAttachments = false);
+        debugPrint('ASKODOX attachment analysis failed: ${error.diagnostic}');
         _attachmentNotice(
           switch (error.code) {
             'unsupported' => 'attach_unsupported',
             'too_large' => 'attach_too_large',
             'unavailable' => 'attach_unavailable',
+            'not_understood' => 'attach_not_understood',
             _ => 'attach_failed',
           },
           retry: error.retryable ? () => _send(preset, speakResponse) : null,
+          diagnostic: error.diagnostic,
         );
         return;
       }

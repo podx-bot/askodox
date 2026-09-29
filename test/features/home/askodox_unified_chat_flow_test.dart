@@ -683,13 +683,17 @@ void main() {
       final h = _Harness(matches: _FakeMatchRepository([
         const UniversalMatchResult(dealId: '972', matches: [_localMatch]),
       ]));
-      h.attachments.failures.add(const ChatAttachmentException('network', 'offline'));
+      h.attachments.failures
+          .add(const ChatAttachmentException('failed', 'bad gateway', statusCode: 502, endpoint: 'unified'));
       await h.pump(tester);
       await attach(tester, h, 'Camera', [ChatAttachment(name: 'camera.jpg', bytes: _photoBytes, mimeType: 'image/jpeg')]);
       await h.send(tester, 'what is this');
       expect(h.assistant.requests, isEmpty, reason: 'no placeholder request after a failed upload');
       expect(find.byKey(const Key('askodoxAttachmentPreview')), findsOneWidget);
       expect(find.byKey(const ValueKey('askodoxAttachmentNotice-attach_failed')), findsOneWidget);
+      expect(find.textContaining('(failed · HTTP 502 · unified)'), findsOneWidget,
+          reason: 'the real status is shown, not only the generic sentence');
+      expect(find.textContaining('bad gateway'), findsNothing);
       await tester.tap(find.text('Retry'));
       await _Harness.settle(tester);
       expect(h.attachments.calls, hasLength(2));
