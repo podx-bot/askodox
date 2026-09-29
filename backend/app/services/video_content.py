@@ -301,8 +301,9 @@ def explain_web(video: Dict[str, Any], question: str, *, language: str = "en") -
                ("compare", "పోల్చండి" if te else "Compare", f"Compare {subject} with alternatives"),
                ("reviews", "రివ్యూలు" if te else "More reviews", f"{subject} reviews")]
     if service:
+        service_ask = subject if str(subject).lower().rstrip().endswith("service") else f"{subject} service"
         actions.insert(1, ("local_service", "స్థానిక సేవ" if te else "Book a local service",
-                           f"{subject} service near me"))
+                           f"{service_ask} near me"))
     else:
         actions.insert(2, ("used", "వాడినది / తక్కువ ధర" if te else "Used / cheaper", f"used {subject}"))
     label = PAID_DISCLOSURE if video.get("paid_promotion") else WEB_DISCLOSURE

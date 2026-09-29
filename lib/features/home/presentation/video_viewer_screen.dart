@@ -77,6 +77,9 @@ String askodoxVideoDisclosure(String? disclosure, {bool telugu = false}) {
   };
 }
 
+String _serviceAsk(String service) =>
+    service.trim().toLowerCase().endsWith('service') ? service.trim() : '${service.trim()} service';
+
 /// Contextual next steps for a video: local / deals / compare / reviews and
 /// used (products) or a local service (services). Pure, so it is testable.
 List<({String action, String label, String ask, String event})> askodoxVideoNextSteps(UniversalMatch video,
@@ -91,7 +94,7 @@ List<({String action, String label, String ask, String event})> askodoxVideoNext
      event: 'video_local_search'),
     if (video.relatedServices.isNotEmpty)
       (action: 'local_service', label: telugu ? 'స్థానిక సేవ' : 'Book a local service',
-       ask: '${video.relatedServices.first} service near me', event: 'video_service_click'),
+       ask: '${_serviceAsk(video.relatedServices.first)} near me', event: 'video_service_click'),
     (action: 'deals', label: telugu ? 'డీల్స్ చూపించండి' : 'Show deals', ask: '$subject offers',
      event: 'video_product_click'),
     (action: 'compare', label: telugu ? 'పోల్చండి' : 'Compare', ask: 'Compare $subject with alternatives',

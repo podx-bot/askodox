@@ -97,6 +97,14 @@ jobs:
           if [ -d "$PROOF_DIR/renders" ]; then cp -r "$PROOF_DIR/renders" docs/video_proof/; fi
           git config user.name "askodox-video-proof[bot]"
           git config user.email "askodox-video-proof@users.noreply.github.com"
+          # flutter pub get rewrites analysis_options.yaml; never commit that.
+          git checkout -- analysis_options.yaml 2>/dev/null || true
           git add docs/video_proof
           git commit -m "Video real-content proof (run ${{ github.run_id }})" || exit 0
-          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done
+          for i in 1 2 3; do
+            if git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "evidence pushed"; exit 0
+            fi
+            sleep 5
+          done
+          echo "could not push the evidence commit"; exit 1

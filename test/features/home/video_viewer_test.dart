@@ -139,6 +139,8 @@ void main() {
     final service = askodoxVideoNextSteps(_video({'products': [], 'services': ['AC repair']}));
     expect(service.map((s) => s.action), contains('local_service'));
     expect(service.firstWhere((s) => s.action == 'local_service').ask, 'AC repair service near me');
+    final ac = askodoxVideoNextSteps(_video({'products': [], 'services': ['ac service']}));
+    expect(ac.firstWhere((s) => s.action == 'local_service').ask, 'ac service near me');
     final te = askodoxVideoNextSteps(_video({}), telugu: true);
     expect(te.first.label, 'దగ్గరలో కనుగొనండి');
   });
