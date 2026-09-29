@@ -2654,6 +2654,12 @@ void main() {
       await expectLater(find.byType(MaterialApp), matchesGoldenFile(Uri.file('${out.path}/$name.png')));
     }
 
+    // Scroll a target to the middle of its list (not under a header) before tapping.
+    Future<void> centre(Finder target) async {
+      await tester.runAsync(() => Scrollable.ensureVisible(tester.element(target.first), alignment: 0.5));
+      await tester.pumpAndSettle();
+    }
+
     for (final label in ['electronics', 'electronics-te', 'service']) {
       final c = (proof['cases'] as List).cast<Map<String, dynamic>>().firstWhere((c) => c['label'] == label,
           orElse: () => <String, dynamic>{});
@@ -2702,21 +2708,21 @@ void main() {
       await shot('${label}_1_search_videos');
       final thumb = find.byKey(ValueKey('askodoxVideoThumb-video-${videos.first['video_id']}'));
       if (thumb.evaluate().isEmpty) continue;
-      await tester.ensureVisible(thumb);
+      await centre(thumb);
       await tester.tap(thumb);
       await tester.pumpAndSettle();
       await shot('${label}_2_watch');
-      await tester.ensureVisible(find.byKey(const Key('askodoxVideoAsk')));
+      await centre(find.byKey(const Key('askodoxVideoAsk')));
       await tester.tap(find.byKey(const Key('askodoxVideoAsk')));
       await _Harness.settle(tester);
       await tester.pumpAndSettle();
       await shot('${label}_3_ask_ai_answer');
-      await tester.ensureVisible(thumb);
+      await centre(thumb);
       await tester.tap(thumb);
       await tester.pumpAndSettle();
       final step = (c['next'] as Map?)?['step'] as String? ?? 'find_local';
       final chip = find.byKey(Key('askodoxVideoNext_$step'));
-      await tester.ensureVisible(chip);
+      await centre(chip);
       await tester.tap(chip);
       await _Harness.settle(tester);
       await tester.pumpAndSettle();

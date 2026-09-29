@@ -63,28 +63,37 @@ jobs:
           cache: true
 
       - name: 4. App renders with the real content
+        id: renders
+        continue-on-error: true
         run: |
           flutter pub get
           ASKODOX_VIDEO_PROOF="$PROOF_DIR" flutter test --update-goldens \
             test/features/home/askodox_unified_chat_flow_test.dart --plain-name "Real video proof"
 
       - name: 5. Report
+        if: always()
         working-directory: tool/video_proof
         run: |
+          echo "renders step: ${{ steps.renders.outcome }}"
           python report.py "$PROOF_DIR" "${{ github.run_id }}"
           cat "$PROOF_DIR/README.md" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: video-real-content-proof
           path: proof_out
           retention-days: 30
 
       - name: Commit evidence to the branch
+        if: always()
         run: |
           rm -rf docs/video_proof && mkdir -p docs/video_proof
-          cp "$PROOF_DIR/README.md" "$PROOF_DIR/proof.json" docs/video_proof/
-          cp "$PROOF_DIR/production_capture.json" docs/video_proof/
+          cp "$PROOF_DIR/proof.json" docs/video_proof/ || true
+          cp "$PROOF_DIR/README.md" docs/video_proof/ || true
+          cp "$PROOF_DIR/thumbs.json" docs/video_proof/ || true
+          if [ -d "$PROOF_DIR/thumbs" ]; then cp -r "$PROOF_DIR/thumbs" docs/video_proof/; fi
+          cp "$PROOF_DIR/production_capture.json" docs/video_proof/ || true
           if [ -d "$PROOF_DIR/renders" ]; then cp -r "$PROOF_DIR/renders" docs/video_proof/; fi
           git config user.name "askodox-video-proof[bot]"
           git config user.email "askodox-video-proof@users.noreply.github.com"
