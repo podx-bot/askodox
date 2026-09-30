@@ -18,6 +18,11 @@ on:
         required: false
         default: ''
         type: string
+      api_base_url:
+        description: Optional backend for a phone-test build (e.g. the staging environment). Refused on main.
+        required: false
+        default: ''
+        type: string
   push:
     branches: [main]
     paths:
@@ -39,7 +44,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      API_BASE_URL: ${{ vars.API_BASE_URL || 'https://podx-ai-connect-production-3279.up.railway.app' }}
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL || 'https://podx-ai-connect-production-3279.up.railway.app' }}
+      API_BASE_URL_OVERRIDE: ${{ inputs.api_base_url }}
       ANDROID_ORG: ${{ vars.ANDROID_ORG }}
       KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -98,6 +104,13 @@ jobs:
             echo 'API_BASE_URL must be an https:// URL.' >&2
             exit 1
           fi
+          # A backend override is for phone-test builds only: main always
+          # ships the production backend.
+          if [ -n "${API_BASE_URL_OVERRIDE:-}" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo 'api_base_url overrides are not allowed on main.' >&2
+            exit 1
+          fi
+          echo "Backend for this build: $API_BASE_URL"
           echo "ANDROID_ORG=${ANDROID_ORG:-com.askodox}" >> "$GITHUB_ENV"
 
       - name: Verify ASKODOX production backend
@@ -128,6 +141,7 @@ jobs:
             --dart-define=APP_ENV=staging \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
 
@@ -176,6 +190,7 @@ jobs:
             --dart-define=APP_ENV=production \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
 
@@ -199,6 +214,24 @@ jobs:
                   for e in entries:
                       print(f"  {e.compress_size / 1048576:7.2f} MB  {e.filename}")
           PY
+
+      - name: Verify the APK's backend
+        # Every service in the app reads API_BASE_URL or ASKODOX_API_BASE_URL;
+        # both are compiled in. Proves the phone talks to the chosen backend.
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${API_BASE_URL#https://}"; HOST="${HOST%%/*}"
+          for apk in dist/*.apk; do
+            case "$apk" in *-debug.apk) continue ;; esac  # debug builds carry no AOT libapp.so
+            n=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o "$HOST" | wc -l || true)
+            p=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o 'podx-ai-connect-production-3279.up.railway.app' | wc -l || true)
+            echo "$(basename "$apk"): $HOST x$n; production host x$p" | tee -a dist/BACKEND.txt
+            [ "$n" -gt 0 ] || { echo "FAIL: $apk does not contain $HOST"; exit 1; }
+            if [ -n "${API_BASE_URL_OVERRIDE:-}" ] && [ "$p" -gt 0 ]; then
+              echo "FAIL: $apk still contains the production host"; exit 1
+            fi
+          done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -284,6 +317,7 @@ jobs:
           mkdir -p phone-test
           cp "$REL" phone-test/
           cp VERIFICATION.txt phone-test/
+          cp dist/BACKEND.txt phone-test/ 2>/dev/null || true
 
       - name: Upload verified phone-test APK
         if: steps.signing.outputs.configured == 'true' && steps.verify.outcome == 'success'
