@@ -2,6 +2,8 @@
 
 Build **1271** from branch `claude/friendly-ramanujan-538sbj`, talking to the **staging** backend
 `https://podx-ai-connect-staging.up.railway.app` (Railway environment `staging`, this branch, its own database).
+`https://staging.askodox.com` is the same staging service (verified: same deployed commit and environment), so the
+APK needs no rebuild for the custom domain.
 Production and `main` are untouched.
 
 Before you start:
@@ -51,7 +53,7 @@ Before you start:
     declared a paid promotion, so every video shows *"Creator's opinion — not verified by ASKODOX"*. (With the key,
     declared paid promotions would appear **after** all organic results with *"Includes paid promotion (declared on
     YouTube)"* -- not testable yet.)
-13. Command Center on **staging** (`https://podx-ai-connect-staging.up.railway.app/admin/console`, your usual admin
+13. Command Center on **staging** (`https://staging.askodox.com/admin/console`, your usual admin
     key) → **Video & Social → Videos** → **New**: title *"Samsung 43 inch TV demo"*, the YouTube link from step 1, keywords
     *samsung 43 inch tv*, relationship **Sponsored** (then a second one as **Affiliate**) → it starts *Pending review*: approve it to
     **Active** →
