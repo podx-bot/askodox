@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Request
 
 from app.services.runtime_readiness_service import RuntimeReadinessService
@@ -51,6 +52,9 @@ def health() -> dict:
     return {
         "status": "healthy",
         "app": "ASKODOX",
+        # The deployed commit (public, not a secret): lets a smoke test wait
+        # until an environment serves exactly the pushed code.
+        "commit": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")[:12],
     }
 
 

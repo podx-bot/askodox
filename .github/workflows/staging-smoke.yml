@@ -30,16 +30,21 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install httpx
-      - name: Wait for staging to answer
+      - name: Wait until staging serves this commit
         run: |
-          for i in $(seq 1 30); do
-            curl -fsS --max-time 15 "$STAGING_URL/health" && exit 0
+          want="${GITHUB_SHA:0:12}"
+          for i in $(seq 1 45); do
+            got="$(curl -fsS --max-time 15 "$STAGING_URL/health" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit",""))' || true)"
+            echo "staging commit: ${got:-?} (want $want)"
+            if [ "$got" = "$want" ]; then sleep 30; exit 0; fi  # let the old container finish draining
             sleep 20
           done
-          exit 1
+          echo "staging never served $want"; exit 1
       - name: Staging runs this branch; production untouched
         working-directory: tool/video_proof
-        run: python staging_smoke.py "$STAGING_URL" | tee staging_smoke.txt
+        run: |
+          set -o pipefail
+          python staging_smoke.py "$STAGING_URL" | tee staging_smoke.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

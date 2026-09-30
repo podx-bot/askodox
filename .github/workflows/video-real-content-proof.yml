@@ -12,6 +12,7 @@ on:
     paths:
       - .github/workflows/video-real-content-proof.yml
       - tool/video_proof/**
+      - '!tool/video_proof/staging_smoke.py'
       # What the proof exercises: the video pipeline and the app's chat/viewer.
       - backend/app/services/video_content.py
       - backend/app/api/routes/platform.py
