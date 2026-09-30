@@ -143,7 +143,12 @@ def redeem_referral_safely(container: Any, code: str, user: str) -> dict | None:
     pending = growth(container).referral(code)
     if not pending or is_blocked_user(container, pending["referrer_user_id"]):
         return None
-    return growth(container).redeem_referral(code, user)
+    ref = growth(container).redeem_referral(code, user)
+    if ref:
+        from app.api.routes.owner_os import award_referral_credits
+
+        ref = {**ref, "priority_credits": award_referral_credits(container, ref)}
+    return ref
 
 
 class ReferralRequest(BaseModel):

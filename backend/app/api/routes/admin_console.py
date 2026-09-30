@@ -112,12 +112,13 @@ function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.nam
   ["Money",[{id:"payments",label:"Payments",perm:"payments:view"},{id:"ledger",label:"Revenue ledger",perm:"finance:view"},{id:"rewards",label:"Rewards ledger",perm:"rewards:view"},{id:"transactions",label:"Transactions",perm:"finance:view"},r("subscription_promos")]],
   ["Customers",[{id:"support",label:"Support tickets",perm:"support:view"},{id:"accounts",label:"Users & accounts",perm:"users:view"},r("notification_templates"),r("notification_rules")]],
   ["System",[{id:"readiness",label:"Integration readiness",perm:"integrations:view"},{id:"integrations",label:"Integrations",perm:"integrations:view"},{id:"outbox",label:"Message deliveries",perm:"integrations:view"},{id:"flags",label:"Feature flags",perm:"config:view"},{id:"staff",label:"Staff & roles",perm:"staff:manage"},{id:"approvals",label:"Approvals",perm:"approvals:view"},{id:"selfheal",label:"Self-healing",perm:"selfheal:view"},{id:"audit",label:"Audit log",perm:"audit:view"},{id:"events",label:"Event stream",perm:"analytics:view"}]],
+  ["Owner setup",[{id:"setup",label:"ASKODOX setup",perm:"config:view"},r("qa_checks"),r("email_roles"),r("referral_credit_rules"),r("greeting_templates"),r("delivery_partners")]],
   ["AI Companion",[{id:"screenguide",label:"Screen Guide",perm:"companion:view"}]]]}
 function renderNav(){const counts=STATE.pending||{};document.querySelector("#side").innerHTML='<div class="logo"><i></i>ASKODOX</div>'+navModel().map(([g,items])=>{const vis=items.filter(i=>can(i.perm));
   return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
 async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
-  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide}[VIEW];await (f||dashboard)()}
+  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup}[VIEW];await (f||dashboard)()}
   catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
 
 /* ---------------------------------------------------------------- auth -- */
@@ -357,6 +358,14 @@ async function screenguide(){const d=await call("companion/screen-guide");const 
   '<div class="kpis">'+[["Sessions (30 d)",s.sessions_started],["Active now",s.active_sessions],["Completed",s.successes],["Abandoned",s.abandoned],["Failed",s.failures],["Resumes after pause",s.resumes]].map(([l,v])=>'<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>').join("")+'</div>'+
   '<div class="cols">'+[["Privacy pauses / blocks",s.privacy_pauses],["Failure points",s.failure_points],["Languages",s.languages],["Task categories",s.categories],["Steps (model / rules)",s.steps]].map(([l,v])=>'<div class="card"><h3>'+l+'</h3>'+kv(v)+'</div>').join("")+'<div class="card"><h3>Permission health</h3>'+Object.entries(s.permission_health||{}).map(([k,v])=>esc(k)+': '+kv(v)).join("<br>")+'</div></div>'+
   '<div class="card"><h3>Privacy</h3>'+d.privacy.map(esc).join("<br>")+'</div>'}
+
+async function setup(){const d=await call("owner/setup");const kv=o=>Object.entries(o||{}).map(([k,v])=>esc(k)+': <b>'+esc(String(v))+'</b>').join("<br>")||"—";
+  document.querySelector("#page").innerHTML=head("ASKODOX setup","What is configured, what is not, and what only the Owner can do. Environment: "+esc(d.environment),can("config:manage")&&d.environment!=="production"?'<button class="btn" id="seed">Load staging test defaults</button>':'<span class="muted">Staging defaults: not available here</span>')+
+  '<div class="cols"><div class="card"><h3>Domain &amp; e-mail roles</h3>'+(d.email_roles.map(e=>esc(e.role)+': '+esc(e.address)+' · '+esc(e.mode)+' · '+badge(e.status)+(e.verified_on?' · verified '+esc(e.verified_on):' · <span class="muted">not verified</span>')).join("<br>")||"None yet — add them under Domain &amp; e-mail roles.")+'</div>'+
+  '<div class="card"><h3>Phone-test findings</h3>'+kv(d.qa)+'</div><div class="card"><h3>Owner OS switches</h3>'+Object.entries(d.flags).map(([k,v])=>esc(k)+' '+badge(v?"ON":"OFF")).join("<br>")+'<br><span class="muted">Change in Feature flags (approval rules apply).</span></div>'+
+  '<div class="card"><h3>Referral credit rule</h3>'+(d.credit_rule?esc(d.credit_rule):'<span class="muted">No ACTIVE rule — referrals earn no credits.</span>')+'</div>'+
+  '<div class="card"><h3>Integrations</h3>'+d.integrations.map(i=>esc(i.key)+' '+badge(i.status)).join("<br>")+'</div></div>';
+  const b=document.querySelector("#seed");if(b)b.onclick=async()=>{const r=await call("owner/seed-staging","POST",{});alert("Created: "+JSON.stringify(r.created));setup()}}
 
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==VIEW&&ME){VIEW=h;renderNav();render()}});
 if(CRED)signIn();else document.querySelector("#login").style.display="block";

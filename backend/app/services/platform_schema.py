@@ -541,6 +541,130 @@ _register(Resource(
 ))
 
 
+# --- Owner OS configuration (staging round) --------------------------------
+ENABLE_DISABLE = (
+    _A("enable", "Enable", "ACTIVE", ("DISABLED",)),
+    _A("disable", "Disable", "DISABLED", ("ACTIVE",), confirm=True),
+)
+USER_ROLES = ("buyer", "seller", "service_provider", "job_seeker", "employer", "delivery_partner", "driver",
+              "creator", "any")
+PRIORITY_TYPES = ("nearby_request", "opportunity", "offer", "lead", "job", "delivery", "campaign")
+
+_register(Resource(
+    name="referral_credit_rules", label="Referral credit rules", group="Growth", prefix="rcr",
+    permission="growth", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="Referrals earn ASKODOX Priority Notification Credits (not cash). Every number here is "
+                "configurable; the ACTIVE rule with the highest priority applies. Staging defaults are for testing.",
+    fields=(
+        F("name", "Rule name", required=True, list_column=True),
+        F("priority", "Priority (higher wins)", "int", min=0, max=1000),
+        F("referrals_required", "Referrals required per award", "int", required=True, min=1, max=1000,
+          list_column=True),
+        F("credits_awarded", "Credits per award", "int", required=True, min=0, max=100000, list_column=True),
+        F("bonus_slabs", "Bonus slabs", "json",
+          help='{"<referrals>": <extra credits>}, e.g. {"5": 5, "10": 10}: extra credits when the referrer '
+               'reaches that many registered referrals.'),
+        F("expiry_days", "Credits expire after (days, 0 = never)", "int", min=0, max=3650, list_column=True),
+        F("max_balance", "Maximum balance (0 = no cap)", "int", min=0, max=1000000),
+        F("eligible_roles", "Eligible referrer roles", "list", options=USER_ROLES),
+        F("eligible_notification_types", "Credits can boost", "list", options=PRIORITY_TYPES),
+        F("daily_limit", "Max credits earned per day (0 = none)", "int", min=0, max=100000),
+        F("monthly_limit", "Max credits earned per month (0 = none)", "int", min=0, max=1000000),
+        F("spend_daily_limit", "Max priority sends per user per day (0 = none)", "int", min=0, max=1000),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="greeting_templates", label="Greetings & conversation texts", group="Conversation", prefix="grt",
+    permission="content", name_field="text", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Chosen automatically from the user's local time, language and context. Language is any "
+                "BCP-47 tag (e.g. en, te, hi, ta, es, ar, fr-CA); blank = fallback for every language. "
+                "{name} is replaced by the user's first name when known. Several texts per kind rotate so "
+                "the same greeting is not repeated.",
+    fields=(
+        F("kind", "Kind", "enum", required=True, list_column=True, filter=True,
+          options=("morning", "afternoon", "evening", "night", "returning", "role_switch", "no_result",
+                   "fallback")),
+        F("language", "Language (BCP-47, blank = any)", list_column=True, filter=True),
+        F("text", "Text", "longtext", required=True, list_column=True),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="email_roles", label="Domain & e-mail roles", group="Setup", prefix="eml",
+    permission="integrations", name_field="role", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="Which address serves each purpose and how (forwarding such as Namecheap, a mailbox, or "
+                "send-only through a mail provider). Nothing here buys or creates a mailbox; passwords/API keys "
+                "stay in Integrations.",
+    fields=(
+        F("role", "Purpose", "enum", required=True, list_column=True, filter=True,
+          options=("support", "admin", "partners", "notifications", "no_reply", "security", "billing", "other")),
+        F("address", "Address (e.g. support@your-domain)", required=True, list_column=True),
+        F("mode", "Mode", "enum", required=True, list_column=True,
+          options=("forwarding", "mailbox", "send_only", "not_configured")),
+        F("forwards_to", "Forwards to (owner inbox)"),
+        F("needs_inbound", "Must receive mail", "bool"),
+        F("needs_outbound", "ASKODOX sends from it", "bool"),
+        F("verified_on", "Last verified (test mail received)", "date", list_column=True),
+        F("notes", "Notes (DNS: MX / SPF / DKIM / DMARC status)", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="delivery_partners", label="Delivery partners", group="Delivery", prefix="dlp",
+    permission="delivery", name_field="name", initial_status="PENDING_REVIEW", statuses=LIFECYCLE,
+    four_eyes=True,
+    description="Party B for delivery requests: ASKODOX-registered independent partners/drivers and external "
+                "logistics partners (connected later through Integrations). Matching uses service type, "
+                "availability and distance -- never one hard-wired provider.",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("kind", "Kind", "enum", required=True, list_column=True, filter=True,
+          options=("independent", "external")),
+        F("user_ref", "ASKODOX user (u_...) for independents"),
+        F("integration_key", "Integration key (external partners)"),
+        F("services", "Services", "list", required=True, list_column=True,
+          options=("food", "grocery", "parcel", "product", "pickup_drop", "documents", "other")),
+        F("vehicle", "Vehicle", "enum", options=("walk", "bicycle", "two_wheeler", "three_wheeler", "car",
+                                                  "van", "truck", "any")),
+        F("town", "Town / city", filter=True, list_column=True),
+        F("country", "Country"),
+        F("latitude", "Base latitude", "number", min=-90, max=90),
+        F("longitude", "Base longitude", "number", min=-180, max=180),
+        F("radius_km", "Serves within (km)", "number", min=0.1, max=500),
+        F("available", "Available now", "bool", list_column=True),
+        F("verified", "Identity / licence verified", "bool"),
+    ),
+    actions=(
+        _A("submit", "Submit for review", "PENDING_REVIEW", ("DRAFT", "REJECTED")),
+        _A("approve", "Approve", "ACTIVE", ("PENDING_REVIEW",), perm="approve"),
+        _A("reject", "Reject", "REJECTED", ("PENDING_REVIEW",), confirm=True, perm="approve"),
+        _A("pause", "Suspend", "PAUSED", ("ACTIVE",), confirm=True),
+        _A("resume", "Reinstate", "ACTIVE", ("PAUSED",)),
+    ),
+))
+
+QA_STATUSES = ("OPEN", "NOT TESTED", "CODE READY", "STAGING VERIFIED", "PHONE VERIFIED", "LIVE VERIFIED")
+
+_register(Resource(
+    name="qa_checks", label="Phone-test / QA center", group="Setup", prefix="qac",
+    permission="qa", name_field="title", initial_status="OPEN", statuses=QA_STATUSES,
+    description="Every phone-test finding with its evidence. A finding moves to PHONE VERIFIED only with an "
+                "evidence link / note from a real phone test.",
+    fields=(
+        F("title", "Finding / check", required=True, list_column=True),
+        F("area", "Area", filter=True, list_column=True),
+        F("build", "Build tested", list_column=True),
+        F("result", "What happened", "longtext"),
+        F("evidence", "Evidence (link or note)", "longtext"),
+        F("tested_on", "Tested on", "date", list_column=True),
+    ),
+    actions=tuple(_A(s.lower().replace(" ", "_"), "Mark " + s, s, ()) for s in QA_STATUSES),
+))
+
 def resource(name: str) -> Resource:
     try:
         return RESOURCES[name]

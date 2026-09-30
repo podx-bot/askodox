@@ -81,6 +81,8 @@ MODULES = tuple(dict.fromkeys([p.split(":", 1)[0] for p in _LEGACY_PERMISSIONS] 
     "companion",   # AI Companion / Screen Guide
     "security",    # security posture (sign-in failures, headers, advisor)
     "roles",       # custom role definitions (Owner)
+    "delivery",    # delivery partners / drivers
+    "qa",          # phone-test / QA center
 ]))
 PERMISSIONS = all_permissions(_LEGACY_PERMISSIONS, MODULES)
 
@@ -161,11 +163,17 @@ FEATURE_FLAGS: Dict[str, str] = {
     "companion.privacy_shield": "Privacy Shield for the Screen Guide (fail-closed: switching it off stops the guide, never unprotects it)",
     "selfheal.enabled": "Self-Healing Engine: detect issues and propose fixes",
     "selfheal.green_auto": "Self-Healing: apply GREEN (safe, reversible) fixes automatically",
+    "referrals.priority_credits": "Referrals earn Priority Notification Credits (rules in Growth -> Referral credit rules)",
+    "location.proximity_alerts": "Hyper-local opportunity alerts (foreground / app-open by default)",
+    "location.background_optin": "Offer background-location proximity alerts to users who explicitly opt in (Play declaration required)",
+    "delivery.matching": "Match delivery requests to approved, available delivery partners",
 }
 
 # Flags that start OFF until the Owner switches them on (everything else
 # defaults ON, as before).
-FLAG_DEFAULTS: Dict[str, bool] = {"companion.screen_guide": False, "selfheal.green_auto": False}
+FLAG_DEFAULTS: Dict[str, bool] = {"companion.screen_guide": False, "selfheal.green_auto": False,
+                                  "referrals.priority_credits": False, "location.proximity_alerts": False,
+                                  "location.background_optin": False, "delivery.matching": False}
 
 ESCALATION_STATUSES = ("OPEN", "IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED", "CLOSED")
 NO_MATCH_STATUSES = ("OPEN", "INVESTIGATING", "SOURCE_ADDED", "CATEGORY_ADDED", "RESOLVED", "DISMISSED")

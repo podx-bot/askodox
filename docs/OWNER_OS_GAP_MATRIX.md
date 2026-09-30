@@ -37,11 +37,46 @@ PHONE VERIFIED / LIVE VERIFIED.
 | Y | Phone-test / QA center | M | – | – | Record phone results | `qa_checks` resource with the 7 status words + evidence link | Browser | NOT TESTED |
 | Z | Handover / system readiness | P: many docs (architecture, integration readiness, store compliance, CLAUDE.md) | M: single Handover page + how-to guides; owner-only action list | – | – | `docs/HANDOVER.md` + console page linking live status | Review | NOT TESTED |
 
-## Open phone-test findings (kept open — no evidence of fixes)
-Camera/attachment flow · multi-photo · photo understanding · video understanding · files/PDF · current location ·
-maps end-to-end · female voice preference · repeated referral prompts · attachment intent mismatch · self-healing
-relevance · Universal Master Profile · Screen Guide (not phone-verified; not in sideload builds) · delivery/driver/order
-flow · location-based notifications · referral Priority Notification Credits · greetings. **All: NOT PHONE VERIFIED.**
+## Open phone-test findings (APK 1273 phone test done by the owner — findings CONFIRMED, still OPEN)
+Camera/attachment flow incomplete · multi-photo missing · photo understanding unreliable · video understanding
+unreliable/not demonstrated · current location wrong · female voice preference not respected · unrelated referral/join
+prompts · self-healing relevance recovery · Master Profile missing/incomplete · Screen Guide incomplete/not fully
+phone-verified · delivery/driver/order/map end-to-end not phone-tested (plus greetings, location-based notifications,
+referral credits: not phone-tested). Tracked as OPEN rows in Command Center → Owner setup → Phone-test / QA center
+(`qa_checks`, loaded by "Load staging test defaults"). A row moves to PHONE VERIFIED only with evidence.
+
+## Owner decisions locked (2026-09-30)
+1. **Delivery:** both ASKODOX-registered independent partners/drivers and external logistics partners (via
+   Integrations). One registry (`delivery_partners`, four-eyes approval) and one matcher (`owner_os.match_delivery`):
+   the delivery request is Party A, partners are Party B, filtered by service (food/grocery/parcel/product/
+   pickup_drop/documents/other), approval, availability and radius; external partners only when their integration is
+   TEST/LIVE. No provider hard-wired. Flag `delivery.matching` (OFF).
+2. **Background location:** architecture only, never forced. Flags `location.proximity_alerts` (ORANGE, OFF) and
+   `location.background_optin` (RED, OFF). Order of use: (a) foreground/app-open location (exists); (b) background
+   geofences only after the user explicitly opts in on a dedicated screen, Android grants
+   ACCESS_BACKGROUND_LOCATION, and the Play location declaration is approved; few coarse geofences (Android
+   GeofencingClient, no continuous GPS), dwell trigger, daily cap. Denied/unavailable → silently fall back to (a).
+   No Android permission added yet (no APK needed until the Play declaration is ready).
+3. **Referral Priority Notification Credits:** every number configurable in `referral_credit_rules` (referrals
+   required, credits, bonus slabs, expiry, max balance, eligible roles, eligible notification types, daily/monthly
+   earn limits, daily spend limit). Own ledger `priority_credits` (expiry, idempotent per referral). Awarded on
+   referral redemption when `referrals.priority_credits` is ON. Staging test rule: 1 referral = 2 credits, slabs
+   5→+5, 10→+10, 90-day expiry, max 100 — test values only. `GET /api/priority-credits/mine`.
+4. **Greetings:** `greeting_templates` (kind morning/afternoon/evening/night/returning/role_switch/no_result/fallback,
+   any BCP-47 language, `{name}`), chosen by the user's local hour + language (exact → base language → neutral),
+   rotated, at most once per 4 h per signed-in user. `GET /api/greeting`. App wiring pending (next app build).
+5. **Domain/e-mail:** `email_roles` (support/admin/partners/notifications/no_reply/security/billing) with mode
+   forwarding (e.g. Namecheap) / mailbox / send_only. Staging placeholders are DISABLED until verified. Nothing bought.
+
+## Round 1 delivered (staging branch, backend + console only, no APK)
+| Item | Status |
+|---|---|
+| QA center, e-mail roles, credit rules, greetings, delivery partners resources | CODE READY (tests) |
+| Owner setup page + staging seed (refused in production) | CODE READY |
+| Credits ledger + referral award hook | CODE READY (flag OFF) |
+| Greeting API | CODE READY (app not wired) |
+| Delivery matcher + admin preview `/admin/cc/delivery/match` | CODE READY (flag OFF) |
+| Background geofencing | ARCHITECTURE ONLY |
 
 ## Safest implementation plan (staging only, reuse first)
 1. **Phase 1 – Owner visibility, no new data model** (low risk): QA Center resource; Setup wizard page from the
