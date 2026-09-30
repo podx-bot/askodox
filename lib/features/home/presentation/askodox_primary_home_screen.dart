@@ -3072,6 +3072,14 @@ class _AskodoxPrimaryHomeScreenState
                         authToken: session.user == null ? null : session.tokenPlaceholder,
                       );
                 },
+                onSendReply: (caseId, message) {
+                  final session = ref.read(authSessionProvider);
+                  return ref.read(askodoxSupportEscalationServiceProvider).reply(
+                        caseId,
+                        message,
+                        authToken: session.user == null ? null : session.tokenPlaceholder,
+                      );
+                },
                 onChat: () => _escalateToSupport(index),
                 onOpen: _openExternal,
               ),
@@ -3579,12 +3587,14 @@ class _SupportCard extends StatefulWidget {
     required this.onOpen,
     this.supportCase,
     this.onCheckReply,
+    this.onSendReply,
   });
 
   final bool te;
   final bool critical;
   final AskodoxSupportCase? supportCase;
   final Future<Map<String, Object?>?> Function(String caseId)? onCheckReply;
+  final Future<Map<String, Object?>?> Function(String caseId, String message)? onSendReply;
   final Future<void> Function() onChat;
   final Future<void> Function(String uri) onOpen;
 
@@ -3595,15 +3605,53 @@ class _SupportCard extends StatefulWidget {
 class _SupportCardState extends State<_SupportCard> {
   bool _busy = false;
   String? _reply;
+  String? _staffMessage;
+  bool _canReply = false;
+  final _answer = TextEditingController();
+
+  @override
+  void dispose() {
+    _answer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send(String caseId) async {
+    final text = _answer.text.trim();
+    if (text.isEmpty || widget.onSendReply == null) return;
+    setState(() => _busy = true);
+    final status = await widget.onSendReply!(caseId, text);
+    if (!mounted) return;
+    if (status != null) _answer.clear();
+    _show(status, sent: status != null);
+  }
 
   Future<void> _check(String caseId) async {
     setState(() => _busy = true);
     final status = await widget.onCheckReply!(caseId);
     if (!mounted) return;
+    _show(status);
+  }
+
+  void _show(Map<String, Object?>? status, {bool sent = false}) {
     final te = widget.te;
+    // The latest message from ASKODOX Support (staff), shown as-is.
+    final messages = status?['messages'];
+    String? staff;
+    if (messages is List) {
+      for (final m in messages.reversed) {
+        if (m is Map && m['from'] == 'staff' && m['kind'] == 'message') {
+          staff = '${m['body'] ?? ''}'.trim();
+          break;
+        }
+      }
+    }
     setState(() {
+      _staffMessage = (staff?.isNotEmpty ?? false) ? staff : null;
+      _canReply = status?['can_reply'] == true;
       _busy = false;
-      if (status == null) {
+      if (sent) {
+        _reply = te ? 'మీ సమాధానం సపోర్ట్‌కు పంపబడింది.' : 'Your answer was sent to Support.';
+      } else if (status == null) {
         _reply = te ? 'స్థితి ఇప్పుడు అందుబాటులో లేదు.' : 'Status is unavailable right now.';
       } else {
         final state = '${status['status'] ?? ''}';
@@ -3686,6 +3734,35 @@ class _SupportCardState extends State<_SupportCard> {
           ]),
           if (_reply != null)
             Text(_reply!, key: const Key('askodoxSupportReply'), style: const TextStyle(color: _ink)),
+          if (_staffMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text((te ? 'సపోర్ట్: ' : 'Support: ') + _staffMessage!,
+                  key: const Key('askodoxSupportStaffMessage'),
+                  style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+            ),
+          if (_canReply && widget.onSendReply != null)
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('askodoxSupportAnswer'),
+                  controller: _answer,
+                  maxLength: 2000,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                      isDense: true,
+                      counterText: '',
+                      hintText: te ? 'సపోర్ట్‌కు సమాధానం…' : 'Answer Support…'),
+                ),
+              ),
+              IconButton(
+                key: const Key('askodoxSupportSend'),
+                tooltip: te ? 'పంపు' : 'Send',
+                onPressed: _busy ? null : () => _send(supportCase.caseId),
+                icon: const Icon(Icons.send_rounded, color: _blue),
+              ),
+            ]),
         ],
       ]),
     );

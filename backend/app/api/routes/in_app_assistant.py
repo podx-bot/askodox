@@ -276,6 +276,8 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
         "status": payload.status,
         "active_role": payload.active_role,
         "locale": payload.locale,
+        # The in-app AI answered first; the ticket records that it tried.
+        "ai_attempted": any(turn.role != "user" for turn in payload.conversation),
     }
     case = _support_repository(container).create(
         _optional_app_user(request), payload.issue, payload.category, payload.critical, context
@@ -297,22 +299,80 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
     return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels(case.get("id"))}
 
 
-@router.get("/support/cases/{case_id}")
-def support_case_status(case_id: int, request: Request) -> dict[str, Any]:
-    """Customer Care's reply comes back into the same ASKODOX conversation:
-    the requester (token-proven) sees status and resolution, nothing else."""
+@router.get("/support/cases")
+def my_support_cases(request: Request) -> dict[str, Any]:
+    """The signed-in customer's own tickets (token-proven, never by id guess)."""
+    container: Any = request.app.state.container
+    user = _optional_app_user(request)
+    if not user or user == "guest":
+        raise HTTPException(status_code=401, detail="Sign in to see your support requests")
+    return {"items": [{"case_id": c["id"], "issue": c["issue"][:160], "status": c["status"],
+                       "category": c["category"], "updated_at": c["updated_at"]}
+                      for c in _support_repository(container).list_for_user(user)]}
+
+
+def _own_case(request: Request, case_id: int) -> tuple[str, dict[str, Any]]:
     container: Any = request.app.state.container
     user = _optional_app_user(request)
     case = _support_repository(container).get(case_id)
-    if not user or not case or str(case.get("requester_user_id") or "") != user:
+    # "guest" is shared by every signed-out caller: never an owner proof.
+    if not user or user == "guest" or not case or str(case.get("requester_user_id") or "") != user:
         raise HTTPException(status_code=404, detail="Support case not found")
+    return user, case
+
+
+@router.get("/support/cases/{case_id}")
+def support_case_status(case_id: int, request: Request) -> dict[str, Any]:
+    """Customer Care's reply comes back into the same ASKODOX conversation:
+    the requester (token-proven) sees status, resolution and the public
+    messages -- never internal notes or which staff member replied."""
+    _, case = _own_case(request, case_id)
     return {
         "case_id": case["id"],
         "status": case.get("status"),
         "assigned": bool(case.get("assigned_to")),
         "resolution_note": case.get("resolution_note"),
         "updated_at": case.get("updated_at"),
+        "messages": _support_repository(request.app.state.container).thread(case_id, public_only=True),
+        "can_reply": case.get("status") != "CLOSED",
     }
+
+
+class SupportReply(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    attachments: list[str] = Field(default_factory=list, max_length=5)
+
+
+_ATTACHMENT_REF = __import__("re").compile(r"^[A-Za-z0-9_\-:.]{1,120}$")
+
+
+@router.post("/support/cases/{case_id}/reply")
+def reply_to_support_case(case_id: int, payload: SupportReply, request: Request) -> dict[str, Any]:
+    """The customer answers staff in the app. A resolved ticket reopens; a
+    CLOSED one does not (start a new request)."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "support_reply", limit=30)
+    container: Any = request.app.state.container
+    user, case = _own_case(request, case_id)
+    if case.get("status") == "CLOSED":
+        raise HTTPException(status_code=409, detail="This request is closed. Please start a new one.")
+    refs = [a for a in payload.attachments if _ATTACHMENT_REF.match(a)]  # references only, never raw content
+    repo = _support_repository(container)
+    repo.add_message(case_id, author_kind="customer", author="customer", body=payload.message, attachments=refs)
+    if case.get("status") == "RESOLVED":
+        repo.set_status(case_id, "OPEN", actor="customer", action="reopened")
+    elif case.get("status") == "WAITING_FOR_USER":
+        repo.set_status(case_id, "IN_PROGRESS", actor="customer")
+    try:
+        from app.api.routes.command_center import command_center
+
+        count = len([m for m in repo.thread(case_id, public_only=True) if m.get("from") == "customer"])
+        command_center(container).notify_once(f"support_reply:{case_id}:{count}", "support_reply",
+                                              f"Customer replied on ticket #{case_id}", str(case_id))
+    except Exception:
+        pass
+    return support_case_status(case_id, request)
 
 
 support_admin_router = APIRouter(prefix="/admin/support", tags=["admin-support"])

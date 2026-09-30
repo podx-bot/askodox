@@ -365,10 +365,12 @@ def categories(request: Request) -> dict[str, Any]:
 
 @router.get("/escalations")
 def escalations(request: Request, status: str = "", category: str = "", priority: str = "", assigned_to: str = "",
-                sla: str = "", channel: str = "") -> dict[str, Any]:
-    _require(request, "support:view")
+                sla: str = "", channel: str = "", q: str = "", mine: bool = False) -> dict[str, Any]:
+    principal = _require(request, "support:view")
     items = _escalations(request.app.state.container).list(status=status.upper() or None, category=category or None,
-                                                           limit=500)
+                                                           limit=500, q=q.strip() or None)
+    if mine:
+        assigned_to = principal["id"]
     if priority:
         items = [i for i in items if i["priority"] == priority.upper()]
     if assigned_to:
@@ -393,7 +395,92 @@ def escalation(escalation_id: int, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Escalation not found")
     item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
     item["history"] = _escalations(request.app.state.container).history(escalation_id)
+    item["thread"] = _escalations(request.app.state.container).thread(escalation_id, public_only=False)
     return item
+
+
+class StaffReply(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    status: str = "WAITING_FOR_USER"
+    attachments: list[str] = Field(default_factory=list, max_length=5)
+
+
+_REF = __import__("re").compile(r"^[A-Za-z0-9_\-:.]{1,120}$")
+
+
+@router.post("/escalations/{escalation_id}/reply")
+def reply_escalation(escalation_id: int, payload: StaffReply, request: Request) -> dict[str, Any]:
+    """A reply the customer sees in the app (in-app notification, plus any
+    configured channel the customer did not switch off)."""
+    principal = _require(request, "support:edit")
+    container = request.app.state.container
+    repo = _escalations(container)
+    ticket = repo.get(escalation_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    if ticket["status"] == "CLOSED":
+        raise HTTPException(status_code=409, detail="Reopen the ticket before replying")
+    status = payload.status.upper()
+    if status not in ("WAITING_FOR_USER", "IN_PROGRESS", "RESOLVED"):
+        raise HTTPException(status_code=422, detail="status after a reply: WAITING_FOR_USER, IN_PROGRESS or RESOLVED")
+    refs = [a for a in payload.attachments if _REF.match(a)]
+    repo.add_message(escalation_id, author_kind="staff", author=principal["id"], body=payload.message,
+                     attachments=refs)
+    repo.mark_first_response(escalation_id)
+    if status != ticket["status"]:
+        repo.set_status(escalation_id, status, actor=principal["id"])
+    if status == "RESOLVED" and not ticket.get("resolution_note"):
+        repo.update(escalation_id, resolution_note=payload.message[:2000], actor=principal["id"])
+    from app.api.routes.platform import notify
+
+    notify(container, "support_update", ticket["requester_user_id"],
+           {"ticket": escalation_id, "status": "new reply from ASKODOX support"})
+    command_center(container).audit(principal["id"], "support_reply", "escalation", escalation_id,
+                                    {"status": ticket["status"]}, {"status": status}, role=principal["role"])
+    return escalation(escalation_id, request)
+
+
+class EscalateBody(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+    assigned_to: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/escalations/{escalation_id}/escalate")
+def escalate_ticket(escalation_id: int, payload: EscalateBody, request: Request) -> dict[str, Any]:
+    """Raise priority one level (tightens the SLA), optionally reassign."""
+    principal = _require(request, "support:edit")
+    container = request.app.state.container
+    repo = _escalations(container)
+    ticket = repo.get(escalation_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    order = list(repo.PRIORITIES)
+    higher = order[min(order.index(ticket["priority"]) + 1, len(order) - 1)]
+    repo.set_ticket_fields(escalation_id, actor=principal["id"], priority=higher, note=f"Escalated: {payload.reason}")
+    if payload.assigned_to is not None:
+        repo.update(escalation_id, assigned_to=payload.assigned_to, actor=principal["id"])
+    cc = command_center(container)
+    cc.notify_once(f"escalated:{escalation_id}:{higher}", "escalation_critical" if higher == "URGENT" else "escalation",
+                   f"Ticket #{escalation_id} escalated to {higher}", str(escalation_id))
+    cc.audit(principal["id"], "support_escalate", "escalation", escalation_id, {"priority": ticket["priority"]},
+             {"priority": higher}, payload.reason, role=principal["role"])
+    return escalation(escalation_id, request)
+
+
+@router.post("/escalations/{escalation_id}/reopen")
+def reopen_ticket(escalation_id: int, request: Request) -> dict[str, Any]:
+    principal = _require(request, "support:edit")
+    repo = _escalations(request.app.state.container)
+    ticket = repo.get(escalation_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    if ticket["status"] not in ("RESOLVED", "CLOSED"):
+        raise HTTPException(status_code=409, detail="Only a resolved or closed ticket can be reopened")
+    repo.set_status(escalation_id, "OPEN", actor=principal["id"], action="reopened")
+    command_center(request.app.state.container).audit(principal["id"], "support_reopen", "escalation", escalation_id,
+                                                      {"status": ticket["status"]}, {"status": "OPEN"},
+                                                      role=principal["role"])
+    return escalation(escalation_id, request)
 
 
 class EscalationUpdate(BaseModel):

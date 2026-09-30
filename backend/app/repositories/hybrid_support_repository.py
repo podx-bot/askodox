@@ -207,6 +207,63 @@ class SupportEscalationRepository:
             self.add_history(escalation_id, actor, "note", {"note": note[:2000]})
         return self.get(escalation_id)
 
+    # 2026-09-30 Support Center: a two-way conversation on the ticket.
+    # "reply" rows are visible to the customer; "note" rows are internal.
+    PUBLIC_ACTIONS = ("created", "reply", "reopened")
+
+    def add_message(self, escalation_id: int, *, author_kind: str, author: str, body: str,
+                    attachments: List[str] | None = None) -> None:
+        self.add_history(escalation_id, author, "reply", {
+            "from": author_kind, "body": str(body).strip()[:4000],
+            "attachments": [str(a)[:120] for a in (attachments or [])][:10]})
+
+    def thread(self, escalation_id: int, *, public_only: bool) -> List[Dict[str, Any]]:
+        """The conversation. The customer view never shows internal notes,
+        staff identities or field changes -- only messages and the status."""
+        ticket = self.get(escalation_id) or {}
+        out: List[Dict[str, Any]] = []
+        for h in self.history(escalation_id):
+            if h["action"] == "created":
+                out.append({"at": h["at"], "from": "customer", "body": ticket.get("issue", ""), "kind": "message"})
+            elif h["action"] == "reply":
+                d = h["detail"]
+                out.append({"at": h["at"], "from": d.get("from", "staff"), "body": d.get("body", ""),
+                            "attachments": d.get("attachments") or [], "kind": "message",
+                            **({} if public_only else {"author": h["actor"]})})
+            elif h["action"] == "reopened":
+                out.append({"at": h["at"], "from": "system", "body": "Reopened", "kind": "status"})
+            elif h["action"] == "update" and h["detail"].get("status"):
+                out.append({"at": h["at"], "from": "system", "kind": "status",
+                            "body": str(h["detail"]["status"]).replace("_", " ").title()})
+            elif not public_only and h["action"] == "note":
+                out.append({"at": h["at"], "from": "internal", "author": h["actor"], "kind": "note",
+                            "body": h["detail"].get("note", "")})
+        return out
+
+    def list_for_user(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM support_escalations WHERE requester_user_id=? ORDER BY id DESC LIMIT ?",
+                                (str(user_id), max(1, min(int(limit), 200)))).fetchall()
+        return [self._row(row) for row in rows]
+
+    def set_status(self, escalation_id: int, status: str, *, actor: str, action: str = "update") -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        resolved = "resolved_at" if status in ("RESOLVED", "CLOSED") else None
+        with sqlite3.connect(self.db_path) as conn:
+            if resolved:
+                conn.execute("UPDATE support_escalations SET status=?, updated_at=?, resolved_at=COALESCE(resolved_at, ?) "
+                             "WHERE id=?", (status, now, now, int(escalation_id)))
+            else:
+                conn.execute("UPDATE support_escalations SET status=?, updated_at=?, resolved_at=NULL WHERE id=?",
+                             (status, now, int(escalation_id)))
+        self.add_history(escalation_id, actor, action, {"status": status})
+
+    def mark_first_response(self, escalation_id: int) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("UPDATE support_escalations SET first_response_at=COALESCE(first_response_at, ?) WHERE id=?",
+                         (datetime.now(timezone.utc).isoformat(), int(escalation_id)))
+
     def get(self, escalation_id: int) -> Optional[Dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -222,8 +279,12 @@ class SupportEscalationRepository:
             ).fetchall()
         return [self._row(row) for row in rows]
 
-    def list(self, status: str | None = None, category: str | None = None, limit: int = 100) -> List[Dict[str, Any]]:
+    def list(self, status: str | None = None, category: str | None = None, limit: int = 100,
+             q: str | None = None) -> List[Dict[str, Any]]:
         clauses, params = [], []
+        if q:
+            clauses.append("(issue LIKE ? OR CAST(id AS TEXT)=?)")
+            params += [f"%{q}%", q.lstrip("#")]
         if status:
             clauses.append("status=?")
             params.append(status)
