@@ -154,7 +154,11 @@ FEATURE_FLAGS: Dict[str, str] = {
     "notifications.sms": "SMS notifications (needs an SMS provider)",
     "notifications.whatsapp": "WhatsApp notifications (needs WhatsApp configuration)",
     "notifications.promotions": "Targeted promotions (reviewed campaigns, consent + frequency caps)",
+    "companion.enabled": "AI Companion (master switch: off hides every companion capability; ASKODOX keeps working)",
+    "companion.floating_bubble": "Floating ASKODOX bubble over other apps (Android, user-granted overlay)",
     "companion.screen_guide": "AI Companion Screen Guide over other apps (Android, opt-in, Privacy Shield)",
+    "companion.accessibility": "Screen Guide may use the user-enabled Android accessibility service (policy kill switch)",
+    "companion.privacy_shield": "Privacy Shield for the Screen Guide (fail-closed: switching it off stops the guide, never unprotects it)",
     "selfheal.enabled": "Self-Healing Engine: detect issues and propose fixes",
     "selfheal.green_auto": "Self-Healing: apply GREEN (safe, reversible) fixes automatically",
 }

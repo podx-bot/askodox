@@ -18,6 +18,11 @@ on:
         required: false
         default: ''
         type: string
+      include_screen_guide:
+        description: Declare the Screen Guide accessibility service (ONLY for Play-distributed builds after the Play accessibility declaration; sideloaded builds must leave this off)
+        required: false
+        default: false
+        type: boolean
       api_base_url:
         description: Optional backend for a phone-test build (e.g. the staging environment). Refused on main.
         required: false
@@ -126,6 +131,9 @@ jobs:
           set -euo pipefail
           bash tool/apply_android_askodox_branding.sh
           bash tool/apply_android_live_device_bridge.sh
+          if [ "${{ inputs.include_screen_guide || false }}" = "true" ]; then
+            bash tool/apply_android_screen_guide.sh
+          fi
 
       - name: Install dependencies and verify
         run: |
@@ -226,6 +234,13 @@ jobs:
             case "$apk" in *-debug.apk) continue ;; esac  # debug builds carry no AOT libapp.so
             n=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o "$HOST" | wc -l || true)
             p=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o 'podx-ai-connect-production-3279.up.railway.app' | wc -l || true)
+            # Accessibility service only when explicitly requested (Play builds).
+            BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+            a=$("$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -c 'BIND_ACCESSIBILITY_SERVICE' || true)
+            echo "$(basename "$apk"): accessibility service declarations x$a" | tee -a dist/BACKEND.txt
+            if [ "${{ inputs.include_screen_guide || false }}" != "true" ] && [ "$a" -gt 0 ]; then
+              echo "FAIL: $apk declares an accessibility service but include_screen_guide is off"; exit 1
+            fi
             echo "$(basename "$apk"): $HOST x$n; production host x$p" | tee -a dist/BACKEND.txt
             [ "$n" -gt 0 ] || { echo "FAIL: $apk does not contain $HOST"; exit 1; }
             if [ -n "${API_BASE_URL_OVERRIDE:-}" ] && [ "$p" -gt 0 ]; then

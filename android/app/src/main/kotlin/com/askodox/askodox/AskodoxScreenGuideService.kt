@@ -67,7 +67,9 @@ class AskodoxScreenGuideService : AccessibilityService() {
             "(\\botp\\b|one[\\s-]?time[\\s-]?pass|verification code|security code|\\bpassword\\b|\\bpasscode\\b|" +
                 "\\bpin\\b|\\bmpin\\b|upi[\\s-]?pin|\\bcvv\\b|\\bcvc\\b|card number|card no|expiry|valid thru|" +
                 "net[\\s-]?banking|internet banking|\\baadhaa?r\\b|\\bpan (card|number)\\b|passport|biometric|" +
-                "fingerprint|face unlock|security question|ఓటీపీ|పాస్‌?వర్డ్|పిన్|ఆధార్|ओटीपी|पासवर्ड|पिन|आधार)",
+                "fingerprint|face unlock|security question|transaction password|authori[sz]e (the )?payment|" +
+                "approve (the )?payment|confirm (the )?payment|payment authori[sz]ation|3-?d secure|\\bvbv\\b|" +
+                "securecode|mandate|ఓటీపీ|పాస్‌?వర్డ్|పిన్|ఆధార్|ओटीपी|पासवर्ड|पिन|आधार)",
             RegexOption.IGNORE_CASE,
         )
         private val sensitivePackages = listOf(
@@ -204,10 +206,12 @@ class AskodoxScreenGuideService : AccessibilityService() {
         tts?.stop()
         showPanel(
             if (current.language == "te")
-                "సున్నితమైన సమాచారం కనిపించింది. ASKODOX స్క్రీన్ సహాయం ఆపివేయబడింది. ఈ దశను మీరే పూర్తి చేయండి. " +
+                "గోప్యత కోసం ఆపివేయబడింది — సున్నితమైన సమాచారం కనిపించింది.\n" +
+                    "సున్నితమైన సమాచారం కనిపించింది. ASKODOX స్క్రీన్ సహాయం ఆపివేయబడింది. ఈ దశను మీరే పూర్తి చేయండి. " +
                     "పూర్తయ్యాక ఈ స్క్రీన్ నుండి బయటకు వచ్చి, ASKODOX‌ను రెండుసార్లు తాకండి లేదా Continue నొక్కండి."
             else
-                "Sensitive information detected. ASKODOX screen assistance is paused. Please complete this step " +
+                "Privacy Paused — sensitive information detected.\n" +
+                    "Sensitive information detected. ASKODOX screen assistance is paused. Please complete this step " +
                     "yourself. When finished and you leave this sensitive screen, double-tap ASKODOX or press " +
                     "Continue to resume.",
         )
@@ -267,6 +271,13 @@ class AskodoxScreenGuideService : AccessibilityService() {
             return
         }
         if (reply.optString("state") == "PRIVACY_PAUSED") { pause(); return }
+        if (reply.optString("state") == "DISABLED") {
+            // Switched off by ASKODOX (policy / kill switch): explain and stop.
+            showPanel(reply.optString("message", "Screen Guide is not available right now."))
+            main.postDelayed({ clearAll() }, 6000)
+            session = null
+            return
+        }
         val text = reply.optString("instruction", "")
         if (text.isEmpty()) return
         lastInstruction = text
@@ -275,7 +286,7 @@ class AskodoxScreenGuideService : AccessibilityService() {
         val target = reply.optString("target_label", "")
         if (reply.optBoolean("highlight") && target.isNotEmpty()) labelBounds[target]?.let { showHighlight(it) }
         if (session?.voice == true && ttsReady) {
-            tts?.language = if (session?.language == "te") Locale("te", "IN") else Locale.ENGLISH
+            tts?.language = Locale.forLanguageTag(session?.language ?: "en")
             tts?.speak(reply.optString("speak", text), TextToSpeech.QUEUE_FLUSH, null, "askodox_guide")
         }
     }

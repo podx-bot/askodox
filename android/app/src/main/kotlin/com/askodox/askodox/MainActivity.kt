@@ -190,6 +190,9 @@ class MainActivity : FlutterActivity() {
                     "screenGuideStatus" -> result.success(
                         mapOf(
                             "supported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O),
+                            // False in sideloaded phone-test builds: the service is only
+                            // declared in Play-distributed builds (see AndroidManifest.xml).
+                            "declared" to screenGuideDeclared(),
                             "accessibilityEnabled" to AskodoxScreenGuideService.isEnabled(this),
                             "connected" to (AskodoxScreenGuideService.instance != null),
                             "state" to AskodoxScreenGuideService.state,
@@ -226,6 +229,15 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun screenGuideDeclared(): Boolean = try {
+        packageManager.getServiceInfo(
+            android.content.ComponentName(this, AskodoxScreenGuideService::class.java), 0,
+        )
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
     }
 
     private fun initializeTextToSpeech() {

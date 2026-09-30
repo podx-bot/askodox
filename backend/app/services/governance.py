@@ -67,6 +67,10 @@ FLAG_RISK: Dict[str, str] = {
     "ai.assistant": ORANGE,
     "support.escalation": ORANGE,
     "companion.screen_guide": ORANGE,
+    "companion.enabled": ORANGE,
+    "companion.floating_bubble": ORANGE,
+    "companion.accessibility": ORANGE,
+    "companion.privacy_shield": RED,
     "selfheal.enabled": ORANGE,
     "selfheal.green_auto": ORANGE,
 }

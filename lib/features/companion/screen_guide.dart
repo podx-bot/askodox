@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/backend_providers.dart';
 
@@ -21,7 +22,60 @@ const screenGuidePauseMessage =
     'Sensitive information detected. ASKODOX screen assistance is paused. Please complete this step yourself. '
     'When finished and you leave this sensitive screen, double-tap ASKODOX or press Continue to resume.';
 
-enum ScreenGuidePhase { unavailable, disabled, needsAccessibility, ready, starting, active, privacyPaused, ended, error }
+enum ScreenGuidePhase {
+  unavailable,
+  notIncluded,
+  disabled,
+  needsConsent,
+  needsAccessibility,
+  ready,
+  starting,
+  active,
+  privacyPaused,
+  ended,
+  error,
+}
+
+/// The disclosure version the user must accept (the server checks it too).
+const screenGuideConsentVersion = 'sg-disclosure-v1';
+const _consentKey = 'askodox.screen_guide.consent';
+
+/// Shown BEFORE ASKODOX sends anyone to Android's Accessibility settings.
+const screenGuideDisclosureTitle = 'Screen Guide: how it works';
+const screenGuideDisclosure = [
+  'What it does: while YOU run a guide, ASKODOX shows and says which button to press next in another app. '
+      'You press every button yourself; ASKODOX never taps, types, pays or changes settings for you.',
+  'Why it needs access: Android only lets a helper see the names of buttons on screen through the '
+      'Accessibility service "ASKODOX Screen Guide". It is off until you switch it on.',
+  'What it reads: only the visible button and label text of the app you are in, and only while a guide is '
+      'running. It never reads what you type into fields and never takes screenshots.',
+  'What is sent: the visible labels of the current screen and your goal are sent to ASKODOX servers and '
+      'its AI to work out the next step. They are not stored; only anonymous counts are kept.',
+  'Processed on your phone: the Privacy Shield checks every screen first. Password, OTP, PIN, UPI PIN, CVV, '
+      'card, bank, Aadhaar/ID screens and payment or banking apps are never read or sent: the guide pauses.',
+  'Never collected: passwords, codes, PINs, card or bank details, ID numbers, messages, photos, contacts.',
+  'You are in control: Continue / double-tap resumes after a pause, End Guide stops it and clears the '
+      'session. Turn the permission off any time in Android Settings > Accessibility > ASKODOX Screen Guide.',
+];
+
+Future<bool> screenGuideConsented() async {
+  try {
+    return (await SharedPreferences.getInstance()).getString(_consentKey) == screenGuideConsentVersion;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<void> screenGuideRecordConsent(bool agreed) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (agreed) {
+      await prefs.setString(_consentKey, screenGuideConsentVersion);
+    } else {
+      await prefs.remove(_consentKey);
+    }
+  } catch (_) {}
+}
 
 class ScreenGuideState {
   const ScreenGuideState(this.phase, {this.message, this.instruction, this.sessionId});
@@ -128,7 +182,26 @@ class ScreenGuideApi {
   }
 
   Future<Map<String, Object?>?> start(String goal, String language, Map<String, bool> permissions, String token) =>
-      _post('start', {'goal': goal, 'language': language, 'permissions': permissions}, token);
+      _post('start', {
+        'goal': goal,
+        'language': language,
+        'permissions': permissions,
+        'consent_version': screenGuideConsentVersion,
+      }, token);
+
+  /// Owner switches (companion / screen guide / accessibility / shield).
+  Future<Map<String, Object?>?> status() async {
+    final client = _client ?? http.Client();
+    try {
+      final r = await client.get(Uri.parse('$baseUrl/api/companion/guide/status')).timeout(const Duration(seconds: 15));
+      final decoded = jsonDecode(utf8.decode(r.bodyBytes));
+      return decoded is Map ? Map<String, Object?>.from(decoded) : null;
+    } catch (_) {
+      return null;
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
 
   Future<void> resume(String sessionId, String token) async => _post('resume', {'session_id': sessionId}, token);
 
@@ -137,17 +210,37 @@ class ScreenGuideApi {
 }
 
 class ScreenGuideController extends StateNotifier<ScreenGuideState> {
-  ScreenGuideController(this._native, this._api, this._token) : super(const ScreenGuideState(ScreenGuidePhase.ready));
+  ScreenGuideController(this._native, this._api, this._token, {Future<bool> Function()? consented})
+      : _consented = consented ?? screenGuideConsented,
+        super(const ScreenGuideState(ScreenGuidePhase.ready));
 
   final ScreenGuideNative _native;
   final ScreenGuideApi _api;
   final String? Function() _token;
+  final Future<bool> Function() _consented;
+
+  static const notIncludedMessage =
+      'Screen Guide is not part of this test build. Ask in ASKODOX chat for written step-by-step help instead.';
 
   /// Reads the phone's state (e.g. after coming back to ASKODOX).
   Future<void> refresh() async {
     final s = await _native.status();
     if (s.isEmpty || s['supported'] != true) {
       state = const ScreenGuideState(ScreenGuidePhase.unavailable);
+      return;
+    }
+    if (s['declared'] == false) {
+      state = const ScreenGuideState(ScreenGuidePhase.notIncluded, message: notIncludedMessage);
+      return;
+    }
+    final server = await _api.status();
+    if (server != null && server['enabled'] == false) {
+      state = ScreenGuideState(ScreenGuidePhase.disabled,
+          message: '${server['notice'] ?? 'Screen Guide is not available right now.'}');
+      return;
+    }
+    if (!await _consented()) {
+      state = const ScreenGuideState(ScreenGuidePhase.needsConsent);
       return;
     }
     if (s['accessibilityEnabled'] != true) {
@@ -173,7 +266,15 @@ class ScreenGuideController extends StateNotifier<ScreenGuideState> {
       state = const ScreenGuideState(ScreenGuidePhase.error, message: 'Sign in to use the Screen Guide.');
       return;
     }
+    if (!await _consented()) {
+      state = const ScreenGuideState(ScreenGuidePhase.needsConsent);
+      return;
+    }
     final native = await _native.status();
+    if (native['declared'] == false) {
+      state = const ScreenGuideState(ScreenGuidePhase.notIncluded, message: notIncludedMessage);
+      return;
+    }
     if (native['accessibilityEnabled'] != true) {
       state = const ScreenGuideState(ScreenGuidePhase.needsAccessibility);
       return;
@@ -187,7 +288,11 @@ class ScreenGuideController extends StateNotifier<ScreenGuideState> {
     }
     if (started['_status'] == 503) {
       state = const ScreenGuideState(ScreenGuidePhase.disabled,
-          message: 'The Screen Guide is not switched on yet.');
+          message: 'Screen Guide is not available right now. ASKODOX works normally.');
+      return;
+    }
+    if (started['_status'] == 428) {
+      state = const ScreenGuideState(ScreenGuidePhase.needsConsent);
       return;
     }
     final sid = '${started['session_id'] ?? ''}';
@@ -232,12 +337,61 @@ class ScreenGuideController extends StateNotifier<ScreenGuideState> {
 final screenGuideNativeProvider = Provider<ScreenGuideNative>((ref) => const ScreenGuideNative());
 final screenGuideApiProvider = Provider<ScreenGuideApi>((ref) => ScreenGuideApi());
 
+/// Owner switches for companion capabilities (public, no user data). Unknown
+/// (offline / older server) = allowed, so ASKODOX never breaks.
+final companionCapabilitiesProvider = FutureProvider.autoDispose<Map<String, bool>>((ref) async {
+  final status = await ref.watch(screenGuideApiProvider).status();
+  final caps = status?['capabilities'];
+  if (caps is! Map) return const {};
+  return {for (final e in caps.entries) '${e.key}': e.value == true};
+});
+
+bool companionAllows(Map<String, bool> caps, String capability) =>
+    (caps['enabled'] ?? true) && (caps[capability] ?? true);
+
 final screenGuideProvider = StateNotifierProvider.autoDispose<ScreenGuideController, ScreenGuideState>((ref) {
   return ScreenGuideController(ref.watch(screenGuideNativeProvider), ref.watch(screenGuideApiProvider), () {
     final session = ref.read(authSessionProvider);
     return session.user == null ? null : session.tokenPlaceholder;
   });
 });
+
+/// The prominent disclosure. Returns true only on AGREE & CONTINUE. Declining
+/// changes nothing else in ASKODOX.
+Future<bool> showScreenGuideDisclosure(BuildContext context) async {
+  final agreed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      key: const Key('screenGuideDisclosure'),
+      title: const Text(screenGuideDisclosureTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final line in screenGuideDisclosure)
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(line)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('screenGuideNotNow'),
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('NOT NOW'),
+        ),
+        FilledButton(
+          key: const Key('screenGuideAgree'),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('AGREE & CONTINUE'),
+        ),
+      ],
+    ),
+  );
+  await screenGuideRecordConsent(agreed == true);
+  return agreed == true;
+}
 
 class ScreenGuideScreen extends ConsumerStatefulWidget {
   const ScreenGuideScreen({super.key});
@@ -289,6 +443,28 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
         const SizedBox(height: 12),
         if (s.phase == ScreenGuidePhase.unavailable)
           Text(t('Available on Android 8 or newer.', 'Android 8 లేదా కొత్తదానిలో అందుబాటులో ఉంది.')),
+        if (s.phase == ScreenGuidePhase.notIncluded || s.phase == ScreenGuidePhase.disabled)
+          Card(
+            key: const Key('screenGuideUnavailable'),
+            child: ListTile(
+              leading: const Icon(Icons.info_outline_rounded),
+              title: Text(s.message ?? t('Screen Guide is not available.', 'స్క్రీన్ గైడ్ అందుబాటులో లేదు.')),
+              subtitle: Text(t('Everything else in ASKODOX works as usual.', 'ASKODOX లో మిగతావన్నీ యథావిధిగా పనిచేస్తాయి.')),
+            ),
+          ),
+        if (s.phase == ScreenGuidePhase.needsConsent)
+          Card(
+            key: const Key('screenGuideNeedsConsent'),
+            child: ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(t('Read how Screen Guide works', 'స్క్రీన్ గైడ్ ఎలా పనిచేస్తుందో చదవండి')),
+              subtitle: Text(t('Nothing is switched on until you agree.', 'మీరు అంగీకరించే వరకు ఏదీ ఆన్ కాదు.')),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () async {
+                if (await showScreenGuideDisclosure(context)) await c.refresh();
+              },
+            ),
+          ),
         if (s.phase == ScreenGuidePhase.needsAccessibility)
           Card(
             key: const Key('screenGuideNeedsAccessibility'),
@@ -299,7 +475,13 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
                   t('Android Settings > Accessibility. You can turn it off any time.',
                       'Android సెట్టింగ్స్ > యాక్సెసిబిలిటీ. ఎప్పుడైనా ఆఫ్ చేయవచ్చు.')),
               trailing: const Icon(Icons.open_in_new_rounded),
-              onTap: () => ref.read(screenGuideNativeProvider).openAccessibilitySettings(),
+              onTap: () async {
+                // Never send anyone to Accessibility settings without the disclosure.
+                if (!await screenGuideConsented()) {
+                  if (!context.mounted || !await showScreenGuideDisclosure(context)) return;
+                }
+                await ref.read(screenGuideNativeProvider).openAccessibilitySettings();
+              },
             ),
           ),
         if (s.phase == ScreenGuidePhase.privacyPaused)
@@ -325,7 +507,10 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(s.message!, key: const Key('screenGuideMessage')),
           ),
-        if (!running) ...[
+        if (!running &&
+            s.phase != ScreenGuidePhase.notIncluded &&
+            s.phase != ScreenGuidePhase.disabled &&
+            s.phase != ScreenGuidePhase.unavailable) ...[
           TextField(
             key: const Key('screenGuideGoal'),
             controller: _goal,
@@ -338,7 +523,13 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
             key: const Key('screenGuideStart'),
             onPressed: s.phase == ScreenGuidePhase.starting
                 ? null
-                : () => c.start(_goal.text, language: te ? 'te' : 'en'),
+                : () async {
+                    final language = Localizations.localeOf(context).toLanguageTag();
+                    if (!await screenGuideConsented()) {
+                      if (!context.mounted || !await showScreenGuideDisclosure(context)) return;
+                    }
+                    await c.start(_goal.text, language: language);
+                  },
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(t('Start guide', 'గైడ్ ప్రారంభించండి')),
           ),

@@ -10,6 +10,7 @@ import '../../companion/askodox_companion.dart';
 import '../../companion/companion_floating.dart';
 import '../../companion/companion_hub.dart';
 import '../../companion/companion_picker.dart';
+import '../../companion/screen_guide.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/application/saved_options.dart';
 import '../../home/domain/active_role.dart';
@@ -349,6 +350,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 Builder(builder: (context) {
                   final bubble = ref.watch(askodoxBubbleProvider);
+                  final caps = ref.watch(companionCapabilitiesProvider).valueOrNull ?? const <String, bool>{};
+                  if (!companionAllows(caps, 'floating_bubble')) {
+                    // Switched off by ASKODOX (e.g. a platform policy change): the bubble
+                    // stops; everything else keeps working.
+                    if (bubble == AskodoxBubbleState.enabled) {
+                      Future.microtask(() => ref.read(askodoxBubbleProvider.notifier).disable());
+                    }
+                    return ListTile(
+                      key: const Key('askodoxFloatingBubbleUnavailable'),
+                      leading: const Icon(Icons.bubble_chart_outlined),
+                      title: Text(t('Floating ASKODOX bubble', 'తేలియాడే ASKODOX బబుల్')),
+                      subtitle: Text(t('Not available right now. ASKODOX works normally.',
+                          'ప్రస్తుతం అందుబాటులో లేదు. ASKODOX యథావిధిగా పనిచేస్తుంది.')),
+                    );
+                  }
                   return SwitchListTile(
                     key: const Key('askodoxFloatingBubble'),
                     title: Text(t('Floating ASKODOX bubble', 'తేలియాడే ASKODOX బబుల్')),

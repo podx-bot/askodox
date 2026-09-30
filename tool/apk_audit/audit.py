@@ -42,7 +42,7 @@ def audit(apk):
         "versionName": pkg.group(3) if pkg else None,
         "application_label": (re.search(r"application-label:'([^']*)'", badging) or [None, None])[1],
         "application_line": (re.search(r"^application: .*$", badging, re.M) or [""])[0],
-        "sdk": {"min": (re.search(r"sdkVersion:'(\d+)'", badging) or [0, None])[1],
+        "sdk": {"min": (re.search(r"(?:minSdkVersion|sdkVersion):'(\d+)'", badging) or [0, None])[1],
                 "target": (re.search(r"targetSdkVersion:'(\d+)'", badging) or [0, None])[1]},
         "certificate_sha256": (re.search(r"certificate SHA-256 digest: ([0-9a-f]+)", certs) or [0, None])[1],
         "permissions": perms,
@@ -62,8 +62,11 @@ def audit(apk):
             elif m.group(1) == "queries":
                 out["queries"].append("queries-block")
             continue
+        if re.match(r"E: (meta-data|intent-filter|action|category|data|property)", s):
+            current = {"type": "child"}  # attributes of child elements are not the component's
+            continue
         a = re.match(r"A: http://schemas.android.com/apk/res/android:(\w+)\([^)]*\)=(?:\(type [^)]*\))?\"?([^\" ]*)", s)
-        if a and current is not None:
+        if a and current is not None and current.get("type") != "child":
             key, val = a.group(1), a.group(2)
             if current["type"] == "application" and key == "name":
                 out["application_class"] = val

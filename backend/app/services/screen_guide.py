@@ -30,6 +30,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+PAUSE_TITLE = "Privacy Paused — sensitive information detected."
+PAUSE_TITLE_TE = "గోప్యత కోసం ఆపివేయబడింది — సున్నితమైన సమాచారం కనిపించింది."
 PAUSE_MESSAGE = ("Sensitive information detected. ASKODOX screen assistance is paused. Please complete this step "
                  "yourself. When finished and you leave this sensitive screen, double-tap ASKODOX or press Continue "
                  "to resume.")
@@ -45,6 +47,8 @@ _SENSITIVE = re.compile(
     r"(\botp\b|one[\s-]?time[\s-]?pass|verification code|security code|\bpassword\b|\bpasscode\b|\bpin\b|\bmpin\b|"
     r"upi[\s-]?pin|\bcvv\b|\bcvc\b|card number|card no|expiry|valid thru|net[\s-]?banking|internet banking|"
     r"\baadhaa?r\b|\bpan (card|number)\b|passport|biometric|fingerprint|face unlock|security question|"
+    r"transaction password|authori[sz]e (the )?payment|approve (the )?payment|confirm (the )?payment|"
+    r"payment authori[sz]ation|3-?d secure|\bvbv\b|securecode|mandate|"
     r"ఓటీపీ|పాస్‌?వర్డ్|పిన్|ఆధార్|ओटीपी|पासवर्ड|पिन|आधार)", re.IGNORECASE)
 # Payment / banking / UPI apps and the NPCI PIN pad: paused on every screen.
 SENSITIVE_PACKAGES = (
@@ -202,7 +206,9 @@ class ScreenGuide:
             self.count("failure", "timeout")
 
     def start(self, user: str, goal: str, language: str, permissions: Dict[str, Any]) -> Dict[str, Any]:
-        language = language if language in ("te", "en", "hi") else "en"
+        # Any BCP-47 language the phone uses (the model answers in it; the
+        # rule-based fallback has English and Telugu texts, English otherwise).
+        language = language.strip() if re.fullmatch(r"[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?", language or "") else "en"
         category = goal_category(goal)
         with self._lock:
             self._purge()
@@ -237,10 +243,12 @@ class ScreenGuide:
                 self.count("privacy_pause", reason)
             s["paused"] = True
             return {"state": "PRIVACY_PAUSED", "reason": reason,
+                    "title": PAUSE_TITLE_TE if s["language"] == "te" else PAUSE_TITLE,
                     "message": PAUSE_MESSAGE_TE if s["language"] == "te" else PAUSE_MESSAGE}
         if s["paused"]:
             # Leaving the sensitive screen does NOT resume by itself.
             return {"state": "PRIVACY_PAUSED", "reason": "waiting_for_resume",
+                    "title": PAUSE_TITLE_TE if s["language"] == "te" else PAUSE_TITLE,
                     "message": PAUSE_MESSAGE_TE if s["language"] == "te" else PAUSE_MESSAGE}
         clean = sanitize(screen or {})
         if not clean["elements"]:

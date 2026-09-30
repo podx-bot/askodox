@@ -41,10 +41,24 @@ def guide(container: Any) -> ScreenGuide:
     return g
 
 
-def _enabled(container: Any) -> bool:
+CONSENT_VERSION = "sg-disclosure-v1"
+CAPABILITY_FLAGS = ("companion.enabled", "companion.floating_bubble", "companion.screen_guide",
+                    "companion.accessibility", "companion.privacy_shield")
+POLICY_NOTICE = ("Screen Guide is not available right now. ASKODOX works normally -- you can still ask in chat "
+                 "and get step-by-step written help.")
+
+
+def capabilities(container: Any) -> Dict[str, bool]:
     from app.api.routes.command_center import feature_enabled
 
-    return feature_enabled(container, "companion.screen_guide")
+    return {key.split(".", 1)[1]: feature_enabled(container, key) for key in CAPABILITY_FLAGS}
+
+
+def _enabled(container: Any) -> bool:
+    """Every switch must be on. Privacy Shield is fail-closed: turning it off
+    stops the guide instead of running it unprotected."""
+    c = capabilities(container)
+    return c["enabled"] and c["screen_guide"] and c["accessibility"] and c["privacy_shield"]
 
 
 def _user(request: Request) -> str:
@@ -63,8 +77,9 @@ def _live(request: Request) -> ScreenGuide:
 class StartBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str = Field(min_length=2, max_length=200)
-    language: str = "en"
+    language: str = Field(default="en", max_length=12)
     permissions: Dict[str, bool] = Field(default_factory=dict)
+    consent_version: str = Field(default="", max_length=40)
 
 
 class Element(BaseModel):
@@ -103,8 +118,12 @@ class SessionBody(BaseModel):
 
 @router.get("/status")
 def status(request: Request) -> dict:
+    """Public switches for the app (no user data): each companion capability
+    can be turned off on its own; ASKODOX itself keeps working."""
     container = request.app.state.container
-    return {"enabled": _enabled(container), "model": _llm(container) is not None}
+    enabled = _enabled(container)
+    return {"enabled": enabled, "model": _llm(container) is not None, "capabilities": capabilities(container),
+            "consent_version": CONSENT_VERSION, "notice": None if enabled else POLICY_NOTICE}
 
 
 @router.post("/start")
@@ -113,6 +132,9 @@ def start(body: StartBody, request: Request) -> dict:
 
     rate_limit.check(request, "guide_start", limit=10)
     g = _live(request)
+    if body.consent_version != CONSENT_VERSION:
+        # The prominent disclosure must have been shown and accepted first.
+        raise HTTPException(status_code=428, detail="SCREEN_GUIDE_CONSENT_REQUIRED")
     return g.start(_user(request), body.goal, body.language, body.permissions)
 
 
@@ -121,7 +143,17 @@ def step(body: StepBody, request: Request) -> dict:
     from app.services import rate_limit
 
     rate_limit.check(request, "guide_step", limit=40)
-    g = _live(request)
+    container = request.app.state.container
+    if not _enabled(container):
+        # Kill switch mid-guide: the phone shows the notice and ends the guide;
+        # the screen sent with this request is not processed at all.
+        user = _user(request)
+        try:
+            guide(container).end(user, body.session_id, "abandoned", "")
+        except KeyError:
+            pass
+        return {"state": "DISABLED", "message": POLICY_NOTICE}
+    g = guide(container)
     try:
         return g.step(_user(request), body.session_id, body.screen.model_dump())
     except KeyError:
@@ -154,6 +186,7 @@ def admin_screen_guide(request: Request, days: int = 30) -> dict:
     _require(request, "companion:view")
     container = request.app.state.container
     return {"enabled": _enabled(container), "flag": "companion.screen_guide",
+            "capabilities": capabilities(container), "consent_version": CONSENT_VERSION,
             "model_configured": _llm(container) is not None,
             "stats": guide(container).stats(max(1, min(days, 365))),
             "privacy": ["No screenshots are taken or stored.",
