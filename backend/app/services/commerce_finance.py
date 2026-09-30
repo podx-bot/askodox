@@ -98,6 +98,57 @@ def is_production(env: Dict[str, str]) -> bool:
     return name in PRODUCTION_ENV_NAMES
 
 
+def _json_service_account(value: str) -> bool:
+    try:
+        data = json.loads(value)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(data, dict) and data.get("type") == "service_account" and all(
+        data.get(k) for k in ("project_id", "client_email", "private_key"))
+
+
+# Format checks run when a value is saved. They catch pasted-wrong-field mistakes;
+# only a live Check proves a credential works. Messages never echo the value.
+_RX = {
+    "digits": r"^\d{6,20}$",
+    "rzp_key_id": r"^rzp_(test|live)_[A-Za-z0-9]{8,32}$",
+    "youtube_key": r"^AIza[0-9A-Za-z_\-]{35}$",
+    "twilio_sid": r"^AC[0-9a-fA-F]{32}$",
+    "sender_id": r"^([A-Za-z]{6}|\+?\d{8,15})$",
+    "host": r"^[A-Za-z0-9.\-]{3,253}$",
+    "email": r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$",
+    "port": r"^(25|465|587|2525)$",
+    "api_version": r"^v\d{2}\.\d$",
+    "token": r"^\S{16,4096}$",
+    "template": r"^[a-z0-9_]{1,512}$",
+    "lang": r"^[a-z]{2,3}(_[A-Z]{2})?$",
+    "vendor": r"^(msg91|twilio)$",
+    "flow": r"^[A-Za-z0-9]{6,64}$",
+}
+VALIDATION: Dict[str, Dict[str, str]] = {
+    "whatsapp_cloud": {"phone_number_id": "digits", "access_token": "token", "app_secret": "token",
+                       "api_version": "api_version", "template_name": "template", "template_language": "lang"},
+    "sms": {"vendor": "vendor", "sender_id": "sender_id", "dlt_template_id": "flow", "account_sid": "twilio_sid",
+            "api_key": "token"},
+    "email": {"host": "host", "from_address": "email", "port": "port", "username": "email"},
+    "youtube_data": {"api_key": "youtube_key"},
+    "razorpay": {"key_id": "rzp_key_id", "key_secret": "token", "webhook_secret": "token"},
+}
+
+
+def validate_field(provider: str, name: str, value: str) -> Optional[str]:
+    """None when the value looks right, else a message naming the field (never the value)."""
+    value = str(value or "").strip()
+    if provider == "fcm_push" and name == "service_account_json":
+        return None if _json_service_account(value) else (
+            "service_account_json must be the Firebase service-account JSON file (type, project_id, client_email, "
+            "private_key)")
+    kind = VALIDATION.get(provider, {}).get(name)
+    if kind and not __import__("re").match(_RX[kind], value):
+        return f"{name} does not look right for {PROVIDERS[provider][1]}"
+    return None
+
+
 class IntegrationRegistry:
     """Provider config: public keys in the clear, secrets encrypted with the
     server-side key (secret_box). Secrets are write-only through the API."""
@@ -112,6 +163,8 @@ class IntegrationRegistry:
                 "DEFAULT 0, mode TEXT NOT NULL DEFAULT 'test', config_json TEXT NOT NULL DEFAULT '{}', "
                 "secrets_json TEXT NOT NULL DEFAULT '{}', last_check_at TEXT, last_check_ok INTEGER, "
                 "last_check_detail TEXT, updated_by TEXT, updated_at TEXT)")
+            conn.execute("CREATE TABLE IF NOT EXISTS pf_quota (provider TEXT NOT NULL, day TEXT NOT NULL, "
+                         "units INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(provider, day))")
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -180,6 +233,8 @@ class IntegrationRegistry:
         public_config = {k: config.get(k) or self._env(provider, k) for k in self.config_keys(provider)
                          if config.get(k) or self._env(provider, k)}
         missing = [s for s in secret_names if s not in have_secrets] + [k for k in config_keys if k not in sources]
+        invalid = [n for n, src in sources.items() if src == "environment"
+                   and validate_field(provider, n, self._env(provider, n))]
         mode = row.get("mode") or "test"
         if internal:
             state = STATUS_LIVE
@@ -199,10 +254,56 @@ class IntegrationRegistry:
                 "enabled": bool(row.get("enabled")) or internal, "mode": mode, "available": self.available(provider),
                 "config": public_config, "secrets_set": sorted(have_secrets), "missing": missing,
                 "secret_names": list(self.secret_names(provider)), "config_keys": list(self.config_keys(provider)),
-                "required": list(secret_names) + list(config_keys), "sources": sources,
+                "required": list(secret_names) + list(config_keys), "sources": sources, "invalid": invalid,
+                "warnings": self._warnings(provider, sources, invalid),
+                **({"quota": {"used_today": self.quota_used(provider), "daily_cap": self.quota_cap(provider)}}
+                   if provider in self.QUOTA_CAPS else {}),
                 "env_vars": dict(ENV_SOURCES.get(provider, {})),
                 "last_check_at": row.get("last_check_at"), "last_check_ok": row.get("last_check_ok"),
                 "last_check_detail": row.get("last_check_detail")}
+
+    # daily API quota (YouTube resets at midnight Pacific time) ----------
+    QUOTA_CAPS = {"youtube_data": ("ASKODOX_YOUTUBE_DAILY_UNITS", 9000)}
+
+    @staticmethod
+    def _quota_day() -> str:
+        try:
+            from zoneinfo import ZoneInfo
+
+            return datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+        except Exception:
+            return (datetime.now(timezone.utc) - timedelta(hours=8)).date().isoformat()
+
+    def quota_cap(self, provider: str) -> int:
+        var, default = self.QUOTA_CAPS.get(provider, ("", 0))
+        try:
+            return max(0, int(self.env.get(var) or default))
+        except ValueError:
+            return default
+
+    def quota_used(self, provider: str) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT units FROM pf_quota WHERE provider=? AND day=?",
+                               (provider, self._quota_day())).fetchone()
+        return int(row["units"]) if row else 0
+
+    def spend(self, provider: str, units: int) -> bool:
+        """Reserve quota units for one call; False (nothing reserved) once the daily cap is reached."""
+        cap, day = self.quota_cap(provider), self._quota_day()
+        with self._connect() as conn:
+            conn.execute("INSERT OR IGNORE INTO pf_quota (provider, day, units) VALUES (?, ?, 0)", (provider, day))
+            cur = conn.execute("UPDATE pf_quota SET units = units + ? WHERE provider=? AND day=? AND units + ? <= ?",
+                               (units, provider, day, units, cap))
+            return cur.rowcount > 0
+
+    @staticmethod
+    def _warnings(provider: str, sources: Dict[str, str], invalid: List[str]) -> List[str]:
+        out = [f"{name} (deployment variable) does not look right" for name in invalid]
+        if provider == "whatsapp_cloud" and "access_token" in sources and "app_secret" not in sources:
+            out.append("Inbound WhatsApp webhooks are not signature-verified until app_secret is set")
+        if provider == "razorpay" and "key_id" in sources and "webhook_secret" not in sources:
+            out.append("Without webhook_secret, payments are confirmed only by the checkout callback")
+        return out
 
     def all(self) -> List[Dict[str, Any]]:
         return [self.status(p) for p in PROVIDERS]
@@ -221,7 +322,11 @@ class IntegrationRegistry:
         for key, value in (config or {}).items():
             if key not in config_keys:
                 raise ValueError(f"unknown config key {key}")
-            cfg[key] = str(value)[:300]
+            if str(value).strip():
+                problem = validate_field(provider, key, str(value))
+                if problem:
+                    raise ValueError(problem)
+            cfg[key] = str(value).strip()[:300]
         stored = json.loads(row.get("secrets_json") or "{}")
         if secrets:
             if self.box is None or not self.box.configured:
@@ -229,6 +334,10 @@ class IntegrationRegistry:
             for name, value in secrets.items():
                 if name not in secret_names:
                     raise ValueError(f"unknown secret {name}")
+                if value:
+                    problem = validate_field(provider, name, str(value))
+                    if problem:
+                        raise ValueError(problem)
                 if value:
                     stored[name] = self.box.encrypt(str(value))
         with self._connect() as conn:
@@ -497,7 +606,7 @@ class NotificationDispatcher:
         return candidates[0] if candidates else None
 
     def dispatch(self, event: str, *, user_ref: str, values: Dict[str, Any], language: str = "en",
-                 channel_on: Callable[[str], bool] | None = None) -> List[Dict]:
+                 channel_on: Callable[[str], bool] | None = None, contact_id: str | None = None) -> List[Dict]:
         results = []
         for rule in self.repo.list("notification_rules", status="ACTIVE"):
             d = rule["data"]
@@ -524,7 +633,7 @@ class NotificationDispatcher:
                 elif channel != "in_app" and self.messenger is not None and channel not in self.senders:
                     # sent / mock_delivered / failed / skipped_needs_configuration / skipped_no_contact ...
                     status = self.messenger.send(channel, title=title, body=body, user_ref=user_ref,
-                                                 event=event)["status"].lower()
+                                                 event=event, contact_id=contact_id)["status"].lower()
                 elif channel != "in_app":
                     provider = self.CHANNEL_PROVIDER[channel]
                     if self.registry.status(provider)["status"] not in (STATUS_LIVE, STATUS_TEST):

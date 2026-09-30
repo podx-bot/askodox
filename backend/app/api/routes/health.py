@@ -66,4 +66,15 @@ def readiness(request: Request) -> dict:
         database_ok = bool(container.database.health_check())
     except Exception:
         database_ok = False
-    return _readiness_payload(container.settings, database_ok)
+    payload = _readiness_payload(container.settings, database_ok)
+    # External integrations: status words only (never values, field names or reasons).
+    try:
+        from app.api.routes.platform import platform
+
+        registry = platform(container).registry
+        payload["integrations"] = {item["provider"]: item["status"] for item in registry.all()
+                                   if not item["internal"]}
+        payload["environment"] = os.getenv("RAILWAY_ENVIRONMENT_NAME", "") or "local"
+    except Exception:
+        payload["integrations"] = {}
+    return payload

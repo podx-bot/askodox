@@ -35,6 +35,8 @@ from app.services.commerce_finance import (
 CHANNEL_PROVIDER = {"push": "fcm_push", "email": "email", "sms": "sms", "whatsapp": "whatsapp_cloud"}
 PROVIDER_CHANNEL = {v: k for k, v in CHANNEL_PROVIDER.items()}
 SENT, MOCK_DELIVERED, FAILED, NO_CONTACT = "SENT", "MOCK_DELIVERED", "FAILED", "SKIPPED_NO_CONTACT"
+OPTED_OUT = "SKIPPED_OPTED_OUT"
+OPTABLE_CHANNELS = ("whatsapp", "sms", "email", "push")
 DEFAULT_WHATSAPP_VERSION = "v21.0"
 _EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$")
 
@@ -77,6 +79,12 @@ def valid_recipient(channel: str, to: str) -> bool:
     return bool(str(to or "").strip())  # push: a user id
 
 
+def transient(error: str) -> bool:
+    error = str(error or "")
+    return error.startswith(("HTTP 5", "HTTP 429")) or any(
+        e in error for e in ("Timeout", "ConnectError", "ReadError", "RemoteProtocolError"))
+
+
 def _error_text(body: Any) -> str:
     if isinstance(body, dict):
         err = body.get("error") or body.get("message") or body.get("errors") or body
@@ -97,6 +105,13 @@ class Outbox:
                 "NOT NULL, to_masked TEXT, user_ref TEXT, event TEXT, title TEXT, body TEXT, status TEXT NOT NULL, "
                 "mode TEXT, provider_ref TEXT, error TEXT, created_at TEXT NOT NULL)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_pf_outbox_created ON pf_outbox(created_at)")
+            columns = {r[1] for r in conn.execute("PRAGMA table_info(pf_outbox)")}
+            for column in ("delivery_status", "delivery_error", "delivery_at", "attempts"):
+                if column not in columns:  # provider receipts (sent / delivered / read / failed)
+                    conn.execute(f"ALTER TABLE pf_outbox ADD COLUMN {column} TEXT")
+            # A customer's own choice: channels they do not want messages on.
+            conn.execute("CREATE TABLE IF NOT EXISTS pf_comm_optouts (user_ref TEXT NOT NULL, channel TEXT NOT NULL, "
+                         "at TEXT NOT NULL, source TEXT, PRIMARY KEY(user_ref, channel))")
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -106,11 +121,54 @@ class Outbox:
     def record(self, **row: Any) -> Dict[str, Any]:
         row = {"id": "out_" + uuid.uuid4().hex[:16], "created_at": now_iso(), **row}
         cols = ("id", "channel", "provider", "to_masked", "user_ref", "event", "title", "body", "status", "mode",
-                "provider_ref", "error", "created_at")
+                "provider_ref", "error", "created_at", "attempts")
+        row.setdefault("attempts", None)
         with self._connect() as conn:
             conn.execute(f"INSERT INTO pf_outbox ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
                          tuple(str(row.get(c))[:2000] if row.get(c) is not None else None for c in cols))
         return {c: row.get(c) for c in cols}
+
+    def get(self, record_id: str) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM pf_outbox WHERE id=?", (record_id,)).fetchone()
+        return dict(row) if row else None
+
+    def receipt(self, provider: str, provider_ref: str, status: str, error: str | None = None) -> bool:
+        """A provider delivery receipt (e.g. WhatsApp sent / delivered / read / failed)."""
+        if not provider_ref:
+            return False
+        with self._connect() as conn:
+            cur = conn.execute("UPDATE pf_outbox SET delivery_status=?, delivery_error=?, delivery_at=? "
+                               "WHERE provider=? AND provider_ref=?",
+                               (str(status)[:30], (error or None) and str(error)[:300], now_iso(), provider,
+                                str(provider_ref)[:200]))
+        return cur.rowcount > 0
+
+    # opt-outs -----------------------------------------------------------
+    def opted_out(self, user_ref: str, channel: str) -> bool:
+        if not user_ref:
+            return False
+        with self._connect() as conn:
+            return conn.execute("SELECT 1 FROM pf_comm_optouts WHERE user_ref=? AND channel=?",
+                                (user_ref, channel)).fetchone() is not None
+
+    def set_opt_out(self, user_ref: str, channel: str, opted_out: bool, *, source: str = "user") -> None:
+        if channel not in OPTABLE_CHANNELS:
+            raise ValueError(f"unknown channel {channel}")
+        with self._connect() as conn:
+            if opted_out:
+                conn.execute("INSERT OR REPLACE INTO pf_comm_optouts VALUES (?, ?, ?, ?)",
+                             (user_ref, channel, now_iso(), source))
+            else:
+                conn.execute("DELETE FROM pf_comm_optouts WHERE user_ref=? AND channel=?", (user_ref, channel))
+
+    def preferences(self, user_ref: str) -> Dict[str, bool]:
+        return {c: not self.opted_out(user_ref, c) for c in OPTABLE_CHANNELS}
+
+    def optout_counts(self) -> Dict[str, int]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT channel, COUNT(*) n FROM pf_comm_optouts GROUP BY channel").fetchall()
+        return {r["channel"]: r["n"] for r in rows}
 
     def list(self, *, channel: str | None = None, limit: int = 100) -> List[Dict[str, Any]]:
         sql, args = "SELECT * FROM pf_outbox", []
@@ -230,14 +288,19 @@ class Messenger:
         return False, "", f"unknown channel {channel}"
 
     def send(self, channel: str, *, title: str, body: str, user_ref: str | None = None, to: str | None = None,
-             event: str | None = None) -> Dict[str, Any]:
+             event: str | None = None, contact_id: str | None = None) -> Dict[str, Any]:
+        """``user_ref`` is the opaque reference stored in the outbox; ``contact_id`` is
+        the real user id used server-side only to find the number / device."""
         if channel not in CHANNEL_PROVIDER:
             raise ValueError(f"unknown channel {channel}")
         provider = CHANNEL_PROVIDER[channel]
         state = self.registry.status(provider)
-        recipient = to or (user_ref if channel == "push" else (self.contacts(user_ref or "", channel) or ""))
+        who = contact_id or user_ref or ""
+        recipient = to or (who if channel == "push" else (self.contacts(who, channel) or ""))
         base = {"channel": channel, "provider": provider, "user_ref": user_ref, "event": event, "title": title,
                 "body": body, "mode": state["mode"], "to_masked": mask(recipient)}
+        if user_ref and not to and self.outbox.opted_out(user_ref, channel):
+            return self.outbox.record(**base, status=OPTED_OUT)  # the customer's choice always wins
         if state["status"] == STATUS_MOCK:
             if not valid_recipient(channel, recipient):
                 return self.outbox.record(**base, status=NO_CONTACT if not recipient else FAILED,
@@ -249,12 +312,18 @@ class Messenger:
             return self.outbox.record(**base, status=NO_CONTACT)
         if not valid_recipient(channel, recipient):
             return self.outbox.record(**base, status=FAILED, error="invalid recipient")
-        try:
-            ok, ref, error = self._deliver(channel, recipient, title, body, user_ref)
-        except Exception as exc:  # a provider outage never breaks the caller
-            ok, ref, error = False, "", f"{type(exc).__name__}"
+        attempts = 0
+        while True:
+            attempts += 1
+            try:
+                ok, ref, error = self._deliver(channel, recipient, title, body, contact_id or user_ref)
+            except Exception as exc:  # a provider outage never breaks the caller
+                ok, ref, error = False, "", f"{type(exc).__name__}"
+            # One retry for transient failures (provider 5xx / rate limit / network).
+            if ok or attempts >= 2 or not transient(error):
+                break
         return self.outbox.record(**base, status=SENT if ok else FAILED, provider_ref=ref or None,
-                                  error=error or None)
+                                  error=error or None, attempts=attempts)
 
 
 # ----------------------------------------------------------------- probes --

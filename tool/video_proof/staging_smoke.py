@@ -74,6 +74,14 @@ check("'where can I get it here' is a search, no shop names from memory",
       {"status": r.status_code, "action": ai.get("action"), "transactional": ai.get("transactional"),
        "reply": str(ai.get("reply", ""))[:200], "source": ai.get("source"), "shops_named": shops})
 
+ready = http.get(f"{STAGING}/readiness").json()
+integrations = ready.get("integrations") or {}
+live = sorted(p for p, st in integrations.items() if st == "LIVE")
+check("staging integrations are in safe states (nothing LIVE without real credentials; WhatsApp off on staging)",
+      ready.get("environment") == "staging" and integrations and not live
+      and integrations.get("whatsapp_cloud") in ("NEEDS_CONFIGURATION", "DISABLED", "MOCK"),
+      {"environment": ready.get("environment"), "integrations": integrations, "live": live})
+
 prod = http.get(f"{PRODUCTION}/health")
 check("production still answers (untouched)", prod.status_code == 200, {"status": prod.status_code})
 r = post(PRODUCTION, "/deals/discover", discover_body("Samsung 43 inch TV review videos", "samsung 43 inch tv",

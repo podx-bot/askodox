@@ -25,6 +25,39 @@ hand-set flag. An integration is **LIVE** only with real credentials, mode `live
 * **Test send** (Integrations → provider → Test send) sends one message to an address you type — in mock mode it
   never leaves ASKODOX.
 
+## Production hardening (built without credentials, tested with recorded API shapes)
+
+* **Validation on save.** Each credential is format-checked when it is saved: Razorpay `rzp_test_/rzp_live_` key id,
+  YouTube `AIza…` key, Twilio `AC…` SID, numeric WhatsApp phone-number id, DLT sender id, SMTP host/port/from
+  address, and a real Firebase service-account JSON. Errors name the field, never the value. A deployment variable
+  that looks wrong shows as a warning.
+* **Razorpay adapter** (Razorpay's documented Orders, Standard Checkout and Webhooks APIs):
+  * Starting an online payment creates a Razorpay order (amount in paise, receipt = ASKODOX payment id,
+    idempotent).
+  * The checkout success callback is verified with `HMAC(key_secret, order_id|payment_id)`.
+  * Razorpay's own webhooks (`X-Razorpay-Signature`, `X-Razorpay-Event-Id` replay protection) map
+    `payment.captured` / `order.paid` to PAID, `payment.failed` to FAILED and `refund.processed` to (partially)
+    REFUNDED.
+  * A customer order paid this way becomes payment VERIFIED "by gateway".
+  * Customer actions: `POST /api/orders/{id}/payment` `start_online` / `verify_online`. These are refused when no
+    gateway is configured or the `payments.online` switch is off.
+  * The **app screen for Razorpay Checkout is not built yet** (it needs the Razorpay SDK in the APK).
+* **WhatsApp inbound security.** Once `app_secret` is set, every webhook must carry a valid Meta
+  `X-Hub-Signature-256`, otherwise 401. Without it the endpoint behaves exactly as before, and the Command Center shows
+  a warning. Delivery receipts (sent / delivered / read / failed) are written onto the message in the delivery log.
+* **Customer opt-out.** `GET/PUT /api/me/notification-channels`: a customer can switch off WhatsApp, SMS, e-mail or
+  push. This always wins over admin notification rules (`SKIPPED_OPTED_OUT`), and opt-out counts appear in Message
+  deliveries.
+* **Contacts are found from the real user id server-side.** The delivery log keeps only the opaque reference. This
+  fixes a bug where real SMS/WhatsApp/push would never have found the customer.
+* **One automatic retry** on transient provider errors (5xx, 429, network). Permanent errors fail at once with the
+  provider's message.
+* **YouTube quota guard.** A daily unit budget (`ASKODOX_YOUTUBE_DAILY_UNITS`, default 9,000 of the standard 10,000;
+  101 units per uncached search) counted per Pacific-time day. When it is used up, search falls back to web videos,
+  and usage is shown on the integration card.
+* **Staging check.** The public `/readiness` endpoint lists each integration's status word (never values or field
+  names). The staging smoke test fails if anything is LIVE on staging or if staging's WhatsApp is on.
+
 ## Where each credential goes
 
 Command Center → Integrations → *provider* → **Configure** (encrypted, write-only), or the Railway variable on the

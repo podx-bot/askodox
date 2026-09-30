@@ -99,6 +99,10 @@ class Platform:
                                          smtp_factory=getattr(container, "smtp_factory", None),
                                          push=_LazyPush(self), contacts=self._contact)
         self.notifications = fin.NotificationDispatcher(self.repo, self.registry, messenger=self.messenger)
+        from app.services.razorpay_gateway import RazorpayGateway
+
+        self.razorpay = RazorpayGateway(self.repo, self.registry,
+                                        getattr(container, "comms_http", None) or comms.default_http)
         self._push: Any = None
         self.resources = ResourceService(self.repo, effects={
             "link_test": self._link_test, "preview": self._preview}, ref_exists=self._ref_exists)
@@ -106,6 +110,34 @@ class Platform:
         from app.services.video_content import WebVideoStore
 
         self.web_videos = WebVideoStore(settings.database_path)
+
+    # online payments -----------------------------------------------------
+    def checkout_provider(self) -> Optional[str]:
+        """The gateway that can take an online payment right now: one with a real
+        adapter, credentials and TEST/LIVE status (Razorpay today)."""
+        status = self.registry.status("razorpay")
+        return "razorpay" if status["status"] in (fin.STATUS_LIVE, fin.STATUS_TEST) else None
+
+    def start_checkout(self, payment: Dict[str, Any]) -> Dict[str, Any]:
+        if payment["provider"] != "razorpay":
+            raise fin.PlatformConflict("no checkout adapter for this provider")
+        return self.razorpay.start(payment)
+
+    def sync_order(self, payment: Dict[str, Any]) -> None:
+        """A gateway-paid customer order becomes payment VERIFIED (by the gateway)."""
+        ref = str(payment.get("order_ref") or "")
+        if payment.get("status") != "PAID" or not ref.startswith("order:"):
+            return
+        try:
+            order_id = int(ref.split(":", 1)[1])
+            from datetime import datetime, timezone
+
+            self.container.order_repository.update_fields(
+                order_id, payment_state="VERIFIED", payment_verified_by="gateway",
+                payment_reference=payment.get("provider_ref") or payment["id"],
+                paid_at=datetime.now(timezone.utc).isoformat())
+        except Exception:
+            pass
 
     # communications ------------------------------------------------------
     def push(self) -> Any:
@@ -252,7 +284,7 @@ def notify(container: Any, event: str, user_id: str, values: Dict[str, Any], *, 
 
         flags = command_center(container).flags_map()
         return platform(container).notifications.dispatch(
-            event, user_ref=user_ref(user_id), values=values, language=language,
+            event, user_ref=user_ref(user_id), values=values, language=language, contact_id=user_id,
             channel_on=lambda channel: flags.get(f"notifications.{channel}", True) if channel != "in_app" else True)
     except Exception:
         return []
@@ -586,6 +618,11 @@ def create_payment(body: PaymentBody, request: Request) -> dict:
     except Exception as error:
         raise _err(error) from None
     _audit(request, principal, "payment.create", f"payment:{payment['id']}", {"amount": body.amount})
+    if payment["provider"] == "razorpay" and payment["status"] in ("CREATED", "PENDING"):
+        try:
+            payment = payment | {"checkout": _pf(request).start_checkout(payment)}
+        except Exception as error:
+            payment = payment | {"checkout_error": str(error)[:200]}
     return payment
 
 
@@ -902,7 +939,8 @@ def integration_test_send(provider: str, body: TestSendBody, request: Request) -
 def outbox(request: Request, channel: str = "", limit: int = 100) -> dict:
     _require(request, "integrations:view")
     pf = _pf(request)
-    return {"items": pf.outbox.list(channel=channel or None, limit=limit), "summary": pf.outbox.summary()}
+    return {"items": pf.outbox.list(channel=channel or None, limit=limit), "summary": pf.outbox.summary(),
+            "opt_outs": pf.outbox.optout_counts()}
 
 
 class NotifyTestBody(BaseModel):
@@ -1195,13 +1233,52 @@ def my_reward_action(reward_id: str, body: RewardClaimBody, request: Request) ->
 @router.post("/api/payments/webhook/{provider}")
 async def payment_webhook(provider: str, request: Request) -> dict:
     body = await request.body()
+    pf = _pf(request)
+    if provider == "razorpay" and request.headers.get("x-razorpay-signature"):
+        # Razorpay's own signed webhook format (Dashboard -> Webhooks -> this URL).
+        try:
+            result = pf.razorpay.webhook(body, request.headers.get("x-razorpay-signature") or "",
+                                         request.headers.get("x-razorpay-event-id") or "")
+        except PermissionError as error:
+            raise HTTPException(status_code=401, detail=str(error)) from None
+        except Exception as error:
+            raise _err(error) from None
+        if result.get("payment"):
+            pf.sync_order(result["payment"])
+        return {"ok": True, "duplicate": bool(result.get("duplicate")), "ignored": bool(result.get("ignored")),
+                "status": (result.get("payment") or {}).get("status")}
     try:
-        result = _pf(request).payments.webhook(provider, body, request.headers.get("x-askodox-signature") or "")
+        result = pf.payments.webhook(provider, body, request.headers.get("x-askodox-signature") or "")
     except PermissionError as error:
         raise HTTPException(status_code=401, detail=str(error)) from None
     except Exception as error:
         raise _err(error) from None
+    pf.sync_order(result["payment"])
     return {"ok": True, "duplicate": result["duplicate"], "status": result["payment"]["status"]}
+
+
+class ChannelPrefs(BaseModel):
+    whatsapp: bool | None = None
+    sms: bool | None = None
+    email: bool | None = None
+    push: bool | None = None
+
+
+@router.get("/api/me/notification-channels")
+def my_channels(request: Request) -> dict:
+    """Which channels this customer accepts messages on (all on unless they opted out)."""
+    user = _user(request)
+    return {"channels": _pf(request).outbox.preferences(user_ref(user))}
+
+
+@router.put("/api/me/notification-channels")
+def set_my_channels(body: ChannelPrefs, request: Request) -> dict:
+    """The customer's own opt-out -- always wins over any admin notification rule."""
+    user = _user(request)
+    pf = _pf(request)
+    for channel, allowed in body.model_dump(exclude_none=True).items():
+        pf.outbox.set_opt_out(user_ref(user), channel, not allowed, source="customer")
+    return {"channels": pf.outbox.preferences(user_ref(user))}
 
 
 @router.get("/api/notifications/inbox")
@@ -1231,6 +1308,10 @@ def discovery_video_rows(container: Any, demand: Dict[str, Any]) -> List[Dict[st
     return rows
 
 
+class QuotaExhausted(Exception):
+    """The day's YouTube Data API budget is used up."""
+
+
 def enrich_discovery_videos(container: Any, demand: Dict[str, Any], matches: List[Dict[str, Any]], *,
                             wants_videos: bool, trace_key: str = "") -> Dict[str, Any]:
     """Real web videos in the results become trackable, playable-where-allowed,
@@ -1248,12 +1329,19 @@ def enrich_discovery_videos(container: Any, demand: Dict[str, Any], matches: Lis
         language = str((demand.get("constraints") or {}).get("language") or "")[:2]
         source = YouTubeDataSource(key, pf.http_json,
                                    region=str(getattr(container.settings, "search_country", "IN") or "IN"))
+        def fetch():
+            # search.list = 100 units + videos.list = 1 unit, reserved only on a cache miss.
+            if not pf.registry.spend("youtube_data", 101):
+                raise QuotaExhausted()
+            return source.search(f"{subject} review", limit=6, language=language)
+
         try:
             raw = external_call_budget.cached_call(
-                "youtube_data", ("search", subject.lower(), language),
-                lambda: source.search(f"{subject} review", limit=6, language=language), ttl=6 * 3600)
+                "youtube_data", ("search", subject.lower(), language), fetch, ttl=6 * 3600)
             youtube_rows = youtube_rows_as_results(raw or [], subject)
             info["youtube_data"] = "ok" if youtube_rows else "no_results"
+        except QuotaExhausted:
+            info["youtube_data"] = "quota_exhausted"  # web videos (Brave) still answer
         except Exception as error:
             external_call_budget.record_error("youtube_data")
             info["youtube_data"] = f"error:{type(error).__name__}"

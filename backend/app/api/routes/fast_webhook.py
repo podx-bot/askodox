@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
@@ -245,12 +245,52 @@ def verify_webhook(
     raise HTTPException(status_code=403, detail="Webhook verification failed.")
 
 
+def _signature_ok(container: Any, body: bytes, header: str) -> bool:
+    """Meta signs every webhook: X-Hub-Signature-256 = sha256=HMAC_SHA256(app secret, raw body).
+    Enforced once the WhatsApp app secret is configured (Command Center or
+    WHATSAPP_APP_SECRET); without it the endpoint behaves exactly as before and
+    the Command Center shows inbound messages as unverified."""
+    import hashlib
+    import hmac
+
+    from app.api.routes.platform import platform
+
+    try:
+        secret = platform(container).registry.secret("whatsapp_cloud", "app_secret")
+    except Exception:
+        secret = ""
+    if not secret:
+        return True
+    expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return bool(header) and hmac.compare_digest(expected, header.strip())
+
+
+def _record_receipts(container: Any, payload: dict) -> None:
+    """Delivery receipts (sent / delivered / read / failed) for messages ASKODOX sent."""
+    try:
+        statuses = extract_delivery_statuses(payload)
+        if not statuses:
+            return
+        from app.api.routes.platform import platform
+
+        outbox = platform(container).outbox
+        for status in statuses:
+            outbox.receipt("whatsapp_cloud", status.provider_message_id, status.status, status.error_message)
+    except Exception as error:
+        visible_log(f"WHATSAPP RECEIPT ERROR: {type(error).__name__}")
+
+
 @router.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks) -> dict:
     """Fast-path media events while preserving the legacy handler for other events."""
     container = request.app.state.container
+    raw = await request.body()
+    if not _signature_ok(container, raw, request.headers.get("x-hub-signature-256") or ""):
+        visible_log("WHATSAPP WEBHOOK REJECTED: bad or missing X-Hub-Signature-256")
+        raise HTTPException(status_code=401, detail="Invalid signature")
     try:
         payload = await request.json()
+        _record_receipts(container, payload)
         audio_messages = extract_audio_messages(payload)
         image_messages = extract_image_messages(payload)
         document_messages = extract_document_messages(payload)

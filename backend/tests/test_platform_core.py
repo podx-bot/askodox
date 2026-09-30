@@ -361,11 +361,11 @@ def test_gateway_payments_need_configuration_and_signed_webhooks(api):
     items = {i["provider"]: i for i in client.get(f"{BASE}/integrations", headers=OWNER).json()["items"]}
     assert items["razorpay"]["status"] == "NEEDS_CONFIGURATION" and items["direct_settlement"]["status"] == "LIVE"
     configured = client.put(f"{BASE}/integrations/razorpay", headers=OWNER, json={
-        "enabled": True, "mode": "test", "config": {"key_id": "rzp_test_example"},
-        "secrets": {"key_secret": "sk-example", "webhook_secret": "whsec-example"}}).json()
-    assert configured["status"] == "TEST" and "sk-example" not in json.dumps(configured)
+        "enabled": True, "mode": "test", "config": {"key_id": "rzp_test_EXAMPLE123"},
+        "secrets": {"key_secret": "sk-example-0000000000", "webhook_secret": "whsec-example-000000"}}).json()
+    assert configured["status"] == "TEST" and "sk-example-0000000000" not in json.dumps(configured)
     listing = client.get(f"{BASE}/integrations", headers=OWNER).text
-    assert "whsec-example" not in listing and "sk-example" not in listing, "secrets are write-only"
+    assert "whsec-example-000000" not in listing and "sk-example-0000000000" not in listing, "secrets are write-only"
     payment = client.post(f"{BASE}/payments", headers=OWNER,
                           json={"idempotency_key": "k2", "method": "card", "amount": 500,
                                 "provider": "razorpay"}).json()
@@ -374,7 +374,7 @@ def test_gateway_payments_need_configuration_and_signed_webhooks(api):
         "gateway payments are confirmed only by the gateway"
     event = json.dumps({"event_id": "evt_1", "payment_id": payment["id"], "status": "PAID",
                         "provider_ref": "pay_123"}).encode()
-    good = hmac.new(b"whsec-example", event, hashlib.sha256).hexdigest()
+    good = hmac.new(b"whsec-example-000000", event, hashlib.sha256).hexdigest()
     assert client.post("/api/payments/webhook/razorpay", content=event,
                        headers={"x-askodox-signature": "0" * 64}).status_code == 401
     ok = client.post("/api/payments/webhook/razorpay", content=event, headers={"x-askodox-signature": good})
@@ -382,7 +382,7 @@ def test_gateway_payments_need_configuration_and_signed_webhooks(api):
     replay = client.post("/api/payments/webhook/razorpay", content=event, headers={"x-askodox-signature": good})
     assert replay.json()["duplicate"] is True, "replayed events are ignored"
     audit = client.get("/admin/cc/audit", headers=OWNER).text
-    assert "whsec-example" not in audit and "sk-example" not in audit
+    assert "whsec-example-000000" not in audit and "sk-example-0000000000" not in audit
 
 
 def test_integrations_refuse_secrets_without_encryption_key(api, monkeypatch):
