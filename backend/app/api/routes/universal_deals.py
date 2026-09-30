@@ -390,6 +390,16 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     language = str((getattr(payload, "trace", None) or {}).get("language") or "").strip()[:8]
     if language:
         constraints["language"] = language
+    # The specific category the app/AI detected (events, analytics, insights
+    # use it instead of the coarse PRODUCT / SERVICES routing domain).
+    from app.services.category_signal import detect
+
+    detected, sub = detect(constraints=constraints, category=payload.category,
+                           trace=getattr(payload, "trace", None) or {}, subject=payload.subject)
+    if detected:
+        constraints.setdefault("category_detected", detected)
+    if sub:
+        constraints.setdefault("subcategory_detected", sub)
     return {
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
@@ -972,8 +982,10 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         from app.api.routes.partners import partner_repo
 
         constraints = demand.get("constraints") or {}
+        from app.services.category_signal import for_demand
+
         partner_repo(container).record_event(
-            "search", trace_key=trace_key or None, category=str(demand.get("domain") or ""),
+            "search", trace_key=trace_key or None, category=for_demand(demand)[0],
             subject=str(demand.get("subject") or ""), location=str(demand.get("location_text") or ""),
             language=str(constraints.get("language") or ""),
             detail={"results": len(matches), "partner_results": len(partner_rows)},
@@ -1072,8 +1084,10 @@ def _annotate_benefits(container, matches: list[dict], demand: dict, trace_key: 
                 shown.update(o["id"] for o in result["offers"])
         repo = partner_repo(container)
         for campaign_id in shown:  # one impression per campaign per search
+            from app.services.category_signal import for_demand
+
             repo.record_event("offer_impression", trace_key=trace_key or None, campaign=f"benefit:{campaign_id}",
-                              category=str(demand.get("domain") or ""))
+                              category=for_demand(demand)[0])
     except Exception:
         pass  # offers never break discovery
 

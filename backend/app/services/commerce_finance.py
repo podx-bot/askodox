@@ -702,37 +702,68 @@ def analytics(repo: PlatformRepository, *, days: int = 30, where: Dict[str, Any]
 
 
 def insights(repo: PlatformRepository, *, days: int = 7, extra: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    """Rule-based suggestions with their evidence. They never act on their
-    own -- an admin decides."""
+    """Actionable, rule-based insights: observation (real counts) -> possible
+    reason -> recommended action -> expected impact. They never act on their
+    own -- an admin decides. Categories are the specific detected ones
+    (e.g. "samsung 43 inch tv", "plumber"), never just PRODUCT / SERVICES."""
     prev_start, start, now = period(days)
     cur = {r["event"]: r["n"] for r in repo.event_counts(since=start, until=now)}
     prev = {r["event"]: r["n"] for r in repo.event_counts(since=prev_start, until=start)}
     out: List[Dict[str, Any]] = []
 
+    def add(kind: str, severity: str, observation: str, reason: str, action: str, impact: str,
+            evidence: Dict[str, Any], confidence: str = "POSSIBLE") -> None:
+        out.append({"kind": kind, "severity": severity, "observation": observation, "possible_reason": reason,
+                    "recommended_action": action, "impact": impact, "confidence": confidence,
+                    "evidence": evidence, "title": observation, "suggestion": action})
+
     def change(event: str) -> Optional[float]:
         a, b = cur.get(event, 0), prev.get(event, 0)
         return None if b == 0 else round((a - b) / b * 100, 1)
 
+    by_cat = repo.event_counts(since=start, until=now, group="category")
+    searches = {r["category"]: r["n"] for r in by_cat if r["event"] == "search" and r.get("category")}
     for event, label in (("search", "Searches"), ("conversion", "Conversions"), ("click", "Clicks")):
         pct = change(event)
         if pct is not None and abs(pct) >= 25:
-            out.append({"kind": "trend", "severity": "info" if pct > 0 else "warning",
-                        "title": f"{label} {'up' if pct > 0 else 'down'} {abs(pct)}% vs the previous {days} days",
-                        "evidence": {"current": cur.get(event, 0), "previous": prev.get(event, 0)},
-                        "suggestion": "Check which categories / sources moved (Analytics -> filter by category)."})
-    gaps = [r for r in repo.event_counts(since=start, until=now, group="category") if r["event"] == "no_match"]
-    for r in gaps[:5]:
-        if r.get("category") and r["n"] >= 3:
-            out.append({"kind": "supply_gap", "severity": "warning",
-                        "title": f"No local supply for '{r['category']}' ({r['n']} searches without a match)",
-                        "evidence": {"no_match_searches": r["n"]},
-                        "suggestion": "Invite sellers / providers in this category (Referrals, merchant onboarding)."})
+            top = sorted(searches.items(), key=lambda kv: -kv[1])[:3]
+            add("trend", "info" if pct > 0 else "warning",
+                f"{label} {'up' if pct > 0 else 'down'} {abs(pct)}% vs the previous {days} days "
+                f"({prev.get(event, 0)} -> {cur.get(event, 0)})",
+                "Seasonal demand, a campaign starting/ending, or a source (Places / web / sellers) changing "
+                "availability." + (f" Most searched now: {', '.join(c for c, _ in top)}." if top else ""),
+                "Open Analytics filtered by the top categories and compare source status and campaigns.",
+                f"{abs(cur.get(event, 0) - prev.get(event, 0))} {label.lower()} difference per {days} days.",
+                {"current": cur.get(event, 0), "previous": prev.get(event, 0)})
+    gaps = sorted(((r["category"], r["n"]) for r in by_cat if r["event"] == "no_match" and r.get("category")),
+                  key=lambda kv: -kv[1])
+    for category, n in gaps[:5]:
+        if n >= 3:
+            total = searches.get(category, n)
+            add("supply_gap", "warning",
+                f"'{category}': {n} of {total} searches found no match in {days} days",
+                "No ASKODOX seller / provider lists this near the customers, and online / nearby sources "
+                "returned nothing relevant.",
+                f"Invite sellers or providers for '{category}' (Referrals, merchant onboarding) or add a source.",
+                f"Up to {n} customers per {days} days could be served instead of leaving empty-handed.",
+                {"no_match_searches": n, "searches": total}, "CONFIRMED")
+    leads = {r["category"]: r["n"] for r in by_cat if r["event"] in ("lead", "order") and r.get("category")}
+    for category, n in sorted(searches.items(), key=lambda kv: -kv[1])[:5]:
+        if n >= 20 and leads.get(category, 0) == 0:
+            add("conversion_gap", "warning",
+                f"'{category}': {n} searches but no lead or order in {days} days",
+                "Results may be irrelevant, too far, missing prices, or sellers are not responding.",
+                f"Open a few traces for '{category}' (Flow traces) and check result relevance and seller replies.",
+                f"Converting even 5% would mean about {max(1, n // 20)} leads per {days} days.",
+                {"searches": n, "leads_orders": 0})
     locs = [r for r in repo.event_counts(since=start, until=now, group="location") if r["event"] == "search"]
     for r in locs[:3]:
         if r.get("location") and r["n"] >= 10:
-            out.append({"kind": "demand", "severity": "info",
-                        "title": f"High demand in {r['location']} ({r['n']} searches)", "evidence": {"searches": r["n"]},
-                        "suggestion": "Prioritise merchant acquisition and offers here."})
+            add("demand", "info", f"High demand in {r['location']} ({r['n']} searches in {days} days)",
+                "An active local customer base or a local event.",
+                "Prioritise merchant acquisition, local offers and a targeted promotion for this area.",
+                f"{r['n']} searches per {days} days to serve with local supply.", {"searches": r["n"]},
+                "CONFIRMED")
     impressions = {r["campaign_id"]: r["n"] for r in repo.event_counts(since=start, until=now, group="campaign_id")
                    if r["event"] == "impression" and r.get("campaign_id")}
     clicks = {r["campaign_id"]: r["n"] for r in repo.event_counts(since=start, until=now, group="campaign_id")
@@ -740,34 +771,36 @@ def insights(repo: PlatformRepository, *, days: int = 7, extra: Dict[str, Any] |
     for cid, n in impressions.items():
         ctr = clicks.get(cid, 0) / n if n else 0
         if n >= 50 and ctr < 0.002:
-            out.append({"kind": "campaign_anomaly", "severity": "warning",
-                        "title": f"Campaign {cid}: {n} impressions but CTR {ctr:.2%}",
-                        "evidence": {"impressions": n, "clicks": clicks.get(cid, 0)},
-                        "suggestion": "Review targeting / creative, or pause the campaign."})
+            add("campaign_anomaly", "warning", f"Campaign {cid}: {n} impressions but CTR {ctr:.2%}",
+                "Targeting does not match the audience, or the creative is not relevant.",
+                "Review targeting / creative, or pause the campaign.",
+                "Stops spend on placements nobody clicks.", {"impressions": n, "clicks": clicks.get(cid, 0)})
         if n >= 20 and clicks.get(cid, 0) > n:
-            out.append({"kind": "fraud", "severity": "critical",
-                        "title": f"Campaign {cid}: more clicks than impressions", "evidence": {"impressions": n,
-                                                                                            "clicks": clicks[cid]},
-                        "suggestion": "Possible click fraud -- inspect click sources before paying out."})
-    claims_by_user = {}
+            add("fraud", "critical", f"Campaign {cid}: more clicks ({clicks[cid]}) than impressions ({n})",
+                "Automated or repeated clicks (possible click fraud).",
+                "Inspect click sources before paying out; pause the campaign if they repeat.",
+                "Prevents paying for invalid clicks.", {"impressions": n, "clicks": clicks[cid]}, "CONFIRMED")
+    claims_by_user: Dict[str, int] = {}
     for r in repo.rewards():
         if r["state"] in ("CLAIMED", "REDEEMED") and r["created_at"] >= start:
             claims_by_user[r["user_ref"]] = claims_by_user.get(r["user_ref"], 0) + 1
     for user, n in claims_by_user.items():
         if n >= 10:
-            out.append({"kind": "fraud", "severity": "warning", "title": f"One customer claimed {n} rewards in {days} "
-                                                                           "days", "evidence": {"claims": n},
-                        "suggestion": "Review for reward abuse before approving payouts."})
+            add("fraud", "warning", f"One customer ({user}) claimed {n} rewards in {days} days",
+                "Reward abuse (multiple accounts or scripted claims) -- or a very loyal customer.",
+                "Review the claims before approving payouts.", "Avoids paying invalid rewards.", {"claims": n})
     failed = sum(1 for p in repo.payments(limit=5000) if p["status"] == "FAILED" and p["created_at"] >= start)
     total = sum(1 for p in repo.payments(limit=5000) if p["created_at"] >= start)
     if total >= 5 and failed / total > 0.2:
-        out.append({"kind": "payments", "severity": "warning",
-                    "title": f"Payment failures at {failed / total:.0%}", "evidence": {"failed": failed, "total": total},
-                    "suggestion": "Check the gateway status in Integrations."})
+        add("payments", "warning", f"Payment failures at {failed / total:.0%} ({failed} of {total})",
+            "Gateway outage, wrong configuration, or customers abandoning checkout.",
+            "Check the gateway status in Integrations and the failure reasons in Payments.",
+            f"{failed} failed payments in {days} days.", {"failed": failed, "total": total})
     for item in (extra or {}).get("broken_links", []):
-        out.append({"kind": "links", "severity": "warning", "title": f"Smart link '{item}' failed its health check",
-                    "evidence": {}, "suggestion": "Fix or disable the link."})
+        add("links", "warning", f"Smart link '{item}' failed its health check",
+            "The destination page moved or is down.", "Fix or disable the link.",
+            "Customers stop landing on an error page.", {}, "CONFIRMED")
     if not out:
-        out.append({"kind": "status", "severity": "info", "title": "No notable changes in this period",
-                    "evidence": {"events": sum(cur.values())}, "suggestion": ""})
+        add("status", "info", "No notable changes in this period", "Traffic and outcomes are steady.",
+            "No action needed.", "None.", {"events": sum(cur.values())}, "CONFIRMED")
     return out

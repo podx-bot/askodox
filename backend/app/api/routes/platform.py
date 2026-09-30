@@ -24,6 +24,7 @@ Public / app:
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any, Dict, List, Optional
 
@@ -1004,10 +1005,58 @@ def platform_insights(request: Request, days: int = 7) -> dict:
             "note": "Suggestions only -- nothing is changed automatically."}
 
 
+@admin_router.get("/revenue-command")
+def revenue_command(request: Request, period: str = "30d", start: str = "", end: str = "") -> dict:
+    """One reconciled revenue view (sources, states, breakdowns, no double counting)."""
+    from app.services import revenue_command as rc
+    from app.services.revenue_center_service import period_bounds
+
+    _require(request, "revenue:view")
+    try:
+        bounds = period_bounds(period, start=start, end=end)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    pf = _pf(request)
+    try:
+        from app.api.routes.partners import partner_repo
+
+        prepo = partner_repo(request.app.state.container)
+    except Exception:
+        prepo = None
+    reward_cost = sum(float(r.get("amount") or 0) for r in pf.repo.rewards()
+                      if r["state"] == "REDEEMED" and bounds["start"] <= r["created_at"] < bounds["end"])
+    gmv = sum(float(p["amount"]) for p in pf.repo.payments(limit=5000)
+              if p["status"] in ("PAID", "SETTLED") and bounds["start"] <= p["created_at"] < bounds["end"])
+    out = rc.summary(pf.repo, prepo, bounds, reward_cost=reward_cost, gmv_payments=gmv)
+    out["reconciliation"] = pf.ledger.reconcile()
+    return out
+
+
 @admin_router.get("/events")
-def platform_events(request: Request, event: str = "", limit: int = 200) -> dict:
+def platform_events(request: Request, event: str = "", limit: int = 200, category: str = "", q: str = "",
+                    days: int = 0) -> dict:
+    """The Event Stream: one vocabulary for the whole journey, each row with
+    the specific detected category (domain / subcategory / intent in detail)."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.repositories.platform_repository import EVENTS
+
     _require(request, "analytics:view")
-    return {"items": _pf(request).repo.events(event=event or None, limit=max(1, min(limit, 1000)))}
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat() if days > 0 else None
+    wanted = max(1, min(limit, 1000))
+    rows = _pf(request).repo.events(event=event or None, since=since, limit=5000 if (category or q) else wanted)
+    needle, cat = q.strip().lower(), category.strip().lower()
+    items = []
+    for r in rows:
+        d = r.get("detail") or {}
+        if cat and cat not in str(r.get("category") or "").lower():
+            continue
+        if needle and needle not in json.dumps(d, default=str).lower() and needle not in str(r.get("category") or "").lower():
+            continue
+        items.append({**r, "domain": d.get("domain"), "subcategory": d.get("subcategory"), "intent": d.get("intent")})
+        if len(items) >= wanted:
+            break
+    return {"items": items, "events": list(EVENTS)}
 
 
 # ============================================================ public ===
@@ -1493,13 +1542,20 @@ def annotate_merchant_offers(container: Any, matches: List[Dict[str, Any]]) -> N
 def record_search(container: Any, demand: Dict[str, Any], matches: List[Dict[str, Any]], *,
                   trace_key: str = "") -> None:
     """search + no_match events with stable ids for the attribution funnel."""
+    from app.services.category_signal import for_demand
+
     pf = platform(container)
     constraints = demand.get("constraints") or {}
+    category, subcategory = for_demand(demand)
     # No user reference here: the public discovery body's user id is not
     # token-proven. Signed-in funnel steps come through /api/track.
-    common = {"category": str(demand.get("domain") or "")[:80], "location": str(demand.get("location_text") or "")[:120],
+    common = {"category": category, "location": str(demand.get("location_text") or "")[:120],
               "language": str(constraints.get("language") or (demand.get("trace") or {}).get("language") or "")[:12],
               "search_id": trace_key[:80] or None}
-    pf.repo.record_event("search", detail={"results": len(matches)}, **common)
+    detail = {"results": len(matches), "domain": str(demand.get("domain") or "")[:40],
+              "subject": str(demand.get("subject") or "")[:120], "intent": str(demand.get("side") or "").lower()}
+    if subcategory:
+        detail["subcategory"] = subcategory
+    pf.repo.record_event("search", detail=detail, **common)
     if not matches:
-        pf.repo.record_event("no_match", detail={"subject": str(demand.get("subject") or "")[:120]}, **common)
+        pf.repo.record_event("no_match", detail=detail, **common)
