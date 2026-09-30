@@ -1,0 +1,47 @@
+name: Staging smoke test
+
+# Proves the non-production staging backend runs this branch (real video
+# rows, explain, where-to-get search) and that production is untouched.
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: Staging backend URL
+        required: false
+        default: 'https://podx-ai-connect-staging.up.railway.app'
+        type: string
+  push:
+    branches: [claude/friendly-ramanujan-538sbj]
+    paths:
+      - '.github/workflows/staging-smoke.yml'
+      - 'tool/video_proof/staging_smoke.py'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      STAGING_URL: ${{ inputs.staging_url || 'https://podx-ai-connect-staging.up.railway.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install httpx
+      - name: Wait for staging to answer
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS --max-time 15 "$STAGING_URL/health" && exit 0
+            sleep 20
+          done
+          exit 1
+      - name: Staging runs this branch; production untouched
+        working-directory: tool/video_proof
+        run: python staging_smoke.py "$STAGING_URL" | tee staging_smoke.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-smoke
+          path: tool/video_proof/staging_smoke.txt
