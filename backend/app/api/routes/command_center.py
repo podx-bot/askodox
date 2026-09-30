@@ -30,6 +30,7 @@ from app.repositories.command_center_repository import (
     mask_user_id,
 )
 from app.repositories.hybrid_support_repository import SupportEscalationRepository
+from app.services import governance as gov
 
 router = APIRouter(prefix="/admin/cc", tags=["command-center"])
 
@@ -77,10 +78,16 @@ def _principal(request: Request) -> dict[str, Any]:
 
 
 def _require(request: Request, permission: str) -> dict[str, Any]:
+    """Server-side permission check (``<module>:manage`` implies create /
+    edit / approve / delete). The 403 always carries the standard message."""
     principal = _principal(request)
-    if permission not in principal["permissions"]:
-        raise HTTPException(status_code=403, detail=f"Missing permission: {permission}")
+    if not gov.has_permission(principal["permissions"], permission):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs {permission})")
     return principal
+
+
+def _can(principal: dict[str, Any], permission: str) -> bool:
+    return gov.has_permission(principal["permissions"], permission)
 
 
 def _db(request: Request):
@@ -111,7 +118,10 @@ def _require_confirm(confirm: bool, what: str) -> None:
 @router.get("/me")
 def me(request: Request) -> dict[str, Any]:
     principal = _principal(request)
-    return {**principal, "permissions": sorted(principal["permissions"])}
+    held = set(principal["permissions"])
+    effective = held | {f"{p.split(':')[0]}:{verb}" for p in held if p.endswith(":manage")
+                        for verb in gov.IMPLIED_BY_MANAGE}
+    return {**principal, "permissions": sorted(effective), "super": gov.is_super(principal)}
 
 
 # ------------------------------------------------------------ overview --
@@ -693,19 +703,28 @@ def config(request: Request) -> dict[str, Any]:
 class FlagUpdate(BaseModel):
     enabled: bool
     confirm: bool = False
+    reason: str = Field(default="", max_length=500)
 
 
 @router.put("/config/{key}")
-def update_config(key: str, payload: FlagUpdate, request: Request) -> dict[str, Any]:
+def update_config(key: str, payload: FlagUpdate, request: Request) -> Any:
     principal = _require(request, "config:manage")
     if key not in FEATURE_FLAGS:
         raise HTTPException(status_code=404, detail="Unknown setting")
-    if not payload.enabled:
-        _require_confirm(payload.confirm, f"disable {key}")
+    risk = gov.flag_risk(key)
+    if not payload.enabled or risk == gov.RED:
+        _require_confirm(payload.confirm, f"{'enable' if payload.enabled else 'disable'} {key}")
     cc = command_center(request.app.state.container)
     before = cc.flags()[key]["enabled"]
+    if risk != gov.GREEN and not gov.is_super(principal):
+        # ORANGE: a second person approves; RED: only the Owner / Super Admin.
+        return request_approval(request, principal, action="feature_flag.set", target=f"feature_flag:{key}",
+                                risk=risk, reason=payload.reason, old={"enabled": before},
+                                proposed={"enabled": payload.enabled},
+                                params={"key": key, "enabled": payload.enabled, "needs": "config:manage"})
     flag = cc.set_flag(key, payload.enabled, principal["id"])
-    cc.audit(principal["id"], "config_update", "feature_flag", key, {"enabled": before}, {"enabled": payload.enabled})
+    cc.audit(principal["id"], "config_update", "feature_flag", key, {"enabled": before}, {"enabled": payload.enabled},
+             payload.reason, role=principal["role"], risk=risk)
     return flag
 
 
@@ -973,67 +992,336 @@ class StaffUpdate(BaseModel):
     revoke: list[str] = Field(default_factory=list)
     active: bool | None = None
     confirm: bool = False
+    reason: str = Field(default="", max_length=500)
 
 
 def _no_escalation(principal: dict[str, Any], permissions) -> None:
     """A staff manager can only hand out permissions they hold themselves."""
-    beyond = sorted(set(permissions) - set(principal["permissions"]))
+    beyond = sorted(p for p in set(permissions) if not _can(principal, p))
     if beyond:
-        raise HTTPException(status_code=403, detail=f"Cannot grant permissions you do not hold: {', '.join(beyond)}")
+        raise HTTPException(status_code=403,
+                            detail=f"{gov.FORBIDDEN} Cannot grant permissions you do not hold: {', '.join(beyond)}")
+
+
+def _roles(container: Any) -> dict[str, dict[str, Any]]:
+    return command_center(container).roles()
 
 
 @router.get("/staff")
 def staff(request: Request) -> dict[str, Any]:
     _require(request, "staff:manage")
+    roles = _roles(request.app.state.container)
     return {"items": command_center(request.app.state.container).list_staff(),
-            "roles": {role: list(perms) for role, perms in ROLE_PRESETS.items()},
-            "permissions": list(PERMISSIONS)}
+            "roles": {name: role["permissions"] for name, role in roles.items()},
+            "role_details": list(roles.values()),
+            "permissions": list(PERMISSIONS),
+            "permission_risk": {p: gov.permission_risk(p) for p in PERMISSIONS}}
+
+
+class AdviseBody(BaseModel):
+    staff_id: int | None = None
+    role: str | None = None
+    permissions: list[str] | None = None
+    grant: list[str] = Field(default_factory=list)
+    revoke: list[str] = Field(default_factory=list)
+
+
+@router.post("/staff/advise")
+def advise_permissions(payload: AdviseBody, request: Request) -> dict[str, Any]:
+    """Permission Safety Advisor: preview the risk of a grant before saving."""
+    principal = _require(request, "staff:manage")
+    container = request.app.state.container
+    current = command_center(container).get_staff(payload.staff_id) if payload.staff_id else None
+    before = set(current["permissions"]) if current else set()
+    role = payload.role or (current or {}).get("role") or ""
+    base = set(payload.permissions) if payload.permissions is not None else (
+        set(_roles(container).get(role, {}).get("permissions") or []) if payload.role or not current else set(before))
+    after = (base | set(payload.grant)) - set(payload.revoke)
+    advice = gov.advise(before, after, role=role)
+    advice["needs_approval"] = [p for p in advice["added"] if gov.permission_risk(p) == gov.RED
+                                and not gov.is_super(principal)]
+    advice["cannot_grant"] = sorted(p for p in advice["added"] if not _can(principal, p))
+    return advice
+
+
+def _split_red(principal: dict[str, Any], added: set[str]) -> set[str]:
+    """RED permissions a non-super staff manager may only *request*."""
+    return set() if gov.is_super(principal) else {p for p in added if gov.permission_risk(p) == gov.RED}
 
 
 @router.post("/staff")
 def create_staff(payload: StaffCreate, request: Request) -> dict[str, Any]:
     principal = _require(request, "staff:manage")
-    if payload.role not in ROLE_PRESETS:
-        raise HTTPException(status_code=422, detail=f"role must be one of {', '.join(ROLE_PRESETS)}")
+    container = request.app.state.container
+    roles = _roles(container)
+    if payload.role not in roles:
+        raise HTTPException(status_code=422, detail=f"role must be one of {', '.join(roles)}")
+    if payload.role == "super_admin" and not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can create a Super Admin.")
     unknown = [p for p in (payload.permissions or []) if p not in PERMISSIONS]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Unknown permissions: {', '.join(unknown)}")
-    perms = payload.permissions if payload.permissions is not None else ROLE_PRESETS[payload.role]
+    perms = set(payload.permissions if payload.permissions is not None else roles[payload.role]["permissions"])
     _no_escalation(principal, perms)
-    cc = command_center(request.app.state.container)
-    created = cc.create_staff(payload.name, payload.role, perms, principal["id"])
+    held_back = _split_red(principal, perms)
+    cc = command_center(container)
+    created = cc.create_staff(payload.name, payload.role, perms - held_back, principal["id"])
+    advice = gov.advise(set(), perms, role=payload.role)
     cc.audit(principal["id"], "staff_created", "staff", created["id"], None,
-             {"role": created["role"], "permissions": created["permissions"]})
+             {"role": created["role"], "permissions": created["permissions"]}, role=principal["role"],
+             risk=advice["risk"])
+    created["advice"] = advice
+    if held_back:
+        created["approval"] = request_approval(
+            request, principal, action="staff.grant", target=f"staff:{created['id']}", risk=gov.RED,
+            reason="High-risk permissions requested at creation", old={"permissions": created["permissions"]},
+            proposed={"grant": sorted(held_back)},
+            params={"staff_id": created["id"], "grant": sorted(held_back), "needs": "staff:manage"})
     return created  # includes the one-time token
 
 
 @router.patch("/staff/{staff_id}")
-def update_staff(staff_id: int, payload: StaffUpdate, request: Request) -> dict[str, Any]:
+def update_staff(staff_id: int, payload: StaffUpdate, request: Request) -> Any:
     principal = _require(request, "staff:manage")
-    cc = command_center(request.app.state.container)
+    container = request.app.state.container
+    cc = command_center(container)
     current = cc.get_staff(staff_id)
     if not current:
         raise HTTPException(status_code=404, detail="Staff not found")
-    if payload.role and payload.role not in ROLE_PRESETS:
+    roles = _roles(container)
+    if payload.role and payload.role not in roles:
         raise HTTPException(status_code=422, detail="Unknown role")
+    if principal["id"] == f"staff-{staff_id}" and (payload.grant or payload.role):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} You cannot change your own permissions.")
+    if not gov.is_super(principal) and (current["role"] == "super_admin" or payload.role == "super_admin"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can change a Super Admin.")
     unknown = [p for p in payload.grant + payload.revoke if p not in PERMISSIONS]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Unknown permissions: {', '.join(unknown)}")
     if payload.active is False:
         _require_confirm(payload.confirm, f"deactivate staff {staff_id}")
-    base = set(ROLE_PRESETS[payload.role]) if payload.role else set(current["permissions"])
+    base = set(roles[payload.role]["permissions"]) if payload.role else set(current["permissions"])
     permissions = (base | set(payload.grant)) - set(payload.revoke)
-    _no_escalation(principal, permissions - set(current["permissions"]))
-    updated = cc.update_staff(staff_id, role=payload.role, permissions=permissions, active=payload.active)
+    added = permissions - set(current["permissions"])
+    _no_escalation(principal, added)
+    held_back = _split_red(principal, added)
+    advice = gov.advise(current["permissions"], permissions, role=payload.role or current["role"])
+    updated = cc.update_staff(staff_id, role=payload.role, permissions=permissions - held_back, active=payload.active)
     cc.audit(principal["id"], "staff_updated", "staff", staff_id,
              {"role": current["role"], "permissions": current["permissions"], "active": current["active"]},
-             {"role": updated["role"], "permissions": updated["permissions"], "active": updated["active"]})
+             {"role": updated["role"], "permissions": updated["permissions"], "active": updated["active"]},
+             role=principal["role"], risk=advice["risk"])
+    updated["advice"] = advice
+    if held_back:
+        updated["approval"] = request_approval(
+            request, principal, action="staff.grant", target=f"staff:{staff_id}", risk=gov.RED,
+            reason=payload.reason or "High-risk permission grant", old={"permissions": current["permissions"]},
+            proposed={"grant": sorted(held_back)},
+            params={"staff_id": staff_id, "grant": sorted(held_back), "needs": "staff:manage"})
     return updated
+
+
+# ---------------------------------------------------------------- roles --
+
+class RoleBody(BaseModel):
+    label: str = Field(default="", max_length=80)
+    permissions: list[str]
+
+
+_ROLE_NAME = __import__("re").compile(r"^[a-z][a-z0-9_]{2,40}$")
+
+
+@router.get("/roles")
+def list_roles(request: Request) -> dict[str, Any]:
+    _require(request, "staff:manage")
+    return {"items": list(_roles(request.app.state.container).values()), "permissions": list(PERMISSIONS),
+            "permission_risk": {p: gov.permission_risk(p) for p in PERMISSIONS}}
+
+
+@router.put("/roles/{name}")
+def save_role(name: str, payload: RoleBody, request: Request) -> dict[str, Any]:
+    """Owner / Super Admin customise a preset or define a new role. Existing
+    staff keep their own permission lists; the role is the template."""
+    principal = _require(request, "staff:manage")
+    if not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can define roles.")
+    if name == "super_admin" or not _ROLE_NAME.match(name):
+        raise HTTPException(status_code=422, detail="Role names are lower_case letters/digits/_ (not super_admin)")
+    unknown = [p for p in payload.permissions if p not in PERMISSIONS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown permissions: {', '.join(unknown)}")
+    cc = command_center(request.app.state.container)
+    before = cc.role_permissions(name)
+    saved = cc.save_role(name, payload.label or name.replace("_", " ").title(), payload.permissions, principal["id"])
+    advice = gov.advise(before or [], saved["permissions"], role=name)
+    cc.audit(principal["id"], "role_saved", "role", name, {"permissions": before},
+             {"permissions": saved["permissions"]}, role=principal["role"], risk=advice["risk"])
+    return {**saved, "advice": advice}
+
+
+@router.delete("/roles/{name}")
+def reset_role(name: str, request: Request, confirm: bool = False) -> dict[str, Any]:
+    principal = _require(request, "staff:manage")
+    if not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can define roles.")
+    _require_confirm(confirm, f"reset role {name}")
+    cc = command_center(request.app.state.container)
+    before = cc.role_permissions(name)
+    if not cc.reset_role(name):
+        raise HTTPException(status_code=404, detail="No customisation for this role")
+    cc.audit(principal["id"], "role_reset", "role", name, {"permissions": before}, None, role=principal["role"],
+             risk=gov.ORANGE)
+    return {"reset": name}
+
+
+# ------------------------------------------------------------- approvals --
+
+APPROVAL_EXECUTORS: dict[str, Any] = {}
+
+
+def register_executor(action: str):
+    """Only named, reviewed executors can run on approval -- never code."""
+    def wrap(fn):
+        APPROVAL_EXECUTORS[action] = fn
+        return fn
+    return wrap
+
+
+def request_approval(request: Request, principal: dict[str, Any], *, action: str, target: str, risk: str,
+                     reason: str, old: Any, proposed: Any, params: dict[str, Any]) -> dict[str, Any]:
+    if action not in APPROVAL_EXECUTORS:
+        raise HTTPException(status_code=500, detail="Unknown approval action")
+    cc = command_center(request.app.state.container)
+    approval = cc.create_approval(action=action, target=target, risk=risk, reason=reason, old=old,
+                                  proposed=proposed, params=params, requested_by=principal["id"],
+                                  requested_role=principal["role"])
+    cc.audit(principal["id"], "approval_requested", "approval", approval["id"], old, proposed, reason,
+             role=principal["role"], risk=risk, result="PENDING")
+    cc.notify_once(f"approval:{approval['id']}", "approval_critical" if risk == gov.RED else "approval",
+                   f"{risk} approval needed: {action} on {target}", str(approval["id"]))
+    return {"approval_required": True, "status": "PENDING_APPROVAL", "approval": approval,
+            "message": ("Owner/Super Admin approval is required." if risk == gov.RED
+                        else "Owner/Admin approval is required.")}
+
+
+@register_executor("feature_flag.set")
+def _exec_flag(container: Any, params: dict[str, Any], decider: dict[str, Any]) -> dict[str, Any]:
+    cc = command_center(container)
+    flag = cc.set_flag(params["key"], bool(params["enabled"]), decider["id"])
+    return {"key": params["key"], "enabled": flag["enabled"]}
+
+
+@register_executor("staff.grant")
+def _exec_staff_grant(container: Any, params: dict[str, Any], decider: dict[str, Any]) -> dict[str, Any]:
+    cc = command_center(container)
+    current = cc.get_staff(int(params["staff_id"]))
+    if not current:
+        raise ValueError("staff no longer exists")
+    updated = cc.update_staff(current["id"], permissions=set(current["permissions"]) | set(params["grant"]))
+    return {"staff_id": current["id"], "granted": params["grant"], "permissions": len(updated["permissions"])}
+
+
+@router.get("/approvals")
+def approvals(request: Request, status: str = "") -> dict[str, Any]:
+    principal = _principal(request)
+    if not (_can(principal, "approvals:view") or _can(principal, "approvals:approve")):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs approvals:view)")
+    items = command_center(request.app.state.container).approvals(status=status.upper())
+    return {"items": items, "can_approve": _can(principal, "approvals:approve"),
+            "can_approve_red": gov.is_super(principal), "me": principal["id"]}
+
+
+class DecisionBody(BaseModel):
+    note: str = Field(default="", max_length=1000)
+    confirm: bool = False
+
+
+def _decide(approval_id: int, request: Request, approve: bool, body: DecisionBody) -> dict[str, Any]:
+    principal = _require(request, "approvals:approve")
+    container = request.app.state.container
+    cc = command_center(container)
+    item = cc.get_approval(approval_id, with_params=True)
+    if not item:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    if item["status"] != "PENDING":
+        raise HTTPException(status_code=409, detail=f"Already {item['status'].lower()}")
+    if item["requested_by"] == principal["id"]:
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} You cannot approve your own request.")
+    if item["risk"] == gov.RED and not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} RED changes need the Owner / Super Admin.")
+    needs = (item.get("params") or {}).get("needs")
+    if approve and needs and not _can(principal, needs):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs {needs})")
+    if approve and item["risk"] == gov.RED:
+        _require_confirm(body.confirm, f"approve RED change #{approval_id}")
+    decided = cc.decide_approval(approval_id, status="APPROVED" if approve else "REJECTED",
+                                 decided_by=principal["id"], note=body.note)
+    if decided is None:
+        raise HTTPException(status_code=409, detail="Already decided")
+    result, final = None, decided["status"]
+    if approve:
+        try:
+            result = APPROVAL_EXECUTORS[item["action"]](container, item.get("params") or {}, principal)
+            final = "EXECUTED"
+        except Exception as error:  # the approval stays recorded; nothing half-applied is hidden
+            result, final = {"error": type(error).__name__, "detail": str(error)[:200]}, "FAILED"
+        cc.set_approval_result(approval_id, final, result)
+    cc.audit(principal["id"], "approval_" + ("approved" if approve else "rejected"), "approval", approval_id,
+             item.get("old"), item.get("proposed"), body.note, role=principal["role"], risk=item["risk"],
+             result=final)
+    return cc.get_approval(approval_id) or {}
+
+
+@router.post("/approvals/{approval_id}/approve")
+def approve(approval_id: int, body: DecisionBody, request: Request) -> dict[str, Any]:
+    return _decide(approval_id, request, True, body)
+
+
+@router.post("/approvals/{approval_id}/reject")
+def reject(approval_id: int, body: DecisionBody, request: Request) -> dict[str, Any]:
+    return _decide(approval_id, request, False, body)
+
+
+@router.post("/approvals/{approval_id}/cancel")
+def cancel(approval_id: int, request: Request) -> dict[str, Any]:
+    principal = _principal(request)
+    cc = command_center(request.app.state.container)
+    item = cc.get_approval(approval_id)
+    if not item or item["requested_by"] != principal["id"]:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    decided = cc.decide_approval(approval_id, status="CANCELLED", decided_by=principal["id"])
+    if decided is None:
+        raise HTTPException(status_code=409, detail="Already decided")
+    cc.audit(principal["id"], "approval_cancelled", "approval", approval_id, role=principal["role"],
+             risk=item["risk"], result="CANCELLED")
+    return decided
 
 
 # ---------------------------------------------------------------- audit --
 
 @router.get("/audit")
-def audit(request: Request, limit: int = 100) -> dict[str, Any]:
+def audit(request: Request, limit: int = 100, actor: str = "", action: str = "", entity_type: str = "",
+          risk: str = "", q: str = "", days: int = 0) -> dict[str, Any]:
     _require(request, "audit:view")
-    return {"items": command_center(request.app.state.container).audit_log(limit=limit)}
+    since = _since(days) if days else ""
+    return {"items": command_center(request.app.state.container).audit_log(
+        limit=limit, actor=actor, action=action, entity_type=entity_type, risk=risk.upper(), q=q, since=since),
+        "editable": False}
+
+
+@router.get("/audit/export.csv")
+def audit_export(request: Request, days: int = 30, risk: str = "") -> Response:
+    principal = _require(request, "audit:export")
+    cc = command_center(request.app.state.container)
+    rows = cc.audit_log(limit=5000, risk=risk.upper(), since=_since(days))
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["id", "created_at", "actor", "actor_role", "action", "entity_type", "entity_id", "risk",
+                     "result", "reason"])
+    for r in rows:
+        writer.writerow([r["id"], r["created_at"], r["actor"], r.get("actor_role") or "", r["action"],
+                         r["entity_type"], r["entity_id"], r["risk"], r.get("result") or "", r.get("reason") or ""])
+    cc.audit(principal["id"], "audit_export", "audit", f"{days}d", None, {"rows": len(rows)},
+             role=principal["role"], risk=gov.ORANGE)
+    return Response(out.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=askodox-audit.csv"})
