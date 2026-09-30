@@ -26,13 +26,20 @@ container.scheduled_task_worker = ScheduledTaskWorker(
     condition_evaluator=container.scheduled_task_condition_evaluator,
 )
 container.scheduled_task_runner = ScheduledTaskRunner(container.scheduled_task_worker)
+# Platform housekeeping (due promotions, Self-Healing scans) on the same runner.
+from app.services.periodic_jobs import PeriodicJobs  # noqa: E402
+
+container.periodic_jobs = PeriodicJobs(container)
+container.periodic_runner = ScheduledTaskRunner(container.periodic_jobs, interval_seconds=30.0)
 
 
 @app.on_event("startup")
 async def start_scheduled_task_runner() -> None:
     container.scheduled_task_runner.start()
+    container.periodic_runner.start()
 
 
 @app.on_event("shutdown")
 async def stop_scheduled_task_runner() -> None:
     await container.scheduled_task_runner.stop()
+    await container.periodic_runner.stop()

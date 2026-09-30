@@ -102,6 +102,10 @@ EVENTS = (
     "video_impression", "video_open", "video_watch_start", "video_watch_complete", "video_ask",
     "video_product_click", "video_service_click", "video_local_search", "video_affiliate_click", "video_contact",
     "support_ticket", "notification_sent", "notification_open",
+    # 2026-09-30 Event Stream: the full journey with one vocabulary.
+    "request", "match", "result_impression", "result_click", "seller_accept", "seller_decline", "deal_progress",
+    "affiliate_click", "offer_view", "offer_click", "campaign_impression", "campaign_click", "campaign_dismiss",
+    "notification_delivery", "referral", "selfheal",
 )
 EVENT_IDS = ("user_ref", "session_id", "search_id", "result_id", "merchant_id", "partner_id", "campaign_id",
              "offer_id", "coupon_id", "click_id", "order_id", "transaction_id", "conversion_id", "video_id",

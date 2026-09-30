@@ -104,12 +104,31 @@ class Platform:
         self.razorpay = RazorpayGateway(self.repo, self.registry,
                                         getattr(container, "comms_http", None) or comms.default_http)
         self._push: Any = None
+        from app.services.promotion_engine import PromotionEngine
+
+        self.promotions = PromotionEngine(settings.database_path, self.repo, messenger=self.messenger,
+                                          outbox=self.outbox, user_ref=user_ref)
         self.resources = ResourceService(self.repo, effects={
-            "link_test": self._link_test, "preview": self._preview}, ref_exists=self._ref_exists)
+            "link_test": self._link_test, "preview": self._preview,
+            "promo_estimate": lambda record, params: {"result": self.promotions.estimate(record)},
+            "promo_preview": lambda record, params: {"result": self.promotions.preview(record)},
+            "promo_run": lambda record, params: {"result": self.promotions.run(
+                record, enabled=self._flag_on("notifications.promotions"))},
+        }, ref_exists=self._ref_exists)
         self._blocked_cache: tuple[float, set[str]] = (0.0, set())
         from app.services.video_content import WebVideoStore
 
         self.web_videos = WebVideoStore(settings.database_path)
+
+    def _flag_on(self, key: str) -> bool:
+        from app.api.routes.command_center import feature_enabled
+
+        return feature_enabled(self.container, key)
+
+    def run_due_promotions(self) -> Dict[str, Any]:
+        """Background runner + admin button: deliver every due campaign window."""
+        campaigns = self.repo.list("promotion_campaigns", status="ACTIVE")
+        return self.promotions.run_due(campaigns, enabled=self._flag_on("notifications.promotions"))
 
     # online payments -----------------------------------------------------
     def checkout_provider(self) -> Optional[str]:
@@ -497,9 +516,17 @@ def record_action(resource: str, record_id: str, action: str, body: ActionBody, 
         res = ps.resource(resource)
         spec = next((a for a in res.actions if a.name == action), None)
         manage = spec.manage if spec else True
-        principal = _require(request, f"{res.permission}:{'manage' if manage else 'view'}")
+        verb = (spec.perm if spec and spec.perm else None) or ("manage" if manage else "view")
+        principal = _require(request, f"{res.permission}:{verb}")
         if spec and spec.confirm and not body.confirm:
             raise HTTPException(status_code=409, detail=f"Confirmation required to {spec.label.lower()}")
+        if res.four_eyes and verb == "approve":
+            from app.services import governance as gov
+
+            record = _pf(request).resources.get(resource, record_id)
+            if record.get("created_by") == principal["id"] and not gov.is_super(principal):
+                raise HTTPException(status_code=403,
+                                    detail=f"{gov.FORBIDDEN} A second person must approve what you created.")
         item = _pf(request).resources.action(resource, record_id, action, actor=principal["id"],
                                              params=body.params)
     except HTTPException:
@@ -1279,6 +1306,77 @@ def set_my_channels(body: ChannelPrefs, request: Request) -> dict:
     for channel, allowed in body.model_dump(exclude_none=True).items():
         pf.outbox.set_opt_out(user_ref(user), channel, not allowed, source="customer")
     return {"channels": pf.outbox.preferences(user_ref(user))}
+
+
+class PromoConsent(BaseModel):
+    in_app: Optional[bool] = None
+    push: Optional[bool] = None
+    email: Optional[bool] = None
+    sms: Optional[bool] = None
+    whatsapp: Optional[bool] = None
+
+
+@router.get("/api/me/promotion-consent")
+def my_promotion_consent(request: Request) -> dict:
+    """In-app offers are on unless switched off; promotional push / SMS /
+    WhatsApp / e-mail need the customer's own opt-in."""
+    user = _user(request)
+    return {"consent": _pf(request).promotions.consent(user_ref(user))}
+
+
+@router.put("/api/me/promotion-consent")
+def set_my_promotion_consent(body: PromoConsent, request: Request) -> dict:
+    user = _user(request)
+    pf = _pf(request)
+    for channel, granted in body.model_dump(exclude_none=True).items():
+        pf.promotions.set_consent(user_ref(user), channel, granted)
+    return {"consent": pf.promotions.consent(user_ref(user))}
+
+
+@router.get("/api/me/promotions")
+def my_promotions(request: Request) -> dict:
+    """At most five compact / quarter / half cards delivered to this user."""
+    user = _user(request)
+    pf = _pf(request)
+    if not _flag(request, "notifications.promotions"):
+        return {"items": []}
+    campaigns = {c["id"]: c for c in pf.repo.list("promotion_campaigns")}
+    return {"items": pf.promotions.feed(user_ref(user), campaigns)}
+
+
+@router.post("/api/me/promotions/{delivery_id}/{action}")
+def track_my_promotion(delivery_id: int, action: str, request: Request) -> dict:
+    from app.services import rate_limit
+
+    rate_limit.check(request, "promo_track", limit=120)
+    user = _user(request)
+    try:
+        ok = _pf(request).promotions.track(delivery_id, user_ref(user), action)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from None
+    if not ok:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"recorded": True}
+
+
+@admin_router.post("/promotions/run-due")
+def run_due_promotions(request: Request, confirm: bool = False) -> dict:
+    principal = _require(request, "notifications:manage")
+    if not confirm:
+        raise HTTPException(status_code=409, detail="Confirmation required to send due promotions")
+    result = _pf(request).run_due_promotions()
+    _audit(request, principal, "promotions.run_due", "promotion_campaigns:*", {"campaigns": len(result)})
+    return {"results": result}
+
+
+@admin_router.get("/promotions/{campaign_id}/metrics")
+def promotion_metrics(campaign_id: str, request: Request) -> dict:
+    _require(request, "notifications:view")
+    try:
+        _pf(request).resources.get("promotion_campaigns", campaign_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Campaign not found") from None
+    return _pf(request).promotions.metrics(campaign_id)
 
 
 @router.get("/api/notifications/inbox")

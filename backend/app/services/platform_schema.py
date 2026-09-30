@@ -47,6 +47,7 @@ class Action:
     confirm: bool = False
     manage: bool = True                    # needs the manage permission
     effect: str = ""                       # special effect handled by the service
+    perm: str = ""                         # verb override, e.g. "approve" -> <area>:approve
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,7 @@ class Resource:
     description: str = ""
     owner_scoped: bool = False             # may be created by an app user (merchant self-service)
     flag: str = ""                         # feature flag gating customer-facing use
+    four_eyes: bool = False                # the creator may not approve their own record
 
     def field(self, name: str) -> Optional[F]:
         return next((f for f in self.fields if f.name == name), None)
@@ -477,6 +479,66 @@ TERMINAL = {"REJECTED", "EXPIRED"}
 
 class UnknownResource(SchemaError, KeyError):
     pass
+
+
+_register(Resource(
+    name="promotion_campaigns", label="Targeted promotions", group="Notifications", prefix="prm",
+    permission="notifications", name_field="title", initial_status="DRAFT", statuses=LIFECYCLE, four_eyes=True,
+    flag="notifications.promotions",
+    description="Targeted in-app cards and (with the customer's opt-in) push / SMS / WhatsApp / e-mail. "
+                "Audience from ASKODOX data only, frequency-capped, reviewed by a second person before it runs. "
+                "Compact / quarter / half-screen cards only -- never full-screen.",
+    fields=(
+        F("title", "Title", required=True, list_column=True),
+        F("body", "Message", "longtext", required=True),
+        F("size", "Card size", "enum", options=("compact", "quarter", "half"), required=True, list_column=True),
+        F("image_url", "Small image (https)", "url"),
+        F("cta_label", "Button label"),
+        F("deep_link", "Button opens (app link or https)", "deeplink"),
+        F("channels", "Channels", "list", options=NOTIFICATION_CHANNELS, required=True, list_column=True),
+        F("pricing", "Pricing", "enum", options=("free", "paid", "promo_credit", "subscription", "custom"),
+          required=True, list_column=True, filter=True),
+        F("price", "Price (₹)", "number", min=0, max=10000000),
+        F("advertiser", "Advertiser / merchant"),
+        F("sponsored", "Sponsored (shows a 'Sponsored' label)", "bool"),
+        F("audience", "Audience", "enum", options=("all", "users", "roles", "party_a", "party_b"), required=True,
+          filter=True),
+        F("user_refs", "User references (u_...)", "list"),
+        F("roles", "Roles", "list", options=("buyers", "sellers", "service_providers", "job_seekers",
+                                              "delivery_ride")),
+        F("categories", "Categories", "list"),
+        F("intents", "Intents", "list", options=("buy", "sell", "hire", "work", "rent", "book", "service",
+                                                  "deliver", "ride")),
+        F("interests", "Interests (keywords)", "list"),
+        F("town", "Town / city"),
+        F("district", "District"),
+        F("pincode", "PIN code"),
+        F("state", "State"),
+        F("country", "Country"),
+        F("latitude", "Centre latitude", "number", min=-90, max=90),
+        F("longitude", "Centre longitude", "number", min=-180, max=180),
+        F("radius_km", "Radius (km)", "number", min=0.1, max=500),
+        F("schedule", "Schedule", "enum", required=True, list_column=True,
+          options=("immediate", "one_time", "hourly", "daily", "weekly", "monthly", "yearly", "custom")),
+        F("start_at", "Start", "date", list_column=True),
+        F("end_at", "End", "date"),
+        F("interval_hours", "Custom interval (hours)", "int", min=1, max=8760),
+        F("cap_per_user_day", "Max per user per day", "int", min=1, max=5),
+        F("cap_per_user_week", "Max per user per week", "int", min=1, max=20),
+        F("max_sends", "Stop after this many messages", "int", min=1, max=10000000),
+    ),
+    actions=(
+        _A("submit", "Submit for review", "PENDING_REVIEW", ("DRAFT", "REJECTED")),
+        _A("approve", "Approve", "ACTIVE", ("PENDING_REVIEW",), perm="approve"),
+        _A("reject", "Reject", "REJECTED", ("PENDING_REVIEW",), confirm=True, perm="approve"),
+        _A("pause", "Pause", "PAUSED", ("ACTIVE",)),
+        _A("resume", "Resume", "ACTIVE", ("PAUSED",)),
+        _A("disable", "Stop", "DISABLED", (), confirm=True),
+        _A("estimate", "Estimate audience", effect="promo_estimate", manage=False),
+        _A("preview", "Preview card", effect="promo_preview", manage=False),
+        _A("send_now", "Send due messages now", effect="promo_run", confirm=True),
+    ),
+))
 
 
 def resource(name: str) -> Resource:

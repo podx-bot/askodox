@@ -53,7 +53,9 @@ def feature_enabled(container: Any, key: str) -> bool:
     try:
         return command_center(container).is_enabled(key)
     except Exception:
-        return True
+        from app.repositories.command_center_repository import FLAG_DEFAULTS
+
+        return FLAG_DEFAULTS.get(key, True)
 
 
 def _escalations(container: Any) -> SupportEscalationRepository:

@@ -153,7 +153,15 @@ FEATURE_FLAGS: Dict[str, str] = {
     "notifications.email": "Email notifications (needs an email provider)",
     "notifications.sms": "SMS notifications (needs an SMS provider)",
     "notifications.whatsapp": "WhatsApp notifications (needs WhatsApp configuration)",
+    "notifications.promotions": "Targeted promotions (reviewed campaigns, consent + frequency caps)",
+    "companion.screen_guide": "AI Companion Screen Guide over other apps (Android, opt-in, Privacy Shield)",
+    "selfheal.enabled": "Self-Healing Engine: detect issues and propose fixes",
+    "selfheal.green_auto": "Self-Healing: apply GREEN (safe, reversible) fixes automatically",
 }
+
+# Flags that start OFF until the Owner switches them on (everything else
+# defaults ON, as before).
+FLAG_DEFAULTS: Dict[str, bool] = {"companion.screen_guide": False, "selfheal.green_auto": False}
 
 ESCALATION_STATUSES = ("OPEN", "IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED", "CLOSED")
 NO_MATCH_STATUSES = ("OPEN", "INVESTIGATING", "SOURCE_ADDED", "CATEGORY_ADDED", "RESOLVED", "DISMISSED")
@@ -368,7 +376,7 @@ class CommandCenterRepository:
             result[key] = {
                 "key": key,
                 "description": description,
-                "enabled": True if row is None else bool(row["enabled"]),
+                "enabled": FLAG_DEFAULTS.get(key, True) if row is None else bool(row["enabled"]),
                 "updated_by": row["updated_by"] if row else None,
                 "updated_at": row["updated_at"] if row else None,
             }
@@ -380,7 +388,7 @@ class CommandCenterRepository:
     def is_enabled(self, key: str) -> bool:
         with self._connect() as conn:
             row = conn.execute("SELECT enabled FROM feature_flags WHERE key=?", (key,)).fetchone()
-        return True if row is None else bool(row["enabled"])
+        return FLAG_DEFAULTS.get(key, True) if row is None else bool(row["enabled"])
 
     def set_flag(self, key: str, enabled: bool, actor: str) -> Dict[str, Any]:
         if key not in FEATURE_FLAGS:
