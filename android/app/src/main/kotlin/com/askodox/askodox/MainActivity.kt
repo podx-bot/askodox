@@ -186,6 +186,43 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "deviceHealth" -> result.success(deviceHealth())
+                    // Screen Guide (opt-in accessibility service; see AskodoxScreenGuideService).
+                    "screenGuideStatus" -> result.success(
+                        mapOf(
+                            "supported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O),
+                            "accessibilityEnabled" to AskodoxScreenGuideService.isEnabled(this),
+                            "connected" to (AskodoxScreenGuideService.instance != null),
+                            "state" to AskodoxScreenGuideService.state,
+                            "instruction" to AskodoxScreenGuideService.lastInstruction,
+                        ),
+                    )
+                    "openAccessibilitySettings" -> {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        result.success(true)
+                    }
+                    "startScreenGuide" -> {
+                        val sessionId = call.argument<String>("sessionId").orEmpty()
+                        val token = call.argument<String>("token").orEmpty()
+                        val baseUrl = call.argument<String>("baseUrl").orEmpty()
+                        if (sessionId.isEmpty() || token.isEmpty() || !baseUrl.startsWith("https://")) {
+                            result.success(false)
+                        } else {
+                            result.success(
+                                AskodoxScreenGuideService.begin(
+                                    AskodoxScreenGuideService.Session(
+                                        sessionId, token, baseUrl,
+                                        call.argument<String>("language") ?: "en",
+                                        call.argument<Boolean>("voice") ?: true,
+                                    ),
+                                ),
+                            )
+                        }
+                    }
+                    "resumeScreenGuide" -> { AskodoxScreenGuideService.resume(); result.success(true) }
+                    "stopScreenGuide" -> {
+                        AskodoxScreenGuideService.end(call.argument<String>("outcome") ?: "abandoned")
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }

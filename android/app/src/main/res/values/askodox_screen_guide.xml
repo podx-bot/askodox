@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="askodox_screen_guide_label">ASKODOX Screen Guide</string>
+    <string name="askodox_screen_guide_description">Guides you step by step in other apps, only while you run a guide you started in ASKODOX. It shows which button to press; you do every step yourself. It pauses on password, OTP, PIN, UPI PIN, card, bank and Aadhaar screens and in payment apps, and never takes screenshots or stores screen content.</string>
+</resources>

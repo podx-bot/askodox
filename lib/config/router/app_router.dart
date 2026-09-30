@@ -34,6 +34,7 @@ import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
 import '../../features/companion/companion_performance_panel.dart';
 import '../../features/companion/companion_vrm_engine.dart';
+import '../../features/companion/screen_guide.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -146,6 +147,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/settings/notifications',
           builder: (context, state) => const NotificationSettingsScreen()),
+      GoRoute(path: '/companion/screen-guide', builder: (context, state) => const ScreenGuideScreen()),
       GoRoute(
           path: '/notification-preferences',
           redirect: (context, state) => '/settings/notifications'),

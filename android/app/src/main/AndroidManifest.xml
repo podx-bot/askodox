@@ -49,6 +49,21 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Optional floating assistant bubble the user turns on; tapping it returns to the app. No audio or screen access." />
         </service>
+        <!-- Screen Guide: OPT-IN accessibility service (Android Settings >
+             Accessibility). Reads labels only during a guide the user started;
+             pauses on sensitive screens; never performs actions. -->
+        <service
+            android:name=".AskodoxScreenGuideService"
+            android:exported="true"
+            android:label="@string/askodox_screen_guide_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/askodox_screen_guide" />
+        </service>
             <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.askodox.fileprovider"

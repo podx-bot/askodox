@@ -371,6 +371,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   );
                 }),
                 ListTile(
+                  key: const Key('askodoxScreenGuideEntry'),
+                  leading: const Icon(Icons.assistant_navigation),
+                  title: Text(t('Screen Guide (beta)', 'స్క్రీన్ గైడ్ (బీటా)')),
+                  subtitle: Text(t('Step-by-step help in other apps. You press every button; pauses on private screens.',
+                      'ఇతర యాప్‌లలో దశలవారీ సహాయం. ప్రతి బటన్ మీరే నొక్కుతారు; ప్రైవేట్ స్క్రీన్‌లలో ఆగుతుంది.')),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/companion/screen-guide'),
+                ),
+                ListTile(
                   key: const Key('askodoxCompanionPerformance'),
                   leading: const Icon(Icons.speed_rounded),
                   title: Text(t('Companion performance', 'సహచరుడి పనితీరు')),
