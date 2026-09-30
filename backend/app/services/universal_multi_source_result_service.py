@@ -207,6 +207,9 @@ class UniversalMultiSourceResultService:
         self.web_search = web_search
         self.fallback = UniversalOnlineFallbackService(web_search)
         self._status: dict[str, str] = {}
+        # Sources the Self-Healing Engine is bypassing right now (GREEN,
+        # temporary): skipped instead of waiting on a failing provider.
+        self.bypassed: set[str] = set()
         self._kind = NEED_PRODUCT
         self._filtered: dict[str, int] = {}
         # Geographic scope actually used for local results (admin trace +
@@ -261,10 +264,14 @@ class UniversalMultiSourceResultService:
                              (constraints or {}).get("pickup"), (constraints or {}).get("drop")) if v
         ))
 
+        skip = self.bypassed
         with ThreadPoolExecutor(max_workers=4) as pool:
-            external = pool.submit(self._external, subject, location_text, lat, lon, radius_km) if "nearby" in plan else None
-            web = pool.submit(self._web_segments, subject, location_text) if "used_deals" in plan else None
-            jobs = pool.submit(self._jobs, subject, location_text, constraints) if "jobs" in plan else None
+            external = (pool.submit(self._external, subject, location_text, lat, lon, radius_km)
+                        if "nearby" in plan and "nearby" not in skip else None)
+            web = (pool.submit(self._web_segments, subject, location_text)
+                   if "used_deals" in plan and "used_deals" not in skip else None)
+            jobs = (pool.submit(self._jobs, subject, location_text, constraints)
+                    if "jobs" in plan and "jobs" not in skip else None)
             registered = self._registered(subject, location_text, budget, lat, lon, condition, place_words)
             external_rows = external.result() if external else []
             web_rows = web.result() if web else []
@@ -284,6 +291,9 @@ class UniversalMultiSourceResultService:
         self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
         if "jobs" in plan:
             self._status["jobs"] = (STATUS_OK if job_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
+        for source in skip:
+            if source in plan and self._status.get(source) != STATUS_NEEDS_LOCATION:
+                self._status[source] = "bypassed_unhealthy"
         return sorted(rows, key=lambda item: -float(item.get("rank_score") or 0))
 
     def online_and_videos(self, *, category: str, subject: str, include_online: bool,

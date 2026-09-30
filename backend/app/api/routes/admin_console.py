@@ -321,5 +321,13 @@ document.querySelector("#cred").addEventListener("keydown",e=>{if(e.key==="Enter
 
 @router.get("/admin/console", response_class=HTMLResponse, include_in_schema=False)
 def admin_console() -> HTMLResponse:
-    return HTMLResponse(PAGE, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
-                                       "Referrer-Policy": "no-referrer"})
+    return HTMLResponse(PAGE, headers={
+        "Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        # Inline code is the page itself (no third-party scripts); data only
+        # from this origin; never framed (clickjacking).
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                                   "style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; "
+                                   "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
+                                   "form-action 'self'; object-src 'none'",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"})

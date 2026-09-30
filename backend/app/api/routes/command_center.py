@@ -66,16 +66,37 @@ def _escalations(container: Any) -> SupportEscalationRepository:
     return repo
 
 
+AUTH_FAIL_LIMIT = 10          # wrong keys / tokens per client ...
+AUTH_FAIL_WINDOW = 600        # ... per 10 minutes, then locked out for the window
+
+
 def _principal(request: Request) -> dict[str, Any]:
+    from app.services import rate_limit
+
     container: Any = request.app.state.container
     owner_key = str(getattr(container.settings, "admin_seed_key", "") or "").strip()
     sent_key = (request.headers.get("x-askodox-admin-key") or "").strip()
+    sent_token = (request.headers.get("x-askodox-staff-token") or "").strip()
+    # Brute-force guard: after repeated wrong credentials this client is
+    # refused BEFORE any comparison, so guessing cannot continue.
+    if (sent_key or sent_token) and rate_limit.blocked(request, "cc_auth_fail", limit=AUTH_FAIL_LIMIT,
+                                                        window_seconds=AUTH_FAIL_WINDOW):
+        raise HTTPException(status_code=429, detail="Too many failed sign-in attempts. Try again later.")
     if owner_key and sent_key and hmac.compare_digest(sent_key, owner_key):
         return {"id": "owner", "name": "Owner", "role": "super_admin", "permissions": set(PERMISSIONS)}
-    staff = command_center(container).staff_by_token((request.headers.get("x-askodox-staff-token") or "").strip())
+    staff = command_center(container).staff_by_token(sent_token)
     if staff:
         return {"id": f"staff-{staff['id']}", "name": staff["name"], "role": staff["role"],
                 "permissions": set(staff["permissions"])}
+    if sent_key or sent_token:
+        rate_limit.hit(request, "cc_auth_fail")
+        try:
+            hour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+            if rate_limit.blocked(request, "cc_auth_fail", limit=AUTH_FAIL_LIMIT, window_seconds=AUTH_FAIL_WINDOW):
+                command_center(container).notify_once(f"security:auth_lockout:{hour}", "security_critical",
+                                                      "Command Center: repeated wrong sign-in attempts (locked out)")
+        except Exception:
+            pass
     raise HTTPException(status_code=401, detail="Command Center sign-in required")
 
 
@@ -1310,6 +1331,14 @@ def _exec_staff_grant(container: Any, params: dict[str, Any], decider: dict[str,
     return {"staff_id": current["id"], "granted": params["grant"], "permissions": len(updated["permissions"])}
 
 
+@register_executor("selfheal.apply")
+def _exec_selfheal(container: Any, params: dict[str, Any], decider: dict[str, Any]) -> dict[str, Any]:
+    from app.services.self_healing import engine
+
+    item = engine(container).execute_approved(int(params["log_id"]), decider["id"])
+    return {"log_id": item.get("id"), "status": item.get("status")}
+
+
 @router.get("/approvals")
 def approvals(request: Request, status: str = "") -> dict[str, Any]:
     principal = _principal(request)
@@ -1348,6 +1377,10 @@ def _decide(approval_id: int, request: Request, approve: bool, body: DecisionBod
     if decided is None:
         raise HTTPException(status_code=409, detail="Already decided")
     result, final = None, decided["status"]
+    if not approve and item["action"] == "selfheal.apply":
+        from app.services.self_healing import engine
+
+        engine(container).mark_rejected(approval_id)
     if approve:
         try:
             result = APPROVAL_EXECUTORS[item["action"]](container, item.get("params") or {}, principal)
@@ -1414,3 +1447,60 @@ def audit_export(request: Request, days: int = 30, risk: str = "") -> Response:
              role=principal["role"], risk=gov.ORANGE)
     return Response(out.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=askodox-audit.csv"})
+
+
+# ---------------------------------------------------------- self-healing --
+
+def _healer(request: Request):
+    from app.services.self_healing import engine
+
+    return engine(request.app.state.container)
+
+
+@router.get("/selfheal")
+def selfheal(request: Request) -> dict[str, Any]:
+    _require(request, "selfheal:view")
+    eng = _healer(request)
+    return {"settings": eng.settings(), "bypassed_sources": sorted(eng.bypassed_sources()), "items": eng.log()}
+
+
+@router.post("/selfheal/scan")
+def selfheal_scan(request: Request) -> dict[str, Any]:
+    principal = _require(request, "selfheal:manage")
+    result = _healer(request).scan()
+    command_center(request.app.state.container).audit(principal["id"], "selfheal_scan", "selfheal", "scan", None,
+                                                      {"new_issues": result.get("new_issues", 0)},
+                                                      role=principal["role"])
+    return result
+
+
+@router.post("/selfheal/{log_id}/apply")
+def selfheal_apply(log_id: int, request: Request) -> dict[str, Any]:
+    principal = _require(request, "selfheal:manage")
+    try:
+        item = _healer(request).apply(log_id, principal["id"])
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Not found") from None
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} {error}") from None
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    command_center(request.app.state.container).audit(principal["id"], "selfheal_apply", "selfheal", log_id, None,
+                                                      {"action": item["action"], "target": item["target"]},
+                                                      role=principal["role"], risk=item["risk"])
+    return item
+
+
+@router.post("/selfheal/{log_id}/rollback")
+def selfheal_rollback(log_id: int, request: Request) -> dict[str, Any]:
+    principal = _require(request, "selfheal:manage")
+    try:
+        item = _healer(request).rollback(log_id, principal["id"])
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Not found") from None
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    command_center(request.app.state.container).audit(principal["id"], "selfheal_rollback", "selfheal", log_id,
+                                                      None, {"action": item["action"], "target": item["target"]},
+                                                      role=principal["role"], risk=item["risk"])
+    return item

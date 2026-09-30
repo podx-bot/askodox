@@ -427,13 +427,20 @@ def _multi_source_service(container) -> UniversalMultiSourceResultService:
 
         maps = GoogleMapsService(api_key=getattr(container.settings, "google_maps_api_key", ""))
         container.google_maps_service = maps
-    return UniversalMultiSourceResultService(
+    service = UniversalMultiSourceResultService(
         catalog=getattr(container, "product_catalog_repository", None),
         ranking=getattr(container, "product_match_ranking_service", None),
         seller_profiles=getattr(container, "seller_profile_repository", None),
         maps=maps,
         web_search=getattr(container, "brave_web_search_provider", None),
     )
+    try:
+        from app.services.self_healing import engine
+
+        service.bypassed = engine(container).bypassed_sources()
+    except Exception:
+        pass  # self-healing never breaks discovery
+    return service
 
 
 def _review_summary(container, user_id: str) -> dict:
