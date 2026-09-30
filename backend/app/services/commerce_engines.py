@@ -212,6 +212,20 @@ class AffiliateEngine:
             })
         return rows
 
+    def issue_click(self, link_id: str, *, kind: str, trace_key: str = "", video_id: str = "") -> Optional[Dict[str, str]]:
+        """A tracked click id for one affiliate link shown outside the affiliate
+        rail (e.g. on a video card). None unless the link and its program are live."""
+        link = self.repo.get(link_id) if link_id else None
+        if not link or link["resource"] != "affiliate_links" or not ps.is_live(link):
+            return None
+        program = self._program(link["data"].get("program_id") or "")
+        if not program or not ps.is_live(program):
+            return None
+        click_id = f"afc_{secrets.token_urlsafe(12)}"
+        self.repo.record_event("impression", click_id=click_id, link_id=link["id"], partner_id=program["id"],
+                               detail={"kind": kind, "trace": trace_key, "video_id": video_id})
+        return {"click_id": click_id, "redirect_path": f"/go/af/{click_id}", "disclosure": DISCLOSURE_AFFILIATE}
+
     def open_click(self, click_id: str) -> Optional[str]:
         """The stored affiliate URL for a click id ASKODOX issued (<= 30 days,
         link still live); counted once."""
@@ -421,8 +435,9 @@ RELATION_LABEL = {
 
 
 class VideoEngine:
-    def __init__(self, repo: PlatformRepository) -> None:
+    def __init__(self, repo: PlatformRepository, affiliate: Any = None) -> None:
         self.repo = repo
+        self.affiliate = affiliate  # AffiliateEngine: tracked "shop this" clicks for affiliate videos
 
     def _creator(self, creator_id: str | None) -> Optional[Dict[str, Any]]:
         record = self.repo.get(creator_id) if creator_id else None
@@ -446,7 +461,22 @@ class VideoEngine:
             "products": d.get("products") or [], "services": d.get("services") or [],
             "language": d.get("language"), "analyzed": bool(d.get("transcript")),
             "reason": reason, "relevance": round(score, 3),
-        }
+            # Who the video is associated with -- flags only: user refs (phone-based) never leave the server.
+            "associated": {"seller": bool(d.get("merchant_ref")), "provider": bool(d.get("provider_ref")),
+                           "creator": creator["name"] if creator else None},
+        } | self._shop(video)
+
+    def _shop(self, video: Dict[str, Any]) -> Dict[str, Any]:
+        """Affiliate-ready routing: an affiliate video's "shop" button opens the
+        stored affiliate URL through the tracked /go/af redirect (clicks counted once)."""
+        d = video["data"]
+        if not d.get("affiliate_link_id") or self.affiliate is None:
+            return {}
+        click = self.affiliate.issue_click(d["affiliate_link_id"], kind="video", video_id=video["id"])
+        if not click:
+            return {}
+        return {"shop_redirect_path": click["redirect_path"], "shop_click_id": click["click_id"],
+                "shop_disclosure": click["disclosure"]}
 
     def rows(self, demand: Dict[str, Any], *, limit: int = 4) -> List[Dict[str, Any]]:
         query = words(demand.get("subject"), demand.get("raw_text"))

@@ -60,6 +60,20 @@ CLIENT_EVENTS = {"impression", "result_view", "click", "deep_link", "abandon", "
                  "notification_open"}
 
 
+class _LazyPush:
+    """Resolves the FCM sender at send time (credentials can change at runtime)."""
+
+    def __init__(self, platform: "Platform") -> None:
+        self.platform = platform
+
+    @property
+    def configured(self) -> bool:
+        return bool(getattr(self.platform.push(), "configured", False))
+
+    def notify(self, user_id: str, **kwargs: Any) -> int:
+        return self.platform.push().notify(user_id, **kwargs)
+
+
 class Platform:
     """Everything the routes need, built once per container."""
 
@@ -72,18 +86,59 @@ class Platform:
         self.links = SmartLinkEngine(self.repo)
         self.affiliate = AffiliateEngine(self.repo)
         self.offers = MerchantOfferEngine(self.repo, is_new_customer=self._is_new_customer)
-        self.videos = VideoEngine(self.repo)
+        self.videos = VideoEngine(self.repo, self.affiliate)
         self.reviews = ReviewEngine(self.repo)
         self.registry = fin.IntegrationRegistry(settings.database_path, secret_box=box_from_settings(settings))
         self.payments = fin.PaymentService(self.repo, self.registry)
         self.ledger = fin.RevenueLedger(self.repo)
-        self.notifications = fin.NotificationDispatcher(self.repo, self.registry)
+        from app.services import comms
+
+        self.outbox = comms.Outbox(settings.database_path)
+        self.messenger = comms.Messenger(self.registry, self.outbox,
+                                         http=getattr(container, "comms_http", None),
+                                         smtp_factory=getattr(container, "smtp_factory", None),
+                                         push=_LazyPush(self), contacts=self._contact)
+        self.notifications = fin.NotificationDispatcher(self.repo, self.registry, messenger=self.messenger)
+        self._push: Any = None
         self.resources = ResourceService(self.repo, effects={
             "link_test": self._link_test, "preview": self._preview}, ref_exists=self._ref_exists)
         self._blocked_cache: tuple[float, set[str]] = (0.0, set())
         from app.services.video_content import WebVideoStore
 
         self.web_videos = WebVideoStore(settings.database_path)
+
+    # communications ------------------------------------------------------
+    def push(self) -> Any:
+        """The FCM sender: the service account saved in the Command Center, else the
+        existing FIREBASE_SERVICE_ACCOUNT_JSON deployment variable."""
+        from app.services.push_service import PushService, push_service
+
+        stored = self.registry._secrets(self.registry._row("fcm_push")).get("service_account_json", "")
+        if not stored:
+            return push_service(self.container)
+        if self._push is None or getattr(self._push, "_source", None) != stored:
+            self._push = PushService(self.container.settings.database_path, service_account_json=stored)
+            self._push._source = stored
+        return self._push
+
+    @staticmethod
+    def _contact(user_ref: str, channel: str) -> Optional[str]:
+        """A user's mobile comes from their phone-based id; no e-mail is stored for
+        customers, so e-mail goes only to an address given explicitly."""
+        if channel in ("sms", "whatsapp"):
+            from app.repositories.user_profile_repository import UserProfileRepository
+
+            return UserProfileRepository.mobile_for(user_ref)
+        return None
+
+    def probes(self) -> Dict[str, Any]:
+        from app.services import comms
+
+        custom = getattr(self.container, "integration_probes", None)
+        if custom is not None:
+            return custom
+        return comms.default_probes(getattr(self.container, "comms_http", None) or comms.default_http,
+                                    push=self.push(), smtp_factory=getattr(self.container, "smtp_factory", None))
 
     # real video sources -------------------------------------------------
     def http_json(self, url: str, params: Dict[str, str]) -> tuple[int, Any]:
@@ -556,6 +611,8 @@ def payment_action(payment_id: str, action: str, body: PaymentActionBody, reques
             if not body.reference:
                 raise HTTPException(status_code=400, detail="settlement reference required")
             result = pf.payments.settle(payment_id, body.reference, actor=principal["id"])
+        elif action in ("simulate_paid", "simulate_failed"):
+            result = pf.payments.simulate(payment_id, action.split("_", 1)[1], actor=principal["id"])
         elif action in ("cancel", "fail", "dispute"):
             result = pf.repo.transition_payment(payment_id, {"cancel": "CANCELLED", "fail": "FAILED",
                                                              "dispute": "DISPUTED"}[action], actor=principal["id"],
@@ -732,17 +789,120 @@ def check_integration(provider: str, request: Request) -> dict:
     if provider not in fin.PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown provider")
     status = pf.registry.status(provider)
-    if status["missing"]:
+    if status["missing"] and status["status"] != fin.STATUS_MOCK:
         return pf.registry.record_check(provider, False, f"missing: {', '.join(status['missing'])}")
-    probe = getattr(request.app.state.container, "integration_probes", {}).get(provider)
+    if status["status"] == fin.STATUS_MOCK:
+        return status | {"note": "Mock mode never contacts the provider -- switch the mode to test to run a live "
+                                 "check."}
+    if not status["available"]:
+        raise HTTPException(status_code=409, detail="Not available in this environment")
+    probe = pf.probes().get(provider)
     if probe is None:
         # No automated probe for this provider: stays TEST until verified.
         _audit(request, principal, "integration.check", f"integration:{provider}", {"result": "manual"})
         return status | {"note": "No automated live check for this provider -- verify with the partner, then "
                                  "switch mode to live."}
-    ok, detail = probe(pf.registry)
+    try:
+        ok, detail = probe(pf.registry)
+    except Exception as error:  # a provider outage is a failed check, not a 500
+        ok, detail = False, f"{type(error).__name__}"
     _audit(request, principal, "integration.check", f"integration:{provider}", {"ok": ok})
     return pf.registry.record_check(provider, bool(ok), str(detail))
+
+
+@admin_router.get("/readiness")
+def integration_readiness(request: Request) -> dict:
+    """One row per external integration, from live state (never a hand-set flag)."""
+    from app.api.routes.partners import partner_repo
+    from app.services.integration_readiness import readiness
+
+    _require(request, "integrations:view")
+    pf = _pf(request)
+    try:
+        partners = partner_repo(request.app.state.container).partners()
+    except Exception:
+        partners = []
+    return {"items": readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=partners),
+            "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
+
+
+# discovered web videos -> moderation queue
+
+@admin_router.get("/web-videos")
+def web_videos(request: Request, limit: int = 100) -> dict:
+    """Real videos ASKODOX found through search (last seen first) -- the source
+    for curating: send one to Pending Review to feature, link or monetise it."""
+    _require(request, "content:view")
+    pf = _pf(request)
+    curated = {v["data"].get("source_ref") for v in pf.repo.list("videos") if v["data"].get("source_ref")}
+    return {"items": [v | {"in_review_queue": v["ref"] in curated}
+                      for v in pf.web_videos.recent(max(1, min(limit, 200)))]}
+
+
+class PromoteVideoBody(BaseModel):
+    relationship: str = "creator"
+    keywords: List[str] = Field(default_factory=list)
+    video_type: str = "review"
+
+
+@admin_router.post("/web-videos/{ref}/promote")
+def promote_web_video(ref: str, body: PromoteVideoBody, request: Request) -> dict:
+    """Copy a discovered video into Videos as PENDING_REVIEW (nothing is shown
+    differently until an admin approves it). One curated record per video."""
+    principal = _require(request, "content:manage")
+    pf = _pf(request)
+    item = pf.web_videos.get(ref)
+    if not item:
+        raise HTTPException(status_code=404, detail="Unknown web video")
+    if any(v["data"].get("source_ref") == ref for v in pf.repo.list("videos")):
+        raise HTTPException(status_code=409, detail="Already in the review queue")
+    platform = item["platform"] if item["platform"] in ps.PLATFORMS else "other"
+    keywords = body.keywords or [*item.get("products", []), *item.get("services", [])]
+    try:
+        record = pf.resources.create("videos", {
+            "title": item["title"], "platform": platform, "url": item["url"],
+            "thumbnail_url": item.get("thumbnail") if str(item.get("thumbnail") or "").startswith("https://") else None,
+            "duration": item.get("duration"), "video_type": body.video_type, "description": item.get("snippet"),
+            "keywords": keywords[:20], "categories": [item["category"]] if item.get("category") else [],
+            "products": item.get("products") or [], "services": item.get("services") or [],
+            "relationship": body.relationship, "source_ref": ref,
+        }, actor=principal["id"])
+    except Exception as error:
+        raise _err(error) from None
+    _audit(request, principal, "video.promote", f"video:{record['id']}", {"source_ref": ref})
+    return record
+
+
+class TestSendBody(BaseModel):
+    to: str = Field(min_length=3, max_length=200)
+    title: str = Field(default="ASKODOX test", max_length=120)
+    body: str = Field(default="This is a test message from ASKODOX.", max_length=1000)
+
+
+@admin_router.post("/integrations/{provider}/test-send")
+def integration_test_send(provider: str, body: TestSendBody, request: Request) -> dict:
+    """Send one message through a messaging provider. In mock mode nothing leaves
+    ASKODOX; unconfigured providers are never contacted. Recipient is masked."""
+    from app.services import comms
+
+    from app.services import rate_limit
+
+    principal = _require(request, "integrations:manage")
+    if provider not in comms.PROVIDER_CHANNEL:
+        raise HTTPException(status_code=404, detail="Not a messaging provider")
+    rate_limit.check(request, "integration_test_send", limit=20)
+    record = _pf(request).messenger.send(comms.PROVIDER_CHANNEL[provider], title=body.title, body=body.body,
+                                         to=body.to, event="admin_test")
+    _audit(request, principal, "integration.test_send", f"integration:{provider}",
+           {"status": record["status"], "to": record["to_masked"]})
+    return record
+
+
+@admin_router.get("/outbox")
+def outbox(request: Request, channel: str = "", limit: int = 100) -> dict:
+    _require(request, "integrations:view")
+    pf = _pf(request)
+    return {"items": pf.outbox.list(channel=channel or None, limit=limit), "summary": pf.outbox.summary()}
 
 
 class NotifyTestBody(BaseModel):

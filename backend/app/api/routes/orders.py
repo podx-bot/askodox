@@ -392,6 +392,27 @@ def _settlement(order: dict[str, Any]) -> dict[str, Any]:
             "needs_reference": info.needs_reference, "online": info.online, "available": True}
 
 
+def _upi_pay(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
+    """Direct UPI: a real upi://pay link to the seller's OWN UPI ID (from their
+    profile) for the customer. Nothing when the seller has not added one --
+    never a placeholder or demo VPA."""
+    if role != "buyer" or order.get("settlement_method") != lifecycle.DIRECT_UPI \
+            or order.get("payment_state") not in {"AWAITING_PAYMENT", "NOT_STARTED", None}:
+        return {}
+    try:
+        from app.repositories.user_profile_repository import UserProfileRepository
+
+        seller = UserProfileRepository(container.settings.database_path).get(str(order.get("seller_user_id") or ""))
+    except Exception:
+        return {}
+    amount = order.get("total_amount") or order.get("price")
+    link = payment_gateway.upi_intent(seller.get("upi_id") or "", seller.get("business_name") or seller.get("name") or "",
+                                      float(amount) if amount else None, f"ASKODOX order {order['id']}",
+                                      f"ASKODOX{order['id']}")
+    return {"upi_link": link, "upi_payee": seller.get("business_name") or seller.get("name")} if link else \
+        {"upi_link": None, "upi_missing": "The seller has not added a UPI ID yet -- ask them for it in chat."}
+
+
 def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
     messages = container.order_repository.messages(order["id"])
     body = _to_response(order, viewer=role).model_dump()
@@ -402,7 +423,7 @@ def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
         "actions": lifecycle.buyer_actions(order, messages) if role == "buyer" else lifecycle.seller_actions(order, messages),
         "viewer": role,
         "payment_note": "ASKODOX does not process payments; payment is made directly to the seller/provider.",
-        "settlement": _settlement(order),
+        "settlement": _settlement(order) | _upi_pay(container, order, role),
         "participants": [{"role": p["role"], "user": mask_user_id(p["user_id"])}
                          for p in _participants(container, order["id"])],
     })

@@ -64,6 +64,7 @@ class ProfileUpdate(BaseModel):
     business_address: str | None = Field(default=None, max_length=240)
     business_category: str | None = Field(default=None, max_length=80)
     gstin: str | None = Field(default=None, max_length=15)
+    upi_id: str | None = Field(default=None, max_length=120)
 
 
 @router.get("")
@@ -80,6 +81,11 @@ def update_my_profile(payload: ProfileUpdate, request: Request) -> dict:
         fields["gstin"] = str(fields["gstin"]).upper()
         if len(fields["gstin"]) != 15 or not fields["gstin"].isalnum():
             raise HTTPException(status_code=422, detail="GSTIN must be 15 letters/digits")
+    if "upi_id" in fields and fields["upi_id"]:
+        from app.services.payment_gateway import valid_vpa
+
+        if not valid_vpa(fields["upi_id"]):
+            raise HTTPException(status_code=422, detail="Enter a valid UPI ID, e.g. name@okbank")
     if "roles" in fields:
         fields["roles"] = [str(r).strip()[:30] for r in (fields["roles"] or []) if str(r).strip()]
     return _view(request, user_id, profiles(request.app.state.container).update(user_id, fields))

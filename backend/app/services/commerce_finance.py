@@ -26,6 +26,10 @@ from app.repositories.platform_repository import (
 
 STATUS_LIVE, STATUS_TEST, STATUS_DISABLED, STATUS_NEEDS, STATUS_ERROR = (
     "LIVE", "TEST", "DISABLED", "NEEDS_CONFIGURATION", "ERROR")
+# Enabled in mock mode: works end to end inside ASKODOX (outbox / sandbox)
+# without credentials and never contacts the provider. Never "live".
+STATUS_MOCK = "MOCK"
+MODES = ("test", "live", "mock")
 
 # name -> (group, label, required secret names, required public config keys, internal?)
 PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = {
@@ -37,7 +41,7 @@ PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = 
     "paytm": ("payments", "Paytm PG", ("merchant_key", "webhook_secret"), ("merchant_id",), False),
     "stripe": ("payments", "Stripe", ("secret_key", "webhook_secret"), ("publishable_key",), False),
     # messaging / support
-    "whatsapp_cloud": ("messaging", "WhatsApp Business (Cloud API)", ("access_token", "app_secret"),
+    "whatsapp_cloud": ("messaging", "WhatsApp Business (Cloud API)", ("access_token",),
                        ("phone_number_id",), False),
     "sms": ("messaging", "SMS gateway", ("api_key",), ("sender_id",), False),
     "email": ("messaging", "Email (SMTP / API)", ("password",), ("host", "from_address"), False),
@@ -53,7 +57,45 @@ PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = 
     "admitad": ("affiliate", "Admitad", ("client_secret",), ("client_id",), False),
     # banks / card offers feed
     "bank_offers_feed": ("offers", "Bank / card / UPI offers feed", ("api_key",), ("endpoint",), False),
+    # staging-only sandbox gateway: exercises the online-payment flow (create
+    # -> signed webhook -> PAID / FAILED / REFUNDED) with no real money.
+    "sandbox_gateway": ("payments", "Sandbox gateway (staging tests only -- no real money)", (), (), False),
 }
+
+# Optional settings per provider (not needed to be "configured").
+OPTIONAL_SECRETS: Dict[str, tuple[str, ...]] = {
+    "whatsapp_cloud": ("app_secret",),  # verifies inbound webhook signatures
+}
+OPTIONAL_CONFIG: Dict[str, tuple[str, ...]] = {
+    "whatsapp_cloud": ("api_version", "template_name", "template_language"),
+    "sms": ("vendor", "dlt_template_id", "account_sid"),
+    "email": ("port", "username"),
+    "fcm_push": ("project_id",),
+}
+
+# Keys that already exist as deployment variables are reused as-is (never
+# copied into the database, never shown). A value saved in the Command
+# Center takes precedence over the environment.
+ENV_SOURCES: Dict[str, Dict[str, str]] = {
+    "whatsapp_cloud": {"access_token": "WHATSAPP_ACCESS_TOKEN", "phone_number_id": "WHATSAPP_PHONE_NUMBER_ID",
+                       "app_secret": "WHATSAPP_APP_SECRET", "api_version": "WHATSAPP_API_VERSION"},
+    "fcm_push": {"service_account_json": "FIREBASE_SERVICE_ACCOUNT_JSON"},
+    "youtube_data": {"api_key": "YOUTUBE_API_KEY"},
+    "sms": {"api_key": "SMS_API_KEY", "sender_id": "SMS_SENDER_ID", "vendor": "SMS_VENDOR",
+            "dlt_template_id": "SMS_DLT_TEMPLATE_ID", "account_sid": "SMS_ACCOUNT_SID"},
+    "email": {"password": "SMTP_PASSWORD", "host": "SMTP_HOST", "from_address": "EMAIL_FROM",
+              "port": "SMTP_PORT", "username": "SMTP_USERNAME"},
+    "razorpay": {"key_id": "RAZORPAY_KEY_ID", "key_secret": "RAZORPAY_KEY_SECRET",
+                 "webhook_secret": "RAZORPAY_WEBHOOK_SECRET"},
+}
+
+# The sandbox gateway only ever exists outside production.
+PRODUCTION_ENV_NAMES = ("production", "prod")
+
+
+def is_production(env: Dict[str, str]) -> bool:
+    name = (env.get("RAILWAY_ENVIRONMENT_NAME") or env.get("ASKODOX_ENV") or "").strip().lower()
+    return name in PRODUCTION_ENV_NAMES
 
 
 class IntegrationRegistry:
@@ -94,22 +136,57 @@ class IntegrationRegistry:
                 out[name] = ""
         return out
 
+    def _env(self, provider: str, name: str) -> str:
+        var = ENV_SOURCES.get(provider, {}).get(name)
+        return str(self.env.get(var, "") or "").strip() if var else ""
+
     def secret(self, provider: str, name: str) -> str:
-        return self._secrets(self._row(provider)).get(name, "")
+        return self._secrets(self._row(provider)).get(name, "") or self._env(provider, name)
+
+    def config_value(self, provider: str, key: str) -> str:
+        config = json.loads(self._row(provider).get("config_json") or "{}")
+        return str(config.get(key) or "") or self._env(provider, key)
+
+    @staticmethod
+    def secret_names(provider: str) -> tuple[str, ...]:
+        return PROVIDERS[provider][2] + OPTIONAL_SECRETS.get(provider, ())
+
+    @staticmethod
+    def config_keys(provider: str) -> tuple[str, ...]:
+        return PROVIDERS[provider][3] + OPTIONAL_CONFIG.get(provider, ())
+
+    def available(self, provider: str) -> bool:
+        """False for the sandbox gateway in production -- it must never take a payment there."""
+        return not (provider == "sandbox_gateway" and is_production(self.env))
 
     def status(self, provider: str) -> Dict[str, Any]:
         group, label, secret_names, config_keys, internal = PROVIDERS[provider]
         row = self._row(provider)
         config = json.loads(row.get("config_json") or "{}")
-        have_secrets = set(json.loads(row.get("secrets_json") or "{}"))
-        # FCM can also be configured via the existing environment variable.
-        if provider == "fcm_push" and self.env.get("FIREBASE_SERVICE_ACCOUNT_JSON"):
-            have_secrets.add("service_account_json")
-        if provider == "youtube_data" and self.env.get("YOUTUBE_API_KEY"):
-            have_secrets.add("api_key")
-        missing = [s for s in secret_names if s not in have_secrets] + [k for k in config_keys if not config.get(k)]
+        stored = set(json.loads(row.get("secrets_json") or "{}"))
+        # Where each value comes from (names only -- values are never returned).
+        sources: Dict[str, str] = {}
+        for name in self.secret_names(provider):
+            if name in stored:
+                sources[name] = "command_center"
+            elif self._env(provider, name):
+                sources[name] = "environment"
+        for key in self.config_keys(provider):
+            if config.get(key):
+                sources[key] = "command_center"
+            elif self._env(provider, key):
+                sources[key] = "environment"
+        have_secrets = {n for n in self.secret_names(provider) if n in sources}
+        public_config = {k: config.get(k) or self._env(provider, k) for k in self.config_keys(provider)
+                         if config.get(k) or self._env(provider, k)}
+        missing = [s for s in secret_names if s not in have_secrets] + [k for k in config_keys if k not in sources]
+        mode = row.get("mode") or "test"
         if internal:
             state = STATUS_LIVE
+        elif not self.available(provider):
+            state = STATUS_DISABLED
+        elif row.get("enabled") and mode == "mock":
+            state = STATUS_MOCK  # never contacts the provider, so credentials are not needed
         elif missing:
             state = STATUS_NEEDS
         elif not row.get("enabled"):
@@ -117,10 +194,13 @@ class IntegrationRegistry:
         elif row.get("last_check_ok") == 0:
             state = STATUS_ERROR
         else:
-            state = STATUS_LIVE if row.get("mode") == "live" and row.get("last_check_ok") == 1 else STATUS_TEST
+            state = STATUS_LIVE if mode == "live" and row.get("last_check_ok") == 1 else STATUS_TEST
         return {"provider": provider, "group": group, "label": label, "status": state, "internal": internal,
-                "enabled": bool(row.get("enabled")) or internal, "mode": row.get("mode"),
-                "config": config, "secrets_set": sorted(have_secrets), "missing": missing,
+                "enabled": bool(row.get("enabled")) or internal, "mode": mode, "available": self.available(provider),
+                "config": public_config, "secrets_set": sorted(have_secrets), "missing": missing,
+                "secret_names": list(self.secret_names(provider)), "config_keys": list(self.config_keys(provider)),
+                "required": list(secret_names) + list(config_keys), "sources": sources,
+                "env_vars": dict(ENV_SOURCES.get(provider, {})),
                 "last_check_at": row.get("last_check_at"), "last_check_ok": row.get("last_check_ok"),
                 "last_check_detail": row.get("last_check_detail")}
 
@@ -131,9 +211,11 @@ class IntegrationRegistry:
                   config: Dict[str, Any] | None = None, secrets: Dict[str, str] | None = None) -> Dict[str, Any]:
         if provider not in PROVIDERS:
             raise KeyError(provider)
-        group, label, secret_names, config_keys, internal = PROVIDERS[provider]
-        if mode is not None and mode not in ("test", "live"):
-            raise ValueError("mode must be test or live")
+        if mode is not None and mode not in MODES:
+            raise ValueError("mode must be test, live or mock")
+        if not self.available(provider) and enabled:
+            raise PermissionError("the sandbox gateway cannot be enabled in production")
+        secret_names, config_keys = self.secret_names(provider), self.config_keys(provider)
         row = self._row(provider)
         cfg = json.loads(row.get("config_json") or "{}")
         for key, value in (config or {}).items():
@@ -196,6 +278,8 @@ class PaymentService:
         elif method in self.GATEWAY_METHODS:
             if not provider or provider not in PROVIDERS or PROVIDERS[provider][0] != "payments":
                 raise ValueError("choose a payment provider for online methods")
+            if not self.registry.available(provider):
+                raise PlatformConflict(f"{PROVIDERS[provider][1]} is not available in this environment")
             status = self.registry.status(provider)
             if status["status"] not in (STATUS_LIVE, STATUS_TEST):
                 raise PlatformConflict(f"{status['label']} is {status['status'].replace('_', ' ').lower()}")
@@ -212,6 +296,23 @@ class PaymentService:
                                    currency="INR", dedupe_key=f"payment_created:{payment['id']}",
                                    detail={"state": payment["status"], "method": method})
         return payment | {"created": created}
+
+    def simulate(self, payment_id: str, outcome: str, *, actor: str) -> Dict[str, Any]:
+        """Sandbox gateway only (never in production): play the gateway's part --
+        PAID / FAILED -- through the same state machine a real webhook uses."""
+        payment = self.repo.payment(payment_id)
+        if not payment:
+            raise KeyError(payment_id)
+        if payment["provider"] != "sandbox_gateway":
+            raise PlatformConflict("only sandbox payments can be simulated")
+        if not self.registry.available("sandbox_gateway"):
+            raise PlatformConflict("the sandbox gateway is not available in production")
+        target = {"paid": "PAID", "failed": "FAILED"}.get(outcome)
+        if not target:
+            raise ValueError("outcome must be paid or failed")
+        return self.repo.transition_payment(payment_id, target, actor=f"sandbox:{actor}",
+                                            provider_ref=f"sandbox_{payment_id}" if target == "PAID" else None,
+                                            note="simulated by the sandbox gateway (no real money)")
 
     def confirm_direct(self, payment_id: str, *, reference: str = "", actor: str) -> Dict[str, Any]:
         payment = self.repo.payment(payment_id)
@@ -374,10 +475,11 @@ class NotificationDispatcher:
     CHANNEL_PROVIDER = {"push": "fcm_push", "email": "email", "sms": "sms", "whatsapp": "whatsapp_cloud"}
 
     def __init__(self, repo: PlatformRepository, registry: IntegrationRegistry,
-                 senders: Dict[str, Callable[[str, str, str], bool]] | None = None) -> None:
+                 senders: Dict[str, Callable[[str, str, str], bool]] | None = None, messenger: Any = None) -> None:
         self.repo = repo
         self.registry = registry
         self.senders = senders or {}
+        self.messenger = messenger  # comms.Messenger: real / mock delivery + outbox
 
     @staticmethod
     def render(text: str, values: Dict[str, Any]) -> str:
@@ -419,6 +521,10 @@ class NotificationDispatcher:
                 status = "sent"
                 if channel_on is not None and not channel_on(channel):
                     status = "skipped_switched_off"  # feature flag notifications.<channel>
+                elif channel != "in_app" and self.messenger is not None and channel not in self.senders:
+                    # sent / mock_delivered / failed / skipped_needs_configuration / skipped_no_contact ...
+                    status = self.messenger.send(channel, title=title, body=body, user_ref=user_ref,
+                                                 event=event)["status"].lower()
                 elif channel != "in_app":
                     provider = self.CHANNEL_PROVIDER[channel]
                     if self.registry.status(provider)["status"] not in (STATUS_LIVE, STATUS_TEST):

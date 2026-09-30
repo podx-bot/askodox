@@ -724,6 +724,18 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
     except Exception:
         affiliate_count = 0
 
+    gateways: list[str] = []
+    try:
+        from app.api.routes.platform import platform as _platform
+        from app.services import commerce_finance as fin
+
+        for item in _platform(container).registry.all():
+            if item["group"] == "payments" and not item["internal"] and item["provider"] != "sandbox_gateway" \
+                    and item["status"] in (fin.STATUS_LIVE, fin.STATUS_TEST):
+                gateways.append(item["label"])
+    except Exception:
+        gateways = []
+
     def state(name, label, configured, flag_keys=(), detail=""):
         enabled = all(flags[k]["enabled"] for k in flag_keys) if flag_keys else True
         check = checks.get(name)
@@ -758,9 +770,11 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
               bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()),
               detail="Server needs FIREBASE_SERVICE_ACCOUNT_JSON; the Android app needs google-services.json "
                      "(see docs/EXTERNAL_SETUP.md). Until then updates arrive only while the app is open."),
-        # No payment gateway exists in this codebase: reported, not invented.
-        state("payments", "Payment gateway", False, ("payments.subscriptions",),
-              detail="No payment gateway is integrated in this build"),
+        # Gateways are prepared in Platform -> Integrations; "configured" only when
+        # one has real credentials there (reported, not invented).
+        state("payments", "Payment gateway", bool(gateways), ("payments.subscriptions",),
+              detail=(f"Configured: {', '.join(gateways)}" if gateways else "No gateway configured") +
+              " -- COD, cash on pickup and direct UPI to the seller work without one (Platform -> Integrations)."),
     ]
 
 

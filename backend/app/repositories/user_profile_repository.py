@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 EDITABLE = (
     "name", "address", "latitude", "longitude", "language", "roles",
-    "business_name", "business_address", "business_category", "gstin",
+    "business_name", "business_address", "business_category", "gstin", "upi_id",
 )
 
 
@@ -38,6 +38,9 @@ class UserProfileRepository:
                     business_category TEXT, gstin TEXT, photo_jpeg BLOB, photo_updated_at TEXT,
                     created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"""
             )
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profiles)")}
+            if "upi_id" not in columns:  # the seller's own UPI ID (VPA) for direct payments
+                conn.execute("ALTER TABLE user_profiles ADD COLUMN upi_id TEXT")
             conn.commit()
 
     @staticmethod

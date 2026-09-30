@@ -73,3 +73,28 @@ def register_adapter(adapter: PaymentAdapter) -> None:
 
 def adapter_for(method: str) -> PaymentAdapter:
     return _ADAPTERS["gateway" if lifecycle.settlement_method(method) == lifecycle.GATEWAY else "direct"]
+
+
+# ------------------------------------------------------------ direct UPI --
+# No gateway needed: the payer's UPI app pays the payee's own UPI ID (VPA)
+# directly. ASKODOX never touches the money; the payee confirms receipt.
+
+_VPA = __import__("re").compile(r"^[A-Za-z0-9.\-_]{2,256}@[A-Za-z][A-Za-z0-9]{1,64}$")
+
+
+def valid_vpa(vpa: str) -> bool:
+    return bool(_VPA.match(str(vpa or "").strip()))
+
+
+def upi_intent(vpa: str, payee_name: str, amount: float | None, note: str, reference: str) -> str | None:
+    """A standard ``upi://pay`` link (NPCI deep-link spec) any UPI app opens."""
+    from urllib.parse import quote
+
+    vpa = str(vpa or "").strip()
+    if not valid_vpa(vpa):
+        return None
+    parts = [f"pa={quote(vpa, safe='@.-_')}", f"pn={quote((payee_name or 'Seller')[:50])}", "cu=INR",
+             f"tn={quote((note or 'ASKODOX order')[:60])}", f"tr={quote(str(reference)[:35])}"]
+    if amount is not None and float(amount) > 0:
+        parts.insert(2, f"am={float(amount):.2f}")
+    return "upi://pay?" + "&".join(parts)
