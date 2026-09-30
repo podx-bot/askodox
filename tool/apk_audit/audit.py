@@ -4,6 +4,7 @@ and a diff between builds. Evidence only -- it changes nothing.
 
 usage: audit.py <out_dir> <name>=<apk> [<name>=<apk> ...]
 """
+import hashlib
 import json
 import os
 import re
@@ -38,6 +39,7 @@ def audit(apk):
     perms = sorted(set(re.findall(r"uses-permission: name='([^']*)'", badging)))
     out = {
         "file": os.path.basename(apk), "bytes": os.path.getsize(apk),
+        "sha256": hashlib.sha256(open(apk, "rb").read()).hexdigest(),
         "package": pkg.group(1) if pkg else None, "versionCode": pkg.group(2) if pkg else None,
         "versionName": pkg.group(3) if pkg else None,
         "application_label": (re.search(r"application-label:'([^']*)'", badging) or [None, None])[1],
@@ -97,7 +99,7 @@ def main():
     lines = []
     for n in names:
         r = results[n]
-        lines += [f"== {n}: {r['file']}", f"package={r['package']} versionCode={r['versionCode']} "
+        lines += [f"== {n}: {r['file']} sha256={r['sha256']} bytes={r['bytes']}", f"package={r['package']} versionCode={r['versionCode']} "
                   f"versionName={r['versionName']} label={r['application_label']!r} "
                   f"applicationClass={r['application_class']}", f"sdk={r['sdk']} cert={r['certificate_sha256']}",
                   f"application line: {r['application_line']}",
