@@ -1,7 +1,17 @@
-# Phone test — video journey (next consolidated build)
+# Phone test — video journey (phone-test build 1271, staging backend)
 
-Branch `claude/friendly-ramanujan-538sbj`. Install over the current build (same package, same signing key); no
-uninstall. Location allowed (Vijayawada area). Each step says what must happen; note anything different.
+Build **1271** from branch `claude/friendly-ramanujan-538sbj`, talking to the **staging** backend
+`https://podx-ai-connect-staging.up.railway.app` (Railway environment `staging`, this branch, its own database).
+Production and `main` are untouched.
+
+Before you start:
+* Install over the current build (same package, same signing key; versionCode 1271 > 1270). No uninstall, no data
+  loss. The next production build must be numbered above 1271 to update this phone.
+* Staging has its own empty database: sign in again if asked (real OTP), and there are no ASKODOX sellers there, so
+  local results come from Google Places / the web.
+* WhatsApp is switched off on staging (it can never message real users). Payment gateway, SMS/email, Firebase push,
+  YouTube Data API key and affiliate partners are **not configured** -- steps that need them are marked.
+* Location allowed (Vijayawada area). Each step says what must happen; note anything different.
 
 ## English
 
@@ -37,15 +47,22 @@ uninstall. Location allowed (Vijayawada area). Each step says what must happen; 
 
 ## Disclosure
 
-12. No web video is ever labelled Sponsored unless YouTube declares a paid promotion (needs the YouTube Data API
-    key); declared paid promotions appear **after** all organic results with *"Includes paid promotion (declared on
-    YouTube)"*.
-13. Command Center → Videos: an admin-approved sponsored or affiliate video shows *Sponsored* / *Affiliate —
-    ASKODOX may earn a commission* on the card and in the viewer.
+12. No web video is ever labelled Sponsored: without the YouTube Data API key (**not configured**) nothing can be
+    declared a paid promotion, so every video shows *"Creator's opinion — not verified by ASKODOX"*. (With the key,
+    declared paid promotions would appear **after** all organic results with *"Includes paid promotion (declared on
+    YouTube)"* -- not testable yet.)
+13. Command Center on **staging** (`https://podx-ai-connect-staging.up.railway.app/admin/console`, your usual admin
+    key) → **Video & Social → Videos** → **New**: title *"Samsung 43 inch TV demo"*, the YouTube link from step 1, keywords
+    *samsung 43 inch tv*, relationship **Sponsored** (then a second one as **Affiliate**) → it starts *Pending review*: approve it to
+    **Active** →
+    on the phone search *"Samsung 43 inch TV review videos"* again → the admin video card and its viewer show
+    *Sponsored* / *Affiliate — ASKODOX may earn a commission*. (No real affiliate
+    partner exists, so no commission is ever recorded.)
 
-## Attribution (Command Center → Analytics → Video funnel, and Event stream)
+## Attribution (staging Command Center → Analytics → Video funnel, and Event stream)
 
 14. After steps 1–7 the video funnel shows video impression → open → watch start → ask → local search / product
-    click for the same video reference (`yt_<id>`), tied to the search's trace id.
+    click for the same video reference (`yt_<id>`), tied to the search's trace id. Affiliate click / conversion stay
+    0 (no partner configured).
 
 Report for each step: pass / fail + a screenshot for any failure.
