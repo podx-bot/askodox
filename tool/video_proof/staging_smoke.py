@@ -103,6 +103,19 @@ if alt and alt != STAGING:
     check(f"{STAGING} and {alt} are the same staging service",
           a.get("commit") and a.get("commit") == b.get("commit") and ra.get("environment") == rb.get("environment") == "staging",
           {"commit": [a.get("commit"), b.get("commit")], "environment": [ra.get("environment"), rb.get("environment")]})
+# Master upgrade (read-only): new modules are served, gated and safe.
+guide = http.get(f"{STAGING}/api/companion/guide/status")
+check("Screen Guide status served; OFF until the Owner switches it on", guide.status_code == 200
+      and guide.json().get("enabled") is False, {"status": guide.status_code, "body": guide.json() if guide.status_code == 200 else None})
+for path in ("/admin/cc/approvals", "/admin/cc/selfheal", "/admin/cc/companion/screen-guide",
+             "/admin/cc/platform/revenue-command", "/admin/cc/audit"):
+    r = http.get(f"{STAGING}{path}")
+    check(f"{path} requires Command Center sign-in", r.status_code == 401, {"status": r.status_code})
+console = http.get(f"{STAGING}/admin/console")
+check("console security headers", "frame-ancestors 'none'" in console.headers.get("content-security-policy", "")
+      and console.headers.get("x-content-type-options") == "nosniff", {"status": console.status_code})
+r = http.get(f"{STAGING}/api/me/promotions")
+check("customer promotions feed requires sign-in", r.status_code == 401, {"status": r.status_code})
 root = http.get(f"{STAGING}/").json()
 check("root answers as ASKODOX", root.get("app") == "ASKODOX", root)
 
