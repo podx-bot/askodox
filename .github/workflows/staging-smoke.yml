@@ -10,6 +10,11 @@ on:
         required: false
         default: 'https://podx-ai-connect-staging.up.railway.app'
         type: string
+      alt_staging_url:
+        description: Another address of the same staging service (compared commit + environment)
+        required: false
+        default: ''
+        type: string
   push:
     branches: [claude/friendly-ramanujan-538sbj]
     paths:
@@ -24,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       STAGING_URL: ${{ inputs.staging_url || 'https://podx-ai-connect-staging.up.railway.app' }}
+      ALT_STAGING_URL: ${{ inputs.alt_staging_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

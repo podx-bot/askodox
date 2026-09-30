@@ -10,6 +10,7 @@ production was left alone. Read-only except the staging video funnel.
   5. Production still answers and does NOT return branch-only video fields.
 """
 import json
+import os
 import sys
 import time
 
@@ -81,6 +82,29 @@ check("staging integrations are in safe states (nothing LIVE without real creden
       ready.get("environment") == "staging" and integrations and not live
       and integrations.get("whatsapp_cloud") in ("NEEDS_CONFIGURATION", "DISABLED", "MOCK"),
       {"environment": ready.get("environment"), "integrations": integrations, "live": live})
+
+# Every API the app's services call exists on staging (a 4xx for an empty
+# request is fine; 404/5xx means the app would break).
+for method, path, body in (("POST", "/api/in-app/voice/transcribe", None), ("POST", "/api/in-app/voice/speak", {}),
+                           ("POST", "/vision/analyze", {}), ("POST", "/vision/analyze-video", {}),
+                           ("POST", "/api/in-app/support/escalate", {}), ("POST", "/api/attachments/analyze", None)):
+    r = http.request(method, f"{STAGING}{path}", json=body) if body is not None else http.request(method, f"{STAGING}{path}")
+    check(f"app route {method} {path} is served", r.status_code != 404 and r.status_code < 500, {"status": r.status_code})
+place = http.get(f"{STAGING}/api/discover/place", params={"latitude": 16.5062, "longitude": 80.648})
+pj = place.json() if place.status_code == 200 else {}
+check("place naming (GET /api/discover/place) answers on staging", place.status_code == 200,
+      {"status": place.status_code, "resolved": pj.get("resolved"), "name": pj.get("name") or pj.get("locality")})
+
+# The custom domain and the Railway domain are the same staging service.
+alt = os.environ.get("ALT_STAGING_URL", "").rstrip("/")
+if alt and alt != STAGING:
+    a, b = http.get(f"{STAGING}/health").json(), http.get(f"{alt}/health").json()
+    ra, rb = http.get(f"{STAGING}/readiness").json(), http.get(f"{alt}/readiness").json()
+    check(f"{STAGING} and {alt} are the same staging service",
+          a.get("commit") and a.get("commit") == b.get("commit") and ra.get("environment") == rb.get("environment") == "staging",
+          {"commit": [a.get("commit"), b.get("commit")], "environment": [ra.get("environment"), rb.get("environment")]})
+root = http.get(f"{STAGING}/").json()
+check("root answers as ASKODOX", root.get("app") == "ASKODOX", root)
 
 prod = http.get(f"{PRODUCTION}/health")
 check("production still answers (untouched)", prod.status_code == 200, {"status": prod.status_code})
