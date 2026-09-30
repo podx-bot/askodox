@@ -1,0 +1,53 @@
+name: APK audit
+
+# Evidence for Play Protect / store review: dumps identity, label, signing,
+# SDK levels, permissions and components of real signed APKs and diffs them.
+# Reads build artifacts only; changes nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Space-separated name=run_id pairs (signed APK artifacts)
+        required: false
+        default: 'b1271=36657289220 b1272=36715666028'
+        type: string
+  push:
+    branches: [claude/friendly-ramanujan-538sbj]
+    paths:
+      - '.github/workflows/apk-audit.yml'
+      - 'tool/apk_audit/**'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUNS: ${{ inputs.runs || 'b1271=36657289220 b1272=36715666028' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apks
+          args=""
+          gh release download askodox-latest -p askodox-latest.apk -D apks/prod --clobber -R "$GITHUB_REPOSITORY" \
+            && args="prod944=apks/prod/askodox-latest.apk" || echo "production reference APK not found"
+          for pair in $RUNS; do
+            name="${pair%%=*}"; run="${pair#*=}"
+            gh run download "$run" -R "$GITHUB_REPOSITORY" --dir "apks/$name" || { echo "no artifacts for $run"; continue; }
+            apk="$(find "apks/$name" -name '*.apk' ! -name '*-debug.apk' | head -1)"
+            [ -n "$apk" ] && args="$args $name=$apk"
+          done
+          echo "ARGS=$args" >> "$GITHUB_ENV"
+      - name: Audit
+        run: python3 tool/apk_audit/audit.py audit-out $ARGS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apk-audit
+          path: audit-out/
