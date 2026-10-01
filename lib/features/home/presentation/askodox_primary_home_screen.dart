@@ -1725,6 +1725,15 @@ class _AskodoxPrimaryHomeScreenState
           (deal.readyToMatch ||
               ((showNow || repeating) && (deal.subject?.trim().isNotEmpty ?? false)));
       if (searchNow && !deal.readyToMatch) detailQuestion = repeating || videoAsk ? null : detailQuestion;
+      // The deal's next question is written in English in the category
+      // schema: ask it in the conversation language (APK 1275: Telugu chat
+      // showed "How much chicken do you need?").
+      if (detailQuestion != null && detailQuestion.trim().isNotEmpty && _lang != 'en') {
+        detailQuestion = await ref
+                .read(askodoxAssistantServiceProvider)
+                .localizeQuestion(detailQuestion, language: _lang) ??
+            detailQuestion;
+      }
       if (deal != null && searchNow && needClarification == null) {
         if (deal.intent == DealIntent.sell && _userMeansToSell(text, deal)) {
           // A completed "sell" deal is a real listing to save, not a buyer
@@ -2964,7 +2973,18 @@ class _AskodoxPrimaryHomeScreenState
         size: 88,
         results: _actionConfirmed ? 0 : _latestResults()?.matches.length ?? 0,
         onTap: _onCompanionTap,
-        showLine: _voicePhase == _VoicePhase.idle || _voicePhase == _VoicePhase.recording,
+        // After an assistant reply the reply itself is the message: no second
+        // bubble restating it between turns (APK 1275). Live states
+        // (listening / understanding / thinking) still show their line.
+        showLine: (_voicePhase == _VoicePhase.idle || _voicePhase == _VoicePhase.recording) &&
+            (_turns.isEmpty ||
+                _turns.last.isUser ||
+                _resultsByTurn.containsKey(_turns.length - 1) ||
+                const {
+                  AskodoxCompanionMood.listening,
+                  AskodoxCompanionMood.understanding,
+                  AskodoxCompanionMood.thinking,
+                }.contains(_companionMood)),
         guidance: _companionGuidance(),
         subject: ref.watch(universalDealControllerProvider).deal?.subject,
         foundLabel: _lang == 'te' || _lang == 'en' || _lang == 'hi'

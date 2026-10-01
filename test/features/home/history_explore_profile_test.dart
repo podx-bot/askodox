@@ -221,6 +221,18 @@ void main() {
     expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
   });
 
+  testWidgets('APK 1275: a sign-in the server rejects (401) asks to sign in again, not "could not be loaded"',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()}, overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      askodoxUserProfileRepositoryProvider.overrideWithValue(_RejectedProfiles(const AskodoxUserProfile(userId: 'x'))),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileSignInAgain')), findsOneWidget);
+    expect(find.text('Your profile could not be loaded.'), findsNothing);
+  });
+
   test('support escalation client sends full context and reads configured channels', () async {
     late Map<String, dynamic> body;
     final service = SupportEscalationService(client: MockClient((request) async {
@@ -298,3 +310,10 @@ class _Profiles implements AskodoxUserProfileRepository {
   Future<AskodoxUserProfile?> setPhoto(Uint8List? jpeg) async => stored;
 }
 
+
+class _RejectedProfiles extends _Profiles {
+  _RejectedProfiles(super.stored);
+
+  @override
+  Future<AskodoxUserProfile?> load() async => throw const AskodoxSessionInvalid();
+}

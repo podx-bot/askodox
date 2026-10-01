@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/backend_providers.dart';
@@ -127,7 +128,23 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
         child: Center(
           child: async.isLoading
               ? const CircularProgressIndicator()
-              : Column(children: [
+              : async.error is AskodoxSessionInvalid ||
+                      (ref.watch(authSessionProvider).tokenPlaceholder ?? '').isEmpty ||
+                      ref.watch(authSessionProvider).tokenPlaceholder == 'OTP_VERIFIED'
+                  ? Column(key: const Key('askodoxProfileSignInAgain'), children: [
+                      Text(
+                        _t('Please sign in again to see and edit your profile.',
+                            'మీ ప్రొఫైల్ చూడడానికి మళ్లీ సైన్ ఇన్ చేయండి.'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: () => context.push('/onboarding?signin=1'),
+                        child: Text(_t('Sign in', 'సైన్ ఇన్')),
+                      ),
+                    ])
+                  : Column(children: [
                   Text(_t('Your profile could not be loaded.', 'ప్రొఫైల్ లోడ్ కాలేదు.')),
                   TextButton(
                     onPressed: () => ref.invalidate(askodoxUserProfileProvider),

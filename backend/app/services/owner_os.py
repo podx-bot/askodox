@@ -365,6 +365,20 @@ STAGING_GREETINGS = (
     ("signoff", "en", "Thank you{name_sep}! Come back any time."),
     ("signoff_night", "en", "Good night{name_sep}! Talk to you soon."),
     ("signoff", "", "Thank you{name_sep}!"),
+    ("morning", "te", "శుభోదయం{name_sep}! ఈ రోజు మీకు ఏం కావాలి?"),
+    ("afternoon", "te", "నమస్కారం{name_sep}! ఏం కావాలో చెప్పండి."),
+    ("evening", "te", "శుభ సాయంత్రం{name_sep}! ఎలా సహాయం చేయగలను?"),
+    ("night", "te", "నమస్తే{name_sep}! ఏం కావాలో చెప్పండి."),
+    ("returning", "te", "మళ్లీ స్వాగతం{name_sep}! కొనసాగిద్దామా?"),
+    ("signoff", "te", "ధన్యవాదాలు{name_sep}! ఎప్పుడైనా మళ్లీ రండి."),
+    ("signoff_night", "te", "శుభరాత్రి{name_sep}! మళ్లీ కలుద్దాం."),
+    ("morning", "hi", "सुप्रभात{name_sep}! आज आपको क्या चाहिए?"),
+    ("afternoon", "hi", "नमस्ते{name_sep}! बताइए, क्या चाहिए?"),
+    ("evening", "hi", "शुभ संध्या{name_sep}! मैं कैसे मदद करूँ?"),
+    ("night", "hi", "नमस्ते{name_sep}! बताइए, क्या चाहिए?"),
+    ("returning", "hi", "फिर से स्वागत है{name_sep}! आगे बढ़ें?"),
+    ("signoff", "hi", "धन्यवाद{name_sep}! फिर आइए।"),
+    ("signoff_night", "hi", "शुभ रात्रि{name_sep}! फिर मिलेंगे।"),
 )
 
 STAGING_EMAIL_ROLES = (

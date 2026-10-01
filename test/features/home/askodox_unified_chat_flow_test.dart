@@ -245,9 +245,19 @@ class _Assistant {
   final List<Map<String, dynamic>> requests = [];
   Completer<void>? hold;
 
+  /// English deal question -> localized text the fake /localize returns.
+  final Map<String, String> localized = {};
+
   InAppAssistantService service() => InAppAssistantService(
         client: MockClient((request) async {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
+          if (request.url.path.endsWith('/localize')) {
+            final text = localized[body['text']];
+            return text == null
+                ? http.Response('', 503)
+                : http.Response(jsonEncode({'text': text, 'localized': true}), 200,
+                    headers: {'content-type': 'application/json; charset=utf-8'});
+          }
           requests.add(body);
           if (hold != null) await hold!.future;
           final decision = decide?.call(body['message'] as String);
@@ -876,6 +886,20 @@ void main() {
       expect(find.byType(Card).evaluate().where((e) => e.widget.key.toString().contains('askodoxCatalogueCard')), isEmpty);
       expect(h.matches.deals, isEmpty);
     });
+  });
+
+  testWidgets('APK 1275: the deal question is asked in the conversation language; no restating bubble',
+      (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([
+      const UniversalMatchResult(dealId: '995', matches: [_localMatch]),
+    ]));
+    h.assistant.localized['How much chicken do you need?'] = 'మీకు ఎంత చికెన్ కావాలి?';
+    await h.pump(tester);
+    await h.send(tester, 'నాకు దగ్గరలో చికెన్ షాపులు కావాలి');
+    expect(find.textContaining('మీకు ఎంత చికెన్ కావాలి?'), findsOneWidget);
+    expect(find.textContaining('How much chicken'), findsNothing, reason: 'no English question in a Telugu chat');
+    expect(find.byKey(const Key('askodoxCompanionLine')), findsNothing,
+        reason: 'the reply is on screen; no second bubble restating it');
   });
 
   group('APK 1274: sign-off', () {

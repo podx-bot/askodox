@@ -394,3 +394,66 @@ def list_support_escalations(request: Request, key: str = "", limit: int = 50) -
     if not expected or key != expected:
         raise HTTPException(status_code=404)
     return {"items": _support_repository(container).list_open(limit=limit)}
+
+
+# ------------------------------------------------- question localization --
+# Deal questions are written once (English) in the category schema; the
+# conversation can be in any language the model supports. Translated once
+# per (text, language) and cached; the app keeps its own fallback.
+_LOCALIZED: dict[tuple[str, str], str] = {}
+_LOCALIZED_MAX = 2000
+
+
+class LocalizeRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=300)
+    language: str = Field(min_length=2, max_length=35)
+
+
+def _localizer(container: Any):
+    custom = getattr(container, "question_localizer", None)
+    if custom is not None:
+        return custom
+    ai = getattr(container, "universal_ai_assistant_service", None)
+    client = getattr(ai, "client", None)
+    if client is None:
+        return None
+
+    def call(prompt: str) -> dict[str, Any]:
+        response = ai._generate_with_retry(client, prompt, None)
+        return ai._parse_json(getattr(response, "text", "") or "")
+
+    return call
+
+
+@router.post("/assistant/localize")
+def localize_question(payload: LocalizeRequest, request: Request) -> dict:
+    """One short customer-facing question in the conversation language."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "localize", limit=60)
+    language = payload.language.strip()
+    text = " ".join(payload.text.split())
+    if language.lower().split("-")[0] == "en":
+        return {"text": text, "language": language, "localized": False}
+    key = (text, language.lower())
+    if key in _LOCALIZED:
+        return {"text": _LOCALIZED[key], "language": language, "localized": True}
+    call = _localizer(request.app.state.container)
+    if call is None:
+        raise HTTPException(status_code=503, detail="LOCALIZE_UNAVAILABLE")
+    prompt = (
+        "Translate this short question for a shopping assistant into the language with BCP-47 tag "
+        f"'{language}'. Keep product words customers normally say in that language (English loanwords "
+        "are fine when that is how people speak). Reply ONLY with JSON {\"text\": \"...\"}.\n"
+        f"Question: {text}"
+    )
+    try:
+        out = str((call(prompt) or {}).get("text") or "").strip()
+    except Exception:
+        out = ""
+    if not out or len(out) > 400:
+        raise HTTPException(status_code=503, detail="LOCALIZE_FAILED")
+    if len(_LOCALIZED) >= _LOCALIZED_MAX:
+        _LOCALIZED.clear()
+    _LOCALIZED[key] = out
+    return {"text": out, "language": language, "localized": True}

@@ -46,9 +46,16 @@ class RestApiClient implements ApiClient {
 
   Uri _uri(String path, ApiRequestOptions options) {
     final cleanBasePath = baseUrl.path.endsWith('/') ? baseUrl.path.substring(0, baseUrl.path.length - 1) : baseUrl.path;
-    final cleanPath = path.startsWith('/') ? path : '/$path';
+    // A query written into the path ("/api/greeting?language=te") is split
+    // off and merged -- it used to be percent-encoded into the path itself
+    // ("/api/greeting%3Flanguage...") and the server answered 404.
+    final mark = path.indexOf('?');
+    final rawPath = mark < 0 ? path : path.substring(0, mark);
+    final pathQuery = mark < 0 ? const <String, String>{} : Uri.splitQueryString(path.substring(mark + 1));
+    final cleanPath = rawPath.startsWith('/') ? rawPath : '/$rawPath';
     final query = <String, String>{
       ...baseUrl.queryParameters,
+      ...pathQuery,
       for (final entry in options.query.entries)
         if (entry.value != null) entry.key: '${entry.value}',
       if (options.pageToken != null) 'page_token': options.pageToken!,

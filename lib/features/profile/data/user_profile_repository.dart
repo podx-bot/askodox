@@ -106,6 +106,11 @@ class AskodoxUserProfile {
   }
 }
 
+/// The server rejected the stored sign-in (401).
+class AskodoxSessionInvalid implements Exception {
+  const AskodoxSessionInvalid();
+}
+
 class AskodoxUserProfileRepository {
   const AskodoxUserProfileRepository(this._client, {this.authToken});
 
@@ -117,6 +122,13 @@ class AskodoxUserProfileRepository {
   Future<AskodoxUserProfile?> load() async {
     if (authToken == null || authToken!.isEmpty) return null;
     final result = await _client.get<Map<String, Object?>>('/api/me/profile', options: _auth);
+    if (result case ApiError<Map<String, Object?>>(:final failure)
+        when failure.statusCode == 401 || failure.type == ApiFailureType.authentication) {
+      // The stored sign-in is not valid on this server (expired, or issued by
+      // another environment): say so and offer sign-in -- never "could not
+      // be loaded".
+      throw const AskodoxSessionInvalid();
+    }
     return result is ApiSuccess<Map<String, Object?>> ? AskodoxUserProfile.fromJson(result.data) : null;
   }
 

@@ -110,3 +110,30 @@ def test_sarvam_speaker_mapping(monkeypatch):
     assert svc.speaker_for("female") != S.TTS_SPEAKER
     monkeypatch.setenv("ASKODOX_TTS_SPEAKER_FEMALE", "custom-f")
     assert svc.speaker_for("female") == "custom-f"
+
+
+def test_detail_questions_are_localized_once_and_cached(monkeypatch):
+    """APK 1275: Telugu chat got 'ఇంకా ఒక వివరం కావాలి: How much chicken do you need?'."""
+    from server import app, container
+    from app.api.routes import in_app_assistant as ia
+    from app.services import rate_limit
+
+    rate_limit.reset_for_tests()
+    calls = []
+
+    def fake(prompt):
+        calls.append(prompt)
+        return {"text": "మీకు ఎంత చికెన్ కావాలి?"}
+
+    monkeypatch.setattr(container, "question_localizer", fake, raising=False)
+    ia._LOCALIZED.clear()
+    client = TestClient(app)
+    body = {"text": "How much chicken do you need?", "language": "te"}
+    assert client.post("/api/in-app/assistant/localize", json=body).json()["text"] == "మీకు ఎంత చికెన్ కావాలి?"
+    assert client.post("/api/in-app/assistant/localize", json=body).json()["localized"] is True
+    assert len(calls) == 1, "cached per (text, language)"
+    en = client.post("/api/in-app/assistant/localize", json={"text": "How much?", "language": "en-IN"}).json()
+    assert en == {"text": "How much?", "language": "en-IN", "localized": False}
+    monkeypatch.setattr(container, "question_localizer", lambda p: {}, raising=False)
+    assert client.post("/api/in-app/assistant/localize",
+                       json={"text": "Which cut?", "language": "ta"}).status_code == 503
