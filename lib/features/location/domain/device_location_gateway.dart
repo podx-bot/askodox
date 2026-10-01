@@ -8,6 +8,9 @@ import 'geo_models.dart';
 /// fake implementation instead of touching real hardware, mirroring how
 /// [GeoRepository]/`MockGeoRepository` are already used in this feature.
 abstract class DeviceLocationGateway {
+  /// A last-known fix older than this is never used as the current place.
+  static const maxLastKnownAge = Duration(minutes: 10);
+
   const DeviceLocationGateway();
 
   /// Ensures location services are enabled and permission is granted,

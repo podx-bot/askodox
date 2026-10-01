@@ -78,6 +78,8 @@ class GeolocatorLocationGateway extends DeviceLocationGateway {
     try {
       final position = await Geolocator.getLastKnownPosition();
       if (position == null) return null;
+      // An old fix (yesterday, another town) is not "current location".
+      if (DateTime.now().difference(position.timestamp) > DeviceLocationGateway.maxLastKnownAge) return null;
       final point = GeoPoint(position.latitude, position.longitude);
       return point.isValid ? point : null;
     } catch (_) {

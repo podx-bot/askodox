@@ -123,7 +123,16 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.location_on_rounded, size: 18, color: Color(0xFF1769FF)),
+                // Stale = the last detected place, not a fresh fix (GPS off,
+                // permission revoked): shown in amber with a tooltip.
+                Tooltip(
+                  message: locationState.stale ? (locationState.message ?? 'Last detected place') : '',
+                  child: Icon(
+                      locationState.stale ? Icons.location_disabled_rounded : Icons.location_on_rounded,
+                      key: locationState.stale ? const Key('askodoxLocationStale') : null,
+                      size: 18,
+                      color: locationState.stale ? const Color(0xFFB26A00) : const Color(0xFF1769FF)),
+                ),
                 const SizedBox(width: 2),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 104),

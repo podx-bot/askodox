@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/home/data/greeting_repository.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:podx/services/video_analysis_service.dart';
@@ -31,8 +32,10 @@ void main() {
     });
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        // The configured greeting is fetched from the backend; no network here.
+        overrides: [askodoxGreetingProvider.overrideWith((ref, language) async => null)],
+        child: const MaterialApp(
           home: Scaffold(body: AskodoxPrimaryHomeScreen()),
         ),
       ),
@@ -62,8 +65,10 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        // The configured greeting is fetched from the backend; no network here.
+        overrides: [askodoxGreetingProvider.overrideWith((ref, language) async => null)],
+        child: const MaterialApp(
           home: Scaffold(body: AskodoxPrimaryHomeScreen()),
         ),
       ),

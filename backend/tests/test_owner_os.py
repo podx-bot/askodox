@@ -190,3 +190,20 @@ def test_delivery_partner_needs_second_person_approval_and_match_route(env):
     m = client.post("/admin/cc/delivery/match", headers=OWNER,
                     json={"service": "parcel", "latitude": 16.36, "longitude": 80.84}).json()
     assert m["independent"] == [] and m["skipped"].get("not_approved") == 1 and m["matching_enabled"] is False
+
+
+def test_conversational_self_heal_is_green_fixed_kinds_and_deduplicated(env):
+    client, container = env
+    from app.services.self_healing import engine
+
+    container.command_center_repository.set_flag("selfheal.enabled", True, "test")
+    r = client.post("/api/selfheal/conversation", json={"kind": "attachment_intent_mismatch", "turn_kind": "image"})
+    assert r.json() == {"recorded": True}
+    client.post("/api/selfheal/conversation", json={"kind": "attachment_intent_mismatch"})
+    rows = [x for x in engine(container).log() if x["issue_key"] == "conversation:attachment_intent_mismatch"]
+    assert len(rows) == 1 and rows[0]["risk"] == "GREEN" and rows[0]["status"] == "APPLIED"
+    assert rows[0]["action"] == "explain_attachment_first" and rows[0]["evidence"]["occurrences"] == 2
+    assert client.post("/api/selfheal/conversation", json={"kind": "refund_payment"}).json() == {"recorded": False}
+    assert client.post("/api/selfheal/conversation", json={"kind": "stale_state", "text": "x"}).status_code == 422
+    container.command_center_repository.set_flag("selfheal.enabled", False, "test")
+    assert client.post("/api/selfheal/conversation", json={"kind": "stale_state"}).json() == {"recorded": False}

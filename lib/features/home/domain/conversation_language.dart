@@ -179,6 +179,7 @@ const _labels = <String, Map<String, String>>{
     'partner': 'Partner stores',
     'attach_analyzing': 'Reading your attachment…',
     'attach_failed': 'The attachment could not be analyzed. It is still here -- try again.',
+    'attach_partial': 'Some attachments could not be analyzed -- they are still here. The others were sent.',
     'attach_unsupported': 'ASKODOX cannot read this file type yet. Send a photo, short video, PDF, Word, Excel, CSV or text file.',
     'attach_too_large': 'This file is too large. Please send a smaller one.',
     'attach_unavailable': 'Analysis for this type is not available right now; nothing was analyzed.',

@@ -24,6 +24,13 @@ class DeviceMediaPicker implements AskodoxMediaPicker {
       ];
     }
     final capture = MultimodalCaptureService();
+    if (source == 'photos') {
+      // Multi-select: every chosen photo becomes its own attachment.
+      return [
+        for (final file in await capture.chooseGalleryMulti())
+          ChatAttachment(name: file.name, bytes: await file.readAsBytes(), mimeType: file.mimeType),
+      ];
+    }
     final file = switch (source) {
       'camera' => await capture.captureCamera(),
       'video' => await capture.chooseVideo(),

@@ -48,7 +48,13 @@ class LocationState {
     this.selectedShopId,
     this.message,
     this.approximate = false,
+    this.stale = false,
   });
+
+  /// The place shown is the last one detected, NOT a fresh fix (GPS off,
+  /// permission revoked, no position): the app says so instead of silently
+  /// matching against an old place.
+  final bool stale;
 
   /// The user allowed only approximate location (Android 12+): places are
   /// right to ~1-3 km; the app says so instead of claiming precision.
@@ -114,9 +120,11 @@ class LocationState {
     String? message,
     bool clearMessage = false,
     bool? approximate,
+    bool? stale,
   }) =>
       LocationState(
         approximate: approximate ?? this.approximate,
+        stale: stale ?? this.stale,
         permission: permission ?? this.permission,
         locations: locations ?? this.locations,
         centre: centre ?? this.centre,
@@ -159,7 +167,25 @@ class LocationController extends StateNotifier<LocationState> {
       await requestPermission();
       return;
     }
+    _markStaleIfDetected(await _deviceLocation.checkPermission());
     await refresh();
+  }
+
+  /// A place detected in an earlier session cannot be refreshed now (GPS
+  /// off / permission not granted / no fix): keep it visible but flagged.
+  void _markStaleIfDetected(LocationPermissionStatus status, {String? reason}) {
+    final current = state.defaultLocation;
+    if (current == null || current.type != SavedLocationType.currentLocation) return;
+    state = state.copyWith(
+      stale: true,
+      permission: status,
+      message: reason ??
+          (status == LocationPermissionStatus.servicesDisabled
+              ? 'Location is off. Showing your last detected place -- turn Location on or choose a place.'
+              : status == LocationPermissionStatus.granted
+                  ? 'Your current position could not be read. Showing your last detected place -- refresh or choose a place.'
+                  : 'Location access is not allowed. Showing your last detected place -- allow location or choose a place.'),
+    );
   }
 
   /// Follow the phone while the app is open: a new place is detected and
@@ -190,11 +216,16 @@ class LocationController extends StateNotifier<LocationState> {
     final permission = await _deviceLocation.checkPermission();
     if (permission == LocationPermissionStatus.granted) {
       final point = await _deviceLocation.getCurrentPosition();
-      if (point != null) await onDeviceMoved(point);
+      if (point != null) {
+        if (state.stale) state = state.copyWith(stale: false, clearMessage: true);
+        await onDeviceMoved(point);
+      } else {
+        _markStaleIfDetected(permission);
+      }
       await startFollowing();
-    } else if (state.permission == LocationPermissionStatus.granted) {
-      // Permission was revoked in Settings meanwhile: say so honestly.
-      state = state.copyWith(permission: permission, message: 'Location access was not granted');
+    } else {
+      // GPS switched off or permission revoked in Settings: say so honestly.
+      _markStaleIfDetected(permission);
     }
   }
 
@@ -245,7 +276,10 @@ class LocationController extends StateNotifier<LocationState> {
       message: askodoxLocationStatusMessage(status),
       clearMessage: status == LocationPermissionStatus.granted,
     );
-    if (status != LocationPermissionStatus.granted) return;
+    if (status != LocationPermissionStatus.granted) {
+      _markStaleIfDetected(status, reason: askodoxLocationStatusMessage(status));
+      return;
+    }
 
     // A fresh fix first; indoors / weak GPS falls back to the phone's last
     // known fix rather than failing.
@@ -258,6 +292,7 @@ class LocationController extends StateNotifier<LocationState> {
         message: 'Location access granted, but the device position could not be read. '
             'Please retry or choose a location manually.',
       );
+      _markStaleIfDetected(status);
       return;
     }
 
@@ -302,7 +337,9 @@ class LocationController extends StateNotifier<LocationState> {
       for (final l in state.locations.where((l) => l.id != selected.id)) l.copyWith(isDefault: false),
       selected,
     ];
-    state = state.copyWith(locations: nextLocations, centre: selected.point);
+    // A fresh detection or a hand-picked place is never stale.
+    state = state.copyWith(
+        locations: nextLocations, centre: selected.point, stale: false, clearMessage: state.stale);
     await _persist(selected);
     await refresh();
     return true;

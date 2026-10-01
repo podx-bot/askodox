@@ -133,6 +133,41 @@ class SelfHealingEngine:
         except Exception:
             pass
 
+    # ------------------------------------------------- conversation (GREEN) --
+    # Safe, customer-neutral corrections the app applies itself inside one
+    # conversation turn. Only these kinds/actions exist; nothing here can
+    # touch payments, permissions, data or configuration (ORANGE/RED).
+    CONVERSATION_FIXES = {
+        "irrelevant_fallback": ("hide_unrelated_results", "Results unrelated to the request were not shown."),
+        "duplicate_cta": ("dedupe_actions", "A repeated or unrelated call-to-action was not shown."),
+        "attachment_intent_mismatch": ("explain_attachment_first",
+                                       "An attachment sent to be understood was explained instead of searched."),
+        "stale_state": ("flag_stale_state", "An out-of-date state (e.g. last detected place) was flagged, not "
+                                            "used silently."),
+        "wrong_fallback_branch": ("route_to_correct_branch", "The turn was routed to the matching branch."),
+    }
+
+    def record_conversation_fix(self, kind: str, *, result: str = "applied", detail: Dict[str, Any] | None = None
+                                ) -> Optional[Dict[str, Any]]:
+        if kind not in self.CONVERSATION_FIXES or not self._flag("selfheal.enabled"):
+            return None
+        action, reason = self.CONVERSATION_FIXES[kind]
+        issue_key = f"conversation:{kind}"
+        since = (_now() - timedelta(minutes=10)).isoformat()
+        with self._connect() as conn:
+            row = conn.execute("SELECT id, evidence_json FROM cc_healing_log WHERE issue_key=? AND created_at>=? "
+                               "ORDER BY id DESC LIMIT 1", (issue_key, since)).fetchone()
+            if row:  # one row per kind per 10 minutes; repeats are counted
+                evidence = json.loads(row[1] or "{}")
+                evidence["occurrences"] = int(evidence.get("occurrences") or 1) + 1
+                conn.execute("UPDATE cc_healing_log SET evidence_json=?, updated_at=? WHERE id=?",
+                             (json.dumps(evidence), _now().isoformat(), row[0]))
+                return self.get(int(row[0]))
+        return self._log(issue_key=issue_key, issue=kind.replace("_", " "), risk=GREEN, action=action,
+                         reason=reason, status="APPLIED", result=(result or "applied")[:80],
+                         rollback="Not needed: applied to one reply only.",
+                         evidence={**(detail or {}), "occurrences": 1, "applied_by": "app"})
+
     # ------------------------------------------------------------- bypass --
 
     def _expire(self) -> None:

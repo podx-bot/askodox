@@ -337,7 +337,7 @@ class _FakeReplySpeech extends ReplySpeechService {
   final List<(String, String)> calls = [];
 
   @override
-  Future<Uint8List?> sarvamAudio(String text, {required String locale}) async {
+  Future<Uint8List?> sarvamAudio(String text, {required String locale, String voice = 'automatic'}) async {
     calls.add((text, locale));
     return audio;
   }
@@ -857,6 +857,69 @@ void main() {
     });
   });
 
+  group('APK 1273 phone findings: attachment intent, multi-photo, no unsolicited prompts', () {
+    Future<void> attach(WidgetTester tester, _Harness h, String action, List<ChatAttachment> files) async {
+      h.picker.next = files;
+      await _openCompanionHub(tester);
+      await tester.tap(find.byKey(ValueKey('askodoxHubAction-$action')));
+      await _Harness.settle(tester);
+    }
+
+    testWidgets('a photo sent alone is explained, never turned into a seller/product search', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '980', matches: [_localMatch], nextActions: ['refer_provider']),
+      ]));
+      await h.pump(tester);
+      await attach(tester, h, 'camera', [ChatAttachment(name: 'camera.jpg', bytes: _photoBytes, mimeType: 'image/jpeg')]);
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await _Harness.settle(tester);
+      expect(h.attachments.calls, hasLength(1), reason: 'the photo was analysed');
+      final message = h.assistant.requests.single['message'] as String;
+      expect(message, contains('pressure cooker'), reason: 'vision facts reach the reasoning turn');
+      expect(message, contains('Do not list sellers'), reason: 'attachment intent guard');
+      expect(h.matches.deals, isEmpty, reason: 'no generic commerce search for a photo sent to be understood');
+      expect(find.byKey(const Key('askodoxReferProvider')), findsNothing);
+      expect(find.byKey(const Key('askodoxJoinAsProvider')), findsNothing);
+    });
+
+    testWidgets('a photo WITH "where can I buy this nearby" still searches', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '981', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await attach(tester, h, 'camera', [ChatAttachment(name: 'camera.jpg', bytes: _photoBytes, mimeType: 'image/jpeg')]);
+      await h.send(tester, 'where can I buy this nearby? show me');
+      expect(h.matches.deals, hasLength(1), reason: 'the user asked to act');
+      expect(h.assistant.requests.first['message'] as String, isNot(contains('Do not list sellers')));
+    });
+
+    testWidgets('multi-photo: one failure keeps that photo, the others are analysed and sent', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '982', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await attach(tester, h, 'photos', [
+        ChatAttachment(name: 'one.jpg', bytes: _photoBytes, mimeType: 'image/jpeg'),
+        ChatAttachment(name: 'two.jpg', bytes: _photoBytes, mimeType: 'image/jpeg'),
+        ChatAttachment(name: 'three.jpg', bytes: _photoBytes, mimeType: 'image/jpeg'),
+      ]);
+      expect(h.picker.sources.last, 'photos');
+      expect(find.text('one.jpg'), findsOneWidget);
+      expect(find.text('three.jpg'), findsOneWidget, reason: 'every selected photo has a preview');
+      h.attachments.failures.add(const ChatAttachmentException('failed', 'bad gateway', statusCode: 502));
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await _Harness.settle(tester);
+      expect(h.attachments.calls, hasLength(3), reason: 'each photo analysed; one failure does not stop the rest');
+      final message = h.assistant.requests.single['message'] as String;
+      expect(message, contains('two.jpg: Shows: pressure cooker'));
+      expect(message, contains('three.jpg: Shows: pressure cooker'));
+      expect(message, contains('could not be analysed: one.jpg'), reason: 'the failed one is reported honestly');
+      expect(find.byKey(const ValueKey('askodoxAttachmentNotice-attach_partial')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxAttachmentPreview')), findsOneWidget,
+          reason: 'the failed photo stays in the composer for a retry');
+    });
+  });
+
   group('attachments reach real multimodal processing (Section 14)', () {
     Future<void> attach(WidgetTester tester, _Harness h, String menuLabel, List<ChatAttachment> files) async {
       h.picker.next = files;
@@ -1343,8 +1406,10 @@ void main() {
     final card = tester.getSize(find.byKey(const ValueKey('askodoxResultCard-online-online-0-a')));
     expect(card.width, lessThanOrEqualTo(282), reason: 'compact fixed-width card (272 + gap)');
     expect(find.text('Page mentions ₹3200'), findsOneWidget, reason: 'unverified price is labelled');
-    expect(find.text('Know someone? Refer'), findsOneWidget);
-    expect(find.text('Know someone? Refer them to ASKODOX'), findsNothing);
+    // APK 1273: no unsolicited referral/join prompt on a plain buy request
+    // (referral lives in Profile -> Refer & Earn).
+    expect(find.text('Know someone? Refer'), findsNothing);
+    expect(find.byKey(const Key('askodoxJoinAsProvider')), findsNothing);
     expect(find.text('Found 2 options — pick one to continue'), findsOneWidget);
   });
 
@@ -2311,8 +2376,8 @@ void main() {
       expect(h.matches.deals, hasLength(1));
       expect(find.text('Two wheeler insurance -- buy online'), findsOneWidget);
       expect(find.text('Send request'), findsNothing, reason: 'web pages are link-only');
-      expect(find.byKey(const Key('askodoxReferProvider')), findsOneWidget);
-      expect(find.byKey(const Key('askodoxJoinAsProvider')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxReferProvider')), findsNothing, reason: 'no unsolicited referral prompt');
+      expect(find.byKey(const Key('askodoxJoinAsProvider')), findsNothing, reason: 'no unsolicited join prompt');
     });
 
     testWidgets('browsing "best selling TV" keeps the Buyer role and never lists an item', (tester) async {
@@ -2345,7 +2410,7 @@ void main() {
         const UniversalMatchResult(dealId: '951', matches: [], nextActions: ['refer_provider', 'find_more']),
       ]));
       await h.pump(tester);
-      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      await h.send(tester, 'I need a welder in Vijayawada, show me -- or I can refer one');
       await tester.ensureVisible(find.byKey(const Key('askodoxReferProvider')));
       await tester.tap(find.byKey(const Key('askodoxReferProvider')));
       await _Harness.settle(tester);
@@ -2360,7 +2425,7 @@ void main() {
       ]));
       h.growth.signedIn = false;
       await h.pump(tester);
-      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      await h.send(tester, 'I need a welder in Vijayawada, show me -- or I can refer one');
       expect(find.textContaining('Sign in'), findsWidgets);
       await tester.ensureVisible(find.byKey(const Key('askodoxReferProvider')));
       await tester.tap(find.byKey(const Key('askodoxReferProvider')));
@@ -2377,7 +2442,7 @@ void main() {
         ..withRouter = true;
       h.growth.signedIn = false;
       await h.pump(tester);
-      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      await h.send(tester, 'I need a welder in Vijayawada, show me -- or I can refer one');
       await tester.ensureVisible(find.byKey(const Key('askodoxReferProvider')));
       await tester.tap(find.byKey(const Key('askodoxReferProvider')));
       await _Harness.settle(tester);
@@ -2397,7 +2462,7 @@ void main() {
         const UniversalMatchResult(dealId: '955', matches: []),
       ]));
       await h.pump(tester);
-      await h.send(tester, 'I need a welder in Vijayawada, show me');
+      await h.send(tester, 'I need a welder in Vijayawada, show me -- or I can refer one');
       expect(find.text('Seller or provider? Join ASKODOX'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const Key('askodoxJoinAsProvider')));
       await tester.tap(find.byKey(const Key('askodoxJoinAsProvider')));

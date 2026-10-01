@@ -29,7 +29,12 @@ class ChatAttachmentResult {
     required this.kind,
     required this.facts,
     required this.analysis,
+    this.lowConfidence = false,
   });
+
+  /// The vision brain answered but was not sure -- the chat must say so and
+  /// ask the customer to confirm instead of presenting it as fact.
+  final bool lowConfidence;
 
   final String id;
   final String kind;
@@ -178,6 +183,7 @@ class ApiChatAttachmentService implements ChatAttachmentService {
           kind: record is Map ? '${record['kind'] ?? attachment.kind}' : attachment.kind,
           facts: facts,
           analysis: data['analysis'] is Map ? Map<String, Object?>.from(data['analysis'] as Map) : const {},
+          lowConfidence: data['understanding'] is Map && (data['understanding'] as Map)['status'] == 'low_confidence',
         );
       }
       final failure = (result as ApiError<Map<String, Object?>>).failure;

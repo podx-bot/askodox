@@ -17,7 +17,9 @@ class ReplySpeechService {
 
   final http.Client? _client;
 
-  Future<Uint8List?> sarvamAudio(String text, {required String locale}) async {
+  /// [voice]: the Profile choice (automatic | male | female). Audio is used
+  /// only when the server confirms it was made with that voice.
+  Future<Uint8List?> sarvamAudio(String text, {required String locale, String voice = 'automatic'}) async {
     final clean = text.trim();
     if (clean.isEmpty) return null;
     final client = _client ?? http.Client();
@@ -26,13 +28,14 @@ class ReplySpeechService {
           .post(
             Uri.parse('$_baseUrl/api/in-app/voice/speak'),
             headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({'text': clean, 'locale': locale}),
+            body: jsonEncode({'text': clean, 'locale': locale, 'voice': voice}),
           )
           .timeout(const Duration(seconds: 15));
       final model = response.headers['x-askodox-tts-model'] ?? '';
       if (response.statusCode != 200 ||
           !model.toLowerCase().startsWith('bulbul') ||
-          response.bodyBytes.isEmpty) {
+          response.bodyBytes.isEmpty ||
+          (voice != 'automatic' && response.headers['x-askodox-tts-voice'] != voice)) {
         return null;
       }
       return response.bodyBytes;

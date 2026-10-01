@@ -194,3 +194,25 @@ def test_large_video_goes_through_the_files_api_and_small_video_inline(monkeypat
     small = b"\x00\x00\x00\x18ftypmp42" + b"v" * 10
     service.analyze_video(small, "video/mp4")
     assert len(client.files.uploaded) == 1, "small clips stay inline"
+
+
+def test_understanding_is_reported_honestly(api, monkeypatch):
+    """APK 1273: uncertain vision must not be presented as fact; video is the
+    whole clip (frames + audio), never a thumbnail."""
+    client, container, brain = api
+    sure = client.post("/api/attachments/analyze", json=body(PNG, "a.jpg", "image/jpeg")).json()
+    assert sure["understanding"] == {"method": "vision", "confidence": 0.9, "status": "ok"}
+    monkeypatch.setattr(brain, "analyze", lambda image_bytes, mime_type, caption=None: {
+        "subject": "maybe a cooker", "confidence": 0.3})
+    unsure = client.post("/api/attachments/analyze", json=body(PNG, "a.jpg", "image/jpeg")).json()
+    assert unsure["understanding"]["status"] == "low_confidence"
+    video = client.post("/api/attachments/analyze", json=body(b"\x00\x00\x00\x18ftypmp42", "c.mp4", "video/mp4"))
+    assert video.json()["understanding"] == {"method": "video_frames_and_audio", "status": "ok", "has_speech": True}
+    assert brain.calls[-1][0] == "video" and brain.calls[-1][1].startswith(b"\x00\x00\x00\x18ftyp"), \
+        "the whole clip reaches the video brain"
+    # the brain is configured but could not understand the clip: 422, not a pretend answer
+    monkeypatch.setattr(brain, "video", False)
+    failed = client.post("/api/attachments/analyze", json=body(b"\x00\x00\x00\x18ftypmp42", "c.mp4", "video/mp4"))
+    assert failed.status_code == 422
+    doc = client.post("/api/attachments/analyze", json=body(b"Invoice total Rs 500", "i.txt", "text/plain")).json()
+    assert doc["understanding"]["method"] == "text_layer"

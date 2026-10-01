@@ -31,6 +31,9 @@ import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
 import '../../companion/companion_hub.dart';
 import '../application/saved_options.dart';
+import '../../../services/self_heal_reporter.dart';
+import '../data/greeting_repository.dart';
+import '../domain/attachment_intent.dart';
 import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../selling/data/catalogue_repository.dart';
@@ -219,6 +222,11 @@ class _AskodoxPrimaryHomeScreenState
   // Real attachments waiting in the composer (bytes + MIME), analyzed by
   // the backend when sent -- never reduced to a file name.
   final List<ChatAttachment> _attachments = [];
+
+  /// Attachments whose analysis failed in the last send: they stay in the
+  /// composer (with their previews) so the customer can retry or remove them.
+  List<ChatAttachment> _keptAttachments = const [];
+  bool _staleLocationNoticeShown = false;
   bool _analyzingAttachments = false;
   int _attachmentJob = 0;
   static const _maxAttachments = 4;
@@ -1244,8 +1252,13 @@ class _AskodoxPrimaryHomeScreenState
       final facts = <String>[];
       Map<String, Object?>? imageAnalysis;
       Map<String, Object?>? videoAnalysis;
-      try {
-        for (final attachment in attachments) {
+      var lowConfidence = false;
+      // Each attachment is analysed on its own: one failure never discards
+      // the others. Failed ones stay in the composer for a retry.
+      final failed = <ChatAttachment>[];
+      ChatAttachmentException? firstError;
+      for (final attachment in attachments) {
+        try {
           final result = await ref.read(chatAttachmentServiceProvider).analyze(
                 attachment,
                 userText: typed,
@@ -1254,16 +1267,23 @@ class _AskodoxPrimaryHomeScreenState
           if (job != _attachmentJob || !mounted) return; // cancelled
           facts.add(attachments.length > 1 ? '${attachment.name}: ${result.facts}' : result.facts);
           sentAttachments.add({'name': attachment.name, 'kind': result.kind, 'id': result.id});
+          lowConfidence = lowConfidence || result.lowConfidence;
           if (result.kind == 'image') imageAnalysis ??= result.analysis;
           if (result.kind == 'video') videoAnalysis ??= result.analysis;
+        } on ChatAttachmentException catch (error) {
+          if (job != _attachmentJob || !mounted) return;
+          debugPrint('ASKODOX attachment analysis failed: ${error.diagnostic}');
+          failed.add(attachment);
+          firstError ??= error;
         }
-      } on ChatAttachmentException catch (error) {
-        if (job != _attachmentJob || !mounted) return;
+      }
+      if (!mounted) return;
+      if (facts.isEmpty) {
+        final error = firstError!;
         setState(() {
           _analyzingAttachments = false;
           _companionError = true;
         });
-        debugPrint('ASKODOX attachment analysis failed: ${error.diagnostic}');
         _attachmentNotice(
           switch (error.code) {
             'unsupported' => 'attach_unsupported',
@@ -1277,8 +1297,9 @@ class _AskodoxPrimaryHomeScreenState
         );
         return;
       }
-      if (!mounted) return;
       setState(() => _analyzingAttachments = false);
+      _keptAttachments = failed;
+      if (failed.isNotEmpty) _attachmentNotice('attach_partial', diagnostic: firstError?.diagnostic);
       attachmentContext = 'Attachment facts: ${facts.join('\n')}';
       if (typed.isNotEmpty && askodoxWantsToList(typed) && (imageAnalysis != null || videoAnalysis != null)) {
         await _draftFromMedia(typed,
@@ -1287,6 +1308,18 @@ class _AskodoxPrimaryHomeScreenState
             speakResponse: speakResponse,
             attachments: sentAttachments);
         return;
+      }
+      // Attachment intent first: sent to be understood (no words, or "what is
+      // this?") -> explain + ask what to do; never a search, sellers, online
+      // cards or referral prompts.
+      if (!askodoxAttachmentWantsAction(typed)) {
+        _pendingAiContext = askodoxAttachmentGuidance(
+            lowConfidence: lowConfidence, failed: [for (final f in failed) f.name]);
+        _pendingDiscussOnly = true;
+        ref.read(selfHealReporterProvider).report('attachment_intent_mismatch',
+            turnKind: sentAttachments.isEmpty ? '' : sentAttachments.first['kind'] ?? '', language: _lang);
+      } else if (lowConfidence) {
+        _pendingAiContext = askodoxAttachmentGuidance(lowConfidence: true);
       }
       text = askodoxAttachmentRequest(typed.isEmpty ? askodoxAttachmentOnlyAsk : typed, facts.join('\n'));
     }
@@ -1303,7 +1336,10 @@ class _AskodoxPrimaryHomeScreenState
         attachments: sentAttachments,
         context: attachmentContext,
       ));
-      _attachments.clear();
+      _attachments
+        ..clear()
+        ..addAll(_keptAttachments);
+      _keptAttachments = const [];
     });
     _controller.clear();
     _scrollBottom();
@@ -1320,6 +1356,18 @@ class _AskodoxPrimaryHomeScreenState
     // told a location is already known and should not be asked for again.
     final locationState = ref.read(locationControllerProvider);
     final selectedLocation = locationState.defaultLocation;
+    // Never match against an old place silently: say it once per stale spell.
+    if (locationState.stale && selectedLocation != null && !_staleLocationNoticeShown && mounted) {
+      _staleLocationNoticeShown = true;
+      ref.read(selfHealReporterProvider).report('stale_state', turnKind: 'location', language: _lang);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        key: const ValueKey('askodoxStaleLocationNotice'),
+        content: Text('${locationState.message ?? 'Using your last detected place.'} '
+            '(${locationState.headerLocation ?? selectedLocation.name})'),
+      ));
+    } else if (!locationState.stale) {
+      _staleLocationNoticeShown = false;
+    }
     final knownLocationLabel = selectedLocation == null
         ? null
         : (selectedLocation.address.trim().isNotEmpty
@@ -2434,7 +2482,8 @@ class _AskodoxPrimaryHomeScreenState
     try {
       final audio = await ref
           .read(askodoxReplySpeechServiceProvider)
-          .sarvamAudio(reply, locale: language);
+          .sarvamAudio(reply,
+              locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
       if (!mounted || _voicePhase != _VoicePhase.speaking) return;
       if (audio != null) {
         lips.speechBegin(reply);
@@ -2785,6 +2834,7 @@ class _AskodoxPrimaryHomeScreenState
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
                       _companionGuidance() ??
+                          ref.watch(askodoxGreetingProvider(_lang)).valueOrNull ??
                           switch (_lang) {
                             'te' => 'నమస్తే! ఏం కావాలి? సహాయం చేద్దాం.',
                             'hi' => 'नमस्ते! बताइए, क्या चाहिए?',
@@ -3016,10 +3066,19 @@ class _AskodoxPrimaryHomeScreenState
                 refreshTick: _dealRefreshTick,
                 onAlternatives: (rows) => _showAlternatives(results.dealId, rows),
                 onSupport: _dealSupport,
-                onRefer: _sending ? null : () => _referProvider(index, results),
-                onJoin: _sending ? null : () => _joinAsProvider(index, results),
+                // Referral / join chips only when the customer's own words are
+                // about referring or offering -- otherwise Profile -> Refer.
+                onRefer: _sending || !_growthPromptAllowed(index) ? null : () => _referProvider(index, results),
+                onJoin: _sending || !_growthPromptAllowed(index) ? null : () => _joinAsProvider(index, results),
               ),
       ];
+
+  bool _growthPromptAllowed(int assistantTurn) {
+    for (var i = assistantTurn - 1; i >= 0 && i < _turns.length; i--) {
+      if (_turns[i].isUser) return _turns[i].context.isEmpty && askodoxAllowsGrowthPrompt(_turns[i].text);
+    }
+    return false;
+  }
 
   /// Follow-ups under a turn: clarification choices, map pins, support.
   List<Widget> _turnFollowUps(int index, ConversationTurnRecord turn, bool te) => [

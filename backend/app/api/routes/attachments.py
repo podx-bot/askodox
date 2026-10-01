@@ -152,4 +152,24 @@ def analyze_attachment(payload: AttachmentRequest, request: Request) -> dict:
     except sqlite3.Error:
         pass  # the analysis is still returned; only the reference record failed
     return {"status": "success", "attachment": record, "analysis": analysis, "facts": facts,
-            "language": payload.language}
+            "understanding": understanding(kind, analysis, container), "language": payload.language}
+
+
+def understanding(kind: str, analysis: dict, container: Any) -> dict:
+    """How the content was understood -- reported honestly to the app.
+    image: vision model + its confidence (low_confidence when below the
+    service threshold); video: the whole clip (sampled frames + audio) by the
+    multimodal model -- never a thumbnail; document: text layer or scan read."""
+    if kind == "image":
+        service = getattr(container, "universal_image_service", None)
+        threshold = float(getattr(service, "min_confidence", 0.65) or 0.65)
+        try:
+            confidence = max(0.0, min(float(analysis.get("confidence") or 0.0), 1.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        return {"method": "vision", "confidence": round(confidence, 2),
+                "status": "ok" if confidence >= threshold else "low_confidence"}
+    if kind == "video":
+        return {"method": "video_frames_and_audio", "status": "ok",
+                "has_speech": bool(analysis.get("spoken_transcript") or analysis.get("transcript"))}
+    return {"method": "scanned_read" if analysis.get("scanned") else "text_layer", "status": "ok"}

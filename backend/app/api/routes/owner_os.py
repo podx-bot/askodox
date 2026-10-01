@@ -189,3 +189,24 @@ def seed_staging(request: Request) -> dict:
     if is_production(pf.registry.env):
         raise HTTPException(status_code=403, detail="Staging defaults are never loaded in production.")
     return {"created": owner_os.seed_staging_defaults(pf.resources, actor=str(principal.get("id") or "admin"))}
+
+
+class ConversationFixBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: str = Field(min_length=3, max_length=40)
+    result: str = Field(default="applied", max_length=80)
+    language: str = Field(default="", max_length=35)
+    turn_kind: str = Field(default="", max_length=30)
+
+
+@router.post("/api/selfheal/conversation")
+def report_conversation_fix(body: ConversationFixBody, request: Request) -> dict:
+    """The app reports a GREEN conversational correction it applied (fixed
+    kinds only; no user text is accepted or stored)."""
+    from app.services import rate_limit
+    from app.services.self_healing import engine
+
+    rate_limit.check(request, "selfheal_conversation", limit=30)
+    item = engine(request.app.state.container).record_conversation_fix(
+        body.kind, result=body.result, detail={"language": body.language, "turn_kind": body.turn_kind})
+    return {"recorded": item is not None}

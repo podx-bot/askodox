@@ -93,3 +93,18 @@ referral credits: not phone-tested). Tracked as OPEN rows in Command Center → 
    background-location policy).
 
 Never in any phase: arbitrary code/SQL/shell, secret display, production changes, merges, releases.
+
+## Round 2 — APK 1273 phone-finding fixes (staging, build 1274)
+| Finding | Root cause found | Fix | Evidence | Status |
+|---|---|---|---|---|
+| Camera/attachment → generic commerce results | Photo facts went into the normal search flow (attachment-only ask asked for "where to get it") | Attachment intent guard: sent to be understood → explain + ONE question, no search/sellers/online cards/referral | widget test "a photo sent alone is explained…" | CODE READY |
+| Multi-photo missing | Photos picker used single `pickImage` | `pickMultiImage` (up to 4), previews + remove, each analysed; failures stay in composer, others sent | widget test "multi-photo: one failure…" | CODE READY |
+| Photo understanding unreliable | Low-confidence vision answers were presented as fact | `understanding.status=low_confidence` → reply says it is unsure and asks to confirm; failed vision = honest error | backend test `test_understanding_is_reported_honestly` | CODE READY |
+| Video understanding | Whole clip already sent (frames + audio); state was not reported | `understanding.method=video_frames_and_audio`; no analysis → 422/503, never pretended | same backend test | CODE READY (needs a real clip on the phone) |
+| Files/PDF | — (regression only) | unchanged; covered by existing + new tests | `test_chat_attachments.py` | CODE READY |
+| Current location wrong/stale | Last-known fix of any age used as "current"; old detected place kept silently when GPS off/denied | last-known older than 10 min ignored; `stale` state + amber header icon + chat notice; manual place clears it | `location_stale_test.dart` | CODE READY |
+| Female voice not respected | Sarvam call (primary path) never sent the preference; fixed male speaker | `voice` sent; speaker per choice (`ASKODOX_TTS_SPEAKER_FEMALE`, default `priya`, `_MALE`); mismatched audio refused → device TTS | backend + Flutter voice tests | CODE READY (speaker name to confirm on phone) |
+| Unrelated referral/join prompts | Chips shown whenever `refer_provider` (any search without a local provider) | Only when the user's words are about referring/joining/offering; otherwise Profile → Refer | updated chat-flow tests | CODE READY |
+| Self-healing relevance | No conversational detector | GREEN conversation fixes (fixed kinds) logged with issue/action/result/reason; flag `selfheal.enabled` | `test_conversational_self_heal…` | CODE READY |
+| Greetings not working | Engine not called by the app | Home greeting from `/api/greeting` (local hour, language, name, returning; ≤1 per 4 h; never same text twice) | `greeting_repository_test.dart` | CODE READY |
+| Master Profile, Delivery/driver/order/map, Screen Guide | — | not in this batch | — | OPEN |

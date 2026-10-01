@@ -100,6 +100,7 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
 class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2500)
     locale: str = ""
+    voice: str = Field(default="automatic", pattern="^(automatic|male|female)$")
 
 
 @router.post("/voice/speak")
@@ -115,7 +116,12 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
     synthesize = getattr(container.voice_assistant_service, "synthesize", None)
     if not callable(synthesize):
         raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
-    result = synthesize(payload.text) or {}
+    try:
+        result = synthesize(payload.text, voice=payload.voice) or {}
+    except TypeError:  # an engine without voice choice: only valid for "automatic"
+        if payload.voice != "automatic":
+            raise HTTPException(status_code=503, detail="TTS_VOICE_UNSUPPORTED") from None
+        result = synthesize(payload.text) or {}
     path = str(result.get("tts_path") or "")
     audio = result.get("content")
     if not result.get("success") or not path.startswith("sarvam") or not audio:
@@ -127,6 +133,7 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
             "X-ASKODOX-TTS-Path": path,
             "X-ASKODOX-TTS-Model": str(result.get("model") or ""),
             "X-ASKODOX-TTS-Language": str(result.get("language_code") or ""),
+            "X-ASKODOX-TTS-Voice": payload.voice,
         },
     )
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Optional
 
@@ -39,8 +40,19 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
         (0x0900, 0x097F, "hi-IN"),
     )
 
-    def synthesize(self, text: str) -> dict[str, Any]:
-        primary = self._synthesize_sarvam(text)
+    def speaker_for(self, voice: str = "") -> str:
+        """The customer's Profile voice choice -> a Bulbul speaker. Names are
+        configurable (ASKODOX_TTS_SPEAKER_FEMALE / _MALE); 'automatic' keeps
+        the default speaker."""
+        choice = (voice or "").strip().lower()
+        if choice == "female":
+            return os.getenv("ASKODOX_TTS_SPEAKER_FEMALE", "").strip() or "priya"
+        if choice == "male":
+            return os.getenv("ASKODOX_TTS_SPEAKER_MALE", "").strip() or self.TTS_SPEAKER
+        return self.TTS_SPEAKER
+
+    def synthesize(self, text: str, voice: str = "") -> dict[str, Any]:
+        primary = self._synthesize_sarvam(text, voice)
         if primary.get("success"):
             return primary
 
@@ -68,7 +80,8 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
         fallback["gemini_fallback"] = True
         return fallback
 
-    def _synthesize_sarvam(self, text: str) -> dict[str, Any]:
+    def _synthesize_sarvam(self, text: str, voice: str = "") -> dict[str, Any]:
+        speaker = self.speaker_for(voice)
         if not self.sarvam_api_key:
             return {"success": False, "status": "SARVAM_TTS_NOT_CONFIGURED"}
 
@@ -80,10 +93,11 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
         if not language_code:
             return {"success": False, "status": "SARVAM_TTS_UNSUPPORTED_LANGUAGE"}
 
-        cache_key = f"sarvam-stream-opus:{language_code}:{spoken_text}"
+        cache_key = f"sarvam-stream-opus:{speaker}:{language_code}:{spoken_text}"
         cached_audio = self._tts_cache.get(cache_key)
         if cached_audio:
             return self._success_result(
+                speaker,
                 cached_audio,
                 spoken_text,
                 language_code,
@@ -97,7 +111,7 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
         payload = {
             "text": spoken_text,
             "target_language_code": language_code,
-            "speaker": self.TTS_SPEAKER,
+            "speaker": speaker,
             "model": self.TTS_MODEL,
             "pace": 1.1,
             "speech_sample_rate": self.TTS_SAMPLE_RATE,
@@ -171,6 +185,7 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
                 flush=True,
             )
             return self._success_result(
+                speaker,
                 audio_bytes,
                 spoken_text,
                 language_code,
@@ -196,6 +211,7 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
 
     def _success_result(
         self,
+        speaker: str,
         audio_bytes: bytes,
         spoken_text: str,
         language_code: str,
@@ -213,7 +229,7 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
             "sample_width": 2,
             "spoken_text": spoken_text,
             "model": self.TTS_MODEL,
-            "voice": self.TTS_SPEAKER,
+            "voice": speaker,
             "cache_hit": cache_hit,
             "tts_path": "sarvam_bulbul_v3_http_stream_opus",
             "language_code": language_code,
