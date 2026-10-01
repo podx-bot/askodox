@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-09-30T12:31:09Z by `.github/workflows/video-real-content-proof.yml` (run 36714834307).
+Generated 2026-10-01T01:04:50Z by `.github/workflows/video-real-content-proof.yml` (run 36799036808).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -16,9 +16,9 @@ Generated 2026-09-30T12:31:09Z by `.github/workflows/video-real-content-proof.ym
 | vehicle | en | 1 | [Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Re…](https://www.youtube.com/watch?v=PC-ztrSrDMo) | carandbike | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 6 (deals, surplus, used) |
 | service | en | 1 | [Urban Company AC Service Vs Nobroker AC Service 2025 / Whic…](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 | home-service | en | 0 (production gave 1) | — | — | — | — | — | — | — |
-| food | en | 1 | [Hyderabadi Chicken Biryani / Chicken Biryani Recipe / Resat…](https://www.youtube.com/watch?v=1Nb0khRXiJk) | Ashus Delicacies | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (deals, used) |
+| food | en | 1 | [HYDERABADI CHICKEN DUM BIRYANI RECIPE / हैदराबादी चिकन दम ब…](https://www.youtube.com/watch?v=kYRcu5ZWxbo) | Your Food Lab | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (deals, used) |
 | travel | en | 1 | [Ultimate Araku Valley Travel Guide: Top Things to Do and Se…](https://www.youtube.com/watch?v=NWiBFTd5aD0) | Let's Discover India | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals) |
-| used-item | en | 1 | [Royal Enfield Classic 350 tested - YouTube](https://www.youtube.com/watch?v=C_4YStQscrc) | bikerdood1100 | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
+| used-item | en | 1 | [The Truth About the Royal Enfield Classic 350 (2025 Review)…](https://www.youtube.com/watch?v=88rgLE_eNJk) | Jack Brock | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
 | deal | en | 1 | [iPhone 15 in 2026 - worth it? (Review) - YouTube](https://www.youtube.com/watch?v=DJ5BkFUoKxg) | 91Tech | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, surplus, used) |
 | service-te | te | 1 | [Urban Company AC Service Vs Nobroker AC Service 2025 / Whic…](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 
@@ -34,11 +34,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube"
 
-**ASKODOX AI (production):** This video by Udrawat reviews the Samsung 43 Inch Crystal UHD 4K Vision AI TV [2026], featuring 30W speakers, HDR support, and Tizen OS. Please note that these are the creator's opinions and not verified by ASKODOX. Specific details like price, stock, and ratings are not provided by the source.
+**ASKODOX AI (production):** This video by creator Udrawat covers the Samsung 43 Inch Crystal UHD 4K Vision AI TV (2026 model), highlighting features like 30W speakers, HDR, and Tizen OS. Note that this is the creator's opinion and not verified by ASKODOX. Specific details like price, rating, reviews, and stock availability are not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Yes, it is generally considered a good budget 4K TV for its display quality and 30W sound output. Would you like me to help you find nearby electronics stores in Vijayawada or check online availability?  
+**Production (main) AI:** It offers good 4K picture quality and 30W audio for a budget Crystal UHD model. You can check local electronics stores like Reliance Digital or Bajaj Electronics in Vijayawada, or purchase it online through Samsung's website or major e-commerce platforms.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "samsung 43 inch tv near me" → samsung 43 inches tv | Used TV & DVD & Multimedia in Bangalore | Electronics & Appliances Quikr Bazaar Bangalore [used]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Second Hand TV - Old TV Latest Price, Manufacturers & Suppliers [used]; Buy Refurbished / Used TV & DVD in Vijayawada | Second Hand TV / Television For Sale Online | QuikrBazaar [used]
@@ -53,11 +53,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** ఈ వీడియో శామ్‌సంగ్ 43 ఇంచ్ క్రిస్టల్ UHD 4K విజన్ AI TV రివ్యూ గురించి డ్రియేటర్ Udrawat గారి అభిప్రాయం సూచిస్తుంది (ఇది ASKODOX ద్వారా ధృవీకరించబడలేదు). లభించిన వివరాల ప్రకారం ధర, దూరం, అందుబాటు మరియు రివ్యూలకు సంబంధించిన సమాచారం అందుబాటులో లేదు.
+**ASKODOX AI (production):** Samsung 43 Inch Crystal UHD 4K Vision AI TV కి సంబంధించి ధర, దూరం, అందుబాటు మరియు రివ్యూల వివరాలు ప్రొవైడర్ నుండి అందుబాటులో లేవు. వీడియో రివ్యూలో పేర్కొన్న విషయాలు క్రియేటర్ Udrawat అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. ధర మరియు లభ్యత వివరాల కోసం సెల్లర్‌ను అడగమంటారా?
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** అవును, 43 అంగుళాల TV చిన్న నుండి రకంబోలా గదికి (సుమారు 8-10 అడుగుల వీక్షణ దూరానికి) సరిగ్గా సరిపోతుంది.
+**ASKODOX AI:** అవును, 43 అంగుళాల టీవీ చిన్న నుండి మోస్తరు పరిమాణం ఉన్న గదికి (సుమారు 8 నుండి 10 అడుగుల వీక్షణ దూరం) బాగా సరిపోతుంది.
 
 **Next step:** "samsung 43 inch tv offers" → samsung 43 inches tv | Used TV & DVD & Multimedia in Bangalore | Electronics & Appliances Quikr Bazaar Bangalore [used]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Second Hand TV - Old TV Latest Price, Manufacturers & Suppliers [used]; Buy Refurbished / Used TV & DVD in Vijayawada | Second Hand TV / Television For Sale Online | QuikrBazaar [used]
 
@@ -71,11 +71,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Redmi Note 13 Pro Review - Not again! - YouTube"
 
-**ASKODOX AI (production):** This video by Izzi Boye is titled 'Redmi Note 13 Pro Review - Not again!' and features a 4G unboxing and review. Please note that this reflects the creator's personal opinion and has not been verified by ASKODOX. Specific details such as price, ratings, and full specifications were not provided in the source.
+**ASKODOX AI (production):** This video by Izzi Boye is titled 'Redmi Note 13 Pro Review - Not again!' and features a 4G unboxing and review. Please note that this reflects the creator's personal opinion and has not been verified by ASKODOX. Specific details such as price, ratings, availability, or full specifications were not provided in the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** The Redmi Note 13 Pro offers strong display and camera performance for its segment, making it a solid choice if those are your priorities. You can check local electronics retailers like Sangeetha Gadgets, Poorvika, or Bajaj Electronics in Vijayawada, or order it online via Mi.com, Amazon, or Flipkart.  
+**Production (main) AI:** The Redmi Note 13 Pro offers strong display and camera performance for its price, though performance depends on your budget. You can check local electronics stores like Poorvika, Lot Mobile, or Reliance Digital in Vijayawada, or purchase online via Amazon or Flipkart.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "redmi note 13 pro offers" → Buy Old Used Xiaomi Redmi Note 13 Pro 4G Phones Under ... [used]; Open Box Store [surplus]; Redmi Note 13 5G, Note 13 Pro 5G, Note 13 Pro+ 5G goes on sale on Vijay Sales - Times of India [deals]; Buy Refurbished and Second Hand Xiaomi Redmi Note 13 Pro 5G Online at Cashify Store [used]
@@ -90,11 +90,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube"
 
-**ASKODOX AI (production):** This video by carandbike covers a 3-month, 3000 km long-term review of the Tata Nexon, discussing three reasons to buy and three reasons to avoid it. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like vehicle price, ratings, or specifications are not provided in the source.
+**ASKODOX AI (production):** This video by carandbike shares their creator's opinion based on 3 months and 3,000 km with the Tata Nexon subcompact SUV, highlighting 3 reasons to buy and 3 reasons to avoid. Please note that this reflects the creator's view and is not verified by ASKODOX. Specific details like pricing, specifications, ratings, or stock are not provided in the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** The Tata Nexon is widely appreciated for its 5-star safety rating, strong build quality, and feature-packed interior, though some users report minor tech glitches and inconsistent service center experiences. In Vijayawada, you can test drive and buy it at authorized Tata Motors showrooms like Jasper Tata or Lakshmi Tata.  
+**Production (main) AI:** The Tata Nexon is generally considered a strong, feature-packed subcompact SUV with good safety ratings, though some users report minor tech glitches. In Vijayawada, you can test drive and purchase it at authorized Tata Motors showrooms like Jasper Tata or Lakshmi Tata.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "tata nexon near me" → Tata NEXON Used Cars in Vijayawada | Second Hand Tata NEXON Cars in Vijayawada - Cars24 [used]; Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon May 2026 Offers in Vijayawada - Latest Discount & EMI Offers [deals]; 7+ Used Tata Nexon Cars in Vijayawada - Second Hand Tata Nexon Cars in Vijayawada [used]
@@ -109,33 +109,33 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube"
 
-**ASKODOX AI (production):** The video 'Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best??' by Crazyy Unboxing provides the creator's honest review comparing both AC services. Note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like exact prices, ratings, or current availability are not provided by the source.
+**ASKODOX AI (production):** The video titled "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best??" by creator Crazyy Unboxing offers a comparison and honest review of AC servicing between Urban Company and NoBroker. Please note that this reflects the creator's personal opinion and is not verified by ASKODOX. Specific details like pricing, ratings, or detailed breakdowns were not provided in the source metadata.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Both services offer doorstep AC maintenance, but quality depends on the local technician. Would you like to book an AC service through ASKODOX or compare local pricing first?  
+**Production (main) AI:** Whether it is worth it depends on whether you prefer standard pricing with Urban Company or discount offers with NoBroker. You can book AC servicing directly through their official apps or websites in Vijayawada.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 
 ### food (en) -- "Hyderabadi biryani review video"
 
-**Video:** Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani - YouTube -- Ashus Delicacies (https://www.youtube.com/watch?v=1Nb0khRXiJk)
+**Video:** HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube -- Your Food Lab (https://www.youtube.com/watch?v=kYRcu5ZWxbo)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani - YouTube / #chickenbiryani #chickenbiriyani #biryani Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken BiryaniIngredients:Chicken – 1....  
+Quoted from source: HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube / This is just the beginning of Biryanis of India.Tell me in the comments which biryani you want me to cover next. / I'll be reading every suggestion, and hopefu...  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani - YouTube"
+**User:** Tell me more about "HYDERABADI CHICKEN DUM BIRYANI RECIPE | हैदराबादी चिकन दम बिरयानी बनाने का तरीका | Chef Sanjyot Keer - YouTube"
 
-**ASKODOX AI (production):** This video by Ashus Delicacies is titled 'Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani'. The description lists basic ingredients like chicken, but please note that this recipe and method reflect the creator's opinion and have not been verified by ASKODOX. Specific details such as full preparation steps, ratings, or reviews are not provided in the source metadata.
+**ASKODOX AI (production):** This is Chef Sanjyot Keer's Hyderabadi Chicken Dum Biryani recipe video from Your Food Lab. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like ratings or step-by-step transcript are not provided in the source metadata.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Are you looking to buy cooked Hyderabadi chicken biryani from a restaurant, or ingredients/masala to make this specific recipe at home?  
+**Production (main) AI:** Are you asking about a specific biryani dish from a local restaurant, or a cooking ingredient/kit from Chef Sanjyot Keer's recipe?  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → Biryani - Used Kitchen & Other Appliances for sale in India | OLX [used]; Biryani Blues | Order Authentic Hyderabadi Dum Biryani Online [deals]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]; Order Online – HYDERABAD BIRYANI POINT [online]
+**Next step:** "hyderabadi biryani near me" → Biryani - Used Kitchen & Other Appliances for sale in India | OLX [used]; Biryani Blues | Order Authentic Hyderabadi Dum Biryani Online [deals]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]; Vijayawada Restaurants, Restaurants in Vijayawada [online]
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -147,33 +147,33 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube"
 
-**ASKODOX AI (production):** This travel guide by Let's Discover India covers highlights like the Borra Caves and Anantagiri Waterfalls. Note that these details reflect the creator's opinion and are not verified by ASKODOX. Specific details such as ratings, reviews, or full video transcript are not provided by the source.
+**ASKODOX AI (production):** The video 'Ultimate Araku Valley Travel Guide: Top Things to Do and See' by Let's Discover India covers attractions like Borra Caves and Anantagiri Waterfalls. Please note this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, ratings, or distance are not provided.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** The travel guide is a YouTube video, so it's free to watch online. You can view it directly on YouTube to see if the itinerary works for you.  
+**Production (main) AI:** Could you please clarify what item or product you are referring to?  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "araku valley trip reviews" → Araku Valley Tour Packages from Vijayawada, Flat 20% Off - Book at Lowest Price [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]; Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare [online]
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
-**Video:** Royal Enfield Classic 350 tested - YouTube -- bikerdood1100 (https://www.youtube.com/watch?v=C_4YStQscrc)
+**Video:** The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube -- Jack Brock (https://www.youtube.com/watch?v=88rgLE_eNJk)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Royal Enfield Classic 350 tested - YouTube / This time I take a quick spin on Royal Enfield Classic 350.Is it a good replacement for my old Bullet?  
+Quoted from source: The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube / I’m getting sick of over produced 20 minute motorcycle reviews that spend more time showing off cinematic shots than actually talking about the bike.  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Royal Enfield Classic 350 tested - YouTube"
+**User:** Tell me more about "The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube"
 
-**ASKODOX AI (production):** The video titled 'Royal Enfield Classic 350 tested' by creator bikerdood1100 features a quick spin on the Classic 350 to see if it's a good replacement for an older Bullet. Please note that this is the creator's personal opinion and not verified by ASKODOX. Specific details such as price, ratings, reviews, or specifications were not provided in the source.
+**ASKODOX AI (production):** According to creator Jack Brock, this video focuses on a direct review of the Royal Enfield Classic 350 without over-produced cinematic shots. Please note that these are the creator's opinions and not verified facts by ASKODOX. Specific details such as motorcycle price, specifications, condition, rating, and availability are not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** The Royal Enfield Classic 350 offers strong resale value and refined performance. You can check local used bike dealerships or trusted multi-brand pre-owned two-wheeler outlets in Vijayawada.  
+**Production (main) AI:** The Classic 350 is generally well-regarded for its refined engine, comfortable ergonomics, and iconic styling, though it is heavier and less agile than modern sport bikes. For used models in Vijayawada, you can check local pre-owned two-wheeler dealerships or certified pre-owned outlets like Royal Enfield Reown.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "used royal enfield classic 350 near me" → 13 Used Royal Enfield Classic in Vijayawada. Buy from Owners and Dealers - Bikes4Sale [used]; 9 Used Royal Enfield Classic 350 Bikes in Vijayawada - Buy & Sell Second Hand Bikes [deals]; Royal Enfield Classic 350 price in Vijayawada - September 2026 on road price of Classic 350 in Vijayawada [deals]; Used Royal Enfield Classic 350 Bikes in Vijayawada - Second Hand Royal Enfield Classic 350 Bikes for Sale in Vijayawada [used]
+**Next step:** "used royal enfield classic 350 near me" → 9 Used Royal Enfield Classic 350 Bikes in Vijayawada - Buy & Sell Second Hand Bikes [used]; Used Royal Enfield Classic 350 Bikes in Vijayawada - Second Hand Royal Enfield Classic 350 Bikes for Sale in Vijayawada [used]; Royal Enfield Classic 350 price in Vijayawada - September 2026 on road price of Classic 350 in Vijayawada [deals]; 44 Used Royal Enfield bikes in Vijayawada. Buy from Owners and Dealers - Bikes4Sale [used]
 
 ### deal (en) -- "iPhone 15 offer review video"
 
@@ -185,11 +185,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "iPhone 15 in 2026 - worth it? (Review) - YouTube"
 
-**ASKODOX AI (production):** The video 'iPhone 15 in 2026 - worth it?' by 91Tech discusses the iPhone 15 & 15 Plus as solid midrange smartphones with modern features like USB-C, noting they were discontinued recently. Please note this is the creator's opinion and not verified by ASKODOX. Specific details like price, stock, and ratings were not provided by the source.
+**ASKODOX AI (production):** According to 91Tech, the iPhone 15 & 15 Plus are solid midrange smartphones featuring USB-C, noting they are over 2 years old and recently discontinued. Please note that this is the creator's opinion and not verified by ASKODOX. Details like price, specifications, and availability were not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** The iPhone 15 offers a great balance of performance, USB-C, and modern cameras, making it worth buying if priced well. In Vijayawada, you can check availability at Apple Authorised Resellers like Aptronix or Imagine, as well as Reliance Digital or Croma.  
+**Production (main) AI:** It remains a strong option if you want reliable performance, a great camera, and USB-C at a lower price point than newer models. To check local store availability and deals in Vijayawada, which storage capacity and color are you looking for?  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "iphone 15 offers" → Buy & Sell Second Hand iPhones in Vijayawada, Used Apple Mobile Phones in Vijayawada | OLX [used]; Vijay Sales Open Box Sale Starts On iPhones, iPads, and More Gadgets; See Details - Times Bull [surplus]; iPhone 15 is available for less than Rs 35,000 on Vijay Sales, here is how the deal works - India Today [deals]; Buy & Sell Second Hand Iphone in Vijayawada, Used Mobiles in Vijayawada | OLX [used]
@@ -204,11 +204,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** ఈ వీడియో అర్బన్ కంపెనీ మరియు నోబ్రోకర్ ఏసీ సర్వీసుల మధ్య పోలిక మరియు రివ్యూ గురించి చర్చిస్తుంది. ఇది 'Crazyy Unboxing' ఛానెల్ వారి వ్యక్తిగత అభిప్రాయం మాత్రమే. ఈ వీడియో వివరాల్లో ధర, దూరం, అందుబాటు మరియు రివ్యూల సమాచారం సరిగ్గా ఇవ్వబడలేదు.
+**ASKODOX AI (production):** ఈ వీడియో 'Urban Company vs NoBroker AC Service' పోలిక గురించి 'Crazyy Unboxing' ఛానెల్ వారి వ్యక్తిగత అభిప్రాయం (ASKODOX ద్వారా నిర్ధారించబడలేదు). అయితే, ఈ మూలం నుండి ధర, నాణ్యత, అందుబాటు, దూరం మరియు రివ్యూలకు సంబంధించిన వివరాలు లభించలేదు (not provided). మీకు విజయవాడలో ఏసీ సర్వీసింగ్ కావాలంటే బుకింగ్ కోసం సహాయం చేయమంటారా?
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను ఏసీ సరిగ్గా సరిపోతుంది. మీరు సర్వీసింగ్ కోసం చూస్తున్నారా లేదా క్రొత్త ఏసీ బుక్ చేయాలనుకుంటున్నారా?
+**ASKODOX AI:** చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను ఏసీ లేదా పోర్టబుల్/విండో ఏసీ సరిగ్గా సరిపోతుంది. మీకు విజయవాడలో ఏసీ సర్వీసింగ్ లేదా కొత్త ఏసీ బుకింగ్ సహాయం కావాలా?
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 
