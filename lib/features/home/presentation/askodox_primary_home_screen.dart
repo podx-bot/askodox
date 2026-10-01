@@ -34,6 +34,7 @@ import '../application/saved_options.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
+import '../domain/conversation_closing.dart';
 import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../selling/data/catalogue_repository.dart';
@@ -1375,6 +1376,33 @@ class _AskodoxPrimaryHomeScreenState
             : selectedLocation.name.trim());
 
     final userTurnIndex = _turns.length - 1;
+
+    // "bye" / "good night" / "thanks, that's all" (any language the lexicon
+    // or the AI knows): a localized sign-off, never a search or a question.
+    if (attachments.isEmpty && askodoxIsSignOff(typed)) {
+      String? bye;
+      try {
+        bye = await ref.read(greetingRepositoryProvider).signoff(
+            language: _lang, name: ref.read(authSessionProvider).user?.displayName ?? '');
+      } catch (_) {
+        bye = null;
+      }
+      if (!mounted) return;
+      if (bye != null) {
+        final text = bye;
+        setState(() {
+          _turns.add(ConversationTurnRecord(text: text, isUser: false));
+          _sending = false;
+        });
+        await _store.save(_turns);
+        await _saveSnapshot();
+        _scrollBottom();
+        if (speakResponse) unawaited(_speakReply(text, userText: typed));
+        return;
+      }
+      _pendingAiContext = askodoxSignOffGuidance;
+      _pendingDiscussOnly = true;
+    }
 
     // AI-first: questions about options already shown ("which is better?",
     // "reviews?") and requests for the seller ("contact the seller", "book

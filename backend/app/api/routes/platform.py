@@ -1001,7 +1001,14 @@ def platform_insights(request: Request, days: int = 7) -> dict:
     pf = _pf(request)
     broken = [r["data"].get("slug") for r in pf.repo.list("smart_links")
               if (r["data"].get("health") or {}).get("state") == "ERROR"]
-    return {"items": fin.insights(pf.repo, days=max(1, min(days, 90)), extra={"broken_links": broken}),
+    try:
+        from app.services.self_healing import engine
+
+        fixes = engine(request.app.state.container).repeated_conversation_fixes(days=max(1, min(days, 90)))
+    except Exception:
+        fixes = []
+    return {"items": fin.insights(pf.repo, days=max(1, min(days, 90)),
+                                  extra={"broken_links": broken, "conversation_fixes": fixes}),
             "note": "Suggestions only -- nothing is changed automatically."}
 
 

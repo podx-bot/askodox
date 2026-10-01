@@ -800,6 +800,14 @@ def insights(repo: PlatformRepository, *, days: int = 7, extra: Dict[str, Any] |
         add("links", "warning", f"Smart link '{item}' failed its health check",
             "The destination page moved or is down.", "Fix or disable the link.",
             "Customers stop landing on an error page.", {}, "CONFIRMED")
+    for item in (extra or {}).get("conversation_fixes", []):
+        add("conversation", "warning",
+            f"ASKODOX corrected '{item['issue']}' {item['occurrences']} times in {days} days",
+            "A repeated conversation problem (e.g. unrelated results or prompts, attachment sent to be understood, "
+            "stale state) that the GREEN self-healing guard had to correct each time.",
+            "Review the Self-healing log entries and fix the underlying flow so the guard is no longer needed.",
+            "Fewer wrong turns before the guard steps in; cleaner first replies.",
+            {"issue_key": item["issue_key"], "occurrences": item["occurrences"]}, "CONFIRMED")
     if not out:
         add("status", "info", "No notable changes in this period", "Traffic and outcomes are steady.",
             "No action needed.", "None.", {"events": sum(cur.values())}, "CONFIRMED")

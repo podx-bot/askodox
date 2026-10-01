@@ -231,6 +231,20 @@ class GreetingLog:
                          "SET text=excluded.text, at=excluded.at", (user_id, text, at.isoformat()))
 
 
+def signoff(templates: Iterable[Dict[str, Any]], *, local_hour: int, language: str, name: str = "",
+            last_text: str = "") -> Dict[str, Any]:
+    """Closing line when the customer ends the conversation: 'signoff_night'
+    late in the day when configured, else 'signoff'. Never throttled (it
+    answers the customer) and never counted as a greeting."""
+    templates = list(templates)
+    kinds = (["signoff_night"] if local_hour % 24 >= 20 or local_hour % 24 < 5 else []) + ["signoff"]
+    for kind in kinds:
+        chosen = pick_greeting(templates, kind=kind, language=language, name=name, avoid=last_text)
+        if chosen is not None:
+            return {"greeting": chosen}
+    return {"greeting": None, "reason": "no_template"}
+
+
 def greet(templates: Iterable[Dict[str, Any]], log: Optional[GreetingLog], *, user_id: str, local_hour: int,
           language: str, name: str = "", returning: bool = False, last_text: str = "",
           now: datetime | None = None) -> Dict[str, Any]:
@@ -324,6 +338,20 @@ OPEN_FINDINGS = (
     ("Referral Priority Notification Credits not phone-tested", "growth"),
 )
 
+# Results the OWNER reported from real phones (evidence = that report).
+PHONE_EVIDENCE = (
+    ("Male voice preference plays a male voice", "voice", "1274", "Male selected -> male voice.", "PHONE VERIFIED"),
+    ("Female voice preference plays a female voice", "voice", "1274", "Female selected -> female voice.",
+     "PHONE VERIFIED"),
+    ("Female voice preference persists after app restart", "voice", "1274",
+     "Closed and reopened the app; female voice kept.", "PHONE VERIFIED"),
+    ("Conversation history persists after app restart", "conversation", "1274",
+     "Closed and reopened the app; chat history kept.", "PHONE VERIFIED"),
+    ("Orders page blank / white-on-white", "ui", "1274", "Orders screen looked blank (faint text).", "OPEN"),
+    ("Repeated generic follow-up after every reply", "conversation", "1274",
+     "\"Anything else? Just ask\" appeared after every reply.", "OPEN"),
+)
+
 STAGING_GREETINGS = (
     ("morning", "en", "Good morning{name_sep}! What can I find for you today?"),
     ("afternoon", "en", "Good afternoon{name_sep}! What do you need?"),
@@ -334,6 +362,9 @@ STAGING_GREETINGS = (
     ("afternoon", "", "Hello{name_sep}!"),
     ("evening", "", "Hello{name_sep}!"),
     ("night", "", "Hello{name_sep}!"),
+    ("signoff", "en", "Thank you{name_sep}! Come back any time."),
+    ("signoff_night", "en", "Good night{name_sep}! Talk to you soon."),
+    ("signoff", "", "Thank you{name_sep}!"),
 )
 
 STAGING_EMAIL_ROLES = (
@@ -358,6 +389,12 @@ def seed_staging_defaults(resources: Any, *, actor: str, domain: str = "askodox.
         for title, area in OPEN_FINDINGS:
             add("qa_checks", {"title": title, "area": area, "build": "1273",
                               "result": "Open finding from the owner's phone test."})
+    titles = {r["name"] for r in resources.repo.list("qa_checks", include_archived=True)}
+    for title, area, build, result, status in PHONE_EVIDENCE:
+        if title not in titles:
+            add("qa_checks", {"title": title, "area": area, "build": build, "result": result,
+                              "evidence": "Reported by the owner from a real-phone test of build " + build + "."},
+                status=status)
     if empty("referral_credit_rules"):
         add("referral_credit_rules", {
             "name": "Staging test rule", "priority": 1, "referrals_required": 1, "credits_awarded": 2,
@@ -365,8 +402,12 @@ def seed_staging_defaults(resources: Any, *, actor: str, domain: str = "askodox.
             "expiry_days": 90, "max_balance": 100, "eligible_roles": ["any"],
             "eligible_notification_types": ["nearby_request", "opportunity", "offer", "lead"],
             "daily_limit": 20, "monthly_limit": 200, "spend_daily_limit": 5}, status="ACTIVE")
-    if empty("greeting_templates"):
-        for kind, lang, text in STAGING_GREETINGS:
+    # Greeting kinds/languages added in later rounds are filled in without
+    # touching texts the Owner already edited.
+    have = {((r.get("data") or {}).get("kind"), (r.get("data") or {}).get("language") or "")
+            for r in resources.repo.list("greeting_templates", include_archived=True)}
+    for kind, lang, text in STAGING_GREETINGS:
+        if (kind, lang) not in have:
             add("greeting_templates", {"kind": kind, "language": lang, "text": text.replace("{name_sep}", " {name}")})
     if empty("email_roles"):
         for role, mode, inbound, outbound in STAGING_EMAIL_ROLES:

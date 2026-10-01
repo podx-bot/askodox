@@ -207,6 +207,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       }),
                               ]);
                         }),
+                        const SizedBox(height: 12),
+                        // The ACTIVE role changes only when the person picks it
+                        // here (or confirms a switch in chat) -- never silently.
+                        Builder(builder: (context) {
+                          final roles = ref.watch(askodoxRoleProvider);
+                          final held = [for (final r in AskodoxUserRole.values) if (roles.owned.contains(r)) r];
+                          if (held.length < 2) return const SizedBox.shrink();
+                          return Row(children: [
+                            Text(t('Acting as', 'ఇప్పుడు ఈ పాత్రలో'),
+                                style: const TextStyle(fontWeight: FontWeight.w800)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButton<AskodoxUserRole>(
+                                key: const Key('askodoxActiveRolePicker'),
+                                isExpanded: true,
+                                value: held.contains(roles.active) ? roles.active : held.first,
+                                items: [
+                                  for (final r in held)
+                                    DropdownMenuItem(value: r, child: Text(askodoxUserRoleLabel(r, telugu: _te))),
+                                ],
+                                onChanged: (role) {
+                                  if (role == null || role == roles.active) return;
+                                  ref.read(askodoxRoleProvider.notifier).setActive(role);
+                                  if (ref.read(authSessionProvider).user != null) {
+                                    ref.read(askodoxUserProfileProvider.notifier).save({'active_role': role.name});
+                                  }
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    key: const Key('askodoxActiveRoleChanged'),
+                                    content: Text(askodoxRoleChangedMessage(roles.active, role, telugu: _te)),
+                                  ));
+                                },
+                              ),
+                            ),
+                          ]);
+                        }),
                       ]))),
           const SizedBox(height: 12),
           if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))

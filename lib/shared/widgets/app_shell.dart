@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/home/application/conversation_archive.dart';
 import '../../features/location/application/location_controller.dart';
+import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import '../../config/theme/app_theme.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../features/companion/askodox_companion.dart';
 import '../../features/companion/companion_floating.dart';
@@ -125,14 +127,33 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 // Stale = the last detected place, not a fresh fix (GPS off,
                 // permission revoked): shown in amber with a tooltip.
-                Tooltip(
-                  message: locationState.stale ? (locationState.message ?? 'Last detected place') : '',
-                  child: Icon(
-                      locationState.stale ? Icons.location_disabled_rounded : Icons.location_on_rounded,
-                      key: locationState.stale ? const Key('askodoxLocationStale') : null,
-                      size: 18,
-                      color: locationState.stale ? const Color(0xFFB26A00) : const Color(0xFF1769FF)),
-                ),
+                // GPS place (crosshair) vs a place the user picked (pin) vs
+                // an old detected place (amber, stale) -- never confused.
+                Builder(builder: (context) {
+                  final gps = locationState.defaultLocation?.type == SavedLocationType.currentLocation;
+                  final source = locationState.stale
+                      ? 'stale'
+                      : gps
+                          ? 'gps'
+                          : (locationState.hasPlace ? 'manual' : 'none');
+                  return Tooltip(
+                    message: switch (source) {
+                      'stale' => locationState.message ?? 'Last detected place',
+                      'gps' => isTe ? 'ఫోన్ GPS ప్రకారం ప్రస్తుత స్థానం' : 'Current location (phone GPS)',
+                      'manual' => isTe ? 'మీరు ఎంచుకున్న స్థానం' : 'Place you chose',
+                      _ => '',
+                    },
+                    child: Icon(
+                        switch (source) {
+                          'stale' => Icons.location_disabled_rounded,
+                          'gps' => Icons.my_location_rounded,
+                          _ => Icons.location_on_rounded,
+                        },
+                        key: ValueKey('askodoxLocationSource-$source'),
+                        size: 18,
+                        color: source == 'stale' ? const Color(0xFFB26A00) : const Color(0xFF1769FF)),
+                  );
+                }),
                 const SizedBox(width: 2),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 104),
@@ -181,7 +202,18 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         ]),
       ),
       body: Stack(children: [
-        Positioned.fill(child: shell),
+        // The customer shell is a light design (white header, light
+        // background). The app runs ThemeMode.dark for other routes, whose
+        // white text was invisible here (Orders looked blank -- APK 1274):
+        // every tab inside the shell uses the light theme it is drawn on.
+        Positioned.fill(
+          child: Theme(
+            data: AppTheme.light,
+            // Material re-applies the light text style (the inherited one is
+            // the dark theme's white).
+            child: Material(type: MaterialType.transparency, child: shell),
+          ),
+        ),
         // Optional floating companion on the other ASKODOX screens (Main
         // Chat already shows it): the same assistant, same conversation.
         if (shell.currentIndex != 0)

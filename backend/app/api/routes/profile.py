@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -65,6 +66,10 @@ class ProfileUpdate(BaseModel):
     business_category: str | None = Field(default=None, max_length=80)
     gstin: str | None = Field(default=None, max_length=15)
     upi_id: str | None = Field(default=None, max_length=120)
+    email: str | None = Field(default=None, max_length=160)
+    active_role: str | None = Field(default=None, max_length=30)
+    links: list[dict] | None = Field(default=None, max_length=10)
+    role_details: dict | None = None
 
 
 @router.get("")
@@ -88,7 +93,75 @@ def update_my_profile(payload: ProfileUpdate, request: Request) -> dict:
             raise HTTPException(status_code=422, detail="Enter a valid UPI ID, e.g. name@okbank")
     if "roles" in fields:
         fields["roles"] = [str(r).strip()[:30] for r in (fields["roles"] or []) if str(r).strip()]
+    repo = profiles(request.app.state.container)
+    current = repo.get(user_id)
+    if fields.get("email"):
+        if not _EMAIL.match(fields["email"]):
+            raise HTTPException(status_code=422, detail="Enter a valid e-mail address")
+    if "links" in fields:
+        fields["links"] = _clean_links(fields["links"] or [])
+    if "role_details" in fields:
+        fields["role_details"] = _clean_role_details(fields["role_details"] or {}, current.get("role_details") or {})
+    if fields.get("active_role"):
+        # A role is switched only explicitly, and only to one the user holds.
+        roles = fields.get("roles", current.get("roles") or [])
+        if fields["active_role"] not in roles:
+            raise HTTPException(status_code=422, detail="Add this role to your profile before switching to it")
+    if "roles" in fields and current.get("active_role") and current["active_role"] not in fields["roles"] \
+            and "active_role" not in fields:
+        fields["active_role"] = None  # the removed role cannot stay active
     return _view(request, user_id, profiles(request.app.state.container).update(user_id, fields))
+
+
+_EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,120}\.[a-z]{2,24}$", re.IGNORECASE)
+_LINK_KINDS = {"website", "whatsapp", "instagram", "facebook", "youtube", "linkedin", "x", "telegram", "maps", "other"}
+
+
+def _clean_links(links: list) -> list:
+    out = []
+    for item in links[:10]:
+        url = str((item or {}).get("url") or "").strip()
+        kind = str((item or {}).get("kind") or "other").strip().lower()
+        if not url:
+            continue
+        if not (url.startswith("https://") or url.startswith("http://") or kind == "whatsapp"):
+            raise HTTPException(status_code=422, detail="Links must start with https://")
+        out.append({"kind": kind if kind in _LINK_KINDS else "other", "url": url[:300]})
+    return out
+
+
+def _clean_role_details(details: dict, current: dict) -> dict:
+    """Per-role extension of the ONE profile. Known roles keep only their
+    fields; future roles are accepted generically. Text values only, small."""
+    from app.repositories.user_profile_repository import ROLE_FIELDS
+
+    merged = dict(current)
+    for role, values in list(details.items())[:12]:
+        role = str(role).strip().lower()[:30]
+        if not role or not isinstance(values, dict):
+            continue
+        allowed = ROLE_FIELDS.get(role)
+        clean = {}
+        for key, value in list(values.items())[:20]:
+            key = str(key).strip()[:40]
+            if allowed is not None and key not in allowed:
+                continue
+            if isinstance(value, list):
+                value = [str(v)[:80] for v in value[:20]]
+            elif value is not None:
+                value = str(value)[:400]
+            clean[key] = value
+        merged[role] = {**(merged.get(role) or {}), **clean}
+    return merged
+
+
+@router.get("/schema")
+def profile_schema() -> dict:
+    """The roles a person can hold and the fields each adds (for the app's forms)."""
+    from app.repositories.user_profile_repository import ROLE_FIELDS
+
+    return {"roles": {role: list(fields) for role, fields in ROLE_FIELDS.items()},
+            "link_kinds": sorted(_LINK_KINDS)}
 
 
 class PhotoUpload(BaseModel):

@@ -245,7 +245,10 @@ void main() {
         container: c,
         child: const MaterialApp(home: Scaffold(body: AskodoxCompanionBar(mood: AskodoxCompanionMood.idle, telugu: false))),
       ));
-      expect(find.text('Anything else? Just ask.'), findsOneWidget, reason: 'idle keeps the companion + a prompt');
+      expect(find.byType(AskodoxCompanion), findsOneWidget, reason: 'idle keeps the companion');
+      expect(find.text('Anything else? Just ask.'), findsNothing,
+          reason: 'APK 1274: no generic follow-up bubble after every reply');
+      expect(find.byKey(const Key('askodoxCompanionLine')), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
 

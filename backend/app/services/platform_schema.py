@@ -584,7 +584,8 @@ _register(Resource(
                 "the same greeting is not repeated.",
     fields=(
         F("kind", "Kind", "enum", required=True, list_column=True, filter=True,
-          options=("morning", "afternoon", "evening", "night", "returning", "role_switch", "no_result",
+          options=("morning", "afternoon", "evening", "night", "returning", "signoff", "signoff_night",
+                   "role_switch", "no_result",
                    "fallback")),
         F("language", "Language (BCP-47, blank = any)", list_column=True, filter=True),
         F("text", "Text", "longtext", required=True, list_column=True),

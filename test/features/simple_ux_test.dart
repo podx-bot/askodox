@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/companion/companion_hub.dart';
 import 'package:go_router/go_router.dart';
+import 'package:podx/config/theme/app_theme.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
@@ -281,5 +282,60 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxNavSpeak')));
     await tester.pump(const Duration(milliseconds: 400));
     expect(container.read(askodoxChatRequestProvider)?.hubAction, AskodoxHubAction.voice);
+  });
+
+  testWidgets('APK 1274: Orders is readable in the real app theme (dark mode) -- empty and with orders',
+      (tester) async {
+    double contrast(Color a, Color b) {
+      final la = a.computeLuminance() + .05, lb = b.computeLuminance() + .05;
+      return la > lb ? la / lb : lb / la;
+    }
+
+    Color textColor(Finder f) {
+      final element = tester.element(f);
+      final widget = tester.widget<Text>(f);
+      return DefaultTextStyle.of(element).style.merge(widget.style).color!;
+    }
+
+    Color backgroundBehind(Finder f) {
+      final material = tester.element(f).findAncestorWidgetOfExactType<Material>();
+      if (material?.color != null && material!.color!.a > 0) return material.color!;
+      return const Color(0xFFF8FBFF); // the shell background
+    }
+
+    for (final orders in [_Orders(), _Orders()..mine = [_order('9', 'PLACED')]]) {
+      final container = ProviderContainer(overrides: _overrides(orders: orders));
+      addTearDown(container.dispose);
+      final router = GoRouter(initialLocation: '/updates', routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, shell) => AppShell(shell: shell),
+          branches: [
+            for (final path in ['/', '/search', '/watchlist'])
+              StatefulShellBranch(routes: [GoRoute(path: path, builder: (context, state) => const SizedBox())]),
+            StatefulShellBranch(routes: [GoRoute(path: '/updates', builder: (context, state) => const UpdatesScreen())]),
+            StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (context, state) => const SizedBox())]),
+          ],
+        ),
+      ]);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        key: UniqueKey(),
+        container: container,
+        // The real app forces ThemeMode.dark (white text by default).
+        child: MaterialApp.router(
+            theme: AppTheme.light, darkTheme: AppTheme.dark, themeMode: ThemeMode.dark, routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+      final texts = [
+        find.text('Updates'),
+        if (orders.mine.isEmpty)
+          find.textContaining('No active orders yet')
+        else ...[find.text('Chicken 5 kg'), find.text('Waiting for the seller to accept')],
+      ];
+      for (final f in texts) {
+        expect(f, findsOneWidget);
+        expect(contrast(textColor(f), backgroundBehind(f)), greaterThanOrEqualTo(4.5),
+            reason: 'readable text, never white-on-white');
+      }
+    }
   });
 }

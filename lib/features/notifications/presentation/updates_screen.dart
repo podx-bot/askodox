@@ -63,13 +63,24 @@ class UpdatesScreen extends ConsumerWidget {
                 ),
               ),
               data: (items) => items.isEmpty
-                  ? Padding(
+                  ? Card(
                       key: const Key('askodoxUpdatesEmpty'),
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Text(
-                        t('No updates yet. When you send a request, its status shows here.',
-                            'ఇంకా అప్‌డేట్స్ లేవు. మీరు అభ్యర్థన పంపినప్పుడు దాని స్థితి ఇక్కడ కనిపిస్తుంది.'),
-                        textAlign: TextAlign.center,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                        child: Column(children: [
+                          Icon(Icons.receipt_long_rounded, size: 40, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(height: 12),
+                          Text(
+                            t('No active orders yet. Your requests, seller acceptance, delivery and status updates will appear here.',
+                                'ఇంకా ఆర్డర్లు లేవు. మీ అభ్యర్థనలు, విక్రేత అంగీకారం, డెలివరీ మరియు స్థితి అప్‌డేట్స్ ఇక్కడ కనిపిస్తాయి.'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                height: 1.4,
+                                color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                        ]),
                       ),
                     )
                   : Column(children: [

@@ -157,7 +157,68 @@ void main() {
     expect(seller.selected, isFalse, reason: 'active role is highlighted, not added to stored roles');
     final provider = tester.widget<FilterChip>(find.byKey(const ValueKey('profileRole-serviceProvider')));
     expect(provider.selected, isTrue);
-    expect(find.text('Buyer'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Buyer'), findsOneWidget);
+  });
+
+  testWidgets('Master profile: e-mail, links and per-role details save to the ONE profile; active role switches '
+      'only when picked', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({
+      'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'seller', 'deliveryPartner'], 'active': 'buyer'}),
+    });
+    final profiles = _Profiles(const AskodoxUserProfile(
+      userId: 'app-phone-919876543210',
+      name: 'Lakshmi',
+      roleDetails: {
+        'seller': {'business_type': 'grocery'},
+      },
+    ));
+    await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()}, overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      askodoxUserProfileRepositoryProvider.overrideWithValue(profiles),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxEditRole-seller')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxEditRole-delivery_partner')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxEditRole-service_provider')), findsNothing,
+        reason: 'only roles the person holds');
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('askodoxEditRole-seller-business_type'))).controller!.text,
+        'grocery', reason: 'existing role details are loaded');
+
+    final savesBefore = profiles.saves.length; // the screen syncs held roles + language on open
+    await tester.enterText(find.byKey(const Key('askodoxEditEmail')), 'bad-email');
+    tester.widget<FilledButton>(find.byKey(const Key('askodoxEditSave'))).onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxEditError')), findsOneWidget);
+    expect(profiles.saves.length, savesBefore, reason: 'invalid e-mail is not sent');
+
+    await tester.enterText(find.byKey(const Key('askodoxEditEmail')), 'lakshmi@example.com');
+    await tester.enterText(find.byKey(const ValueKey('askodoxEditLink-website')), 'https://lakshmi.example');
+    final vehicle = find.byKey(const ValueKey('askodoxEditRole-delivery_partner-vehicle_type'));
+    await tester.ensureVisible(vehicle);
+    await tester.enterText(vehicle, 'two_wheeler');
+    tester.widget<FilledButton>(find.byKey(const Key('askodoxEditSave'))).onPressed!();
+    await tester.pumpAndSettle();
+    final saved = profiles.saves.lastWhere((m) => m.containsKey('email'));
+    expect(saved['email'], 'lakshmi@example.com');
+    expect(saved['links'], [{'kind': 'website', 'url': 'https://lakshmi.example'}]);
+    final details = saved['role_details'] as Map;
+    expect((details['seller'] as Map)['business_type'], 'grocery');
+    expect((details['delivery_partner'] as Map)['vehicle_type'], 'two_wheeler');
+
+    // Explicit switch of the ACTIVE role, announced, saved.
+    final picker = find.byKey(const Key('askodoxActiveRolePicker'));
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Seller').last);
+    await tester.pumpAndSettle();
+    expect(profiles.saves.where((m) => m['active_role'] == 'seller'), hasLength(1));
+    expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
   });
 
   test('support escalation client sends full context and reads configured channels', () async {
@@ -226,6 +287,9 @@ class _Profiles implements AskodoxUserProfileRepository {
       businessAddress: stored.businessAddress,
       verificationStatus: stored.verificationStatus,
       listings: stored.listings,
+      email: (fields['email'] ?? stored.email) as String?,
+      activeRole: (fields['active_role'] ?? stored.activeRole) as String?,
+      roleDetails: stored.roleDetails,
     );
     return stored;
   }

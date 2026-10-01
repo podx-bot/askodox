@@ -108,3 +108,20 @@ Never in any phase: arbitrary code/SQL/shell, secret display, production changes
 | Self-healing relevance | No conversational detector | GREEN conversation fixes (fixed kinds) logged with issue/action/result/reason; flag `selfheal.enabled` | `test_conversational_self_heal…` | CODE READY |
 | Greetings not working | Engine not called by the app | Home greeting from `/api/greeting` (local hour, language, name, returning; ≤1 per 4 h; never same text twice) | `greeting_repository_test.dart` | CODE READY |
 | Master Profile, Delivery/driver/order/map, Screen Guide | — | not in this batch | — | OPEN |
+
+## Round 3 — post-1274 phone findings (staging, build 1275)
+Owner-reported 1274 PHONE VERIFIED: male voice, female voice, female preference after restart, chat history after
+restart (recorded in QA Center by "Load staging test defaults").
+
+| Item | Root cause | Fix | Test | Status |
+|---|---|---|---|---|
+| A Orders blank | App forces dark theme (white text); customer shell paints a light background | Shell content uses the light theme + Material text style; readable empty state | contrast test (empty + orders, dark mode) | CODE READY |
+| B Repeated "ఇంకా ఏమైనా కావాలా?" | Idle companion always showed a generic line | No bubble when idle with nothing contextual | companion test | CODE READY |
+| C Sign-off | Not handled | Short goodbye (many languages) -> localized template (`signoff`, `signoff_night`) or AI sign-off; no search, no questions | backend + chat tests | CODE READY |
+| D Language | — | Greeting/sign-off any BCP-47 tag with neutral fallback; AI writes when no template | tests | PARTIAL (deal-brain detail questions still English/Telugu/Hindi strings) |
+| E Master Profile | Profile = roles + settings only | One record: email, links, active role (explicit only), per-role details (seller, service provider, job seeker, delivery partner, survey taker; future roles without schema change) | backend + widget tests | CODE READY (foundation) |
+| F Results relevance | Keyword match only | `intent_conflict`: livestock/hatchery pages for food, wholesale/B2B for retail requests dropped | backend tests | CODE READY |
+| G Question memory | already worked | regression test added | deal-brain test | PRESERVED |
+| I Self-healing | — | repeated GREEN fixes (>=3) become AI Insights (CONFIRMED, evidence) | backend test | CODE READY |
+| J Location | — | header icon: GPS / chosen / stale | — | CODE READY |
+| K Delivery | no lifecycle | `/api/delivery/jobs` request -> offer to approved partners -> accept -> pickup -> transit -> delivered -> customer confirm; NEEDS_PARTNER / NEEDS_CONFIGURATION honest | backend tests | CODE READY (backend only; no app screens yet) |

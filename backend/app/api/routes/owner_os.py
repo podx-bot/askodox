@@ -75,8 +75,8 @@ def _roles(container: Any, user_id: str) -> list[str]:
 
 @router.get("/api/greeting")
 def greeting(request: Request, language: str = Query("en", max_length=35), local_hour: int = Query(ge=0, le=23),
-             returning: bool = False, name: str = Query("", max_length=40), last: str = Query("", max_length=300)
-             ) -> dict:
+             returning: bool = False, name: str = Query("", max_length=40), last: str = Query("", max_length=300),
+             kind: str = Query("greeting", pattern="^(greeting|signoff)$")) -> dict:
     """Localized greeting for the user's local hour, language and context --
     at most once every few hours per signed-in user, rotated to avoid repeats."""
     from app.api.routes.in_app_assistant import _optional_app_user
@@ -84,6 +84,8 @@ def greeting(request: Request, language: str = Query("en", max_length=35), local
     container = request.app.state.container
     user = _optional_app_user(request)
     templates = _resources(container).repo.list("greeting_templates")
+    if kind == "signoff":
+        return owner_os.signoff(templates, local_hour=local_hour, language=language, name=name.strip(), last_text=last)
     return owner_os.greet(templates, _greeting_log(container) if user != "guest" else None,
                           user_id="" if user == "guest" else user, local_hour=local_hour, language=language,
                           name=name.strip(), returning=returning, last_text=last)

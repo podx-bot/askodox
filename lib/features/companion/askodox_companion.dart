@@ -778,13 +778,11 @@ class AskodoxCompanionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final line = guidance ??
+    // Idle with nothing contextual to say: no bubble. A generic "Anything
+    // else? Just ask." after every reply was repetitive (APK 1274 finding).
+    final String? line = guidance ??
         (mood == AskodoxCompanionMood.idle
-            ? switch (lang ?? (telugu ? 'te' : 'en')) {
-                'te' => 'ఇంకా ఏమైనా కావాలా? అడగండి.',
-                'hi' => 'और कुछ चाहिए? बस पूछिए।',
-                _ => 'Anything else? Just ask.',
-              }
+            ? null
             : (foundLabel != null && results > 0 && mood == AskodoxCompanionMood.explaining)
                 ? foundLabel!
                 : askodoxCompanionLine(mood, telugu: telugu, results: results, lang: lang, subject: subject));
@@ -793,7 +791,7 @@ class AskodoxCompanionBar extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         AskodoxCompanion(key: const Key('askodoxCompanionStage'), mood: mood, size: size, onTap: onTap),
         const SizedBox(width: 6),
-        if (showLine)
+        if (showLine && line != null)
           Expanded(
             // A speech bubble next to the companion: what it is doing or
             // suggesting right now.

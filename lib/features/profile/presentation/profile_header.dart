@@ -250,15 +250,55 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
   late final _shopAddress = TextEditingController(text: widget.profile.businessAddress ?? '');
   late final _category = TextEditingController(text: widget.profile.businessCategory ?? '');
   late final _gstin = TextEditingController(text: widget.profile.gstin ?? '');
+  late final _email = TextEditingController(text: widget.profile.email ?? '');
+  late final Map<String, TextEditingController> _links = {
+    for (final kind in const ['website', 'whatsapp', 'instagram'])
+      kind: TextEditingController(
+          text: widget.profile.links.where((l) => l['kind'] == kind).map((l) => l['url']).firstOrNull ?? ''),
+  };
+
+  /// Role-specific fields for every role this person holds (one profile).
+  late final Map<String, Map<String, TextEditingController>> _roleFields = {
+    for (final role in ref.read(askodoxRoleProvider).owned.map((r) => askodoxRoleKey(r.name)))
+      if (askodoxRoleProfileFields[role] case final fields?)
+        role: {
+          for (final f in fields)
+            f: TextEditingController(text: _text(widget.profile.roleDetails[role]?[f])),
+        },
+  };
   bool _saving = false;
+  String? _error;
+
+  static String _text(Object? v) => v is List ? v.join(', ') : (v == null ? '' : '$v');
 
   String _t(String en, String te) => widget.telugu ? te : en;
 
   Future<void> _save() async {
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final email = _email.text.trim();
+    if (email.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
+      setState(() {
+        _saving = false;
+        _error = _t('Enter a valid e-mail address.', 'సరైన ఈ-మెయిల్ ఇవ్వండి.');
+      });
+      return;
+    }
     final ok = await ref.read(askodoxUserProfileProvider.notifier).save({
       'name': _name.text.trim(),
       'address': _address.text.trim(),
+      'email': email,
+      'links': [
+        for (final e in _links.entries)
+          if (e.value.text.trim().isNotEmpty) {'kind': e.key, 'url': e.value.text.trim()},
+      ],
+      if (_roleFields.isNotEmpty)
+        'role_details': {
+          for (final r in _roleFields.entries)
+            r.key: {for (final f in r.value.entries) f.key: f.value.text.trim()},
+        },
       if (widget.business) ...{
         'business_name': _shop.text.trim(),
         'business_address': _shopAddress.text.trim(),
@@ -280,6 +320,17 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
                   decoration: InputDecoration(labelText: _t('Name', 'పేరు'))),
               TextField(key: const Key('askodoxEditAddress'), controller: _address,
                   decoration: InputDecoration(labelText: _t('Address', 'చిరునామా'))),
+              TextField(key: const Key('askodoxEditEmail'), controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(labelText: _t('E-mail (optional)', 'ఈ-మెయిల్ (ఐచ్ఛికం)'))),
+              for (final e in _links.entries)
+                TextField(key: ValueKey('askodoxEditLink-${e.key}'), controller: e.value,
+                    decoration: InputDecoration(
+                        labelText: switch (e.key) {
+                          'website' => _t('Website (https://…)', 'వెబ్‌సైట్ (https://…)'),
+                          'whatsapp' => 'WhatsApp',
+                          _ => 'Instagram (https://…)',
+                        })),
               if (widget.business) ...[
                 TextField(key: const Key('askodoxEditShop'), controller: _shop,
                     decoration: InputDecoration(labelText: _t('Business / shop name', 'వ్యాపారం / షాప్ పేరు'))),
@@ -289,6 +340,21 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
                     decoration: InputDecoration(labelText: _t('Category / service', 'విభాగం / సర్వీస్'))),
                 TextField(controller: _gstin, decoration: const InputDecoration(labelText: 'GSTIN (optional)')),
               ],
+              for (final r in _roleFields.entries) ...[
+                const SizedBox(height: 14),
+                Text(askodoxFieldLabel(r.key),
+                    key: ValueKey('askodoxEditRole-${r.key}'),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                for (final f in r.value.entries)
+                  TextField(key: ValueKey('askodoxEditRole-${r.key}-${f.key}'), controller: f.value,
+                      decoration: InputDecoration(labelText: askodoxFieldLabel(f.key))),
+              ],
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(_error!, key: const Key('askodoxEditError'),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w700)),
+                ),
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,

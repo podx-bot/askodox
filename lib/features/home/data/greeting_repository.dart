@@ -50,6 +50,28 @@ class GreetingRepository {
   }
 }
 
+extension GreetingSignOff on GreetingRepository {
+  /// Closing line in the customer's language (null = no template in that
+  /// language: the AI writes the sign-off instead, so any language works).
+  Future<String?> signoff({required String language, String name = ''}) async {
+    final now = _now();
+    final result = await _client.get<Map<String, Object?>>(
+      Uri(path: '/api/greeting', queryParameters: {
+        'kind': 'signoff',
+        'language': language,
+        'local_hour': '${now.hour}',
+        if (name.trim().isNotEmpty) 'name': name.trim().split(RegExp(r'\s+')).first,
+      }).toString(),
+      options: ApiRequestOptions(timeout: const Duration(seconds: 8), authToken: authToken),
+    );
+    if (result is! ApiSuccess<Map<String, Object?>>) return null;
+    final greeting = result.data['greeting'];
+    if (greeting is! Map || greeting['language_matched'] != true) return null;
+    final text = '${greeting['text'] ?? ''}'.trim();
+    return text.isEmpty ? null : text;
+  }
+}
+
 final greetingRepositoryProvider = Provider<GreetingRepository>((ref) {
   final session = ref.watch(authSessionProvider);
   return GreetingRepository(ref.watch(apiClientProvider),

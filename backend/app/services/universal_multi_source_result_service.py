@@ -37,6 +37,7 @@ from app.services.universal_external_result_service import (
     _host_matches,
     _tokens,
     category_conflict,
+    intent_conflict,
     classify_page,
     place_region_mismatch,
     region_mismatch,
@@ -495,6 +496,9 @@ class UniversalMultiSourceResultService:
                     continue
                 if category_conflict(subject, getattr(self, "_category", ""), url, title, snippet):
                     self._filter("other_category")
+                    continue
+                if intent_conflict(subject, getattr(self, "_category", ""), url, title, snippet):
+                    self._filter("other_intent")
                     continue
                 if region_mismatch(url, title, snippet, wanted_place=location_text):
                     self._filter("wrong_region")

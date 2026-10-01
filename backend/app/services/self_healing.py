@@ -168,6 +168,20 @@ class SelfHealingEngine:
                          rollback="Not needed: applied to one reply only.",
                          evidence={**(detail or {}), "occurrences": 1, "applied_by": "app"})
 
+    def repeated_conversation_fixes(self, *, days: int = 7, minimum: int = 3) -> List[Dict[str, Any]]:
+        """Conversation fixes applied at least ``minimum`` times -> evidence
+        for an AI Insight (the guard works, but the root cause remains)."""
+        since = (_now() - timedelta(days=days)).isoformat()
+        totals: Dict[str, Dict[str, Any]] = {}
+        with self._connect() as conn:
+            rows = conn.execute("SELECT issue_key, issue, evidence_json FROM cc_healing_log WHERE issue_key LIKE "
+                                "'conversation:%' AND created_at>=?", (since,)).fetchall()
+        for key, issue, evidence in rows:
+            n = int((json.loads(evidence or "{}") or {}).get("occurrences") or 1)
+            entry = totals.setdefault(key, {"issue_key": key, "issue": issue, "occurrences": 0})
+            entry["occurrences"] += n
+        return sorted((e for e in totals.values() if e["occurrences"] >= minimum), key=lambda e: -e["occurrences"])
+
     # ------------------------------------------------------------- bypass --
 
     def _expire(self) -> None:

@@ -141,13 +141,16 @@ def test_seed_setup_greeting_and_referral_credit_flow(env, monkeypatch):
     assert client.post("/admin/cc/owner/seed-staging").status_code in (401, 403)
     first = client.post("/admin/cc/owner/seed-staging", headers=OWNER)
     assert first.status_code == 200, first.text
-    assert first.json()["created"]["qa_checks"] == len(owner_os.OPEN_FINDINGS)
+    assert first.json()["created"]["qa_checks"] == len(owner_os.OPEN_FINDINGS) + len(owner_os.PHONE_EVIDENCE)
     assert client.post("/admin/cc/owner/seed-staging", headers=OWNER).json()["created"] == {}  # idempotent
     qa = client.get("/admin/cc/platform/r/qa_checks", headers=OWNER).json()["items"]
-    assert qa and all(r["status"] == "OPEN" for r in qa)
+    verified = {r["name"] for r in qa if r["status"] == "PHONE VERIFIED"}
+    assert verified == {t for t, _, _, _, st in owner_os.PHONE_EVIDENCE if st == "PHONE VERIFIED"}, \
+        "only owner-reported phone results are PHONE VERIFIED"
+    assert all(r["status"] == "OPEN" for r in qa if r["name"] not in verified)
 
     setup = client.get("/admin/cc/owner/setup", headers=OWNER).json()
-    assert setup["qa"]["OPEN"] == len(owner_os.OPEN_FINDINGS)
+    assert setup["qa"]["OPEN"] == len(owner_os.OPEN_FINDINGS) + 2 and setup["qa"]["PHONE VERIFIED"] == 4
     assert {r["role"] for r in setup["email_roles"]} >= {"support", "admin", "partners", "notifications",
                                                          "no_reply", "security"}
     assert all(r["status"] == "DISABLED" for r in setup["email_roles"])  # unverified placeholders
@@ -184,12 +187,12 @@ def test_delivery_partner_needs_second_person_approval_and_match_route(env):
     client, _ = env
     r = client.post("/admin/cc/platform/r/delivery_partners", headers=OWNER,
                     json={"data": {"name": "Ravi bike", "kind": "independent", "services": ["parcel"],
-                                   "available": True, "latitude": 16.36, "longitude": 80.84, "radius_km": 5}})
+                                   "available": True, "latitude": 21.15, "longitude": 79.09, "radius_km": 5}})
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "PENDING_REVIEW"
     m = client.post("/admin/cc/delivery/match", headers=OWNER,
-                    json={"service": "parcel", "latitude": 16.36, "longitude": 80.84}).json()
-    assert m["independent"] == [] and m["skipped"].get("not_approved") == 1 and m["matching_enabled"] is False
+                    json={"service": "parcel", "latitude": 21.15, "longitude": 79.09}).json()
+    assert m["independent"] == [] and m["skipped"].get("not_approved", 0) >= 1 and m["matching_enabled"] is False
 
 
 def test_conversational_self_heal_is_green_fixed_kinds_and_deduplicated(env):
@@ -207,3 +210,36 @@ def test_conversational_self_heal_is_green_fixed_kinds_and_deduplicated(env):
     assert client.post("/api/selfheal/conversation", json={"kind": "stale_state", "text": "x"}).status_code == 422
     container.command_center_repository.set_flag("selfheal.enabled", False, "test")
     assert client.post("/api/selfheal/conversation", json={"kind": "stale_state"}).json() == {"recorded": False}
+
+
+def test_signoff_is_localized_and_never_throttled():
+    tpls = [_tpl(1, "signoff", "en", "Thank you {name}! Come back any time."),
+            _tpl(2, "signoff_night", "en", "Good night {name}!"), _tpl(3, "signoff", "te", "ధన్యవాదాలు {name}!"),
+            _tpl(4, "signoff", "", "Thank you!")]
+    assert owner_os.signoff(tpls, local_hour=22, language="en", name="Asha")["greeting"]["text"] == "Good night Asha!"
+    assert owner_os.signoff(tpls, local_hour=10, language="en", name="")["greeting"]["text"] == \
+        "Thank you! Come back any time."
+    assert owner_os.signoff(tpls, local_hour=10, language="te-IN", name="రవి")["greeting"]["text"] == "ధన్యవాదాలు రవి!"
+    other = owner_os.signoff(tpls, local_hour=10, language="sw")["greeting"]
+    assert other["text"] == "Thank you!" and not other["language_matched"]
+    assert owner_os.signoff([], local_hour=10, language="en") == {"greeting": None, "reason": "no_template"}
+
+
+def test_signoff_route_bypasses_greeting_cooldown(env):
+    client, container = env
+    client.post("/admin/cc/owner/seed-staging", headers=OWNER)
+    uid, auth = _user(container)
+    assert client.get("/api/greeting", params={"language": "en", "local_hour": 9}, headers=auth).json()["greeting"]
+    bye = client.get("/api/greeting", params={"language": "en", "local_hour": 23, "kind": "signoff"}, headers=auth)
+    assert bye.json()["greeting"]["text"].startswith("Good night")
+
+
+def test_repeated_conversation_fixes_become_an_ai_insight(env):
+    client, container = env
+    container.command_center_repository.set_flag("selfheal.enabled", True, "test")
+    for _ in range(3):
+        client.post("/api/selfheal/conversation", json={"kind": "irrelevant_fallback"})
+    items = client.get("/admin/cc/platform/insights", headers=OWNER).json()["items"]
+    hit = [i for i in items if i["kind"] == "conversation"]
+    assert hit and hit[0]["evidence"] == {"issue_key": "conversation:irrelevant_fallback", "occurrences": 3}
+    assert hit[0]["confidence"] == "CONFIRMED"

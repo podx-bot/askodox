@@ -29,6 +29,7 @@ import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 import 'package:podx/services/real_product_match_service.dart';
+import 'package:podx/features/home/data/greeting_repository.dart';
 import 'package:podx/services/chat_attachment_service.dart';
 import 'package:podx/services/media_picker.dart';
 import 'dart:async';
@@ -530,6 +531,9 @@ class _Harness {
   /// navigation) -- used by the Home render.
   bool withShell = false;
 
+  /// Sign-off texts the fake /api/greeting returns per language.
+  final Map<String, String> signoffs = {};
+
   Widget _app({Widget home = const Scaffold(body: AskodoxPrimaryHomeScreen())}) {
     return ProviderScope(
       key: _scopeKey,
@@ -553,6 +557,7 @@ class _Harness {
         askodoxSupportEscalationServiceProvider.overrideWithValue(support),
         askodoxReplySpeechServiceProvider.overrideWithValue(replySpeech),
         if (api != null) apiClientProvider.overrideWithValue(api!),
+        greetingRepositoryProvider.overrideWithValue(GreetingRepository(_GreetingApi(signoffs))),
         askodoxVideoEmbedBuilderProvider.overrideWithValue((uri) {
           embeddedVideos.add(uri);
           return Text('EMBED $uri');
@@ -636,6 +641,22 @@ class _FakeBenefits extends AskodoxBenefitsRepository {
   Future<AskodoxClaimResult?> scratch(String orderId) async {
     scratched.add(orderId);
     return scratchReward;
+  }
+}
+
+class _GreetingApi extends MockApiClient {
+  _GreetingApi(this.signoffs);
+  final Map<String, String> signoffs;
+  final paths = <String>[];
+
+  @override
+  Future<ApiResult<T>> get<T>(String path, {ApiRequestOptions options = const ApiRequestOptions()}) async {
+    paths.add(path);
+    final q = Uri.parse(path).queryParameters;
+    final text = q['kind'] == 'signoff' ? signoffs[q['language']] : null;
+    return ApiSuccess(<String, Object?>{
+      'greeting': text == null ? null : {'text': text, 'language_matched': true},
+    } as T);
   }
 }
 
@@ -853,6 +874,34 @@ void main() {
       expect(find.textContaining('Which catalogue do you need?'), findsOneWidget);
       expect(find.textContaining('price list'), findsOneWidget);
       expect(find.byType(Card).evaluate().where((e) => e.widget.key.toString().contains('askodoxCatalogueCard')), isEmpty);
+      expect(h.matches.deals, isEmpty);
+    });
+  });
+
+  group('APK 1274: sign-off', () {
+    testWidgets('"good night" gets the localized sign-off -- no search, no AI follow-up question', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '990', matches: [_localMatch]),
+      ]));
+      h.signoffs['te'] = 'శుభరాత్రి! మళ్లీ కలుద్దాం.';
+      await h.pump(tester);
+      await h.send(tester, 'నాకు ఒక మిక్సర్ గ్రైండర్ కావాలి');
+      final before = h.assistant.requests.length;
+      final searches = h.matches.deals.length;
+      await h.send(tester, 'శుభరాత్రి');
+      expect(find.text('శుభరాత్రి! మళ్లీ కలుద్దాం.'), findsOneWidget);
+      expect(h.assistant.requests.length, before, reason: 'template answered; no AI turn');
+      expect(h.matches.deals.length, searches, reason: 'a goodbye never searches');
+    });
+
+    testWidgets('no template in that language: the AI writes the sign-off (any language), still no search',
+        (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '991', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'thanks, bye');
+      expect(h.assistant.requests.last['message'] as String, contains('ending the conversation'));
       expect(h.matches.deals, isEmpty);
     });
   });

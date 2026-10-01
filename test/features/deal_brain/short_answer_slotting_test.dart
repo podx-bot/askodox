@@ -69,6 +69,21 @@ void main() {
     expect(c.state.deal!.dynamicFields['quantityText'], 'two birds');
   });
 
+  test('APK 1274: chicken details already given are never asked again; complete -> ready to match', () async {
+    final c = await _controller();
+    c.start('I want 1 kg fresh chicken curry cut in Vijayawada');
+    final asked = <String>{};
+    for (var turn = 0; turn < 6 && !(c.state.deal?.readyToMatch ?? false); turn++) {
+      final q = c.state.lastQuestion ?? '';
+      expect(asked.add(q), isTrue, reason: 'question repeated: $q');
+      expect(q.toLowerCase(), isNot(contains('how much')), reason: 'quantity was given');
+      expect(q.toLowerCase(), isNot(contains('fresh')), reason: 'fresh was given');
+      c.answer(switch (turn) { 0 => 'skinless', 1 => 'delivery', _ => 'today evening' });
+    }
+    expect(c.state.deal!.readyToMatch, isTrue, reason: 'proceeds to matching once enough is known');
+    expect(asked.length, lessThanOrEqualTo(3), reason: 'only the missing details are asked');
+  });
+
   test('TV size stated up front is kept and not asked again', () async {
     final c = await _controller();
     c.start('I want to buy a 43 inch TV in Vijayawada');

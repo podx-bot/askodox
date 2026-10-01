@@ -28,7 +28,23 @@ class AskodoxUserProfile {
     this.verificationStatus,
     this.sellerTier,
     this.listings = 0,
+    this.email,
+    this.activeRole,
+    this.links = const [],
+    this.roleDetails = const {},
   });
+
+  final String? email;
+
+  /// The role the person explicitly chose to act in (one of [roles]).
+  final String? activeRole;
+
+  /// Optional contact / social links: {kind, url}.
+  final List<Map<String, String>> links;
+
+  /// Per-role extension of this ONE profile (snake_case role key -> fields),
+  /// e.g. seller.business_type, delivery_partner.vehicle_type.
+  final Map<String, Map<String, Object?>> roleDetails;
 
   final String userId;
   final String? name;
@@ -75,6 +91,17 @@ class AskodoxUserProfile {
       verificationStatus: _s(verification['status']),
       sellerTier: _s(verification['tier']),
       listings: (verification['listings'] as num?)?.toInt() ?? 0,
+      email: _s(json['email']),
+      activeRole: _s(json['active_role']),
+      links: [
+        for (final l in (json['links'] as List? ?? const []))
+          if (l is Map) {'kind': '${l['kind'] ?? 'other'}', 'url': '${l['url'] ?? ''}'},
+      ],
+      roleDetails: {
+        if (json['role_details'] is Map)
+          for (final e in (json['role_details'] as Map).entries)
+            if (e.value is Map) '${e.key}': Map<String, Object?>.from(e.value as Map),
+      },
     );
   }
 }
@@ -136,3 +163,22 @@ class AskodoxUserProfileController extends AsyncNotifier<AskodoxUserProfile?> {
 
 final askodoxUserProfileProvider =
     AsyncNotifierProvider<AskodoxUserProfileController, AskodoxUserProfile?>(AskodoxUserProfileController.new);
+
+/// Fields each role adds to the master profile (mirrors the backend's
+/// ROLE_FIELDS; the server drops anything else). Labels are English keys
+/// shown with the role's own label.
+const askodoxRoleProfileFields = <String, List<String>>{
+  'seller': ['business_type', 'description', 'service_area_km', 'working_hours', 'catalog_note'],
+  'service_provider': ['services', 'categories', 'service_area_km', 'availability', 'pricing', 'experience'],
+  'job_seeker': ['skills', 'experience', 'preferred_locations', 'availability', 'expected_pay'],
+  'delivery_partner': ['service_types', 'availability', 'operating_area', 'vehicle_type', 'vehicle_number'],
+};
+
+/// camelCase app role name -> the profile's snake_case role key.
+String askodoxRoleKey(String roleName) =>
+    roleName.replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]!.toLowerCase()}');
+
+String askodoxFieldLabel(String key) {
+  final words = key.replaceAll('_km', ' (km)').replaceAll('_', ' ');
+  return words[0].toUpperCase() + words.substring(1);
+}

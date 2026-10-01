@@ -16,7 +16,25 @@ from typing import Any, Dict, Optional
 EDITABLE = (
     "name", "address", "latitude", "longitude", "language", "roles",
     "business_name", "business_address", "business_category", "gstin", "upi_id",
+    "email", "active_role", "links", "role_details",
 )
+# Stored as JSON text (column name -> python type).
+JSON_FIELDS = {"roles": ("roles_json", list), "links": ("links_json", list), "role_details": ("role_details_json", dict)}
+
+# Universal Master Profile: the fields each role adds to the SAME profile.
+# New roles are new keys here (stored in role_details_json) -- no schema change.
+ROLE_FIELDS: Dict[str, tuple] = {
+    "buyer": (),
+    "service_seeker": (),
+    "seller": ("business_type", "description", "service_area_km", "working_hours", "catalog_note",
+               "business_document"),
+    "service_provider": ("services", "categories", "service_area_km", "availability", "pricing",
+                         "experience", "certification"),
+    "job_seeker": ("skills", "experience", "preferred_locations", "availability", "expected_pay"),
+    "delivery_partner": ("service_types", "availability", "operating_area", "vehicle_type", "vehicle_number",
+                         "licence_document"),
+    "survey_taker": ("interests", "availability"),
+}
 
 
 class UserProfileRepository:
@@ -41,6 +59,9 @@ class UserProfileRepository:
             columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profiles)")}
             if "upi_id" not in columns:  # the seller's own UPI ID (VPA) for direct payments
                 conn.execute("ALTER TABLE user_profiles ADD COLUMN upi_id TEXT")
+            for column in ("email", "active_role", "links_json", "role_details_json"):
+                if column not in columns:
+                    conn.execute(f"ALTER TABLE user_profiles ADD COLUMN {column} TEXT")
             conn.commit()
 
     @staticmethod
@@ -59,15 +80,21 @@ class UserProfileRepository:
             row = conn.execute("SELECT * FROM user_profiles WHERE user_id=?", (user_id,)).fetchone()
         data: Dict[str, Any] = {k: None for k in EDITABLE}
         data["roles"] = []
+        data["links"] = []
+        data["role_details"] = {}
         data["has_photo"] = False
         data["photo_updated_at"] = None
         if row:
             for key in EDITABLE:
-                if key == "roles":
+                if key in JSON_FIELDS:
+                    column, kind = JSON_FIELDS[key]
                     try:
-                        data["roles"] = [str(r) for r in json.loads(row["roles_json"] or "[]")][:20]
+                        value = json.loads(row[column] or ("[]" if kind is list else "{}"))
                     except (TypeError, ValueError):
-                        data["roles"] = []
+                        value = None
+                    data[key] = value if isinstance(value, kind) else kind()
+                    if key == "roles":
+                        data[key] = [str(r) for r in data[key]][:20]
                 else:
                     data[key] = row[key]
             data["has_photo"] = row["photo_jpeg"] is not None
@@ -85,8 +112,11 @@ class UserProfileRepository:
                 (user_id, now, now),
             )
             for key, value in values.items():
-                column = "roles_json" if key == "roles" else key
-                stored = json.dumps(list(value or [])) if key == "roles" else value
+                if key in JSON_FIELDS:
+                    column, kind = JSON_FIELDS[key]
+                    stored = json.dumps(kind(value or kind()))
+                else:
+                    column, stored = key, value
                 conn.execute(f'UPDATE user_profiles SET "{column}"=?, updated_at=? WHERE user_id=?',
                              (stored, now, user_id))
             conn.commit()

@@ -297,6 +297,32 @@ _GOODS_CATEGORIES = {"grocery", "groceries", "kirana", "food", "fruits", "vegeta
                      "bakery", "pharmacy", "medicine", "stationery", "cosmetics", "beauty"}
 
 
+# Same keyword, different intent: "fresh chicken delivery" is food for a
+# kitchen, not day-old chicks, hatcheries or poultry-farm supplies; a retail
+# request is not a manufacturer / exporter / wholesale (B2B) listing.
+_LIVESTOCK_WORDS = re.compile(r"\b(chicks?|day[- ]old|hatcher(y|ies)|broiler farm|layer farm|poultry farm(ing)?|"
+                              r"poultry (feed|equipment|cage|shed)|breeding|breeders?|livestock|fertile eggs|"
+                              r"incubators?|cattle feed|fish seed|fingerlings)\b", re.IGNORECASE)
+_FOOD_WORDS = re.compile(r"\b(chicken|mutton|meat|fish|prawns?|eggs?|curry cut|boneless|grocery|groceries|"
+                         r"vegetables?|fruits?|milk|food|biryani)\b", re.IGNORECASE)
+_B2B_HOSTS = ("indiamart.com", "tradeindia.com", "exportersindia.com", "alibaba.com", "made-in-china.com",
+              "go4worldbusiness.com", "dir.indiamart")
+_B2B_WORDS = re.compile(r"\b(manufacturers?|exporters?|wholesalers?|wholesale|bulk (supplier|order|buy)|"
+                        r"b2b|moq|minimum order|per tonne|per ton|metric ton)\b", re.IGNORECASE)
+_WANTS_B2B = re.compile(r"\b(wholesale|bulk|manufacturer|exporter|b2b|distributor|dealer(ship)?)\b", re.IGNORECASE)
+
+
+def intent_conflict(subject: Any, category: Any, url: str, title: Any = "", snippet: Any = "") -> str | None:
+    """A row that shares the keyword but serves another intent, or None."""
+    want = f"{subject or ''} {category or ''}"
+    row = f"{title or ''} {snippet or ''}"
+    if _FOOD_WORDS.search(want) and _LIVESTOCK_WORDS.search(row) and not _LIVESTOCK_WORDS.search(want):
+        return "livestock_page"
+    if not _WANTS_B2B.search(want) and (_host_matches(url, _B2B_HOSTS) or _B2B_WORDS.search(str(title or ""))):
+        return "wholesale_page"
+    return None
+
+
 def category_conflict(subject: Any, category: Any, url: str, title: Any = "", snippet: Any = "") -> str | None:
     """Why a row does NOT belong to this requirement's category, or None."""
     want = f"{subject or ''} {category or ''}"
@@ -386,6 +412,9 @@ class UniversalOnlineFallbackService:
                 continue
             if category_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
                 self._drop("other_category")
+                continue
+            if intent_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
+                self._drop("other_intent")
                 continue
             if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
                 self._drop("wrong_region")
