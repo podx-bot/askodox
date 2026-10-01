@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-01T11:56:35Z",
+ "generated_at": "2026-10-01T13:13:05Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:eb348c961a614b9b",
+   "trace_key": "browse:81ca5b9e01da4794",
    "videos": [
     {
      "video_id": "yt_cgQhFuIFREs",
@@ -29,17 +29,17 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some top review videos for 43-inch Samsung TVs. You can check out popular tech channels on YouTube for detailed comparisons and display tests.",
-    "domain": "GENERAL",
+    "reply": "Here are some review videos for Samsung 43-inch TVs.",
+    "domain": "PRODUCT",
     "transactional": false,
     "action": "search_reviews",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "subject": "TV",
+     "subject": "TV review videos",
+     "category": "television",
      "size": "43 inch",
-     "context": "review videos",
      "location": "Vijayawada"
     }
    },
@@ -87,13 +87,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube\"",
-    "reply": "The video titled 'Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026]' by Udrawat mentions features like 30W Speakers, HDR, and Tizen OS, but please note that this is the creator's opinion and not verified by ASKODOX. Specific facts such as price, ratings, and stock availability are not provided by the source.",
+    "reply": "The video titled \"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026]\" by Udrawat mentions features like 30W Speakers, HDR, and Tizen OS. Please note that this is the creator's opinion and not verified by ASKODOX. Specific details such as price, stock availability, ratings, and full specifications are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The Samsung 43-inch Crystal UHD TV offers good value with its 30W speakers, HDR, and Tizen OS for everyday viewing. You can check local electronics stores like Reliance Digital or Bajaj Electronics in Vijayawada, or order online via major e-commerce platforms.",
+    "follow_reply": "The Samsung 43-inch Crystal UHD 4K TV generally offers good value for its Vision AI features, HDR support, and 30W speakers. You can check local electronics retailers like Reliance Digital, Bajaj Electronics, or Croma in Vijayawada, or order online via Amazon or Flipkart.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "get_product_info",
+    "follow_action": "product_inquiry",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
      "action": "find_local"
@@ -207,7 +207,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:98d9538d0cff47e9",
+   "trace_key": "browse:1079de9af9794bf0",
    "videos": [
     {
      "video_id": "yt_cgQhFuIFREs",
@@ -229,16 +229,16 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియోల గురించి ఏ వివరాలు కావాలో చెప్పగలరు.",
+    "reply": "శామ్‌సంగ్ 43 అంగుళాల టీవీకి సంబంధించిన రివ్యూ వీడియోల సమాచారం ఇదిగోండి.",
     "domain": "GENERAL",
     "transactional": false,
-    "action": "search_video",
+    "action": "search_reviews",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
      "brand": "Samsung",
-     "size": "43 inches",
-     "subject": "TV review video",
+     "size": "43 అంగుళాలు",
      "location": "Vijayawada"
     }
    },
@@ -286,13 +286,13 @@
    },
    "ai": {
     "question": "\"Samsung 43 Inch Crystal UHD 4K Vision AI TV Review [2026] | 30W Speakers, HDR, Tizen OS - YouTube\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ Samsung 43 Inch Crystal UHD 4K TV గురించి యూట్యూబర్ Udrawat వారి వీడియో ఆధారంగా సమాచారం ఉంది (ఇది వారి వ్యక్తిగత అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు). ప్రసుత్తం ఈ మోడల్ యొక్క ధర, అందుబాటు, నాణ్యత (రివ్యూ వివరాలు), మరియు దూరం సంబంధించిన వివరాలు లభ్యం కాలేదు. మీకు వివరాలు కావాలంటే విక్రేతను అడిగి తెలుసుకోగలము.",
+    "reply": "Samsung 43 Inch Crystal UHD 4K Vision AI TV గురించి ధర, నాణ్యత, అందుబాటు మరియు రివ్యూల సమాచారం అందించిన వివరాల్లో అందుబాటులో లేదు (not provided). ఈ వీడియో Creator Udrawat అభిప్రాయం ప్రకారం అందించబడింది, ఇది ASKODOX ద్వారా ధృవీకరించబడలేదు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "అవును, 43 అంగుళాల టీవీ చిన్న లేదా మధ్యస్థ పరిమాణంలో ఉన్న గదికి (సుమారు 8 నుండి 10 అడుగుల వీక్షణ దూరానికి) చాలా బాగా సరిపోతుంది.",
+    "follow_reply": "అవును, 43 అంగుళాల టీవీ చిన్న లేదా మధ్యస్థ పరిమాణం గల గదికి సరిగ్గా సరిపోతుంది. సాధారణంగా 5 నుండి 8 అడుగుల వీక్షణ దూరం ఉంటే ఇది చాలా బాగుంటుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "check_product_suitability"
+    "follow_action": "get_product_info"
    },
    "next": {
     "step": "deals",
@@ -402,7 +402,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:61f1b68208c44991",
+   "trace_key": "browse:3b050072f7fb44c5",
    "videos": [
     {
      "video_id": "yt_i2FYVv-qa4w",
@@ -424,7 +424,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here is a quick overview of the Redmi Note 13 Pro review video, highlighting its performance, camera, and display quality.",
+    "reply": "Here is the review video for the Redmi Note 13 Pro.",
     "domain": "PRODUCT",
     "transactional": false,
     "action": "search_product_review",
@@ -433,7 +433,7 @@
     "entities": {
      "brand": "Redmi",
      "model": "Note 13 Pro",
-     "subject": "Redmi Note 13 Pro review video",
+     "subject": "review video",
      "location": "Vijayawada"
     }
    },
@@ -481,10 +481,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro Review - Not again! - YouTube\"",
-    "reply": "The video titled \"Redmi Note 13 Pro Review - Not again!\" is created by Izzi Boye and covers a 4G unboxing and review. Please note that this is the creator's personal opinion and has not been verified by ASKODOX. Details such as price, ratings, stock, and full specifications are not provided in the source metadata.",
+    "reply": "The video 'Redmi Note 13 Pro Review - Not again!' is a 4G unboxing and review by creator Izzi Boye. Please note that this is the creator's opinion and is not verified by ASKODOX. Specific details such as price, specifications, ratings, or stock are not provided in the source metadata.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "It offers good value for its camera and display, but performance depends on whether you get the 4G or 5G model. You can check for availability at local mobile stores in Vijayawada or online platforms like Mi Store and Flipkart. Which variant or color are you looking for?",
+    "follow_reply": "It depends on your priorities—the Redmi Note 13 Pro offers a great display and main camera, though performance and software updates vary by variant. You can find it at local electronics stores in Vijayawada like Mi Homes, Reliance Digital, or Bajaj Electronics. Which specific storage or color variant are you looking for?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "search_product",
@@ -602,7 +602,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:bb8428ac8d77472c",
+   "trace_key": "browse:c08ad63949f64c3f",
    "videos": [
     {
      "video_id": "yt_PC-ztrSrDMo",
@@ -624,16 +624,16 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some popular review videos for the Tata Nexon.",
+    "reply": "Here are some of the latest review videos for the Tata Nexon covering its features, performance, and drive experience.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_video",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "Tata Nexon review video",
      "brand": "Tata",
      "model": "Nexon",
-     "subject": "Tata Nexon review video",
      "location": "Vijayawada"
     }
    },
@@ -681,13 +681,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Tata Nexon 3000 Km Long Term Review: 3 Reasons to Buy, 3 Reasons to Avoid - YouTube\"",
-    "reply": "This video by carandbike shares their creator opinion from a 3-month long-term test of the Tata Nexon. Note that these points reflect the creator's opinion and are not verified by ASKODOX. Specific details like price, ratings, and exact specifications were not provided with this source.",
+    "reply": "This video by carandbike shares the creator's opinion on their 3-month long-term experience (3,000 km) with the Tata Nexon, highlighting 3 reasons to buy and 3 reasons to avoid. Please note this reflects the creator's opinion and is not verified by ASKODOX. Specific details like vehicle price, ratings, or specifications are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The Nexon offers strong safety, good ride quality, and feature-rich variants, though some users report inconsistent service experiences and infotainment glitches. You can check it out at Tata Motors dealerships in Vijayawada like Select Motors or Jasper Tata.",
+    "follow_reply": "The Tata Nexon offers strong safety, good build quality, and feature-rich trims, though some users note occasional software glitches or service variations. In Vijayawada, you can check it out at authorized Tata Motors showrooms like Jasper Tata or Lakshmi Tata.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "product_inquiry",
+    "follow_action": "provide_info",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
      "action": "find_local"
@@ -802,7 +802,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:0c7c3791cec34c3e",
+   "trace_key": "browse:346d25c71e874b23",
    "videos": [
     {
      "video_id": "yt_KOYoiZG5_3E",
@@ -824,7 +824,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some helpful videos demonstrating standard AC servicing and maintenance procedures.",
+    "reply": "Here are some helpful videos demonstrating AC servicing techniques.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "view_content",
@@ -832,7 +832,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "AC service video",
-     "category": "appliance maintenance",
      "location": "Vijayawada"
     }
    },
@@ -881,13 +880,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube\"",
-    "reply": "This video, titled 'Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best??', is a review by creator Crazyy Unboxing comparing the AC services of Urban Company and NoBroker. Please note that this is the creator's opinion and is not verified by ASKODOX. Specific details like pricing, ratings, or detailed service breakdowns are not provided in the source description.",
+    "reply": "This video by 'Crazyy Unboxing' compares Urban Company and NoBroker AC servicing to see which is better. Please note that this reflects the creator's personal opinion and is not verified by ASKODOX. Specific details like pricing, ratings, or detailed specs are not provided in the source metadata.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The video compares pricing, service quality, and technician experience between Urban Company and NoBroker to help you decide. You can book both services directly through their official apps or websites in Vijayawada.",
+    "follow_reply": "AC servicing depends on your specific needs: Urban Company often offers standardized multi-point checks, while NoBroker provides competitive localized pricing. You can book authorized AC technicians directly through ASKODOX here in Vijayawada. What type of AC service do you need?",
     "follow_source": "universal_ai",
-    "follow_domain": "GENERAL",
-    "follow_action": "answer_question",
+    "follow_domain": "SERVICE",
+    "follow_action": "book_service",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
      "action": "find_local"
@@ -970,7 +969,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:5a16a14a48d54d6f",
+   "trace_key": "browse:59b4694c9f7341fd",
    "videos": [
     {
      "video_id": "yt_2FrfA6qNn0U",
@@ -992,7 +991,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some helpful guides and videos on how to repair a kitchen sink plumbing leak or issue.",
+    "reply": "Here are some top recommended videos on how to repair a kitchen sink plumbing leak or issue.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_video",
@@ -1001,6 +1000,7 @@
     "entities": {
      "subject": "kitchen sink plumbing repair video",
      "category": "plumbing",
+     "service_type": "repair",
      "location": "Vijayawada"
     }
    },
@@ -1049,10 +1049,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Real Plumber Ultimate Plumbing Maintenance Guide - YouTube\"",
-    "reply": "This video, titled \"Real Plumber Ultimate Plumbing Maintenance Guide\", is an annual plumbing maintenance checklist provided by Roger Wakefield Plumbing Education. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, ratings, or reviews are not provided by the source.",
+    "reply": "The video 'Real Plumber Ultimate Plumbing Maintenance Guide' by Roger Wakefield Plumbing Education provides an annual plumbing maintenance checklist based on the creator's opinion, which is not verified by ASKODOX. Details like price, rating, reviews, and specific specifications are not provided by the source. Would you like help finding a professional plumber in Vijayawada instead?",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "It depends on whether you prefer a comprehensive DIY video guide. For local hands-on help, would you like to hire a professional plumber in Vijayawada instead?",
+    "follow_reply": "As a DIY maintenance video guide, it is useful for basic maintenance tips, but for complex kitchen sink plumbing repairs, hiring a local specialist is recommended. Would you like me to help you find and book a professional plumber in Vijayawada?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "find_service",
@@ -1138,7 +1138,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:ef003bdff0064748",
+   "trace_key": "browse:7800526fda8b4551",
    "videos": [
     {
      "video_id": "yt_1Nb0khRXiJk",
@@ -1160,7 +1160,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some popular Hyderabadi biryani review videos you can check out on YouTube, featuring top food reviewers exploring famous spots like Paradise, Bawarchi, and Cafe Bahar.",
+    "reply": "Here are some popular Hyderabadi biryani review videos you can check out on YouTube.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_content",
@@ -1168,7 +1168,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "Hyderabadi biryani review video",
-     "category": "video",
      "location": "Vijayawada"
     }
    },
@@ -1216,13 +1215,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani - YouTube\"",
-    "reply": "This video, titled 'Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani', is by Ashus Delicacies. Please note this is the creator's opinion and not verified by ASKODOX. The description lists ingredients starting with 'Chicken – 1...', but detailed specs, step-by-step instructions, ratings, and reviews are not provided in the source metadata.",
+    "reply": "The video 'Hyderabadi Chicken Biryani | Chicken Biryani Recipe | Resaturant Hyderabadi Chicken Biryani' is by Ashus Delicacies. Note that this represents the creator's opinion and recipe, not verified facts by ASKODOX. Details like price, rating, reviews, and full specifications are not provided by the source. Would you like me to share a general Hyderabadi Chicken Biryani recipe or help you find biryani places in Vijayawada?",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "This video is a recipe tutorial by Ashus Delicacies showing how to cook Hyderabadi Chicken Biryani at home, rather than a review of a specific restaurant or product. If you'd like to order biryani in Vijayawada instead, I can help you find top-rated local restaurants.",
+    "follow_reply": "That video is a cooking recipe by Ashus Delicacies, not a product review. If you'd like to try authentic Hyderabadi Chicken Biryani, I can suggest popular top-rated restaurants serving it right here in Vijayawada.",
     "follow_source": "universal_ai",
-    "follow_domain": "GENERAL",
-    "follow_action": "general_chat",
+    "follow_domain": "FOOD",
+    "follow_action": "search_food",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
      "action": "find_local"
@@ -1321,7 +1320,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:dce7001371404c08",
+   "trace_key": "browse:49447aca4ca34e8e",
    "videos": [
     {
      "video_id": "yt_NWiBFTd5aD0",
@@ -1343,7 +1342,7 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Are you looking for video reviews of Araku Valley trips to help plan your visit?",
+    "reply": "Here are some popular travel review videos for the Araku Valley trip that show the route, key attractions, and travel tips.",
     "domain": "GENERAL",
     "transactional": false,
     "action": "search_content",
@@ -1351,7 +1350,7 @@
     "source": "universal_ai",
     "entities": {
      "subject": "Araku valley trip review video",
-     "location": "Araku valley"
+     "location": "Vijayawada"
     }
    },
    "explain": {
@@ -1398,13 +1397,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Ultimate Araku Valley Travel Guide: Top Things to Do and See - YouTube\"",
-    "reply": "This video by Let's Discover India is titled 'Ultimate Araku Valley Travel Guide: Top Things to Do and See'. According to its description, it covers places like Borra Caves and Anantagiri Waterfalls. Please note, this is the creator's opinion and not verified by ASKODOX as the video content itself has not been analyzed. Details like price, rating, and distance are not provided.",
+    "reply": "This video by Let's Discover India covers top things to do in Araku Valley, including Borra Caves and Anantagiri Waterfalls. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as ratings, reviews, or distance are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Could you please clarify what specific product, item, or service you are asking about?",
+    "follow_reply": "The travel guide video is free to watch on YouTube and is great for planning your itinerary. If you are asking about booking a local tour package from Vijayawada, please let me know your preferred dates or budget.",
     "follow_source": "universal_ai",
     "follow_domain": "GENERAL",
-    "follow_action": "clarify_need",
+    "follow_action": "provide_information",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
      "action": "find_local"
@@ -1517,7 +1516,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:c50a8742c7c24266",
+   "trace_key": "browse:95d7a9f448874fc6",
    "videos": [
     {
      "video_id": "yt_88rgLE_eNJk",
@@ -1539,16 +1538,17 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some popular review videos for used Royal Enfield Classic 350 motorcycles. You can watch these to check common issues, performance, and buyer tips.",
-    "domain": "GENERAL",
+    "reply": "Here are some popular review videos for a used Royal Enfield Classic 350 to help you evaluate its performance, common issues, and maintenance costs.",
+    "domain": "PRODUCT",
     "transactional": false,
-    "action": "search_videos",
+    "action": "search_reviews",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "used Royal Enfield Classic 350 review video",
      "brand": "Royal Enfield",
      "model": "Classic 350",
+     "context": "used",
      "location": "Vijayawada"
     }
    },
@@ -1596,10 +1596,10 @@
    },
    "ai": {
     "question": "Tell me more about \"The Truth About the Royal Enfield Classic 350 (2025 Review) - YouTube\"",
-    "reply": "According to the video description by Jack Brock, this 2025 review focuses on a direct, honest talk about the Royal Enfield Classic 350, avoiding over-produced cinematic shots. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Details like price, rating, and specifications are not provided by the source.",
+    "reply": "The video titled \"The Truth About the Royal Enfield Classic 350 (2025 Review)\" is created by Jack Brock. The creator mentions being tired of over-produced reviews and aims to focus directly on the bike rather than cinematic shots. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like price, rating, reviews, and specifications are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The Classic 350 is generally well-regarded for its refined engine, comfortable riding posture, and classic styling, making it a great cruiser for daily commuting and touring. You can check out local pre-owned bike dealerships or official Royal Enfield showrooms in Vijayawada for test rides and availability.",
+    "follow_reply": "The Royal Enfield Classic 350 offers refined performance, classic styling, and lower vibrations, making it a great choice for daily commuting and cruising. You can find new models at official Royal Enfield showrooms in Vijayawada or explore local pre-owned dealerships and platforms like OLX for used options. Are you looking for a new or used bike?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "get_product_info",
@@ -1695,17 +1695,17 @@
       "location_label": null
      },
      {
-      "title": "Royal Enfield Classic 350 On Road Price Vijayawada Aug 2026 - ₹2.22L",
+      "title": "On Road Price Details in Vijayawada: Royal Enfield Classic 350 (September 2026)",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.zigwheels.com",
-      "price": 221768.0,
+      "source_name": "www.bikedekho.com",
+      "price": 223854.0,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
-      "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
+      "destination_url": "https://www.bikedekho.com/royal-enfield/classic-350/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/k0CIcQh_qmfnUrBaVtu5itoxoC0avqxgA5PTmn5taDI/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZG4u/YmlrZWRla2hvLmNv/bS9wcm9jZXNzZWRp/bWFnZXMvcm95YWwt/ZW5maWVsZC9jbGFz/c2ljMzUwL3NvdXJj/ZS9jbGFzc2ljMzUw/NjhiNmRiMzFmMzk0/OC5qcGc",
       "location_label": null
      }
     ]
@@ -1716,7 +1716,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:be2496cfb3414b83",
+   "trace_key": "browse:075b3ac5b3714ec2",
    "videos": [
     {
      "video_id": "yt_DJ5BkFUoKxg",
@@ -1738,10 +1738,10 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "Here are some top offer review videos for the iPhone 15 analyzing current deals and value.",
-    "domain": "PRODUCT",
+    "reply": "Here are some popular video reviews discussing the iPhone 15 deals and offers.",
+    "domain": "GENERAL",
     "transactional": false,
-    "action": "search_reviews",
+    "action": "search_media",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
@@ -1795,13 +1795,13 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 in 2026 - worth it? (Review) - YouTube\"",
-    "reply": "This video by 91Tech covers whether the iPhone 15 is still worth buying in 2026. Note that this reflects the creator's opinion and is not verified by ASKODOX. According to the video description, the iPhone 15 and 15 Plus are solid midrange smartphones featuring USB-C, though they are now over 2 years old and were discontinued recently. Please note that details like price, stock availability, ratings, and exact specifications are not provided by the source.",
+    "reply": "This video by 91Tech gives their personal opinion on whether the iPhone 15 is still worth buying in 2026. They describe it as a solid midrange option featuring modern additions like USB-C, though note it is over 2 years old and recently discontinued. Please note this reflects the creator's view and is not verified by ASKODOX. Specific details like price, stock availability, or user ratings are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "The iPhone 15 offers a great display, strong performance, and USB-C, making it a solid choice if found at a good discount. You can check local electronics stores like Reliance Digital, Bajaj Electronics, or Poorvika in Vijayawada for stock and deals.",
+    "follow_reply": "The iPhone 15 remains a strong option with its USB-C port, Dynamic Island, and reliable performance. You can check availability at local electronics retailers like Croma, Reliance Digital, or authorized Apple resellers in Vijayawada.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "find_product",
+    "follow_action": "check_availability",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
      "action": "find_local"
@@ -1916,7 +1916,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:d3d986c6419c4674",
+   "trace_key": "browse:6835014898464ba2",
    "videos": [
     {
      "video_id": "yt_KOYoiZG5_3E",
@@ -1938,15 +1938,15 @@
    ],
    "production_video_rows": 1,
    "search_decision": {
-    "reply": "AC సర్వీస్ ఎలా చేస్తారో చూపించే వీడియోలు యూట్యూబ్‌లో చూడవచ్చు. మీకు విజయవాడలో ఏసీ సర్వీసింగ్ టెక్నీషియన్ కావాలా?",
+    "reply": "AC సర్వీసింగ్ సంబంధించిన వీడియోలు యూట్యూబ్ లేదా ఇతర మీడియా ప్లాట్‌ఫారమ్‌లలో అందుబాటులో ఉంటాయి. మీకు సర్వీస్ కావాలా లేక కేవలం వీడియో చూడాలనుకుంటున్నారా?",
     "domain": "GENERAL",
     "transactional": false,
-    "action": "provide_information",
+    "action": "view_content",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "AC service video",
-     "category": "AC service",
+     "category": "appliance service",
      "location": "Vijayawada"
     }
    },
@@ -1995,13 +1995,13 @@
    },
    "ai": {
     "question": "\"Urban Company AC Service Vs Nobroker AC Service 2025 | Which is Best?? - YouTube\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియో 'Urban Company vs NoBroker AC Service' పోలిక గురించి 'Crazyy Unboxing' ఛానెల్ వారి అభిప్రాయం. వీడియోలో ధర, నాణ్యత, రివ్యూలు మరియు అందుబాటు గురించిన వివరాలు అందించబడలేదు.",
+    "reply": "ఈ యూట్యూబ్ వీడియో (Crazyy Unboxing ఛానల్) అర్బన్ కంపెనీ మరియు నోబ్రోకర్ AC సర్వీస్‌ల మధ్య పోలిక మరియు రివ్యూ గురించి చర్చిస్తుంది. అయితే, సదరు సోర్స్ నుండి ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూల వివరాలు ప్రత్యేకంగా లభించలేదు (not provided). ఇది క్రియేటర్ వ్యక్తిగత అభిప్రాయం మాత్రమే.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను AC లేదా సర్వీసింగ్ సరిగ్గా సరిపోతుంది. మీరు ఏ బ్రాండ్ లేదా మోడల్ AC గురించి తెలుసుకోవాలనుకుంటున్నారు?",
+    "follow_reply": "అవును, చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను AC సరిగ్గా సరిపోతుంది. మీకు AC సర్వీసింగ్ కావాలా లేదా కొత్త AC కొనడానికి వివరాలు కావాలా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "general_inquiry"
+    "follow_action": "answer_question"
    },
    "next": {
     "step": "local_service",
