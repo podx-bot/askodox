@@ -28,6 +28,7 @@ PHONE_TEST_APKS = {
     "1274": "217f1fb4e1957a9c2462adbb01683c15edbf52ca42cc163e4fa10ed9aa87bce1",
     "1275": "c1bba4815912d39bc9dfd8970a80ab039b40dd8564797f8e667cd35712b3c67f",
     "1276": "58d09a7fb35c9712794adc4cfd88e2085561558eff70b711de40571036db6f6f",
+    "1277": "04ab19d2462f21aae4f1bb7e101df1402a3b8f03e8601910dafb81732f9ee9bb",
 }
 SOURCE = "https://github.com/podx-bot/askodox/releases/download/phone-test-{b}/askodox-phone-test-{b}.apk"
 APK_MIME = "application/vnd.android.package-archive"
