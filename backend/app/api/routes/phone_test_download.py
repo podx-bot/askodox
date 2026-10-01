@@ -26,6 +26,7 @@ router = APIRouter(tags=["phone-test"])
 # build -> pinned SHA-256 of the signed, CI-verified APK
 PHONE_TEST_APKS = {
     "1274": "217f1fb4e1957a9c2462adbb01683c15edbf52ca42cc163e4fa10ed9aa87bce1",
+    "1275": "c1bba4815912d39bc9dfd8970a80ab039b40dd8564797f8e667cd35712b3c67f",
 }
 SOURCE = "https://github.com/podx-bot/askodox/releases/download/phone-test-{b}/askodox-phone-test-{b}.apk"
 APK_MIME = "application/vnd.android.package-archive"
