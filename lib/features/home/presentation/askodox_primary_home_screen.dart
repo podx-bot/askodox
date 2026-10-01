@@ -228,6 +228,9 @@ class _AskodoxPrimaryHomeScreenState
   /// composer (with their previews) so the customer can retry or remove them.
   List<ChatAttachment> _keptAttachments = const [];
   bool _staleLocationNoticeShown = false;
+
+  /// The last listing failed because sign-in is missing / rejected.
+  bool _listingNeedsSignIn = false;
   bool _analyzingAttachments = false;
   int _attachmentJob = 0;
   static const _maxAttachments = 4;
@@ -827,6 +830,7 @@ class _AskodoxPrimaryHomeScreenState
     _lastIntent = null;
     _lastGoodProductQuery = null;
     _listingBanner = null;
+    _listingNeedsSignIn = false;
     _listingBannerIsError = false;
   }
 
@@ -1148,9 +1152,22 @@ class _AskodoxPrimaryHomeScreenState
           false,
         );
       }
+      final raw = result.message ?? '';
+      if (RegExp(r'sign in|session', caseSensitive: false).hasMatch(raw)) {
+        // A missing / rejected sign-in: say it plainly and offer sign-in --
+        // never the server's internal wording (APK 1276).
+        _listingNeedsSignIn = true;
+        return (
+          _te
+              ? 'మీ లిస్టింగ్ ప్రచురించడానికి సైన్ ఇన్ చేయండి. మీ వివరాలు అలాగే ఉంటాయి.'
+              : 'Sign in to publish your listing. Your details are kept.',
+          true,
+        );
+      }
       return (
-        result.message ??
-            (_te
+        raw.isNotEmpty
+            ? raw
+            : (_te
                 ? 'లిస్టింగ్ సేవ్ చేయడం సాధ్యం కాలేదు.'
                 : 'Unable to save this listing.'),
         true,
@@ -1331,6 +1348,7 @@ class _AskodoxPrimaryHomeScreenState
       _actionConfirmed = false;
       _listingBanner = null;
       _listingBannerIsError = false;
+      _listingNeedsSignIn = false;
       _turns.add(ConversationTurnRecord(
         text: typed,
         isUser: true,
@@ -3228,7 +3246,10 @@ class _AskodoxPrimaryHomeScreenState
           if (_listingBanner != null) ...[
             const SizedBox(height: 6),
             _ListingBanner(
-                message: _listingBanner!, isError: _listingBannerIsError),
+                message: _listingBanner!,
+                isError: _listingBannerIsError,
+                onSignIn: _listingNeedsSignIn ? () => context.push('/onboarding?signin=1') : null,
+                signInLabel: te ? 'సైన్ ఇన్' : 'Sign in'),
           ],
         ],
       );
@@ -3578,9 +3599,11 @@ class _DemoProfileCard extends StatelessWidget {
 }
 
 class _ListingBanner extends StatelessWidget {
-  const _ListingBanner({required this.message, required this.isError});
+  const _ListingBanner({required this.message, required this.isError, this.onSignIn, this.signInLabel = 'Sign in'});
   final String message;
   final bool isError;
+  final VoidCallback? onSignIn;
+  final String signInLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -3605,6 +3628,9 @@ class _ListingBanner extends StatelessWidget {
             child: Text(message,
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.w700, height: 1.3))),
+        if (onSignIn != null)
+          TextButton(
+              key: const Key('askodoxListingSignIn'), onPressed: onSignIn, child: Text(signInLabel)),
       ]),
     );
   }
@@ -4544,57 +4570,51 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   style: TextStyle(color: _kindColor(kind), fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: .6)),
             ),
           ),
-        if (compact && action != ChatResultAction.watchVideo && _match.imageUrl?.trim().isNotEmpty == true) ...[
-          ClipRRect(
-            key: ValueKey('askodoxCardImage-${match.id}'),
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: 112,
-              width: double.infinity,
-              child: Image.network(_resolvedImage(_match.imageUrl!),
-                  fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: _sourceIcon())),
+
+        if (action == ChatResultAction.watchVideo &&
+            match.imageUrl?.trim().isNotEmpty == true) ...[
+          // Small "double stamp" thumbnail: the chat stays readable
+          // (APK 1276: full-width thumbnails pushed the chat far down).
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              key: ValueKey('askodoxVideoThumb-${match.id}'),
+              onTap: _openVideo,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 112,
+                  height: 63,
+                  child: Stack(fit: StackFit.expand, children: [
+                    Image.network(match.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const ColoredBox(color: Color(0xFF10204A))),
+                    const Center(
+                      child: Icon(Icons.play_circle_fill_rounded,
+                          size: 28, color: Colors.white),
+                    ),
+                  ]),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
         ],
-        if (action == ChatResultAction.watchVideo &&
-            match.imageUrl?.trim().isNotEmpty == true) ...[
-          GestureDetector(
-            key: ValueKey('askodoxVideoThumb-${match.id}'),
-            onTap: _openVideo,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(fit: StackFit.expand, children: [
-                  Image.network(match.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const ColoredBox(color: Color(0xFF10204A))),
-                  const Center(
-                    child: Icon(Icons.play_circle_fill_rounded,
-                        size: 56, color: Colors.white),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (!(compact && _match.imageUrl?.trim().isNotEmpty == true)) ...[
           SizedBox(
-              width: 64,
-              height: 64,
+              key: _match.imageUrl?.trim().isNotEmpty == true ? ValueKey('askodoxCardImage-${match.id}') : null,
+              // "Double stamp": two stamps side by side.
+              width: _match.imageUrl?.trim().isNotEmpty == true ? 72 : 44,
+              height: _match.imageUrl?.trim().isNotEmpty == true ? 48 : 44,
               child: _match.imageUrl?.trim().isNotEmpty == true
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                       child: Image.network(_resolvedImage(_match.imageUrl!),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _sourceIcon()))
                   : _sourceIcon()),
-          const SizedBox(width: 12),
-          ],
+          const SizedBox(width: 10),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

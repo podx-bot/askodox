@@ -502,7 +502,9 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
           Card(child: ListTile(leading: const Icon(Icons.touch_app_rounded), title: Text(s.instruction!))),
         if (s.message != null &&
             s.phase != ScreenGuidePhase.privacyPaused &&
-            s.phase != ScreenGuidePhase.needsAccessibility)
+            s.phase != ScreenGuidePhase.needsAccessibility &&
+            s.phase != ScreenGuidePhase.notIncluded &&
+            s.phase != ScreenGuidePhase.disabled)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(s.message!, key: const Key('screenGuideMessage')),
@@ -533,7 +535,7 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(t('Start guide', 'గైడ్ ప్రారంభించండి')),
           ),
-        ] else
+        ] else if (running)
           Wrap(spacing: 8, children: [
             FilledButton(
               key: const Key('screenGuideContinue'),

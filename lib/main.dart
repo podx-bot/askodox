@@ -40,7 +40,7 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
     });
 
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (ref.read(authSessionProvider).user != null) {
+      if (_hasUsableSession()) {
         _sessionTimer?.cancel();
         return;
       }
@@ -49,8 +49,17 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
 
   }
 
+  /// A signed-in user WITH a session token. The stored session restores the
+  /// user but not the token (APK 1276: "Sign in required -- no session token
+  /// was sent" on selling / listings), so the token is restored here too.
+  bool _hasUsableSession() {
+    final session = ref.read(authSessionProvider);
+    final token = (session.tokenPlaceholder ?? '').trim();
+    return session.user != null && token.isNotEmpty && token != 'OTP_VERIFIED';
+  }
+
   Future<void> _restoreOnboardingIdentity() async {
-    if (ref.read(authSessionProvider).user != null) return;
+    if (_hasUsableSession()) return;
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('askodox.onboarding.complete') != true) return;
     final mobile = prefs.getString('askodox.profile.mobile')?.trim() ?? '';
@@ -61,6 +70,12 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
     // AuthController.completeOnboarding for why this replaces the old
     // fabricated 'OTP_VERIFIED' placeholder.
     final token = prefs.getString('askodox.auth.token')?.trim();
+    if (ref.read(authSessionProvider).user != null && (token == null || token.isEmpty)) {
+      // Nothing better to restore: keep the session; the screens offer
+      // "sign in again" when the server rejects it. No retry loop.
+      _sessionTimer?.cancel();
+      return;
+    }
     await ref.read(authSessionProvider.notifier).completeOnboarding(
           mobile: mobile,
           displayName: name,

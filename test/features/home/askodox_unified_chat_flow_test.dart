@@ -190,11 +190,12 @@ class _FakeLifecycle extends OrderLifecycleRepository {
 
 class _FakeSellerListingRepository implements SellerListingRepository {
   final List<UniversalDeal> listed = [];
+  SellerListingResult? next;
 
   @override
   Future<SellerListingResult> createListing(UniversalDeal deal) async {
     listed.add(deal);
-    return const SellerListingResult(success: true);
+    return next ?? const SellerListingResult(success: true);
   }
 }
 
@@ -900,6 +901,34 @@ void main() {
     expect(find.textContaining('How much chicken'), findsNothing, reason: 'no English question in a Telugu chat');
     expect(find.byKey(const Key('askodoxCompanionLine')), findsNothing,
         reason: 'the reply is on screen; no second bubble restating it');
+  });
+
+  testWidgets('APK 1276: every companion button does its job (camera, photos, video, files, type)', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository(const []));
+    await h.pump(tester);
+    for (final action in ['camera', 'photos', 'video', 'files']) {
+      h.picker.next = const [];
+      await _openCompanionHub(tester);
+      await tester.tap(find.byKey(ValueKey('askodoxHubAction-$action')));
+      await _Harness.settle(tester);
+      expect(h.picker.sources.last, action, reason: '$action opens its own picker');
+    }
+    await _openCompanionHub(tester);
+    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-chat')));
+    await _Harness.settle(tester);
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode?.hasFocus, isTrue, reason: 'Type puts the cursor in the message box');
+  });
+
+  testWidgets('APK 1276: a listing rejected for sign-in says so plainly and offers Sign in', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository(const []));
+    h.listings.next = const SellerListingResult(
+        success: false, message: 'Sign in required -- no session token was sent');
+    await h.pump(tester);
+    await h.send(tester, 'I want to sell my 2 bicycles in Vijayawada for 3000');
+    expect(find.textContaining('no session token'), findsNothing, reason: 'never the server wording');
+    expect(find.textContaining('Sign in to publish your listing'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxListingSignIn')), findsOneWidget);
   });
 
   group('APK 1274: sign-off', () {
