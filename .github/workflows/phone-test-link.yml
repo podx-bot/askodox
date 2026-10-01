@@ -6,17 +6,13 @@ name: Phone-test download link
 # It is a separate, test-only prerelease. It never touches the in-app update
 # channel (tag askodox-latest / latest.json), never runs a build and never
 # signs anything -- it only republishes the already signed + verified artifact.
+#
+# Trigger: push a change to .github/phone-test-link.json on a non-main branch
+# ({"run_id": "<Android Live Build run id>", "build_number": "<n>"}).
 on:
-  workflow_dispatch:
-    inputs:
-      run_id:
-        description: Android Live Build run id that produced the phone-test artifact
-        required: true
-        type: string
-      build_number:
-        description: Build number of that artifact (askodox-phone-test-<build_number>)
-        required: true
-        type: string
+  push:
+    branches-ignore: [main]
+    paths: ['.github/phone-test-link.json']
 
 permissions:
   contents: write
@@ -26,15 +22,21 @@ jobs:
   link:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Read the request
+        run: |
+          set -euo pipefail
+          echo "RUN_ID=$(jq -r .run_id .github/phone-test-link.json)" >> "$GITHUB_ENV"
+          echo "BUILD=$(jq -r .build_number .github/phone-test-link.json)" >> "$GITHUB_ENV"
       - name: Download the verified phone-test artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          [[ "${{ inputs.build_number }}" =~ ^[0-9]+$ ]] || { echo "build_number must be digits"; exit 1; }
-          [[ "${{ inputs.run_id }}" =~ ^[0-9]+$ ]] || { echo "run_id must be digits"; exit 1; }
-          gh run download "${{ inputs.run_id }}" -R "$GITHUB_REPOSITORY" \
-            -n "askodox-phone-test-${{ inputs.build_number }}" -D phone-test
+          [[ "${BUILD}" =~ ^[0-9]+$ ]] || { echo "build_number must be digits"; exit 1; }
+          [[ "${RUN_ID}" =~ ^[0-9]+$ ]] || { echo "run_id must be digits"; exit 1; }
+          gh run download "${RUN_ID}" -R "$GITHUB_REPOSITORY" \
+            -n "askodox-phone-test-${BUILD}" -D phone-test
           ls -la phone-test
           grep -q '^PASS' phone-test/VERIFICATION.txt || { echo "artifact is not verified"; exit 1; }
 
@@ -43,13 +45,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          BUILD="${{ inputs.build_number }}"
           TAG="phone-test-${BUILD}"
           [ "$TAG" != "askodox-latest" ]
           APK="$(ls phone-test/*.apk | head -n 1)"
           cp "$APK" "askodox-phone-test-${BUILD}.apk"
           sha256sum "askodox-phone-test-${BUILD}.apk" | tee SHA256.txt
-          NOTES="STAGING phone-test build ${BUILD} (backend: $(cat phone-test/BACKEND.txt 2>/dev/null || echo staging)). Not a production release; the in-app update channel is unchanged. Source run: ${{ inputs.run_id }}."
+          NOTES="STAGING phone-test build ${BUILD} (backend: $(cat phone-test/BACKEND.txt 2>/dev/null || echo staging)). Not a production release; the in-app update channel is unchanged. Source run: ${RUN_ID}."
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "askodox-phone-test-${BUILD}.apk" SHA256.txt --clobber -R "$GITHUB_REPOSITORY"
           else
