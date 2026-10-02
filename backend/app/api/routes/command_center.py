@@ -1080,6 +1080,56 @@ def social_video_source_upsert(provider_id: str, payload: VideoSourceUpsert, req
     command_center(request.app.state.container).audit(principal["id"], "video_source_upsert", "video_source", provider_id, None, {"active": item["active"]})
     return item
 
+class SocialVideoUpsert(BaseModel):
+    provider_id: str
+    external_video_id: str
+    canonical_url: str
+    title: str = ""
+    creator: str = ""
+    category: str = ""
+    thumbnail_url: str = ""
+    related_ref: str = ""
+    active: bool = True
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class VideoDiscussionCreate(BaseModel):
+    user_ref: str
+    body: str
+    kind: str = "question"
+    parent_id: int | None = None
+
+@router.get("/social-growth/videos")
+def social_videos(request: Request, limit: int = 100) -> dict[str, Any]:
+    _require(request, "growth:view")
+    limit=max(1,min(limit,500))
+    return {"items": _rows(request, "SELECT * FROM social_videos ORDER BY id DESC LIMIT ?", (limit,))}
+
+@router.post("/social-growth/videos")
+def social_video_upsert(payload: SocialVideoUpsert, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    try:
+        return _social_hub(request).upsert_video(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+@router.get("/social-growth/videos/{video_id}/discussion")
+def social_video_discussion(video_id: int, request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    items=_social_hub(request).discussions(video_id)
+    for item in items:
+        item["user_ref"]=mask_user_id(str(item.get("user_ref") or ""))
+    return {"items":items}
+
+@router.post("/social-growth/videos/{video_id}/discussion")
+def social_video_discussion_add(video_id: int, payload: VideoDiscussionCreate, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    try:
+        item=_social_hub(request).add_discussion(video_id, **payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    item["user_ref"]=mask_user_id(str(item.get("user_ref") or ""))
+    return item
+
 @router.get("/social-growth/campaigns")
 def social_campaigns(request: Request) -> dict[str, Any]:
     _require(request, "growth:view")
