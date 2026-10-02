@@ -1019,6 +1019,178 @@ def audit(request: Request, limit: int = 100) -> dict[str, Any]:
     return {"items": command_center(request.app.state.container).audit_log(limit=limit)}
 
 
+
+# ---------------------------------------- Social / Ads / Offers / Rewards --
+
+class VideoSourceUpsert(BaseModel):
+    provider_type: str
+    api_enabled: bool = False
+    embed_enabled: bool = True
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class SponsoredCampaignCreate(BaseModel):
+    owner_ref: str = "askodox"
+    campaign_type: str = "sponsored"
+    title: str
+    destination_url: str | None = None
+    category: str | None = None
+    location_scope: str | None = None
+    budget: float | None = Field(default=None, ge=0)
+    starts_at: str | None = None
+    ends_at: str | None = None
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class PartnerOfferCreate(BaseModel):
+    partner_id: str
+    offer_type: str
+    title: str
+    bank_name: str | None = None
+    card_network: str | None = None
+    merchant: str | None = None
+    promo_code: str | None = None
+    discount_value: float | None = None
+    discount_unit: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
+    terms_url: str | None = None
+    source_url: str | None = None
+    verified: bool = False
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+def _social_hub(request: Request):
+    hub = getattr(request.app.state.container, "social_ads_offers_hub", None)
+    if hub is None:
+        from app.services.social_ads_offers_hub import SocialAdsOffersHub
+        hub = SocialAdsOffersHub(request.app.state.container.settings.database_path)
+        request.app.state.container.social_ads_offers_hub = hub
+    return hub
+
+@router.get("/social-growth/api-status")
+def social_api_status(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    from app.services.social_video_api_service import SocialVideoApiService
+    return {"items": SocialVideoApiService().status()}
+
+class YouTubeImportRequest(BaseModel):
+    query: str
+    max_results: int = Field(default=10, ge=1, le=25)
+    category: str = ""
+    related_ref: str = ""
+
+@router.post("/social-growth/youtube/import")
+def social_youtube_import(payload: YouTubeImportRequest, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    from app.services.social_video_api_service import SocialVideoApiService
+    try:
+        rows=SocialVideoApiService().youtube_search(payload.query,payload.max_results)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"YouTube API unavailable: {type(exc).__name__}") from exc
+    saved=[]
+    for row in rows:
+        saved.append(_social_hub(request).upsert_video(**row,category=payload.category,related_ref=payload.related_ref))
+    return {"imported":len(saved),"items":saved}
+
+@router.get("/social-growth/video-sources")
+def social_video_sources(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _rows(request, "SELECT provider_id,provider_type,api_enabled,embed_enabled,active,updated_at FROM social_video_sources ORDER BY provider_id")}
+
+@router.put("/social-growth/video-sources/{provider_id}")
+def social_video_source_upsert(provider_id: str, payload: VideoSourceUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _social_hub(request).upsert_video_source(provider_id, **payload.model_dump())
+    command_center(request.app.state.container).audit(principal["id"], "video_source_upsert", "video_source", provider_id, None, {"active": item["active"]})
+    return item
+
+class SocialVideoUpsert(BaseModel):
+    provider_id: str
+    external_video_id: str
+    canonical_url: str
+    title: str = ""
+    creator: str = ""
+    category: str = ""
+    thumbnail_url: str = ""
+    related_ref: str = ""
+    active: bool = True
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class VideoDiscussionCreate(BaseModel):
+    user_ref: str
+    body: str
+    kind: str = "question"
+    parent_id: int | None = None
+
+@router.get("/social-growth/videos")
+def social_videos(request: Request, limit: int = 100) -> dict[str, Any]:
+    _require(request, "growth:view")
+    limit=max(1,min(limit,500))
+    return {"items": _rows(request, "SELECT * FROM social_videos ORDER BY id DESC LIMIT ?", (limit,))}
+
+@router.post("/social-growth/videos")
+def social_video_upsert(payload: SocialVideoUpsert, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    try:
+        return _social_hub(request).upsert_video(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+@router.get("/social-growth/videos/{video_id}/discussion")
+def social_video_discussion(video_id: int, request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    items=_social_hub(request).discussions(video_id)
+    for item in items:
+        item["user_ref"]=mask_user_id(str(item.get("user_ref") or ""))
+    return {"items":items}
+
+@router.post("/social-growth/videos/{video_id}/discussion")
+def social_video_discussion_add(video_id: int, payload: VideoDiscussionCreate, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    try:
+        item=_social_hub(request).add_discussion(video_id, **payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    item["user_ref"]=mask_user_id(str(item.get("user_ref") or ""))
+    return item
+
+@router.get("/social-growth/campaigns")
+def social_campaigns(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    return {"items": _rows(request, "SELECT * FROM sponsored_campaigns ORDER BY id DESC LIMIT 500")}
+
+@router.post("/social-growth/campaigns")
+def social_campaign_create(payload: SponsoredCampaignCreate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "growth:manage")
+    try:
+        item = _social_hub(request).create_campaign(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    command_center(request.app.state.container).audit(principal["id"], "campaign_create", "sponsored_campaign", str(item["id"]), None, {"type": item["campaign_type"], "active": item["active"]})
+    return item
+
+@router.get("/social-growth/partner-offers")
+def social_partner_offers(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    return {"items": _rows(request, "SELECT * FROM partner_offers ORDER BY id DESC LIMIT 500")}
+
+@router.post("/social-growth/partner-offers")
+def social_partner_offer_create(payload: PartnerOfferCreate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "growth:manage")
+    item = _social_hub(request).create_offer(**payload.model_dump())
+    command_center(request.app.state.container).audit(principal["id"], "partner_offer_create", "partner_offer", str(item["id"]), None, {"verified": item["verified"], "active": item["active"]})
+    return item
+
+@router.get("/social-growth/scratch-rewards")
+def social_scratch_rewards(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    items = _rows(request, "SELECT id,user_ref,trigger_type,trigger_ref,reward_type,reward_value,status,expires_at,revealed_at,redeemed_at,created_at FROM scratch_rewards ORDER BY id DESC LIMIT 500")
+    for item in items:
+        item["user_ref"] = mask_user_id(str(item.get("user_ref") or ""))
+    return {"items": items}
+
+
 # ----------------------------------------------- Partner & Revenue Hub --
 
 class PartnerRevenueUpsert(BaseModel):
