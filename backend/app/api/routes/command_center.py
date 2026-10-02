@@ -1057,7 +1057,7 @@ def upsert_partner_revenue_partner(partner_id: str, payload: PartnerRevenueUpser
     item = _partner_hub(request).upsert_partner(partner_id, **payload.model_dump())
     try:
         command_center(request.app.state.container).audit(
-            principal["id"], "partner_revenue_upsert", "partner", partner_id,
+            principal["id"], "partner_revenue_upsert", "partner", partner_id, None,
             {"sector": item.get("sector"), "active": item.get("active")})
     except Exception:
         pass
