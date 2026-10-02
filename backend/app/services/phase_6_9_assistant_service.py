@@ -1,34 +1,66 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+import sqlite3
 from typing import Any, Iterable
 
 
 @dataclass
 class AffiliateProviderConfig:
-    """Extensible affiliate registry supporting multiple providers and empty slots."""
+    """Persistent, extensible affiliate registry with empty-slot support."""
 
     providers: dict[str, dict[str, Any]] = field(default_factory=dict)
+    db_path: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.db_path:
+            return
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS affiliate_providers (
+                provider_id TEXT PRIMARY KEY, metadata_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+            rows = conn.execute("SELECT provider_id, metadata_json FROM affiliate_providers").fetchall()
+        for provider_id, metadata_json in rows:
+            try: self.providers[str(provider_id)] = json.loads(metadata_json)
+            except (TypeError, ValueError, json.JSONDecodeError): continue
 
     def register(self, provider_id: str, **metadata: Any) -> None:
-        payload = {
-            "provider_id": provider_id,
+        provider_id = str(provider_id or "").strip()
+        if not provider_id: raise ValueError("provider_id is required")
+        payload = {"provider_id": provider_id, "name": str(metadata.get("name") or provider_id).strip(),
             "category": str(metadata.get("category") or "general").strip().lower(),
             "route": str(metadata.get("route") or "affiliate").strip().lower(),
-            "active": bool(metadata.get("active", True)),
-        }
+            "normal_url": str(metadata.get("normal_url") or "").strip(),
+            "affiliate_url": str(metadata.get("affiliate_url") or metadata.get("affiliate_url_template") or "").strip(),
+            "disclosure": str(metadata.get("disclosure") or "Affiliate link").strip(),
+            "active": bool(metadata.get("active", True))}
         payload.update(metadata)
         self.providers[provider_id] = payload
+        self._persist(provider_id, payload)
+
+    def remove(self, provider_id: str) -> bool:
+        existed = self.providers.pop(provider_id, None) is not None
+        if self.db_path:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute("DELETE FROM affiliate_providers WHERE provider_id=?", (provider_id,))
+        return existed
+
+    def list(self) -> list[dict[str, Any]]:
+        return sorted((dict(p) for p in self.providers.values()), key=lambda p: (str(p.get("category") or ""), str(p.get("name") or "")))
+
+    def _persist(self, provider_id: str, payload: dict[str, Any]) -> None:
+        if not self.db_path: return
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""INSERT INTO affiliate_providers(provider_id,metadata_json,updated_at)
+                VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(provider_id) DO UPDATE SET
+                metadata_json=excluded.metadata_json, updated_at=CURRENT_TIMESTAMP""",
+                (provider_id, json.dumps(payload, ensure_ascii=False)))
 
     def active_for_category(self, category: str) -> list[dict[str, Any]]:
         wanted = str(category or "").strip().lower()
-        matches = []
-        for provider in self.providers.values():
-            if not provider.get("active", True):
-                continue
-            if wanted and str(provider.get("category") or "").strip().lower() == wanted:
-                matches.append(provider)
-        return matches
+        return [dict(p) for p in self.providers.values() if p.get("active", True)
+                and str(p.get("category") or "").strip().lower() in {wanted, "general", "product"}]
 
     def empty_slot(self, category: str) -> bool:
         return not bool(self.active_for_category(category))
