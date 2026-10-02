@@ -1068,6 +1068,31 @@ def _social_hub(request: Request):
         request.app.state.container.social_ads_offers_hub = hub
     return hub
 
+@router.get("/social-growth/api-status")
+def social_api_status(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    from app.services.social_video_api_service import SocialVideoApiService
+    return {"items": SocialVideoApiService().status()}
+
+class YouTubeImportRequest(BaseModel):
+    query: str
+    max_results: int = Field(default=10, ge=1, le=25)
+    category: str = ""
+    related_ref: str = ""
+
+@router.post("/social-growth/youtube/import")
+def social_youtube_import(payload: YouTubeImportRequest, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    from app.services.social_video_api_service import SocialVideoApiService
+    try:
+        rows=SocialVideoApiService().youtube_search(payload.query,payload.max_results)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"YouTube API unavailable: {type(exc).__name__}") from exc
+    saved=[]
+    for row in rows:
+        saved.append(_social_hub(request).upsert_video(**row,category=payload.category,related_ref=payload.related_ref))
+    return {"imported":len(saved),"items":saved}
+
 @router.get("/social-growth/video-sources")
 def social_video_sources(request: Request) -> dict[str, Any]:
     _require(request, "integrations:view")
