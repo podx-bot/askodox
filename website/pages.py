@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import math
 
-from build import Page, badge, e, fbadge, icon
+from build import Page, badge, e, fbadge, icon, t
+from demos import (consent_demo, deals_demo, fallback_flow, label_legend, no_match, results_demo,
+                   video_demo, video_flow)
 
 
 # ---------------------------------------------------------------------------
@@ -103,21 +105,21 @@ def map_svg() -> str:
 def home(cfg: dict) -> Page:
     b = cfg["brand"]
     entries = [
-        ("#ask-form", "spark", "Ask ASKODOX", ""),
-        ("/discover/#products", "bag", "Find products", "A laptop for video editing under $900"),
-        ("/discover/#services", "tools", "Find services", "Find a plumber who can come tonight"),
-        ("/discover/#nearby", "pin", "Discover nearby", "Good tailors near me"),
-        ("/discover/#online", "globe", "Explore online", "Where can I buy this online?"),
-        ("/deals/", "tag", "Deals and offers", "Any good offers on running shoes this week?"),
-        ("/videos/", "play", "Videos and reviews", "Show me video reviews comparing two phones"),
-        ("/sellers/", "store", "Sell or offer a service", ""),
+        ("#ask-form", "spark", "entry.ask", ""),
+        ("/discover/#products", "bag", "entry.products", "A laptop for video editing under $900"),
+        ("/discover/#services", "tools", "entry.services", "Find a plumber who can come tonight"),
+        ("/discover/#nearby", "pin", "entry.nearby", "Good tailors near me"),
+        ("/discover/#online", "globe", "entry.online", "Where can I buy this online?"),
+        ("/deals/", "tag", "entry.deals", "Any good offers on running shoes this week?"),
+        ("/videos/", "play", "entry.videos", "Show me video reviews comparing two phones"),
+        ("/sellers/", "store", "entry.sell", ""),
     ]
     entry_html = "".join(
-        f'<li class="{"entry-sell" if href == "/sellers/" else ""}"><a href="{href}"' + (f' data-example="{e(ex)}"' if ex else "") + f">{icon(ic)}{e(label)}</a></li>"
-        for href, ic, label, ex in entries
+        f'<li class="{"entry-sell" if href == "/sellers/" else ""}"><a href="{href}"' + (f' data-example="{e(ex)}"' if ex else "") + f">{icon(ic)}{e(t(key))}</a></li>"
+        for href, ic, key, ex in entries
     )
     tabs = [("plumber", "Fix something tonight"), ("laptop", "Choose a product"), ("bike", "Sell something once"), ("catering", "Plan an event"), ("photographer", "Find work"), ("document", "Understand a document")]
-    tab_html = "".join(f'<button type="button" role="tab" aria-controls="journey-panel" data-scene="{k}" aria-selected="{"true" if i == 0 else "false"}" tabindex="{0 if i == 0 else -1}">{e(t)}</button>' for i, (k, t) in enumerate(tabs))
+    tab_html = "".join(f'<button type="button" role="tab" aria-controls="journey-panel" data-scene="{k}" aria-selected="{"true" if i == 0 else "false"}" tabindex="{0 if i == 0 else -1}">{e(lbl)}</button>' for i, (k, lbl) in enumerate(tabs))
     steps = [
         ("A need", "Something to buy, fix, sell, learn or decide."),
         ("Ask ASKODOX", "In your own words: type, speak, show a photo or share a file."),
@@ -127,27 +129,30 @@ def home(cfg: dict) -> Page:
         ("It connects", "With the right person, with your consent."),
         ("You move forward", "And ASKODOX keeps you updated."),
     ]
-    steps_html = "".join(f"<li><div><strong>{e(t)}</strong><span>{e(d)}</span></div></li>" for t, d in steps)
-
-    roles = [("buyer", "Buyer", True), ("seller", "Seller", False), ("provider", "Service provider", False), ("freelancer", "Freelancer or professional", False), ("creator", "Creator", False), ("business", "Business", False), ("oneoff", "Selling one thing", False), ("survey", "Survey participant", False), ("curious", "Just looking for help", False)]
-    roles_html = "".join(f'<button type="button" data-role="{k}" aria-pressed="{"true" if on else "false"}">{e(t)}</button>' for k, t, on in roles)
+    steps_html = "".join(f"<li><div><strong>{e(a)}</strong><span>{e(d)}</span></div></li>" for a, d in steps)
+    roles = [("buyer", "Buyer", True), ("seller", "Seller", False), ("provider", "Service provider", False), ("freelancer", "Freelancer or professional", False), ("creator", "Creator or influencer", False), ("business", "Business", False), ("oneoff", "Selling one thing", False), ("survey", "Survey participant", False), ("curious", "Just looking for help", False)]
+    roles_html = "".join(f'<button type="button" data-role="{k}" aria-pressed="{"true" if on else "false"}">{e(lbl)}</button>' for k, lbl, on in roles)
+    modes = [("type", "type", "home.mode.type", "text_ask"), ("voice", "mic", "home.mode.voice", "voice_ask"), ("photo", "camera", "home.mode.photo", "image_ask"),
+             ("file", "file", "home.mode.file", "file_ask"), ("location", "locate", "home.mode.location", "nearby")]
+    mode_html = "".join(f'<li><button type="button" data-ask-mode="{k}">{icon(ic)}<span>{e(t(lbl))}</span></button></li>' for k, ic, lbl, _ in modes)
 
     body = f"""
 <section class="hero" aria-labelledby="hero-title">
   <div class="wrap hero-inner">
     <askodox-companion data-rise style="--i:0" aria-hidden="true"></askodox-companion>
     <h1 id="hero-title"><span class="wordmark" data-rise style="--i:1">{e(b['name'])}</span><span class="tagline" data-rise style="--i:2">{e(b['tagline'])}</span></h1>
-    <p class="hero-sub" data-rise style="--i:3">One place to ask for anything you need, discover the right options, decide with confidence and connect with the right people.</p>
+    <p class="hero-sub" data-rise style="--i:3">{e(t('home.hero.sub'))}</p>
     <form class="ask" id="ask-form" role="search" data-rise style="--i:4" action="/how-it-works/">
       <label class="ask-label" for="ask-input">{e(b['ask_prompt'])}</label>
       <div class="ask-box">
-        <input id="ask-input" name="q" type="text" autocomplete="off" enterkeyhint="send" placeholder="Type what you need">
+        <input id="ask-input" name="q" type="text" autocomplete="off" enterkeyhint="send" placeholder="{e(t('home.hero.placeholder'))}">
         <button class="ask-tool optional" type="button" data-ask-mode="photo" aria-label="Ask with a photo">{icon('camera')}</button>
         <button class="ask-tool optional" type="button" data-ask-mode="file" aria-label="Ask with a file">{icon('file')}</button>
         <button class="ask-tool" type="button" data-ask-mode="voice" aria-label="Ask by voice">{icon('mic')}</button>
         <button class="ask-go" type="submit" aria-label="Ask">{icon('send')}</button>
       </div>
       <div class="ask-reading" id="ask-reading" aria-live="polite"></div>
+      <ul class="ask-modes" aria-label="{e(t('home.hero.tools'))}">{mode_html}</ul>
     </form>
     <ul class="entry" data-rise style="--i:5" aria-label="Ways to start">{entry_html}</ul>
   </div>
@@ -156,8 +161,8 @@ def home(cfg: dict) -> Page:
 <section class="section zone-deep" id="journey" aria-labelledby="journey-title">
   <div class="wrap">
     <div class="section-head">
-      <h2 id="journey-title">Say what you need. ASKODOX takes it from there.</h2>
-      <p>It's not a search box, a shop or a directory. It's one conversation that moves from a need to a result. Pick a situation to see it.</p>
+      <h2 id="journey-title">{e(t('home.journey.title'))}</h2>
+      <p>{e(t('home.journey.text'))}</p>
     </div>
     <div class="need-tabs" role="tablist" aria-label="Example situations">{tab_html}</div>
     <div class="journey-grid" id="journey-panel" role="tabpanel" aria-label="Example conversation">
@@ -176,6 +181,42 @@ def home(cfg: dict) -> Page:
   </div>
 </section>
 
+<section class="section zone-day" id="results" aria-labelledby="results-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="results-title">{e(t('home.results.title'))}</h2>
+      <p>{e(t('home.results.text'))}</p>
+    </div>
+    {results_demo(cfg)}
+    <details class="legend-box"><summary>What each label means</summary>{label_legend()}</details>
+  </div>
+</section>
+
+<section class="section zone-mist" id="nearby" aria-labelledby="nearby-title">
+  <div class="wrap">
+    <div class="split">
+      <div class="split-copy">
+        <h2 id="nearby-title">{e(t('home.fallback.title'))}</h2>
+        <p>Often the best option is around the corner. Sometimes it's online. ASKODOX looks close by first, widens the search if it needs to, and tells you which is which.</p>
+        <ul class="ticks">
+          <li><span>Uses your location only when you allow it, and never shows your exact location to others.</span></li>
+          <li><span>Asks only the questions it still needs, like size, date or budget. {fbadge(cfg, 'location_aware')}</span></li>
+          <li><span>Works by neighbourhood, city or country. {fbadge(cfg, 'nearby')}</span></li>
+        </ul>
+      </div>
+      <div class="discover-visual" role="img" aria-label="A map with nearby options around you, and online options alongside">
+        {map_svg()}
+        <div class="dv-card"><span class="dv-tag near">Nearby</span><b>Tailor</b><small>650 m · open till 8 pm</small></div>
+        <div class="dv-card"><span class="dv-tag near">Nearby</span><b>Alterations studio</b><small>1.2 km · same-day</small></div>
+        <div class="dv-stack"><div class="dv-card"><span class="dv-tag web">Online</span><b>Hemming kit, how-to video</b><small>Delivery in 2 days</small></div></div>
+      </div>
+    </div>
+    {fallback_flow(cfg)}
+    <h3 class="sub-h" id="no-match">{e(t('home.nomatch.title'))}</h3>
+    {no_match(cfg)}
+  </div>
+</section>
+
 <section class="section zone-day" aria-labelledby="modes-title">
   <div class="wrap">
     <div class="section-head">
@@ -186,29 +227,20 @@ def home(cfg: dict) -> Page:
       <div class="mode"><div class="mode-icon">{icon('type')}</div><h3>Type it</h3><p><q>Gift ideas for my dad, he loves gardening, under £40.</q></p>{fbadge(cfg, 'text_ask')}</div>
       <div class="mode"><div class="mode-icon">{icon('mic')}</div><h3>Say it</h3><p><q>Need a driver to the airport at 5 tomorrow morning.</q> In your own language, as you'd say it to a friend.</p>{fbadge(cfg, 'voice_ask')}</div>
       <div class="mode"><div class="mode-icon">{icon('camera')}</div><h3>Show it</h3><p>A photo of a part, a product or a problem. <q>Where can I get this fixed?</q></p>{fbadge(cfg, 'image_ask')}</div>
-      <div class="mode"><div class="mode-icon">{icon('file')}</div><h3>Share it</h3><p>A quote, a bill or an agreement. <q>Is this a fair price?</q></p>{fbadge(cfg, 'file_ask')}</div>
+      <div class="mode"><div class="mode-icon">{icon('file')}</div><h3>Share it</h3><p>A quote, a bill, an agreement or a video. <q>Is this a fair price?</q></p>{fbadge(cfg, 'file_ask')}</div>
     </div>
   </div>
 </section>
 
-<section class="section zone-mist" id="nearby" aria-labelledby="nearby-title">
-  <div class="wrap split">
-    <div class="split-copy">
-      <h2 id="nearby-title">Nearby first. Online when it's better.</h2>
-      <p>Often the best option is around the corner. Sometimes it's online. ASKODOX looks at both and tells you which is which.</p>
-      <ul class="ticks">
-        <li><span>Uses your location only when you allow it, and never shows your exact location to others.</span></li>
-        <li><span>Shows sellers and providers near you before anything far away.</span></li>
-        <li><span>Adds online options when they fit, with prices marked unverified until you check them.</span></li>
-        <li><span>Works by neighbourhood, city or country. {fbadge(cfg, 'nearby')}</span></li>
-      </ul>
+<section class="section zone-deep" id="videos" aria-labelledby="videos-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="videos-title">{e(t('home.videos.title'))}</h2>
+      <p>Reviews, owner stories, how-tos, comparisons, seller and creator videos, connected to your question and to real options near you.</p>
     </div>
-    <div class="discover-visual" role="img" aria-label="A map with nearby options around you, and online options alongside">
-      {map_svg()}
-      <div class="dv-card"><span class="dv-tag near">Nearby</span><b>Tailor</b><small>650 m · open till 8 pm</small></div>
-      <div class="dv-card"><span class="dv-tag near">Nearby</span><b>Alterations studio</b><small>1.2 km · same-day</small></div>
-      <div class="dv-stack"><div class="dv-card"><span class="dv-tag web">Online</span><b>Hemming kit, how-to video</b><small>Delivery in 2 days</small></div></div>
-    </div>
+    {video_flow(cfg)}
+    {video_demo(cfg)}
+    <ul class="section-foot"><li>Helpful videos in answers {fbadge(cfg, 'video_results')}</li><li>Ask about a video you share {fbadge(cfg, 'video_questions')}</li><li>Watch and ask inside ASKODOX {fbadge(cfg, 'watch_and_ask')}</li><li><a href="/videos/">More about videos</a></li></ul>
   </div>
 </section>
 
@@ -216,7 +248,7 @@ def home(cfg: dict) -> Page:
   <div class="wrap roles">
     <div>
       <div class="section-head" style="margin-bottom:1.5rem">
-        <h2 id="roles-title">You're probably more than one of these</h2>
+        <h2 id="roles-title">{e(t('home.roles.title'))}</h2>
         <p>Buy on Monday, sell on Saturday, offer your skills on Sunday. ASKODOX follows what you say you want to do, not a box you signed up in.</p>
       </div>
       <div class="role-picker" id="role-picker" role="group" aria-label="What do you do? Choose all that fit">{roles_html}</div>
@@ -229,33 +261,22 @@ def home(cfg: dict) -> Page:
   </div>
 </section>
 
-<section class="section zone-mist" aria-labelledby="duo-title">
+<section class="section zone-mist" id="deals" aria-labelledby="deals-title">
   <div class="wrap">
-    <h2 id="duo-title" class="visually-hidden">Deals, videos and reviews</h2>
-    <div class="duo">
-      <a class="panel panel-deals" href="/deals/">
-        <div class="btn-row">{fbadge(cfg, 'offers')}</div>
-        <h3>Deals and offers that fit what you asked for</h3>
-        <p>Not a wall of coupons. When an offer applies to your need, ASKODOX shows it, explains the conditions, and marks partner links clearly.</p>
-        <div class="ticket" aria-hidden="true"><span class="pct">%</span><div><b>Offer matched to your request</b><small>Shown only when it's relevant</small></div></div>
-        <div class="panel-foot"><strong>Explore deals</strong><span class="muted">Partner deals {badge(cfg['feature']['partner_deals']['status'])}</span></div>
-      </a>
-      <a class="panel panel-videos" href="/videos/">
-        <div class="btn-row">{fbadge(cfg, 'video_results')}</div>
-        <h3>Videos and reviews that help you decide</h3>
-        <p>See how something works, what reviewers think and what owners wish they'd known, inside the answer.</p>
-        <div class="reel" aria-hidden="true"><div>How it works</div><div>Honest review</div><div>Comparison</div></div>
-        <div class="panel-foot"><strong>Explore videos</strong><span class="muted">Creator programme {badge(cfg['feature']['creators']['status'])}</span></div>
-      </a>
+    <div class="section-head">
+      <h2 id="deals-title">{e(t('home.deals.title'))}</h2>
+      <p>Not a wall of coupons. When an offer applies to your request, ASKODOX shows it beside the other options and explains the conditions. Partner and affiliate links are always labelled.</p>
     </div>
+    {deals_demo(cfg)}
+    <ul class="section-foot"><li>ASKODOX offers {fbadge(cfg, 'offers')}</li><li>Partner deals {fbadge(cfg, 'partner_deals')}</li><li>Coupon codes {fbadge(cfg, 'coupons')}</li><li><a href="/deals/">More about deals</a></li></ul>
   </div>
 </section>
 
 <section class="section zone-night" aria-labelledby="connect-title">
   <div class="wrap">
     <div class="section-head">
-      <h2 id="connect-title">Direct connections, on your terms</h2>
-      <p>ASKODOX introduces you to the right person. Your phone number stays private until both sides say yes. {fbadge(cfg, 'consent_connect')}</p>
+      <h2 id="connect-title">{e(t('home.connect.title'))}</h2>
+      <p>ASKODOX introduces you to the right person. Phone numbers stay hidden until the seller or provider accepts the request. {fbadge(cfg, 'consent_connect')}</p>
     </div>
     <ol class="flow">
       <li><h3>You ask</h3><p>A buyer, customer or client says what they need.</p></li>
@@ -263,23 +284,32 @@ def home(cfg: dict) -> Page:
       <li class="locked"><h3>They accept</h3><p>The seller or provider chooses to take it on.</p></li>
       <li class="unlocked"><h3>You're connected</h3><p>Contact details are shared, and you talk directly. No middleman in your conversation.</p></li>
     </ol>
+    {consent_demo(cfg)}
   </div>
 </section>
 
 <section class="section zone-day" aria-labelledby="trust-title">
   <div class="wrap">
     <div class="section-head">
-      <h2 id="trust-title">Built to be trusted</h2>
-      <p>These are the rules ASKODOX is built around.</p>
+      <h2 id="trust-title">{e(t('home.trust.title'))}</h2>
+      <p>These are the rules ASKODOX is built around, and the signals it shows you.</p>
     </div>
     <ul class="trust">
       <li><h3>You control your contact details</h3><p>Shared only after a request is accepted.</p></li>
       <li><h3>Your location stays yours</h3><p>Used when you allow it. Others see your area, never your exact spot.</p></li>
-      <li><h3>Honest answers</h3><p>Unverified prices are labelled. When ASKODOX isn't sure, it says so.</p></li>
+      <li><h3>Honest labels</h3><p>Unverified prices, Online, Used, Offer and Affiliate are always marked. When ASKODOX isn't sure, it says so.</p></li>
       <li><h3>Paid links are labelled</h3><p>Partner or affiliate links are always disclosed. <a href="/affiliate-disclosure/">How it works</a></p></li>
       <li><h3>Your data, your choice</h3><p>Download or delete your data from the app, or ask us by email.</p></li>
       <li><h3>Real people behind it</h3><p>Write to us and a person reads it: {mail(cfg)}</p></li>
     </ul>
+    <div class="signals">
+      <h3>Trust signals on results</h3>
+      <ul>
+        <li>{icon('check')}<span>Phone-verified account</span>{fbadge(cfg, 'phone_verified')}</li>
+        <li>{icon('star')}<span>Reviews only after a completed request</span>{fbadge(cfg, 'reviews')}</li>
+        <li>{icon('shield')}<span>Business verification</span>{fbadge(cfg, 'business_verification')}</li>
+      </ul>
+    </div>
   </div>
 </section>
 
@@ -288,7 +318,7 @@ def home(cfg: dict) -> Page:
     <div>{globe_svg()}</div>
     <div>
       <div class="section-head" style="margin-bottom:0">
-        <h2 id="global-title">Made for your street, ready for the world</h2>
+        <h2 id="global-title">{e(t('home.global.title'))}</h2>
         <p>ASKODOX is built to work in any country, language and currency, while staying useful at the level of your own neighbourhood.</p>
       </div>
       <div class="facts">
@@ -305,11 +335,19 @@ def home(cfg: dict) -> Page:
   <div class="wrap app-band">
     <div>
       <div class="section-head" style="margin-bottom:1.5rem">
-        <h2 id="app-title">ASKODOX in your pocket</h2>
-        <p>The ASKODOX app has the full experience: the companion, voice, photos, nearby discovery, requests and updates. Android is in beta now. {fbadge(cfg, 'android_app')}</p>
+        <h2 id="app-title">{e(t('home.app.title'))}</h2>
+        <p>The ASKODOX app is where the full conversation happens. Android is in early access now. {fbadge(cfg, 'android_app')}</p>
       </div>
+      <ul class="app-caps">
+        <li>{icon('mic')}<span>Speak in your language</span></li>
+        <li>{icon('camera')}<span>Show a photo</span></li>
+        <li>{icon('file')}<span>Share a file or video</span></li>
+        <li>{icon('locate')}<span>Discover near you</span></li>
+        <li>{icon('chat')}<span>Requests and updates</span></li>
+        <li>{icon('spark')}<span>The ASKODOX companion</span></li>
+      </ul>
       {store_buttons(cfg)}
-      <p class="muted" style="margin-top:1rem">Want to try the beta? <a href="/join/">Ask for early access</a>.</p>
+      <p class="muted" style="margin-top:1rem">Store links appear here only once the apps are published. <a href="/join/">Ask for early access</a>.</p>
     </div>
     {phone_static()}
   </div>
@@ -318,15 +356,10 @@ def home(cfg: dict) -> Page:
 <section class="section zone-day" id="join" aria-labelledby="join-title">
   <div class="wrap">
     <div class="section-head">
-      <h2 id="join-title">Join ASKODOX</h2>
-      <p>Start in the way that fits you today. You can always do more later.</p>
+      <h2 id="join-title">{e(t('home.join.title'))}</h2>
+      <p>Start in the way that fits you today. You can add more roles any time.</p>
     </div>
-    <div class="join">
-      <a href="/join/#buyer"><b>Join as a buyer</b><span>Ask, compare and connect.</span><em>Get early access</em></a>
-      <a href="/join/#seller"><b>Join as a seller</b><span>List what you sell and receive requests.</span><em>Start selling</em></a>
-      <a href="/join/#provider"><b>Join as a service provider</b><span>Get relevant requests from people nearby.</span><em>Offer your service</em></a>
-      <a href="/join/#refer"><b>Refer a business</b><span>Know someone good? Tell us about them.</span><em>Refer them</em></a>
-    </div>
+    {join_cards()}
   </div>
 </section>
 
@@ -336,6 +369,27 @@ def home(cfg: dict) -> Page:
 </dialog>
 """
     return Page("/", "Home", f"ASKODOX helps you ask for anything you need, discover nearby and online options, decide with confidence and connect directly with the right people. {b['tagline']}", body, priority="1.0")
+
+
+MORE_ROLES = [
+    ("creator", "Creator or influencer", "Make useful videos and reviews.", "/videos/#creators"),
+    ("freelancer", "Freelancer or professional", "Offer your skills to people who need them.", "/join/#provider"),
+    ("business", "Business", "Shops, brands and service companies.", "/partners/"),
+    ("oneoff", "Selling one thing", "Snap a photo, say a price.", "/join/#seller"),
+    ("survey", "Survey participant", "Share your opinion. Coming soon.", "/join/#more"),
+    ("curious", "Just looking for help", "Ask anything, no sign-up needed to learn more.", "/how-it-works/"),
+]
+
+
+def join_cards() -> str:
+    more = "".join(f'<li><a href="{href}"><b>{e(title)}</b><span>{e(desc)}</span></a></li>' for _, title, desc, href in MORE_ROLES)
+    return f"""<div class="join">
+      <a href="/join/#buyer"><b>Join as a buyer</b><span>Ask, compare and connect.</span><em>Get early access</em></a>
+      <a href="/join/#seller"><b>Join as a seller</b><span>List what you sell and receive requests.</span><em>Start selling</em></a>
+      <a href="/join/#provider"><b>Join as a service provider</b><span>Get relevant requests from people nearby.</span><em>Offer your service</em></a>
+      <a href="/join/#refer"><b>Refer a business</b><span>Know someone good? Tell us about them.</span><em>Refer them</em></a>
+    </div>
+    <details class="more-ways" id="more"><summary>More ways to join</summary><ul>{more}</ul><p class="muted">One account can hold several roles. ASKODOX follows what you want to do each time.</p></details>"""
 
 
 # ---------------------------------------------------------------------------
@@ -406,23 +460,32 @@ def how_it_works(cfg: dict) -> Page:
 
 def discover(cfg: dict) -> Page:
     body = page_hero("Discover what you need", "Products, services, businesses, professionals, opportunities and information, nearby and online.", "Discover", '<a class="btn btn-primary" href="/join/">Get early access</a>') + f"""
-<section class="section zone-day" id="products"><div class="wrap split">
+<section class="section zone-day"><div class="wrap">
+  <div class="section-head"><h2>Results, labelled</h2><p>Every result says what it is: nearby or online, new, used or surplus, an offer, a service, or a partner link.</p></div>
+  {results_demo(cfg)}
+  <details class="legend-box"><summary>What each label means</summary>{label_legend()}</details>
+</div></section>
+<section class="section zone-mist" id="products"><div class="wrap split">
   <div class="split-copy"><h2>Products</h2><p>Describe what you want and what matters: use, budget, brand, condition. ASKODOX checks nearby sellers and stores first, then online, and compares the options for you.</p>
   <ul class="ticks"><li><span>New, used, second-hand and surplus</span></li><li><span>Prices you can trust are shown as such; others are marked unverified</span></li><li><span>Videos and reviews alongside when they help</span></li></ul></div>
   <div class="note"><strong>Try asking:</strong> “A quiet washing machine for a small flat, under €400” or “Where can I buy fresh fish near me today?”</div>
 </div></section>
-<section class="section zone-mist" id="services"><div class="wrap split">
+<section class="section zone-day" id="services"><div class="wrap split">
   <div class="split-copy"><h2>Services and professionals</h2><p>Plumbers, electricians, tutors, caterers, photographers, mechanics, drivers, lawyers and more. ASKODOX asks what it needs to, then finds people nearby who do exactly that.</p>
   <ul class="ticks"><li><span>Send a request to the providers you choose</span></li><li><span>Your number stays private until they accept</span></li><li><span>Follow replies in one place</span></li></ul></div>
   <div class="note"><strong>Try asking:</strong> “Someone to fix a ceiling fan tomorrow morning” or “A wedding photographer for 2 March”</div>
 </div></section>
-<section class="section zone-day" id="nearby"><div class="wrap split">
+<section class="section zone-mist" id="nearby"><div class="wrap split">
   <div class="split-copy"><h2>Nearby {fbadge(cfg, 'nearby')}</h2><p>{e(cfg['feature']['nearby']['note'])}</p></div>
   <div class="discover-visual" role="img" aria-label="Map showing options around you">{map_svg()}<div class="dv-card"><span class="dv-tag near">Nearby</span><b>Options around you</b><small>Closest first</small></div></div>
 </div></section>
-<section class="section zone-mist" id="online"><div class="wrap split">
+<section class="section zone-day" id="online"><div class="wrap"><div class="split">
   <div class="split-copy"><h2>Online {fbadge(cfg, 'online')}</h2><p>When the best option is online, ASKODOX shows relevant results from the web and explains why they fit. Partner links, if any, are always labelled.</p></div>
   <div class="note">Online results come from public web sources. Always check the final price and seller before you pay.</div>
+</div>
+  {fallback_flow(cfg)}
+  <h3 class="sub-h">No suitable nearby result yet</h3>
+  {no_match(cfg)}
 </div></section>
 <section class="section zone-day"><div class="wrap">
   <div class="section-head"><h2>Opportunities and information</h2></div>
@@ -488,45 +551,73 @@ def providers(cfg: dict) -> Page:
 
 def deals(cfg: dict) -> Page:
     active = [l for l in cfg["links"] if l.get("status") == "active" and l.get("approved") and l.get("url")]
-    partner_html = ("".join(f'<li><a href="/go/{e(l["slug"])}" rel="sponsored nofollow noopener">{e(l["partner"])}</a> <span class="muted">({e(l["programme"])}, affiliate link)</span></li>' for l in active)
-                    if active else "<p>No partner or affiliate programmes are active yet. When one is approved, its offers will appear here and in answers, always labelled.</p>")
-    body = page_hero("Deals and offers", "Offers that fit what you're actually looking for, with the conditions explained.", "Deals and offers") + f"""
+    partner_html = (("<ul>" + "".join(f'<li><a href="/go/{e(l["slug"])}" rel="sponsored nofollow noopener">{e(l["partner"])}</a> <span class="tag t-paid">Affiliate link</span> <span class="muted">{e(l["programme"])}</span></li>' for l in active) + "</ul>")
+                    if active else "<p><strong>No partner or affiliate programmes are active yet.</strong> When one is approved, its offers will appear here and in answers, always labelled.</p>")
+    body = page_hero("Deals and offers", "Offers that fit what you're actually looking for, shown beside the other options, with the conditions explained.", "Deals and offers") + f"""
 <section class="section-tight zone-day"><div class="wrap"><p class="disclosure-strip">Some links on ASKODOX may be partner or affiliate links. They're always labelled and never decide which option we recommend. <a href="/affiliate-disclosure/">Affiliate disclosure</a></p></div></section>
+<section class="section zone-mist"><div class="wrap">
+  <div class="section-head"><h2>How offers appear</h2><p>You ask for something. If an offer applies to it, ASKODOX shows it in the results with what it means for you.</p></div>
+  {deals_demo(cfg)}
+</div></section>
 <section class="section zone-day"><div class="wrap">
   <h2 class="visually-hidden">What is available</h2>
   {blocks([
-      ("Offers in answers", "When an offer applies to your request, it shows up in the answer, with its conditions.", fbadge(cfg, 'offers')),
-      ("Partner deals", "Deals from approved partners and programmes around the world.", fbadge(cfg, 'partner_deals')),
+      ("ASKODOX offers", "Offers set up by ASKODOX inside the app, shown only when relevant.", fbadge(cfg, 'offers')),
+      ("Rewards on completion", "A reward recorded once you confirm a request is complete.", fbadge(cfg, 'rewards')),
+      ("Partner deals", "Deals from approved partner programmes worldwide.", fbadge(cfg, 'partner_deals')),
+      ("Affiliate results", "Online options through affiliate programmes, labelled Affiliate link.", fbadge(cfg, 'partner_deals')),
       ("Coupon codes", "Codes you can apply with participating sellers.", fbadge(cfg, 'coupons')),
+      ("Sponsored results", "If ever used, always labelled Sponsored.", fbadge(cfg, 'sponsored')),
   ])}
 </div></section>
 <section class="section zone-mist"><div class="wrap prose">
+  <h2>How we label money links</h2>
+  <ul><li><span class="tag t-offer">Offer</span> a discount or deal that applies to your request.</li><li><span class="tag t-paid">Affiliate link</span> ASKODOX may earn a commission if you buy.</li><li><span class="tag t-paid">Sponsored</span> a paid placement. Not used today.</li></ul>
   <h2>Partner programmes</h2>
   {partner_html}
   <h2>For sellers and brands</h2>
   <p>Want to offer a deal to people asking for what you sell? Write to {mail(cfg, 'partners_email')}.</p>
 </div></section>
 """
-    return Page("/deals/", "Deals and offers", "Find deals and offers on ASKODOX that fit what you're looking for, with conditions explained and partner links always labelled.", body, crumb="Deals and offers")
+    return Page("/deals/", "Deals and offers", "Find deals and offers on ASKODOX that fit what you're looking for, with conditions explained and partner or affiliate links always labelled.", body, crumb="Deals and offers")
 
 
 def videos(cfg: dict) -> Page:
-    body = page_hero("Videos and reviews", "See how things work, what reviewers think and what owners wish they'd known, right inside your answer.", "Videos and reviews") + f"""
+    body = page_hero("Videos and reviews", "Watch something, ask about it, and go straight to options near you or online. Videos in ASKODOX are part of the conversation, not a separate feed.", "Videos and reviews") + f"""
+<section class="section zone-deep"><div class="wrap">
+  <div class="section-head"><h2>From a video to a decision</h2><p>ASKODOX understands what the video is about, answers your question, compares and shows what you can do next.</p></div>
+  {video_flow(cfg)}
+  {video_demo(cfg)}
+</div></section>
 <section class="section zone-day"><div class="wrap">
-  <h2 class="visually-hidden">What is available</h2>
+  <div class="section-head"><h2>Kinds of video ASKODOX works with</h2></div>
   {blocks([
-      ("Helpful videos in answers", "Relevant explainers, how-tos and reviews shown when you're deciding.", fbadge(cfg, 'video_results')),
-      ("Product and service videos", "Sellers and providers showing what they offer.", badge('soon')),
-      ("Review summaries", "What reviewers agree and disagree on, in a few lines.", badge('soon')),
+      ("Product reviews", "Independent reviews that help you judge quality and value.", ""),
+      ("Owner experiences", "What it's really like after weeks or months of use.", ""),
+      ("How-to videos", "Fix, set up or use something yourself, and know when to call someone.", ""),
+      ("Comparisons", "Two or more options side by side.", ""),
+      ("Seller videos", "Sellers showing their products, workshop or stock.", fbadge(cfg, 'seller_videos')),
+      ("Service-provider videos", "Providers showing their work and how they do it.", fbadge(cfg, 'seller_videos')),
+      ("Creator and influencer content", "Useful, honest content from creators.", fbadge(cfg, 'creators')),
   ])}
 </div></section>
-<section class="section zone-mist" id="creators"><div class="wrap split">
-  <div class="split-copy"><h2>For creators {fbadge(cfg, 'creators')}</h2><p>If you make honest, useful videos about products, services or skills, ASKODOX can put them in front of people at the moment they're deciding. A creator programme is being prepared.</p>
-  <div class="btn-row" style="margin-top:1.5rem"><a class="btn btn-primary" href="mailto:{e(cfg['contact']['partners_email'])}?subject=ASKODOX%20creator%20programme">Tell us you're interested</a></div></div>
+<section class="section zone-mist"><div class="wrap">
+  <div class="section-head"><h2>What's available today</h2></div>
+  {blocks([
+      ("Helpful videos in answers", "Relevant explainers, how-tos and reviews, linked from the answer.", fbadge(cfg, 'video_results')),
+      ("Ask about a video you share", "Share a video in the app and ask about it.", fbadge(cfg, 'video_questions')),
+      ("Watch and ask inside ASKODOX", "Videos playing in ASKODOX with related options alongside.", fbadge(cfg, 'watch_and_ask')),
+  ])}
+  <p class="disclosure-strip" style="margin-top:2rem">If a video links to a product through a partner or affiliate programme, the link is labelled. Creators' views are their own. <a href="/affiliate-disclosure/">Affiliate disclosure</a></p>
+</div></section>
+<section class="section zone-day" id="creators"><div class="wrap split">
+  <div class="split-copy"><h2>For creators and influencers {fbadge(cfg, 'creators')}</h2><p>If you make honest, useful videos about products, services or skills, ASKODOX can put them in front of people at the moment they're deciding, next to options they can act on. A creator programme is being prepared.</p>
+  <ul class="ticks"><li><span>Reach people with a real need, not just scrollers</span></li><li><span>Your content shown with clear credit</span></li><li><span>Partner links always labelled, never hidden</span></li></ul>
+  <div class="btn-row" style="margin-top:1.5rem"><a class="btn btn-primary" href="/join/#more">Register your interest</a></div></div>
   <div class="note">We won't list creators, channels or partnerships here until they've actually joined.</div>
 </div></section>
 """
-    return Page("/videos/", "Videos and reviews", "ASKODOX shows helpful videos and reviews when you're deciding, and is preparing a creator programme for honest, useful video makers.", body, crumb="Videos and reviews")
+    return Page("/videos/", "Videos and reviews", "On ASKODOX, videos are part of the conversation: watch a review or how-to, ask about it, compare, and see related options nearby and online.", body, crumb="Videos and reviews")
 
 
 def support(cfg: dict) -> Page:
@@ -616,14 +707,12 @@ def contact(cfg: dict) -> Page:
   </div>
   <div>
     <h2 style="font-size:var(--ax-step-3);margin-bottom:.5rem">Send a message</h2>
-    <p class="muted" style="margin-bottom:1.5rem">This opens your email app with your message ready to send.</p>
     <form class="form" data-compose="contact" data-subject="ASKODOX contact" data-to="{e(c['general_email'])}" novalidate>
       <div class="row"><label>Your name<input name="name" autocomplete="name" required></label><label>Your email<input name="email" type="email" autocomplete="email" required></label></div>
       <label>Topic<select name="topic"><option>General question</option><option>Support</option><option>Selling or offering a service</option><option>Partnership</option><option>Creator programme</option><option>Press</option><option>Privacy</option></select></label>
       <label>Country <span class="opt">(optional)</span><input name="country" autocomplete="country-name"></label>
       <label>Message<textarea name="message" required></textarea></label>
-      <button class="btn btn-primary" type="submit">Write email</button>
-      <div class="form-result" role="status"></div>
+      {form_tail(cfg, "Send message", c['general_email'])}
     </form>
   </div>
 </div></section>"""
@@ -643,56 +732,73 @@ def report(cfg: dict) -> Page:
     <div class="row"><label>Your email<input name="email" type="email" autocomplete="email" required></label><label>When did it happen?<input name="when" placeholder="Date and time"></label></div>
     <label>Device <span class="opt">(optional)</span><input name="device" placeholder="e.g. Android phone, website"></label>
     <label>What happened?<textarea name="details" required></textarea></label>
-    <button class="btn btn-primary" type="submit">Write report</button>
-    <p class="form-note">Opens your email app with the report ready to send to {e(cfg['contact']['support_email'])}.</p>
-    <div class="form-result" role="status"></div>
+    {form_tail(cfg, "Send report", cfg['contact']['support_email'])}
   </form>
 </div></section>"""
     return Page("/report-a-problem/", "Report a problem", "Report a bug, misleading information, a safety concern or a problem with a seller, provider or customer on ASKODOX.", body, crumb="Report a problem")
 
 
+def form_tail(cfg: dict, send_label: str, to: str) -> str:
+    """Submit area shared by every form. Honest about what happens."""
+    if cfg["contact"].get("forms_endpoint"):
+        label, note = send_label, f"We'll reply by email. If sending fails, you can email {e(to)} instead."
+    else:
+        label, note = "Continue in your email app", f"This opens your email app with everything filled in, addressed to {e(to)}. Nothing is sent until you press send there."
+    privacy = cfg["contact"]["privacy_email"]
+    return f"""<label class="hp" aria-hidden="true">Leave empty<input name="website" tabindex="-1" autocomplete="off"></label>
+      <label class="consent-line"><input type="checkbox" name="privacy_ok" required> <span>I agree ASKODOX can use these details to reply to me, as described in the <a href="/privacy/">Privacy policy</a>. Questions: {e(privacy)}</span></label>
+      <button class="btn btn-primary" type="submit">{e(label)}</button>
+      <p class="form-note">{note}</p>
+      <div class="form-result" role="status" aria-live="polite"></div>"""
+
+
+JOIN_ROLES = [("buyer", "Buyer"), ("seller", "Seller"), ("provider", "Service provider"), ("freelancer", "Freelancer or professional"), ("creator", "Creator or influencer"),
+              ("business", "Business"), ("oneoff", "Selling one thing"), ("survey", "Survey participant"), ("curious", "Just looking for help")]
+
+
 def join(cfg: dict) -> Page:
-    paths = [
-        ("buyer", "Join as a buyer", "Ask for anything, compare options and connect with the right people.", "Buyer"),
-        ("seller", "Join as a seller", "Shops, businesses and people selling one thing.", "Seller"),
-        ("provider", "Join as a service provider", "Tradespeople, professionals and freelancers.", "Service provider"),
-        ("creator", "Join as a creator", "Make useful videos and reviews? Register your interest.", "Creator"),
+    gen = cfg["contact"]["general_email"]
+    primary = [
+        ("buyer", "Join as a buyer", "Ask for anything, compare options and connect with the right people."),
+        ("seller", "Join as a seller", "Shops, businesses and people selling one thing, new, used or surplus."),
+        ("provider", "Join as a service provider", "Tradespeople, professionals and freelancers."),
     ]
-    cards = "".join(f'<div class="channel" id="{k}"><div><h3>{e(t)}</h3><p>{e(d)}</p></div></div>' for k, t, d, _ in paths)
-    options = "".join(f"<option>{e(r)}</option>" for *_, r in paths) + "<option>Business or partner</option><option>Survey participant</option><option>Just curious</option>"
-    body = page_hero("Join ASKODOX", "The Android app is in beta. Tell us who you are and we'll send you early access as places open up.", "Join") + f"""
+    cards = "".join(f'<div class="channel" id="{k}"><div><h3>{e(ti)}</h3><p>{e(d)}</p></div></div>' for k, ti, d in primary)
+    more = "".join(f'<li><a href="{href}"><b>{e(title)}</b><span>{e(desc)}</span></a></li>' for _, title, desc, href in MORE_ROLES)
+    checks = "".join(f'<label><input type="checkbox" name="roles" value="{e(lbl)}" data-multi{" checked" if k == "buyer" else ""}> {e(lbl)}</label>' for k, lbl in JOIN_ROLES)
+    body = page_hero("Join ASKODOX", "The Android app is in early access. Tell us who you are and we'll invite you as places open up.", "Join") + f"""
 <section class="section zone-day"><div class="wrap contact-grid">
   <div>
     <h2 class="visually-hidden">Ways to join</h2>
-    <div class="channels">{cards}</div>
-    <p class="muted" style="margin-top:1rem">You can choose more than one. Most people do.</p>
+    <div class="channels">{cards}<div class="channel" id="refer-link"><div><h3>Refer a business</h3><p>Know a great seller or provider? <a href="#refer">Tell us about them</a>.</p></div></div></div>
+    <details class="more-ways" id="more" style="margin-top:1rem"><summary>More ways to join</summary><ul style="grid-template-columns:minmax(0,1fr)">{more}</ul><p class="muted">One account can hold several roles. ASKODOX follows what you want to do each time.</p></details>
   </div>
   <div>
     <h2 style="font-size:var(--ax-step-3);margin-bottom:.5rem">Request early access</h2>
-    <p class="muted" style="margin-bottom:1.5rem">This opens your email app with your request ready to send.</p>
-    <form class="form" data-compose="join" data-subject="ASKODOX early access" data-to="{e(cfg['contact']['general_email'])}" novalidate>
+    <p class="muted" style="margin-bottom:1.5rem">Choose every role that fits. You can change them later.</p>
+    <form class="form" data-compose="join" data-subject="ASKODOX early access" data-to="{e(gen)}" novalidate>
       <div class="row"><label>Your name<input name="name" autocomplete="name" required></label><label>Your email<input name="email" type="email" autocomplete="email" required></label></div>
-      <label>I'd like to join as<select name="topic">{options}</select></label>
+      <fieldset><legend>I'd like to join as</legend><div class="checks">{checks}</div></fieldset>
       <div class="row"><label>City<input name="city" autocomplete="address-level2"></label><label>Country<input name="country" autocomplete="country-name"></label></div>
-      <label>Phone type <span class="opt">(optional)</span><select name="phone"><option>Android</option><option>iPhone</option><option>Other</option></select></label>
+      <div class="row"><label>Phone type <span class="opt">(optional)</span><select name="phone"><option>Android</option><option>iPhone</option><option>Other</option></select></label>
+      <label>Preferred language <span class="opt">(optional)</span><input name="language" placeholder="e.g. English, Telugu"></label></div>
       <label>Anything else? <span class="opt">(optional)</span><textarea name="notes" placeholder="What you sell, what service you offer, or what you'd use ASKODOX for"></textarea></label>
-      <button class="btn btn-primary" type="submit">Write request</button>
-      <div class="form-result" role="status"></div>
+      {form_tail(cfg, "Request early access", gen)}
     </form>
   </div>
 </div></section>
 <section class="section zone-mist" id="refer"><div class="wrap contact-grid">
-  <div class="prose"><h2 style="margin-top:0">Refer a business or provider {fbadge(cfg, 'referrals')}</h2><p>Know a great shop, tradesperson or professional who should be on ASKODOX? Tell us about them. We'll only contact them about joining, and we'll mention that you referred them if you'd like.</p></div>
+  <div class="prose"><h2 style="margin-top:0">Refer a business or provider {fbadge(cfg, 'referrals')}</h2><p>Know a great shop, tradesperson or professional who should be on ASKODOX? Tell us about them. We'll only contact them about joining, and we'll mention that you referred them if you'd like.</p>
+  <p>Inside the app, signed-in users can also create a referral code to share.</p></div>
   <form class="form" data-compose="refer" data-subject="ASKODOX referral" data-to="{e(cfg['contact']['partners_email'])}" novalidate>
     <div class="row"><label>Business or person<input name="business" required></label><label>What they offer<input name="offer" required></label></div>
     <div class="row"><label>City and country<input name="location"></label><label>Their phone or email <span class="opt">(optional)</span><input name="their_contact"></label></div>
-    <label>Your email<input name="your_email" type="email" required></label>
-    <label style="display:flex;gap:.6rem;align-items:center;font-weight:400"><input type="checkbox" name="they_agreed" style="min-height:auto;width:20px;height:20px;margin:0;display:inline-block"> They're happy for me to share their details</label>
-    <button class="btn btn-primary" type="submit">Write referral</button>
-    <div class="form-result" role="status"></div>
+    <label>Your email<input name="your_email" type="email" autocomplete="email" required></label>
+    <label class="consent-line"><input type="checkbox" name="they_agreed"> <span>They're happy for me to share their details</span></label>
+    {form_tail(cfg, "Send referral", cfg['contact']['partners_email'])}
   </form>
 </div></section>"""
-    return Page("/join/", "Join ASKODOX", "Join ASKODOX as a buyer, seller, service provider or creator, request early access to the Android beta, or refer a business.", body, crumb="Join")
+    return Page("/join/", "Join ASKODOX", "Join ASKODOX as a buyer, seller, service provider, creator, freelancer or business, request early access to the Android app, or refer a business.", body, crumb="Join")
 
 
 def app_page(cfg: dict) -> Page:
@@ -753,6 +859,17 @@ def trust(cfg: dict) -> Page:
     <li><h3>A person to talk to</h3><p>Report a problem and our team will look into it.</p></li>
   </ul>
 </div></section>
+<section class="section-tight zone-day"><div class="wrap">
+  <div class="signals" style="margin-top:0">
+    <h3>Trust signals you'll see on results</h3>
+    <ul>
+      <li>{icon('check')}<span>Phone-verified account: signed in with a one-time code</span>{fbadge(cfg, 'phone_verified')}</li>
+      <li>{icon('star')}<span>Reviews only from people who completed a request</span>{fbadge(cfg, 'reviews')}</li>
+      <li>{icon('shield')}<span>Business verification</span>{fbadge(cfg, 'business_verification')}</li>
+    </ul>
+    <p class="muted" style="margin-top:.75rem">A signal is shown only when it's true for that seller or provider. Nothing is displayed as verified until it has been checked.</p>
+  </div>
+</div></section>
 <section class="section zone-mist"><div class="wrap prose">
   <h2>Staying safe when you meet or pay someone</h2>
   <ul><li>Meet in a public place when buying or selling in person.</li><li>Check an item or the work before you pay.</li><li>Never share one-time codes or passwords with anyone, including people claiming to be from ASKODOX.</li><li>If something feels wrong, stop and <a href="/report-a-problem/">report it</a>.</li></ul>
@@ -785,6 +902,19 @@ def status(cfg: dict) -> Page:
     return Page("/status/", "What's live", "See which ASKODOX features are live, in beta or coming soon.", body, crumb="What's live")
 
 
+def legal_entity(cfg: dict) -> str:
+    """Verified legal details only. Until they're configured, say so plainly."""
+    site = cfg["site"]
+    if site.get("legal_name"):
+        out = e(site["legal_name"])
+        if site.get("legal_company_number"):
+            out += f" (registration number {e(site['legal_company_number'])})"
+        if site.get("legal_address"):
+            out += f", {e(site['legal_address'])}"
+        return out
+    return '<span class="placeholder">the operator of ASKODOX (registered company name, number and address will be published here once confirmed)</span>'
+
+
 def legal_page(path: str, title: str, desc: str, inner: str, cfg: dict) -> Page:
     body = page_hero(title, f"Effective {cfg['site']['policies_effective_date']}.", title) + f'<section class="section zone-day"><div class="wrap prose">{inner}</div></section>'
     return Page(path, title, desc, body, crumb=title, priority="0.3")
@@ -792,12 +922,10 @@ def legal_page(path: str, title: str, desc: str, inner: str, cfg: dict) -> Page:
 
 def privacy(cfg: dict) -> Page:
     p = cfg["contact"]["privacy_email"]
-    name = e(cfg["site"]["legal_name"])
-    addr = cfg["site"].get("legal_address")
     inner = f"""
 <p class="lead">This policy explains what information ASKODOX collects, why, who it's shared with and the choices you have. It covers the askodox.com website and the ASKODOX app.</p>
 <h2>Who we are</h2>
-<p>ASKODOX is operated by {name}{', ' + e(addr) if addr else ''}. For any privacy question or request, email <a href="mailto:{e(p)}">{e(p)}</a>.</p>
+<p>ASKODOX is operated by {legal_entity(cfg)}. For any privacy question or request, email <a href="mailto:{e(p)}">{e(p)}</a>.</p>
 <h2>Information we collect</h2>
 <h3>On this website</h3>
 <ul>
@@ -849,7 +977,10 @@ def privacy(cfg: dict) -> Page:
 
 
 def terms(cfg: dict) -> Page:
-    name = e(cfg["site"]["legal_name"])
+    name = legal_entity(cfg)
+    juris = e(cfg["site"].get("legal_jurisdiction") or "")
+    law = (f"<p>These terms are governed by the laws of {juris}.</p>" if juris else
+           '<p><span class="placeholder">The governing law and courts will be stated here once confirmed.</span> Nothing here limits consumer rights that apply where you live.</p>')
     inner = f"""
 <p class="lead">These terms apply when you use the askodox.com website or the ASKODOX app. By using ASKODOX you agree to them.</p>
 <h2>What ASKODOX is</h2>
@@ -871,9 +1002,13 @@ def terms(cfg: dict) -> Page:
 <h2>Third-party links and partners</h2>
 <p>ASKODOX may show links to other websites and, once approved, partner or affiliate offers. We're not responsible for third-party sites. See the <a href="/affiliate-disclosure/">Affiliate disclosure</a>.</p>
 <h2>Our content</h2>
-<p>The ASKODOX name, logo, design and software belong to {name}. You keep ownership of what you post, and give us permission to use it to run and improve ASKODOX.</p>
+<p>The ASKODOX name, logo, design and software belong to the provider named above. You keep ownership of what you post, and give us permission to use it to run and improve ASKODOX.</p>
 <h2>Liability</h2>
 <p>ASKODOX is provided "as is". To the extent the law allows, we're not liable for losses arising from dealings between users or from relying on AI answers. Nothing in these terms limits rights you have under consumer laws that can't be excluded.</p>
+<h2>Who provides ASKODOX</h2>
+<p>ASKODOX is provided by {name}.</p>
+<h2>Governing law</h2>
+{law}
 <h2>Changes and contact</h2>
 <p>We may update these terms and will show the new effective date here. Questions: {mail(cfg, 'general_email')}.</p>
 """
@@ -932,7 +1067,7 @@ def accessibility(cfg: dict) -> Page:
 
 
 def not_found(cfg: dict) -> Page:
-    body = f"""<section class="not-found zone-deep"><div>
+    body = """<section class="not-found zone-deep"><div>
 <askodox-companion state="thinking" aria-hidden="true"></askodox-companion>
 <h1 style="font-size:var(--ax-step-4)">That page isn't here</h1>
 <p class="muted" style="margin:1rem auto 2rem;max-width:30rem">The link may be old or mistyped. Try the home page, or ask us for help.</p>

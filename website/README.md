@@ -14,8 +14,17 @@ already excludes this folder from the backend image.
   links. Pages link to `/go/<slug>`; the server redirects. A link is only
   published when `"status": "active"` **and** `"approved": true` and it has
   a `url`. Nothing is active today.
-- `pages.py` — page content. `build.py` — layout, SEO (titles,
-  descriptions, canonical, Open Graph, JSON-LD, sitemap, robots), assets.
+- `pages.py` — page content. `demos.py` — the illustrated example blocks
+  (result cards, no-match, videos, deals, consent). Every example block
+  carries a visible **Example** marker; product pictures are SVG
+  illustrations, never photos of real items. `build.py` — layout, SEO
+  (titles, descriptions, canonical, Open Graph, JSON-LD, sitemap, robots),
+  assets.
+- `locales/*.json` + `i18n.py` — interface and home-page text per language.
+  One set of pages is rendered once per published locale (`/te/...`), with
+  missing keys falling back to English, so a translation can be partial.
+  English is the only published locale today; Telugu (`te.json`) is ready
+  for the navigation, footer and home-page headlines.
 - `static/css/tokens.css` — design tokens, identical to the app's
   `lib/config/theme/askodox_design_tokens.dart`. Published as `/tokens.json`
   for other surfaces (admin, seller tools, social templates).
@@ -38,11 +47,39 @@ already excludes this folder from the backend image.
 | `ASKODOX_SITE_WHATSAPP` | Official WhatsApp number in international format; turns WhatsApp support to Live |
 | `ASKODOX_SITE_PLAY_STORE_URL` / `ASKODOX_SITE_APP_STORE_URL` | Store buttons become real links and the app turns Live |
 | `ASKODOX_SITE_WEB_APP_URL` | The hero ask box sends questions there (`?q=`) instead of showing the preview |
-| `ASKODOX_SITE_FORMS_ENDPOINT` | HTTPS endpoint that receives form JSON; otherwise forms open the visitor's email app |
-| `ASKODOX_SITE_LEGAL_NAME` / `ASKODOX_SITE_LEGAL_ADDRESS` | Company name and address in the footer and policies |
+| `ASKODOX_SITE_FORMS_ENDPOINT` | HTTPS endpoint that receives form JSON (see below); otherwise forms open the visitor's email app and say so |
+| `ASKODOX_SITE_LEGAL_NAME`, `_LEGAL_ADDRESS`, `_LEGAL_COMPANY_NUMBER`, `_LEGAL_JURISDICTION` | Verified legal details. Until set, policies show a clearly marked placeholder |
+| `ASKODOX_SITE_LOCALES` | Published languages, e.g. `en,te` |
 | `ASKODOX_SITE_SOCIAL_JSON` | e.g. `{"youtube":"https://youtube.com/@askodox"}` |
 | `ASKODOX_SITE_FEATURES_JSON` | Override statuses, e.g. `{"partner_deals":"live"}` |
 | `ASKODOX_SITE_LINKS_JSON` | Replace the partner/affiliate link registry |
+
+## Form endpoint contract
+
+When `ASKODOX_SITE_FORMS_ENDPOINT` is set, every form POSTs JSON:
+
+```
+{ "form": "join" | "refer" | "contact" | "report",
+  "subject": "...", "fields": { ... }, "page": "/join/", "locale": "en" }
+```
+
+Only a 2xx reply is shown as "Received". Any other reply or a 15 s timeout
+keeps the visitor's input and offers email instead. The endpoint must allow
+CORS from https://askodox.com. Its origin is added to the site's CSP
+automatically. Forms include a hidden honeypot field (`website`) that the
+browser never sends; the endpoint should still rate-limit.
+
+## Tests
+
+```
+cd website
+python3 -m unittest discover -s tests -v
+```
+
+Checks every route builds with SEO tags and one h1, internal links resolve,
+no partner link, store URL, phone or WhatsApp number is published unless
+configured, example blocks are marked, legal placeholders show until set,
+forms are honest without an endpoint, and the Telugu build works.
 
 ## Local preview
 

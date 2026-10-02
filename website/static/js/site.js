@@ -170,7 +170,11 @@
       openSheet(v, guess(v).kind);
     });
     $$("[data-ask-mode]").forEach(function (b) {
-      b.addEventListener("click", function () { openSheet(null, "mode:" + b.getAttribute("data-ask-mode")); });
+      b.addEventListener("click", function () {
+        var m = b.getAttribute("data-ask-mode");
+        if (m === "type") { stopRotation(); input.focus(); return; }
+        openSheet(null, "mode:" + m);
+      });
     });
     $$('a[href="#ask-form"]').forEach(function (a) {
       a.addEventListener("click", function (e) { e.preventDefault(); stopRotation(); input.focus(); hero.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" }); });
@@ -192,19 +196,27 @@
   function openSheet(text, kind) {
     if (!sheet) return;
     var body = $(".sheet-body", sheet);
-    var modeNames = { voice: "Ask by voice", photo: "Ask with a photo", file: "Ask with a file" };
+    var modeNames = { voice: "Ask by voice", photo: "Ask with a photo", file: "Ask with a file", location: "Discover near you" };
+    var modeText = {
+      voice: "Speak naturally, in your own language. ASKODOX listens, understands and answers in the same conversation.",
+      photo: "Show a product, a part or a problem. ASKODOX works out what it is and finds where to get it, fix it or sell it.",
+      file: "Share a quote, a bill, an agreement or a video. ASKODOX explains it and helps you decide what to do next.",
+      location: "With your permission, ASKODOX looks at sellers and providers near you first, then a wider area, then online. Others only ever see your general area."
+    };
+    var P = CFG.localePrefix || "";
     var html = "";
     if (kind.indexOf("mode:") === 0) {
       var m = kind.slice(5);
       html += "<h2 id='sheet-title'>" + esc(modeNames[m] || "Ask ASKODOX") + "</h2>";
-      html += "<p class='muted'>In the ASKODOX app you can speak, share a photo or attach a file, in the same conversation. It is in beta on Android today and coming to the web.</p>";
+      html += "<p>" + esc(modeText[m] || "") + "</p>";
+      html += "<p class='muted'>Available in the ASKODOX Android app (early access). Coming to the web.</p>";
     } else {
       html += "<h2 id='sheet-title'>Here's how ASKODOX would help</h2>";
       html += "<div class='sheet-quote'>" + esc(text) + "</div>";
       html += "<ol class='sheet-plan'>" + PLAN[kind].map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ol>";
       html += "<p class='muted'>Asking on the web is coming soon. Today ASKODOX answers inside the Android app, which is in beta.</p>";
     }
-    html += "<div class='btn-row'><a class='btn btn-primary' href='/join/'>Get early access</a><a class='btn btn-ghost' href='/how-it-works/'>See how it works</a></div>";
+    html += "<div class='btn-row'><a class='btn btn-primary' href='" + P + "/join/'>Get early access</a><a class='btn btn-ghost' href='" + P + "/how-it-works/'>See how it works</a></div>";
     body.innerHTML = html;
     if (typeof sheet.showModal === "function") sheet.showModal(); else window.location.href = "/how-it-works/";
   }
@@ -362,6 +374,40 @@
     doc.addEventListener("visibilitychange", function () { if (doc.hidden) { clearTimeout(timer); } else if (started && current) { play(current); } });
   }
 
+  /* ---------------- Example results: filter by label ---------------- */
+  $$(".results-demo").forEach(function (box) {
+    var btns = $$(".filters button", box), cards = $$(".rcard", box);
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var f = b.getAttribute("data-filter");
+        btns.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        cards.forEach(function (c) { c.hidden = !(f === "all" || (" " + c.getAttribute("data-kinds") + " ").indexOf(" " + f + " ") > -1); });
+      });
+    });
+  });
+
+  /* ---------------- Video demo tabs ---------------- */
+  $$(".video-demo").forEach(function (box) {
+    var vtabs = $$('[role="tab"]', box);
+    function show(tab) {
+      vtabs.forEach(function (x) {
+        var on = x === tab;
+        x.setAttribute("aria-selected", on ? "true" : "false"); x.tabIndex = on ? 0 : -1;
+        var panel = doc.getElementById(x.getAttribute("aria-controls"));
+        if (panel) panel.hidden = !on;
+      });
+    }
+    vtabs.forEach(function (tab, i) {
+      tab.addEventListener("click", function () { show(tab); });
+      tab.addEventListener("keydown", function (e) {
+        var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        var n = vtabs[(i + d + vtabs.length) % vtabs.length]; n.focus(); show(n);
+      });
+    });
+  });
+
   /* ---------------- Roles (multi-select) ---------------- */
   var ROLES = {
     buyer: { t: "Buying", items: [["Ask", "Describe what you want in your own words, with a budget if you have one."], ["Compare", "See nearby and online options side by side, with the trade-offs explained."], ["Connect", "Send a request to the seller; they see your number only if you choose."]], link: ["/discover/", "How discovery works"] },
@@ -393,27 +439,52 @@
     paint();
   }
 
-  /* ---------------- Forms (mailto composer, or endpoint when configured) ---------------- */
+  /* ---------------- Forms ----------------
+     With ASKODOX_SITE_FORMS_ENDPOINT configured, forms POST JSON to it and
+     report success only on a 2xx reply. Without it, nothing is "submitted":
+     the visitor's email app opens with the message ready, and the page says
+     exactly that. Payload: { form, subject, fields, page, locale }. */
   $$("form[data-compose]").forEach(function (form) {
+    var btn = $('button[type="submit"]', form);
+    var result = $(".form-result", form);
+    var idle = btn ? btn.textContent : "";
+    function say(kind, html) {
+      result.className = "form-result show" + (kind ? " is-" + kind : "");
+      result.innerHTML = html;
+      result.focus && result.setAttribute("tabindex", "-1");
+    }
+    function collect() {
+      var data = {};
+      $$("input, select, textarea", form).forEach(function (f) {
+        if (!f.name || f.name === "website") return;
+        if (f.type === "checkbox") {
+          if (f.hasAttribute("data-multi")) { if (f.checked) (data[f.name] = data[f.name] || []).push(f.value); }
+          else data[f.name] = f.checked ? "yes" : "no";
+        } else data[f.name] = f.value.trim();
+      });
+      return data;
+    }
     form.addEventListener("submit", function (e) {
       e.preventDefault();
+      var hp = $('input[name="website"]', form);
+      if (hp && hp.value) return;
       if (!form.reportValidity()) return;
-      var data = {};
-      $$("input, select, textarea", form).forEach(function (f) { if (f.name && f.type !== "checkbox") data[f.name] = f.value.trim(); if (f.type === "checkbox") data[f.name] = f.checked ? "yes" : "no"; });
+      var data = collect();
       var subject = (form.getAttribute("data-subject") || "ASKODOX website") + (data.topic ? ": " + data.topic : "");
-      var result = $(".form-result", form);
-      if (CFG.formsEndpoint) {
-        fetch(CFG.formsEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ form: form.getAttribute("data-compose"), subject: subject, fields: data, page: location.pathname }) })
-          .then(function (r) { if (!r.ok) throw new Error(r.status); result.textContent = "Sent. We'll reply by email."; result.classList.add("show"); form.reset(); })
-          .catch(function () { mail(); });
-      } else { mail(); }
+      var to = form.getAttribute("data-to") || CFG.supportEmail;
       function mail() {
-        var lines = Object.keys(data).map(function (k) { return k.replace(/_/g, " ") + ": " + data[k]; });
-        var to = form.getAttribute("data-to") || CFG.supportEmail;
+        var lines = Object.keys(data).map(function (k) { var v = data[k]; return k.replace(/_/g, " ") + ": " + (Array.isArray(v) ? v.join(", ") : v); });
         window.location.href = "mailto:" + to + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(lines.join("\n") + "\n\n(sent from " + location.href + ")");
-        result.innerHTML = "Your email app should open with this message ready to send. If it doesn't, write to <a href='mailto:" + esc(to) + "'>" + esc(to) + "</a>.";
-        result.classList.add("show");
+        say("", "Your email app should now be open with this message ready. <strong>It isn't sent until you press send there.</strong> No email app? Write to <a href='mailto:" + esc(to) + "'>" + esc(to) + "</a>.");
       }
+      if (!CFG.formsEndpoint) { mail(); return; }
+      btn && (btn.setAttribute("aria-busy", "true"), btn.disabled = true, btn.textContent = "Sending…");
+      var ctrl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { ctrl && ctrl.abort(); }, 15000);
+      fetch(CFG.formsEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ form: form.getAttribute("data-compose"), subject: subject, fields: data, page: location.pathname, locale: CFG.locale }), signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); say("ok", "Received. We'll reply by email."); form.reset(); })
+        .catch(function () { say("error", "We couldn't send this just now. Your details are still here. Try again, or <button type='button' class='linkish' data-mail>send it by email instead</button>."); var m = $("[data-mail]", result); m && m.addEventListener("click", mail); })
+        .then(function () { clearTimeout(timer); btn && (btn.removeAttribute("aria-busy"), btn.disabled = false, btn.textContent = idle); });
     });
   });
 })();
