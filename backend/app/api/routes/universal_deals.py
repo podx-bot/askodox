@@ -66,6 +66,70 @@ class ReviewRequest(BaseModel):
     review_text: str = Field(default="", max_length=2000)
 
 
+
+
+class ExternalClickRequest(BaseModel):
+    provider_id: str = Field(min_length=1, max_length=80)
+    result_id: str = Field(default="", max_length=160)
+    destination_url: str = Field(default="", max_length=2000)
+    user_id: str = Field(default="", max_length=160)
+
+
+class ExternalConversionRequest(BaseModel):
+    provider_id: str = Field(min_length=1, max_length=80)
+    event: str = Field(default="conversion", max_length=80)
+    external_reference: str = Field(default="", max_length=240)
+    value: float | None = None
+    currency: str = Field(default="INR", max_length=8)
+
+
+def _ensure_external_tracking_table(container) -> None:
+    container.database.execute("""CREATE TABLE IF NOT EXISTS external_commerce_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        result_id TEXT,
+        destination_url TEXT,
+        user_ref TEXT,
+        external_reference TEXT,
+        value REAL,
+        currency TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+
+
+@router.post("/external/click")
+def record_external_click(payload: ExternalClickRequest, request: Request) -> dict:
+    container = request.app.state.container
+    _ensure_external_tracking_table(container)
+    user_ref = mask_user_id(payload.user_id) if payload.user_id else ""
+    container.database.execute(
+        """INSERT INTO external_commerce_events
+        (event_type,provider_id,result_id,destination_url,user_ref,currency)
+        VALUES('click',?,?,?,?,?)""",
+        (payload.provider_id.strip().lower(), payload.result_id, payload.destination_url, user_ref, "INR"),
+    )
+    return {"recorded": True, "event": "click"}
+
+
+@router.post("/external/conversion")
+def record_external_conversion(payload: ExternalConversionRequest, request: Request) -> dict:
+    container = request.app.state.container
+    config = getattr(container, "affiliate_provider_config", None)
+    provider = dict((config.providers if config else {}).get(payload.provider_id.strip().lower()) or {})
+    if not provider or not provider.get("callback_enabled", False):
+        raise HTTPException(status_code=404, detail="Conversion callback is not enabled for this provider")
+    _ensure_external_tracking_table(container)
+    container.database.execute(
+        """INSERT INTO external_commerce_events
+        (event_type,provider_id,external_reference,value,currency)
+        VALUES(?,?,?,?,?)""",
+        (payload.event.strip().lower(), payload.provider_id.strip().lower(),
+         payload.external_reference, payload.value, payload.currency.upper()),
+    )
+    return {"recorded": True, "event": payload.event.strip().lower()}
+
+
 def _latest_created_deal(container, user_id: str):
     return container.database.fetchone(
         """
