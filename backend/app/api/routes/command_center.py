@@ -1019,6 +1019,103 @@ def audit(request: Request, limit: int = 100) -> dict[str, Any]:
     return {"items": command_center(request.app.state.container).audit_log(limit=limit)}
 
 
+
+# ---------------------------------------- Social / Ads / Offers / Rewards --
+
+class VideoSourceUpsert(BaseModel):
+    provider_type: str
+    api_enabled: bool = False
+    embed_enabled: bool = True
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class SponsoredCampaignCreate(BaseModel):
+    owner_ref: str = "askodox"
+    campaign_type: str = "sponsored"
+    title: str
+    destination_url: str | None = None
+    category: str | None = None
+    location_scope: str | None = None
+    budget: float | None = Field(default=None, ge=0)
+    starts_at: str | None = None
+    ends_at: str | None = None
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class PartnerOfferCreate(BaseModel):
+    partner_id: str
+    offer_type: str
+    title: str
+    bank_name: str | None = None
+    card_network: str | None = None
+    merchant: str | None = None
+    promo_code: str | None = None
+    discount_value: float | None = None
+    discount_unit: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
+    terms_url: str | None = None
+    source_url: str | None = None
+    verified: bool = False
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+def _social_hub(request: Request):
+    hub = getattr(request.app.state.container, "social_ads_offers_hub", None)
+    if hub is None:
+        from app.services.social_ads_offers_hub import SocialAdsOffersHub
+        hub = SocialAdsOffersHub(request.app.state.container.settings.database_path)
+        request.app.state.container.social_ads_offers_hub = hub
+    return hub
+
+@router.get("/social-growth/video-sources")
+def social_video_sources(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _rows(request, "SELECT provider_id,provider_type,api_enabled,embed_enabled,active,updated_at FROM social_video_sources ORDER BY provider_id")}
+
+@router.put("/social-growth/video-sources/{provider_id}")
+def social_video_source_upsert(provider_id: str, payload: VideoSourceUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _social_hub(request).upsert_video_source(provider_id, **payload.model_dump())
+    command_center(request.app.state.container).audit(principal["id"], "video_source_upsert", "video_source", provider_id, None, {"active": item["active"]})
+    return item
+
+@router.get("/social-growth/campaigns")
+def social_campaigns(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    return {"items": _rows(request, "SELECT * FROM sponsored_campaigns ORDER BY id DESC LIMIT 500")}
+
+@router.post("/social-growth/campaigns")
+def social_campaign_create(payload: SponsoredCampaignCreate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "growth:manage")
+    try:
+        item = _social_hub(request).create_campaign(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    command_center(request.app.state.container).audit(principal["id"], "campaign_create", "sponsored_campaign", str(item["id"]), None, {"type": item["campaign_type"], "active": item["active"]})
+    return item
+
+@router.get("/social-growth/partner-offers")
+def social_partner_offers(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    return {"items": _rows(request, "SELECT * FROM partner_offers ORDER BY id DESC LIMIT 500")}
+
+@router.post("/social-growth/partner-offers")
+def social_partner_offer_create(payload: PartnerOfferCreate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "growth:manage")
+    item = _social_hub(request).create_offer(**payload.model_dump())
+    command_center(request.app.state.container).audit(principal["id"], "partner_offer_create", "partner_offer", str(item["id"]), None, {"verified": item["verified"], "active": item["active"]})
+    return item
+
+@router.get("/social-growth/scratch-rewards")
+def social_scratch_rewards(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    items = _rows(request, "SELECT id,user_ref,trigger_type,trigger_ref,reward_type,reward_value,status,expires_at,revealed_at,redeemed_at,created_at FROM scratch_rewards ORDER BY id DESC LIMIT 500")
+    for item in items:
+        item["user_ref"] = mask_user_id(str(item.get("user_ref") or ""))
+    return {"items": items}
+
+
 # ----------------------------------------------- Partner & Revenue Hub --
 
 class PartnerRevenueUpsert(BaseModel):
