@@ -671,7 +671,7 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
               ("support.escalation",)),
         state("affiliate_sources", "Affiliate / online partner sources", affiliate_count > 0,
               ("results.affiliate",), detail=f"{affiliate_count} active provider(s)"),
-        state("push_notifications", "Background push (Firebase Cloud Messaging)",
+        state("youtube_data_api", "YouTube Data API",\n              bool(os.getenv("YOUTUBE_DATA_API_KEY", "").strip() or os.getenv("YOUTUBE_API_KEY", "").strip()),\n              detail="YouTube public-data search; key is read only from Railway environment variables"),\n        state("push_notifications", "Background push (Firebase Cloud Messaging)",
               bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()),
               detail="Server needs FIREBASE_SERVICE_ACCOUNT_JSON; the Android app needs google-services.json "
                      "(see docs/EXTERNAL_SETUP.md). Until then updates arrive only while the app is open."),
