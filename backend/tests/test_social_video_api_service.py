@@ -11,7 +11,16 @@ def test_status_never_exposes_credentials(monkeypatch):
 
 def test_unconfigured_youtube_fails_closed(monkeypatch):
     monkeypatch.delenv("YOUTUBE_DATA_API_KEY",raising=False)
+    monkeypatch.delenv("YOUTUBE_API_KEY",raising=False)
     assert SocialVideoApiService().youtube_search("kurti") == []
+
+def test_youtube_api_key_legacy_admin_name_is_supported(monkeypatch):
+    monkeypatch.delenv("YOUTUBE_DATA_API_KEY",raising=False)
+    monkeypatch.setenv("YOUTUBE_API_KEY","railway-youtube-key")
+    svc=SocialVideoApiService()
+    assert svc.status()[0]["configured"] is True
+    svc._json=lambda url: {"items":[]}
+    assert svc.youtube_search("review") == []
 
 def test_youtube_rows_are_normalized(monkeypatch):
     monkeypatch.setenv("YOUTUBE_DATA_API_KEY","configured")
