@@ -671,6 +671,9 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
               ("support.escalation",)),
         state("affiliate_sources", "Affiliate / online partner sources", affiliate_count > 0,
               ("results.affiliate",), detail=f"{affiliate_count} active provider(s)"),
+        state("youtube_data_api", "YouTube Data API",
+              bool(os.getenv("YOUTUBE_DATA_API_KEY", "").strip() or os.getenv("YOUTUBE_API_KEY", "").strip()),
+              detail="YouTube public-data search; key is read only from Railway environment variables"),
         state("push_notifications", "Background push (Firebase Cloud Messaging)",
               bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()),
               detail="Server needs FIREBASE_SERVICE_ACCOUNT_JSON; the Android app needs google-services.json "
@@ -786,6 +789,11 @@ def check_integration(name: str, request: Request) -> dict[str, Any]:
             status = maps.api_status() if maps is not None and hasattr(maps, "api_status") else {}
             ok = bool(status) and all(v == "OK" for v in status.values())
             detail = "; ".join(f"{api}: {verdict}" for api, verdict in status.items()) or "Maps service unavailable"
+        elif name == "youtube_data_api":
+            from app.services.social_video_api_service import SocialVideoApiService
+            rows = SocialVideoApiService().youtube_search("ASKODOX", 1)
+            ok = bool(rows)
+            detail = "YouTube Data API search OK" if ok else "YouTube Data API returned no results"
         elif name == "sarvam":
             result = container.voice_assistant_service.synthesize("ASKODOX") or {}
             ok = bool(result.get("success")) and str(result.get("tts_path") or "").startswith("sarvam")
