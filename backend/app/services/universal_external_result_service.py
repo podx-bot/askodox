@@ -1,9 +1,67 @@
 """Resolve user-facing online results from normal and affiliate mappings."""
 from __future__ import annotations
 
+import json
 import re
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus, urlparse
 from typing import Any, Iterable
+
+
+class PartnerApiConnector:
+    """Small fail-closed connector for explicitly configured partner search APIs."""
+
+    @staticmethod
+    def search(provider: dict[str, Any], subject: str) -> list[dict[str, Any]]:
+        if not provider.get("api_enabled", False):
+            return []
+        template = str(provider.get("api_base_url") or "").strip()
+        if not template:
+            return []
+        url = template.replace("{query}", quote_plus(str(subject or "").strip()))
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return []
+        headers = {"Accept": "application/json", "User-Agent": "ASKODOX/1.0"}
+        api_key = str(provider.get("api_key") or "").strip()
+        header_name = str(provider.get("api_key_header") or "Authorization").strip()
+        if api_key:
+            headers[header_name] = api_key
+        try:
+            with urlopen(Request(url, headers=headers), timeout=4) as response:
+                payload = json.loads(response.read(1024 * 1024).decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
+            return []
+        rows = payload.get("results") if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            return []
+        out: list[dict[str, Any]] = []
+        for index, row in enumerate(rows[:10]):
+            if not isinstance(row, dict):
+                continue
+            destination = UniversalExternalResultService._http_url(
+                row.get("url") or row.get("destination_url")
+            )
+            if not destination:
+                continue
+            out.append({
+                "id": f"partner-api-{provider.get('provider_id')}-{index}",
+                "match_id": f"partner-api-{provider.get('provider_id')}-{index}",
+                "provider_id": str(provider.get("provider_id") or "partner-api"),
+                "title": str(row.get("title") or row.get("name") or provider.get("name") or "Online option"),
+                "subtitle": str(row.get("subtitle") or row.get("description") or "Partner API result"),
+                "price": row.get("price") if isinstance(row.get("price"), (int, float)) else None,
+                "source": "partner_api",
+                "match_source": "online",
+                "destination_url": destination,
+                "web_fallback_url": destination,
+                "open_strategy": "web",
+                "affiliate": False,
+                "disclosure": str(provider.get("disclosure") or ""),
+                "demo": False,
+            })
+        return out
 
 
 class UniversalExternalResultService:
@@ -28,6 +86,11 @@ class UniversalExternalResultService:
                 continue
             provider_category = str(provider.get("category") or "").strip().casefold()
             if provider_category and provider_category not in wanted and provider_category not in {"general", "product"}:
+                continue
+
+            api_results = PartnerApiConnector.search(provider, subject)
+            if api_results:
+                results.extend(api_results)
                 continue
 
             normal_url = UniversalExternalResultService._http_url(
