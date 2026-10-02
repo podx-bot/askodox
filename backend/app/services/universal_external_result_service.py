@@ -1,8 +1,11 @@
 """Resolve user-facing online results from normal and affiliate mappings."""
 from __future__ import annotations
 
+import ipaddress
 import json
+import os
 import re
+import socket
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus, urlparse
@@ -21,11 +24,12 @@ class PartnerApiConnector:
             return []
         url = template.replace("{query}", quote_plus(str(subject or "").strip()))
         parsed = urlparse(url)
-        if parsed.scheme != "https":
+        if parsed.scheme != "https" or not PartnerApiConnector._safe_public_host(parsed.hostname or "", provider):
             return []
         headers = {"Accept": "application/json", "User-Agent": "ASKODOX/1.0"}
-        api_key = str(provider.get("api_key") or "").strip()
-        header_name = str(provider.get("api_key_header") or "Authorization").strip()
+        provider_id = re.sub(r"[^A-Z0-9]+", "_", str(provider.get("provider_id") or "").upper()).strip("_")
+        api_key = os.getenv(f"ASKODOX_PARTNER_{provider_id}_API_KEY", "").strip() if provider_id else ""
+        header_name = os.getenv(f"ASKODOX_PARTNER_{provider_id}_API_KEY_HEADER", "Authorization").strip()
         if api_key:
             headers[header_name] = api_key
         try:
@@ -62,6 +66,21 @@ class PartnerApiConnector:
                 "demo": False,
             })
         return out
+
+    @staticmethod
+    def _safe_public_host(host: str, provider: dict[str, Any]) -> bool:
+        """Fail closed for localhost/private/link-local API destinations; optional host allow-list."""
+        host = host.strip().lower().rstrip(".")
+        allowed = {h.strip().lower().rstrip(".") for h in str(provider.get("api_allowed_hosts") or "").split(",") if h.strip()}
+        if allowed and host not in allowed:
+            return False
+        if not host or host == "localhost" or host.endswith(".local"):
+            return False
+        try:
+            addresses = {item[4][0] for item in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)}
+            return bool(addresses) and all(ipaddress.ip_address(ip).is_global for ip in addresses)
+        except (OSError, ValueError):
+            return False
 
 
 class UniversalExternalResultService:
