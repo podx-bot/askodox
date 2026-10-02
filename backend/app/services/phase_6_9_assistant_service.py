@@ -32,6 +32,13 @@ class AffiliateProviderConfig:
             "category": str(metadata.get("category") or "general").strip().lower(),
             "route": str(metadata.get("route") or "affiliate").strip().lower(),
             "normal_url": str(metadata.get("normal_url") or "").strip(),
+            "deep_link": str(metadata.get("deep_link") or metadata.get("app_link") or "").strip(),
+            "api_base_url": str(metadata.get("api_base_url") or "").strip(),
+            "api_enabled": bool(metadata.get("api_enabled", False)),
+            "callback_url": str(metadata.get("callback_url") or "").strip(),
+            "callback_enabled": bool(metadata.get("callback_enabled", False)),
+            "tracking_template": str(metadata.get("tracking_template") or "").strip(),
+            "gateway": str(metadata.get("gateway") or "external").strip().lower(),
             "affiliate_url": str(metadata.get("affiliate_url") or metadata.get("affiliate_url_template") or "").strip(),
             "disclosure": str(metadata.get("disclosure") or "Affiliate link").strip(),
             "active": bool(metadata.get("active", True))}
