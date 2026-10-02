@@ -3597,15 +3597,27 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   }
 
   Future<void> _openDestination() async {
-    final raw = _match.destinationUrl?.trim();
-    if (raw == null || raw.isEmpty) return;
-    final uri = Uri.tryParse(raw);
+    final primary = (_match.deepLink?.trim().isNotEmpty == true
+            ? _match.deepLink
+            : _match.destinationUrl)
+        ?.trim();
+    final fallback = _match.webFallbackUrl?.trim();
+    if (primary == null || primary.isEmpty) return;
     var opened = false;
     try {
-      opened = uri != null &&
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final uri = Uri.tryParse(primary);
+      opened = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       opened = false;
+    }
+    if (!opened && fallback != null && fallback.isNotEmpty && fallback != primary) {
+      try {
+        final fallbackUri = Uri.tryParse(fallback);
+        opened = fallbackUri != null &&
+            await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        opened = false;
+      }
     }
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
