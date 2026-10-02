@@ -272,6 +272,7 @@ abstract interface class UniversalMatchRepository {
   /// [trace] is app-side context for the admin flow trace.
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace});
   Future<void> acceptMatch({required String dealId, required String matchId});
+  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl});
 
   /// Explicit Party B acknowledgement for production-like sandbox flows.
   /// Live flows continue to use the backend acceptance/interest endpoints.
@@ -316,6 +317,25 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   bool _isSandbox(String dealId, String matchId) =>
       dealId.startsWith('local-') || matchId.startsWith('demo-');
+
+  @override
+  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl}) async {
+    final provider = (match.providerId ?? match.sourceName ?? match.source).trim();
+    if (provider.isEmpty || destinationUrl.trim().isEmpty) return;
+    // Tracking must never block navigation. The backend stores only a masked user reference.
+    try {
+      await _client.post<Map<String, Object?>>(
+        '/external/click',
+        body: <String, Object?>{
+          'provider_id': provider,
+          'result_id': match.id,
+          'destination_url': destinationUrl.trim(),
+          'user_id': appUserId ?? '',
+        },
+        options: ApiRequestOptions(timeout: const Duration(seconds: 4), authToken: authToken),
+      );
+    } catch (_) {}
+  }
 
   @override
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace}) async {
