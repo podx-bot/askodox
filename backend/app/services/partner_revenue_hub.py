@@ -184,3 +184,86 @@ class PartnerRevenueHub:
                  external_reference, float(value or 0), currency or "INR",
                  json.dumps(metadata or {}, ensure_ascii=False)))
             return int(cur.lastrowid)
+
+
+    def upsert_product(self, partner_id: str, original_product_url: str, **values: Any) -> dict[str, Any]:
+        partner_id = str(partner_id or "").strip().lower()
+        original_product_url = str(original_product_url or "").strip()
+        if not partner_id or not original_product_url:
+            raise ValueError("partner_id and original_product_url are required")
+        with self._connect() as conn:
+            conn.execute("""INSERT INTO affiliate_products
+                (partner_id,source,merchant,original_product_url,affiliate_url,collection_url,title,
+                 category,subcategory,price,currency,image_url,stock_status,verified_commission_rate,
+                 active,last_verified,metadata_json)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(partner_id,original_product_url) DO UPDATE SET
+                 source=excluded.source,merchant=excluded.merchant,affiliate_url=excluded.affiliate_url,
+                 collection_url=excluded.collection_url,title=excluded.title,category=excluded.category,
+                 subcategory=excluded.subcategory,price=excluded.price,currency=excluded.currency,
+                 image_url=excluded.image_url,stock_status=excluded.stock_status,
+                 verified_commission_rate=excluded.verified_commission_rate,active=excluded.active,
+                 last_verified=excluded.last_verified,metadata_json=excluded.metadata_json""",
+                (partner_id, str(values.get("source") or ""), str(values.get("merchant") or ""),
+                 original_product_url, str(values.get("affiliate_url") or ""),
+                 str(values.get("collection_url") or ""), str(values.get("title") or ""),
+                 str(values.get("category") or "general").lower(),
+                 str(values.get("subcategory") or "").lower(), values.get("price"),
+                 str(values.get("currency") or "INR"), str(values.get("image_url") or ""),
+                 str(values.get("stock_status") or ""), values.get("verified_commission_rate"),
+                 int(bool(values.get("active", True))), values.get("last_verified"),
+                 json.dumps(values.get("metadata") or {}, ensure_ascii=False)))
+            row = conn.execute("""SELECT * FROM affiliate_products
+                WHERE partner_id=? AND original_product_url=?""",
+                (partner_id, original_product_url)).fetchone()
+        return dict(row) if row else {}
+
+    def search_products(self, query: str = "", category: str = "", limit: int = 50) -> list[dict[str, Any]]:
+        # Relevance filter first. Affiliate presence never gates inclusion.
+        sql, args = "SELECT * FROM affiliate_products WHERE active=1", []
+        if category:
+            sql += " AND category=?"; args.append(category.strip().lower())
+        tokens = [x.lower() for x in str(query or "").split() if x.strip()]
+        for token in tokens[:6]:
+            sql += " AND (LOWER(title) LIKE ? OR LOWER(merchant) LIKE ? OR LOWER(subcategory) LIKE ?)"
+            like = f"%{token}%"; args.extend([like, like, like])
+        sql += " ORDER BY CASE WHEN affiliate_url<>'' THEN 0 ELSE 1 END, id DESC LIMIT ?"
+        args.append(max(1, min(int(limit or 50), 200)))
+        with self._connect() as conn:
+            rows = [dict(r) for r in conn.execute(sql, args).fetchall()]
+        for row in rows:
+            row["destination_url"] = row.get("affiliate_url") or row.get("original_product_url")
+            row["monetized"] = bool(row.get("affiliate_url"))
+        return rows
+
+    def assign_staff(self, staff_ref: str, *, partner_id: str = "", sector: str = "",
+                     category: str = "", permissions: list[str] | None = None, active: bool = True) -> None:
+        staff_ref = str(staff_ref or "").strip()
+        if not staff_ref:
+            raise ValueError("staff_ref is required")
+        with self._connect() as conn:
+            conn.execute("""INSERT INTO partner_staff_assignments
+                (staff_ref,partner_id,sector,category,permissions_json,active) VALUES(?,?,?,?,?,?)
+                ON CONFLICT(staff_ref,partner_id,sector,category) DO UPDATE SET
+                permissions_json=excluded.permissions_json,active=excluded.active""",
+                (staff_ref, partner_id.strip().lower(), sector.strip().lower(), category.strip().lower(),
+                 json.dumps(sorted(set(permissions or []))), int(bool(active))))
+
+    def upsert_bfsi_flow(self, partner_id: str, product_type: str, **values: Any) -> None:
+        partner_id, product_type = str(partner_id).strip().lower(), str(product_type).strip().lower()
+        if not partner_id or not product_type:
+            raise ValueError("partner_id and product_type are required")
+        with self._connect() as conn:
+            conn.execute("""INSERT INTO bfsi_partner_flows
+                (partner_id,product_type,lead_enabled,journey_enabled,callback_enabled,status_enabled,
+                 consent_required,regulated_entity,active,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(partner_id,product_type) DO UPDATE SET
+                 lead_enabled=excluded.lead_enabled,journey_enabled=excluded.journey_enabled,
+                 callback_enabled=excluded.callback_enabled,status_enabled=excluded.status_enabled,
+                 consent_required=excluded.consent_required,regulated_entity=excluded.regulated_entity,
+                 active=excluded.active,metadata_json=excluded.metadata_json""",
+                (partner_id, product_type, int(bool(values.get("lead_enabled"))),
+                 int(bool(values.get("journey_enabled"))), int(bool(values.get("callback_enabled"))),
+                 int(bool(values.get("status_enabled"))), int(bool(values.get("consent_required", True))),
+                 str(values.get("regulated_entity") or ""), int(bool(values.get("active"))),
+                 json.dumps(values.get("metadata") or {}, ensure_ascii=False)))
