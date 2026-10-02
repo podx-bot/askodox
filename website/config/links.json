@@ -1,0 +1,25 @@
+{
+  "_comment": "Central registry for outbound partner, affiliate and deep links. The site never hard-codes a partner URL: pages link to /go/<slug>, and the server redirects using this file. A link is only published when status is 'active' AND approved is true. Override the whole registry with the ASKODOX_SITE_LINKS_JSON environment variable.",
+  "links": [
+    {
+      "slug": "amazon",
+      "partner": "Amazon",
+      "programme": "Amazon Associates",
+      "url": "",
+      "status": "planned",
+      "approved": false,
+      "affiliate": true,
+      "note": "Not active. Do not enable until the Associates account is approved and the store tag is issued."
+    },
+    {
+      "slug": "android-app",
+      "partner": "ASKODOX",
+      "programme": "App download",
+      "url": "",
+      "status": "planned",
+      "approved": false,
+      "affiliate": false,
+      "note": "Point to the Google Play listing once it is public."
+    }
+  ]
+}
