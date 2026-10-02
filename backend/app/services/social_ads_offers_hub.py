@@ -66,6 +66,32 @@ class SocialAdsOffersHub:
               (pid,provider_type.strip().lower(),int(bool(v.get("api_enabled"))),int(bool(v.get("embed_enabled",True))),
                int(bool(v.get("active"))),json.dumps(v.get("metadata") or {}),_now()))
             return dict(c.execute("SELECT * FROM social_video_sources WHERE provider_id=?",(pid,)).fetchone())
+    def upsert_video(self, provider_id:str, external_video_id:str, canonical_url:str, **v:Any)->dict[str,Any]:
+        if not canonical_url.startswith(("https://","http://")): raise ValueError("video URL must be http/https")
+        with self._connect() as c:
+            c.execute("""INSERT INTO social_videos(provider_id,external_video_id,canonical_url,title,creator,category,
+              thumbnail_url,related_ref,active,metadata_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+              ON CONFLICT(provider_id,external_video_id) DO UPDATE SET canonical_url=excluded.canonical_url,
+              title=excluded.title,creator=excluded.creator,category=excluded.category,thumbnail_url=excluded.thumbnail_url,
+              related_ref=excluded.related_ref,active=excluded.active,metadata_json=excluded.metadata_json""",
+              (provider_id.strip().lower(),external_video_id.strip(),canonical_url.strip(),v.get("title"),v.get("creator"),
+               v.get("category"),v.get("thumbnail_url"),v.get("related_ref"),int(bool(v.get("active",True))),
+               json.dumps(v.get("metadata") or {}),_now()))
+            return dict(c.execute("SELECT * FROM social_videos WHERE provider_id=? AND external_video_id=?",
+                                  (provider_id.strip().lower(),external_video_id.strip())).fetchone())
+    def add_discussion(self, video_id:int, user_ref:str, body:str, kind:str="question", parent_id:int|None=None)->dict[str,Any]:
+        if kind not in {"question","answer","discussion"}: raise ValueError("invalid discussion kind")
+        body=body.strip()
+        if not body: raise ValueError("body is required")
+        with self._connect() as c:
+            if not c.execute("SELECT 1 FROM social_videos WHERE id=? AND active=1",(video_id,)).fetchone():
+                raise ValueError("video not found")
+            cur=c.execute("INSERT INTO video_discussions(video_id,user_ref,kind,body,parent_id,created_at) VALUES(?,?,?,?,?,?)",
+                          (video_id,user_ref,kind,body,parent_id,_now()))
+            return dict(c.execute("SELECT * FROM video_discussions WHERE id=?",(cur.lastrowid,)).fetchone())
+    def discussions(self, video_id:int)->list[dict[str,Any]]:
+        with self._connect() as c:
+            return [dict(x) for x in c.execute("SELECT * FROM video_discussions WHERE video_id=? ORDER BY id",(video_id,)).fetchall()]
     def create_campaign(self, owner_ref:str, campaign_type:str, title:str, **v:Any)->dict[str,Any]:
         if campaign_type not in {"sponsored","boost"}: raise ValueError("campaign_type must be sponsored or boost")
         now=_now()
