@@ -55,6 +55,7 @@ class AffiliateProviderConfig:
             "deep_link": str(metadata.get("deep_link") or metadata.get("app_link") or "").strip(),
             "api_base_url": str(metadata.get("api_base_url") or "").strip(),
             "api_enabled": bool(metadata.get("api_enabled", False)),
+            "api_allowed_hosts": str(metadata.get("api_allowed_hosts") or "").strip(),
             "callback_url": str(metadata.get("callback_url") or "").strip(),
             "callback_enabled": bool(metadata.get("callback_enabled", False)),
             "tracking_template": str(metadata.get("tracking_template") or "").strip(),
