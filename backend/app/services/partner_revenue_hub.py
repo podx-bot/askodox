@@ -104,9 +104,11 @@ class PartnerRevenueHub:
                 currency TEXT NOT NULL DEFAULT 'INR',
                 settlement_status TEXT NOT NULL DEFAULT 'pending',
                 metadata_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(partner_id, event_type, external_reference)
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_partner_revenue_event_external
+                ON partner_revenue_events(partner_id, event_type, external_reference)
+                WHERE external_reference <> '';
             CREATE INDEX IF NOT EXISTS idx_partner_revenue_events_partner
                 ON partner_revenue_events(partner_id, event_type, created_at);
             """)
