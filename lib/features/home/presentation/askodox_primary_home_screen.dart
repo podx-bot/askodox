@@ -3603,6 +3603,11 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
         ?.trim();
     final fallback = _match.webFallbackUrl?.trim();
     if (primary == null || primary.isEmpty) return;
+    // Best-effort analytics only: a tracking outage must never stop the user's link.
+    ref.read(universalMatchRepositoryProvider).recordExternalClick(
+      match: _match,
+      destinationUrl: primary,
+    );
     var opened = false;
     try {
       final uri = Uri.tryParse(primary);
