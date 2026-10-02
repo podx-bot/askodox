@@ -24,6 +24,26 @@ class AffiliateProviderConfig:
         for provider_id, metadata_json in rows:
             try: self.providers[str(provider_id)] = json.loads(metadata_json)
             except (TypeError, ValueError, json.JSONDecodeError): continue
+        self._seed_starter_slots()
+
+    def _seed_starter_slots(self) -> None:
+        """Create disabled, credential-free partner placeholders once."""
+        starter = {
+            "amazon": ("Amazon", "product"), "flipkart": ("Flipkart", "product"),
+            "meesho": ("Meesho", "product"), "1mg": ("1mg", "health"),
+            "blinkit": ("Blinkit", "grocery"), "bigbasket": ("BigBasket", "grocery"),
+            "bookmyshow": ("BookMyShow", "events"), "makemytrip": ("MakeMyTrip", "travel"),
+            "goibibo": ("Goibibo", "travel"), "redbus": ("redBus", "travel"),
+            "swiggy": ("Swiggy", "food"), "urbancompany": ("Urban Company", "service"),
+            "indiamart": ("IndiaMART", "b2b"), "olx": ("OLX", "used"),
+            "cars24": ("CARS24", "vehicles"),
+        }
+        for provider_id, (name, category) in starter.items():
+            if provider_id in self.providers:
+                continue
+            self.register(provider_id, name=name, category=category, active=False,
+                          api_enabled=False, callback_enabled=False, gateway="external",
+                          disclosure="Affiliate link")
 
     def register(self, provider_id: str, **metadata: Any) -> None:
         provider_id = str(provider_id or "").strip()
