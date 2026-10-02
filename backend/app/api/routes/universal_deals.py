@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import re
 
 from fastapi import APIRouter, HTTPException, Request
@@ -121,7 +122,8 @@ def record_external_conversion(payload: ExternalConversionRequest, request: Requ
     provider = dict((config.providers if config else {}).get(payload.provider_id.strip().lower()) or {})
     if not provider or not provider.get("callback_enabled", False):
         raise HTTPException(status_code=404, detail="Conversion callback is not enabled for this provider")
-    secret = str(provider.get("callback_secret") or "").strip()
+    provider_key = re.sub(r"[^A-Z0-9]+", "_", payload.provider_id.strip().upper()).strip("_")
+    secret = os.getenv(f"ASKODOX_PARTNER_{provider_key}_CALLBACK_SECRET", "").strip()
     if not secret:
         raise HTTPException(status_code=503, detail="Conversion callback secret is not configured")
     supplied = request.headers.get("x-askodox-signature", "").strip()
