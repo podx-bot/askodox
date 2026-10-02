@@ -1017,3 +1017,61 @@ def update_staff(staff_id: int, payload: StaffUpdate, request: Request) -> dict[
 def audit(request: Request, limit: int = 100) -> dict[str, Any]:
     _require(request, "audit:view")
     return {"items": command_center(request.app.state.container).audit_log(limit=limit)}
+
+
+# ----------------------------------------------- Partner & Revenue Hub --
+
+class PartnerRevenueUpsert(BaseModel):
+    name: str
+    sector: str = "general"
+    category: str = "general"
+    integration_modes: list[str] = Field(default_factory=list)
+    commercial_model: str = "none"
+    attribution_template: str = ""
+    human_support: bool = False
+    staff_fallback: bool = False
+    compliance_notes: str = ""
+    evidence_status: str = "unverified"
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+def _partner_hub(request: Request):
+    hub = getattr(request.app.state.container, "partner_revenue_hub", None)
+    if hub is None:
+        from app.services.partner_revenue_hub import PartnerRevenueHub
+        hub = PartnerRevenueHub(request.app.state.container.settings.database_path)
+        request.app.state.container.partner_revenue_hub = hub
+    return hub
+
+
+@router.get("/partner-revenue/partners")
+def partner_revenue_partners(request: Request, sector: str = "", active_only: bool = False) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _partner_hub(request).list_partners(sector=sector, active_only=active_only)}
+
+
+@router.put("/partner-revenue/partners/{partner_id}")
+def upsert_partner_revenue_partner(partner_id: str, payload: PartnerRevenueUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _partner_hub(request).upsert_partner(partner_id, **payload.model_dump())
+    try:
+        command_center(request.app.state.container).audit(
+            principal["id"], "partner_revenue_upsert", "partner", partner_id,
+            {"sector": item.get("sector"), "active": item.get("active")})
+    except Exception:
+        pass
+    return item
+
+
+@router.get("/partner-revenue/summary")
+def partner_revenue_summary(request: Request) -> dict[str, Any]:
+    _require(request, "analytics:view")
+    partners = _partner_hub(request).list_partners()
+    rows = _rows(request, """SELECT partner_id,event_type,COUNT(*) n,
+        COALESCE(SUM(value),0) value FROM partner_revenue_events
+        GROUP BY partner_id,event_type ORDER BY partner_id,event_type""")
+    return {
+        "partners": {"total": len(partners), "active": sum(1 for p in partners if p.get("active"))},
+        "events": rows,
+    }
