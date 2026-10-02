@@ -681,6 +681,55 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
     ]
 
 
+class AffiliateProviderUpdate(BaseModel):
+    name: str = Field(default="", max_length=120)
+    category: str = Field(default="general", max_length=80)
+    normal_url: str = Field(default="", max_length=2000)
+    affiliate_url: str = Field(default="", max_length=2000)
+    disclosure: str = Field(default="Affiliate link", max_length=200)
+    active: bool = True
+
+
+@router.get("/integrations/affiliate-providers")
+def affiliate_providers(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    config = getattr(request.app.state.container, "affiliate_provider_config", None)
+    return {"items": config.list() if config is not None else []}
+
+
+@router.put("/integrations/affiliate-providers/{provider_id}")
+def save_affiliate_provider(provider_id: str, body: AffiliateProviderUpdate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    config = getattr(request.app.state.container, "affiliate_provider_config", None)
+    if config is None:
+        raise HTTPException(status_code=503, detail="Affiliate provider registry unavailable")
+    provider_id = provider_id.strip().lower()
+    if not provider_id or len(provider_id) > 80:
+        raise HTTPException(status_code=400, detail="Invalid provider id")
+    before = dict(config.providers.get(provider_id) or {})
+    config.register(provider_id, **body.model_dump())
+    after = dict(config.providers[provider_id])
+    command_center(request.app.state.container).audit(
+        principal["id"], "affiliate_provider.save", "affiliate_provider", provider_id,
+        before=before or None, after=after)
+    return {"item": after}
+
+
+@router.delete("/integrations/affiliate-providers/{provider_id}")
+def delete_affiliate_provider(provider_id: str, request: Request, confirm: bool = False) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    _require_confirm(confirm, "delete affiliate provider")
+    config = getattr(request.app.state.container, "affiliate_provider_config", None)
+    if config is None:
+        raise HTTPException(status_code=503, detail="Affiliate provider registry unavailable")
+    before = dict(config.providers.get(provider_id) or {})
+    if not config.remove(provider_id):
+        raise HTTPException(status_code=404, detail="Affiliate provider not found")
+    command_center(request.app.state.container).audit(
+        principal["id"], "affiliate_provider.delete", "affiliate_provider", provider_id, before=before)
+    return {"deleted": True, "provider_id": provider_id}
+
+
 @router.get("/integrations")
 def integrations(request: Request) -> dict[str, Any]:
     _require(request, "integrations:view")
