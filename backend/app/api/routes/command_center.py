@@ -685,6 +685,13 @@ class AffiliateProviderUpdate(BaseModel):
     name: str = Field(default="", max_length=120)
     category: str = Field(default="general", max_length=80)
     normal_url: str = Field(default="", max_length=2000)
+    deep_link: str = Field(default="", max_length=2000)
+    api_base_url: str = Field(default="", max_length=2000)
+    api_enabled: bool = False
+    callback_url: str = Field(default="", max_length=2000)
+    callback_enabled: bool = False
+    tracking_template: str = Field(default="", max_length=2000)
+    gateway: str = Field(default="external", max_length=80)
     affiliate_url: str = Field(default="", max_length=2000)
     disclosure: str = Field(default="Affiliate link", max_length=200)
     active: bool = True
