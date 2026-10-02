@@ -4,7 +4,8 @@ FROM caddy:2.10-alpine
 RUN apk add --no-cache python3
 
 WORKDIR /app
-COPY build.py pages.py ./
+COPY build.py pages.py demos.py i18n.py ./
+COPY locales ./locales
 COPY config ./config
 COPY static ./static
 COPY server/Caddyfile /etc/caddy/Caddyfile

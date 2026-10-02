@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import copy
 import datetime as _dt
 import hashlib
 import html
@@ -22,7 +21,6 @@ import os
 import re
 import shutil
 from pathlib import Path
-from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent
 
@@ -35,6 +33,8 @@ ENV_MAP = {
     "ASKODOX_SITE_NOINDEX": ("site", "noindex"),
     "ASKODOX_SITE_LEGAL_NAME": ("site", "legal_name"),
     "ASKODOX_SITE_LEGAL_ADDRESS": ("site", "legal_address"),
+    "ASKODOX_SITE_LEGAL_JURISDICTION": ("site", "legal_jurisdiction"),
+    "ASKODOX_SITE_LEGAL_COMPANY_NUMBER": ("site", "legal_company_number"),
     "ASKODOX_SITE_TAGLINE": ("brand", "tagline"),
     "ASKODOX_SITE_ASK_PROMPT": ("brand", "ask_prompt"),
     "ASKODOX_SITE_CONTACT_EMAIL": ("contact", "general_email"),
@@ -71,6 +71,10 @@ def load_config(env: dict[str, str]) -> dict:
         for f in cfg["features"]:
             if f["id"] in overrides:
                 f["status"] = overrides[f["id"]]
+    if env.get("ASKODOX_SITE_LOCALES"):
+        wanted = {c.strip() for c in env["ASKODOX_SITE_LOCALES"].split(",") if c.strip()}
+        for loc in cfg["locales"]:
+            loc["published"] = loc["code"] in wanted or loc["code"] == cfg["site"]["default_locale"]
     links = json.loads((ROOT / "config" / "links.json").read_text(encoding="utf-8"))["links"]
     if env.get("ASKODOX_SITE_LINKS_JSON"):
         links = json.loads(env["ASKODOX_SITE_LINKS_JSON"])
@@ -109,11 +113,16 @@ def e(s: object) -> str:
     return html.escape(str(s), quote=True)
 
 
-STATUS_LABEL = {"live": "Live", "beta": "Beta", "soon": "Coming soon"}
+# ---------------------------------------------------------------------------
+# Languages: one set of pages, text looked up per locale (locales/*.json).
+# Missing keys fall back to English, so a partial translation is safe.
+# ---------------------------------------------------------------------------
+
+from i18n import set_locale, t  # noqa: E402  (shared locale state)
 
 
 def badge(status: str) -> str:
-    return f'<span class="status status-{e(status)}">{STATUS_LABEL.get(status, status)}</span>'
+    return f'<span class="status status-{e(status)}">{e(t("status." + status))}</span>'
 
 
 def fbadge(cfg: dict, fid: str) -> str:
@@ -142,6 +151,12 @@ ICONS = {
     "close": '<path d="M6 6l12 12M18 6L6 18"/>',
     "android": '<path d="M6 10h12v7a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M6 10a6 6 0 0 1 12 0M9 7.5v.01M15 7.5v.01M8 4l1.5 2M16 4l-1.5 2"/>',
     "apple": '<path d="M16 3c-1.5.2-3 1.4-3 3 1.6 0 3-1.3 3-3z"/><path d="M12 8c-1 0-2-.6-3-.6C6.8 7.4 5 9.3 5 12.4 5 16 7.4 21 9.3 21c1 0 1.5-.6 2.7-.6s1.6.6 2.7.6c1.4 0 2.8-2.4 3.3-4-1.6-.7-2.6-2-2.6-3.8 0-1.5.8-2.8 2-3.5-.8-1.2-2.1-1.7-3.3-1.7-1 0-2 .6-2.4.6z"/>',
+    "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "check": '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+    "star": '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8 6.6 19.7l1.1-6.1-4.5-4.2 6.1-.8z"/>',
+    "phone": '<path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    "locate": '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    "users": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5a5 5 0 0 1 5.5 5"/>',
     "shield": '<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
 }
 
@@ -177,20 +192,20 @@ FAVICON_SVG = (
 # ---------------------------------------------------------------------------
 
 NAV = [
-    ("/discover/", "Discover"),
-    ("/how-it-works/", "How it works"),
-    ("/sellers/", "Sellers"),
-    ("/service-providers/", "Providers"),
-    ("/deals/", "Deals"),
-    ("/videos/", "Videos"),
-    ("/support/", "Help"),
+    ("/discover/", "nav.discover"),
+    ("/how-it-works/", "nav.how"),
+    ("/sellers/", "nav.sellers"),
+    ("/service-providers/", "nav.providers"),
+    ("/deals/", "nav.deals"),
+    ("/videos/", "nav.videos"),
+    ("/support/", "nav.help"),
 ]
 
 FOOTER = [
-    ("Explore", [("/discover/", "Discover"), ("/how-it-works/", "How it works"), ("/deals/", "Deals and offers"), ("/videos/", "Videos and reviews"), ("/app/", "The app")]),
-    ("Join", [("/join/", "Join ASKODOX"), ("/sellers/", "For sellers"), ("/service-providers/", "For service providers"), ("/videos/#creators", "For creators"), ("/partners/", "Partners"), ("/join/#refer", "Refer a business")]),
-    ("Help", [("/support/", "Help center"), ("/faq/", "FAQ"), ("/contact/", "Contact us"), ("/report-a-problem/", "Report a problem"), ("/status/", "What's live")]),
-    ("Company", [("/about/", "About ASKODOX"), ("/trust/", "Trust and safety"), ("/privacy/", "Privacy policy"), ("/terms/", "Terms and conditions"), ("/cookies/", "Cookie policy"), ("/affiliate-disclosure/", "Affiliate disclosure"), ("/accessibility/", "Accessibility")]),
+    ("footer.explore", [("/discover/", "link.discover"), ("/how-it-works/", "link.how"), ("/deals/", "link.deals"), ("/videos/", "link.videos"), ("/app/", "link.app")]),
+    ("footer.join", [("/join/", "link.join"), ("/sellers/", "link.sellers"), ("/service-providers/", "link.providers"), ("/videos/#creators", "link.creators"), ("/partners/", "link.partners"), ("/join/#refer", "link.refer")]),
+    ("footer.help", [("/support/", "link.help"), ("/faq/", "link.faq"), ("/contact/", "link.contact"), ("/report-a-problem/", "link.report"), ("/status/", "link.status")]),
+    ("footer.company", [("/about/", "link.about"), ("/trust/", "link.trust"), ("/privacy/", "link.privacy"), ("/terms/", "link.terms"), ("/cookies/", "link.cookies"), ("/affiliate-disclosure/", "link.affiliate"), ("/accessibility/", "link.accessibility")]),
 ]
 
 
@@ -211,7 +226,8 @@ class Page:
 def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
     site = cfg["site"]
     brand = cfg["brand"]
-    url = site["url"] + page.path
+    loc_prefix = "" if locale["code"] == site["default_locale"] else "/" + locale["code"]
+    url = site["url"] + loc_prefix + page.path
     is_home = page.path == "/"
     full_title = f'{brand["name"]}: {brand["tagline"]}' if is_home else f'{page.title} | {brand["name"]}'
     robots = "noindex, nofollow" if site.get("noindex") or not page.in_sitemap else "index, follow, max-image-preview:large"
@@ -252,24 +268,25 @@ def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
         "supportEmail": cfg["contact"]["support_email"],
         "formsEndpoint": cfg["contact"].get("forms_endpoint") or "",
         "locale": locale["code"],
+        "localePrefix": loc_prefix,
     }
 
     current = ' aria-current="page"'
     nav = "".join(
-        f'<li><a href="{p}"{current if page.path == p else ""}>{e(t)}</a></li>' for p, t in NAV
+        f'<li><a href="{p}"{current if page.path == p else ""}>{e(t(k))}</a></li>' for p, k in NAV
     )
-    mobile_nav = "".join(f'<a href="{p}">{e(t)}</a>' for p, t in NAV)
-    mobile_sub = "".join(f'<a href="{p}">{e(t)}</a>' for p, t in [("/about/", "About"), ("/join/", "Join"), ("/contact/", "Contact"), ("/app/", "App"), ("/partners/", "Partners"), ("/status/", "What's live")])
+    mobile_nav = "".join(f'<a href="{p}">{e(t(k))}</a>' for p, k in NAV)
+    mobile_sub = "".join(f'<a href="{p}">{e(t(k))}</a>' for p, k in [("/about/", "nav.about"), ("/join/", "nav.join"), ("/contact/", "nav.contact"), ("/app/", "nav.app"), ("/partners/", "nav.partners"), ("/status/", "nav.status")])
 
     crumbs = ""
     footer_cols = "".join(
-        f'<div><h2>{e(h)}</h2><ul>' + "".join(f'<li><a href="{p}">{e(t)}</a></li>' for p, t in items) + "</ul></div>"
+        f'<div><h2>{e(t(h))}</h2><ul>' + "".join(f'<li><a href="{p}">{e(t(k))}</a></li>' for p, k in items) + "</ul></div>"
         for h, items in FOOTER
     )
     lang_opts = "".join(
         f'<option value="{e(l["code"])}"' + (" selected" if l["code"] == locale["code"] else "") + ("" if l.get("published") else " disabled")
         + (f' data-href="{e(("" if l["code"] == site["default_locale"] else "/" + l["code"]) + page.path)}"' if l.get("published") else "")
-        + f'>{e(l["native"])}{"" if l.get("published") else " (coming soon)"}</option>'
+        + f'>{e(l["native"])}{"" if l.get("published") else " (" + t("lang.soon") + ")"}</option>'
         for l in cfg["locales"]
     )
     socials = "".join(f'<li><a href="{e(s["url"])}" rel="me noopener" target="_blank">{e(s["label"])}</a></li>' for s in cfg["social"] if s.get("url"))
@@ -299,7 +316,7 @@ def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="ASKODOX: {e(brand['tagline'])}">
-<meta property="og:locale" content="en_US">
+<meta property="og:locale" content="{e(locale.get("og", "en_US"))}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{e(full_title)}">
 <meta name="twitter:description" content="{e(page.description)}">
@@ -316,23 +333,23 @@ def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
 {ld}
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">{e(t("skip"))}</a>
 <header class="site-header">
   <div class="wrap header-inner">
     <a class="brand" href="/" aria-label="{e(brand['name'])} home">{MARK_SVG}<span>{e(brand['name'])}</span></a>
     <nav class="main-nav" aria-label="Main"><ul>{nav}</ul></nav>
-    <a class="btn btn-primary header-cta" href="/join/">Get early access</a>
-    <button class="menu-toggle" id="menu-open" type="button" aria-expanded="false" aria-controls="mobile-menu">{icon('menu')}<span>Menu</span></button>
+    <a class="btn btn-primary header-cta" href="/join/">{e(t("cta.early_access"))}</a>
+    <button class="menu-toggle" id="menu-open" type="button" aria-expanded="false" aria-controls="mobile-menu">{icon('menu')}<span>{e(t("menu"))}</span></button>
   </div>
 </header>
 <div class="mobile-menu" id="mobile-menu" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Menu">
   <div class="mobile-menu-top">
     <a class="brand" href="/">{MARK_SVG}<span>{e(brand['name'])}</span></a>
-    <button class="menu-toggle" id="menu-close" type="button" style="display:inline-flex">{icon('close')}<span>Close</span></button>
+    <button class="menu-toggle" id="menu-close" type="button" style="display:inline-flex">{icon('close')}<span>{e(t("close"))}</span></button>
   </div>
   <nav aria-label="Mobile">{mobile_nav}</nav>
   <div class="sub">{mobile_sub}</div>
-  <a class="btn btn-primary" href="/join/">Get early access</a>
+  <a class="btn btn-primary" href="/join/">{e(t("cta.early_access"))}</a>
 </div>
 <main id="main">
 {crumbs}{page.body}
@@ -342,16 +359,16 @@ def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
     <div class="footer-top">
       <div class="footer-brand">
         <a class="brand" href="/">{MARK_SVG}<span>{e(brand['name'])}</span></a>
-        <p>{e(brand['tagline'])} One place to ask, discover, decide and connect, wherever you are.</p>
+        <p>{e(brand['tagline'])} {e(t('footer.blurb'))}</p>
         <p><a href="mailto:{e(cfg['contact']['general_email'])}">{e(cfg['contact']['general_email'])}</a></p>
       </div>
       {footer_cols}
     </div>
     <div class="footer-bottom">
-      <p>© {years} {legal}. All rights reserved.</p>
-      <div class="legend" aria-label="Feature status labels">{badge('live')}{badge('beta')}{badge('soon')}<a href="/status/">What these mean</a></div>
+      <p>© {years} {legal}. {e(t('footer.rights'))}</p>
+      <div class="legend" aria-label="Feature status labels">{badge('live')}{badge('beta')}{badge('soon')}<a href="/status/">{e(t("footer.what_labels"))}</a></div>
       {social_html}
-      <label class="lang"><span>Language</span><select id="lang-select" aria-label="Choose language">{lang_opts}</select></label>
+      <label class="lang"><span>{e(t("lang.label"))}</span><select id="lang-select" aria-label="{e(t("lang.choose"))}">{lang_opts}</select></label>
     </div>
   </div>
 </footer>
@@ -365,6 +382,19 @@ def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
+
+_KEEP = ("static/", "go/", "favicon", "apple-touch", "icon-", "site.webmanifest", "sitemap.xml", "robots.txt", "tokens.json", ".well-known")
+
+
+def localise_links(markup: str, prefix: str) -> str:
+    """Point internal page links at the same locale (no duplicated pages)."""
+    def fix(m: "re.Match") -> str:
+        path = m.group(2)
+        if path.startswith(_KEEP) or path.startswith(prefix.strip("/") + "/"):
+            return m.group(0)
+        return f'{m.group(1)}="{prefix}/{path}"'
+    return re.sub(r'(href|action)="/([^"]*)"', fix, markup)
+
 
 def _hashed(src: str, name: str, ext: str) -> tuple[str, str]:
     h = hashlib.sha256(src.encode("utf-8")).hexdigest()[:10]
@@ -402,19 +432,31 @@ def build(out: Path, env: dict[str, str], redirects_path: Path | None = None) ->
         if src.exists():
             shutil.copy(src, out / name)
 
-    locale = next(l for l in cfg["locales"] if l["code"] == cfg["site"]["default_locale"])
-    pages = all_pages(cfg)
-    for page in pages:
-        html_out = render_page(cfg, page, assets, locale)
-        target = out / ("404.html" if page.path == "/404/" else page.path.strip("/") + "/index.html" if page.path != "/" else "index.html")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(html_out, encoding="utf-8")
+    default = cfg["site"]["default_locale"]
+    published = [l for l in cfg["locales"] if l.get("published")]
+    sitemap_rows = []
+    pages = []
+    for locale in published:
+        set_locale(locale["code"])
+        prefix = "" if locale["code"] == default else "/" + locale["code"]
+        pages = all_pages(cfg)
+        for page in pages:
+            html_out = render_page(cfg, page, assets, locale)
+            if prefix:
+                html_out = localise_links(html_out, prefix)
+            rel = "404.html" if page.path == "/404/" else ("index.html" if page.path == "/" else page.path.strip("/") + "/index.html")
+            target = out / prefix.lstrip("/") / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(html_out, encoding="utf-8")
+            if page.in_sitemap:
+                sitemap_rows.append((prefix + page.path, page.priority))
+    set_locale(default)
 
     site = cfg["site"]
     today = _dt.date.today().isoformat()
     urls = "".join(
-        f"<url><loc>{e(site['url'] + p.path)}</loc><lastmod>{today}</lastmod><priority>{p.priority}</priority></url>"
-        for p in pages if p.in_sitemap
+        f"<url><loc>{e(site['url'] + p)}</loc><lastmod>{today}</lastmod><priority>{pr}</priority></url>"
+        for p, pr in sitemap_rows
     )
     (out / "sitemap.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n', encoding="utf-8")
     if site.get("noindex"):
@@ -461,7 +503,7 @@ def build(out: Path, env: dict[str, str], redirects_path: Path | None = None) ->
     if redirects_path:
         redirects_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    return {"pages": len(pages), "css": css_path, "js": js_path, "active_links": len(active_links(cfg))}
+    return {"pages": len(sitemap_rows), "locales": [l["code"] for l in published], "css": css_path, "js": js_path, "active_links": len(active_links(cfg))}
 
 
 if __name__ == "__main__":
