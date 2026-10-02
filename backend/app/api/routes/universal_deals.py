@@ -875,6 +875,42 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
     flags = _result_flags(container)
     errors: list[str] = []
     affiliate_rows: list[dict] = []
+    # Staff/authorized catalog records participate in the same universal search.
+    # Monetisation only changes the destination URL; it never gates/ranks a result.
+    partner_hub = getattr(container, "partner_revenue_hub", None)
+    if partner_hub is not None and flags.get("results.affiliate", True):
+        hub_category = str(demand.get("domain") or "").strip().lower()
+        hub_subject = str(demand.get("subject") or "").strip()
+        try:
+            curated = partner_hub.search_products(hub_subject, hub_category, 50)
+        except Exception as error:
+            curated, _ = [], errors.append(f"partner_hub:{type(error).__name__}")
+        for row in curated:
+            item_id = f"partner-product-{row.get('id')}"
+            if item_id in existing_ids:
+                continue
+            affiliate = bool(row.get("affiliate_url"))
+            affiliate_rows.append({
+                "id": item_id,
+                "match_id": item_id,
+                "provider_id": str(row.get("partner_id") or ""),
+                "title": str(row.get("title") or row.get("merchant") or "Online option"),
+                "subtitle": str(row.get("merchant") or "Partner catalog"),
+                "price": row.get("price"),
+                "currency": str(row.get("currency") or "INR"),
+                "image_url": str(row.get("image_url") or ""),
+                "match_source": "online",
+                "source": "partner_catalog",
+                "destination_url": str(row.get("destination_url") or ""),
+                "web_fallback_url": str(row.get("original_product_url") or ""),
+                "open_strategy": "web",
+                "affiliate": affiliate,
+                "disclosure": "Affiliate link" if affiliate else "",
+                "demo": False,
+            })
+        matches.extend(affiliate_rows)
+        existing_ids.update(str(item.get("id")) for item in affiliate_rows)
+
     affiliate_config = getattr(container, "affiliate_provider_config", None)
     if affiliate_config is not None and flags.get("results.affiliate", True):
         category = str(demand.get("domain") or "").strip().lower()
