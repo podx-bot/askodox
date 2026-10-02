@@ -1075,3 +1075,75 @@ def partner_revenue_summary(request: Request) -> dict[str, Any]:
         "partners": {"total": len(partners), "active": sum(1 for p in partners if p.get("active"))},
         "events": rows,
     }
+
+
+class AffiliateProductUpsert(BaseModel):
+    original_product_url: str
+    source: str = ""
+    merchant: str = ""
+    affiliate_url: str = ""
+    collection_url: str = ""
+    title: str = ""
+    category: str = "general"
+    subcategory: str = ""
+    price: float | None = None
+    currency: str = "INR"
+    image_url: str = ""
+    stock_status: str = ""
+    verified_commission_rate: float | None = None
+    active: bool = True
+    last_verified: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/partner-revenue/products")
+def partner_revenue_products(request: Request, q: str = "", category: str = "", limit: int = 50) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _partner_hub(request).search_products(q, category, limit)}
+
+
+@router.put("/partner-revenue/products/{partner_id}")
+def upsert_partner_revenue_product(partner_id: str, payload: AffiliateProductUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _partner_hub(request).upsert_product(partner_id, payload.original_product_url, **payload.model_dump(exclude={"original_product_url"}))
+    try:
+        command_center(request.app.state.container).audit(
+            principal["id"], "affiliate_product_upsert", "affiliate_product",
+            f"{partner_id}:{item.get('id','')}", None, {"category": item.get("category")})
+    except Exception:
+        pass
+    return item
+
+
+class PartnerStaffAssignment(BaseModel):
+    staff_ref: str
+    partner_id: str = ""
+    sector: str = ""
+    category: str = ""
+    permissions: list[str] = Field(default_factory=list)
+    active: bool = True
+
+
+@router.put("/partner-revenue/staff-assignment")
+def partner_revenue_staff_assignment(payload: PartnerStaffAssignment, request: Request) -> dict[str, Any]:
+    _require(request, "staff:manage")
+    _partner_hub(request).assign_staff(**payload.model_dump())
+    return {"saved": True}
+
+
+class BFSIFlowUpsert(BaseModel):
+    lead_enabled: bool = False
+    journey_enabled: bool = False
+    callback_enabled: bool = False
+    status_enabled: bool = False
+    consent_required: bool = True
+    regulated_entity: str = ""
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.put("/partner-revenue/bfsi/{partner_id}/{product_type}")
+def partner_revenue_bfsi(partner_id: str, product_type: str, payload: BFSIFlowUpsert, request: Request) -> dict[str, Any]:
+    _require(request, "integrations:manage")
+    _partner_hub(request).upsert_bfsi_flow(partner_id, product_type, **payload.model_dump())
+    return {"saved": True, "partner_id": partner_id, "product_type": product_type}
