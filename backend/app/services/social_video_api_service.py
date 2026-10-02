@@ -14,16 +14,22 @@ class SocialVideoApiService:
     def __init__(self, timeout_seconds: int = 8) -> None:
         self.timeout_seconds=max(1,min(int(timeout_seconds),20))
 
+    @staticmethod
+    def _youtube_api_key() -> str:
+        """Read the production key, while accepting the Admin/Railway legacy name."""
+        return (os.getenv("YOUTUBE_DATA_API_KEY","").strip()
+                or os.getenv("YOUTUBE_API_KEY","").strip())
+
     def status(self) -> list[dict[str,Any]]:
         return [
             {"provider_id":"youtube","provider_type":"youtube_data_api_v3",
-             "configured":bool(os.getenv("YOUTUBE_DATA_API_KEY","").strip())},
+             "configured":bool(self._youtube_api_key())},
             {"provider_id":"meta","provider_type":"meta_graph_api",
              "configured":bool(os.getenv("META_GRAPH_ACCESS_TOKEN","").strip())},
         ]
 
     def youtube_search(self, query:str, max_results:int=10) -> list[dict[str,Any]]:
-        key=os.getenv("YOUTUBE_DATA_API_KEY","").strip()
+        key=self._youtube_api_key()
         query=" ".join(str(query or "").split())
         if not key or not query: return []
         params=urlencode({"part":"snippet","type":"video","q":query,
