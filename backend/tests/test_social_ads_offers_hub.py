@@ -29,3 +29,12 @@ def test_scratch_is_idempotent_per_trigger_and_reveals_once(tmp_path):
     assert shown["status"] == "REVEALED"
     again=hub.reveal_scratch("u1",one["reveal_token"])
     assert again["status"] == "REVEALED"
+
+def test_video_qa_is_attached_to_video(tmp_path):
+    hub=SocialAdsOffersHub(str(tmp_path/"social.db"))
+    video=hub.upsert_video("youtube","abc123","https://www.youtube.com/watch?v=abc123",title="Demo")
+    q=hub.add_discussion(video["id"],"u1","Is this suitable?","question")
+    a=hub.add_discussion(video["id"],"staff1","Yes, check the specifications.","answer",q["id"])
+    rows=hub.discussions(video["id"])
+    assert [x["kind"] for x in rows] == ["question","answer"]
+    assert a["parent_id"] == q["id"]
