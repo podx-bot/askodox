@@ -82,6 +82,9 @@ class UniversalMatch {
     this.locationLabel,
     this.availability,
     this.destinationUrl,
+    this.deepLink,
+    this.webFallbackUrl,
+    this.openStrategy,
     this.disclosure,
     this.affiliate = false,
     this.ratingAverage,
@@ -109,6 +112,9 @@ class UniversalMatch {
   final String? locationLabel;
   final String? availability;
   final String? destinationUrl;
+  final String? deepLink;
+  final String? webFallbackUrl;
+  final String? openStrategy;
   final String? disclosure;
   final bool affiliate;
 
@@ -174,6 +180,9 @@ class UniversalMatch {
           locationLabel: json['location_label']?.toString() ?? json['location']?.toString(),
           availability: json['availability']?.toString() ?? json['stock_status']?.toString(),
           destinationUrl: json['destination_url']?.toString() ?? json['normal_url']?.toString(),
+          deepLink: json['deep_link']?.toString(),
+          webFallbackUrl: json['web_fallback_url']?.toString(),
+          openStrategy: json['open_strategy']?.toString(),
           disclosure: json['disclosure']?.toString(),
           affiliate: json['affiliate'] == true,
           ratingAverage: (json['rating_average'] as num?)?.toDouble(),
@@ -203,6 +212,9 @@ class UniversalMatch {
         'location_label': locationLabel,
         'availability': availability,
         'destination_url': destinationUrl,
+        'deep_link': deepLink,
+        'web_fallback_url': webFallbackUrl,
+        'open_strategy': openStrategy,
         'disclosure': disclosure,
         'affiliate': affiliate,
         'rating_average': ratingAverage,
