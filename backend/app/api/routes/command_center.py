@@ -688,6 +688,7 @@ class AffiliateProviderUpdate(BaseModel):
     deep_link: str = Field(default="", max_length=2000)
     api_base_url: str = Field(default="", max_length=2000)
     api_enabled: bool = False
+    api_allowed_hosts: str = Field(default="", max_length=1000)
     callback_url: str = Field(default="", max_length=2000)
     callback_enabled: bool = False
     tracking_template: str = Field(default="", max_length=2000)
@@ -735,6 +736,26 @@ def delete_affiliate_provider(provider_id: str, request: Request, confirm: bool 
     command_center(request.app.state.container).audit(
         principal["id"], "affiliate_provider.delete", "affiliate_provider", provider_id, before=before)
     return {"deleted": True, "provider_id": provider_id}
+
+
+@router.get("/integrations/external-commerce-analytics")
+def external_commerce_analytics(request: Request) -> dict[str, Any]:
+    _require(request, "analytics:view")
+    try:
+        rows = _rows(request, """SELECT provider_id,event_type,COUNT(*) n,
+            COALESCE(SUM(CASE WHEN event_type!='click' THEN value ELSE 0 END),0) value
+            FROM external_commerce_events GROUP BY provider_id,event_type ORDER BY provider_id,event_type""")
+    except Exception:
+        rows = []
+    providers: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = providers.setdefault(row["provider_id"], {"provider_id": row["provider_id"], "clicks": 0, "conversions": 0, "value": 0.0})
+        if row["event_type"] == "click":
+            item["clicks"] += int(row["n"])
+        else:
+            item["conversions"] += int(row["n"])
+            item["value"] += float(row["value"] or 0)
+    return {"items": list(providers.values())}
 
 
 @router.get("/integrations")
