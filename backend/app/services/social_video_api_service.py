@@ -20,6 +20,10 @@ class SocialVideoApiService:
         return (os.getenv("YOUTUBE_DATA_API_KEY","").strip()
                 or os.getenv("YOUTUBE_API_KEY","").strip())
 
+    @staticmethod
+    def _youtube_api_key() -> str:
+        return (os.getenv("YOUTUBE_DATA_API_KEY","").strip() or os.getenv("YOUTUBE_API_KEY","").strip())
+
     def status(self) -> list[dict[str,Any]]:
         return [
             {"provider_id":"youtube","provider_type":"youtube_data_api_v3",
