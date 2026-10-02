@@ -227,7 +227,7 @@ class PartnerRevenueHub:
         for token in tokens[:6]:
             sql += " AND (LOWER(title) LIKE ? OR LOWER(merchant) LIKE ? OR LOWER(subcategory) LIKE ?)"
             like = f"%{token}%"; args.extend([like, like, like])
-        sql += " ORDER BY CASE WHEN affiliate_url<>'' THEN 0 ELSE 1 END, id DESC LIMIT ?"
+        sql += " ORDER BY id DESC LIMIT ?"
         args.append(max(1, min(int(limit or 50), 200)))
         with self._connect() as conn:
             rows = [dict(r) for r in conn.execute(sql, args).fetchall()]
