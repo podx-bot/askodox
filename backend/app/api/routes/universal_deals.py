@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import re
 
@@ -119,15 +121,34 @@ def record_external_conversion(payload: ExternalConversionRequest, request: Requ
     provider = dict((config.providers if config else {}).get(payload.provider_id.strip().lower()) or {})
     if not provider or not provider.get("callback_enabled", False):
         raise HTTPException(status_code=404, detail="Conversion callback is not enabled for this provider")
+    secret = str(provider.get("callback_secret") or "").strip()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Conversion callback secret is not configured")
+    supplied = request.headers.get("x-askodox-signature", "").strip()
+    canonical = json.dumps(payload.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    expected = hmac.new(secret.encode(), canonical, hashlib.sha256).hexdigest()
+    if not supplied or not hmac.compare_digest(supplied.removeprefix("sha256="), expected):
+        raise HTTPException(status_code=401, detail="Invalid conversion callback signature")
+    reference = payload.external_reference.strip()
+    if not reference:
+        raise HTTPException(status_code=422, detail="external_reference is required for conversion callbacks")
+    event = payload.event.strip().lower()
+    provider_id = payload.provider_id.strip().lower()
     _ensure_external_tracking_table(container)
+    existing = container.database.fetchone(
+        """SELECT id FROM external_commerce_events
+        WHERE provider_id=? AND event_type=? AND external_reference=? LIMIT 1""",
+        (provider_id, event, reference),
+    )
+    if existing is not None:
+        return {"recorded": False, "duplicate": True, "event": event}
     container.database.execute(
         """INSERT INTO external_commerce_events
         (event_type,provider_id,external_reference,value,currency)
         VALUES(?,?,?,?,?)""",
-        (payload.event.strip().lower(), payload.provider_id.strip().lower(),
-         payload.external_reference, payload.value, payload.currency.upper()),
+        (event, provider_id, reference, payload.value, payload.currency.upper()),
     )
-    return {"recorded": True, "event": payload.event.strip().lower()}
+    return {"recorded": True, "duplicate": False, "event": event}
 
 
 def _latest_created_deal(container, user_id: str):
