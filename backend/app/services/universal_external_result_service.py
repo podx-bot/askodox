@@ -37,7 +37,11 @@ class UniversalExternalResultService:
                 provider.get("affiliate_url") or provider.get("affiliate_url_template"),
                 subject,
             )
-            destination = affiliate_url or normal_url
+            deep_link = UniversalExternalResultService._deep_link(
+                provider.get("deep_link") or provider.get("app_link"), subject
+            )
+            web_fallback = affiliate_url or normal_url
+            destination = deep_link or web_fallback
             if not destination:
                 continue
 
@@ -53,6 +57,12 @@ class UniversalExternalResultService:
                     "match_source": "online",
                     "source": "online",
                     "destination_url": destination,
+                    "deep_link": deep_link or "",
+                    "web_fallback_url": web_fallback or "",
+                    "open_strategy": "deep_link_then_web" if deep_link and web_fallback else ("deep_link" if deep_link else "web"),
+                    "tracking_template": str(provider.get("tracking_template") or ""),
+                    "callback_enabled": bool(provider.get("callback_enabled", False)),
+                    "gateway": str(provider.get("gateway") or "external"),
                     "affiliate": is_affiliate,
                     "disclosure": str(provider.get("disclosure") or ("Affiliate link" if is_affiliate else "")),
                     "demo": False,
@@ -67,6 +77,19 @@ class UniversalExternalResultService:
         return UniversalExternalResultService._http_url(
             str(value).replace("{query}", quote_plus(str(subject or "").strip()))
         )
+
+    @staticmethod
+    def _deep_link(value: Any, subject: str) -> str | None:
+        if not value:
+            return None
+        url = str(value).replace("{query}", quote_plus(str(subject or "").strip())).strip()
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            return None
+        if not parsed.scheme or parsed.scheme.casefold() in {"http", "https", "javascript", "data", "file"}:
+            return None
+        return url
 
     @staticmethod
     def _http_url(value: Any) -> str | None:
