@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-03T05:57:48Z",
+ "generated_at": "2026-10-03T07:19:56Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:164dd1428aab4594",
+   "trace_key": "browse:fda6b48e715c4eba",
    "videos": [
     {
      "video_id": "yt_nMMmLxoa_Vg",
@@ -37,8 +37,9 @@
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 inch",
      "subject": "Samsung 43 inch TV",
+     "size": "43 inch",
+     "category": "TV",
      "location": "Vijayawada"
     }
    },
@@ -144,17 +145,17 @@
       "location_label": null
      },
      {
-      "title": "Buy Samsung Crystal 4K Vivid 108 cm (43 inch) Ultra HD (4K) LED Smart Tizen TV (UA43DUE70B )- 2024 Edition at Reliance Digital",
+      "title": "Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.reliancedigital.in",
+      "source_name": "www.samsung.com",
       "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.reliancedigital.in/product/samsung-108-cm-43-inch-4k-ultra-hd-smart-tv-ua43due70bklxl-black-lul1dx-7538091",
-      "image_url": "https://imgs.search.brave.com/vKKfBaEd6gXejozfL53Wn-8I1MQm7zoR2bplhwcKb5E/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZG4u/amlvc3RvcmUub25s/aW5lL3YyL2ptZC1h/c3AvamRwcm9kL3dy/a3IvcHJvZHVjdHMv/cGljdHVyZXMvaXRl/bS9mcmVlL29yaWdp/bmFsL3NhbXN1bmcv/NDk0NDEwMjYwLzAv/c3hsQWwxNF9qcC1J/eUxvTFk3ZGViZC1T/QU1TVU5HLTQzRFVF/NzBCLUxFRC1UVnMt/NDk0NDEwMjYwLWkt/MS0xMjAwV3gxMjAw/SC5qcGVn",
+      "destination_url": "https://www.samsung.com/in/tvs/uhd-4k-tv/ue81a-43-inch-crystal-4k-uhd-smart-tv-ua43ue81afulxl/",
+      "image_url": "https://imgs.search.brave.com/Q839shPZPLvcUDXXd7br5qMfWJniubzSWqo_7SjWCeA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuc2Ftc3VuZy5j/b20vaXMvaW1hZ2Uv/c2Ftc3VuZy9wNnBp/bS9pbi91YTQzdWU4/MWFmdWx4bC9nYWxs/ZXJ5L2luLXVoZC11/ODEwMGYtdWE0M3Vl/ODFhZnVseGwtNTQ1/OTcwMDE1",
       "location_label": null
      }
     ]
@@ -165,7 +166,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:bc8c1cc61db54c92",
+   "trace_key": "browse:2f0680fdba324942",
    "videos": [
     {
      "video_id": "yt_nMMmLxoa_Vg",
@@ -191,12 +192,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
-     "brand": "శామ్‌సంగ్",
-     "size": "43 అంగుళాల",
+     "brand": "Samsung",
+     "subject": "43 అంగుళాల టీవీ",
+     "size": "43 అంగుళాలు",
      "location": "Vijayawada"
     }
    },
@@ -249,10 +250,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగానే ఉండవచ్చు. సాధారణంగా 32 అంగుళాల టీవీ చిన్న గదులకు సరిగ్గా సరిపోతుంది. మీరు చూడాల్సిన దూరాన్ని బట్టి నిర్ణయించుకోవచ్చు.",
+    "follow_reply": "చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 6-8 అడుగుల దూరం ఉంటే సరిగ్గా సరిపోతుంది. మీరు గది కొలతలు లేదా చూసే దూరం ఎంత ఉందో చెప్తారా?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_action": "get_product_info"
    },
    "next": {
     "step": "deals",
@@ -298,17 +299,17 @@
       "location_label": null
      },
      {
-      "title": "Buy Samsung Crystal 4K Vivid 108 cm (43 inch) Ultra HD (4K) LED Smart Tizen TV (UA43DUE70B )- 2024 Edition at Reliance Digital",
+      "title": "Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.reliancedigital.in",
+      "source_name": "www.samsung.com",
       "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.reliancedigital.in/product/samsung-108-cm-43-inch-4k-ultra-hd-smart-tv-ua43due70bklxl-black-lul1dx-7538091",
-      "image_url": "https://imgs.search.brave.com/vKKfBaEd6gXejozfL53Wn-8I1MQm7zoR2bplhwcKb5E/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZG4u/amlvc3RvcmUub25s/aW5lL3YyL2ptZC1h/c3AvamRwcm9kL3dy/a3IvcHJvZHVjdHMv/cGljdHVyZXMvaXRl/bS9mcmVlL29yaWdp/bmFsL3NhbXN1bmcv/NDk0NDEwMjYwLzAv/c3hsQWwxNF9qcC1J/eUxvTFk3ZGViZC1T/QU1TVU5HLTQzRFVF/NzBCLUxFRC1UVnMt/NDk0NDEwMjYwLWkt/MS0xMjAwV3gxMjAw/SC5qcGVn",
+      "destination_url": "https://www.samsung.com/in/tvs/uhd-4k-tv/ue81a-43-inch-crystal-4k-uhd-smart-tv-ua43ue81afulxl/",
+      "image_url": "https://imgs.search.brave.com/Q839shPZPLvcUDXXd7br5qMfWJniubzSWqo_7SjWCeA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuc2Ftc3VuZy5j/b20vaXMvaW1hZ2Uv/c2Ftc3VuZy9wNnBp/bS9pbi91YTQzdWU4/MWFmdWx4bC9nYWxs/ZXJ5L2luLXVoZC11/ODEwMGYtdWE0M3Vl/ODFhZnVseGwtNTQ1/OTcwMDE1",
       "location_label": null
      }
     ]
@@ -319,7 +320,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:63ec07828dc84012",
+   "trace_key": "browse:e59ffbf2c2d94a3d",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -350,6 +351,7 @@
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -520,18 +522,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:c55c356a08804742",
+   "trace_key": "browse:d5452207c81b41e8",
    "videos": [
     {
-     "video_id": "yt_77aOlpHhpOw",
-     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
-     "source_name": "TheAutoBharat",
-     "duration": "1:00",
+     "video_id": "yt_t9lapNvQD7w",
+     "title": "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car",
+     "source_name": "Mjk Cars",
+     "duration": "13:21",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/t9lapNvQD7w?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+     "image_url": "https://i.ytimg.com/vi/t9lapNvQD7w/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=t9lapNvQD7w",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -540,7 +542,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 5,
+   "production_video_rows": 6,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "domain": "PRODUCT",
@@ -555,22 +557,21 @@
     }
    },
    "explain": {
-    "video_id": "yt_77aOlpHhpOw",
+    "video_id": "yt_t9lapNvQD7w",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons",
-     "Thinking of buying the Tata Nexon?",
-     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
+     "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car",
+     "New 2026 Tata Nexon Creative Plus Cng Review || Nexon Grey Color || Tata Nexon 2026 Best Safe Car",
+     "Tata Nexon 2026 Creative Plus Cng ka नया मॉडल, शानदार डिजाइन और दमदार फीचर्स के साथ।",
+     "इस वीडियो में Tata Nexon के Exterior, Interior, Features और Performance के बारे में पूरी जानकार"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TheAutoBharat",
+    "creator": "Mjk Cars",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
-    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
+    "url": "https://www.youtube.com/watch?v=t9lapNvQD7w",
+    "question": "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car",
     "next": [
      {
       "action": "find_local",
@@ -600,7 +601,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
+    "question": "Tell me more about \"2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -658,20 +659,6 @@
       "location_label": null
      },
      {
-      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.91wheels.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
-      "location_label": null
-     },
-     {
       "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
       "segment": null,
       "match_source": "online",
@@ -698,6 +685,20 @@
       "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
       "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
       "location_label": null
+     },
+     {
+      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": 38323.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
+      "location_label": null
      }
     ]
    }
@@ -707,7 +708,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:cff7b88511774611",
+   "trace_key": "browse:42d4c08b8560453a",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -873,7 +874,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:27919106fac749a9",
+   "trace_key": "browse:23a74a0967c94ca6",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -903,6 +904,7 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
+     "category": "plumbing",
      "location": "Vijayawada"
     }
    },
@@ -1038,7 +1040,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:1fa25ca8bcfb4fc3",
+   "trace_key": "browse:c2ea76560b5a4193",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1122,7 +1124,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "FOOD",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -1222,7 +1224,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:a9bd441f7f554a4d",
+   "trace_key": "browse:f31f4b518a63480e",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1245,13 +1247,13 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "EVENT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1421,18 +1423,18 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:9896bf0763004c5a",
+   "trace_key": "browse:92ded285e01f4509",
    "videos": [
     {
-     "video_id": "yt_GW-rCk-eAoU",
-     "title": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
-     "source_name": "Bindass Singh",
-     "duration": "7:16",
+     "video_id": "yt_dzPSScYH1G4",
+     "title": "Classic 350 BS4: Worth buying a used one in 2025?",
+     "source_name": "RPM Revelations ",
+     "duration": "4:42",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/GW-rCk-eAoU?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/dzPSScYH1G4?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/GW-rCk-eAoU/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
+     "image_url": "https://i.ytimg.com/vi/dzPSScYH1G4/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=dzPSScYH1G4",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1457,20 +1459,21 @@
     }
    },
    "explain": {
-    "video_id": "yt_GW-rCk-eAoU",
+    "video_id": "yt_dzPSScYH1G4",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
-     "How To Check And Buy Old Royal Enfield Classic 350.How To Buy Used Royal Enfield.How To Buy Second Hand Bullet.How To Buy 2nd Hand Royal Enfield Bullet or Classic.Purani Royal Enfield Classic 350cc Kaise Kya Kya Check Karen.",
-     "#RoyalEnfield #UsedBullet #UsedClassic #BindassSingh"
+     "Classic 350 BS4: Worth buying a used one in 2025?",
+     "Motorcyclists!!!",
+     "Almost every person was fascinated by the Royal Enfield Classic.",
+     "It's that type of bike that every generation from each family in India is aware of, now with the most recent iteration of the Classic 350 being the BS6 version, we wanted to review the previous gen"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Bindass Singh",
+    "creator": "RPM Revelations ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
-    "question": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
+    "url": "https://www.youtube.com/watch?v=dzPSScYH1G4",
+    "question": "Classic 350 BS4: Worth buying a used one in 2025?",
     "next": [
      {
       "action": "find_local",
@@ -1500,7 +1503,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350\"",
+    "question": "Tell me more about \"Classic 350 BS4: Worth buying a used one in 2025?\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -1621,7 +1624,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:7c472a38a1d849fc",
+   "trace_key": "browse:57574690807c4b61",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1652,7 +1655,6 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
-     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1823,7 +1825,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:7579016ddb3a4b9f",
+   "trace_key": "browse:dfb0871ce1204fca",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1853,6 +1855,7 @@
     "source": "universal_ai",
     "entities": {
      "subject": "ఏసీ సర్వీస్",
+     "category": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -1903,7 +1906,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఏ ఏసీ మోడల్ లేదా సామర్థ్యం (టన్నులు) సరిపోతుందో తెలుసుకోవాలనుకుంటున్నారా?",
+    "follow_reply": "చిన్న గదికి ఏ ఏసీ మోడల్ సరిపోతుందో చూడటానికి నిజమైన వీడియోలు మరియు రివ్యూలు వెతుకుతున్నాను.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
