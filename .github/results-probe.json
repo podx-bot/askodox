@@ -1,5 +1,43 @@
-{"queries": [
- {"raw_text": "Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు", "intent": "buy", "subject": "chicken biryani", "category": "food", "place": "Vijayawada"},
- {"raw_text": "Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు", "intent": "buy", "subject": "chicken biryani videos, restaurants, online links and offers", "category": "food", "place": "Vijayawada"},
- {"raw_text": "show me Samsung 43 inch TV deals, online stores and review videos", "intent": "buy", "subject": "Samsung 43 inch TV", "category": "electronics", "place": "Vijayawada"}
-]}
+{
+ "queries": [
+  {
+   "raw_text": "i want to buy chicken biryani in Vijayawada",
+   "intent": "buy",
+   "subject": "chicken biryani",
+   "category": "food",
+   "place": "Vijayawada",
+   "dynamic_fields": {
+    "productKind": "chicken"
+   },
+   "trace": {
+    "query": "Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు",
+    "language": "te",
+    "intent": "search_videos",
+    "domain": "FOOD"
+   }
+  },
+  {
+   "raw_text": "i want to buy chicken biryani in Vijayawada",
+   "intent": "buy",
+   "subject": "chicken biryani",
+   "category": "food",
+   "place": "Vijayawada",
+   "dynamic_fields": {
+    "productKind": "chicken"
+   },
+   "trace": {
+    "query": "Vijayawada chicken biryani YouTube videos చూపించు",
+    "language": "te",
+    "intent": "search_videos",
+    "domain": "FOOD"
+   }
+  },
+  {
+   "raw_text": "Vijayawada chicken biryani YouTube videos చూపించు",
+   "intent": "buy",
+   "subject": "chicken biryani",
+   "category": "food",
+   "place": "Vijayawada"
+  }
+ ]
+}
