@@ -74,7 +74,7 @@ def api(monkeypatch, tmp_path):
     from server import app, container
 
     for var in ("WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_API_VERSION", "WHATSAPP_APP_SECRET",
-                "FIREBASE_SERVICE_ACCOUNT_JSON", "YOUTUBE_API_KEY", "RAILWAY_ENVIRONMENT_NAME", "SMS_API_KEY",
+                "FIREBASE_SERVICE_ACCOUNT_JSON", "YOUTUBE_API_KEY", "YOUTUBE_DATA_API_KEY", "RAILWAY_ENVIRONMENT_NAME", "SMS_API_KEY",
                 "SMTP_PASSWORD", "SMTP_HOST", "EMAIL_FROM"):
         monkeypatch.delenv(var, raising=False)
     settings = dataclasses.replace(container.settings, admin_seed_key=OWNER_KEY,
@@ -507,3 +507,65 @@ def test_public_readiness_shows_status_words_only(api, monkeypatch):
     assert body["integrations"]["whatsapp_cloud"] == "NEEDS_CONFIGURATION"
     assert body["integrations"]["razorpay"] == "NEEDS_CONFIGURATION" and "direct_settlement" not in body["integrations"]
     assert FAKE_TOKEN not in json.dumps(body) and "missing" not in json.dumps(body)
+
+
+# --- YouTube key under either Railway name (regression: staging console said
+# "Missing: api_key" while production carried YOUTUBE_API_KEY). Keys below are
+# format-valid fixtures built at runtime, never real.
+FAKE_YT = "AIza" + "T" * 35
+FAKE_YT_2 = "AIza" + "U" * 35
+
+
+@pytest.mark.parametrize("var", ["YOUTUBE_API_KEY", "YOUTUBE_DATA_API_KEY"])
+def test_youtube_key_under_either_name_is_configured_and_live_after_a_real_check(api, monkeypatch, var):
+    client, container, http = api
+    monkeypatch.setenv(var, FAKE_YT)
+    container.platform = None
+    yt = items(client)["youtube_data"]
+    assert yt["missing"] == [] and yt["sources"]["api_key"] == "environment"
+    assert yt["readiness"] == "DISABLED" and yt["status"] == "DISABLED"
+    assert set(["YOUTUBE_DATA_API_KEY"]) <= set(yt["env_aliases"]["api_key"])
+    client.put(f"{BASE}/integrations/youtube_data", headers=OWNER, json={"enabled": True, "mode": "live"})
+    assert items(client)["youtube_data"]["readiness"] == "CONFIGURED", "never LIVE before a real check"
+    http.responses = {"youtube/v3/videos": (200, {"items": [{"id": "dQw4w9WgXcQ"}]})}
+    client.post(f"{BASE}/integrations/youtube_data/check", headers=OWNER)
+    assert http.calls[-1]["params"]["key"] == FAKE_YT
+    yt = items(client)["youtube_data"]
+    assert yt["status"] == "LIVE" and yt["readiness"] == "LIVE" and yt["missing"] == []
+    page = client.get(f"{BASE}/integrations", headers=OWNER).text
+    assert FAKE_YT not in page and "runtime" in page
+    http.responses = {"youtube/v3/videos": (403, {"error": {"message": "API key not valid."}})}
+    client.post(f"{BASE}/integrations/youtube_data/check", headers=OWNER)
+    assert items(client)["youtube_data"]["readiness"] == "CHECK_FAILED"
+
+
+def test_youtube_missing_only_when_neither_name_is_set(api):
+    client, container, http = api
+    yt = items(client)["youtube_data"]
+    assert yt["missing"] == ["api_key"] and yt["readiness"] == "NOT_CONFIGURED"
+    assert not http.calls
+
+
+def test_youtube_prefers_the_well_formed_key_when_both_names_are_set(monkeypatch):
+    from app.services import commerce_finance as fin
+    from app.services.social_video_api_service import SocialVideoApiService
+
+    env = {"YOUTUBE_API_KEY": "not-a-key", "YOUTUBE_DATA_API_KEY": FAKE_YT_2}
+    assert fin.youtube_api_key(env) == FAKE_YT_2
+    assert fin.youtube_api_key({"YOUTUBE_API_KEY": FAKE_YT}) == FAKE_YT
+    assert fin.youtube_api_key({}) == ""
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+    monkeypatch.setenv("YOUTUBE_DATA_API_KEY", FAKE_YT_2)
+    assert SocialVideoApiService().status()[0]["configured"] is True
+
+
+def test_classic_command_center_youtube_state_uses_the_same_resolution(api, monkeypatch):
+    client, container, http = api
+    from app.api.routes.command_center import _integration_states
+
+    monkeypatch.setenv("YOUTUBE_API_KEY", FAKE_YT)
+    state = next(s for s in _integration_states(container) if s["name"] == "youtube_data_api")
+    assert state["configured"] is True
+    monkeypatch.delenv("YOUTUBE_API_KEY")
+    state = next(s for s in _integration_states(container) if s["name"] == "youtube_data_api")
+    assert state["configured"] is False

@@ -70,6 +70,9 @@ class _FakeMatchRepository implements UniversalMatchRepository {
   }
 
   @override
+  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl}) async {}
+
+  @override
   Future<void> acceptMatch({required String dealId, required String matchId}) async {
     accepted.add((dealId, matchId));
   }

@@ -26,7 +26,10 @@ GROUPS = (
 
 
 def _where(status: Dict[str, Any]) -> str:
-    env = ", ".join(sorted(set(status.get("env_vars", {}).values()))) or "(Command Center only)"
+    names = set(status.get("env_vars", {}).values())
+    for aliases in (status.get("env_aliases") or {}).values():
+        names.update(aliases)
+    env = ", ".join(sorted(names)) or "(Command Center only)"
     return WHERE_TO_ADD.format(label=status["label"], env=env)
 
 
@@ -51,7 +54,8 @@ def readiness(registry: fin.IntegrationRegistry, *, outbox: Any = None, repo: An
                                            ("ERROR" if errors else "NOT_CONFIGURED")),
             "real_credential_required": not live,
             "credentials": {s["provider"]: {"required": s["required"],
-                                            "env_vars": s.get("env_vars", {})} for s in statuses},
+                                            "env_vars": s.get("env_vars", {}),
+                                            "env_aliases": s.get("env_aliases", {})} for s in statuses},
             "where_to_add": _where(statuses[0]) if len(statuses) == 1 else
             "Command Center -> Integrations -> the chosen provider -> Configure",
         }

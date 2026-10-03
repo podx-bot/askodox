@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import os
 import re
 
 from fastapi import APIRouter, HTTPException, Request
@@ -64,6 +67,93 @@ class ReviewRequest(BaseModel):
     reviewed_user_id: str = Field(min_length=1)
     rating: int = Field(ge=1, le=5)
     review_text: str = Field(default="", max_length=2000)
+
+
+
+
+class ExternalClickRequest(BaseModel):
+    provider_id: str = Field(min_length=1, max_length=80)
+    result_id: str = Field(default="", max_length=160)
+    destination_url: str = Field(default="", max_length=2000)
+    user_id: str = Field(default="", max_length=160)
+
+
+class ExternalConversionRequest(BaseModel):
+    provider_id: str = Field(min_length=1, max_length=80)
+    event: str = Field(default="conversion", max_length=80)
+    external_reference: str = Field(default="", max_length=240)
+    value: float | None = None
+    currency: str = Field(default="INR", max_length=8)
+
+
+def _ensure_external_tracking_table(container) -> None:
+    container.database.execute("""CREATE TABLE IF NOT EXISTS external_commerce_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        result_id TEXT,
+        destination_url TEXT,
+        user_ref TEXT,
+        external_reference TEXT,
+        value REAL,
+        currency TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+
+
+@router.post("/external/click")
+def record_external_click(payload: ExternalClickRequest, request: Request) -> dict:
+    from app.services import rate_limit
+
+    rate_limit.check(request, "external_click", limit=60)  # public, write-only log
+    container = request.app.state.container
+    _ensure_external_tracking_table(container)
+    user_ref = mask_user_id(payload.user_id) if payload.user_id else ""
+    container.database.execute(
+        """INSERT INTO external_commerce_events
+        (event_type,provider_id,result_id,destination_url,user_ref,currency)
+        VALUES('click',?,?,?,?,?)""",
+        (payload.provider_id.strip().lower(), payload.result_id, payload.destination_url, user_ref, "INR"),
+    )
+    return {"recorded": True, "event": "click"}
+
+
+@router.post("/external/conversion")
+def record_external_conversion(payload: ExternalConversionRequest, request: Request) -> dict:
+    container = request.app.state.container
+    config = getattr(container, "affiliate_provider_config", None)
+    provider = dict((config.providers if config else {}).get(payload.provider_id.strip().lower()) or {})
+    if not provider or not provider.get("callback_enabled", False):
+        raise HTTPException(status_code=404, detail="Conversion callback is not enabled for this provider")
+    provider_key = re.sub(r"[^A-Z0-9]+", "_", payload.provider_id.strip().upper()).strip("_")
+    secret = os.getenv(f"ASKODOX_PARTNER_{provider_key}_CALLBACK_SECRET", "").strip()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Conversion callback secret is not configured")
+    supplied = request.headers.get("x-askodox-signature", "").strip()
+    canonical = json.dumps(payload.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    expected = hmac.new(secret.encode(), canonical, hashlib.sha256).hexdigest()
+    if not supplied or not hmac.compare_digest(supplied.removeprefix("sha256="), expected):
+        raise HTTPException(status_code=401, detail="Invalid conversion callback signature")
+    reference = payload.external_reference.strip()
+    if not reference:
+        raise HTTPException(status_code=422, detail="external_reference is required for conversion callbacks")
+    event = payload.event.strip().lower()
+    provider_id = payload.provider_id.strip().lower()
+    _ensure_external_tracking_table(container)
+    existing = container.database.fetchone(
+        """SELECT id FROM external_commerce_events
+        WHERE provider_id=? AND event_type=? AND external_reference=? LIMIT 1""",
+        (provider_id, event, reference),
+    )
+    if existing is not None:
+        return {"recorded": False, "duplicate": True, "event": event}
+    container.database.execute(
+        """INSERT INTO external_commerce_events
+        (event_type,provider_id,external_reference,value,currency)
+        VALUES(?,?,?,?,?)""",
+        (event, provider_id, reference, payload.value, payload.currency.upper()),
+    )
+    return {"recorded": True, "duplicate": False, "event": event}
 
 
 def _latest_created_deal(container, user_id: str):
@@ -823,6 +913,42 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     flags = _result_flags(container)
     errors: list[str] = []
     affiliate_rows: list[dict] = []
+    # Staff/authorized catalog records participate in the same universal search.
+    # Monetisation only changes the destination URL; it never gates/ranks a result.
+    partner_hub = getattr(container, "partner_revenue_hub", None)
+    if partner_hub is not None and flags.get("results.affiliate", True):
+        hub_category = str(demand.get("domain") or "").strip().lower()
+        hub_subject = str(demand.get("subject") or "").strip()
+        try:
+            curated = partner_hub.search_products(hub_subject, hub_category, 50)
+        except Exception as error:
+            curated, _ = [], errors.append(f"partner_hub:{type(error).__name__}")
+        for row in curated:
+            item_id = f"partner-product-{row.get('id')}"
+            if item_id in existing_ids:
+                continue
+            affiliate = bool(row.get("affiliate_url"))
+            affiliate_rows.append({
+                "id": item_id,
+                "match_id": item_id,
+                "provider_id": str(row.get("partner_id") or ""),
+                "title": str(row.get("title") or row.get("merchant") or "Online option"),
+                "subtitle": str(row.get("merchant") or "Partner catalog"),
+                "price": row.get("price"),
+                "currency": str(row.get("currency") or "INR"),
+                "image_url": str(row.get("image_url") or ""),
+                "match_source": "online",
+                "source": "partner_catalog",
+                "destination_url": str(row.get("destination_url") or ""),
+                "web_fallback_url": str(row.get("original_product_url") or ""),
+                "open_strategy": "web",
+                "affiliate": affiliate,
+                "disclosure": "Affiliate link" if affiliate else "",
+                "demo": False,
+            })
+        matches.extend(affiliate_rows)
+        existing_ids.update(str(item.get("id")) for item in affiliate_rows)
+
     affiliate_config = getattr(container, "affiliate_provider_config", None)
     # A service request ("AC installation in Vuyyuru") wants local PROVIDERS:
     # product stores (affiliate / partner links) are never shown for it.

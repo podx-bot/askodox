@@ -115,7 +115,10 @@ class SponsoredRepository:
         return conn
 
     def _ensure_schema(self) -> None:
+        from app.services.social_ads_offers_hub import migrate_social_campaign_table
+
         with self._connect() as conn:
+            migrate_social_campaign_table(conn)
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS sponsored_advertisers (

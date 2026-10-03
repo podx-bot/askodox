@@ -1,9 +1,86 @@
 """Resolve user-facing online results from normal and affiliate mappings."""
 from __future__ import annotations
 
+import ipaddress
+import json
+import os
 import re
+import socket
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus, urlparse
 from typing import Any, Iterable
+
+
+class PartnerApiConnector:
+    """Small fail-closed connector for explicitly configured partner search APIs."""
+
+    @staticmethod
+    def search(provider: dict[str, Any], subject: str) -> list[dict[str, Any]]:
+        if not provider.get("api_enabled", False):
+            return []
+        template = str(provider.get("api_base_url") or "").strip()
+        if not template:
+            return []
+        url = template.replace("{query}", quote_plus(str(subject or "").strip()))
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or not PartnerApiConnector._safe_public_host(parsed.hostname or "", provider):
+            return []
+        headers = {"Accept": "application/json", "User-Agent": "ASKODOX/1.0"}
+        provider_id = re.sub(r"[^A-Z0-9]+", "_", str(provider.get("provider_id") or "").upper()).strip("_")
+        api_key = os.getenv(f"ASKODOX_PARTNER_{provider_id}_API_KEY", "").strip() if provider_id else ""
+        header_name = os.getenv(f"ASKODOX_PARTNER_{provider_id}_API_KEY_HEADER", "Authorization").strip()
+        if api_key:
+            headers[header_name] = api_key
+        try:
+            with urlopen(Request(url, headers=headers), timeout=4) as response:
+                payload = json.loads(response.read(1024 * 1024).decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
+            return []
+        rows = payload.get("results") if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            return []
+        out: list[dict[str, Any]] = []
+        for index, row in enumerate(rows[:10]):
+            if not isinstance(row, dict):
+                continue
+            destination = UniversalExternalResultService._http_url(
+                row.get("url") or row.get("destination_url")
+            )
+            if not destination:
+                continue
+            out.append({
+                "id": f"partner-api-{provider.get('provider_id')}-{index}",
+                "match_id": f"partner-api-{provider.get('provider_id')}-{index}",
+                "provider_id": str(provider.get("provider_id") or "partner-api"),
+                "title": str(row.get("title") or row.get("name") or provider.get("name") or "Online option"),
+                "subtitle": str(row.get("subtitle") or row.get("description") or "Partner API result"),
+                "price": row.get("price") if isinstance(row.get("price"), (int, float)) else None,
+                "source": "partner_api",
+                "match_source": "online",
+                "destination_url": destination,
+                "web_fallback_url": destination,
+                "open_strategy": "web",
+                "affiliate": False,
+                "disclosure": str(provider.get("disclosure") or ""),
+                "demo": False,
+            })
+        return out
+
+    @staticmethod
+    def _safe_public_host(host: str, provider: dict[str, Any]) -> bool:
+        """Fail closed for localhost/private/link-local API destinations; optional host allow-list."""
+        host = host.strip().lower().rstrip(".")
+        allowed = {h.strip().lower().rstrip(".") for h in str(provider.get("api_allowed_hosts") or "").split(",") if h.strip()}
+        if allowed and host not in allowed:
+            return False
+        if not host or host == "localhost" or host.endswith(".local"):
+            return False
+        try:
+            addresses = {item[4][0] for item in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)}
+            return bool(addresses) and all(ipaddress.ip_address(ip).is_global for ip in addresses)
+        except (OSError, ValueError):
+            return False
 
 
 class UniversalExternalResultService:
@@ -30,6 +107,11 @@ class UniversalExternalResultService:
             if provider_category and provider_category not in wanted and provider_category not in {"general", "product"}:
                 continue
 
+            api_results = PartnerApiConnector.search(provider, subject)
+            if api_results:
+                results.extend(api_results)
+                continue
+
             normal_url = UniversalExternalResultService._http_url(
                 provider.get("normal_url") or provider.get("destination_url") or provider.get("base_url")
             )
@@ -37,7 +119,11 @@ class UniversalExternalResultService:
                 provider.get("affiliate_url") or provider.get("affiliate_url_template"),
                 subject,
             )
-            destination = affiliate_url or normal_url
+            deep_link = UniversalExternalResultService._deep_link(
+                provider.get("deep_link") or provider.get("app_link"), subject
+            )
+            web_fallback = affiliate_url or normal_url
+            destination = deep_link or web_fallback
             if not destination:
                 continue
 
@@ -53,6 +139,12 @@ class UniversalExternalResultService:
                     "match_source": "online",
                     "source": "online",
                     "destination_url": destination,
+                    "deep_link": deep_link or "",
+                    "web_fallback_url": web_fallback or "",
+                    "open_strategy": "deep_link_then_web" if deep_link and web_fallback else ("deep_link" if deep_link else "web"),
+                    "tracking_template": str(provider.get("tracking_template") or ""),
+                    "callback_enabled": bool(provider.get("callback_enabled", False)),
+                    "gateway": str(provider.get("gateway") or "external"),
                     "affiliate": is_affiliate,
                     "disclosure": str(provider.get("disclosure") or ("Affiliate link" if is_affiliate else "")),
                     "demo": False,
@@ -67,6 +159,19 @@ class UniversalExternalResultService:
         return UniversalExternalResultService._http_url(
             str(value).replace("{query}", quote_plus(str(subject or "").strip()))
         )
+
+    @staticmethod
+    def _deep_link(value: Any, subject: str) -> str | None:
+        if not value:
+            return None
+        url = str(value).replace("{query}", quote_plus(str(subject or "").strip())).strip()
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            return None
+        if not parsed.scheme or parsed.scheme.casefold() in {"http", "https", "javascript", "data", "file"}:
+            return None
+        return url
 
     @staticmethod
     def _http_url(value: Any) -> str | None:

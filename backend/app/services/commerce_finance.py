@@ -89,6 +89,36 @@ ENV_SOURCES: Dict[str, Dict[str, str]] = {
                  "webhook_secret": "RAZORPAY_WEBHOOK_SECRET"},
 }
 
+# Accepted alternative deployment-variable names (tried after ENV_SOURCES, in
+# order). Railway production carries both YOUTUBE_API_KEY and
+# YOUTUBE_DATA_API_KEY; either one alone must make YouTube configured.
+ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
+    "youtube_data": {"api_key": ("YOUTUBE_DATA_API_KEY",)},
+}
+
+
+def env_names(provider: str, name: str) -> tuple[str, ...]:
+    primary = ENV_SOURCES.get(provider, {}).get(name)
+    return ((primary,) if primary else ()) + ENV_ALIASES.get(provider, {}).get(name, ())
+
+
+def env_value(env: Dict[str, str], provider: str, name: str) -> str:
+    """First deployment value for this field. When several names are set, the
+    first one that passes the field's format check wins (a stale/garbled copy
+    under one name never hides a good one under another). Never logged."""
+    values = [str(env.get(var, "") or "").strip() for var in env_names(provider, name)]
+    values = [v for v in values if v]
+    for value in values:
+        if validate_field(provider, name, value) is None:
+            return value
+    return values[0] if values else ""
+
+
+def youtube_api_key(env: Dict[str, str] | None = None) -> str:
+    """The one place every YouTube caller reads the deployment key from."""
+    return env_value(dict(os.environ) if env is None else env, "youtube_data", "api_key")
+
+
 # The sandbox gateway only ever exists outside production.
 PRODUCTION_ENV_NAMES = ("production", "prod")
 
@@ -190,8 +220,7 @@ class IntegrationRegistry:
         return out
 
     def _env(self, provider: str, name: str) -> str:
-        var = ENV_SOURCES.get(provider, {}).get(name)
-        return str(self.env.get(var, "") or "").strip() if var else ""
+        return env_value(self.env, provider, name)
 
     def secret(self, provider: str, name: str) -> str:
         return self._secrets(self._row(provider)).get(name, "") or self._env(provider, name)
@@ -250,7 +279,20 @@ class IntegrationRegistry:
             state = STATUS_ERROR
         else:
             state = STATUS_LIVE if mode == "live" and row.get("last_check_ok") == 1 else STATUS_TEST
+        if internal:
+            readiness = "OK"  # built in, no external service to check
+        elif missing and state != STATUS_MOCK:
+            readiness = "NOT_CONFIGURED"
+        elif state == STATUS_DISABLED:
+            readiness = "DISABLED"
+        elif row.get("last_check_ok") == 0:
+            readiness = "CHECK_FAILED"
+        elif row.get("last_check_ok") == 1:
+            readiness = "LIVE" if state == STATUS_LIVE else "OK"
+        else:
+            readiness = "CONFIGURED"  # credentials present, no passed real check yet
         return {"provider": provider, "group": group, "label": label, "status": state, "internal": internal,
+                "readiness": readiness,
                 "enabled": bool(row.get("enabled")) or internal, "mode": mode, "available": self.available(provider),
                 "config": public_config, "secrets_set": sorted(have_secrets), "missing": missing,
                 "secret_names": list(self.secret_names(provider)), "config_keys": list(self.config_keys(provider)),
@@ -259,6 +301,7 @@ class IntegrationRegistry:
                 **({"quota": {"used_today": self.quota_used(provider), "daily_cap": self.quota_cap(provider)}}
                    if provider in self.QUOTA_CAPS else {}),
                 "env_vars": dict(ENV_SOURCES.get(provider, {})),
+                "env_aliases": {k: list(v) for k, v in ENV_ALIASES.get(provider, {}).items()},
                 "last_check_at": row.get("last_check_at"), "last_check_ok": row.get("last_check_ok"),
                 "last_check_detail": row.get("last_check_detail")}
 

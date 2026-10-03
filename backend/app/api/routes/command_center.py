@@ -841,6 +841,8 @@ def update_config(key: str, payload: FlagUpdate, request: Request) -> Any:
 # ---------------------------------------------------------- integrations --
 
 def _integration_states(container: Any) -> list[dict[str, Any]]:
+    from app.services.commerce_finance import youtube_api_key
+
     settings = container.settings
     cc = command_center(container)
     flags = cc.flags()
@@ -895,6 +897,9 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
               ("support.escalation",)),
         state("affiliate_sources", "Affiliate / online partner sources", affiliate_count > 0,
               ("results.affiliate",), detail=f"{affiliate_count} active provider(s)"),
+        state("youtube_data_api", "YouTube Data API",
+              bool(youtube_api_key()),
+              detail="YouTube public-data search; key is read only from Railway environment variables"),
         state("push_notifications", "Background push (Firebase Cloud Messaging)",
               bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()),
               detail="Server needs FIREBASE_SERVICE_ACCOUNT_JSON; the Android app needs google-services.json "
@@ -905,6 +910,83 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
               detail=(f"Configured: {', '.join(gateways)}" if gateways else "No gateway configured") +
               " -- COD, cash on pickup and direct UPI to the seller work without one (Platform -> Integrations)."),
     ]
+
+
+class AffiliateProviderUpdate(BaseModel):
+    name: str = Field(default="", max_length=120)
+    category: str = Field(default="general", max_length=80)
+    normal_url: str = Field(default="", max_length=2000)
+    deep_link: str = Field(default="", max_length=2000)
+    api_base_url: str = Field(default="", max_length=2000)
+    api_enabled: bool = False
+    api_allowed_hosts: str = Field(default="", max_length=1000)
+    callback_url: str = Field(default="", max_length=2000)
+    callback_enabled: bool = False
+    tracking_template: str = Field(default="", max_length=2000)
+    gateway: str = Field(default="external", max_length=80)
+    affiliate_url: str = Field(default="", max_length=2000)
+    disclosure: str = Field(default="Affiliate link", max_length=200)
+    active: bool = True
+
+
+@router.get("/integrations/affiliate-providers")
+def affiliate_providers(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    config = getattr(request.app.state.container, "affiliate_provider_config", None)
+    return {"items": config.list() if config is not None else []}
+
+
+@router.put("/integrations/affiliate-providers/{provider_id}")
+def save_affiliate_provider(provider_id: str, body: AffiliateProviderUpdate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    config = getattr(request.app.state.container, "affiliate_provider_config", None)
+    if config is None:
+        raise HTTPException(status_code=503, detail="Affiliate provider registry unavailable")
+    provider_id = provider_id.strip().lower()
+    if not provider_id or len(provider_id) > 80:
+        raise HTTPException(status_code=400, detail="Invalid provider id")
+    before = dict(config.providers.get(provider_id) or {})
+    config.register(provider_id, **body.model_dump())
+    after = dict(config.providers[provider_id])
+    command_center(request.app.state.container).audit(
+        principal["id"], "affiliate_provider.save", "affiliate_provider", provider_id,
+        before=before or None, after=after)
+    return {"item": after}
+
+
+@router.delete("/integrations/affiliate-providers/{provider_id}")
+def delete_affiliate_provider(provider_id: str, request: Request, confirm: bool = False) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    _require_confirm(confirm, "delete affiliate provider")
+    config = getattr(request.app.state.container, "affiliate_provider_config", None)
+    if config is None:
+        raise HTTPException(status_code=503, detail="Affiliate provider registry unavailable")
+    before = dict(config.providers.get(provider_id) or {})
+    if not config.remove(provider_id):
+        raise HTTPException(status_code=404, detail="Affiliate provider not found")
+    command_center(request.app.state.container).audit(
+        principal["id"], "affiliate_provider.delete", "affiliate_provider", provider_id, before=before)
+    return {"deleted": True, "provider_id": provider_id}
+
+
+@router.get("/integrations/external-commerce-analytics")
+def external_commerce_analytics(request: Request) -> dict[str, Any]:
+    _require(request, "analytics:view")
+    try:
+        rows = _rows(request, """SELECT provider_id,event_type,COUNT(*) n,
+            COALESCE(SUM(CASE WHEN event_type!='click' THEN value ELSE 0 END),0) value
+            FROM external_commerce_events GROUP BY provider_id,event_type ORDER BY provider_id,event_type""")
+    except Exception:
+        rows = []
+    providers: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = providers.setdefault(row["provider_id"], {"provider_id": row["provider_id"], "clicks": 0, "conversions": 0, "value": 0.0})
+        if row["event_type"] == "click":
+            item["clicks"] += int(row["n"])
+        else:
+            item["conversions"] += int(row["n"])
+            item["value"] += float(row["value"] or 0)
+    return {"items": list(providers.values())}
 
 
 @router.get("/integrations")
@@ -935,6 +1017,11 @@ def check_integration(name: str, request: Request) -> dict[str, Any]:
             status = maps.api_status() if maps is not None and hasattr(maps, "api_status") else {}
             ok = bool(status) and all(v == "OK" for v in status.values())
             detail = "; ".join(f"{api}: {verdict}" for api, verdict in status.items()) or "Maps service unavailable"
+        elif name == "youtube_data_api":
+            from app.services.social_video_api_service import SocialVideoApiService
+            rows = SocialVideoApiService().youtube_search("ASKODOX", 1)
+            ok = bool(rows)
+            detail = "YouTube Data API search OK" if ok else "YouTube Data API returned no results"
         elif name == "sarvam":
             result = container.voice_assistant_service.synthesize("ASKODOX") or {}
             ok = bool(result.get("success")) and str(result.get("tts_path") or "").startswith("sarvam")
@@ -1504,3 +1591,306 @@ def selfheal_rollback(log_id: int, request: Request) -> dict[str, Any]:
                                                       None, {"action": item["action"], "target": item["target"]},
                                                       role=principal["role"], risk=item["risk"])
     return item
+
+
+
+# ---------------------------------------- Social / Ads / Offers / Rewards --
+
+class VideoSourceUpsert(BaseModel):
+    provider_type: str
+    api_enabled: bool = False
+    embed_enabled: bool = True
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class SponsoredCampaignCreate(BaseModel):
+    owner_ref: str = "askodox"
+    campaign_type: str = "sponsored"
+    title: str
+    destination_url: str | None = None
+    category: str | None = None
+    location_scope: str | None = None
+    budget: float | None = Field(default=None, ge=0)
+    starts_at: str | None = None
+    ends_at: str | None = None
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class PartnerOfferCreate(BaseModel):
+    partner_id: str
+    offer_type: str
+    title: str
+    bank_name: str | None = None
+    card_network: str | None = None
+    merchant: str | None = None
+    promo_code: str | None = None
+    discount_value: float | None = None
+    discount_unit: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
+    terms_url: str | None = None
+    source_url: str | None = None
+    verified: bool = False
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+def _social_hub(request: Request):
+    hub = getattr(request.app.state.container, "social_ads_offers_hub", None)
+    if hub is None:
+        from app.services.social_ads_offers_hub import SocialAdsOffersHub
+        hub = SocialAdsOffersHub(request.app.state.container.settings.database_path)
+        request.app.state.container.social_ads_offers_hub = hub
+    return hub
+
+@router.get("/social-growth/api-status")
+def social_api_status(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    from app.services.social_video_api_service import SocialVideoApiService
+    return {"items": SocialVideoApiService().status()}
+
+class YouTubeImportRequest(BaseModel):
+    query: str
+    max_results: int = Field(default=10, ge=1, le=25)
+    category: str = ""
+    related_ref: str = ""
+
+@router.post("/social-growth/youtube/import")
+def social_youtube_import(payload: YouTubeImportRequest, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    from app.services.social_video_api_service import SocialVideoApiService
+    try:
+        rows=SocialVideoApiService().youtube_search(payload.query,payload.max_results)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"YouTube API unavailable: {type(exc).__name__}") from exc
+    saved=[]
+    for row in rows:
+        saved.append(_social_hub(request).upsert_video(**row,category=payload.category,related_ref=payload.related_ref))
+    return {"imported":len(saved),"items":saved}
+
+@router.get("/social-growth/video-sources")
+def social_video_sources(request: Request) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _rows(request, "SELECT provider_id,provider_type,api_enabled,embed_enabled,active,updated_at FROM social_video_sources ORDER BY provider_id")}
+
+@router.put("/social-growth/video-sources/{provider_id}")
+def social_video_source_upsert(provider_id: str, payload: VideoSourceUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _social_hub(request).upsert_video_source(provider_id, **payload.model_dump())
+    command_center(request.app.state.container).audit(principal["id"], "video_source_upsert", "video_source", provider_id, None, {"active": item["active"]})
+    return item
+
+class SocialVideoUpsert(BaseModel):
+    provider_id: str
+    external_video_id: str
+    canonical_url: str
+    title: str = ""
+    creator: str = ""
+    category: str = ""
+    thumbnail_url: str = ""
+    related_ref: str = ""
+    active: bool = True
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class VideoDiscussionCreate(BaseModel):
+    user_ref: str
+    body: str
+    kind: str = "question"
+    parent_id: int | None = None
+
+@router.get("/social-growth/videos")
+def social_videos(request: Request, limit: int = 100) -> dict[str, Any]:
+    _require(request, "growth:view")
+    limit=max(1,min(limit,500))
+    return {"items": _rows(request, "SELECT * FROM social_videos ORDER BY id DESC LIMIT ?", (limit,))}
+
+@router.post("/social-growth/videos")
+def social_video_upsert(payload: SocialVideoUpsert, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    try:
+        return _social_hub(request).upsert_video(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+@router.get("/social-growth/videos/{video_id}/discussion")
+def social_video_discussion(video_id: int, request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    items=_social_hub(request).discussions(video_id)
+    for item in items:
+        item["user_ref"]=mask_user_id(str(item.get("user_ref") or ""))
+    return {"items":items}
+
+@router.post("/social-growth/videos/{video_id}/discussion")
+def social_video_discussion_add(video_id: int, payload: VideoDiscussionCreate, request: Request) -> dict[str, Any]:
+    _require(request, "growth:manage")
+    try:
+        item=_social_hub(request).add_discussion(video_id, **payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    item["user_ref"]=mask_user_id(str(item.get("user_ref") or ""))
+    return item
+
+@router.get("/social-growth/campaigns")
+def social_campaigns(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    _social_hub(request)  # creates / migrates the hub's own campaign table first
+    return {"items": _rows(request, "SELECT * FROM social_sponsored_campaigns ORDER BY id DESC LIMIT 500")}
+
+@router.post("/social-growth/campaigns")
+def social_campaign_create(payload: SponsoredCampaignCreate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "growth:manage")
+    try:
+        item = _social_hub(request).create_campaign(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    command_center(request.app.state.container).audit(principal["id"], "campaign_create", "sponsored_campaign", str(item["id"]), None, {"type": item["campaign_type"], "active": item["active"]})
+    return item
+
+@router.get("/social-growth/partner-offers")
+def social_partner_offers(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    return {"items": _rows(request, "SELECT * FROM partner_offers ORDER BY id DESC LIMIT 500")}
+
+@router.post("/social-growth/partner-offers")
+def social_partner_offer_create(payload: PartnerOfferCreate, request: Request) -> dict[str, Any]:
+    principal = _require(request, "growth:manage")
+    item = _social_hub(request).create_offer(**payload.model_dump())
+    command_center(request.app.state.container).audit(principal["id"], "partner_offer_create", "partner_offer", str(item["id"]), None, {"verified": item["verified"], "active": item["active"]})
+    return item
+
+@router.get("/social-growth/scratch-rewards")
+def social_scratch_rewards(request: Request) -> dict[str, Any]:
+    _require(request, "growth:view")
+    items = _rows(request, "SELECT id,user_ref,trigger_type,trigger_ref,reward_type,reward_value,status,expires_at,revealed_at,redeemed_at,created_at FROM scratch_rewards ORDER BY id DESC LIMIT 500")
+    for item in items:
+        item["user_ref"] = mask_user_id(str(item.get("user_ref") or ""))
+    return {"items": items}
+
+
+# ----------------------------------------------- Partner & Revenue Hub --
+
+class PartnerRevenueUpsert(BaseModel):
+    name: str
+    sector: str = "general"
+    category: str = "general"
+    integration_modes: list[str] = Field(default_factory=list)
+    commercial_model: str = "none"
+    attribution_template: str = ""
+    human_support: bool = False
+    staff_fallback: bool = False
+    compliance_notes: str = ""
+    evidence_status: str = "unverified"
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+def _partner_hub(request: Request):
+    hub = getattr(request.app.state.container, "partner_revenue_hub", None)
+    if hub is None:
+        from app.services.partner_revenue_hub import PartnerRevenueHub
+        hub = PartnerRevenueHub(request.app.state.container.settings.database_path)
+        request.app.state.container.partner_revenue_hub = hub
+    return hub
+
+
+@router.get("/partner-revenue/partners")
+def partner_revenue_partners(request: Request, sector: str = "", active_only: bool = False) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _partner_hub(request).list_partners(sector=sector, active_only=active_only)}
+
+
+@router.put("/partner-revenue/partners/{partner_id}")
+def upsert_partner_revenue_partner(partner_id: str, payload: PartnerRevenueUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _partner_hub(request).upsert_partner(partner_id, **payload.model_dump())
+    try:
+        command_center(request.app.state.container).audit(
+            principal["id"], "partner_revenue_upsert", "partner", partner_id, None,
+            {"sector": item.get("sector"), "active": item.get("active")})
+    except Exception:
+        pass
+    return item
+
+
+@router.get("/partner-revenue/summary")
+def partner_revenue_summary(request: Request) -> dict[str, Any]:
+    _require(request, "analytics:view")
+    partners = _partner_hub(request).list_partners()
+    rows = _rows(request, """SELECT partner_id,event_type,COUNT(*) n,
+        COALESCE(SUM(value),0) value FROM partner_revenue_events
+        GROUP BY partner_id,event_type ORDER BY partner_id,event_type""")
+    return {
+        "partners": {"total": len(partners), "active": sum(1 for p in partners if p.get("active"))},
+        "events": rows,
+    }
+
+
+class AffiliateProductUpsert(BaseModel):
+    original_product_url: str
+    source: str = ""
+    merchant: str = ""
+    affiliate_url: str = ""
+    collection_url: str = ""
+    title: str = ""
+    category: str = "general"
+    subcategory: str = ""
+    price: float | None = None
+    currency: str = "INR"
+    image_url: str = ""
+    stock_status: str = ""
+    verified_commission_rate: float | None = None
+    active: bool = True
+    last_verified: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/partner-revenue/products")
+def partner_revenue_products(request: Request, q: str = "", category: str = "", limit: int = 50) -> dict[str, Any]:
+    _require(request, "integrations:view")
+    return {"items": _partner_hub(request).search_products(q, category, limit)}
+
+
+@router.put("/partner-revenue/products/{partner_id}")
+def upsert_partner_revenue_product(partner_id: str, payload: AffiliateProductUpsert, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    item = _partner_hub(request).upsert_product(partner_id, payload.original_product_url, **payload.model_dump(exclude={"original_product_url"}))
+    try:
+        command_center(request.app.state.container).audit(
+            principal["id"], "affiliate_product_upsert", "affiliate_product",
+            f"{partner_id}:{item.get('id','')}", None, {"category": item.get("category")})
+    except Exception:
+        pass
+    return item
+
+
+class PartnerStaffAssignment(BaseModel):
+    staff_ref: str
+    partner_id: str = ""
+    sector: str = ""
+    category: str = ""
+    permissions: list[str] = Field(default_factory=list)
+    active: bool = True
+
+
+@router.put("/partner-revenue/staff-assignment")
+def partner_revenue_staff_assignment(payload: PartnerStaffAssignment, request: Request) -> dict[str, Any]:
+    _require(request, "staff:manage")
+    _partner_hub(request).assign_staff(**payload.model_dump())
+    return {"saved": True}
+
+
+class BFSIFlowUpsert(BaseModel):
+    lead_enabled: bool = False
+    journey_enabled: bool = False
+    callback_enabled: bool = False
+    status_enabled: bool = False
+    consent_required: bool = True
+    regulated_entity: str = ""
+    active: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.put("/partner-revenue/bfsi/{partner_id}/{product_type}")
+def partner_revenue_bfsi(partner_id: str, product_type: str, payload: BFSIFlowUpsert, request: Request) -> dict[str, Any]:
+    _require(request, "integrations:manage")
+    _partner_hub(request).upsert_bfsi_flow(partner_id, product_type, **payload.model_dump())
+    return {"saved": True, "partner_id": partner_id, "product_type": product_type}

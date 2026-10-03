@@ -209,7 +209,8 @@ class Platform:
         return response.status_code, body
 
     def youtube_key(self) -> str:
-        return self.registry.secret("youtube_data", "api_key") or self.registry.env.get("YOUTUBE_API_KEY", "")
+        # Command Center value first, then YOUTUBE_API_KEY / YOUTUBE_DATA_API_KEY.
+        return self.registry.secret("youtube_data", "api_key")
 
     def oembed(self):
         from app.services import external_call_budget
@@ -828,7 +829,20 @@ class IntegrationBody(BaseModel):
 @admin_router.get("/integrations")
 def integrations(request: Request) -> dict:
     _require(request, "integrations:view")
-    return {"items": _pf(request).registry.all()}
+    return {"items": _pf(request).registry.all(), "runtime": runtime_identity()}
+
+
+def runtime_identity() -> Dict[str, str]:
+    """Which deployment answered (Railway's own non-secret variables), so the
+    console always says whose configuration it is showing."""
+    import os
+
+    env = os.environ
+    return {"environment": env.get("RAILWAY_ENVIRONMENT_NAME") or env.get("ASKODOX_ENV") or "local",
+            "service": env.get("RAILWAY_SERVICE_NAME", ""),
+            "branch": env.get("RAILWAY_GIT_BRANCH", ""),
+            "commit": (env.get("RAILWAY_GIT_COMMIT_SHA", "") or "")[:7],
+            "domain": env.get("RAILWAY_PUBLIC_DOMAIN", "")}
 
 
 @admin_router.put("/integrations/{provider}")

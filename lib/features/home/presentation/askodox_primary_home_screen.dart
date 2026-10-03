@@ -4452,17 +4452,36 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   }
 
   Future<void> _openDestination() async {
-    // Partner rows open through ASKODOX's tracked redirect; the tap itself
-    // is reported as a click (fire-and-forget, never blocks opening).
+    // Partner Hub rows open through ASKODOX's tracked /go/ redirect; an
+    // external-commerce partner's app deep link is tried first, then the web
+    // fallback. Both trackers are fire-and-forget and never block opening.
     final tracker = ref.read(askodoxPartnerTrackerProvider);
-    final uri = tracker.openUri(_match);
-    if (uri == null) return;
+    final deepLink = _match.deepLink?.trim();
+    final primary = deepLink != null && deepLink.isNotEmpty
+        ? deepLink
+        : tracker.openUri(_match)?.toString();
+    final fallback = _match.webFallbackUrl?.trim();
+    if (primary == null || primary.isEmpty) return;
     tracker.track(_match, 'click');
+    ref.read(universalMatchRepositoryProvider).recordExternalClick(
+      match: _match,
+      destinationUrl: primary,
+    );
     var opened = false;
     try {
-      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final uri = Uri.tryParse(primary);
+      opened = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       opened = false;
+    }
+    if (!opened && fallback != null && fallback.isNotEmpty && fallback != primary) {
+      try {
+        final fallbackUri = Uri.tryParse(fallback);
+        opened = fallbackUri != null &&
+            await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        opened = false;
+      }
     }
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

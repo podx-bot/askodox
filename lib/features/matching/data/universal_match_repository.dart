@@ -82,6 +82,9 @@ class UniversalMatch {
     this.locationLabel,
     this.availability,
     this.destinationUrl,
+    this.deepLink,
+    this.webFallbackUrl,
+    this.openStrategy,
     this.disclosure,
     this.affiliate = false,
     this.ratingAverage,
@@ -124,6 +127,9 @@ class UniversalMatch {
   final String? locationLabel;
   final String? availability;
   final String? destinationUrl;
+  final String? deepLink;
+  final String? webFallbackUrl;
+  final String? openStrategy;
   final String? disclosure;
   final bool affiliate;
 
@@ -237,6 +243,9 @@ class UniversalMatch {
           locationLabel: json['location_label']?.toString() ?? json['location']?.toString(),
           availability: json['availability']?.toString() ?? json['stock_status']?.toString(),
           destinationUrl: json['destination_url']?.toString() ?? json['normal_url']?.toString(),
+          deepLink: json['deep_link']?.toString(),
+          webFallbackUrl: json['web_fallback_url']?.toString(),
+          openStrategy: json['open_strategy']?.toString(),
           disclosure: json['disclosure']?.toString(),
           affiliate: json['affiliate'] == true,
           ratingAverage: (json['rating_average'] as num?)?.toDouble(),
@@ -290,6 +299,9 @@ class UniversalMatch {
         'location_label': locationLabel,
         'availability': availability,
         'destination_url': destinationUrl,
+        'deep_link': deepLink,
+        'web_fallback_url': webFallbackUrl,
+        'open_strategy': openStrategy,
         'disclosure': disclosure,
         'affiliate': affiliate,
         'rating_average': ratingAverage,
@@ -362,6 +374,7 @@ abstract interface class UniversalMatchRepository {
   /// [trace] is app-side context for the admin flow trace.
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace});
   Future<void> acceptMatch({required String dealId, required String matchId});
+  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl});
 
   /// Explicit Party B acknowledgement for production-like sandbox flows.
   /// Live flows continue to use the backend acceptance/interest endpoints.
@@ -406,6 +419,25 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   bool _isSandbox(String dealId, String matchId) =>
       dealId.startsWith('local-') || matchId.startsWith('demo-');
+
+  @override
+  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl}) async {
+    final provider = (match.providerId ?? match.sourceName ?? match.source).trim();
+    if (provider.isEmpty || destinationUrl.trim().isEmpty) return;
+    // Tracking must never block navigation. The backend stores only a masked user reference.
+    try {
+      await _client.post<Map<String, Object?>>(
+        '/external/click',
+        body: <String, Object?>{
+          'provider_id': provider,
+          'result_id': match.id,
+          'destination_url': destinationUrl.trim(),
+          'user_id': appUserId ?? '',
+        },
+        options: ApiRequestOptions(timeout: const Duration(seconds: 4), authToken: authToken),
+      );
+    } catch (_) {}
+  }
 
   @override
   Future<UniversalMatchResult> createAndMatch(UniversalDeal deal, {Map<String, Object?>? trace}) async {
