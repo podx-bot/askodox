@@ -310,3 +310,30 @@ def test_chat_explain_uses_the_study_once_it_exists(api):
     after = http.post("/api/videos/yt_explaincar1/explain", json={"question": "", "language": "en"}).json()
     assert after["analyzed"] is True
     assert any("₹12.5 lakh (seller claim) [1:42]" in line for line in after["from_source"])
+
+
+def test_market_subject_from_real_production_keys():
+    """Production study of a real Short used make_model -> the query was '2019 GX'."""
+    study = vs.normalize_study({
+        "category": "vehicle", "subject": "Innova Crysta 2019 GX",
+        "facts": [{"key": "make_model", "label": "Make & Model", "value": "Innova Crysta", "basis": "said",
+                   "timestamp": "0:00", "evidence": "Innova Crysta 2019"},
+                  {"key": "year", "label": "Year", "value": "2019", "basis": "said", "timestamp": "0:00",
+                   "evidence": "2019 model"},
+                  {"key": "variant", "label": "Variant", "value": "GX", "basis": "said", "timestamp": "0:02",
+                   "evidence": "GX"}]}, ref="yt_T5jS6dKefCw", source="youtube", duration=5)
+    assert vs.market_subject(study) == "2019 Innova Crysta GX"
+    only_numbers = vs.normalize_study({
+        "category": "vehicle", "subject": "Toyota Fortuner",
+        "facts": [{"key": "year", "label": "Year", "value": "2018", "basis": "said", "timestamp": "0:01",
+                   "evidence": "2018"}]}, ref="yt_n", source="youtube", duration=30)
+    assert vs.market_subject(only_numbers) == "2018 Toyota Fortuner"
+
+
+def test_suggested_questions_follow_the_conversation_language():
+    study = vs.normalize_study({**CAR_STUDY, "suggested_questions": ["What is the asking price?", "ధర ఎంత?"]},
+                               ref="a", source="youtube", duration=60)
+    te = vs.suggested_questions(study, "te")
+    assert "ధర ఎంత?" in te and "What is the asking price?" not in te
+    en = vs.suggested_questions(study, "en")
+    assert "What is the asking price?" in en and "ధర ఎంత?" not in en
