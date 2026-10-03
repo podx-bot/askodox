@@ -65,6 +65,8 @@ jobs:
 
       - name: Compute Android build number
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # A plain push to main has no workflow_dispatch input, so it used to
@@ -92,10 +94,24 @@ jobs:
           # comments).
           INPUT_BUILD_NUMBER="${{ inputs.build_number }}"
           if [ -n "$INPUT_BUILD_NUMBER" ]; then
-            echo "BUILD_NUMBER=$INPUT_BUILD_NUMBER" >> "$GITHUB_ENV"
+            BUILD_NUMBER="$INPUT_BUILD_NUMBER"
           else
-            echo "BUILD_NUMBER=$((1000 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+            BUILD_NUMBER=$((1000 + ${{ github.run_number }}))
           fi
+          # Never below anything already published on the in-app update
+          # channel (another workflow once published lower numbers there and
+          # Android refused the "update" as a downgrade: App not installed).
+          PUBLISHED_MAX=$(gh release view askodox-latest --json assets --jq '[.assets[].name | capture("^askodox-(?<n>[0-9]+)\\.apk$") | .n | tonumber] | max // 0' 2>/dev/null || echo 0)
+          echo "PUBLISHED_MAX=$PUBLISHED_MAX" >> "$GITHUB_ENV"
+          if [ "$BUILD_NUMBER" -le "$PUBLISHED_MAX" ]; then
+            if [ -n "$INPUT_BUILD_NUMBER" ]; then
+              echo "build_number $BUILD_NUMBER is not above the highest published build $PUBLISHED_MAX" >&2
+              exit 1
+            fi
+            BUILD_NUMBER=$((PUBLISHED_MAX + 1))
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Build number $BUILD_NUMBER (highest published: $PUBLISHED_MAX)"
 
       - name: Validate live build configuration
         shell: bash
@@ -166,26 +182,18 @@ jobs:
           keyAlias=$KEY_ALIAS
           storeFile=askodox-release.jks
           EOF
-            python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/app/build.gradle.kts')
-          s = p.read_text()
-          if 'java.util.Properties' not in s:
-              s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
-          s = s.replace('android {', 'val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) { keystoreProperties.load(FileInputStream(keystorePropertiesFile)) }\n\nandroid {', 1)
-          needle = '    buildTypes {\n'
-          signing = '''    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n'''
-          s = s.replace(needle, signing + needle, 1)
-          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
-          # Fail closed: never ship a "release" APK that silently fell back to
-          # the runner's throwaway debug key (a different key on every run).
-          if 'create("release")' not in s or 'signingConfigs.getByName("release")' not in s \
-                  or 'signingConfigs.getByName("debug")' in s:
-              raise SystemExit("release signing patch did not apply to android/app/build.gradle.kts")
-          p.write_text(s)
-          PY
+            # android/app/build.gradle.kts signs release builds with this
+            # key only (and refuses to build a release without it).
+            grep -q 'signingConfigs.getByName("release")' android/app/build.gradle.kts
+            if grep -q 'signingConfigs.getByName("debug")' android/app/build.gradle.kts; then
+              echo 'release build must never use the debug signing config' >&2; exit 1
+            fi
             echo 'configured=true' >> "$GITHUB_OUTPUT"
           else
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+              echo 'ASKODOX release signing secrets (ANDROID_KEYSTORE_*) are missing: main never ships without the release key.' >&2
+              exit 1
+            fi
             echo 'configured=false' >> "$GITHUB_OUTPUT"
             echo 'Release signing secrets are not configured; signed release APK will be skipped.'
           fi
@@ -201,6 +209,17 @@ jobs:
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
+
+      - name: Guard release APK (key, package, versionCode, backend)
+        if: steps.signing.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="$(echo "$API_BASE_URL" | sed -E 's#^https://([^/]+).*#\1#')"
+          ARGS=(--cert "$(cat .github/askodox-release-cert.sha256)" --package com.askodox.askodox
+                --min-version-code "$PUBLISHED_MAX" --require-host "$HOST")
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then ARGS+=(--forbid-host staging.askodox.com); fi
+          python3 tool/apk_guard.py build/app/outputs/flutter-apk/app-release.apk "${ARGS[@]}" | tee APK_GUARD.txt
 
       - name: Collect APKs
         shell: bash

@@ -147,17 +147,8 @@ jobs:
           keyAlias=$KEY_ALIAS
           storeFile=askodox-release.jks
           EOF
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/app/build.gradle.kts')
-          s = p.read_text()
-          if 'java.util.Properties' not in s:
-              s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
-          s = s.replace('android {', 'val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nkeystoreProperties.load(FileInputStream(keystorePropertiesFile))\n\nandroid {', 1)
-          s = s.replace('    buildTypes {', '    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n    buildTypes {', 1)
-          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
-          p.write_text(s)
-          PY
+          # android/app/build.gradle.kts signs release builds with this key only.
+          ! grep -q 'signingConfigs.getByName("debug")' android/app/build.gradle.kts
 
       - name: Build stable signed ASKODOX update APK
         run: |
@@ -171,70 +162,16 @@ jobs:
             --dart-define=ASKODOX_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
           test -s build/app/outputs/flutter-apk/app-release.apk
 
-      - name: Upload signed ASKODOX release APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: askodox-signed-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish ASKODOX latest in-app update
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Verification build only. The in-app update channel (askodox-latest)
+      # has ONE publisher: Android Live Build, whose build numbers are always
+      # above everything published. This job used its own run number
+      # (~1017) and overwrote the channel below installed builds (1277+),
+      # so Android rejected the "update" as a downgrade.
+      - name: Guard signed APK (release key, package, production backend)
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main --depth=1
-          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-            echo 'A newer main commit exists; skipping stale APK publish.'
-            exit 0
-          fi
-
-          retry() {
-            local attempts=0
-            local max_attempts=5
-            local delay=3
-            until "$@"; do
-              attempts=$((attempts + 1))
-              if [ "$attempts" -ge "$max_attempts" ]; then
-                echo "Command failed after $attempts attempts: $*" >&2
-                return 1
-              fi
-              echo "Transient publish failure; retry $attempts/$max_attempts in ${delay}s..." >&2
-              sleep "$delay"
-              delay=$((delay * 2))
-            done
-          }
-
-          VERSION="1.0.${GITHUB_RUN_NUMBER}"
-          VERSIONED_APK="askodox-${GITHUB_RUN_NUMBER}.apk"
-          cp build/app/outputs/flutter-apk/app-release.apk "$VERSIONED_APK"
-          cp "$VERSIONED_APK" askodox-latest.apk
-
-          cat > latest.json <<EOF
-          {
-            "version": "$VERSION",
-            "build_number": ${GITHUB_RUN_NUMBER},
-            "mandatory": false,
-            "notes": "Latest ASKODOX update",
-            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/askodox-latest/$VERSIONED_APK"
-          }
-          EOF
-
-          RELEASE_NOTES="ASKODOX_VERSION=$VERSION
-          ASKODOX_BUILD_NUMBER=${GITHUB_RUN_NUMBER}
-          Stable development channel for ASKODOX in-app updates."
-
-          if ! gh release view askodox-latest >/dev/null 2>&1; then
-            retry gh release create askodox-latest --prerelease --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
-          else
-            retry gh release edit askodox-latest --title "ASKODOX $VERSION" --notes "$RELEASE_NOTES"
-          fi
-
-          retry gh release delete-asset askodox-latest askodox-latest.apk -y >/dev/null 2>&1 || true
-          retry gh release delete-asset askodox-latest latest.json -y >/dev/null 2>&1 || true
-          retry gh release delete-asset askodox-latest "$VERSIONED_APK" -y >/dev/null 2>&1 || true
-
-          retry gh release upload askodox-latest "$VERSIONED_APK" askodox-latest.apk latest.json --clobber
-          retry gh release view askodox-latest --json tagName,url,name,body >/dev/null
+          HOST="$(echo "$API_BASE_URL" | sed -E 's#^https://([^/]+).*#\1#')"
+          python3 tool/apk_guard.py build/app/outputs/flutter-apk/app-release.apk \
+            --cert "$(cat .github/askodox-release-cert.sha256)" --package com.askodox.askodox \
+            --forbid-host staging.askodox.com --require-host "$HOST"
