@@ -4779,12 +4779,11 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     }
     if (result == askodoxVideoAskResult) {
       widget.onAsk?.call();
-    } else if (result != null && result.startsWith(askodoxVideoFollowUpPrefix)) {
-      // "Find near me" / "Show deals"...: the same conversation, same discovery.
-      final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
-      if (ask.isNotEmpty) {
-        chatRequests.state = AskodoxChatRequest.ask(ask, search: true);
-      }
+    } else {
+      // "Find near me" (follow-up search), a typed question, the mic or an
+      // attachment from the video page: the same conversation continues.
+      final next = askodoxVideoChatRequest(result, title: _match.title);
+      if (next != null) chatRequests.state = next;
     }
   }
 

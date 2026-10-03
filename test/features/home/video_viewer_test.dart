@@ -178,6 +178,37 @@ void main() {
     expect(api.trackedEvents.last, 'video_local_search');
   });
 
+  testWidgets('video page chat bar: typed question, mic and attachment continue the same chat', (tester) async {
+    var (_, __, popped) = await _pump(tester, _video({}));
+    await tester.enterText(find.byKey(const Key('askodoxVideoChatInput')), 'is the range enough for highways?');
+    await tester.tap(find.byKey(const Key('askodoxVideoSend')));
+    await tester.pumpAndSettle();
+    expect(popped.single, '${askodoxVideoChatPrefix}is the range enough for highways?');
+    final typed = askodoxVideoChatRequest(popped.single, title: 'Tata Nexon EV review')!;
+    expect(typed.prompt, contains('is the range enough for highways?'));
+    expect(typed.prompt, contains('Tata Nexon EV review'));
+    expect(typed.search, isFalse);
+
+    await tester.tap(find.byKey(const Key('open')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxVideoMic')));
+    await tester.pumpAndSettle();
+    expect(popped.last, askodoxVideoVoiceResult);
+    expect(askodoxVideoChatRequest(popped.last, title: '')!.voice, isTrue);
+
+    await tester.tap(find.byKey(const Key('open')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxVideoAttach')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxVideoAttach_photos')));
+    await tester.pumpAndSettle();
+    expect(popped.last, '${askodoxVideoActionPrefix}photos');
+    expect(askodoxVideoChatRequest(popped.last, title: '')!.hubAction?.name, 'photos');
+    // A follow-up step stays a search, as before.
+    expect(askodoxVideoChatRequest('${askodoxVideoFollowUpPrefix}EV near me', title: '')!.search, isTrue);
+    expect(askodoxVideoChatRequest('${askodoxVideoChatPrefix}   ', title: ''), isNull);
+  });
+
   testWidgets('Ask ASKODOX returns to chat (the ask is counted once, by the backend)', (tester) async {
     final (api, _, popped) = await _pump(tester, _video({}));
     await tester.ensureVisible(find.byKey(const Key('askodoxVideoAsk')));

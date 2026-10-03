@@ -3,12 +3,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../companion/companion_hub.dart';
 import '../../matching/data/universal_match_repository.dart';
+import '../application/conversation_archive.dart';
 import '../data/askodox_video_service.dart';
 import 'video_study_panel.dart';
 
 /// What the viewer returns when the user wants to discuss the video.
 const askodoxVideoAskResult = 'ask';
+
+/// The video page's own chat bar: a typed question ("chat:"), the mic
+/// ("voice") or an attachment (`action:<camera|photos|video|files>`) goes
+/// back to the SAME conversation, with this video as the topic.
+const askodoxVideoChatPrefix = 'chat:';
+const askodoxVideoVoiceResult = 'voice';
+const askodoxVideoActionPrefix = 'action:';
+
+/// The chat request a video page result asks for (null = nothing to do).
+AskodoxChatRequest? askodoxVideoChatRequest(String? result, {required String title}) {
+  if (result == null) return null;
+  if (result == askodoxVideoVoiceResult) return AskodoxChatRequest.voice();
+  if (result.startsWith(askodoxVideoActionPrefix)) {
+    final name = result.substring(askodoxVideoActionPrefix.length);
+    for (final action in AskodoxHubAction.values) {
+      if (action.name == name) return AskodoxChatRequest.action(action);
+    }
+    return null;
+  }
+  if (result.startsWith(askodoxVideoChatPrefix)) {
+    final text = result.substring(askodoxVideoChatPrefix.length).trim();
+    if (text.isEmpty) return null;
+    final topic = title.trim();
+    return AskodoxChatRequest.ask(topic.isEmpty ? text : '$text (about the video "$topic")');
+  }
+  if (result.startsWith(askodoxVideoFollowUpPrefix)) {
+    final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
+    return ask.isEmpty ? null : AskodoxChatRequest.ask(ask, search: true);
+  }
+  return null;
+}
 
 /// Embeddable URL for a video page: YouTube watch/short/youtu.be links use
 /// the privacy-friendly inline player; other hosts load their page.
@@ -405,6 +438,104 @@ class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScr
                 ),
               ]),
             ),
+          ),
+          _AskodoxVideoChatBar(telugu: telugu),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Type, speak or attach from the video page; the conversation continues in
+/// Main Chat (one chat engine, one voice path, one attachment pipeline).
+class _AskodoxVideoChatBar extends StatefulWidget {
+  const _AskodoxVideoChatBar({required this.telugu});
+
+  final bool telugu;
+
+  @override
+  State<_AskodoxVideoChatBar> createState() => _AskodoxVideoChatBarState();
+}
+
+class _AskodoxVideoChatBarState extends State<_AskodoxVideoChatBar> {
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final text = _text.text.trim();
+    if (text.isEmpty) return;
+    Navigator.of(context).pop('$askodoxVideoChatPrefix$text');
+  }
+
+  Future<void> _attach() async {
+    final te = widget.telugu;
+    final choice = await showModalBottomSheet<AskodoxHubAction>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final (action, icon, en, tel) in const [
+            (AskodoxHubAction.camera, Icons.photo_camera_outlined, 'Camera', 'కెమెరా'),
+            (AskodoxHubAction.photos, Icons.photo_library_outlined, 'Photos', 'ఫోటోలు'),
+            (AskodoxHubAction.video, Icons.videocam_outlined, 'Video', 'వీడియో'),
+            (AskodoxHubAction.files, Icons.attach_file_rounded, 'Files', 'ఫైల్స్'),
+          ])
+            ListTile(
+              key: Key('askodoxVideoAttach_${action.name}'),
+              leading: Icon(icon),
+              title: Text(te ? tel : en),
+              onTap: () => Navigator.of(context).pop(action),
+            ),
+        ]),
+      ),
+    );
+    if (choice != null && mounted) Navigator.of(context).pop('$askodoxVideoActionPrefix${choice.name}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = widget.telugu;
+    return Material(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+        child: Row(children: [
+          IconButton(
+            key: const Key('askodoxVideoAttach'),
+            tooltip: te ? 'జతచేయండి' : 'Attach',
+            onPressed: _attach,
+            icon: const Icon(Icons.add_circle_outline_rounded),
+          ),
+          Expanded(
+            child: TextField(
+              key: const Key('askodoxVideoChatInput'),
+              controller: _text,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _send(),
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: te ? 'ఈ వీడియో గురించి అడగండి…' : 'Ask about this video…',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ),
+          IconButton(
+            key: const Key('askodoxVideoMic'),
+            tooltip: te ? 'మాట్లాడండి' : 'Speak',
+            onPressed: () => Navigator.of(context).pop(askodoxVideoVoiceResult),
+            icon: const Icon(Icons.mic_none_rounded),
+          ),
+          IconButton(
+            key: const Key('askodoxVideoSend'),
+            tooltip: te ? 'పంపండి' : 'Send',
+            onPressed: _send,
+            icon: const Icon(Icons.send_rounded),
           ),
         ]),
       ),
