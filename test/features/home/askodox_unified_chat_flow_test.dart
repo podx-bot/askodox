@@ -2833,6 +2833,124 @@ void main() {
     expect(find.textContaining('Urban Company AC Service'), findsWidgets, reason: 'real video shown');
   });
 
+  group('production replay (exact production JSON + decisions)', () {
+    testWidgets('Telugu YouTube ask: real video cards (thumbnail, title, channel) + online links + in-app playback',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([_productionResult('discover_biryani_videos.json')]),
+        assistant: _Assistant((_) => {
+              'reply': 'సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.',
+              'domain': 'PRODUCT', 'transactional': true, 'action': 'search_videos', 'confidence': 0.95,
+              'source': 'universal_ai', 'entities': {'subject': 'Vijayawada chicken biryani', 'location': 'Vijayawada'},
+            }),
+      );
+      await h.pump(tester, locale: 'te');
+      await h.send(tester, 'Vijayawada chicken biryani YouTube videos చూపించు');
+      await tester.pumpAndSettle();
+      expect(h.matches.deals, isNotEmpty, reason: 'discovery ran');
+      const thumb = ValueKey('askodoxVideoThumb-video-yt-0-P8NlIQPsXNY');
+      expect(find.byKey(thumb), findsOneWidget, reason: 'YouTube card with thumbnail');
+      expect(find.textContaining('Full Bucket Biryani Unboxing'), findsWidgets, reason: 'video title');
+      expect(find.text('Chetana Foods'), findsWidgets, reason: 'channel');
+      expect(find.textContaining('KG BIRYANI in Tulasi Nagar'), findsWidgets, reason: 'online link card');
+      await tester.ensureVisible(find.byKey(thumb));
+      await tester.tap(find.byKey(thumb));
+      await tester.pumpAndSettle();
+      expect(find.byType(AskodoxVideoViewerScreen), findsOneWidget, reason: 'plays in ASKODOX');
+      expect(h.embeddedVideos.single.toString(), startsWith('https://www.youtube-nocookie.com/embed/P8NlIQPsXNY'));
+    });
+
+    // ROOT CAUSE of "no links since ~1276/1277" (production logs: the phone sent
+    // POST /api/in-app/assistant then POST /api/products/mine, never /deals):
+    // with the Seller role saved on the device, every search was rewritten into
+    // a SELL deal and published as a listing -- text reply, no results.
+    for (final (lang, text, decision, fixture, visible) in [
+      ('te', 'Vijayawada chicken biryani YouTube videos చూపించు', {
+        'reply': 'సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.',
+        'domain': 'PRODUCT', 'transactional': true, 'action': 'search_videos', 'confidence': 0.95,
+        'source': 'universal_ai', 'entities': {'subject': 'Vijayawada chicken biryani', 'location': 'Vijayawada'},
+      }, 'discover_biryani_videos.json', 'Full Bucket Biryani Unboxing'),
+      ('en', 'AC repair near me', {
+        'reply': 'I can help you find AC repair services in Vijayawada.', 'domain': 'SERVICE', 'transactional': true,
+        'action': 'search_service', 'confidence': 0.95, 'source': 'universal_ai',
+        'entities': {'subject': 'AC repair', 'location': 'Vijayawada'},
+      }, 'discover_ac_repair.json', 'AC Repair & Service in Vijaywada'),
+    ]) {
+      testWidgets('Seller role saved on the phone: a search ($lang) still searches and shows links, never lists',
+          (tester) async {
+        final h = _Harness(
+          matches: _FakeMatchRepository([_productionResult(fixture)]),
+          assistant: _Assistant((_) => decision),
+        );
+        await h.pump(tester, locale: lang);
+        ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)))
+            .read(askodoxRoleProvider.notifier)
+            .setActive(AskodoxUserRole.seller);
+        await _Harness.settle(tester);
+        await h.send(tester, text);
+        await tester.pumpAndSettle();
+        if (h.matches.deals.isEmpty && h.listings.listed.isEmpty) {
+          await h.send(tester, lang == 'te' ? 'చూపించు' : 'show me');
+          await tester.pumpAndSettle();
+        }
+        expect(h.listings.listed, isEmpty, reason: 'a search is never published as the seller\'s listing');
+        expect(h.matches.deals, isNotEmpty, reason: 'the search ran');
+        expect(h.matches.deals.last.intent, isNot(DealIntent.sell));
+        expect(find.textContaining(visible), findsWidgets, reason: 'real result cards are visible');
+      });
+    }
+
+    testWidgets('Seller describing their own goods still creates a listing (seller flow intact)', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 's1', matches: [])]),
+        assistant: _Assistant((_) => {
+              'reply': 'Great, I can list your fresh tomatoes.', 'domain': 'PRODUCT', 'transactional': true,
+              'action': 'list_product', 'confidence': 0.9, 'source': 'universal_ai',
+              'entities': {'subject': 'tomatoes', 'quantity': 50, 'unit': 'kg', 'price': 30},
+            }),
+      );
+      await h.pump(tester);
+      ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)))
+          .read(askodoxRoleProvider.notifier)
+          .setActive(AskodoxUserRole.seller);
+      await _Harness.settle(tester);
+      await h.send(tester, '50 kg fresh tomatoes at 30 rupees per kg');
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 4 && h.listings.listed.isEmpty; i++) {
+        await h.send(tester, 'Vuyyuru');
+        await tester.pumpAndSettle();
+      }
+      expect(h.listings.listed, isNotEmpty, reason: 'a seller offering goods is still listed');
+    });
+
+    for (final (lang, text, reply) in [
+      ('en', 'AC repair near me', 'I can help you find AC repair services in Vijayawada. What type of AC is it, or what issue are you facing?'),
+      ('te', 'AC రిపేర్ కావాలి', 'విజయవాడలో AC రిపేర్ సర్వీస్ కోసం వివరాలు వెతుకుతున్నాను.'),
+    ]) {
+      testWidgets('service ask ($lang): real online result cards with links appear', (tester) async {
+        final h = _Harness(
+          matches: _FakeMatchRepository([_productionResult('discover_ac_repair.json')]),
+          assistant: _Assistant((_) => {
+                'reply': reply, 'domain': 'SERVICE', 'transactional': true, 'action': 'search_service',
+                'confidence': 0.95, 'source': 'universal_ai',
+                'entities': {'subject': 'AC repair', 'category': 'appliance repair', 'location': 'Vijayawada'},
+              }),
+        );
+        await h.pump(tester, locale: lang);
+        await h.send(tester, text);
+        await tester.pumpAndSettle();
+        // A detail question may come first; "show me" must then show the cards.
+        if (h.matches.deals.isEmpty) {
+          await h.send(tester, lang == 'te' ? 'చూపించు' : 'show me');
+          await tester.pumpAndSettle();
+        }
+        expect(h.matches.deals, isNotEmpty, reason: 'discovery ran');
+        expect(find.textContaining('AC Repair & Service in Vijaywada'), findsWidgets, reason: 'online card');
+        expect(find.textContaining('Professional AC service'), findsWidgets);
+      });
+    }
+  });
+
   // Real-content video proof (opt-in; run by .github/workflows/
   // video-real-content-proof.yml): the rows, thumbnails, explanations and
   // AI answers are the REAL ones that run captured.
@@ -3710,3 +3828,18 @@ class _ProofApi implements ApiClient {
           {required List<int> bytes, required String fileName, ApiRequestOptions options = const ApiRequestOptions()}) async =>
       ApiSuccess(Uri.parse('mock://$fileName'));
 }
+
+// ---------------------------------------------------------------------------
+// Production replay: the EXACT /deals/discover JSON and /api/in-app/assistant
+// decisions production returned (results probe, 2026-10-03) go through the
+// app's real parser (UniversalMatch.fromJson) and the real chat screen.
+UniversalMatchResult _productionResult(String fixture) {
+  final data = jsonDecode(File('test/fixtures/production/$fixture').readAsStringSync()) as Map<String, dynamic>;
+  final rows = [
+    for (final m in (data['matches'] as List).whereType<Map>()) UniversalMatch.fromJson(Map<String, Object?>.from(m)),
+  ]..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+  final status = data['source_status'] as Map;
+  return UniversalMatchResult(
+      dealId: '', matches: rows, sourceStatus: {for (final e in status.entries) '${e.key}': '${e.value}'});
+}
+

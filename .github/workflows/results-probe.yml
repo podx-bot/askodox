@@ -1,0 +1,66 @@
+name: Results probe
+
+# Sends real /deals/discover requests (the exact call the Android app makes
+# for chat result cards) to production and staging, and reports per stage
+# what came back: matches, sources/segments, links, provider status.
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/results-probe.json', '.github/workflows/results-probe.yml']
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request
+          q = json.load(open('.github/results-probe.json'))['queries']
+          bases = {'production': 'https://podx-ai-connect-production-3279.up.railway.app'}
+          coords = {'Vijayawada': (16.5062, 80.6480)}
+          for env, base in bases.items():
+              for item in q:
+                  lat, lon = coords.get(item['place'], (None, None))
+                  body = {'user_id': 'guest', 'raw_text': item['raw_text'], 'intent': item['intent'],
+                          'subject': item['subject'], 'category': item['category'],
+                          'location': {'label': item['place'], 'latitude': lat, 'longitude': lon, 'radius_km': 10},
+                          'party_a': {'side': 'demand'}, 'party_b': {'side': 'supply'}}
+                  req = urllib.request.Request(base + '/deals/discover', data=json.dumps(body).encode(),
+                                               headers={'Content-Type': 'application/json',
+                                                        'User-Agent': 'ASKODOX-probe'}, method='POST')
+                  try:
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          code, data = r.status, json.loads(r.read())
+                  except urllib.error.HTTPError as e:
+                      code, data = e.code, {'error': e.read()[:300].decode('utf8', 'replace')}
+                  except Exception as e:
+                      code, data = 0, {'error': repr(e)}
+                  m = data.get('matches') or []
+                  for loc in ('te', 'en'):
+                      dreq = urllib.request.Request(base + '/api/in-app/assistant', data=json.dumps(
+                          {'message': item['raw_text'], 'locale': loc, 'history': [], 'location': item['place']}).encode(),
+                          headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
+                      try:
+                          with urllib.request.urlopen(dreq, timeout=60) as r:
+                              d = json.loads(r.read()); dcode = r.status
+                      except urllib.error.HTTPError as e:
+                          d, dcode = {'error': e.read()[:200].decode('utf8', 'replace')}, e.code
+                      except Exception as e:
+                          d, dcode = {'error': repr(e)}, 0
+                      print(f"DECIDE[{loc}] HTTP {dcode} source={d.get('source')} transactional={d.get('transactional')} "
+                            f"domain={d.get('domain')} action={d.get('action')} conf={d.get('confidence')} "
+                            f"entities={json.dumps(d.get('entities'), ensure_ascii=False)[:200]} reply={str(d.get('reply'))[:120]!r} err={d.get('error')}")
+                  links = [x for x in m if (x.get('destination_url') or x.get('normal_url') or '').startswith('http')]
+                  print(f"\n=== {env} | {item['raw_text']} | HTTP {code}")
+                  if 'error' in data: print('error:', data['error'])
+                  print('matches:', len(m), '| with link:', len(links), '| segments:', data.get('segments'))
+                  print('by source:', json.dumps({s: sum(1 for x in m if (x.get('match_source') or x.get('source')) == s)
+                                                  for s in sorted({str(x.get('match_source') or x.get('source')) for x in m})}))
+                  print('source_status:', json.dumps(data.get('source_status'), ensure_ascii=False)[:900])
+                  print('RAWJSON', json.dumps(data, ensure_ascii=False)[:20000])
+                  for x in m[:6]:
+                      print('  -', x.get('segment'), '|', (x.get('match_source') or x.get('source')), '|',
+                            str(x.get('title'))[:60], '|', str(x.get('destination_url'))[:90], '| img' if x.get('image_url') else '')
+          PY

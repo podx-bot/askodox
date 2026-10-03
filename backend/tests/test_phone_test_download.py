@@ -43,3 +43,17 @@ def test_unknown_builds_bad_checksums_and_production_are_refused(client, monkeyp
     assert c.get("/downloads/askodox-phone-test-9998.apk").status_code == 502
     monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
     assert c.get("/downloads/askodox-phone-test-9999.apk").status_code == 404
+
+
+def test_main_build_mirror_is_byte_exact_and_refused_in_production(client, monkeypatch):
+    c, fetched = client
+    monkeypatch.setitem(dl.MAIN_APKS, "9997", hashlib.sha256(APK).hexdigest())
+    r = c.get("/downloads/askodox-9997.apk")
+    assert r.status_code == 200 and r.content == APK
+    assert r.headers["content-disposition"] == 'attachment; filename="askodox-9997.apk"'
+    assert fetched[-1] == dl.MAIN_SOURCE.format(b="9997")
+    assert c.get("/downloads/askodox-9999.apk").status_code == 404, "phone-test builds never under a main name"
+    assert c.get("/downloads/askodox-phone-test-9997.apk").status_code == 404
+    assert dl.MAIN_APKS["1283"] == "2db5535798f3791e6b5b983466eeaf8576ea095b6d5bfa387f4526fe099952e7"
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
+    assert c.get("/downloads/askodox-9997.apk").status_code == 404
