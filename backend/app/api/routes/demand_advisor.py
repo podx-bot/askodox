@@ -283,8 +283,9 @@ def maybe_run_instant_rules(container) -> None:
 @router.get("/admin/cc/demand/alerts")
 def demand_alerts(request: Request, opportunity_key: str = "", limit: int = 200) -> dict:
     _require(request, "demand:view")
-    return {"items": _log(request.app.state.container).listing(limit=max(1, min(limit, 1000)),
-                                                                opportunity_key=opportunity_key)}
+    log = _log(request.app.state.container)
+    return {"items": log.listing(limit=max(1, min(limit, 1000)), opportunity_key=opportunity_key),
+            "summary": log.summary()}
 
 
 # --------------------------------------------- seller opportunities (Party B) --
@@ -295,39 +296,73 @@ def _seller(request: Request) -> str:
     return _authenticated_app_user(request)
 
 
+_CONSENT_NOTE = {
+    "en": "Customers' names and numbers are never shared. Accepting tells ASKODOX you can serve this demand: "
+          "your listing is shown to matching customers, and a customer contacts you only if they choose to.",
+    "te": "కస్టమర్ల పేర్లు, నంబర్లు ఎప్పుడూ పంచుకోబడవు. అంగీకరిస్తే మీ లిస్టింగ్ సరిపోయే కస్టమర్లకు చూపబడుతుంది; "
+          "కస్టమర్ కోరుకుంటేనే మిమ్మల్ని సంప్రదిస్తారు.",
+    "hi": "ग्राहकों के नाम और नंबर कभी साझा नहीं होते। स्वीकार करने पर आपकी लिस्टिंग मिलते-जुलते ग्राहकों को दिखेगी; "
+          "ग्राहक चाहें तभी आपसे संपर्क करेंगे।",
+}
+
+
+def _opportunity_view(alert: Dict[str, Any], language: str) -> Dict[str, Any]:
+    text = di.alert_text({"searches": alert["searches"], "subject": alert["subject"], "area": alert["area"],
+                          "budget_band": alert["budget_band"]}, language[:2])
+    return {"id": alert["id"], "subject": alert["subject"], "category": alert.get("category") or "",
+            "area": alert["area"], "searches": alert["searches"], "budget_band": alert["budget_band"],
+            "sent_at": alert["sent_at"], "expires_at": alert.get("expires_at"), "opened_at": alert["opened_at"],
+            "responded_at": alert.get("responded_at"), "fulfilled_at": alert.get("fulfilled_at"),
+            "response": alert["response"], "status": alert["lifecycle"],
+            "can_respond": alert["lifecycle"] in ("new", "opened"),
+            "can_fulfil": alert["lifecycle"] == "accepted", **text}
+
+
 @router.get("/api/opportunities")
 def my_opportunities(request: Request, language: str = "en") -> dict:
     """Demand relevant to what this seller offers. Aggregate only: how many
-    customers, what, where, budget band -- never who."""
+    customers, what, where (area only), budget band -- never who."""
     seller = _seller(request)
-    items = []
-    for alert in _log(request.app.state.container).for_recipient(seller):
-        text = di.alert_text({"searches": alert["searches"], "subject": alert["subject"], "area": alert["area"],
-                              "budget_band": alert["budget_band"]}, language[:2])
-        items.append({"id": alert["id"], "subject": alert["subject"], "area": alert["area"],
-                      "searches": alert["searches"], "budget_band": alert["budget_band"], "sent_at": alert["sent_at"],
-                      "opened_at": alert["opened_at"], "response": alert["response"], **text})
-    return {"items": items}
+    items = [_opportunity_view(a, language) for a in _log(request.app.state.container).for_recipient(seller)]
+    counts: Dict[str, int] = {}
+    for item in items:
+        counts[item["status"]] = counts.get(item["status"], 0) + 1
+    return {"items": items, "counts": counts, "privacy": _CONSENT_NOTE.get(language[:2], _CONSENT_NOTE["en"])}
 
 
 class OpportunityResponse(BaseModel):
-    response: str = Field(default="interested", pattern="^(interested|not_relevant|added_offer)$")
+    response: str = Field(default="interested",
+                          pattern="^(interested|not_relevant|added_offer|accepted|declined)$")
+    reason: str = Field(default="", max_length=120)
 
 
 @router.post("/api/opportunities/{alert_id}/{action}")
-def respond_opportunity(alert_id: int, action: str, request: Request, body: OpportunityResponse | None = None) -> dict:
-    if action not in {"open", "respond"}:
+def respond_opportunity(alert_id: int, action: str, request: Request, body: OpportunityResponse | None = None,
+                        language: str = "en") -> dict:
+    """open / respond (accept = interested, decline = not_relevant + reason) / fulfil."""
+    if action not in {"open", "respond", "accept", "decline", "fulfil"}:
         raise HTTPException(status_code=404, detail="Unknown action")
     seller = _seller(request)
     container = request.app.state.container
-    item = _log(container).mark(alert_id, seller, action=action,
-                                response=(body.response if body else "interested"))
+    response = (body.response if body else "interested")
+    response = {"accepted": "interested", "declined": "not_relevant"}.get(response, response)
+    if action == "accept":
+        action, response = "respond", (response if response in ("interested", "added_offer") else "interested")
+    elif action == "decline":
+        action, response = "respond", "not_relevant"
+    try:
+        item = _log(container).mark(alert_id, seller, action=action, response=response,
+                                    reason=(body.reason if body else ""))
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
     if item is None:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    if action == "respond":
-        _pf(container).repo.record_event("seller_opportunity_response", detail={"alert": alert_id,
-                                                                               "response": item["response"]})
-    return {"item": {k: item[k] for k in ("id", "subject", "area", "opened_at", "responded_at", "response")}}
+    if action in ("respond", "fulfil"):
+        _pf(container).repo.record_event(
+            "seller_opportunity_response", category=(item.get("category") or "")[:60],
+            detail={"alert": alert_id, "response": item["response"], "status": item["lifecycle"],
+                    "reason": item.get("decline_reason")})
+    return {"item": _opportunity_view(item, language)}
 
 
 # ------------------------------------------------------------- settings --

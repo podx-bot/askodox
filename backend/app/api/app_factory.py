@@ -266,6 +266,9 @@ def create_app() -> FastAPI:
     from app.api.routes.config_tools import router as config_tools_router
 
     app.include_router(config_tools_router)
+    from app.api.routes.inbox import router as inbox_router
+
+    app.include_router(inbox_router)
     app.include_router(admin_web_router)
     app.include_router(in_app_deal_router)
     app.include_router(vision_router)

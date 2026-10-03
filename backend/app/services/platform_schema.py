@@ -841,6 +841,7 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "advisor.max_questions_per_turn": (0, 3, 1),
     "advisor.ask_budget": (0, 1, 1),
     "demand.default_window_days": (1, 90, 7),
+    "demand.opportunity_expiry_hours": (1, 720, 72),
 }
 
 _register(Resource(

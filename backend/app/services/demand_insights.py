@@ -212,6 +212,10 @@ class DemandAlertLog:
             );
             CREATE INDEX IF NOT EXISTS idx_demand_alerts_recipient ON demand_alerts(recipient, sent_at);
             """)
+            have = {r[1] for r in conn.execute("PRAGMA table_info(demand_alerts)").fetchall()}
+            for column in ("expires_at TEXT", "category TEXT NOT NULL DEFAULT ''", "decline_reason TEXT"):
+                if column.split()[0] not in have:
+                    conn.execute(f"ALTER TABLE demand_alerts ADD COLUMN {column}")
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -236,17 +240,20 @@ class DemandAlertLog:
         return {"sent": int(row["n"] or 0), "responded": int(row["r"] or 0), "interested": int(row["a"] or 0)}
 
     def record(self, *, opportunity: Dict[str, Any], recipient: str, rule_id: str, actor: str,
-               reasons: List[str], score: float, channel: str, status: str) -> Optional[int]:
+               reasons: List[str], score: float, channel: str, status: str, expiry_hours: int = 72
+               ) -> Optional[int]:
         at = now()
         try:
             with self._connect() as conn:
                 cur = conn.execute("""INSERT INTO demand_alerts(opportunity_key,subject,area,recipient,rule_id,actor,
-                    reasons_json,score,channel,status,searches,budget_band,sent_at,day)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    reasons_json,score,channel,status,searches,budget_band,sent_at,day,expires_at,category)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                                    (opportunity["key"], opportunity["subject"], opportunity.get("area") or "",
                                     recipient, rule_id, actor, json.dumps(reasons, ensure_ascii=False),
                                     round(score, 3), channel, status, int(opportunity.get("searches") or 0),
-                                    opportunity.get("budget_band"), iso(at), at.date().isoformat()))
+                                    opportunity.get("budget_band"), iso(at), at.date().isoformat(),
+                                    iso(at + timedelta(hours=max(1, int(expiry_hours)))),
+                                    str(opportunity.get("category") or "")[:80]))
                 return int(cur.lastrowid)
         except sqlite3.IntegrityError:
             return None  # already alerted today: never twice
@@ -266,24 +273,70 @@ class DemandAlertLog:
             rows = conn.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit)).fetchall()
         return [self._public(r) for r in rows]
 
-    def mark(self, alert_id: int, recipient: str, *, action: str, response: str = "") -> Optional[Dict[str, Any]]:
+    def mark(self, alert_id: int, recipient: str, *, action: str, response: str = "", reason: str = ""
+             ) -> Optional[Dict[str, Any]]:
+        """open / respond (interested | not_relevant | added_offer) / fulfil.
+        An expired opportunity can still be opened but no longer answered."""
         column = {"open": "opened_at", "respond": "responded_at", "fulfil": "fulfilled_at"}[action]
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM demand_alerts WHERE id=? AND recipient=?",
                                (alert_id, recipient)).fetchone()
             if row is None:
                 return None
-            conn.execute(f"UPDATE demand_alerts SET {column}=COALESCE({column}, ?)"
-                         + (", response=?" if action == "respond" else "") + " WHERE id=?",
-                         (iso(now()), *((response,) if action == "respond" else ()), alert_id))
+            if action == "respond" and row["responded_at"] is None and lifecycle(dict(row)) == "expired":
+                raise ValueError("This opportunity has expired")
+            if action == "fulfil" and (row["response"] or "") not in ("interested", "added_offer"):
+                raise ValueError("Accept the opportunity before marking it fulfilled")
+            extra, args = "", []
+            if action == "respond":
+                extra, args = ", response=?, decline_reason=?", [response, (reason or None) if response ==
+                                                                   "not_relevant" else None]
+            conn.execute(f"UPDATE demand_alerts SET {column}=COALESCE({column}, ?)" + extra + " WHERE id=?",
+                         (iso(now()), *args, alert_id))
             row = conn.execute("SELECT * FROM demand_alerts WHERE id=?", (alert_id,)).fetchone()
         return self._public(row)
+
+    def summary(self, *, since: str = "") -> Dict[str, Any]:
+        """Admin view: how alerted demand ended (accepted / declined / expired / fulfilled)."""
+        with self._connect() as conn:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT * FROM demand_alerts" + (" WHERE sent_at>=?" if since else ""),
+                (since,) if since else ()).fetchall()]
+        counts: Dict[str, int] = {}
+        reasons: Dict[str, int] = {}
+        for row in rows:
+            state = lifecycle(row)
+            counts[state] = counts.get(state, 0) + 1
+            if row.get("decline_reason"):
+                reasons[row["decline_reason"]] = reasons.get(row["decline_reason"], 0) + 1
+        accepted = counts.get("accepted", 0) + counts.get("fulfilled", 0)
+        return {"alerts": len(rows), "by_status": counts, "accepted_total": accepted,
+                "unfulfilled": len(rows) - counts.get("fulfilled", 0),
+                "decline_reasons": sorted(({"reason": k, "count": v} for k, v in reasons.items()),
+                                          key=lambda x: -x["count"])}
 
     @staticmethod
     def _public(row) -> Dict[str, Any]:
         item = dict(row)
         item["reasons"] = json.loads(item.pop("reasons_json") or "[]")
+        item["lifecycle"] = lifecycle(item)
         return item
+
+
+def lifecycle(row: Dict[str, Any]) -> str:
+    """new -> opened -> accepted / declined -> fulfilled; unanswered past
+    ``expires_at`` -> expired."""
+    if row.get("fulfilled_at"):
+        return "fulfilled"
+    response = row.get("response") or ""
+    if row.get("responded_at") and response in ("interested", "added_offer"):
+        return "accepted"
+    if row.get("responded_at") and response == "not_relevant":
+        return "declined"
+    expires = row.get("expires_at")
+    if expires and str(expires) < iso(now()):
+        return "expired"
+    return "opened" if row.get("opened_at") else "new"
 
 
 def _in_hours(spec: Any, at: Optional[datetime] = None) -> bool:
@@ -363,6 +416,15 @@ def alert_text(opportunity: Dict[str, Any], language: str = "en") -> Dict[str, s
             "body": f"{n} customers searched for '{subject}'{where}{band}. Add or update your offer."}
 
 
+def _expiry_hours() -> int:
+    try:
+        from app.services import platform_settings
+
+        return int(platform_settings.get("demand.opportunity_expiry_hours"))
+    except Exception:
+        return 72
+
+
 def send(container, repo, log: DemandAlertLog, opportunity: Dict[str, Any], rule: Dict[str, Any], *,
          rule_id: str, actor: str, dry_run: bool = False, at: Optional[datetime] = None) -> Dict[str, Any]:
     """Alert the eligible recipients (in-app; push only when configured)."""
@@ -379,7 +441,7 @@ def send(container, repo, log: DemandAlertLog, opportunity: Dict[str, Any], rule
     for target in plan["eligible"]:
         alert_id = log.record(opportunity=opportunity, recipient=target["recipient"], rule_id=rule_id, actor=actor,
                               reasons=target["reasons"], score=target["score"], channel=",".join(channels),
-                              status="sent")
+                              status="sent", expiry_hours=_expiry_hours())
         if alert_id is None:
             continue
         sent.append(target["recipient"])
