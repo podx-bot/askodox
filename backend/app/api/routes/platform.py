@@ -1032,6 +1032,20 @@ def platform_analytics(request: Request, days: int = 30, category: str = "", loc
     return fin.analytics(_pf(request).repo, days=max(1, min(days, 365)), where=where)
 
 
+@admin_router.get("/analytics/outcomes")
+def outcome_analytics(request: Request, days: int = 30, category: str = "", location: str = "",
+                      source: str = "", role: str = "") -> dict:
+    """Demand -> results -> action -> fulfilment, with supply gaps, source
+    performance, organic vs affiliate, advisor, video, offers, seller
+    response, opportunities, escalations and integration health."""
+    from app.services import outcome_analytics as oa
+
+    _require(request, "analytics:view")
+    container = request.app.state.container
+    return oa.outcomes(_pf(request), container, days=max(1, min(days, 365)), category=category,
+                       location=location, source=source, role=role)
+
+
 @admin_router.get("/insights")
 def platform_insights(request: Request, days: int = 7) -> dict:
     _require(request, "insights:view")
@@ -1829,6 +1843,13 @@ def record_search(container: Any, demand: Dict[str, Any], matches: List[Dict[str
         detail["brand"] = brand[:40]
     if subcategory:
         detail["subcategory"] = subcategory
+    # Source performance: how many results each source contributed.
+    sources: Dict[str, int] = {}
+    for m in matches:
+        key = "affiliate" if m.get("affiliate") else str(m.get("segment") or m.get("match_source") or "other")
+        sources[key[:30]] = sources.get(key[:30], 0) + 1
+    if sources:
+        detail["sources"] = sources
     pf.repo.record_event("search", detail=detail, **common)
     if not matches:
         pf.repo.record_event("no_match", detail=detail, **common)

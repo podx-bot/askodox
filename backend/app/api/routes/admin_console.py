@@ -97,8 +97,8 @@ async function call(path,method="GET",body){const r=await fetch(path.startsWith(
 const can=p=>ME&&ME.permissions.includes(p);
 function badge(s){s=String(s??"");const u=s.toUpperCase();let c="";
   if(["IN_STOCK","AFFILIATE","ACTIVE","LIVE","APPROVED","PAID","CONFIRMED","SETTLED","REDEEMED","RESOLVED","MET","OK","SENT","ENABLED","VERIFIED","ON_TRACK","GREEN","EXECUTED","ON"].includes(u))c="b-ok";
-  else if(["PENDING_REVIEW","PENDING","TEST","SCHEDULED","EXPECTED","DUE_SOON","IN_PROGRESS","CREATED","CLAIMED","LOCKED","PARTIALLY_REFUNDED","WAITING_FOR_USER","DRAFT","OPEN","ORANGE","PENDING_APPROVAL","PROPOSED","APPROVAL","POSSIBLE"].includes(u))c="b-warn";
-  else if(["OUT_OF_STOCK","DISABLED","ERROR","FAILED","REJECTED","DISPUTED","OVERDUE","BREACHED","REVERSED","BLOCKED","URGENT","CRITICAL","RED","ALERTED","OWNER ONLY","PRIVACY_PAUSED"].includes(u))c="b-bad";
+  else if(["PENDING_REVIEW","PENDING","TEST","SCHEDULED","EXPECTED","DUE_SOON","IN_PROGRESS","CREATED","CLAIMED","LOCKED","PARTIALLY_REFUNDED","WAITING_FOR_USER","DRAFT","OPEN","ORANGE","PENDING_APPROVAL","PROPOSED","APPROVAL","POSSIBLE","DEGRADED","CONFIGURED"].includes(u))c="b-warn";
+  else if(["OUT_OF_STOCK","DISABLED","ERROR","FAILED","REJECTED","DISPUTED","OVERDUE","BREACHED","REVERSED","BLOCKED","URGENT","CRITICAL","RED","ALERTED","OWNER ONLY","PRIVACY_PAUSED","CHECK_FAILED"].includes(u))c="b-bad";
   else if(["UNKNOWN","ORGANIC","COMMISSION UNKNOWN","NEEDS_CONFIGURATION","AVAILABLE","HIGH","INFO"].includes(u))c="b-info";
   return '<span class="badge '+c+'">'+esc(s.replace(/_/g," "))+'</span>'}
 const money=v=>{if(v==null)return "—";const n=Number(v);return "₹"+n.toLocaleString("en-IN",Number.isInteger(n)?{}:{minimumFractionDigits:2,maximumFractionDigits:2})};
@@ -106,7 +106,7 @@ const when=v=>v?new Date(v).toLocaleString():"—";
 
 /* ------------------------------------------------------------ navigation -- */
 function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.name===n)||{}).label||n,perm:(SCHEMA.resources.find(x=>x.name===n)||{}).permission+":view"});
-  return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"},{id:"revcmd",label:"Revenue command center",perm:"revenue:view"}]],
+  return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"outcomes",label:"Outcomes & gaps",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"},{id:"revcmd",label:"Revenue command center",perm:"revenue:view"}]],
   ["Growth & ads",[{id:"sponsored",label:"Sponsored campaigns",perm:"sponsored:view"},r("affiliate_programs"),r("affiliate_links"),r("smart_links"),{id:"benefits",label:"Offers & coupons",perm:"growth:view"},r("merchant_offers"),{id:"referrals",label:"Referrals",perm:"growth:view"},r("promotion_campaigns")]],
   ["Advisor & demand",[{id:"demand",label:"Demand intelligence",perm:"demand:view"},r("demand_alert_rules"),r("advisor_categories"),r("advisor_questions"),r("advisor_rules"),{id:"assistant",label:"Admin assistant",perm:"overview:view"},{id:"workqueue",label:"My work queue",perm:"overview:view"}]],
   ["Affiliate catalog",[{id:"affproducts",label:"Affiliate products",perm:"affiliate_products:view"},{id:"affsources",label:"Affiliate sources",perm:"affiliate_products:view"}]],
@@ -120,7 +120,7 @@ function renderNav(){const counts=STATE.pending||{};document.querySelector("#sid
   return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
 async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
-  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,demand,workqueue,assistant,cfgbundle}[VIEW];await (f||dashboard)()}
+  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,demand,workqueue,assistant,cfgbundle,outcomes}[VIEW];await (f||dashboard)()}
   catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
 
 /* ---------------------------------------------------------------- auth -- */
@@ -302,7 +302,7 @@ async function igTest(p){const to=prompt(p==="email"?"Send a test e-mail to (you
 async function igCheck(p){try{const r=await call("platform/integrations/"+p+"/check","POST");alert(r.note||("Status: "+r.status));integrations()}catch(e){alert(e.message)}}
 async function readiness(){const d=await call("platform/readiness");const yn=v=>v===true?badge("YES"):v===false?badge("NO"):'<span class="muted">tests</span>';
   document.querySelector("#page").innerHTML=head("Integration readiness","Computed from live state ("+esc(d.environment)+"). LIVE needs real credentials and a passed live check; a mock delivery proves the wiring only.")+
-  grid(d.items,[["integration","Integration"],["status","Status",badge],["backend_ready","Backend",yn],["admin_control_ready","Admin control",yn],["mock_verified","Mock verified",yn],["real_credential_required","Credential still needed",yn],["providers","Providers",v=>v.map(p=>esc(p.label)+" "+badge(p.status)+(p.missing.length?' <span class="muted">needs '+esc(p.missing.join(", "))+'</span>':'')).join("<br>")]])}
+  grid(d.items,[["integration","Integration"],["health","Health",(v,r)=>badge(v)+'<div class="muted" style="font-size:12px">'+esc(r.health_reason||"")+'</div>'],["status","Status",badge],["backend_ready","Backend",yn],["admin_control_ready","Admin control",yn],["mock_verified","Mock verified",yn],["real_credential_required","Credential still needed",yn],["providers","Providers",v=>v.map(p=>esc(p.label)+" "+badge(p.status)+(p.missing.length?' <span class="muted">needs '+esc(p.missing.join(", "))+'</span>':'')).join("<br>")]])}
 async function outbox(){const d=await call("platform/outbox");document.querySelector("#page").innerHTML=head("Message deliveries","Every WhatsApp / SMS / e-mail / push attempt: MOCK_DELIVERED never left ASKODOX; SKIPPED_* was never sent; recipients are masked.")+
   '<div class="kpis">'+Object.entries(d.summary||{}).map(([c,st])=>'<div class="kpi"><div class="l">'+esc(c)+'</div><div class="v" style="font-size:14px">'+Object.entries(st).map(([k,v])=>esc(k)+": "+v).join("<br>")+'</div></div>').join("")+'</div>'+
   (Object.keys(d.opt_outs||{}).length?'<div class="muted">Customers opted out: '+Object.entries(d.opt_outs).map(([c,n])=>esc(c)+" "+n).join(", ")+'</div>':'')+
@@ -501,6 +501,23 @@ async function cfgPreview(){const out=document.querySelector("#cb_out");let bund
     (p.valid&&can("config:manage")?'<input id="cb_reason" placeholder="Reason"><label><input type="checkbox" id="cb_conf"> apply despite conflicts</label><button class="p" onclick="cfgApply()">Apply</button>':'')}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
 async function cfgApply(){if(!confirm("Apply this configuration? A snapshot is stored so it can be rolled back."))return;try{const r=await call("config-bundle/apply","POST",{bundle:STATE.cfg,confirm:true,allow_conflicts:document.querySelector("#cb_conf").checked,reason:document.querySelector("#cb_reason").value});alert("Applied. Snapshot "+r.snapshot_id);cfgbundle()}catch(e){alert(e.message)}}
 async function cfgRollback(id){if(!confirm("Roll back this import? Changed records are restored, records it created are archived."))return;try{const r=await call("config-bundle/rollback/"+id,"POST",{confirm:true});alert("Restored "+r.restored+", archived "+r.archived+", flags "+r.flags);cfgbundle()}catch(e){alert(e.message)}}
+async function outcomes(){const f=STATE.oc||(STATE.oc={days:"30",category:"",location:"",source:"",role:""});const d=await call("platform/analytics/outcomes?"+new URLSearchParams(f));
+  const inp=(k,ph)=>'<input placeholder="'+ph+'" value="'+esc(f[k])+'" onchange="STATE.oc.'+k+'=this.value;outcomes()">';
+  const kv=o=>Object.entries(o||{}).map(([k,v])=>'<div><span class="muted">'+esc(k.replace(/_/g," "))+'</span> <b>'+esc(typeof v==="object"&&v!==null?JSON.stringify(v):v??"—")+'</b></div>').join("");
+  const top=(t,rows)=>'<div class="card"><h3>'+t+'</h3>'+((rows||[]).length?rows.map(([k,v])=>'<div>'+esc(k)+' <b>'+v+'</b></div>').join(""):'<div class="muted">None recorded</div>')+'</div>';
+  document.querySelector("#page").innerHTML=head("Outcomes & gaps",esc(d.basis),'<select onchange="STATE.oc.days=this.value;outcomes()">'+["7","30","90","365"].map(x=>'<option '+(f.days===x?"selected":"")+'>'+x+'</option>').join("")+'</select> days'+inp("category","category")+inp("location","location")+inp("source","source (segment)")+inp("role","role"))+
+   '<div class="cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">'+
+   '<div class="card"><h3>Demand</h3>'+kv({searches:d.demand.searches,no_result_searches:d.demand.no_result_searches,no_local_supply:d.demand.no_local_supply})+'</div>'+
+   '<div class="card"><h3>Funnel</h3>'+d.funnel.map(s=>'<div>'+esc(s.step.replace(/_/g," "))+' <b>'+s.count+'</b></div>').join("")+'</div>'+
+   top("Supply gaps (no local seller)",d.supply_gaps)+top("Failed / no-result searches",d.failed_searches)+top("Top categories",d.demand.by_category)+top("Top locations",d.demand.by_location)+
+   '<div class="card"><h3>Source performance</h3>'+kv(d.source_performance.results)+'<div class="muted">clicks</div>'+kv(d.source_performance.clicks)+'</div>'+
+   '<div class="card"><h3>Organic vs affiliate</h3>'+kv(d.organic_vs_affiliate)+'</div>'+
+   '<div class="card"><h3>Seller response</h3>'+kv({accepted:d.seller_response.accepted,declined:d.seller_response.declined,acceptance_rate:d.seller_response.acceptance_rate})+top("Rejection reasons",d.seller_response.rejection_reasons)+'</div>'+
+   '<div class="card"><h3>Opportunities</h3>'+kv(d.opportunities.by_status||{})+kv({unfulfilled:d.opportunities.unfulfilled})+'</div>'+
+   '<div class="card"><h3>Advisor</h3>'+kv({questions_asked:d.advisor.questions_asked})+kv(d.advisor.by_field)+'</div>'+
+   '<div class="card"><h3>Video</h3>'+kv(d.video)+'</div><div class="card"><h3>Offers</h3>'+kv(d.offers)+'</div>'+
+   '<div class="card"><h3>Operations</h3>'+kv({escalations:d.escalations,stock_changes:d.stock_changes,commission_changes:d.commission_changes})+kv(d.auto_responses)+'</div>'+
+   '<div class="card"><h3>Integration health</h3>'+Object.entries(d.integration_health||{}).map(([k,v])=>badge(k)+' '+v).join("<br>")+'</div></div>'}
 async function workqueue(){const d=await call("staff/work-queue");
   document.querySelector("#page").innerHTML=head("My work queue","Only the work your role permits, with what to do, why, and when it is done.")+
    (d.items.length?d.items.map(i=>'<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><b>'+esc(i.title)+'</b><b>'+i.count+'</b></div><div><b>Do:</b> '+esc(i.what_to_do)+'</div><div class="muted"><b>Why:</b> '+esc(i.why)+' · <b>Done when:</b> '+esc(i.done_when)+'</div>'+(i.count?'<a href="'+esc(i.where)+'">Open</a>':'')+'</div>').join(""):'<div class="empty">Nothing in your queue.</div>')}

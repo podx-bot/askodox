@@ -164,3 +164,33 @@ def test_validation_conflicts_and_secrets_are_rejected(api):
     analyst = {"X-ASKODOX-Staff-Token": staff["token"]}
     assert client.post("/admin/cc/config-bundle/apply", headers=analyst,
                        json={"bundle": old, "confirm": True}).status_code == 403
+
+
+def test_integration_health_uses_one_vocabulary(api):
+    from app.services.integration_readiness import HEALTH_STATES
+
+    client, container, owner, pf, created = api
+    items = client.get("/admin/cc/platform/readiness", headers=owner).json()["items"]
+    assert items and all(i["health"] in HEALTH_STATES and i["health_reason"] for i in items)
+    from app.services.governance import _SECRET_VALUE
+
+    assert not _SECRET_VALUE.search(str([i["health_reason"] for i in items]))  # names only, never values
+
+
+def test_outcome_analytics_filters_and_sections(api):
+    client, container, owner, pf, created = api
+    tag = "qq" + uuid.uuid4().hex[:6]
+    client.post("/deals/discover", json={"user_id": "", "raw_text": f"{tag} widget", "subject": f"{tag} widget"})
+    d = client.get("/admin/cc/platform/analytics/outcomes", headers=owner).json()
+    for key in ("demand", "supply_gaps", "failed_searches", "funnel", "source_performance", "organic_vs_affiliate",
+                "advisor", "video", "offers", "seller_response", "opportunities", "escalations",
+                "integration_health"):
+        assert key in d
+    assert any(tag in s for s, _ in d["failed_searches"])
+    narrowed = client.get("/admin/cc/platform/analytics/outcomes", headers=owner,
+                          params={"location": "nowhere-" + tag}).json()
+    assert narrowed["demand"]["searches"] == 0
+    staff = client.post("/admin/cc/staff", headers=owner, json={"name": "s", "role": "support_agent"}).json()
+    if "token" in staff:
+        r = client.get("/admin/cc/platform/analytics/outcomes", headers={"X-ASKODOX-Staff-Token": staff["token"]})
+        assert r.status_code in (200, 403)
