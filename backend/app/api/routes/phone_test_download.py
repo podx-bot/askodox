@@ -1,6 +1,8 @@
-"""Direct download of a STAGING phone-test APK (never in production).
+"""Direct download mirror for test phones (served by staging only, never production).
 
-GET/HEAD /downloads/askodox-phone-test-<build>.apk
+GET/HEAD /downloads/askodox-phone-test-<build>.apk   staging phone-test builds
+GET/HEAD /downloads/askodox-<build>.apk              exact MAIN release builds (they
+                                                     still call the production backend)
 
 Only builds listed in PHONE_TEST_APKS are served. The file is fetched once
 from its test-only GitHub prerelease, its SHA-256 is checked against the
@@ -30,9 +32,16 @@ PHONE_TEST_APKS = {
     "1276": "58d09a7fb35c9712794adc4cfd88e2085561558eff70b711de40571036db6f6f",
     "1277": "04ab19d2462f21aae4f1bb7e101df1402a3b8f03e8601910dafb81732f9ee9bb",
 }
+# build -> pinned SHA-256 of the exact signed MAIN build on the in-app update
+# channel (askodox-latest); mirrored byte-for-byte, never rebuilt.
+MAIN_APKS = {
+    "1283": "2db5535798f3791e6b5b983466eeaf8576ea095b6d5bfa387f4526fe099952e7",
+}
 SOURCE = "https://github.com/podx-bot/askodox/releases/download/phone-test-{b}/askodox-phone-test-{b}.apk"
+MAIN_SOURCE = "https://github.com/podx-bot/askodox/releases/download/askodox-latest/askodox-{b}.apk"
 APK_MIME = "application/vnd.android.package-archive"
 _NAME = re.compile(r"^askodox-phone-test-(\d{1,6})\.apk$")
+_MAIN_NAME = re.compile(r"^askodox-(\d{1,6})\.apk$")
 _lock = threading.Lock()
 
 
@@ -50,14 +59,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _ensure(build: str, fetch=None) -> Path:
-    target = _cache_dir() / f"askodox-phone-test-{build}.apk"
+def _ensure(build: str, fetch=None, *, main: bool = False) -> Path:
+    pins, source = (MAIN_APKS, MAIN_SOURCE) if main else (PHONE_TEST_APKS, SOURCE)
+    target = _cache_dir() / (f"askodox-{build}.apk" if main else f"askodox-phone-test-{build}.apk")
     with _lock:
-        if target.exists() and _sha256(target) == PHONE_TEST_APKS[build]:
+        if target.exists() and _sha256(target) == pins[build]:
             return target
         partial = target.with_suffix(".part")
-        (fetch or _download)(SOURCE.format(b=build), partial)
-        if _sha256(partial) != PHONE_TEST_APKS[build]:
+        (fetch or _download)(source.format(b=build), partial)
+        if _sha256(partial) != pins[build]:
             partial.unlink(missing_ok=True)
             raise HTTPException(status_code=502, detail="phone-test APK failed its checksum")
         partial.replace(target)
@@ -77,10 +87,12 @@ def _download(url: str, dest: Path) -> None:
 def phone_test_apk(filename: str) -> FileResponse:
     from app.services.commerce_finance import is_production
 
-    match = _NAME.match(filename)
-    if is_production(dict(os.environ)) or not match or match.group(1) not in PHONE_TEST_APKS:
+    match, main = _NAME.match(filename), False
+    if match is None:
+        match, main = _MAIN_NAME.match(filename), True
+    if is_production(dict(os.environ)) or not match or match.group(1) not in (MAIN_APKS if main else PHONE_TEST_APKS):
         raise HTTPException(status_code=404, detail="Not found")
-    path = _ensure(match.group(1))
+    path = _ensure(match.group(1), main=main)
     return FileResponse(
         path,
         media_type=APK_MIME,

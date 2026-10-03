@@ -16,8 +16,10 @@ jobs:
         run: |
           set -uo pipefail
           BUILD=$(jq -r .build_number .github/phone-test-link.json)
-          SHA=$(grep -oE "\"${BUILD}\": \"[0-9a-f]{64}\"" backend/app/api/routes/phone_test_download.py | grep -oE '[0-9a-f]{64}')
-          URL="https://staging.askodox.com/downloads/askodox-phone-test-${BUILD}.apk"
+          KIND=$(jq -r '.kind // "phone-test"' .github/phone-test-link.json)
+          SHA=$(grep -oE "\"${BUILD}\": \"[0-9a-f]{64}\"" backend/app/api/routes/phone_test_download.py | grep -oE '[0-9a-f]{64}' | head -1)
+          if [ "$KIND" = "main" ]; then NAME="askodox-${BUILD}.apk"; else NAME="askodox-phone-test-${BUILD}.apk"; fi
+          URL="https://staging.askodox.com/downloads/${NAME}"
           UA="Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36"
           for i in $(seq 1 30); do
             rm -f apk headers.txt
@@ -33,7 +35,11 @@ jobs:
           [ "$got" = "$SHA" ] || { echo "FAIL sha256"; fail=1; }
           grep -qi '^content-type: application/vnd.android.package-archive' headers.txt || { echo "FAIL content-type"; fail=1; }
           grep -qi "^content-length: $(stat -c %s apk)" headers.txt || { echo "FAIL content-length"; fail=1; }
-          grep -qi "^content-disposition: attachment; filename=\"askodox-phone-test-${BUILD}.apk\"" headers.txt || { echo "FAIL content-disposition"; fail=1; }
+          grep -qi "^content-disposition: attachment; filename=\"${NAME}\"" headers.txt || { echo "FAIL content-disposition"; fail=1; }
           grep -qi '^content-encoding:' headers.txt && { echo "FAIL compressed"; fail=1; }
+          if [ "$KIND" = "main" ]; then
+            python3 tool/apk_guard.py apk --cert "$(cat .github/askodox-release-cert.sha256)" --package com.askodox.askodox \
+              --forbid-host staging.askodox.com --require-host podx-ai-connect-production-3279.up.railway.app || fail=1
+          fi
           [ "$fail" = 0 ] && echo "PASS: $URL"
           exit $fail
