@@ -1,6 +1,5 @@
 {"queries": [
- {"raw_text": "Vijayawada chicken biryani YouTube videos చూపించు", "intent": "buy", "subject": "chicken biryani videos", "category": "food", "place": "Vijayawada"},
- {"raw_text": "I want to buy a Samsung 43 inch TV", "intent": "buy", "subject": "Samsung 43 inch TV", "category": "electronics", "place": "Vijayawada"},
- {"raw_text": "AC repair near me", "intent": "needService", "subject": "AC repair", "category": "home services", "place": "Vijayawada"},
- {"raw_text": "బోట్ ఇయర్‌ఫోన్స్ కొనాలి", "intent": "buy", "subject": "boAt earphones", "category": "electronics", "place": "Vijayawada"}
+ {"raw_text": "Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు", "intent": "buy", "subject": "chicken biryani", "category": "food", "place": "Vijayawada"},
+ {"raw_text": "Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు", "intent": "buy", "subject": "chicken biryani videos, restaurants, online links and offers", "category": "food", "place": "Vijayawada"},
+ {"raw_text": "show me Samsung 43 inch TV deals, online stores and review videos", "intent": "buy", "subject": "Samsung 43 inch TV", "category": "electronics", "place": "Vijayawada"}
 ]}
