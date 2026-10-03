@@ -811,6 +811,9 @@ _register(Resource(
     actions=ENABLE_DISABLE,
 ))
 
+AUTO_TRIGGERS = ("any_message", "video", "image", "catalog", "product", "offer", "listing", "creator_content")
+AUTO_CHANNELS = ("askodox_chat", "instagram", "facebook", "whatsapp", "snapchat")
+
 _register(Resource(
     name="auto_response_rules", label="Auto responses", group="Conversation", prefix="arr",
     permission="autoresponse", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
@@ -831,6 +834,19 @@ _register(Resource(
         F("out_of_hours_reply", "Out-of-hours reply", "longtext"),
         F("share_contact", "Contact sharing", "enum", options=("after_consent",),
           help="Contact details are only shared through the request -> acceptance flow."),
+        F("trigger_type", "Trigger", "enum", options=AUTO_TRIGGERS, list_column=True,
+          help="any_message = deal chats; the others fire when a customer asks about that kind of content."),
+        F("targets", "Only for these items (ids / slugs, blank = all)", "list"),
+        F("trigger_words", "Only when the message mentions (any of)", "list",
+          help="e.g. price, link, details -- the 'comment a keyword' pattern."),
+        F("reply_text", "Trigger reply (when no FAQ answer fits)", "longtext"),
+        F("channels", "Channels", "list", options=AUTO_CHANNELS,
+          help="askodox_chat is live. Instagram / Facebook / WhatsApp / Snapchat need the owner's authorised "
+               "platform API and stay EXTERNAL SETUP REQUIRED -- nothing is sent there."),
+        F("start_at", "Start", "date"),
+        F("end_at", "End", "date"),
+        F("daily_limit", "Max auto-replies per day (0 = no limit)", "int", min=0, max=100000),
+        F("per_customer_daily_limit", "Max per customer per day (0 = no limit)", "int", min=0, max=1000),
     ),
     actions=ENABLE_DISABLE,
 ))

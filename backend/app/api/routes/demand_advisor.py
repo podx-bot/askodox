@@ -553,9 +553,13 @@ def my_auto_response(request: Request) -> dict:
     owner = _seller(request)
     pf = _pf(request.app.state.container)
     mine = [r for r in pf.repo.list("auto_response_rules", owner_ref=owner)]
+    from app.services import auto_response
+
     return {"item": mine[0] if mine else None,
+            "channels": auto_response.channel_status((mine[0]["data"] if mine else {})),
             "note": "Answers only from your approved FAQ; anything else comes to you. Contact details are "
-                    "shared only after you accept a request."}
+                    "shared only after you accept a request. Instagram / Facebook / WhatsApp / Snapchat need "
+                    "your authorised platform connection and are not messaged from here."}
 
 
 @router.put("/api/business/auto-response")
@@ -596,3 +600,43 @@ def preview_my_auto_response(body: AutoPreviewBody, request: Request) -> dict:
     if not mine:
         raise HTTPException(status_code=404, detail="Set up your auto-response first")
     return auto_response.answer(body.message, mine[0]["data"])
+
+
+class ContentAskBody(BaseModel):
+    business_ref: str = Field(min_length=1, max_length=120)
+    trigger_type: str = Field(pattern="^(video|image|catalog|product|offer|listing|creator_content)$")
+    target: str = Field(default="", max_length=120)
+    message: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/api/auto-response/ask")
+def ask_about_content(body: ContentAskBody, request: Request) -> dict:
+    """A customer asks about a business's video / image / catalog / product /
+    offer / listing / creator content inside ASKODOX: the business's matching
+    ACTIVE trigger answers from approved text only, or hands to the owner."""
+    from app.api.routes.in_app_deal import _cust, _flag_on, auto_response_limit
+    from app.services import auto_response, rate_limit
+
+    rate_limit.check(request, "auto_response_ask", limit=30)
+    container = request.app.state.container
+    if not _flag_on(container, "autoresponse.enabled"):
+        return {"status": "switched_off", "text": None, "handoff_to_owner": True}
+    pf = _pf(container)
+    rule = auto_response.rule_for(pf.repo.list("auto_response_rules"), body.business_ref,
+                                  trigger=body.trigger_type, target=body.target, message=body.message)
+    if rule is None:
+        return {"status": "no_rule", "text": None, "handoff_to_owner": True}
+    from app.api.routes.in_app_assistant import _optional_app_user
+
+    customer = _optional_app_user(request)
+    if customer in ("", "guest"):  # every signed-out caller shares "guest"
+        customer = "ip:" + (request.client.host if request.client else "anon")
+    blocked = auto_response_limit(pf, rule, customer)
+    if blocked:
+        return {"status": "limited", "text": None, "reason": blocked, "handoff_to_owner": True}
+    result = auto_response.answer(body.message, rule)
+    pf.repo.record_event("auto_response", detail={"status": result["status"], "rule": rule.get("_id"),
+                                                  "source": result["source"], "customer": _cust(customer),
+                                                  "trigger": body.trigger_type, "sent": bool(result["text"])})
+    return {**result, "handoff_to_owner": result["status"] != "answered",
+            "channels": auto_response.channel_status(rule)}
