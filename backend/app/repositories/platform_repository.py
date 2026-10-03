@@ -106,6 +106,10 @@ EVENTS = (
     "request", "match", "result_impression", "result_click", "seller_accept", "seller_decline", "deal_progress",
     "affiliate_click", "offer_view", "offer_click", "campaign_impression", "campaign_click", "campaign_dismiss",
     "notification_delivery", "referral", "selfheal",
+    # 2026-10-03 Universal Advisor / Demand Intelligence / operations.
+    "advisor_question_asked", "advisor_answer_received", "intent_qualified", "results_shown", "review_opened",
+    "deal_opened", "seller_notified", "seller_opportunity_response", "contact_released", "order_completed",
+    "stock_changed", "commission_changed", "support_escalated", "auto_response",
 )
 EVENT_IDS = ("user_ref", "session_id", "search_id", "result_id", "merchant_id", "partner_id", "campaign_id",
              "offer_id", "coupon_id", "click_id", "order_id", "transaction_id", "conversion_id", "video_id",

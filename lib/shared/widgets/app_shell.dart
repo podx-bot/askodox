@@ -249,7 +249,12 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             return;
           }
           final hub = ref.read(askodoxCompanionHubOpenProvider.notifier);
-          final open = shell.currentIndex == 0 ? !hub.state : true;
+          // A detail page (video, study, details) pushed over Main Chat:
+          // always OPEN (Main Chat closes the page first), never toggle a
+          // hub the user cannot see.
+          final onTop = shell.currentIndex == 0 && ref.read(askodoxDetailPagesOpenProvider) > 0;
+          final open = shell.currentIndex == 0 && !onTop ? !hub.state : true;
+          if (onTop && hub.state) hub.state = false; // re-fire the listener
           shell.goBranch(0, initialLocation: true);
           hub.state = open;
         },

@@ -7,14 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `58c2616` — PR #137 + #138 (2026-10-03): ASKODOX Video Study
-  (`video_study.py`): <=180 s cap (`ASKODOX_VIDEO_STUDY_MAX_SECONDS`), study
-  on request from the YouTube URL / the upload's single analyze_video call,
-  cached per video, grounded Q&A + hallucination guard, external market
-  comparison, Shorts group; app panel in the viewer. Production-proven on
-  real Shorts (probe run 37113361447). Signed MAIN APK 1287 (mirror
-  verified). Before: #136 signed-in path reads `trace.query`, #135 mixed
-  groups + compact UI, #134 Seller-role fix, #133 signing guard.
+- `main` @ `a2ae472` -- PR #139 (2026-10-03): Affiliate Product Manager on
+  #127's `affiliate_products` (staff CRUD, stock/commission states, computed
+  eligibility + affiliate/organic routing, history, bulk/feed, sources),
+  organic Amazon.in/Flipkart/Meesho rows in discovery (production probe run
+  37124757035: all 7 product searches return marketplace rows), fixed
+  `classify_page` ("Best Prices" = article) and the app's click path
+  (`/deals/external/click`). Signed MAIN APK 1289 (Live Build 37124593353,
+  mirror verified). Before: #137/#138 Video Study, #136 `trace.query`, #135
+  mixed groups + compact UI.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -181,6 +182,28 @@ this file, don't trust it blindly.
   Brave query after local + online (`_marketplace_and_catalog`), never for
   services, fresh food or used. `classify_page` treats a store host's catalogue
   page as a store BEFORE the article regex ("Best Prices" used to drop them).
+- Universal Advisor = ONE engine (`advisor_engine.py`) configured by schema
+  resources `advisor_questions` / `advisor_rules` (seeded once with editable
+  defaults by `platform()`). Each field has its own state (known /
+  no_preference / unknown); "any" settles only the field just asked. A
+  REQUIRED unanswered question holds final results in the app
+  (`askodoxAdvisorHolds`) unless "show me". A question counts as asked
+  (`_lastAskedQuestion`) only if the reply showed it. Flag `advisor.enabled`.
+- Demand Intelligence reads `pf_events` (`search` carries `local` + budget
+  band; `request` / `seller_accept` / `order` / `order_completed` via
+  `journey_event`). Rules = `demand_alert_rules`; matching reuses
+  `app_demand_broadcast.candidate_providers`; every alert is logged with
+  reasons in `demand_alerts` (cooldown + per-seller daily max, across rules).
+  Sellers read `/api/opportunities`. Flag `demand.alerts`. No cron: instant
+  rules run at most every 10 min after new demand, digests via Run.
+- Auto-responses: `auto_response.py` (approved FAQ only, hours, handoff,
+  masked contacts) hooked into `/debug/deal-message`; sellers self-serve at
+  `/api/business/auto-response`. Flag `autoresponse.enabled`.
+- Bounded settings: `platform_settings` resource + `platform_settings.get`
+  (e.g. `video_study.max_seconds`, 30 s cache). Contact masking: one helper
+  `pii_mask.py`. Deep Video Study only for uploads and REGISTERED sellers'
+  videos (`_registered_video`); external videos are playback only.
+- A local server uses `PODX_DATABASE_PATH` (not DATABASE_PATH).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -244,6 +267,12 @@ this file, don't trust it blindly.
   feed import; page-metadata extraction often gets blocked by marketplaces.
   #127's partner registry / staff assignments / BFSI flows and
   `partner_revenue_events` remain unwired (superseded by Partner Hub).
+- Customer WEB chat does not exist yet: `/website` is a static marketing
+  site; the backend APIs (`/deals/discover`, `/api/advisor/next`,
+  `/api/in-app/assistant`) are web-ready, the Flutter web build is not deployed.
+- Auto-DM on Facebook / Instagram / WhatsApp is NOT built (needs the owner's
+  authorised platform API); auto-responses work inside ASKODOX deal chats only.
+- Feature flags are global booleans (no per-category / role / % rollout).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

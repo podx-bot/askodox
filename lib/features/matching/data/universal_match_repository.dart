@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
@@ -374,8 +375,53 @@ class UniversalMatch {
       };
 }
 
+/// The Universal Advisor's view of one search (backend `advisor` block):
+/// the next decision-relevant question, whether final recommendations should
+/// wait for it, and trade-off guidance. Each field's state is separate --
+/// "any brand" never settles the budget.
+@immutable
+class AskodoxAdvisorView {
+  const AskodoxAdvisorView({
+    this.ready = true,
+    this.field,
+    this.question,
+    this.required = false,
+    this.choices = const [],
+    this.guidance = const [],
+    this.highStakes = false,
+  });
+
+  final bool ready;
+  final String? field;
+  final String? question;
+  final bool required;
+  final List<String> choices;
+  final List<String> guidance;
+  final bool highStakes;
+
+  static AskodoxAdvisorView? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final questions = raw['questions'] is List ? raw['questions'] as List : const [];
+    final first = questions.isNotEmpty && questions.first is Map ? questions.first as Map : null;
+    final guidance = raw['guidance'] is List ? raw['guidance'] as List : const [];
+    return AskodoxAdvisorView(
+      ready: raw['ready'] != false,
+      field: first?['field']?.toString(),
+      question: first?['question']?.toString(),
+      required: first?['required'] == true,
+      choices: [for (final c in (first?['choices'] is List ? first!['choices'] as List : const [])) '$c'],
+      guidance: [
+        for (final g in guidance)
+          if (g is Map && '${g['advice'] ?? ''}'.trim().isNotEmpty) '${g['advice']}'.trim(),
+      ],
+      highStakes: guidance.any((g) => g is Map && g['high_stakes'] == true),
+    );
+  }
+}
+
 class UniversalMatchResult {
   const UniversalMatchResult({
+    this.advisor,
     required this.dealId,
     required this.matches,
     this.sourceStatus = const <String, String>{},
@@ -386,6 +432,9 @@ class UniversalMatchResult {
     this.traceKey,
   });
   final String dealId;
+
+  /// Universal Advisor: open question / readiness / guidance (null on older backends).
+  final AskodoxAdvisorView? advisor;
 
   /// The admin flow trace this search wrote (browse:... / deal:...): later
   /// app events (result selected, action outcome) are appended to it.
@@ -577,6 +626,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       broadcastSent: broadcast is Map ? (broadcast['sent'] as num?)?.toInt() : null,
       scopeMessage: _scopeMessage(data['scope']),
       advice: _advice(data['advice']),
+      advisor: AskodoxAdvisorView.fromJson(data['advisor']),
       nextActions: _nextActions(data['next_actions']),
       sourceStatus: status is Map
           ? {for (final e in status.entries) '${e.key}': '${e.value}'}
@@ -685,6 +735,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
       matches: rows,
       scopeMessage: _scopeMessage(data['scope']),
       advice: _advice(data['advice']),
+      advisor: AskodoxAdvisorView.fromJson(data['advisor']),
       nextActions: _nextActions(data['next_actions']),
       sourceStatus: status is Map ? {for (final e in status.entries) '${e.key}': '${e.value}'} : const {},
     );

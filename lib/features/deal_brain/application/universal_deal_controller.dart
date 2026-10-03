@@ -80,6 +80,52 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(incoming));
   }
 
+  /// The user does not mind for ONE field ("any brand"): only that field is
+  /// settled; budget, size, place... keep their own state.
+  void markNoPreference(String field) {
+    final current = state.deal;
+    if (current == null || field.trim().isEmpty) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    final none = {...((fields['no_preference'] as List?) ?? const []).map((e) => '$e'), field};
+    fields['no_preference'] = none.toList();
+    fields.putIfAbsent(field, () => 'any');
+    _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
+  }
+
+  /// Result groups the customer asked for ("videos", "deals", "reviews")
+  /// are remembered on the request, so a later short answer ("20000")
+  /// still brings them (real-phone: only online links came back).
+  void rememberGroups(Iterable<String> groups) {
+    final current = state.deal;
+    if (current == null) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    final before = ((fields['requested_groups'] as List?) ?? const []).map((e) => '$e').toList();
+    final merged = {...before, ...groups}.toList();
+    if (merged.length == before.length) return;
+    fields['requested_groups'] = merged;
+    if (merged.contains('videos')) fields['wants_videos'] = true;
+    _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
+  }
+
+  /// The advisor asked about [field] (never asked twice in this request).
+  void markAdvisorAsked(String field) {
+    final current = state.deal;
+    if (current == null || field.trim().isEmpty) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    final asked = {...((fields['advisor_asked'] as List?) ?? const []).map((e) => '$e'), field};
+    fields['advisor_asked'] = asked.toList();
+    _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
+  }
+
+  /// A plain answer to the advisor's [field] question ("for standing all
+  /// day", "size 9") is stored on THAT field.
+  void answerAdvisorField(String field, String text) {
+    final current = state.deal;
+    if (current == null || text.trim().isEmpty) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields)..[field] = text.trim();
+    _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
+  }
+
   void answer(String text) {
     final value = text.trim();
     if (value.isEmpty) return;

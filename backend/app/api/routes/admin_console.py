@@ -108,18 +108,19 @@ const when=v=>v?new Date(v).toLocaleString():"—";
 function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.name===n)||{}).label||n,perm:(SCHEMA.resources.find(x=>x.name===n)||{}).permission+":view"});
   return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"},{id:"revcmd",label:"Revenue command center",perm:"revenue:view"}]],
   ["Growth & ads",[{id:"sponsored",label:"Sponsored campaigns",perm:"sponsored:view"},r("affiliate_programs"),r("affiliate_links"),r("smart_links"),{id:"benefits",label:"Offers & coupons",perm:"growth:view"},r("merchant_offers"),{id:"referrals",label:"Referrals",perm:"growth:view"},r("promotion_campaigns")]],
+  ["Advisor & demand",[{id:"demand",label:"Demand intelligence",perm:"demand:view"},r("demand_alert_rules"),r("advisor_questions"),r("advisor_rules"),{id:"assistant",label:"Admin assistant",perm:"overview:view"},{id:"workqueue",label:"My work queue",perm:"overview:view"}]],
   ["Affiliate catalog",[{id:"affproducts",label:"Affiliate products",perm:"affiliate_products:view"},{id:"affsources",label:"Affiliate sources",perm:"affiliate_products:view"}]],
   ["Content",[r("videos"),{id:"discovered",label:"Discovered videos",perm:"content:view"},r("creators"),r("video_sources"),r("reviews")]],
   ["Money",[{id:"payments",label:"Payments",perm:"payments:view"},{id:"ledger",label:"Revenue ledger",perm:"finance:view"},{id:"rewards",label:"Rewards ledger",perm:"rewards:view"},{id:"transactions",label:"Transactions",perm:"finance:view"},r("subscription_promos")]],
   ["Customers",[{id:"support",label:"Support tickets",perm:"support:view"},{id:"accounts",label:"Users & accounts",perm:"users:view"},r("notification_templates"),r("notification_rules")]],
   ["System",[{id:"readiness",label:"Integration readiness",perm:"integrations:view"},{id:"integrations",label:"Integrations",perm:"integrations:view"},{id:"outbox",label:"Message deliveries",perm:"integrations:view"},{id:"flags",label:"Feature flags",perm:"config:view"},{id:"staff",label:"Staff & roles",perm:"staff:manage"},{id:"approvals",label:"Approvals",perm:"approvals:view"},{id:"selfheal",label:"Self-healing",perm:"selfheal:view"},{id:"audit",label:"Audit log",perm:"audit:view"},{id:"events",label:"Event stream",perm:"analytics:view"}]],
-  ["Owner setup",[{id:"setup",label:"ASKODOX setup",perm:"config:view"},r("qa_checks"),r("email_roles"),r("referral_credit_rules"),r("greeting_templates"),r("delivery_partners")]],
+  ["Owner setup",[{id:"setup",label:"ASKODOX setup",perm:"config:view"},r("qa_checks"),r("email_roles"),r("referral_credit_rules"),r("greeting_templates"),r("delivery_partners"),r("platform_settings"),r("auto_response_rules")]],
   ["AI Companion",[{id:"screenguide",label:"Screen Guide",perm:"companion:view"}]]]}
 function renderNav(){const counts=STATE.pending||{};document.querySelector("#side").innerHTML='<div class="logo"><i></i>ASKODOX</div>'+navModel().map(([g,items])=>{const vis=items.filter(i=>can(i.perm));
   return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
 async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
-  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources}[VIEW];await (f||dashboard)()}
+  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,demand,workqueue,assistant}[VIEW];await (f||dashboard)()}
   catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
 
 /* ---------------------------------------------------------------- auth -- */
@@ -446,6 +447,43 @@ async function affsources(){const d=await call("affiliate-sources");const manage
     '<td class="muted">'+[s.tracking_template_set?"tracking template":"",s.deep_link_set?"deep link":"",s.api_enabled?"API on":"",s.callback_enabled?"callbacks on":"",s.has_credentials?"credentials stored":""].filter(Boolean).join(", ")+'</td></tr>').join("")+'</tbody></table></div>'+
    '<div class="muted" style="margin-top:10px">Staff permissions: '+esc(d.items[0].staff_permissions.join(", "))+'. Grant them in Staff &amp; roles (preset <b>affiliate_catalog_staff</b>).</div>'}
 async function affSrc(p,k,v){try{await call("affiliate-sources/"+p,"PUT",{[k]:v});affsources()}catch(e){alert(e.message);affsources()}}
+
+/* ------------------------------------------- demand intelligence / ops -- */
+async function demand(){const s=STATE.dm||(STATE.dm={days:7,category:"",area:""});
+  const [d,o]=await Promise.all([call("demand/insights?"+new URLSearchParams(s)),call("demand/opportunities")]);STATE.dmo=o.items;
+  const k=(l,v,x)=>'<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+(x||"")+'</div></div>';
+  const list=(rows,f)=>rows.length?'<table>'+rows.map(f).join("")+'</table>':'<div class="muted">Nothing recorded in this period.</div>';
+  const notify=can("demand:notify");
+  document.querySelector("#page").innerHTML=head("Demand intelligence","What customers search for, what they fail to find, and which registered sellers could serve it. Recorded events only -- nothing estimated.",
+   '<select onchange="STATE.dm.days=this.value;demand()">'+[1,7,30,90].map(n=>'<option '+(String(s.days)===String(n)?"selected":"")+' value="'+n+'">'+(n===1?"Today":n+" days")+'</option>').join("")+'</select><input placeholder="Category" value="'+esc(s.category)+'" onchange="STATE.dm.category=this.value;demand()"><input placeholder="Area" value="'+esc(s.area)+'" onchange="STATE.dm.area=this.value;demand()">'+
+   (notify?'<span class="right"></span><button onclick="demandRun()">Run all active rules</button>':''))+
+   '<div class="kpis">'+k("Searches",d.totals.searches,"previous period "+d.totals.previous_searches)+k("Distinct needs",d.totals.distinct_needs)+k("No result",d.totals.no_result_searches,"rate "+Math.round(d.rates.no_result_rate*100)+"%")+k("No local supply",d.totals.no_local_supply_searches)+k("Requests / search",d.rates.request_per_search)+k("Accept / request",d.rates.accept_per_request)+'</div>'+
+   '<div class="cols"><div class="card"><h3>Most searched</h3>'+list(d.top_searches,t=>'<tr><td>'+esc(t.subject)+'</td><td><b>'+t.count+'</b></td><td class="muted">'+(t.no_local_supply?t.no_local_supply+' without local supply':'')+'</td><td class="muted">'+esc(Object.keys(t.budget_bands).join(", "))+'</td></tr>')+'</div>'+
+   '<div class="card"><h3>Unmet demand</h3>'+list(d.unmet,t=>'<tr><td>'+esc(t.subject)+'</td><td><b>'+t.count+'</b></td><td class="muted">'+Math.round(t.share_no_local*100)+'% no local</td></tr>')+'</div>'+
+   '<div class="card"><h3>Rising</h3>'+list(d.rising,t=>'<tr><td>'+esc(t.subject)+'</td><td><b>'+t.now+'</b></td><td class="muted">'+(t.change_pct==null?"new":"+"+t.change_pct+"%")+'</td></tr>')+'</div>'+
+   '<div class="card"><h3>By area</h3>'+list(d.by_area,t=>'<tr><td>'+esc(t.area)+'</td><td><b>'+t.count+'</b></td></tr>')+'</div>'+
+   '<div class="card"><h3>Funnel</h3>'+list(Object.entries(d.funnel),([e,n])=>'<tr><td>'+esc(e.replace(/_/g," "))+'</td><td><b>'+n+'</b></td></tr>')+'</div></div>'+
+   '<h3 style="margin:18px 0 8px">Opportunities (from ACTIVE demand alert rules)</h3>'+(o.note?'<div class="card muted">'+esc(o.note)+' <a onclick="go(\'r:demand_alert_rules\')">Demand alert rules</a></div>':'')+
+   '<div class="tbl">'+(o.items.length?'<table><thead><tr><th>Need</th><th>Area</th><th>Searches</th><th>Budget</th><th>Local results</th><th>Rule</th><th></th></tr></thead><tbody>'+
+   o.items.map((x,i)=>'<tr><td><b>'+esc(x.subject)+'</b></td><td>'+esc(x.area||"—")+'</td><td>'+x.searches+'</td><td>'+esc(x.budget_band||"—")+'</td><td>'+x.local_results_median+'</td><td class="muted">'+esc(x.rule)+'</td><td><button onclick="demandPreview('+i+')">Who &amp; why</button></td></tr>').join("")+'</tbody></table>':'<div class="empty">No demand passes the rule thresholds right now.</div>')+'</div>'}
+async function demandPreview(i){const x=STATE.dmo[i];const p=await call("demand/opportunities/preview","POST",{rule_id:x.rule_id,opportunity_key:x.key});
+  drawer(x.subject+(x.area?" · "+x.area:""),'<div class="muted">'+x.searches+' searches · budget '+esc(x.budget_band||"—")+' · rule '+esc(x.rule)+'</div>'+
+   '<h3 style="margin:14px 0 6px;font-size:14px">Would be alerted ('+p.eligible.length+')</h3>'+(p.eligible.length?p.eligible.map(e=>'<div class="card" style="margin-bottom:6px"><b class="mono">'+esc(e.recipient)+'</b> score '+e.score+'<ul>'+e.reasons.map(r=>'<li>'+esc(r)+'</li>').join("")+'</ul></div>').join(""):'<div class="muted">Nobody eligible -- consider recruiting sellers for this need.</div>')+
+   '<h3 style="margin:14px 0 6px;font-size:14px">Not alerted ('+p.excluded.length+')</h3>'+p.excluded.map(e=>'<div class="mono">'+esc(e.recipient)+' -- '+esc(e.reason)+'</div>').join("")+'<div id="ferr" class="err"></div>',
+   (can("demand:notify")&&p.eligible.length?'<button class="p" onclick="demandNotify('+i+')">Alert '+p.eligible.length+' seller(s)</button>':'')+'<button onclick="closeDrawer()">Close</button>')}
+async function demandNotify(i){const x=STATE.dmo[i];if(!confirm("Send an in-app opportunity to the eligible sellers? Customers' identities are never shared."))return;
+  try{const r=await call("demand/opportunities/notify","POST",{rule_id:x.rule_id,opportunity_key:x.key,confirm:true});alert("Sent to "+r.sent+" seller(s)"+(r.note?"\n"+r.note:""));closeDrawer();demand()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function demandRun(){if(!confirm("Evaluate every ACTIVE demand rule now and alert matching sellers?"))return;try{const r=await call("demand/run","POST",{confirm:true});alert(r.rules+" rule(s), "+r.opportunities+" opportunit(ies), "+r.sent+" alert(s) sent");demand()}catch(e){alert(e.message)}}
+async function workqueue(){const d=await call("staff/work-queue");
+  document.querySelector("#page").innerHTML=head("My work queue","Only the work your role permits, with what to do, why, and when it is done.")+
+   (d.items.length?d.items.map(i=>'<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><b>'+esc(i.title)+'</b><b>'+i.count+'</b></div><div><b>Do:</b> '+esc(i.what_to_do)+'</div><div class="muted"><b>Why:</b> '+esc(i.why)+' · <b>Done when:</b> '+esc(i.done_when)+'</div>'+(i.count?'<a href="'+esc(i.where)+'">Open</a>':'')+'</div>').join(""):'<div class="empty">Nothing in your queue.</div>')}
+async function assistant(){document.querySelector("#page").innerHTML=head("Admin assistant","Answers from recorded ASKODOX data only: what was observed, what might explain it (unverified), and what to do.",
+   '<input id="as_q" style="min-width:320px" placeholder="e.g. Which categories have unmet demand?"><button class="p" onclick="assistantAsk()">Ask</button>')+
+   '<div class="muted" style="margin-bottom:10px">Try: what increased today? · which sellers are not responding? · which products are out of stock? · which integrations are failing? · what should staff work on today?</div><div id="as_out"></div>';
+  document.querySelector("#as_q").addEventListener("keydown",e=>{if(e.key==="Enter")assistantAsk()})}
+async function assistantAsk(){const q=document.querySelector("#as_q").value.trim();if(!q)return;const out=document.querySelector("#as_out");out.innerHTML='<div class="muted">Checking the data…</div>';
+  try{const r=await call("assistant/ask","POST",{question:q});const sec=(t,rows)=>rows&&rows.length?'<div><b>'+t+'</b><ul>'+rows.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>':'';
+   out.innerHTML=r.answers.map(a=>'<div class="card" style="margin-bottom:10px"><h3>'+esc(a.topic.replace(/_/g," "))+'</h3>'+sec("Observed",a.observed)+sec("Might explain it (unverified)",a.likely)+sec("Recommended",a.actions)+'</div>').join("")+'<div class="muted">'+esc(r.basis)+'</div>'}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
 
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==VIEW&&ME){VIEW=h;renderNav();render()}});
 if(CRED)signIn();else document.querySelector("#login").style.display="block";

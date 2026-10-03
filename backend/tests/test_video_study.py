@@ -219,8 +219,19 @@ def api(tmp_path):
                             "title": "Innova Crysta for sale", "snippet": "", "creator": "Car Seller",
                             "thumbnail": None, "duration": duration, "source": "youtube_data", "products": [],
                             "services": [], "category": "", "embeddable": True, "paid_promotion": False})
+    for ref in ("yt_shortcar0001", "yt_longcar00001", "yt_explaincar1"):
+        _register_video(pf, ref)
     yield TestClient(app), container, client
     pf._video_study = None
+
+
+def _register_video(pf, ref):
+    """A registered seller's video (Command Center record linked to the web ref)."""
+    record = pf.resources.create("videos", {
+        "title": "Innova Crysta for sale", "platform": "youtube", "url": f"https://www.youtube.com/watch?v={ref[3:]}",
+        "relationship": "merchant", "merchant_ref": "app-seller-1", "source_ref": ref}, actor="test")
+    pf.resources.action("videos", record["id"], "approve", actor="owner")
+    return record
 
 
 def test_youtube_study_then_cached_questions_never_re_analyse(api):
@@ -241,6 +252,52 @@ def test_youtube_study_then_cached_questions_never_re_analyse(api):
     assert http.post("/api/videos/yt_longcar00001/ask",
                      json={"question": "price?"}).json()["status"] == "not_studied"
     assert http.get("/api/videos/yt_unknown/study").status_code == 404
+
+
+def test_external_videos_play_but_get_no_deep_study(api):
+    """Part 10: an external YouTube result (no registered seller behind it)
+    is a normal result -- no study, no grounded Q&A, no market comparison."""
+    from app.api.routes.platform import platform
+
+    http, container, client = api
+    platform(container).web_videos.save({
+        "ref": "yt_external001", "url": "https://www.youtube.com/watch?v=external001", "platform": "youtube",
+        "title": "Car review", "snippet": "", "creator": "Somebody", "thumbnail": None, "duration": "1:00",
+        "source": "youtube_data", "products": [], "services": [], "category": "", "embeddable": True,
+        "paid_promotion": False})
+    status = http.get("/api/videos/yt_external001/study?language=te").json()
+    assert status["eligible"] is False and status["reason"] == "external_video" and status["studyable"] is False
+    assert "బయటి వీడియో" in status["message"]
+    run = http.post("/api/videos/yt_external001/study", json={"language": "en"}).json()
+    assert run["status"] == "not_eligible" and client.video_calls == 0, "no model call for external videos"
+    ask = http.post("/api/videos/yt_external001/ask", json={"question": "price?", "language": "en"}).json()
+    assert ask["status"] == "not_eligible" and ask["found"] is False
+    assert http.post("/api/videos/yt_external001/market", json={"language": "en"}).status_code == 409
+
+
+def test_study_masks_contacts_and_keeps_transcript_private(api):
+    study = vs.normalize_study({
+        "category": "vehicle", "subject": "Innova call 98765 43210",
+        "summary": "Seller says WhatsApp 9876543210 or mail seller@example.com",
+        "facts": [{"key": "phone_number", "value": "9876543210", "basis": "said", "timestamp": "0:10",
+                   "evidence": "call 9876543210"},
+                  {"key": "asking_price", "value": "₹12.5 lakh", "basis": "said", "timestamp": "1:42",
+                   "evidence": "12.5 lakh, call +91 98765 43210"}],
+        "transcript": [{"t": "0:10", "text": "my number is 98765 43210"}]},
+        ref="up_x", source="upload", duration=60)
+    text = str(study)
+    assert "9876543210" not in text and "98765 43210" not in text and "seller@example.com" not in text
+    assert [f["key"] for f in study["facts"]] == ["asking_price"], "contact facts are dropped"
+    assert "[contact hidden]" in study["facts"][0]["evidence"]
+
+
+def test_public_study_follows_the_requested_language(api):
+    http, _, _ = api
+    http.post("/api/videos/yt_shortcar0001/study", json={"language": "en"})
+    te = http.get("/api/videos/yt_shortcar0001/study?language=te").json()["study"]
+    assert te["suggested_questions"] and all(any("\u0c00" <= ch <= "\u0c7f" for ch in q)
+                                             for q in te["suggested_questions"])
+    assert "transcript" not in te, "the raw transcript never goes to the customer app"
 
 
 def test_market_route_is_external_and_separate(api, monkeypatch):

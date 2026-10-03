@@ -33,6 +33,32 @@ Uri askodoxVideoEmbedUri(String url) {
   return uri;
 }
 
+/// The site ASKODOX identifies itself as when embedding a player.
+const askodoxEmbedOrigin = 'https://askodox.com';
+
+/// YouTube refuses embeds that do not say who embeds them ("Error 153 --
+/// video player configuration error"). A YouTube embed therefore carries
+/// `origin` + `widget_referrer` and is requested with a matching Referer;
+/// other players are left untouched. Videos whose owner disabled embedding
+/// still fail on YouTube's side -- the viewer keeps "Open original".
+Uri askodoxEmbedWithOrigin(Uri uri) {
+  final host = uri.host.toLowerCase();
+  final youtube = host.endsWith('youtube-nocookie.com') || host.endsWith('youtube.com');
+  if (!youtube || !uri.path.startsWith('/embed/')) return uri;
+  return uri.replace(queryParameters: {
+    ...uri.queryParameters,
+    'origin': askodoxEmbedOrigin,
+    'widget_referrer': askodoxEmbedOrigin,
+    'enablejsapi': '0',
+  });
+}
+
+/// Headers the embed request carries (the Referer YouTube checks).
+Map<String, String> askodoxEmbedHeaders(Uri uri) {
+  final host = uri.host.toLowerCase();
+  return host.contains('youtube') ? const {'Referer': '$askodoxEmbedOrigin/'} : const {};
+}
+
 /// Builds the in-app player. Overridable so widget tests (which have no
 /// platform WebView) can assert what would be embedded.
 final askodoxVideoEmbedBuilderProvider = Provider<Widget Function(Uri uri)>(
@@ -48,10 +74,11 @@ class _WebVideoEmbed extends StatefulWidget {
 }
 
 class _WebVideoEmbedState extends State<_WebVideoEmbed> {
+  late final Uri _uri = askodoxEmbedWithOrigin(widget.uri);
   late final WebViewController _controller = WebViewController()
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
     ..setBackgroundColor(Colors.black)
-    ..loadRequest(widget.uri);
+    ..loadRequest(_uri, headers: askodoxEmbedHeaders(_uri));
 
   @override
   Widget build(BuildContext context) => WebViewWidget(controller: _controller);
@@ -85,11 +112,17 @@ String _serviceAsk(String service) =>
 /// used (products) or a local service (services). Pure, so it is testable.
 List<({String action, String label, String ask, String event})> askodoxVideoNextSteps(UniversalMatch video,
     {bool telugu = false}) {
-  final subject = video.relatedServices.isNotEmpty
+  // Only a STRUCTURED product / service the backend linked to the video is
+  // searched. The raw video title (often another language or clickbait) is
+  // never sent as a search -- it could be misread as a translation or an
+  // unrelated request (real-phone regression).
+  final String? linked = video.relatedServices.isNotEmpty
       ? video.relatedServices.first
       : video.relatedProducts.isNotEmpty
           ? video.relatedProducts.first
-          : video.title;
+          : null;
+  if (linked == null || linked.trim().isEmpty) return const [];
+  final subject = linked.trim();
   final steps = <({String action, String label, String ask, String event})>[
     (action: 'find_local', label: telugu ? 'దగ్గరలో కనుగొనండి' : 'Find near me', ask: '$subject near me',
      event: 'video_local_search'),

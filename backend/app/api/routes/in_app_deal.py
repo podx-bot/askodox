@@ -372,6 +372,14 @@ def deal_message(payload: DealMessageRequest, request: Request) -> dict:
                 int(assistant_cursor.lastrowid),
             )
 
+    # Business Auto-Response (owner-approved FAQ only): when ASKODOX could
+    # not answer from the deal's trusted data, the seller's own approved
+    # answers reply; unknown / handoff / out-of-hours stay with the human.
+    auto_reply = None
+    answered = bool(askodox_assistance and askodox_assistance.get("status") == "ANSWERED_FROM_TRUSTED_DATA")
+    if sender == party_a and not answered:
+        auto_reply = _auto_reply(container, db, payload.request_id, party_a, party_b, body)
+
     db.execute(
         """
         UPDATE in_app_deal_threads SET updated_at=CURRENT_TIMESTAMP
@@ -380,6 +388,7 @@ def deal_message(payload: DealMessageRequest, request: Request) -> dict:
         (payload.request_id, party_a, party_b),
     )
     return {
+        "auto_reply": auto_reply,
         "status": "SENT",
         "channel": "in_app",
         "message_id": message_id,
@@ -389,6 +398,46 @@ def deal_message(payload: DealMessageRequest, request: Request) -> dict:
         "message": body,
         "askodox_assistance": askodox_assistance,
     }
+
+
+def _auto_reply(container, db, request_id: int, party_a: str, party_b: str, body: str):
+    """The seller's ACTIVE auto-response rule, if any. Never raises."""
+    try:
+        from app.api.routes.platform import platform
+        from app.services import auto_response
+
+        if not _flag_on(container, "autoresponse.enabled"):
+            return None
+        pf = platform(container)
+        rule = auto_response.rule_for(pf.repo.list("auto_response_rules"), party_b)
+        if rule is None:
+            return None
+        result = auto_response.answer(body, rule)
+        if result["text"]:
+            label = "Auto-reply" if result["status"] == "answered" else "Auto-reply (outside business hours)"
+            db.execute(
+                """
+                INSERT INTO in_app_deal_messages(
+                    request_id,buyer_user_id,seller_user_id,sender_user_id,message_text,message_type
+                ) VALUES(?,?,?,?,?,'AUTO_REPLY')
+                """,
+                (request_id, party_a, party_b, party_b, f"{label}: {result['text']}"),
+            )
+        pf.repo.record_event("auto_response", detail={"status": result["status"], "rule": rule.get("_id"),
+                                                      "source": result["source"]})
+        return {"status": result["status"], "source": result["source"],
+                "text": result["text"], "handoff_to_owner": result["status"] != "answered"}
+    except Exception:
+        return None
+
+
+def _flag_on(container, key: str) -> bool:
+    try:
+        from app.api.routes.command_center import command_center
+
+        return command_center(container).is_enabled(key)
+    except Exception:
+        return True
 
 
 @router.get("/deal-thread/{request_id}/{user_id}/{other_user_id}")

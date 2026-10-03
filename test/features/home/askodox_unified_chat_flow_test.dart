@@ -1500,6 +1500,70 @@ void main() {
     expect(h.matches.deals.last.dynamicFields['brand'], 'Tata');
   });
 
+  Future<_Harness> advisorHarness(WidgetTester tester) async {
+    const shoe = UniversalMatch(id: 'online-0-shoe', title: 'Cushioned running shoes at Store A', source: 'online',
+        destinationUrl: 'https://a.example/shoes');
+    final h = _Harness(
+      assistant: _Assistant((message) => message.toLowerCase().contains('shoes')
+          ? {
+              'reply': 'Sure. Any brand you prefer?',
+              'domain': 'PRODUCT',
+              'transactional': true,
+              'action': 'buy_product',
+              'confidence': 0.9,
+              'source': 'universal_ai',
+              'entities': {'subject': 'running shoes', 'location': 'Vijayawada'},
+            }
+          : null),
+      matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '1', matches: [shoe], advisor: AskodoxAdvisorView(
+            ready: false, field: 'budget', required: true, question: 'What budget do you have in mind?',
+            guidance: ['For running, a light shoe with good cushioning and a snug fit matters most.'])),
+        const UniversalMatchResult(dealId: '2', matches: [shoe], advisor: AskodoxAdvisorView(ready: true)),
+      ]),
+    );
+    await h.pump(tester);
+    await h.send(tester, 'I need running shoes in Vijayawada');
+    // The AI asked about the brand; "any" settles the BRAND only and the
+    // still-missing size is asked next (never filled with "any").
+    await h.send(tester, 'any');
+    expect(h.matches.deals, isEmpty, reason: '"any" brand never jumps straight to results');
+    expect(find.text('What size do you need?'), findsOneWidget);
+    await h.send(tester, '9');
+    expect(h.matches.deals.last.dynamicFields['no_preference'], ['brand']);
+    expect(h.matches.deals.last.size, '9');
+    // The advisor held the first results: guidance + the budget question,
+    // no cards yet.
+    expect(find.textContaining('What budget do you have in mind?'), findsWidgets);
+    expect(find.textContaining('light shoe with good cushioning'), findsWidgets);
+    expect(find.textContaining('Cushioned running shoes at Store A'), findsNothing,
+        reason: 'no final recommendations before the decision-changing budget');
+    return h;
+  }
+
+  testWidgets('Universal Advisor: budget is asked BEFORE final results, then the answer brings them', (tester) async {
+    final h = await advisorHarness(tester);
+    await h.send(tester, '2000');
+    expect(find.textContaining('Cushioned running shoes at Store A'), findsWidgets);
+    final searched = h.matches.deals.last;
+    expect(h.matches.deals, hasLength(2));
+    expect(searched.dynamicFields['no_preference'], ['brand'], reason: 'brand stays "any"; budget now known');
+    expect(searched.dynamicFields['advisor_asked'], contains('budget'));
+    expect(searched.dynamicFields['budget_max'] ?? searched.price, isNotNull, reason: 'the budget answer is applied');
+    expect('${searched.size}', isNot('2000'), reason: 'the amount is never written into another slot');
+  });
+
+  testWidgets('Universal Advisor: "any" to the budget question settles the budget only, then results show',
+      (tester) async {
+    final h = await advisorHarness(tester);
+    await h.send(tester, 'any');
+    expect(find.textContaining('Cushioned running shoes at Store A'), findsWidgets);
+    final searched = h.matches.deals.last;
+    expect(searched.dynamicFields['no_preference'], containsAll(['brand', 'budget']));
+    expect(searched.dynamicFields['usage'], isNull, reason: 'other fields keep their own state');
+    expect(searched.size, isNot('any'));
+  });
+
   testWidgets('several options = ONE compact horizontal rail; referral is a small chip; the friend says what it found',
       (tester) async {
     const a = UniversalMatch(id: 'online-0-a', title: 'Mixer grinder 750W at Store A', source: 'online',

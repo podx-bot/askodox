@@ -35,6 +35,11 @@ final askodoxCompanionLiveProvider = StateProvider<AskodoxCompanionLive>((ref) =
 /// permanent row of buttons.
 final askodoxCompanionHubOpenProvider = StateProvider<bool>((ref) => false);
 
+/// How many full-screen detail pages (video, study, ...) Main Chat has
+/// pushed over itself. The centre mic uses it to OPEN (never toggle) the
+/// hub, and Main Chat closes those pages first.
+final askodoxDetailPagesOpenProvider = StateProvider<int>((ref) => 0);
+
 /// The companion actions. Attachments go through the one attachment
 /// pipeline; voice is the only microphone in the app.
 enum AskodoxHubAction { voice, chat, camera, photos, video, files, location }
