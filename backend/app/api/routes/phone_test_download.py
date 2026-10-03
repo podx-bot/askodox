@@ -36,6 +36,7 @@ PHONE_TEST_APKS = {
 # channel (askodox-latest); mirrored byte-for-byte, never rebuilt.
 MAIN_APKS = {
     "1283": "2db5535798f3791e6b5b983466eeaf8576ea095b6d5bfa387f4526fe099952e7",
+    "1284": "31231e43591c71d5ab7ed27fad49762d8a2527ab4012a6648c5a3965307e96d1",
 }
 SOURCE = "https://github.com/podx-bot/askodox/releases/download/phone-test-{b}/askodox-phone-test-{b}.apk"
 MAIN_SOURCE = "https://github.com/podx-bot/askodox/releases/download/askodox-latest/askodox-{b}.apk"
