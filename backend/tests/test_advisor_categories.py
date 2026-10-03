@@ -82,6 +82,9 @@ def test_car_accessory_never_inherits_car_budget_rules():
     assert holder["category"]["matched_by"] == "head_noun" and holder["category"]["alias"] == "holder"
     assert "budget" not in holder["category"]["required_fields"]
     assert car["category"]["required_fields"][:2] == ["budget", "condition"]
+    # The subject echoed back as "category_detected" is not an AI signal.
+    echo = _advise("phone holder for car", constraints={"category_detected": "phone holder for car"})
+    assert echo["category"]["key"] == "accessories"
     # The AI category wins when it names the thing.
     ai = _advise("car phone holder", category="Car accessories")
     assert ai["category"]["key"] == "accessories" and ai["category"]["matched_by"] == "ai_category"

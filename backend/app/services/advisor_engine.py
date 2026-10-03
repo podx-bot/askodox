@@ -293,8 +293,10 @@ def resolve_category(demand: Dict[str, Any], category_records: Iterable[Dict[str
     cats = _active_categories(category_records)
     if not cats:
         return None
-    ai = [_tokens(t) for t in _ai_categories(demand)]
     subjects = [_tokens(t) for t in _subjects(demand)]
+    # category_signal falls back to the subject itself when nothing better
+    # was detected: that is the request's own words, not an AI category.
+    ai = [_head(t) for t in (_tokens(c) for c in _ai_categories(demand)) if t and t not in subjects]
     heads = [_head(t) for t in subjects]
     best: Optional[Tuple[Tuple[int, int, int], Dict[str, Any], str, str]] = None
     for cat in cats:
