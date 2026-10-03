@@ -9,9 +9,9 @@ on:
         default: false
         type: boolean
       build_number:
-        description: Explicit Android build number for the release channel
+        description: Explicit Android build number (leave empty = automatic, always above every published build)
         required: false
-        default: '919'
+        default: ''
         type: string
       compare_run_id:
         description: Optional Live Build run id whose signed APK must be updatable by this one (e.g. the build installed on a test phone)
