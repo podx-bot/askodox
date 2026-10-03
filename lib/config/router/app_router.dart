@@ -20,7 +20,6 @@ import '../../features/admin/presentation/admin_screens.dart';
 import '../../features/admin/presentation/localized_admin_entry.dart';
 import '../../features/admin/presentation/localized_admin_sections.dart';
 import '../../features/location/presentation/location_setup_screen.dart';
-import '../../features/location/presentation/shop_details_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
@@ -33,6 +32,9 @@ import '../../features/orders/presentation/order_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
+import '../../features/companion/companion_performance_panel.dart';
+import '../../features/companion/companion_vrm_engine.dart';
+import '../../features/companion/screen_guide.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -126,10 +128,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Nearby results appear in the chat for the chosen location; there is
       // no separate (empty) "Nearby shops" page to navigate through.
       GoRoute(path: '/nearby', redirect: (context, state) => '/'),
-      GoRoute(
-          path: '/shop/:id',
-          builder: (context, state) =>
-              ShopDetailsScreen(shopId: state.pathParameters['id']!)),
+      // The old mock shop page (buttons that did nothing) is retired: shops
+      // appear as result cards in Main Chat.
+      GoRoute(path: '/shop/:id', redirect: (context, state) => '/'),
       GoRoute(path: '/map/shop/:id', redirect: (context, state) => '/'),
       GoRoute(path: '/nearby/product/:id', redirect: (context, state) => '/'),
       GoRoute(path: '/alert/:id/map', redirect: (context, state) => '/updates'),
@@ -146,6 +147,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/settings/notifications',
           builder: (context, state) => const NotificationSettingsScreen()),
+      GoRoute(path: '/companion/screen-guide', builder: (context, state) => const ScreenGuideScreen()),
       GoRoute(
           path: '/notification-preferences',
           redirect: (context, state) => '/settings/notifications'),
@@ -183,6 +185,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Demo buyer "insights" (sample charts) are not a customer feature.
       GoRoute(path: '/analytics/buyer', redirect: (context, state) => '/'),
       GoRoute(path: '/analytics/privacy', redirect: (context, state) => '/privacy'),
+      // Profile > Companion: real-device performance + the Human HD engine lab.
+      GoRoute(path: '/companion-performance', builder: (context, state) => const AskodoxCompanionPerformancePanel()),
+      GoRoute(path: '/companion-lab', builder: (context, state) => const AskodoxCompanionEngineLab()),
       GoRoute(
           path: '/privacy',
           builder: (context, state) => const PrivacyCenterScreen()),

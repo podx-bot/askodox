@@ -92,6 +92,22 @@ def test_pages_are_classified_and_only_buyable_pages_are_options():
     assert classify_page("https://www.justdial.com/Vijayawada/AC-Repair", "AC repair") == "directory"
 
 
+def test_section5_electric_scooter_and_insurance_pages_are_never_invented_products():
+    """Universal page rules (no category patch) for the round's retest list."""
+    # Electric scooter: comparison/news pages are content, a shop page is an option.
+    assert classify_page("https://www.zigwheels.com/news/best-scooters", "Best electric scooters in 2026") == "review"
+    assert classify_page("https://ev.example.in/blog/ola-vs-ather", "Ola S1 vs Ather 450X comparison") == "article"
+    assert classify_page("https://www.flipkart.com/p/electric-scooter", "Electric scooter 2 kW") == "product_page"
+    assert classify_page("https://www.youtube.com/watch?v=ev", "Electric scooter review") == "video"
+    # Insurance: guides/explainers are information, never a purchasable policy.
+    assert classify_page("https://ins.example.in/guide", "What is term insurance? Explained") == "article"
+    assert classify_page("https://ins.example.in/two-wheeler", "Two wheeler insurance",
+                         "Learn how cover works") == "info"
+    assert classify_page("https://ins.example.in/buy", "Buy two wheeler insurance online",
+                         "Get a quote and buy in minutes") == "store"
+    assert classify_page("https://www.quora.com/which-insurance", "Which insurance is best?") == "forum"
+
+
 def test_india_request_never_ranks_us_results():
     assert region_mismatch("https://www.homedepot.com/services/ac-repair", "AC repair service", "$89 AC tune-up")
     assert region_mismatch("https://acfix.example.com", "AC repair Manhattan", "Book in Manhattan today")

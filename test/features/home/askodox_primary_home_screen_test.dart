@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/home/data/greeting_repository.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:podx/services/video_analysis_service.dart';
@@ -16,7 +17,7 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  testWidgets('primary home orb starts voice inside Main Chat', (tester) async {
+  testWidgets('primary home companion opens its actions; Voice starts in-app recording', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tester.view.physicalSize = const Size(1440, 2400);
     tester.view.devicePixelRatio = 3;
@@ -31,8 +32,10 @@ void main() {
     });
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        // The configured greeting is fetched from the backend; no network here.
+        overrides: [askodoxGreetingProvider.overrideWith((ref, language) async => null)],
+        child: const MaterialApp(
           home: Scaffold(body: AskodoxPrimaryHomeScreen()),
         ),
       ),
@@ -40,6 +43,9 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
+    await tester.pump();
+    expect(calls, isEmpty, reason: 'the companion opens its actions first');
+    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-voice')));
     await tester.pump();
 
     // Main Chat voice records in-app for the Sarvam-first backend
@@ -50,7 +56,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('primary home attachment menu includes universal video input',
+  testWidgets('primary home companion actions include universal video input',
       (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tester.view.physicalSize = const Size(1440, 2400);
@@ -59,14 +65,17 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        // The configured greeting is fetched from the backend; no network here.
+        overrides: [askodoxGreetingProvider.overrideWith((ref, language) async => null)],
+        child: const MaterialApp(
           home: Scaffold(body: AskodoxPrimaryHomeScreen()),
         ),
       ),
     );
     await tester.pump();
-    await tester.tap(find.byTooltip('Add attachment'));
+    expect(find.byTooltip('Add attachment'), findsNothing, reason: 'no separate attach button');
+    await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

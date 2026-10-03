@@ -96,6 +96,21 @@ class UniversalMatch {
     this.offerTitle,
     this.salaryText,
     this.pageType,
+    this.clickId,
+    this.redirectPath,
+    this.benefits,
+    this.latitude,
+    this.longitude,
+    this.sponsored = false,
+    this.sponsoredLabel,
+    this.videoId,
+    this.embedUrl,
+    this.videoPlatform,
+    this.relationship,
+    this.videoAnalyzed = false,
+    this.relatedProducts = const [],
+    this.relatedServices = const [],
+    this.merchantOffer,
   });
 
   final String id;
@@ -147,7 +162,55 @@ class UniversalMatch {
   /// directory...), as classified by the backend.
   final String? pageType;
 
+  /// Partner Hub rows: the backend's click id for this shown result and the
+  /// ASKODOX tracked-redirect path (`/go/{click id}`).
+  final String? clickId;
+  final String? redirectPath;
+
+  /// Verified offers / coupons / cashback that apply to this result
+  /// (backend benefits engine: {offers: [...], more, comparison_note}).
+  final Map<String, Object?>? benefits;
+
+  /// The option's real place (Directions); null when the source gave none.
+  final double? latitude;
+  final double? longitude;
+
+  /// A paid placement (Command Center sponsored campaign). Served in its own
+  /// section after the organic results -- never mixed into their ranking.
+  final bool sponsored;
+
+  /// The disclosure the campaign carries ("Sponsored" / "Promoted").
+  final String? sponsoredLabel;
+
+  /// Command Center (reviewed) video: its id for Ask / tracking, the
+  /// official embed URL (null -> open in its own app / web), the platform,
+  /// the commercial relationship (organic / merchant / creator / affiliate /
+  /// sponsored), whether a transcript exists, and what it is about.
+  final String? videoId;
+  final String? embedUrl;
+  final String? videoPlatform;
+  final String? relationship;
+  final bool videoAnalyzed;
+  final List<String> relatedProducts;
+  final List<String> relatedServices;
+
+  /// A registered seller's live, reviewed merchant offer ({id, title,
+  /// summary, min_bill, valid_to, claim_path}).
+  final Map<String, Object?>? merchantOffer;
+
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
+
+  /// The visible paid-placement badge, or null for an organic result:
+  /// sponsored campaigns show their own label, affiliate / partner links
+  /// (ASKODOX may earn a commission) show "Sponsored".
+  String? get paidPlacementLabel {
+    if (sponsored) {
+      final label = sponsoredLabel?.trim() ?? '';
+      return label == 'Promoted' ? 'Promoted' : 'Sponsored';
+    }
+    if (affiliate || segment == 'partner' || source == 'partner') return 'Sponsored';
+    return null;
+  }
 
   double get totalValueScore {
     final backend = (score ?? 0).clamp(0, 100).toDouble();
@@ -186,15 +249,39 @@ class UniversalMatch {
           disclosure: json['disclosure']?.toString(),
           affiliate: json['affiliate'] == true,
           ratingAverage: (json['rating_average'] as num?)?.toDouble(),
+          latitude: (json['latitude'] as num?)?.toDouble(),
+          longitude: (json['longitude'] as num?)?.toDouble(),
           reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
           segment: json['segment']?.toString(),
           sourceName: json['source_name']?.toString(),
           duration: json['duration']?.toString(),
           priceVerified: json['price_verified'] != false,
-          offerTitle: (json['offer'] is Map ? (json['offer'] as Map)['title'] : json['offer_title'])?.toString(),
+          offerTitle: (json['offer'] is Map
+                  ? (json['offer'] as Map)['title']
+                  : json['offer_title'] ??
+                      (json['merchant_offer'] is Map ? (json['merchant_offer'] as Map)['summary'] : null))
+              ?.toString(),
           salaryText: json['salary_text']?.toString(),
           pageType: json['page_type']?.toString(),
+          clickId: json['click_id']?.toString(),
+          redirectPath: json['redirect_path']?.toString(),
+          benefits: json['benefits'] is Map ? Map<String, Object?>.from(json['benefits'] as Map) : null,
+          sponsored: json['sponsored'] == true,
+          sponsoredLabel: json['sponsored_label']?.toString(),
+          videoId: json['video_id']?.toString(),
+          embedUrl: json['embed_url']?.toString(),
+          videoPlatform: json['platform']?.toString(),
+          relationship: json['relationship']?.toString(),
+          videoAnalyzed: json['analyzed'] == true,
+          relatedProducts: _strings(json['products']),
+          relatedServices: _strings(json['services']),
+          merchantOffer: json['merchant_offer'] is Map
+              ? Map<String, Object?>.from(json['merchant_offer'] as Map)
+              : null,
       );
+
+  static List<String> _strings(Object? value) =>
+      value is List ? [for (final v in value) if (v != null && '$v'.trim().isNotEmpty) '$v'] : const [];
 
   /// Round-trips through [UniversalMatch.fromJson] (History restoration).
   Map<String, Object?> toJson() => {
@@ -218,6 +305,8 @@ class UniversalMatch {
         'disclosure': disclosure,
         'affiliate': affiliate,
         'rating_average': ratingAverage,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
         'review_count': reviewCount,
         'segment': segment,
         'source_name': sourceName,
@@ -226,6 +315,19 @@ class UniversalMatch {
         'offer_title': offerTitle,
         'salary_text': salaryText,
         'page_type': pageType,
+        'click_id': clickId,
+        'redirect_path': redirectPath,
+        'benefits': benefits,
+        if (sponsored) 'sponsored': true,
+        if (sponsoredLabel != null) 'sponsored_label': sponsoredLabel,
+        if (videoId != null) 'video_id': videoId,
+        if (embedUrl != null) 'embed_url': embedUrl,
+        if (videoPlatform != null) 'platform': videoPlatform,
+        if (relationship != null) 'relationship': relationship,
+        if (videoAnalyzed) 'analyzed': true,
+        if (relatedProducts.isNotEmpty) 'products': relatedProducts,
+        if (relatedServices.isNotEmpty) 'services': relatedServices,
+        if (merchantOffer != null) 'merchant_offer': merchantOffer,
       };
 }
 

@@ -16,13 +16,10 @@ class SocialVideoApiService:
 
     @staticmethod
     def _youtube_api_key() -> str:
-        """Read the production key, while accepting the Admin/Railway legacy name."""
-        return (os.getenv("YOUTUBE_DATA_API_KEY","").strip()
-                or os.getenv("YOUTUBE_API_KEY","").strip())
-
-    @staticmethod
-    def _youtube_api_key() -> str:
-        return (os.getenv("YOUTUBE_DATA_API_KEY","").strip() or os.getenv("YOUTUBE_API_KEY","").strip())
+        """Same resolution as the Command Center registry (YOUTUBE_API_KEY or
+        YOUTUBE_DATA_API_KEY); the value never leaves the server."""
+        from app.services.commerce_finance import youtube_api_key
+        return youtube_api_key()
 
     def status(self) -> list[dict[str,Any]]:
         return [

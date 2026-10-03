@@ -392,6 +392,27 @@ def _settlement(order: dict[str, Any]) -> dict[str, Any]:
             "needs_reference": info.needs_reference, "online": info.online, "available": True}
 
 
+def _upi_pay(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
+    """Direct UPI: a real upi://pay link to the seller's OWN UPI ID (from their
+    profile) for the customer. Nothing when the seller has not added one --
+    never a placeholder or demo VPA."""
+    if role != "buyer" or order.get("settlement_method") != lifecycle.DIRECT_UPI \
+            or order.get("payment_state") not in {"AWAITING_PAYMENT", "NOT_STARTED", None}:
+        return {}
+    try:
+        from app.repositories.user_profile_repository import UserProfileRepository
+
+        seller = UserProfileRepository(container.settings.database_path).get(str(order.get("seller_user_id") or ""))
+    except Exception:
+        return {}
+    amount = order.get("total_amount") or order.get("price")
+    link = payment_gateway.upi_intent(seller.get("upi_id") or "", seller.get("business_name") or seller.get("name") or "",
+                                      float(amount) if amount else None, f"ASKODOX order {order['id']}",
+                                      f"ASKODOX{order['id']}")
+    return {"upi_link": link, "upi_payee": seller.get("business_name") or seller.get("name")} if link else \
+        {"upi_link": None, "upi_missing": "The seller has not added a UPI ID yet -- ask them for it in chat."}
+
+
 def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
     messages = container.order_repository.messages(order["id"])
     body = _to_response(order, viewer=role).model_dump()
@@ -402,7 +423,7 @@ def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
         "actions": lifecycle.buyer_actions(order, messages) if role == "buyer" else lifecycle.seller_actions(order, messages),
         "viewer": role,
         "payment_note": "ASKODOX does not process payments; payment is made directly to the seller/provider.",
-        "settlement": _settlement(order),
+        "settlement": _settlement(order) | _upi_pay(container, order, role),
         "participants": [{"role": p["role"], "user": mask_user_id(p["user_id"])}
                          for p in _participants(container, order["id"])],
     })
@@ -475,6 +496,10 @@ def cancel_order(order_id: int, request: Request) -> dict[str, Any]:
 class PaymentAction(BaseModel):
     action: str
     reference: str | None = Field(default=None, max_length=120)
+    # Online checkout result (Razorpay Standard Checkout success callback).
+    razorpay_order_id: str | None = Field(default=None, max_length=64)
+    razorpay_payment_id: str | None = Field(default=None, max_length=64)
+    razorpay_signature: str | None = Field(default=None, max_length=128)
 
 
 @router.post("/{order_id}/payment")
@@ -515,6 +540,8 @@ def order_payment(order_id: int, payload: PaymentAction, request: Request) -> di
                                                  paid_at=datetime.now(timezone.utc).isoformat())
         _trace_order(container, container.order_repository.get(order_id), "payment_confirmed",
                      payment={"method": order.get("settlement_method"), "state": "VERIFIED"})
+    elif role == "buyer" and action in {"start_online", "verify_online"}:
+        return _online_payment(container, request, order, action, payload)
     elif role == "seller" and action in {"confirm_received", "not_received"}:
         if state != "PROOF_SUBMITTED":
             raise HTTPException(status_code=409, detail="No payment reference is waiting for confirmation")
@@ -526,6 +553,47 @@ def order_payment(order_id: int, payload: PaymentAction, request: Request) -> di
     else:
         raise HTTPException(status_code=422, detail="Unsupported payment action")
     return _detail(container, container.order_repository.get(order_id), role)
+
+
+def _online_payment(container: Any, request: Request, order: dict[str, Any], action: str,
+                    payload: "PaymentAction") -> dict[str, Any]:
+    """Online payment through a configured gateway (Razorpay). Refused -- never
+    faked -- when no gateway is configured or online payments are switched off."""
+    from app.api.routes.command_center import command_center
+    from app.api.routes.platform import platform
+
+    pf = platform(container)
+    if not command_center(container).flags().get("payments.online", {}).get("enabled", True):
+        raise HTTPException(status_code=409, detail="Online payments are switched off")
+    provider = pf.checkout_provider()
+    if provider is None:
+        raise HTTPException(status_code=409, detail="Online payment is not available yet; pay by UPI or cash")
+    if order["status"] not in lifecycle.OPEN_EXECUTION | lifecycle.COMPLETION_STATES:
+        raise HTTPException(status_code=409, detail="Payment is made after the seller/provider accepts")
+    if (order.get("payment_state") or "") == "VERIFIED":
+        raise HTTPException(status_code=409, detail="This order is already paid")
+    amount = order.get("total_amount") or order.get("price")
+    if not amount or float(amount) <= 0:
+        raise HTTPException(status_code=409, detail="The order has no agreed amount yet")
+    try:
+        payment = pf.payments.create(idempotency_key=f"order-{order['id']}-{float(amount):.2f}", method="upi",
+                                     amount=float(amount), order_ref=f"order:{order['id']}",
+                                     payer_ref=str(order.get("buyer_user_id") or ""),
+                                     payee_ref=str(order.get("seller_user_id") or ""), provider=provider,
+                                     actor="buyer")
+        if action == "start_online":
+            checkout = pf.start_checkout(payment)
+            return {"order_id": order["id"], "payment_id": payment["id"], "checkout": checkout}
+        result = pf.razorpay.verify_checkout(payload.razorpay_order_id or "", payload.razorpay_payment_id or "",
+                                             payload.razorpay_signature or "")
+    except PermissionError as error:
+        raise HTTPException(status_code=401, detail=str(error)) from error
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=409, detail=str(error)[:200]) from error
+    pf.sync_order(result["payment"])
+    return _detail(container, container.order_repository.get(order["id"]), "buyer")
 
 
 class ReturnRequest(BaseModel):

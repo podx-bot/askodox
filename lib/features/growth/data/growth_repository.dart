@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../services/place_name_service.dart';
 
 /// A place found by address search or chosen on the map.
 class AskodoxPlace {
-  const AskodoxPlace({required this.latitude, required this.longitude, required this.label});
+  const AskodoxPlace({required this.latitude, required this.longitude, required this.label, this.kind = 'place'});
   final double latitude;
   final double longitude;
   final String label;
+
+  /// 'area' (a town / locality / address) or 'place' (a shop / landmark).
+  final String kind;
 }
 
 /// Pickup -> drop: real road distance/time and quotes that registered
@@ -102,7 +106,8 @@ class ApiGrowthRepository implements GrowthRepository {
           AskodoxPlace(
             latitude: _num(item['latitude'])!,
             longitude: _num(item['longitude'])!,
-            label: [item['name'], item['address']].where((v) => '${v ?? ''}'.isNotEmpty).join(', '),
+            label: askodoxJoinPlace(['${item['name'] ?? ''}', '${item['address'] ?? ''}']),
+            kind: '${item['kind'] ?? 'place'}',
           ),
     ];
   }

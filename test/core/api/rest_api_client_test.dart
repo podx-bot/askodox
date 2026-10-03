@@ -24,6 +24,22 @@ void main() {
     expect((result as ApiSuccess<Map<String, Object?>>).data['thread_count'], 1);
   });
 
+  test('APK 1275: a query written in the path is sent as a query, not encoded into the path', () async {
+    final seen = <Uri>[];
+    final mock = MockClient((request) async {
+      seen.add(request.url);
+      return http.Response(jsonEncode({'ok': true}), 200, headers: {'content-type': 'application/json'});
+    });
+    final client = RestApiClient(baseUrl: Uri.parse('https://staging.example.com'), httpClient: mock);
+    await client.get<Map<String, Object?>>('/api/greeting?language=te&local_hour=18&name=Manohar&last=');
+    await client.get<Map<String, Object?>>('/api/discover/places?q=chicken%20shop&near=Vuyyuru',
+        options: const ApiRequestOptions(query: {'limit': 5}));
+    expect(seen[0].path, '/api/greeting', reason: 'it was /api/greeting%3Flanguage... -> 404 on the phone');
+    expect(seen[0].queryParameters, {'language': 'te', 'local_hour': '18', 'name': 'Manohar', 'last': ''});
+    expect(seen[1].path, '/api/discover/places');
+    expect(seen[1].queryParameters, {'q': 'chicken shop', 'near': 'Vuyyuru', 'limit': '5'});
+  });
+
   test('POST sends JSON body and decodes JSON response', () async {
     final mock = MockClient((request) async {
       expect(request.method, 'POST');

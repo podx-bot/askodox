@@ -107,4 +107,29 @@ class SupportEscalationService {
       if (_client == null) client.close();
     }
   }
+
+  /// The customer's answer to ASKODOX Support on the same case (a resolved
+  /// case reopens). Returns the updated case, or null when it failed.
+  Future<Map<String, Object?>?> reply(String caseId, String message, {String? authToken}) async {
+    if (authToken == null || authToken.isEmpty || message.trim().isEmpty) return null;
+    final client = _client ?? http.Client();
+    try {
+      final response = await client.post(
+        Uri.parse('$_baseUrl/api/in-app/support/cases/$caseId/reply'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        body: jsonEncode({'message': message.trim()}),
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      return decoded is Map ? Map<String, Object?>.from(decoded) : null;
+    } catch (_) {
+      return null;
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
 }

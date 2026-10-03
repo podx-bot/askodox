@@ -8,7 +8,7 @@ import '../domain/geo_models.dart';
 /// talks to the OS location APIs; everything else in the feature (including
 /// [LocationController]) depends only on the [DeviceLocationGateway]
 /// interface so it stays testable without a real device.
-class GeolocatorLocationGateway implements DeviceLocationGateway {
+class GeolocatorLocationGateway extends DeviceLocationGateway {
   const GeolocatorLocationGateway();
 
   @override
@@ -70,6 +70,47 @@ class GeolocatorLocationGateway implements DeviceLocationGateway {
       return point.isValid ? point : null;
     } catch (_) {
       return null;
+    }
+  }
+
+  @override
+  Future<GeoPoint?> getLastKnownPosition() async {
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position == null) return null;
+      // An old fix (yesterday, another town) is not "current location".
+      if (DateTime.now().difference(position.timestamp) > DeviceLocationGateway.maxLastKnownAge) return null;
+      final point = GeoPoint(position.latitude, position.longitude);
+      return point.isValid ? point : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> isApproximate() async {
+    try {
+      return await Geolocator.getLocationAccuracy() == LocationAccuracyStatus.reduced;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> openLocationSettings() async {
+    try {
+      return await Geolocator.openLocationSettings();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> openAppSettings() async {
+    try {
+      return await Geolocator.openAppSettings();
+    } catch (_) {
+      return false;
     }
   }
 

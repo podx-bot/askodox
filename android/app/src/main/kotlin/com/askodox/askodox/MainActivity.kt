@@ -165,9 +165,79 @@ class MainActivity : FlutterActivity() {
                         call.argument<Double>("longitude"),
                         result,
                     )
+                    "geocodeName" -> geocodeName(call.argument<String>("query"), result)
+                    "floatingBubbleStatus" -> result.success(
+                        mapOf(
+                            "supported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O),
+                            "canDrawOverlays" to AskodoxFloatingCompanionService.canDraw(this),
+                            "running" to (AskodoxFloatingCompanionService.instance != null),
+                        ),
+                    )
+                    "openOverlaySettings" -> {
+                        startActivity(
+                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(true)
+                    }
+                    "startFloatingBubble" -> result.success(startFloatingBubble())
+                    "stopFloatingBubble" -> {
+                        stopService(Intent(this, AskodoxFloatingCompanionService::class.java))
+                        result.success(true)
+                    }
+                    "deviceHealth" -> result.success(deviceHealth())
+                    // Screen Guide (opt-in accessibility service; see AskodoxScreenGuideService).
+                    "screenGuideStatus" -> result.success(
+                        mapOf(
+                            "supported" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O),
+                            // False in sideloaded phone-test builds: the service is only
+                            // declared in Play-distributed builds (see AndroidManifest.xml).
+                            "declared" to screenGuideDeclared(),
+                            "accessibilityEnabled" to AskodoxScreenGuideService.isEnabled(this),
+                            "connected" to (AskodoxScreenGuideService.instance != null),
+                            "state" to AskodoxScreenGuideService.state,
+                            "instruction" to AskodoxScreenGuideService.lastInstruction,
+                        ),
+                    )
+                    "openAccessibilitySettings" -> {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        result.success(true)
+                    }
+                    "startScreenGuide" -> {
+                        val sessionId = call.argument<String>("sessionId").orEmpty()
+                        val token = call.argument<String>("token").orEmpty()
+                        val baseUrl = call.argument<String>("baseUrl").orEmpty()
+                        if (sessionId.isEmpty() || token.isEmpty() || !baseUrl.startsWith("https://")) {
+                            result.success(false)
+                        } else {
+                            result.success(
+                                AskodoxScreenGuideService.begin(
+                                    AskodoxScreenGuideService.Session(
+                                        sessionId, token, baseUrl,
+                                        call.argument<String>("language") ?: "en",
+                                        call.argument<Boolean>("voice") ?: true,
+                                    ),
+                                ),
+                            )
+                        }
+                    }
+                    "resumeScreenGuide" -> { AskodoxScreenGuideService.resume(); result.success(true) }
+                    "stopScreenGuide" -> {
+                        AskodoxScreenGuideService.end(call.argument<String>("outcome") ?: "abandoned")
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun screenGuideDeclared(): Boolean = try {
+        packageManager.getServiceInfo(
+            android.content.ComponentName(this, AskodoxScreenGuideService::class.java), 0,
+        )
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
     }
 
     private fun initializeTextToSpeech() {
@@ -670,6 +740,34 @@ class MainActivity : FlutterActivity() {
         }.start()
     }
 
+    // Finds a typed place ("vijayawada") with the phone's geocoder when the
+    // backend search has nothing (Maps key without Geocoding / offline).
+    @Suppress("DEPRECATION")
+    private fun geocodeName(query: String?, result: MethodChannel.Result) {
+        val text = query?.trim().orEmpty()
+        if (text.length < 2 || !Geocoder.isPresent()) {
+            result.success(emptyList<Map<String, Any?>>())
+            return
+        }
+        Thread {
+            val found = try {
+                Geocoder(this, Locale("en", "IN")).getFromLocationName(text, 5) ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val places = found.filter { it.countryCode == null || it.countryCode == "IN" }.map {
+                mapOf(
+                    "latitude" to it.latitude,
+                    "longitude" to it.longitude,
+                    "featureName" to it.featureName,
+                    "locality" to (it.locality ?: it.subAdminArea),
+                    "adminArea" to it.adminArea,
+                )
+            }
+            runOnUiThread { result.success(places) }
+        }.start()
+    }
+
     // ------------------------------------------------------ notifications --
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -785,6 +883,63 @@ class MainActivity : FlutterActivity() {
         } else {
             result.error("location_denied", "Location permission denied", null)
         }
+    }
+
+    // ----------------------------------------------------- floating bubble --
+
+    // Started only while ASKODOX is on screen (Android 12+ forbids starting
+    // a foreground service from the background) and only with the overlay
+    // permission the user granted.
+    private fun startFloatingBubble(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !AskodoxFloatingCompanionService.canDraw(this)) return false
+        return try {
+            ContextCompat.startForegroundService(this, Intent(this, AskodoxFloatingCompanionService::class.java))
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AskodoxFloatingCompanionService.instance?.setVisible(false)
+    }
+
+    override fun onStop() {
+        AskodoxFloatingCompanionService.instance?.setVisible(true)
+        super.onStop()
+    }
+
+    // ------------------------------------------------------- device health --
+
+    // Battery, temperature, thermal state and memory for the in-app
+    // performance panel (read-only, nothing leaves the phone).
+    private fun deviceHealth(): Map<String, Any?> {
+        val battery = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = battery?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val status = battery?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val temp = battery?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE) ?: Int.MIN_VALUE
+        val power = getSystemService(POWER_SERVICE) as android.os.PowerManager
+        val activity = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        val memory = android.app.ActivityManager.MemoryInfo().also { activity.getMemoryInfo(it) }
+        return mapOf(
+            "batteryPercent" to (if (level >= 0 && scale > 0) level * 100 / scale else null),
+            "charging" to (status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == android.os.BatteryManager.BATTERY_STATUS_FULL),
+            "batteryTempC" to (if (temp != Int.MIN_VALUE) temp / 10.0 else null),
+            "thermalStatus" to (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) power.currentThermalStatus else null),
+            "powerSave" to power.isPowerSaveMode,
+            "appPssKb" to android.os.Debug.getPss(),
+            "deviceAvailMb" to memory.availMem / (1024 * 1024),
+            "deviceTotalMb" to memory.totalMem / (1024 * 1024),
+            "lowMemory" to memory.lowMemory,
+            "memoryClassMb" to activity.memoryClass,
+            "sdk" to Build.VERSION.SDK_INT,
+            "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            "processUptimeMs" to (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                android.os.SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime() else null),
+        )
     }
 
     override fun onPause() {

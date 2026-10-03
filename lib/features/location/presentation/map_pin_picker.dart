@@ -25,7 +25,11 @@ class AskodoxMapPinPicker extends ConsumerStatefulWidget {
     this.initial,
     this.namer,
     this.showTiles = true,
+    this.deviceSearch,
   });
+
+  /// The phone's geocoder (injectable for tests).
+  final Future<List<({double latitude, double longitude, String label})>> Function(String query)? deviceSearch;
 
   final String title;
   final AskodoxPlace? initial;
@@ -55,6 +59,8 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
   String? _label;
   bool _pinned = false;
   bool _naming = false;
+  bool _searching = false;
+  String? _searchMessage;
   List<AskodoxPlace> _results = const [];
 
   @override
@@ -95,20 +101,45 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
     });
   }
 
+  /// Search text -> geocode (backend: the typed town first, then nearby
+  /// places; phone geocoder when the backend has nothing) -> the map and
+  /// pin move to the best result at once; other results stay listed.
   Future<void> _runSearch() async {
-    final results = await ref.read(growthRepositoryProvider).searchPlaces(
-          _search.text,
-          latitude: _pin.latitude,
-          longitude: _pin.longitude,
+    final query = _search.text.trim();
+    if (query.length < 2 || _searching) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _searching = true;
+      _searchMessage = null;
+    });
+    var results = await ref.read(growthRepositoryProvider).searchPlaces(
+          query,
+          latitude: _pinned ? _pin.latitude : null,
+          longitude: _pinned ? _pin.longitude : null,
         );
+    if (results.isEmpty) {
+      final onDevice = await (widget.deviceSearch ?? const PlaceNameService().searchOnDevice)(query);
+      results = [
+        for (final p in onDevice)
+          AskodoxPlace(latitude: p.latitude, longitude: p.longitude, label: p.label.isEmpty ? query : p.label, kind: 'area'),
+      ];
+    }
     if (!mounted) return;
-    setState(() => _results = results);
+    setState(() {
+      _searching = false;
+      _results = results.length > 1 ? results.skip(1).toList() : const [];
+      _searchMessage = results.isEmpty ? 'No place found for "$query". Check the spelling or tap the map.' : null;
+    });
+    if (results.isNotEmpty) _choose(results.first, keepAlternatives: true);
   }
 
-  void _choose(AskodoxPlace place) {
+  void _choose(AskodoxPlace place, {bool keepAlternatives = false}) {
     final point = LatLng(place.latitude, place.longitude);
-    unawaited(_dropPin(point, label: place.label));
-    if (widget.showTiles) _map.move(point, 16);
+    final alternatives = keepAlternatives ? _results : const <AskodoxPlace>[];
+    unawaited(_dropPin(point, label: place.label).then((_) {
+      if (mounted && keepAlternatives) setState(() => _results = alternatives);
+    }));
+    if (widget.showTiles) _map.move(point, place.kind == 'area' ? 13 : 16);
   }
 
   String get _pinText => _label?.trim().isNotEmpty == true
@@ -130,19 +161,30 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
             decoration: InputDecoration(
               hintText: 'Search address, area or landmark',
               prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: IconButton(
-                key: const Key('askodoxPlaceSearchGo'),
-                icon: const Icon(Icons.arrow_forward_rounded),
-                onPressed: _runSearch,
-              ),
+              suffixIcon: _searching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                    )
+                  : IconButton(
+                      key: const Key('askodoxPlaceSearchGo'),
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      onPressed: _runSearch,
+                    ),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
         ),
+        if (_searchMessage != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(_searchMessage!, key: const Key('askodoxPlaceSearchMessage'),
+                style: const TextStyle(color: Color(0xFFB42318))),
+          ),
         if (_results.isNotEmpty)
           SizedBox(
-            height: 160,
+            height: 132,
             child: ListView(children: [
               for (final place in _results)
                 ListTile(

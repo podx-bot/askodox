@@ -67,7 +67,82 @@ What already works on the server (`backend/app/services/push_service.py`):
   go to the buyer
 - account deletion removes the user's device tokens
 
-## 3. Already configured (no action)
+## 3. Affiliate / partner programs (Command Center -> Partner Hub)
+
+Nothing to set in Railway except, optionally, `ASKODOX_PUBLIC_BASE_URL`
+(the backend's public https address, e.g. the Railway domain). It is used
+for tracked links (`/go/<click id>`) and the postback URL shown to you;
+without it the address is taken from the incoming request.
+
+For each partner (any company, any category):
+1. Apply on the partner's affiliate / partner program page (store it as
+   "Affiliate program signup URL"; notes under "How / where to apply").
+2. After approval, copy your tracking / tag ID and build a deep-link template
+   in the partner's link tool; paste both. Set the partner's sub-ID parameter
+   so ASKODOX's click id comes back in their reports.
+3. Level 2 (optional): if the partner gives a product API / feed, fill "Product
+   feed/API" and paste the key with "Set key" (stored on the server only).
+4. Level 3 (optional): "Postback URL" generates a token and the URL to paste
+   into the partner's conversion / postback settings (shown once).
+5. Level 4 (always): "Import report" takes the partner's conversion CSV.
+6. Press "Test", then "Enable".
+
+An affiliate link alone never gives ASKODOX the partner's product database,
+orders or customer care -- only what the partner actually provides.
+
+### Partner security settings (Railway variables)
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `ASKODOX_SECRETS_KEY` | **Yes, before saving any partner key** | Fernet key that encrypts partner API keys / feed tokens / postback tokens in the database. Without it the Partner Hub refuses to store keys (nothing is ever saved in plain text). |
+| `ASKODOX_SECRETS_KEY_PREVIOUS` | Only during rotation | Old key(s), comma-separated, still allowed to decrypt. |
+| `ASKODOX_PUBLIC_BASE_URL` | Recommended | Public https address of the backend (tracked links, postback URL). |
+| `ASKODOX_EVENT_RETENTION_DAYS` | No (default 90) | Raw search/impression/click rows older than this are rolled up into daily counts and deleted. Totals, trends and breakdowns stay exact. |
+| `ASKODOX_CLICK_TTL_HOURS` | No (default 48) | How long a shown partner result accepts card-view / click events. |
+
+Create a key once (on any computer with Python, or ask Claude to generate one
+for you and paste it only into Railway):
+`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+
+**Rotation:** generate a new key -> set `ASKODOX_SECRETS_KEY_PREVIOUS` = the old
+key and `ASKODOX_SECRETS_KEY` = the new key -> redeploy -> Command Center ->
+Partner Hub -> "Re-encrypt keys" -> when it reports 0 unreadable, remove
+`ASKODOX_SECRETS_KEY_PREVIOUS` and redeploy.
+
+**Recovery (key lost):** stored partner keys cannot be decrypted without it
+(by design). Set a new `ASKODOX_SECRETS_KEY`, then paste each partner's API key
+again ("Set key") and generate a new postback token ("Postback URL") and paste
+it into the partner dashboard. Links, impressions and conversions are not
+affected.
+
+Tracking protections: click ids are HMAC-signed (only ids ASKODOX issued are
+accepted), each card view / click / partner open / lead counts once per click
+id, events are accepted only for recent results, the public endpoints are
+rate-limited per client, postback tokens are compared in constant time and
+redacted from access logs, and every Partner Hub change is written to the
+Command Center audit log (field names only for secrets and links).
+
+## 3b. Offers, coupons & rewards (Command Center -> Offers & rewards)
+
+Nothing is shown to customers until a campaign exists and is active.
+- **Bank / card / UPI / wallet / merchant / partner offers:** enter them only
+  from a published source (the bank's or partner's offer page) -- paste the
+  source URL and tick "I verified this offer at the source". Without both,
+  the offer is never shown. Re-verify when the source changes.
+- **Coupons:** create a "coupon" campaign and paste the codes ("Add codes");
+  codes are encrypted with `ASKODOX_SECRETS_KEY` and revealed only to the
+  customer who claims one. A partner's coupon is marked redeemed when that
+  partner's postback reports a confirmed order with `coupon=<code>`.
+- **Scratch & Reveal:** a "scratch_reward" campaign with a fixed value
+  (ASKODOX credit, coupon, free gift/service). The highest-priority active
+  one is issued once per completed order of that customer -- no randomness.
+- **Budgets:** set total budget / total claims cap / per-user limit and who
+  funds it (ASKODOX, partner, merchant, bank or shared %). Reward cost shows
+  in the Revenue Center (net revenue after rewards).
+- **Bulk import:** "Import (JSON)" accepts the same fields as the form (e.g.
+  a partner's verified offer export).
+
+## 4. Already configured (no action)
 
 `BRAVE_SEARCH_API_KEY`, `SARVAM_API_KEY`, `GEMINI_API_KEY`,
 `OPENAI_API_KEY` and the WhatsApp variables exist in Railway. Do not

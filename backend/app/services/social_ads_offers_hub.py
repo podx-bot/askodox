@@ -13,11 +13,28 @@ from typing import Any
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+SOCIAL_CAMPAIGNS = "social_sponsored_campaigns"
+
+
+def migrate_social_campaign_table(conn: sqlite3.Connection) -> None:
+    """PR #128 first created its campaigns as `sponsored_campaigns`, the name
+    the Sponsored module (sponsored_repository.py) already owns with another
+    schema in the same database. Move a #128-shaped table to its own name,
+    rows included (idempotent; never deletes data)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sponsored_campaigns)").fetchall()}
+    if "owner_ref" not in cols or "name" in cols:
+        return
+    taken = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (SOCIAL_CAMPAIGNS,)).fetchone()
+    target = SOCIAL_CAMPAIGNS if not taken else f"{SOCIAL_CAMPAIGNS}_legacy_{datetime.now(timezone.utc):%Y%m%d%H%M%S}"
+    conn.execute(f"ALTER TABLE sponsored_campaigns RENAME TO {target}")
+
+
 @dataclass
 class SocialAdsOffersHub:
     db_path: str
     def __post_init__(self) -> None:
         with self._connect() as c:
+            migrate_social_campaign_table(c)
             c.executescript("""
             CREATE TABLE IF NOT EXISTS social_video_sources(
               provider_id TEXT PRIMARY KEY, provider_type TEXT NOT NULL,
@@ -32,7 +49,7 @@ class SocialAdsOffersHub:
               id INTEGER PRIMARY KEY AUTOINCREMENT, video_id INTEGER NOT NULL, user_ref TEXT NOT NULL,
               kind TEXT NOT NULL DEFAULT 'question', body TEXT NOT NULL, parent_id INTEGER,
               created_at TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS sponsored_campaigns(
+            CREATE TABLE IF NOT EXISTS social_sponsored_campaigns(
               id INTEGER PRIMARY KEY AUTOINCREMENT, owner_ref TEXT NOT NULL, campaign_type TEXT NOT NULL,
               title TEXT NOT NULL, destination_url TEXT, category TEXT, location_scope TEXT,
               budget REAL, starts_at TEXT, ends_at TEXT, active INTEGER NOT NULL DEFAULT 0,
@@ -96,12 +113,12 @@ class SocialAdsOffersHub:
         if campaign_type not in {"sponsored","boost"}: raise ValueError("campaign_type must be sponsored or boost")
         now=_now()
         with self._connect() as c:
-            cur=c.execute("""INSERT INTO sponsored_campaigns(owner_ref,campaign_type,title,destination_url,category,
+            cur=c.execute("""INSERT INTO social_sponsored_campaigns(owner_ref,campaign_type,title,destination_url,category,
               location_scope,budget,starts_at,ends_at,active,metadata_json,created_at,updated_at)
               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",(owner_ref,campaign_type,title,v.get("destination_url"),
               v.get("category"),v.get("location_scope"),v.get("budget"),v.get("starts_at"),v.get("ends_at"),
               int(bool(v.get("active"))),json.dumps(v.get("metadata") or {}),now,now))
-            return dict(c.execute("SELECT * FROM sponsored_campaigns WHERE id=?",(cur.lastrowid,)).fetchone())
+            return dict(c.execute("SELECT * FROM social_sponsored_campaigns WHERE id=?",(cur.lastrowid,)).fetchone())
     def create_offer(self, partner_id:str, offer_type:str, title:str, **v:Any)->dict[str,Any]:
         with self._connect() as c:
             cur=c.execute("""INSERT INTO partner_offers(partner_id,offer_type,title,bank_name,card_network,merchant,
@@ -115,7 +132,7 @@ class SocialAdsOffersHub:
         token=secrets.token_urlsafe(24); now=_now()
         with self._connect() as c:
             c.execute("""INSERT OR IGNORE INTO scratch_rewards(user_ref,trigger_type,trigger_ref,reward_type,reward_value,
-              status,reveal_token,expires_at,metadata_json,created_at) VALUES(?,?,?,?,?,'READY',?,?,?,?,?)""",
+              status,reveal_token,expires_at,metadata_json,created_at) VALUES(?,?,?,?,?,'READY',?,?,?,?)""",
               (user_ref,trigger_type,trigger_ref,reward_type,float(reward_value),token,v.get("expires_at"),
                json.dumps(v.get("metadata") or {}),now))
             return dict(c.execute("""SELECT * FROM scratch_rewards WHERE user_ref=? AND trigger_type=? AND trigger_ref=?""",

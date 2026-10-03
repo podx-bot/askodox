@@ -11,3 +11,16 @@ import tempfile
 if not os.getenv("PODX_DATABASE_PATH"):
     _session_dir = tempfile.mkdtemp(prefix="askodox-tests-")
     os.environ["PODX_DATABASE_PATH"] = os.path.join(_session_dir, "podx_test.db")
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Per-client limits (incl. the Command Center sign-in lockout) are
+    process-wide; every test starts with a clean slate."""
+    from app.services import rate_limit
+
+    rate_limit.reset_for_tests()
+    yield

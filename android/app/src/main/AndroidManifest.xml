@@ -1,13 +1,22 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Floating ASKODOX bubble: only after the user turns it on in Profile
+         and grants "Display over other apps". No microphone / screen access. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Added by the geolocator plugin for background location tracking, which
+         ASKODOX never uses (location follows the phone only in the foreground). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove" />
     <application
         android:label="@string/app_name"
-        android:name="${applicationName}"
+        android:name=".AskodoxApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -36,6 +45,20 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <service
+            android:name=".AskodoxFloatingCompanionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Optional floating assistant bubble the user turns on; tapping it returns to the app. No audio or screen access." />
+        </service>
+        <!-- Screen Guide accessibility service: NOT declared in the default build.
+             Google Play Protect's enhanced fraud protection blocks apps that declare
+             BIND_ACCESSIBILITY_SERVICE when they are installed from internet
+             sideloading sources. The service is added only to builds made for
+             Play distribution after the Play accessibility declaration
+             (tool/apply_android_screen_guide.sh, CI input include_screen_guide). -->
             <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.askodox.fileprovider"

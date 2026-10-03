@@ -37,6 +37,16 @@ class Settings:
     session_token_secret: str
     # Market the discovery engine serves first (Brave country, Places region).
     search_country: str = "IN"
+    # Public https base of this backend (tracked partner redirects, postback
+    # URLs). Empty -> taken from the request (x-forwarded-proto/host).
+    public_base_url: str = ""
+    # Partner credentials at rest (Fernet keys; see docs/EXTERNAL_SETUP.md).
+    secrets_key: str = ""
+    secrets_key_previous: str = ""
+    # Raw funnel events older than this are rolled up per day, then deleted.
+    event_retention_days: int = 90
+    # How long a shown partner result accepts card-view / click events.
+    click_ttl_hours: int = 48
 
 
 def _database_path() -> str:
@@ -155,4 +165,9 @@ def load_settings() -> Settings:
         search_country=(os.getenv("ASKODOX_SEARCH_COUNTRY", "IN").strip().upper() or "IN"),
         admin_seed_key=os.getenv("ADMIN_SEED_KEY", "").strip(),
         session_token_secret=_session_token_secret(),
+        public_base_url=os.getenv("ASKODOX_PUBLIC_BASE_URL", "").strip().rstrip("/"),
+        secrets_key=os.getenv("ASKODOX_SECRETS_KEY", "").strip(),
+        secrets_key_previous=os.getenv("ASKODOX_SECRETS_KEY_PREVIOUS", "").strip(),
+        event_retention_days=_positive_int_env("ASKODOX_EVENT_RETENTION_DAYS", 90),
+        click_ttl_hours=_positive_int_env("ASKODOX_CLICK_TTL_HOURS", 48),
     )

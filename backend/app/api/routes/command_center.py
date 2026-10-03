@@ -30,6 +30,7 @@ from app.repositories.command_center_repository import (
     mask_user_id,
 )
 from app.repositories.hybrid_support_repository import SupportEscalationRepository
+from app.services import governance as gov
 
 router = APIRouter(prefix="/admin/cc", tags=["command-center"])
 
@@ -52,7 +53,9 @@ def feature_enabled(container: Any, key: str) -> bool:
     try:
         return command_center(container).is_enabled(key)
     except Exception:
-        return True
+        from app.repositories.command_center_repository import FLAG_DEFAULTS
+
+        return FLAG_DEFAULTS.get(key, True)
 
 
 def _escalations(container: Any) -> SupportEscalationRepository:
@@ -63,24 +66,51 @@ def _escalations(container: Any) -> SupportEscalationRepository:
     return repo
 
 
+AUTH_FAIL_LIMIT = 10          # wrong keys / tokens per client ...
+AUTH_FAIL_WINDOW = 600        # ... per 10 minutes, then locked out for the window
+
+
 def _principal(request: Request) -> dict[str, Any]:
+    from app.services import rate_limit
+
     container: Any = request.app.state.container
     owner_key = str(getattr(container.settings, "admin_seed_key", "") or "").strip()
     sent_key = (request.headers.get("x-askodox-admin-key") or "").strip()
+    sent_token = (request.headers.get("x-askodox-staff-token") or "").strip()
+    # Brute-force guard: after repeated wrong credentials this client is
+    # refused BEFORE any comparison, so guessing cannot continue.
+    if (sent_key or sent_token) and rate_limit.blocked(request, "cc_auth_fail", limit=AUTH_FAIL_LIMIT,
+                                                        window_seconds=AUTH_FAIL_WINDOW):
+        raise HTTPException(status_code=429, detail="Too many failed sign-in attempts. Try again later.")
     if owner_key and sent_key and hmac.compare_digest(sent_key, owner_key):
         return {"id": "owner", "name": "Owner", "role": "super_admin", "permissions": set(PERMISSIONS)}
-    staff = command_center(container).staff_by_token((request.headers.get("x-askodox-staff-token") or "").strip())
+    staff = command_center(container).staff_by_token(sent_token)
     if staff:
         return {"id": f"staff-{staff['id']}", "name": staff["name"], "role": staff["role"],
                 "permissions": set(staff["permissions"])}
+    if sent_key or sent_token:
+        rate_limit.hit(request, "cc_auth_fail")
+        try:
+            hour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+            if rate_limit.blocked(request, "cc_auth_fail", limit=AUTH_FAIL_LIMIT, window_seconds=AUTH_FAIL_WINDOW):
+                command_center(container).notify_once(f"security:auth_lockout:{hour}", "security_critical",
+                                                      "Command Center: repeated wrong sign-in attempts (locked out)")
+        except Exception:
+            pass
     raise HTTPException(status_code=401, detail="Command Center sign-in required")
 
 
 def _require(request: Request, permission: str) -> dict[str, Any]:
+    """Server-side permission check (``<module>:manage`` implies create /
+    edit / approve / delete). The 403 always carries the standard message."""
     principal = _principal(request)
-    if permission not in principal["permissions"]:
-        raise HTTPException(status_code=403, detail=f"Missing permission: {permission}")
+    if not gov.has_permission(principal["permissions"], permission):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs {permission})")
     return principal
+
+
+def _can(principal: dict[str, Any], permission: str) -> bool:
+    return gov.has_permission(principal["permissions"], permission)
 
 
 def _db(request: Request):
@@ -111,7 +141,10 @@ def _require_confirm(confirm: bool, what: str) -> None:
 @router.get("/me")
 def me(request: Request) -> dict[str, Any]:
     principal = _principal(request)
-    return {**principal, "permissions": sorted(principal["permissions"])}
+    held = set(principal["permissions"])
+    effective = held | {f"{p.split(':')[0]}:{verb}" for p in held if p.endswith(":manage")
+                        for verb in gov.IMPLIED_BY_MANAGE}
+    return {**principal, "permissions": sorted(effective), "super": gov.is_super(principal)}
 
 
 # ------------------------------------------------------------ overview --
@@ -178,18 +211,25 @@ def users(request: Request, role: str = "all") -> dict[str, Any]:
     listing_counts = {row["seller_user_id"]: row for row in _rows(
         request,
         "SELECT seller_user_id, SUM(active=1) active_listings, SUM(active=0) disabled_listings FROM seller_products GROUP BY seller_user_id")}
+    # Business details from the user's own profile (public shop facts only;
+    # personal name / phone / photo / home address stay private).
+    business = {row["user_id"]: row for row in _rows(
+        request, "SELECT user_id, business_name, business_category FROM user_profiles")}
     items = []
     for group, ids in people.items():
         if role != "all" and role != group:
             continue
         for user in sorted(ids):
             counts = listing_counts.get(user, {})
+            shop = business.get(user, {})
             items.append({
                 "user": mask_user_id(user),
                 "user_ref": _ref(user),
                 "role": group,
                 "active_listings": int(counts.get("active_listings") or 0),
                 "disabled_listings": int(counts.get("disabled_listings") or 0),
+                "business_name": shop.get("business_name"),
+                "business_category": shop.get("business_category"),
             })
     return {"items": items}
 
@@ -347,12 +387,27 @@ def categories(request: Request) -> dict[str, Any]:
 # ------------------------------------------------------ support / disputes --
 
 @router.get("/escalations")
-def escalations(request: Request, status: str = "", category: str = "") -> dict[str, Any]:
-    _require(request, "support:view")
-    items = _escalations(request.app.state.container).list(status=status.upper() or None, category=category or None)
+def escalations(request: Request, status: str = "", category: str = "", priority: str = "", assigned_to: str = "",
+                sla: str = "", channel: str = "", q: str = "", mine: bool = False) -> dict[str, Any]:
+    principal = _require(request, "support:view")
+    items = _escalations(request.app.state.container).list(status=status.upper() or None, category=category or None,
+                                                           limit=500, q=q.strip() or None)
+    if mine:
+        assigned_to = principal["id"]
+    if priority:
+        items = [i for i in items if i["priority"] == priority.upper()]
+    if assigned_to:
+        items = [i for i in items if (i.get("assigned_to") or "") == assigned_to]
+    if sla:
+        items = [i for i in items if i["sla_state"] == sla.upper()]
+    if channel:
+        items = [i for i in items if i["channel"] == channel]
     for item in items:
         item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
-    return {"items": items}
+    summary: dict[str, int] = {}
+    for item in items:
+        summary[item["sla_state"]] = summary.get(item["sla_state"], 0) + 1
+    return {"items": items, "sla_summary": summary}
 
 
 @router.get("/escalations/{escalation_id}")
@@ -362,13 +417,103 @@ def escalation(escalation_id: int, request: Request) -> dict[str, Any]:
     if not item:
         raise HTTPException(status_code=404, detail="Escalation not found")
     item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
+    item["history"] = _escalations(request.app.state.container).history(escalation_id)
+    item["thread"] = _escalations(request.app.state.container).thread(escalation_id, public_only=False)
     return item
+
+
+class StaffReply(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    status: str = "WAITING_FOR_USER"
+    attachments: list[str] = Field(default_factory=list, max_length=5)
+
+
+_REF = __import__("re").compile(r"^[A-Za-z0-9_\-:.]{1,120}$")
+
+
+@router.post("/escalations/{escalation_id}/reply")
+def reply_escalation(escalation_id: int, payload: StaffReply, request: Request) -> dict[str, Any]:
+    """A reply the customer sees in the app (in-app notification, plus any
+    configured channel the customer did not switch off)."""
+    principal = _require(request, "support:edit")
+    container = request.app.state.container
+    repo = _escalations(container)
+    ticket = repo.get(escalation_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    if ticket["status"] == "CLOSED":
+        raise HTTPException(status_code=409, detail="Reopen the ticket before replying")
+    status = payload.status.upper()
+    if status not in ("WAITING_FOR_USER", "IN_PROGRESS", "RESOLVED"):
+        raise HTTPException(status_code=422, detail="status after a reply: WAITING_FOR_USER, IN_PROGRESS or RESOLVED")
+    refs = [a for a in payload.attachments if _REF.match(a)]
+    repo.add_message(escalation_id, author_kind="staff", author=principal["id"], body=payload.message,
+                     attachments=refs)
+    repo.mark_first_response(escalation_id)
+    if status != ticket["status"]:
+        repo.set_status(escalation_id, status, actor=principal["id"])
+    if status == "RESOLVED" and not ticket.get("resolution_note"):
+        repo.update(escalation_id, resolution_note=payload.message[:2000], actor=principal["id"])
+    from app.api.routes.platform import notify
+
+    notify(container, "support_update", ticket["requester_user_id"],
+           {"ticket": escalation_id, "status": "new reply from ASKODOX support"})
+    command_center(container).audit(principal["id"], "support_reply", "escalation", escalation_id,
+                                    {"status": ticket["status"]}, {"status": status}, role=principal["role"])
+    return escalation(escalation_id, request)
+
+
+class EscalateBody(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+    assigned_to: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/escalations/{escalation_id}/escalate")
+def escalate_ticket(escalation_id: int, payload: EscalateBody, request: Request) -> dict[str, Any]:
+    """Raise priority one level (tightens the SLA), optionally reassign."""
+    principal = _require(request, "support:edit")
+    container = request.app.state.container
+    repo = _escalations(container)
+    ticket = repo.get(escalation_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    order = list(repo.PRIORITIES)
+    higher = order[min(order.index(ticket["priority"]) + 1, len(order) - 1)]
+    repo.set_ticket_fields(escalation_id, actor=principal["id"], priority=higher, note=f"Escalated: {payload.reason}")
+    if payload.assigned_to is not None:
+        repo.update(escalation_id, assigned_to=payload.assigned_to, actor=principal["id"])
+    cc = command_center(container)
+    cc.notify_once(f"escalated:{escalation_id}:{higher}", "escalation_critical" if higher == "URGENT" else "escalation",
+                   f"Ticket #{escalation_id} escalated to {higher}", str(escalation_id))
+    cc.audit(principal["id"], "support_escalate", "escalation", escalation_id, {"priority": ticket["priority"]},
+             {"priority": higher}, payload.reason, role=principal["role"])
+    return escalation(escalation_id, request)
+
+
+@router.post("/escalations/{escalation_id}/reopen")
+def reopen_ticket(escalation_id: int, request: Request) -> dict[str, Any]:
+    principal = _require(request, "support:edit")
+    repo = _escalations(request.app.state.container)
+    ticket = repo.get(escalation_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    if ticket["status"] not in ("RESOLVED", "CLOSED"):
+        raise HTTPException(status_code=409, detail="Only a resolved or closed ticket can be reopened")
+    repo.set_status(escalation_id, "OPEN", actor=principal["id"], action="reopened")
+    command_center(request.app.state.container).audit(principal["id"], "support_reopen", "escalation", escalation_id,
+                                                      {"status": ticket["status"]}, {"status": "OPEN"},
+                                                      role=principal["role"])
+    return escalation(escalation_id, request)
 
 
 class EscalationUpdate(BaseModel):
     status: str | None = None
     assigned_to: str | None = Field(default=None, max_length=120)
     resolution_note: str | None = Field(default=None, max_length=2000)
+    priority: str | None = None
+    channel: str | None = None
+    attachments: list[str] | None = None
+    note: str | None = Field(default=None, max_length=2000)
     confirm: bool = False
 
 
@@ -386,10 +531,20 @@ def update_escalation(escalation_id: int, payload: EscalationUpdate, request: Re
         _require_confirm(payload.confirm, f"mark escalation {escalation_id} {status}")
         if not (payload.resolution_note or before.get("resolution_note") or "").strip():
             raise HTTPException(status_code=422, detail="A resolution note is required to resolve or close")
+    try:
+        repo.set_ticket_fields(escalation_id, actor=principal["id"], priority=payload.priority,
+                               channel=payload.channel, attachments=payload.attachments, note=payload.note)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
     updated = repo.update(escalation_id, status=status, assigned_to=payload.assigned_to,
-                          resolution_note=payload.resolution_note)
+                          resolution_note=payload.resolution_note, actor=principal["id"])
     if status in ("RESOLVED", "CLOSED"):
         _resolve_linked_order(request.app.state.container, before)
+    if status and status != before.get("status"):
+        from app.api.routes.platform import notify
+
+        notify(request.app.state.container, "support_update", before["requester_user_id"],
+               {"ticket": escalation_id, "status": status.replace("_", " ").lower()})
     command_center(request.app.state.container).audit(
         principal["id"], "escalation_update", "escalation", escalation_id,
         {k: before.get(k) for k in ("status", "assigned_to")},
@@ -446,27 +601,75 @@ def verify_order_payment(order_id: int, payload: PaymentVerification, request: R
 
 # --------------------------------------------------------- flow traces --
 
+def _trace_outcome(t: dict[str, Any]) -> str:
+    """The final outcome of a request, from what actually happened."""
+    events = t.get("events") or []
+    for event in reversed(events):
+        name = event.get("event")
+        if name == "action_result":
+            return "action_ok" if event.get("ok") else f"action_failed:{event.get('reason') or 'unknown'}"
+        if name in ("partner_opened", "partner_click"):
+            return name
+    if t.get("errors"):
+        return "error"
+    return str(t.get("stage") or "unknown")
+
+
 @router.get("/traces")
-def flow_traces(request: Request, stage: str = "", limit: int = 100) -> dict[str, Any]:
-    """Real per-request pipeline traces: query → intent/categories/slots →
-    questions/answers → sources called and counts → filtered + reasons →
-    fallback → results sent → auth gate → seller request → escalation →
-    deal stage → errors → latency."""
+def flow_traces(request: Request, stage: str = "", limit: int = 100, q: str = "", language: str = "",
+                outcome: str = "", user: str = "", source: str = "", errors_only: bool = False,
+                since: str = "", until: str = "", deal_id: str = "") -> dict[str, Any]:
+    """Real per-request pipeline traces: query → language → intent/role/
+    categories/slots → questions/answers → location → sources called and
+    counts (registered / nearby / partner / web) → filtered + reasons →
+    ranking → fallback → results → selected/clicked → action → auth gate /
+    resume → request/order/deal id → outcome → errors → latency.
+    Filters: q (query/category/title text), language, stage, outcome, user
+    (masked id), source (a source that returned rows), errors_only,
+    since/until (ISO dates), deal_id."""
     _require(request, "requests:view")
-    items = command_center(request.app.state.container).traces(limit=limit, stage=stage or None)
+    items = command_center(request.app.state.container).traces(limit=500, stage=stage or None)
+
+    def keep(t: dict[str, Any]) -> bool:
+        if q:
+            haystack = " ".join(str(v) for v in (t.get("query"), t.get("categories"), t.get("results"),
+                                                  t.get("slots"))).casefold()
+            if q.casefold() not in haystack:
+                return False
+        if language and language not in {str(t.get("reply_language") or ""), str(t.get("language") or "")}:
+            return False
+        if outcome and not _trace_outcome(t).startswith(outcome):
+            return False
+        if user and user != str(t.get("user") or ""):
+            return False
+        if source and not (t.get("source_counts") or {}).get(source):
+            return False
+        if errors_only and not t.get("errors"):
+            return False
+        if since and str(t.get("updated_at") or "") < since:
+            return False
+        if until and str(t.get("created_at") or "") > until + "T23:59:59":
+            return False
+        if deal_id and str(t.get("deal_id") or "") != deal_id:
+            return False
+        return True
+
     compact = [{
-        "id": t["id"], "updated_at": t["updated_at"], "stage": t.get("stage"), "user": t.get("user"),
-        "query": t.get("query"), "intent": t.get("intent"), "categories": t.get("categories"),
+        "id": t["id"], "updated_at": t["updated_at"], "stage": t.get("stage"), "outcome": _trace_outcome(t),
+        "user": t.get("user"), "query": t.get("query"),
+        "language": t.get("reply_language") or t.get("language"), "intent": t.get("intent"),
+        "role": t.get("active_role"), "categories": t.get("categories"),
+        "attachments": [a.get("kind") for a in (t.get("attachments") or [])] or None,
         "results": t.get("results_count"), "sources": t.get("source_counts"), "fallback": t.get("fallback"),
-        "auth_gate": t.get("auth_gate"), "errors": t.get("errors"), "latency_ms": t.get("latency_ms"),
-        "trace_key": t.get("trace_key"), "role": t.get("active_role"),
+        "auth_gate": t.get("auth_gate"), "deal_id": t.get("deal_id"), "errors": t.get("errors"),
+        "latency_ms": t.get("latency_ms"), "trace_key": t.get("trace_key"),
         # Where the search actually looked, and the latest thing the customer
-        # did with the results (selected / action / outcome).
+        # did with the results (selected / clicked / action / outcome).
         "location": (t.get("location_searched") or {}).get("label")
         or ("GPS point" if (t.get("location_searched") or {}).get("has_point") else None),
         "location_failure": (t.get("location_searched") or {}).get("failure"),
         "last_event": ((t.get("events") or [None])[-1]),
-    } for t in items]
+    } for t in items if keep(t)][:max(1, min(limit, 500))]
     return {"items": compact}
 
 
@@ -610,25 +813,36 @@ def config(request: Request) -> dict[str, Any]:
 class FlagUpdate(BaseModel):
     enabled: bool
     confirm: bool = False
+    reason: str = Field(default="", max_length=500)
 
 
 @router.put("/config/{key}")
-def update_config(key: str, payload: FlagUpdate, request: Request) -> dict[str, Any]:
+def update_config(key: str, payload: FlagUpdate, request: Request) -> Any:
     principal = _require(request, "config:manage")
     if key not in FEATURE_FLAGS:
         raise HTTPException(status_code=404, detail="Unknown setting")
-    if not payload.enabled:
-        _require_confirm(payload.confirm, f"disable {key}")
+    risk = gov.flag_risk(key)
+    if not payload.enabled or risk == gov.RED:
+        _require_confirm(payload.confirm, f"{'enable' if payload.enabled else 'disable'} {key}")
     cc = command_center(request.app.state.container)
     before = cc.flags()[key]["enabled"]
+    if risk != gov.GREEN and not gov.is_super(principal):
+        # ORANGE: a second person approves; RED: only the Owner / Super Admin.
+        return request_approval(request, principal, action="feature_flag.set", target=f"feature_flag:{key}",
+                                risk=risk, reason=payload.reason, old={"enabled": before},
+                                proposed={"enabled": payload.enabled},
+                                params={"key": key, "enabled": payload.enabled, "needs": "config:manage"})
     flag = cc.set_flag(key, payload.enabled, principal["id"])
-    cc.audit(principal["id"], "config_update", "feature_flag", key, {"enabled": before}, {"enabled": payload.enabled})
+    cc.audit(principal["id"], "config_update", "feature_flag", key, {"enabled": before}, {"enabled": payload.enabled},
+             payload.reason, role=principal["role"], risk=risk)
     return flag
 
 
 # ---------------------------------------------------------- integrations --
 
 def _integration_states(container: Any) -> list[dict[str, Any]]:
+    from app.services.commerce_finance import youtube_api_key
+
     settings = container.settings
     cc = command_center(container)
     flags = cc.flags()
@@ -640,6 +854,18 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
                                if (p or {}).get("active", True)]) if affiliate is not None else 0
     except Exception:
         affiliate_count = 0
+
+    gateways: list[str] = []
+    try:
+        from app.api.routes.platform import platform as _platform
+        from app.services import commerce_finance as fin
+
+        for item in _platform(container).registry.all():
+            if item["group"] == "payments" and not item["internal"] and item["provider"] != "sandbox_gateway" \
+                    and item["status"] in (fin.STATUS_LIVE, fin.STATUS_TEST):
+                gateways.append(item["label"])
+    except Exception:
+        gateways = []
 
     def state(name, label, configured, flag_keys=(), detail=""):
         enabled = all(flags[k]["enabled"] for k in flag_keys) if flag_keys else True
@@ -672,15 +898,17 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
         state("affiliate_sources", "Affiliate / online partner sources", affiliate_count > 0,
               ("results.affiliate",), detail=f"{affiliate_count} active provider(s)"),
         state("youtube_data_api", "YouTube Data API",
-              bool(os.getenv("YOUTUBE_DATA_API_KEY", "").strip() or os.getenv("YOUTUBE_API_KEY", "").strip()),
+              bool(youtube_api_key()),
               detail="YouTube public-data search; key is read only from Railway environment variables"),
         state("push_notifications", "Background push (Firebase Cloud Messaging)",
               bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()),
               detail="Server needs FIREBASE_SERVICE_ACCOUNT_JSON; the Android app needs google-services.json "
                      "(see docs/EXTERNAL_SETUP.md). Until then updates arrive only while the app is open."),
-        # No payment gateway exists in this codebase: reported, not invented.
-        state("payments", "Payment gateway", False, ("payments.subscriptions",),
-              detail="No payment gateway is integrated in this build"),
+        # Gateways are prepared in Platform -> Integrations; "configured" only when
+        # one has real credentials there (reported, not invented).
+        state("payments", "Payment gateway", bool(gateways), ("payments.subscriptions",),
+              detail=(f"Configured: {', '.join(gateways)}" if gateways else "No gateway configured") +
+              " -- COD, cash on pickup and direct UPI to the seller work without one (Platform -> Integrations)."),
     ]
 
 
@@ -961,70 +1189,408 @@ class StaffUpdate(BaseModel):
     revoke: list[str] = Field(default_factory=list)
     active: bool | None = None
     confirm: bool = False
+    reason: str = Field(default="", max_length=500)
 
 
 def _no_escalation(principal: dict[str, Any], permissions) -> None:
     """A staff manager can only hand out permissions they hold themselves."""
-    beyond = sorted(set(permissions) - set(principal["permissions"]))
+    beyond = sorted(p for p in set(permissions) if not _can(principal, p))
     if beyond:
-        raise HTTPException(status_code=403, detail=f"Cannot grant permissions you do not hold: {', '.join(beyond)}")
+        raise HTTPException(status_code=403,
+                            detail=f"{gov.FORBIDDEN} Cannot grant permissions you do not hold: {', '.join(beyond)}")
+
+
+def _roles(container: Any) -> dict[str, dict[str, Any]]:
+    return command_center(container).roles()
 
 
 @router.get("/staff")
 def staff(request: Request) -> dict[str, Any]:
     _require(request, "staff:manage")
+    roles = _roles(request.app.state.container)
     return {"items": command_center(request.app.state.container).list_staff(),
-            "roles": {role: list(perms) for role, perms in ROLE_PRESETS.items()},
-            "permissions": list(PERMISSIONS)}
+            "roles": {name: role["permissions"] for name, role in roles.items()},
+            "role_details": list(roles.values()),
+            "permissions": list(PERMISSIONS),
+            "permission_risk": {p: gov.permission_risk(p) for p in PERMISSIONS}}
+
+
+class AdviseBody(BaseModel):
+    staff_id: int | None = None
+    role: str | None = None
+    permissions: list[str] | None = None
+    grant: list[str] = Field(default_factory=list)
+    revoke: list[str] = Field(default_factory=list)
+
+
+@router.post("/staff/advise")
+def advise_permissions(payload: AdviseBody, request: Request) -> dict[str, Any]:
+    """Permission Safety Advisor: preview the risk of a grant before saving."""
+    principal = _require(request, "staff:manage")
+    container = request.app.state.container
+    current = command_center(container).get_staff(payload.staff_id) if payload.staff_id else None
+    before = set(current["permissions"]) if current else set()
+    role = payload.role or (current or {}).get("role") or ""
+    base = set(payload.permissions) if payload.permissions is not None else (
+        set(_roles(container).get(role, {}).get("permissions") or []) if payload.role or not current else set(before))
+    after = (base | set(payload.grant)) - set(payload.revoke)
+    advice = gov.advise(before, after, role=role)
+    advice["needs_approval"] = [p for p in advice["added"] if gov.permission_risk(p) == gov.RED
+                                and not gov.is_super(principal)]
+    advice["cannot_grant"] = sorted(p for p in advice["added"] if not _can(principal, p))
+    return advice
+
+
+def _split_red(principal: dict[str, Any], added: set[str]) -> set[str]:
+    """RED permissions a non-super staff manager may only *request*."""
+    return set() if gov.is_super(principal) else {p for p in added if gov.permission_risk(p) == gov.RED}
 
 
 @router.post("/staff")
 def create_staff(payload: StaffCreate, request: Request) -> dict[str, Any]:
     principal = _require(request, "staff:manage")
-    if payload.role not in ROLE_PRESETS:
-        raise HTTPException(status_code=422, detail=f"role must be one of {', '.join(ROLE_PRESETS)}")
+    container = request.app.state.container
+    roles = _roles(container)
+    if payload.role not in roles:
+        raise HTTPException(status_code=422, detail=f"role must be one of {', '.join(roles)}")
+    if payload.role == "super_admin" and not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can create a Super Admin.")
     unknown = [p for p in (payload.permissions or []) if p not in PERMISSIONS]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Unknown permissions: {', '.join(unknown)}")
-    perms = payload.permissions if payload.permissions is not None else ROLE_PRESETS[payload.role]
+    perms = set(payload.permissions if payload.permissions is not None else roles[payload.role]["permissions"])
     _no_escalation(principal, perms)
-    cc = command_center(request.app.state.container)
-    created = cc.create_staff(payload.name, payload.role, perms, principal["id"])
+    held_back = _split_red(principal, perms)
+    cc = command_center(container)
+    created = cc.create_staff(payload.name, payload.role, perms - held_back, principal["id"])
+    advice = gov.advise(set(), perms, role=payload.role)
     cc.audit(principal["id"], "staff_created", "staff", created["id"], None,
-             {"role": created["role"], "permissions": created["permissions"]})
+             {"role": created["role"], "permissions": created["permissions"]}, role=principal["role"],
+             risk=advice["risk"])
+    created["advice"] = advice
+    if held_back:
+        created["approval"] = request_approval(
+            request, principal, action="staff.grant", target=f"staff:{created['id']}", risk=gov.RED,
+            reason="High-risk permissions requested at creation", old={"permissions": created["permissions"]},
+            proposed={"grant": sorted(held_back)},
+            params={"staff_id": created["id"], "grant": sorted(held_back), "needs": "staff:manage"})
     return created  # includes the one-time token
 
 
 @router.patch("/staff/{staff_id}")
-def update_staff(staff_id: int, payload: StaffUpdate, request: Request) -> dict[str, Any]:
+def update_staff(staff_id: int, payload: StaffUpdate, request: Request) -> Any:
     principal = _require(request, "staff:manage")
-    cc = command_center(request.app.state.container)
+    container = request.app.state.container
+    cc = command_center(container)
     current = cc.get_staff(staff_id)
     if not current:
         raise HTTPException(status_code=404, detail="Staff not found")
-    if payload.role and payload.role not in ROLE_PRESETS:
+    roles = _roles(container)
+    if payload.role and payload.role not in roles:
         raise HTTPException(status_code=422, detail="Unknown role")
+    if principal["id"] == f"staff-{staff_id}" and (payload.grant or payload.role):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} You cannot change your own permissions.")
+    if not gov.is_super(principal) and (current["role"] == "super_admin" or payload.role == "super_admin"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can change a Super Admin.")
     unknown = [p for p in payload.grant + payload.revoke if p not in PERMISSIONS]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Unknown permissions: {', '.join(unknown)}")
     if payload.active is False:
         _require_confirm(payload.confirm, f"deactivate staff {staff_id}")
-    base = set(ROLE_PRESETS[payload.role]) if payload.role else set(current["permissions"])
+    base = set(roles[payload.role]["permissions"]) if payload.role else set(current["permissions"])
     permissions = (base | set(payload.grant)) - set(payload.revoke)
-    _no_escalation(principal, permissions - set(current["permissions"]))
-    updated = cc.update_staff(staff_id, role=payload.role, permissions=permissions, active=payload.active)
+    added = permissions - set(current["permissions"])
+    _no_escalation(principal, added)
+    held_back = _split_red(principal, added)
+    advice = gov.advise(current["permissions"], permissions, role=payload.role or current["role"])
+    updated = cc.update_staff(staff_id, role=payload.role, permissions=permissions - held_back, active=payload.active)
     cc.audit(principal["id"], "staff_updated", "staff", staff_id,
              {"role": current["role"], "permissions": current["permissions"], "active": current["active"]},
-             {"role": updated["role"], "permissions": updated["permissions"], "active": updated["active"]})
+             {"role": updated["role"], "permissions": updated["permissions"], "active": updated["active"]},
+             role=principal["role"], risk=advice["risk"])
+    updated["advice"] = advice
+    if held_back:
+        updated["approval"] = request_approval(
+            request, principal, action="staff.grant", target=f"staff:{staff_id}", risk=gov.RED,
+            reason=payload.reason or "High-risk permission grant", old={"permissions": current["permissions"]},
+            proposed={"grant": sorted(held_back)},
+            params={"staff_id": staff_id, "grant": sorted(held_back), "needs": "staff:manage"})
     return updated
+
+
+# ---------------------------------------------------------------- roles --
+
+class RoleBody(BaseModel):
+    label: str = Field(default="", max_length=80)
+    permissions: list[str]
+
+
+_ROLE_NAME = __import__("re").compile(r"^[a-z][a-z0-9_]{2,40}$")
+
+
+@router.get("/roles")
+def list_roles(request: Request) -> dict[str, Any]:
+    _require(request, "staff:manage")
+    return {"items": list(_roles(request.app.state.container).values()), "permissions": list(PERMISSIONS),
+            "permission_risk": {p: gov.permission_risk(p) for p in PERMISSIONS}}
+
+
+@router.put("/roles/{name}")
+def save_role(name: str, payload: RoleBody, request: Request) -> dict[str, Any]:
+    """Owner / Super Admin customise a preset or define a new role. Existing
+    staff keep their own permission lists; the role is the template."""
+    principal = _require(request, "staff:manage")
+    if not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can define roles.")
+    if name == "super_admin" or not _ROLE_NAME.match(name):
+        raise HTTPException(status_code=422, detail="Role names are lower_case letters/digits/_ (not super_admin)")
+    unknown = [p for p in payload.permissions if p not in PERMISSIONS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown permissions: {', '.join(unknown)}")
+    cc = command_center(request.app.state.container)
+    before = cc.role_permissions(name)
+    saved = cc.save_role(name, payload.label or name.replace("_", " ").title(), payload.permissions, principal["id"])
+    advice = gov.advise(before or [], saved["permissions"], role=name)
+    cc.audit(principal["id"], "role_saved", "role", name, {"permissions": before},
+             {"permissions": saved["permissions"]}, role=principal["role"], risk=advice["risk"])
+    return {**saved, "advice": advice}
+
+
+@router.delete("/roles/{name}")
+def reset_role(name: str, request: Request, confirm: bool = False) -> dict[str, Any]:
+    principal = _require(request, "staff:manage")
+    if not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} Only the Owner can define roles.")
+    _require_confirm(confirm, f"reset role {name}")
+    cc = command_center(request.app.state.container)
+    before = cc.role_permissions(name)
+    if not cc.reset_role(name):
+        raise HTTPException(status_code=404, detail="No customisation for this role")
+    cc.audit(principal["id"], "role_reset", "role", name, {"permissions": before}, None, role=principal["role"],
+             risk=gov.ORANGE)
+    return {"reset": name}
+
+
+# ------------------------------------------------------------- approvals --
+
+APPROVAL_EXECUTORS: dict[str, Any] = {}
+
+
+def register_executor(action: str):
+    """Only named, reviewed executors can run on approval -- never code."""
+    def wrap(fn):
+        APPROVAL_EXECUTORS[action] = fn
+        return fn
+    return wrap
+
+
+def request_approval(request: Request, principal: dict[str, Any], *, action: str, target: str, risk: str,
+                     reason: str, old: Any, proposed: Any, params: dict[str, Any]) -> dict[str, Any]:
+    if action not in APPROVAL_EXECUTORS:
+        raise HTTPException(status_code=500, detail="Unknown approval action")
+    cc = command_center(request.app.state.container)
+    approval = cc.create_approval(action=action, target=target, risk=risk, reason=reason, old=old,
+                                  proposed=proposed, params=params, requested_by=principal["id"],
+                                  requested_role=principal["role"])
+    cc.audit(principal["id"], "approval_requested", "approval", approval["id"], old, proposed, reason,
+             role=principal["role"], risk=risk, result="PENDING")
+    cc.notify_once(f"approval:{approval['id']}", "approval_critical" if risk == gov.RED else "approval",
+                   f"{risk} approval needed: {action} on {target}", str(approval["id"]))
+    return {"approval_required": True, "status": "PENDING_APPROVAL", "approval": approval,
+            "message": ("Owner/Super Admin approval is required." if risk == gov.RED
+                        else "Owner/Admin approval is required.")}
+
+
+@register_executor("feature_flag.set")
+def _exec_flag(container: Any, params: dict[str, Any], decider: dict[str, Any]) -> dict[str, Any]:
+    cc = command_center(container)
+    flag = cc.set_flag(params["key"], bool(params["enabled"]), decider["id"])
+    return {"key": params["key"], "enabled": flag["enabled"]}
+
+
+@register_executor("staff.grant")
+def _exec_staff_grant(container: Any, params: dict[str, Any], decider: dict[str, Any]) -> dict[str, Any]:
+    cc = command_center(container)
+    current = cc.get_staff(int(params["staff_id"]))
+    if not current:
+        raise ValueError("staff no longer exists")
+    updated = cc.update_staff(current["id"], permissions=set(current["permissions"]) | set(params["grant"]))
+    return {"staff_id": current["id"], "granted": params["grant"], "permissions": len(updated["permissions"])}
+
+
+@register_executor("selfheal.apply")
+def _exec_selfheal(container: Any, params: dict[str, Any], decider: dict[str, Any]) -> dict[str, Any]:
+    from app.services.self_healing import engine
+
+    item = engine(container).execute_approved(int(params["log_id"]), decider["id"])
+    return {"log_id": item.get("id"), "status": item.get("status")}
+
+
+@router.get("/approvals")
+def approvals(request: Request, status: str = "") -> dict[str, Any]:
+    principal = _principal(request)
+    if not (_can(principal, "approvals:view") or _can(principal, "approvals:approve")):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs approvals:view)")
+    items = command_center(request.app.state.container).approvals(status=status.upper())
+    return {"items": items, "can_approve": _can(principal, "approvals:approve"),
+            "can_approve_red": gov.is_super(principal), "me": principal["id"]}
+
+
+class DecisionBody(BaseModel):
+    note: str = Field(default="", max_length=1000)
+    confirm: bool = False
+
+
+def _decide(approval_id: int, request: Request, approve: bool, body: DecisionBody) -> dict[str, Any]:
+    principal = _require(request, "approvals:approve")
+    container = request.app.state.container
+    cc = command_center(container)
+    item = cc.get_approval(approval_id, with_params=True)
+    if not item:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    if item["status"] != "PENDING":
+        raise HTTPException(status_code=409, detail=f"Already {item['status'].lower()}")
+    if item["requested_by"] == principal["id"]:
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} You cannot approve your own request.")
+    if item["risk"] == gov.RED and not gov.is_super(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} RED changes need the Owner / Super Admin.")
+    needs = (item.get("params") or {}).get("needs")
+    if approve and needs and not _can(principal, needs):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs {needs})")
+    if approve and item["risk"] == gov.RED:
+        _require_confirm(body.confirm, f"approve RED change #{approval_id}")
+    decided = cc.decide_approval(approval_id, status="APPROVED" if approve else "REJECTED",
+                                 decided_by=principal["id"], note=body.note)
+    if decided is None:
+        raise HTTPException(status_code=409, detail="Already decided")
+    result, final = None, decided["status"]
+    if not approve and item["action"] == "selfheal.apply":
+        from app.services.self_healing import engine
+
+        engine(container).mark_rejected(approval_id)
+    if approve:
+        try:
+            result = APPROVAL_EXECUTORS[item["action"]](container, item.get("params") or {}, principal)
+            final = "EXECUTED"
+        except Exception as error:  # the approval stays recorded; nothing half-applied is hidden
+            result, final = {"error": type(error).__name__, "detail": str(error)[:200]}, "FAILED"
+        cc.set_approval_result(approval_id, final, result)
+    cc.audit(principal["id"], "approval_" + ("approved" if approve else "rejected"), "approval", approval_id,
+             item.get("old"), item.get("proposed"), body.note, role=principal["role"], risk=item["risk"],
+             result=final)
+    return cc.get_approval(approval_id) or {}
+
+
+@router.post("/approvals/{approval_id}/approve")
+def approve(approval_id: int, body: DecisionBody, request: Request) -> dict[str, Any]:
+    return _decide(approval_id, request, True, body)
+
+
+@router.post("/approvals/{approval_id}/reject")
+def reject(approval_id: int, body: DecisionBody, request: Request) -> dict[str, Any]:
+    return _decide(approval_id, request, False, body)
+
+
+@router.post("/approvals/{approval_id}/cancel")
+def cancel(approval_id: int, request: Request) -> dict[str, Any]:
+    principal = _principal(request)
+    cc = command_center(request.app.state.container)
+    item = cc.get_approval(approval_id)
+    if not item or item["requested_by"] != principal["id"]:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    decided = cc.decide_approval(approval_id, status="CANCELLED", decided_by=principal["id"])
+    if decided is None:
+        raise HTTPException(status_code=409, detail="Already decided")
+    cc.audit(principal["id"], "approval_cancelled", "approval", approval_id, role=principal["role"],
+             risk=item["risk"], result="CANCELLED")
+    return decided
 
 
 # ---------------------------------------------------------------- audit --
 
 @router.get("/audit")
-def audit(request: Request, limit: int = 100) -> dict[str, Any]:
+def audit(request: Request, limit: int = 100, actor: str = "", action: str = "", entity_type: str = "",
+          risk: str = "", q: str = "", days: int = 0) -> dict[str, Any]:
     _require(request, "audit:view")
-    return {"items": command_center(request.app.state.container).audit_log(limit=limit)}
+    since = _since(days) if days else ""
+    return {"items": command_center(request.app.state.container).audit_log(
+        limit=limit, actor=actor, action=action, entity_type=entity_type, risk=risk.upper(), q=q, since=since),
+        "editable": False}
+
+
+@router.get("/audit/export.csv")
+def audit_export(request: Request, days: int = 30, risk: str = "") -> Response:
+    principal = _require(request, "audit:export")
+    cc = command_center(request.app.state.container)
+    rows = cc.audit_log(limit=5000, risk=risk.upper(), since=_since(days))
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["id", "created_at", "actor", "actor_role", "action", "entity_type", "entity_id", "risk",
+                     "result", "reason"])
+    for r in rows:
+        writer.writerow([r["id"], r["created_at"], r["actor"], r.get("actor_role") or "", r["action"],
+                         r["entity_type"], r["entity_id"], r["risk"], r.get("result") or "", r.get("reason") or ""])
+    cc.audit(principal["id"], "audit_export", "audit", f"{days}d", None, {"rows": len(rows)},
+             role=principal["role"], risk=gov.ORANGE)
+    return Response(out.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=askodox-audit.csv"})
+
+
+# ---------------------------------------------------------- self-healing --
+
+def _healer(request: Request):
+    from app.services.self_healing import engine
+
+    return engine(request.app.state.container)
+
+
+@router.get("/selfheal")
+def selfheal(request: Request) -> dict[str, Any]:
+    _require(request, "selfheal:view")
+    eng = _healer(request)
+    return {"settings": eng.settings(), "bypassed_sources": sorted(eng.bypassed_sources()), "items": eng.log()}
+
+
+@router.post("/selfheal/scan")
+def selfheal_scan(request: Request) -> dict[str, Any]:
+    principal = _require(request, "selfheal:manage")
+    result = _healer(request).scan()
+    command_center(request.app.state.container).audit(principal["id"], "selfheal_scan", "selfheal", "scan", None,
+                                                      {"new_issues": result.get("new_issues", 0)},
+                                                      role=principal["role"])
+    return result
+
+
+@router.post("/selfheal/{log_id}/apply")
+def selfheal_apply(log_id: int, request: Request) -> dict[str, Any]:
+    principal = _require(request, "selfheal:manage")
+    try:
+        item = _healer(request).apply(log_id, principal["id"])
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Not found") from None
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} {error}") from None
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    command_center(request.app.state.container).audit(principal["id"], "selfheal_apply", "selfheal", log_id, None,
+                                                      {"action": item["action"], "target": item["target"]},
+                                                      role=principal["role"], risk=item["risk"])
+    return item
+
+
+@router.post("/selfheal/{log_id}/rollback")
+def selfheal_rollback(log_id: int, request: Request) -> dict[str, Any]:
+    principal = _require(request, "selfheal:manage")
+    try:
+        item = _healer(request).rollback(log_id, principal["id"])
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Not found") from None
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    command_center(request.app.state.container).audit(principal["id"], "selfheal_rollback", "selfheal", log_id,
+                                                      None, {"action": item["action"], "target": item["target"]},
+                                                      role=principal["role"], risk=item["risk"])
+    return item
 
 
 
@@ -1166,7 +1732,8 @@ def social_video_discussion_add(video_id: int, payload: VideoDiscussionCreate, r
 @router.get("/social-growth/campaigns")
 def social_campaigns(request: Request) -> dict[str, Any]:
     _require(request, "growth:view")
-    return {"items": _rows(request, "SELECT * FROM sponsored_campaigns ORDER BY id DESC LIMIT 500")}
+    _social_hub(request)  # creates / migrates the hub's own campaign table first
+    return {"items": _rows(request, "SELECT * FROM social_sponsored_campaigns ORDER BY id DESC LIMIT 500")}
 
 @router.post("/social-growth/campaigns")
 def social_campaign_create(payload: SponsoredCampaignCreate, request: Request) -> dict[str, Any]:

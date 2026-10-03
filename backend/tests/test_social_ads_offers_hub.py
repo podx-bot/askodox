@@ -38,3 +38,33 @@ def test_video_qa_is_attached_to_video(tmp_path):
     rows=hub.discussions(video["id"])
     assert [x["kind"] for x in rows] == ["question","answer"]
     assert a["parent_id"] == q["id"]
+
+
+def test_pr128_campaign_table_moves_out_of_the_sponsored_modules_way(tmp_path):
+    """A database first written by PR #128 (its campaigns in `sponsored_campaigns`)
+    keeps its rows under `social_sponsored_campaigns`, and the Sponsored module
+    then owns `sponsored_campaigns` with its own schema -- in either start order."""
+    import sqlite3
+
+    from app.repositories.sponsored_repository import SponsoredRepository
+    from app.services.social_ads_offers_hub import SocialAdsOffersHub
+
+    for first_sponsored in (False, True):
+        db = str(tmp_path / f"legacy{first_sponsored}.db")
+        with sqlite3.connect(db) as c:
+            c.execute("CREATE TABLE sponsored_campaigns(id INTEGER PRIMARY KEY AUTOINCREMENT, owner_ref TEXT NOT NULL,"
+                      " campaign_type TEXT NOT NULL, title TEXT NOT NULL, destination_url TEXT, category TEXT,"
+                      " location_scope TEXT, budget REAL, starts_at TEXT, ends_at TEXT, active INTEGER NOT NULL DEFAULT 0,"
+                      " metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+            c.execute("INSERT INTO sponsored_campaigns(owner_ref,campaign_type,title,created_at,updated_at)"
+                      " VALUES('seller:1','boost','Kept row','t','t')")
+        if first_sponsored:
+            SponsoredRepository(db)
+        hub = SocialAdsOffersHub(db)
+        SponsoredRepository(db)
+        with sqlite3.connect(db) as c:
+            assert c.execute("SELECT title FROM social_sponsored_campaigns").fetchall() == [("Kept row",)]
+            cols = {r[1] for r in c.execute("PRAGMA table_info(sponsored_campaigns)")}
+        assert "name" in cols and "owner_ref" not in cols
+        created = hub.create_campaign("seller:2", "boost", "New one", category="tv")
+        assert created["title"] == "New one"

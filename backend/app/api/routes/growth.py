@@ -134,6 +134,23 @@ def listing_offers(product_id: int, request: Request, quantity: float = 1) -> di
 
 # ---------------------------------------------------------------- referrals --
 
+def redeem_referral_safely(container: Any, code: str, user: str) -> dict | None:
+    """Every referral redemption path: a referrer blocked in the Command
+    Center earns nothing; the repository refuses self, repeat and circular
+    referrals."""
+    from app.api.routes.platform import is_blocked_user
+
+    pending = growth(container).referral(code)
+    if not pending or is_blocked_user(container, pending["referrer_user_id"]):
+        return None
+    ref = growth(container).redeem_referral(code, user)
+    if ref:
+        from app.api.routes.owner_os import award_referral_credits
+
+        ref = {**ref, "priority_credits": award_referral_credits(container, ref)}
+    return ref
+
+
 class ReferralRequest(BaseModel):
     invitee_name: str = Field(default="", max_length=80)
     category: str = Field(default="", max_length=80)
@@ -146,10 +163,13 @@ def create_referral(payload: ReferralRequest, request: Request) -> dict:
     """"Know someone who does this? Refer them to ASKODOX." A code the
     invitee uses when they list; the referrer is credited transparently."""
     user = _authenticated_app_user(request)
-    ref = growth(request.app.state.container).create_referral(
-        user, invitee_name=payload.invitee_name.strip(), category=payload.category.strip(),
-        area=payload.area.strip(), deal_id=payload.deal_id,
-    )
+    try:
+        ref = growth(request.app.state.container).create_referral(
+            user, invitee_name=payload.invitee_name.strip(), category=payload.category.strip(),
+            area=payload.area.strip(), deal_id=payload.deal_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=429, detail="Daily referral limit reached. Try again tomorrow.") from None
     what = payload.category.strip() or "your service"
     where = f" in {payload.area.strip()}" if payload.area.strip() else ""
     share = (f"Customers are looking for {what}{where} on ASKODOX. Join free to get direct local leads, "
@@ -168,7 +188,7 @@ def redeem_referral(code: str, request: Request) -> dict:
     """The invitee registered on ASKODOX with the code."""
     user = _authenticated_app_user(request)
     container = request.app.state.container
-    ref = growth(container).redeem_referral(code, user)
+    ref = redeem_referral_safely(container, code, user)
     if not ref:
         raise HTTPException(status_code=404, detail="Invalid or already-used referral code")
     growth(container).add_participant("referral", ref["id"], ref["referrer_user_id"], "referrer", added_by=user)
@@ -288,7 +308,7 @@ def publish_draft(draft_id: int, payload: PublishRequest, request: Request) -> d
     container = request.app.state.container
     growth(container).mark_draft(draft_id, "PUBLISHED", product_id=listing.id)
     if payload.referral_code:
-        ref = growth(container).redeem_referral(payload.referral_code, seller)
+        ref = redeem_referral_safely(container, payload.referral_code, seller)
         if ref:
             growth(container).add_participant("referral", ref["id"], ref["referrer_user_id"], "referrer",
                                               added_by=seller)
@@ -402,8 +422,11 @@ def admin_reward_status(reward_id: int, payload: RewardDecision, request: Reques
 @admin_router.get("/referrals")
 def admin_referrals(request: Request) -> dict:
     _require(request, "growth:view")
-    items = growth(request.app.state.container).referrals()
+    repo = growth(request.app.state.container)
+    items = repo.referrals()
+    flags = repo.referral_review_flags()
     for item in items:
+        item["review"] = flags.get(item["referrer_user_id"])
         item["referrer_user_id"] = mask_user_id(item["referrer_user_id"])
         if item.get("registered_user_id"):
             item["registered_user_id"] = mask_user_id(item["registered_user_id"])

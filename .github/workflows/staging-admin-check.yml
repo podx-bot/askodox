@@ -1,0 +1,34 @@
+name: Staging admin isolation check
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: Staging backend URL
+        required: false
+        default: 'https://staging.askodox.com'
+        type: string
+  push:
+    branches: [claude/friendly-ramanujan-538sbj]
+    paths:
+      - '.github/workflows/staging-admin-check.yml'
+      - 'tool/video_proof/staging_admin_check.py'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      STAGING_URL: ${{ inputs.staging_url || 'https://staging.askodox.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install httpx
+      - name: Wait for staging
+        run: |
+          for i in $(seq 1 30); do curl -fsS --max-time 15 "$STAGING_URL/health" && exit 0; sleep 10; done; exit 1
+      - run: python tool/video_proof/staging_admin_check.py "$STAGING_URL"

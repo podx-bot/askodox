@@ -287,9 +287,22 @@ class GrowthRepository:
 
     # -------------------------------------------------------------- referrals --
 
+    REFERRALS_PER_DAY = 20      # invites one person can create per 24 h
+    REVIEW_REGISTRATIONS_PER_DAY = 5  # more registrations than this in 24 h -> admin review
+
+    def referrals_created_since(self, referrer_user_id: str, since: str) -> int:
+        with self._connect() as conn:
+            return int(conn.execute("SELECT COUNT(*) FROM growth_referrals WHERE referrer_user_id=? AND "
+                                    "created_at >= ?", (referrer_user_id, since)).fetchone()[0])
+
     def create_referral(self, referrer_user_id: str, *, invitee_name: str = "", category: str = "",
                         area: str = "", deal_id: str | None = None) -> Dict[str, Any]:
         now = _now()
+        from datetime import datetime as _dt, timedelta as _td
+
+        since = (_dt.fromisoformat(now) - _td(days=1)).isoformat()
+        if self.referrals_created_since(referrer_user_id, since) >= self.REFERRALS_PER_DAY:
+            raise ValueError("referral_limit")
         code = "ASK" + secrets.token_hex(3).upper()
         with self._connect() as conn:
             conn.execute(
@@ -310,9 +323,30 @@ class GrowthRepository:
         if not ref or ref["status"] != "INVITED" or ref["referrer_user_id"] == registered_user_id:
             return None
         with self._connect() as conn:
+            # One person is credited to ONE referrer, once.
+            if conn.execute("SELECT 1 FROM growth_referrals WHERE registered_user_id=?",
+                            (registered_user_id,)).fetchone():
+                return None
+            # No circular referrals: the referrer was not brought in by this user.
+            if conn.execute("SELECT 1 FROM growth_referrals WHERE registered_user_id=? AND referrer_user_id=?",
+                            (ref["referrer_user_id"], registered_user_id)).fetchone():
+                return None
             conn.execute("UPDATE growth_referrals SET status='REGISTERED', registered_user_id=?, updated_at=? "
                          "WHERE id=?", (registered_user_id, _now(), ref["id"]))
         return self.referral(code)
+
+    def referral_review_flags(self) -> Dict[str, str]:
+        """Referrers whose registrations look unusual (burst in 24 h) --
+        shown to admins for review; nothing is blocked automatically."""
+        from datetime import datetime as _dt, timedelta as _td
+
+        since = (_dt.fromisoformat(_now()) - _td(days=1)).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT referrer_user_id, COUNT(*) AS n FROM growth_referrals WHERE status='REGISTERED' AND "
+                "updated_at >= ? GROUP BY referrer_user_id HAVING n > ?",
+                (since, self.REVIEW_REGISTRATIONS_PER_DAY)).fetchall()
+        return {r["referrer_user_id"]: f"{r['n']} registrations in 24 h" for r in rows}
 
     def referrals(self, *, referrer_user_id: str | None = None) -> List[Dict[str, Any]]:
         sql, args = "SELECT * FROM growth_referrals", ()

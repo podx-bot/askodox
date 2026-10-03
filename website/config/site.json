@@ -1,0 +1,382 @@
+{
+  "_comment": "Central website settings. Every value here can be overridden at deploy time with an ASKODOX_SITE_* environment variable (see website/README.md). Never mark a feature 'live' or a partner 'active' until it is actually live/approved.",
+  "brand": {
+    "name": "ASKODOX",
+    "assistant_name": "ASKODOX AI",
+    "tagline": "Here to Help You Grow.",
+    "promise": "Tell ASKODOX what you need. It helps you understand your options, decide, connect with the right people and move forward.",
+    "ask_prompt": "What can ASKODOX help you with today?"
+  },
+  "site": {
+    "url": "https://askodox.com",
+    "default_locale": "en",
+    "noindex": false,
+    "theme_color": "#070816",
+    "launch_year": 2026,
+    "legal_name": "",
+    "legal_address": "",
+    "policies_effective_date": "2 October 2026",
+    "legal_jurisdiction": "",
+    "legal_company_number": ""
+  },
+  "contact": {
+    "general_email": "admin@askodox.com",
+    "support_email": "admin@askodox.com",
+    "partners_email": "admin@askodox.com",
+    "privacy_email": "admin@askodox.com",
+    "whatsapp_number": "",
+    "forms_endpoint": ""
+  },
+  "app": {
+    "android_status": "beta",
+    "play_store_url": "",
+    "ios_status": "soon",
+    "app_store_url": "",
+    "web_app_url": ""
+  },
+  "social": [
+    {
+      "id": "youtube",
+      "label": "YouTube",
+      "url": ""
+    },
+    {
+      "id": "instagram",
+      "label": "Instagram",
+      "url": ""
+    },
+    {
+      "id": "linkedin",
+      "label": "LinkedIn",
+      "url": ""
+    },
+    {
+      "id": "x",
+      "label": "X",
+      "url": ""
+    },
+    {
+      "id": "facebook",
+      "label": "Facebook",
+      "url": ""
+    }
+  ],
+  "locales": [
+    {
+      "code": "en",
+      "label": "English",
+      "native": "English",
+      "dir": "ltr",
+      "published": true,
+      "og": "en_US"
+    },
+    {
+      "code": "te",
+      "label": "Telugu",
+      "native": "తెలుగు",
+      "dir": "ltr",
+      "published": false,
+      "og": "te_IN"
+    },
+    {
+      "code": "hi",
+      "label": "Hindi",
+      "native": "हिन्दी",
+      "dir": "ltr",
+      "published": false,
+      "og": "hi_IN"
+    },
+    {
+      "code": "es",
+      "label": "Spanish",
+      "native": "Español",
+      "dir": "ltr",
+      "published": false,
+      "og": "es_ES"
+    },
+    {
+      "code": "ar",
+      "label": "Arabic",
+      "native": "العربية",
+      "dir": "rtl",
+      "published": false,
+      "og": "ar_AR"
+    },
+    {
+      "code": "fr",
+      "label": "French",
+      "native": "Français",
+      "dir": "ltr",
+      "published": false,
+      "og": "fr_FR"
+    }
+  ],
+  "features": [
+    {
+      "id": "website",
+      "group": "Website",
+      "name": "askodox.com website",
+      "status": "live",
+      "note": "This website."
+    },
+    {
+      "id": "email_support",
+      "group": "Support",
+      "name": "Email support",
+      "status": "live",
+      "note": "We reply by email."
+    },
+    {
+      "id": "whatsapp_support",
+      "group": "Support",
+      "name": "WhatsApp support",
+      "status": "soon",
+      "note": "Will appear on the Support page once the official number is connected."
+    },
+    {
+      "id": "web_chat",
+      "group": "Ask ASKODOX",
+      "name": "Ask ASKODOX on the web",
+      "status": "soon",
+      "note": "Today ASKODOX answers inside the Android app."
+    },
+    {
+      "id": "android_app",
+      "group": "App",
+      "name": "Android app",
+      "status": "beta",
+      "note": "In testing. Not yet on Google Play."
+    },
+    {
+      "id": "ios_app",
+      "group": "App",
+      "name": "iPhone app",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "text_ask",
+      "group": "Ask ASKODOX",
+      "name": "Ask by typing",
+      "status": "beta",
+      "note": "In the Android app."
+    },
+    {
+      "id": "voice_ask",
+      "group": "Ask ASKODOX",
+      "name": "Ask by voice",
+      "status": "beta",
+      "note": "In the Android app. English and Telugu first."
+    },
+    {
+      "id": "image_ask",
+      "group": "Ask ASKODOX",
+      "name": "Ask with a photo",
+      "status": "beta",
+      "note": "In the Android app."
+    },
+    {
+      "id": "file_ask",
+      "group": "Ask ASKODOX",
+      "name": "Ask with a file or document",
+      "status": "beta",
+      "note": "In the Android app."
+    },
+    {
+      "id": "companion",
+      "group": "Ask ASKODOX",
+      "name": "ASKODOX companion",
+      "status": "beta",
+      "note": "An animated assistant in the app that listens, thinks and speaks."
+    },
+    {
+      "id": "nearby",
+      "group": "Discover",
+      "name": "Nearby discovery",
+      "status": "beta",
+      "note": "Uses your location only when you allow it. Currently tuned for India first; more countries are planned."
+    },
+    {
+      "id": "online",
+      "group": "Discover",
+      "name": "Online discovery",
+      "status": "beta",
+      "note": "Relevant web results, with prices marked unverified until confirmed."
+    },
+    {
+      "id": "online_fallback",
+      "group": "Discover",
+      "name": "Online options when nothing suitable is nearby",
+      "status": "beta",
+      "note": "ASKODOX widens the search, then shows relevant online options, clearly labelled."
+    },
+    {
+      "id": "notify_me",
+      "group": "Discover",
+      "name": "Tell me when something nearby appears",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "location_aware",
+      "group": "Discover",
+      "name": "Location-aware follow-up questions",
+      "status": "beta",
+      "note": "ASKODOX asks only what it still needs, such as area, size, date or budget."
+    },
+    {
+      "id": "listings",
+      "group": "Sellers and providers",
+      "name": "List products and services by chat",
+      "status": "beta",
+      "note": "Describe what you offer; ASKODOX turns it into a listing."
+    },
+    {
+      "id": "requests",
+      "group": "Sellers and providers",
+      "name": "Receive customer requests",
+      "status": "beta",
+      "note": "Relevant requests appear in the app's Updates."
+    },
+    {
+      "id": "consent_connect",
+      "group": "Connections",
+      "name": "Consent-based contact sharing",
+      "status": "beta",
+      "note": "Phone numbers are shared only after the other side accepts."
+    },
+    {
+      "id": "phone_verified",
+      "group": "Trust",
+      "name": "Phone-verified accounts",
+      "status": "beta",
+      "note": "Every account signs in with a one-time code sent to the phone."
+    },
+    {
+      "id": "reviews",
+      "group": "Trust",
+      "name": "Reviews after completed requests",
+      "status": "beta",
+      "note": "Only people who completed a request can leave a review."
+    },
+    {
+      "id": "business_verification",
+      "group": "Trust",
+      "name": "Business verification",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "offers",
+      "group": "Deals",
+      "name": "ASKODOX offers",
+      "status": "beta",
+      "note": "Offers set up by ASKODOX inside the app."
+    },
+    {
+      "id": "partner_deals",
+      "group": "Deals",
+      "name": "Partner and affiliate deals",
+      "status": "soon",
+      "note": "Only shown once a partner programme is approved."
+    },
+    {
+      "id": "sponsored",
+      "group": "Deals",
+      "name": "Sponsored results",
+      "status": "soon",
+      "note": "If ever shown, always labelled Sponsored."
+    },
+    {
+      "id": "coupons",
+      "group": "Deals",
+      "name": "Coupon codes",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "rewards",
+      "group": "Deals",
+      "name": "Rewards for completed requests",
+      "status": "beta",
+      "note": "Recorded and approved by ASKODOX; no automatic payouts yet."
+    },
+    {
+      "id": "video_results",
+      "group": "Videos",
+      "name": "Helpful videos in answers",
+      "status": "beta",
+      "note": "Links to relevant videos and reviews."
+    },
+    {
+      "id": "video_questions",
+      "group": "Videos",
+      "name": "Ask about a video you share",
+      "status": "beta",
+      "note": "Share a video in the app and ask about it."
+    },
+    {
+      "id": "seller_videos",
+      "group": "Videos",
+      "name": "Seller and provider videos",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "watch_and_ask",
+      "group": "Videos",
+      "name": "Watch and ask inside ASKODOX",
+      "status": "soon",
+      "note": "Videos playing inside ASKODOX with related options alongside."
+    },
+    {
+      "id": "creators",
+      "group": "Videos",
+      "name": "Creator programme",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "surveys",
+      "group": "Community",
+      "name": "Surveys and opinions",
+      "status": "soon",
+      "note": ""
+    },
+    {
+      "id": "creator_join",
+      "group": "Community",
+      "name": "Creators register interest",
+      "status": "live",
+      "note": "By email today."
+    },
+    {
+      "id": "referrals",
+      "group": "Community",
+      "name": "Refer a business or provider",
+      "status": "beta",
+      "note": "Send us the details by email today; in-app referrals are in testing."
+    },
+    {
+      "id": "privacy_tools",
+      "group": "Your data",
+      "name": "Download or delete your data",
+      "status": "beta",
+      "note": "From the Privacy screen in the Android app, or by email."
+    },
+    {
+      "id": "languages",
+      "group": "Languages",
+      "name": "More languages",
+      "status": "soon",
+      "note": "The app speaks English and Telugu today. This website is in English for now."
+    },
+    {
+      "id": "payments",
+      "group": "Payments",
+      "name": "Payments inside ASKODOX",
+      "status": "soon",
+      "note": "Today you pay the seller or provider directly."
+    }
+  ]
+}

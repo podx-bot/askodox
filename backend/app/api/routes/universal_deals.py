@@ -103,6 +103,9 @@ def _ensure_external_tracking_table(container) -> None:
 
 @router.post("/external/click")
 def record_external_click(payload: ExternalClickRequest, request: Request) -> dict:
+    from app.services import rate_limit
+
+    rate_limit.check(request, "external_click", limit=60)  # public, write-only log
     container = request.app.state.container
     _ensure_external_tracking_table(container)
     user_ref = mask_user_id(payload.user_id) if payload.user_id else ""
@@ -418,6 +421,19 @@ def _fill_subject(payload: UniversalDealCreateRequest) -> None:
 # Videos/reviews are shown only when the customer asks for them.
 _VIDEO_ASK = re.compile(r"\b(videos?|reviews?|review|youtube|compare|comparison|vs|unboxing|demo|how to)\b",
                         re.IGNORECASE)
+# The same ask in Telugu (and common Hindi): video, review, comparison, demo.
+_VIDEO_ASK_LOCAL = re.compile(r"(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|డెమో|वीडियो|रिव्यू|समीक्षा)")
+
+
+_VIDEO_WORDS = re.compile(r"\b(review|reviews|video|videos|youtube|unboxing|demo|clips?)\b|"
+                          r"(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|यूट्यूब|वीडियो|रिव्यू|समीक्षा)", re.IGNORECASE)
+
+
+def _without_video_words(subject: str) -> str:
+    """"Samsung TV review videos" searches for the TV (videos are shown
+    because the customer asked; the thing searched is the TV)."""
+    cleaned = " ".join(_VIDEO_WORDS.sub(" ", subject).split())
+    return cleaned or subject
 
 
 def _subject_with_brand(subject: str, constraints: dict) -> str:
@@ -458,13 +474,27 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     radius = location.get("radius_km")
     if _present(radius):
         constraints.setdefault("radius_km", radius)
-    if _VIDEO_ASK.search(str(payload.raw_text or "")):
+    if _VIDEO_ASK.search(str(payload.raw_text or "")) or _VIDEO_ASK_LOCAL.search(str(payload.raw_text or "")):
         constraints["wants_videos"] = True
+    # The conversation language (Revenue Center breakdown only).
+    language = str((getattr(payload, "trace", None) or {}).get("language") or "").strip()[:8]
+    if language:
+        constraints["language"] = language
+    # The specific category the app/AI detected (events, analytics, insights
+    # use it instead of the coarse PRODUCT / SERVICES routing domain).
+    from app.services.category_signal import detect
+
+    detected, sub = detect(constraints=constraints, category=payload.category,
+                           trace=getattr(payload, "trace", None) or {}, subject=payload.subject)
+    if detected:
+        constraints.setdefault("category_detected", detected)
+    if sub:
+        constraints.setdefault("subcategory_detected", sub)
     return {
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
         "domain": _DOMAIN_BY_CATEGORY.get(category, category.upper() or "PRODUCT"),
-        "subject": _subject_with_brand(str(payload.subject).strip(), constraints),
+        "subject": _subject_with_brand(_without_video_words(str(payload.subject).strip()), constraints),
         "quantity": payload.quantity,
         "unit": payload.unit,
         "price": payload.price,
@@ -473,6 +503,7 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         "longitude": location.get("longitude"),
         "location_text": location.get("label"),
         "constraints": constraints,
+        "raw_text": str(payload.raw_text or "")[:500],
         "source": "app",
     }
 
@@ -486,13 +517,20 @@ def _multi_source_service(container) -> UniversalMultiSourceResultService:
 
         maps = GoogleMapsService(api_key=getattr(container.settings, "google_maps_api_key", ""))
         container.google_maps_service = maps
-    return UniversalMultiSourceResultService(
+    service = UniversalMultiSourceResultService(
         catalog=getattr(container, "product_catalog_repository", None),
         ranking=getattr(container, "product_match_ranking_service", None),
         seller_profiles=getattr(container, "seller_profile_repository", None),
         maps=maps,
         web_search=getattr(container, "brave_web_search_provider", None),
     )
+    try:
+        from app.services.self_healing import engine
+
+        service.bypassed = engine(container).bypassed_sources()
+    except Exception:
+        pass  # self-healing never breaks discovery
+    return service
 
 
 def _review_summary(container, user_id: str) -> dict:
@@ -643,7 +681,7 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
     trace_key = f"browse:{_uuid.uuid4().hex[:16]}"
     gate = "" if viewer else "guest browsing (no sign-in needed to view results)"
     _trace_request(container, trace_key, payload, viewer, auth_gate=gate)
-    discovered = _discover(container, demand)
+    discovered = _discover(container, demand, trace_key=trace_key)
     _trace_results(container, trace_key, discovered)
     matches = discovered["matches"]
     return {
@@ -668,7 +706,7 @@ class TraceEventRequest(BaseModel):
 
 
 _TRACE_EVENTS = {"result_selected", "action_attempted", "action_result", "location_failure", "auth_required",
-                 "search_failed"}
+                 "search_failed", "auth_resumed", "attachment_failed"}
 
 
 @router.post("/trace-event")
@@ -819,7 +857,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
     matches.extend(_demo_discovery_matches(container, demand, existing_ids))
 
     primary_count = len(matches)
-    discovered = _discover(container, demand, matches)
+    discovered = _discover(container, demand, matches, trace_key=f"deal:{deal_id}")
     matches = discovered["matches"]
     local_match_count = discovered["local_match_count"]
     source_status = discovered["source_status"]
@@ -856,7 +894,7 @@ def get_matches(deal_id: int, request: Request) -> dict:
     }
 
 
-def _discover(container, demand: dict, matches: list[dict] | None = None) -> dict:
+def _discover(container, demand: dict, matches: list[dict] | None = None, *, trace_key: str = "") -> dict:
     """The ONE universal discovery pipeline (any category): affiliate +
     ASKODOX registered + nearby/wider local + used/surplus/deals + online +
     videos, filtered by admin switches, de-duplicated across sources.
@@ -912,7 +950,13 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         existing_ids.update(str(item.get("id")) for item in affiliate_rows)
 
     affiliate_config = getattr(container, "affiliate_provider_config", None)
-    if affiliate_config is not None and flags.get("results.affiliate", True):
+    # A service request ("AC installation in Vuyyuru") wants local PROVIDERS:
+    # product stores (affiliate / partner links) are never shown for it.
+    from app.services.universal_multi_source_result_service import NEED_SERVICE, need_kind
+
+    service_need = need_kind(demand) == NEED_SERVICE
+    if (affiliate_config is not None and flags.get("results.affiliate", True)
+            and str(demand.get("side") or "").upper() != "OFFER" and not service_need):
         category = str(demand.get("domain") or "").strip().lower()
         subject = str(demand.get("subject") or "").strip()
         providers = []
@@ -981,7 +1025,116 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
         if url_key:
             seen_urls.add(url_key)
         matches.append(item)
+    # Affiliate / partner results (Partner Hub) come AFTER ASKODOX
+    # registered + nearby/local + normal online: ASKODOX stays local-first.
+    partner_rows: list[dict] = []
+    if flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER" and not service_need:
+        try:
+            from app.api.routes.partners import partner_repo
+            from app.services.affiliate_partner_service import partner_results
+
+            partner_rows, partner_errors = partner_results(
+                partner_repo(container), demand, trace_key=trace_key,
+                country=str(getattr(container.settings, "search_country", "IN") or "IN"),
+            )
+            errors.extend(partner_errors)
+        except Exception as error:  # a partner never breaks discovery
+            errors.append(f"partner:{type(error).__name__}")
+        for item in partner_rows:
+            if str(item.get("id")) in seen:
+                continue
+            seen.add(str(item.get("id")))
+            matches.append(item)
+    # Real web videos (YouTube Data when configured, web video search):
+    # trackable, embeddable only where YouTube allows, linked to the need.
+    if videos_on:
+        try:
+            from app.api.routes.platform import enrich_discovery_videos
+
+            enrich_discovery_videos(container, demand, matches,
+                                    wants_videos=bool((demand.get("constraints") or {}).get("wants_videos")),
+                                    trace_key=trace_key)
+            seen.update(str(m.get("id")) for m in matches)
+        except Exception as error:
+            errors.append(f"web_videos:{type(error).__name__}")
+    # Command Center affiliate links (disclosed, tracked) follow the Partner
+    # Hub rows -- same local-first rule, never for a service need.
+    platform_affiliate: list[dict] = []
+    if flags.get("results.affiliate", True) and str(demand.get("side") or "").upper() != "OFFER" and not service_need:
+        try:
+            from app.api.routes.platform import discovery_affiliate_rows
+
+            platform_affiliate = discovery_affiliate_rows(container, demand, trace_key=trace_key)
+        except Exception as error:
+            errors.append(f"affiliate_links:{type(error).__name__}")
+        for item in platform_affiliate:
+            url_key = _url_key(item.get("destination_url"))
+            if str(item.get("id")) in seen or (url_key and url_key in seen_urls):
+                continue
+            seen.add(str(item.get("id")))
+            if url_key:
+                seen_urls.add(url_key)
+            matches.append(item)
+    # Reviewed Command Center videos, only when the customer asked for
+    # videos/reviews (same rule as web videos). Sponsored ones wait below.
+    sponsored_videos: list[dict] = []
+    if videos_on and (demand.get("constraints") or {}).get("wants_videos"):
+        try:
+            from app.api.routes.platform import discovery_video_rows
+
+            for item in discovery_video_rows(container, demand):
+                if str(item.get("id")) in seen:
+                    continue
+                seen.add(str(item.get("id")))
+                (sponsored_videos if item.get("sponsored") else matches).append(item)
+        except Exception as error:
+            errors.append(f"videos:{type(error).__name__}")
+    # Sponsored campaigns (Command Center): paid placements are appended in
+    # their own labelled section AFTER every organic row -- they never enter
+    # or reorder the organic ranking, and are served only when targeted.
+    sponsored_rows: list[dict] = []
+    organic_count = len(matches)
+    if flags.get("results.sponsored", True):
+        try:
+            from app.api.routes.sponsored import sponsored_results
+
+            sponsored_rows = [row for row in sponsored_results(container, demand) if str(row.get("id")) not in seen]
+        except Exception as error:  # an ad never breaks discovery
+            errors.append(f"sponsored:{type(error).__name__}")
+        matches.extend(sponsored_rows)
+    # Sponsored videos are paid placements too: after every organic row.
+    sponsored_rows = sponsored_rows + sponsored_videos
+    matches.extend(sponsored_videos)
+    try:
+        from app.api.routes.sponsored import sponsored_repo
+
+        sponsored_repo(container).tally_search(organic=organic_count, sponsored=len(sponsored_rows))
+    except Exception:
+        pass
+    try:
+        from app.api.routes.partners import partner_repo
+
+        constraints = demand.get("constraints") or {}
+        from app.services.category_signal import for_demand
+
+        partner_repo(container).record_event(
+            "search", trace_key=trace_key or None, category=for_demand(demand)[0],
+            subject=str(demand.get("subject") or ""), location=str(demand.get("location_text") or ""),
+            language=str(constraints.get("language") or ""),
+            detail={"results": len(matches), "partner_results": len(partner_rows)},
+        )
+    except Exception:
+        pass
     _annotate_offers(container, matches)
+    _annotate_benefits(container, matches, demand, trace_key)
+    try:
+        from app.api.routes.platform import annotate_merchant_offers, record_search
+
+        if flags.get("offers.merchant", True):
+            annotate_merchant_offers(container, matches)
+        record_search(container, demand, matches, trace_key=trace_key)
+    except Exception as error:  # the platform layer never breaks discovery
+        errors.append(f"platform:{type(error).__name__}")
     local_match_count = sum(
         1 for item in matches if item.get("match_source") in {"interest", "demo_discovery", "registered"}
     )
@@ -994,6 +1147,8 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
                       and m.get("segment") not in {"used", "surplus", "deals"}),
         "used_surplus_deals": sum(1 for m in matches if m.get("segment") in {"used", "surplus", "deals"}),
         "affiliate": sum(1 for m in matches if m.get("affiliate")),
+        "partner": len(partner_rows),
+        "sponsored": len(sponsored_rows),
         "videos": sum(1 for m in matches if m.get("match_source") == "video"),
     }
     if not online_on:
@@ -1029,6 +1184,45 @@ def _discover(container, demand: dict, matches: list[dict] | None = None) -> dic
             if source_status.get("nearby") == "needs_location" else None,
         },
     }
+
+
+def _annotate_benefits(container, matches: list[dict], demand: dict, trace_key: str) -> None:
+    """Verified offers / coupons / cashback that apply to each result,
+    computed from its real price (compact list; terms on request). Nothing
+    is shown unless a campaign row exists for it."""
+    try:
+        from app.api.routes.benefits import benefits_repo
+        from app.api.routes.partners import partner_repo
+        from app.services import benefits_engine
+
+        campaigns = benefits_repo(container).campaigns(active_only=True)
+        if not campaigns:
+            return
+        partners = {p["slug"]: p["id"] for p in partner_repo(container).partners(active_only=True)}
+        shown: set[int] = set()
+        country = str(getattr(container.settings, "search_country", "IN") or "IN")
+        for item in matches:
+            if item.get("match_source") == "video":
+                continue
+            price = item.get("price")
+            result = benefits_engine.evaluate(
+                campaigns, price=float(price) if isinstance(price, (int, float)) else None,
+                category=str(demand.get("domain") or ""),
+                subject=f"{demand.get('subject') or ''} {item.get('title') or ''}",
+                location=str(demand.get("location_text") or ""), country=country,
+                partner_id=partners.get(str(item.get("partner_slug") or "")),
+            )
+            if result["offers"]:
+                item["benefits"] = result
+                shown.update(o["id"] for o in result["offers"])
+        repo = partner_repo(container)
+        for campaign_id in shown:  # one impression per campaign per search
+            from app.services.category_signal import for_demand
+
+            repo.record_event("offer_impression", trace_key=trace_key or None, campaign=f"benefit:{campaign_id}",
+                              category=for_demand(demand)[0])
+    except Exception:
+        pass  # offers never break discovery
 
 
 def _annotate_offers(container, matches: list[dict]) -> None:
@@ -1129,6 +1323,16 @@ def _trace_results(container, trace_key: str, discovered: dict, *, deal_id=None)
         pass  # tracing never breaks the customer response
 
 
+_PHONE = re.compile(r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)")
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+
+
+def _redact_pii(text: str) -> str:
+    """Admin traces keep what was asked, not who to call: phone numbers and
+    e-mail addresses typed into the chat are masked."""
+    return _EMAIL.sub("[email]", _PHONE.sub("[phone]", text))
+
+
 def _query_language(text: str) -> str:
     """Script of what the customer actually said (te / hi / en / mixed)."""
     telugu = bool(re.search(r"[ఀ-౿]", text))
@@ -1157,15 +1361,18 @@ def _trace_request(container, trace_key: str, payload, user_id: str, *, deal_id=
             trace_key,
             deal_id=deal_id,
             user=mask_user_id(user_id) if user_id else "guest",
-            query=str(client.get("query") or payload.raw_text or "")[:500],
+            query=_redact_pii(str(client.get("query") or payload.raw_text or ""))[:500],
+            reply_language=str(client.get("language") or "")[:8] or None,
+            attachments=[{"kind": str(a.get("kind") or "")[:12], "id": str(a.get("id") or "")[:40]}
+                         for a in (client.get("attachments") or []) if isinstance(a, dict)][:4] or None,
             language=_query_language(str(client.get("query") or payload.raw_text or "")),
             ui_language=str(client.get("ui_language") or "")[:8] or None,
             intent=str(client.get("intent") or payload.intent or "")[:80],
             domain=str(client.get("domain") or payload.category or "")[:40],
             categories=[str(c)[:60] for c in (client.get("categories") or [payload.subject])][:10],
             slots=slots,
-            questions=[str(q)[:200] for q in (client.get("questions") or [])][:20],
-            answers=[str(a)[:200] for a in (client.get("answers") or [])][:20],
+            questions=[_redact_pii(str(q))[:200] for q in (client.get("questions") or [])][:20],
+            answers=[_redact_pii(str(a))[:200] for a in (client.get("answers") or [])][:20],
             auth_gate=auth_gate or str(client.get("auth_gate") or "")[:120],
             active_role=str(client.get("active_role") or "")[:40],
             missing_slots=[str(m)[:40] for m in (client.get("missing_slots") or [])][:20],

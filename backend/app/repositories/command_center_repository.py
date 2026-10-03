@@ -15,9 +15,11 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
+from app.services.governance import all_permissions, redact
+
 # ------------------------------------------------------------ permissions --
 
-PERMISSIONS = (
+_LEGACY_PERMISSIONS = (
     "overview:view",
     "users:view",
     "users:manage",
@@ -44,7 +46,45 @@ PERMISSIONS = (
     # Offers, rewards/attribution, referrals, plans/subscriptions, catalog AI.
     "growth:view",
     "growth:manage",
+    # Affiliate / Partner Hub and the Revenue Center.
+    "partners:view",
+    "partners:manage",
+    "revenue:view",
+    "revenue:manage",
+    # Sponsored listings: advertisers, campaigns, approvals, analytics.
+    "sponsored:view",
+    "sponsored:manage",
+    # Commercial platform: affiliate programs/links, smart links, merchant
+    # offers, videos/creators/reviews, notification templates, finance
+    # (payments ledger, revenue ledger), rewards ledger, AI insights.
+    "affiliate:view",
+    "affiliate:manage",
+    "links:view",
+    "links:manage",
+    "offers:view",
+    "offers:manage",
+    "content:view",
+    "content:manage",
+    "notifications:manage",
+    "finance:view",
+    "finance:manage",
+    "rewards:view",
+    "rewards:manage",
+    "insights:view",
 )
+
+# Every module gets the full verb set (view / create / edit / approve /
+# delete / export / manage); ``manage`` implies create/edit/approve/delete.
+MODULES = tuple(dict.fromkeys([p.split(":", 1)[0] for p in _LEGACY_PERMISSIONS] + [
+    "approvals",   # the reusable approvals workflow (ORANGE / RED changes)
+    "selfheal",    # Self-Healing Engine
+    "companion",   # AI Companion / Screen Guide
+    "security",    # security posture (sign-in failures, headers, advisor)
+    "roles",       # custom role definitions (Owner)
+    "delivery",    # delivery partners / drivers
+    "qa",          # phone-test / QA center
+]))
+PERMISSIONS = all_permissions(_LEGACY_PERMISSIONS, MODULES)
 
 ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "super_admin": PERMISSIONS,
@@ -53,9 +93,10 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
         "catalog:view", "catalog:manage", "support:view", "support:manage", "nomatch:view",
         "nomatch:manage", "notifications:view", "analytics:view", "analytics:export",
         "health:view", "integrations:view", "config:view", "audit:view", "growth:view",
+        "approvals:view", "selfheal:view", "companion:view",
     ),
     "support_agent": (
-        "overview:view", "support:view", "support:manage", "requests:view", "notifications:view",
+        "overview:view", "support:view", "support:manage", "requests:view", "notifications:view", "users:view",
     ),
     "seller_manager": (
         "overview:view", "users:view", "users:manage", "catalog:view", "catalog:manage", "notifications:view",
@@ -63,12 +104,27 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "catalog_manager": (
         "overview:view", "catalog:view", "catalog:manage", "nomatch:view", "nomatch:manage",
     ),
-    "analyst": ("overview:view", "analytics:view", "analytics:export", "health:view", "nomatch:view"),
+    "analyst": ("overview:view", "analytics:view", "analytics:export", "health:view", "nomatch:view", "revenue:view"),
     "integrations_manager": (
         "overview:view", "integrations:view", "integrations:manage", "config:view", "config:manage", "health:view",
+        "selfheal:view",
     ),
-    "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view"),
-    "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view"),
+    "payments_manager": ("overview:view", "payments:view", "payments:manage", "growth:view", "revenue:view",
+                         "revenue:manage", "analytics:export"),
+    "growth_manager": ("overview:view", "growth:view", "growth:manage", "catalog:view", "analytics:view",
+                       "partners:view", "partners:manage", "revenue:view", "sponsored:view", "sponsored:manage",
+                       "offers:view", "offers:manage", "rewards:view", "links:view", "insights:view"),
+    "campaign_manager": ("overview:view", "sponsored:view", "sponsored:manage", "links:view", "links:manage",
+                         "offers:view", "analytics:view", "insights:view"),
+    "affiliate_manager": ("overview:view", "affiliate:view", "affiliate:manage", "partners:view", "partners:manage",
+                          "links:view", "links:manage", "revenue:view", "analytics:view"),
+    "finance": ("overview:view", "payments:view", "payments:manage", "finance:view", "finance:manage",
+                "revenue:view", "revenue:manage", "rewards:view", "rewards:manage", "analytics:view",
+                "analytics:export", "audit:view"),
+    "content_moderator": ("overview:view", "content:view", "content:manage", "notifications:view"),
+    "merchant_manager": ("overview:view", "users:view", "users:manage", "offers:view", "offers:manage",
+                         "catalog:view", "catalog:manage", "support:view"),
+    "analytics_viewer": ("overview:view", "analytics:view", "insights:view", "health:view", "companion:view"),
 }
 
 # ----------------------------------------------------------- feature flags --
@@ -78,6 +134,7 @@ FEATURE_FLAGS: Dict[str, str] = {
     "results.nearby_external": "Nearby/wider external shops (Google Places)",
     "results.online": "Online product results (web discovery)",
     "results.affiliate": "Affiliate partner results",
+    "results.sponsored": "Sponsored campaign results (labelled, after organic results)",
     "results.used": "Used / second-hand results",
     "results.surplus": "Surplus / clearance / open-box results",
     "results.deals": "Deals & offers results",
@@ -87,7 +144,36 @@ FEATURE_FLAGS: Dict[str, str] = {
     "payments.subscriptions": "Optional payment / subscription flows",
     "ai.assistant": "Universal AI assistant replies in Main Chat",
     "voice.sarvam_tts": "Sarvam Bulbul reply voice (device TTS fallback when off)",
+    "links.smart": "Smart / deep links (/l/{slug}) with app -> web fallback",
+    "offers.merchant": "Merchant-created offers (reviewed) on results and claims",
+    "payments.online": "Online payment gateways (only once a gateway is configured)",
+    "rewards": "Rewards ledger (cashback, points, merchant rewards)",
+    "coupons": "Coupons and promo codes",
+    "referrals": "Refer & earn",
+    "support.whatsapp": "WhatsApp support channel (needs WhatsApp configuration)",
+    "notifications.push": "Push notifications (needs Firebase configuration)",
+    "notifications.email": "Email notifications (needs an email provider)",
+    "notifications.sms": "SMS notifications (needs an SMS provider)",
+    "notifications.whatsapp": "WhatsApp notifications (needs WhatsApp configuration)",
+    "notifications.promotions": "Targeted promotions (reviewed campaigns, consent + frequency caps)",
+    "companion.enabled": "AI Companion (master switch: off hides every companion capability; ASKODOX keeps working)",
+    "companion.floating_bubble": "Floating ASKODOX bubble over other apps (Android, user-granted overlay)",
+    "companion.screen_guide": "AI Companion Screen Guide over other apps (Android, opt-in, Privacy Shield)",
+    "companion.accessibility": "Screen Guide may use the user-enabled Android accessibility service (policy kill switch)",
+    "companion.privacy_shield": "Privacy Shield for the Screen Guide (fail-closed: switching it off stops the guide, never unprotects it)",
+    "selfheal.enabled": "Self-Healing Engine: detect issues and propose fixes",
+    "selfheal.green_auto": "Self-Healing: apply GREEN (safe, reversible) fixes automatically",
+    "referrals.priority_credits": "Referrals earn Priority Notification Credits (rules in Growth -> Referral credit rules)",
+    "location.proximity_alerts": "Hyper-local opportunity alerts (foreground / app-open by default)",
+    "location.background_optin": "Offer background-location proximity alerts to users who explicitly opt in (Play declaration required)",
+    "delivery.matching": "Match delivery requests to approved, available delivery partners",
 }
+
+# Flags that start OFF until the Owner switches them on (everything else
+# defaults ON, as before).
+FLAG_DEFAULTS: Dict[str, bool] = {"companion.screen_guide": False, "selfheal.green_auto": False,
+                                  "referrals.priority_credits": False, "location.proximity_alerts": False,
+                                  "location.background_optin": False, "delivery.matching": False}
 
 ESCALATION_STATUSES = ("OPEN", "IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED", "CLOSED")
 NO_MATCH_STATUSES = ("OPEN", "INVESTIGATING", "SOURCE_ADDED", "CATEGORY_ADDED", "RESOLVED", "DISMISSED")
@@ -190,8 +276,44 @@ class CommandCenterRepository:
                     read INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL
                 );
+                -- 2026-09-30: reusable approvals (ORANGE / RED changes). The
+                -- proposed state is a safe, redacted description plus the
+                -- named executor's parameters -- never code, SQL or secrets.
+                CREATE TABLE IF NOT EXISTS cc_approvals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    action TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    risk TEXT NOT NULL,
+                    reason TEXT,
+                    old_json TEXT,
+                    proposed_json TEXT,
+                    params_json TEXT NOT NULL DEFAULT '{}',
+                    status TEXT NOT NULL DEFAULT 'PENDING',
+                    requested_by TEXT NOT NULL,
+                    requested_role TEXT,
+                    requested_at TEXT NOT NULL,
+                    decided_by TEXT,
+                    decided_at TEXT,
+                    decision_note TEXT,
+                    result_json TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_cc_approvals_status ON cc_approvals(status, id);
+                -- Owner-defined roles and Owner overrides of the presets.
+                CREATE TABLE IF NOT EXISTS cc_roles (
+                    name TEXT PRIMARY KEY,
+                    label TEXT,
+                    permissions_json TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
+            # 2026-09-30: who (role) / risk / result on every audit row.
+            for column in ("actor_role TEXT", "risk TEXT", "result TEXT"):
+                try:
+                    conn.execute(f"ALTER TABLE admin_audit_log ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass  # already present
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -266,7 +388,7 @@ class CommandCenterRepository:
             result[key] = {
                 "key": key,
                 "description": description,
-                "enabled": True if row is None else bool(row["enabled"]),
+                "enabled": FLAG_DEFAULTS.get(key, True) if row is None else bool(row["enabled"]),
                 "updated_by": row["updated_by"] if row else None,
                 "updated_at": row["updated_at"] if row else None,
             }
@@ -278,7 +400,7 @@ class CommandCenterRepository:
     def is_enabled(self, key: str) -> bool:
         with self._connect() as conn:
             row = conn.execute("SELECT enabled FROM feature_flags WHERE key=?", (key,)).fetchone()
-        return True if row is None else bool(row["enabled"])
+        return FLAG_DEFAULTS.get(key, True) if row is None else bool(row["enabled"])
 
     def set_flag(self, key: str, enabled: bool, actor: str) -> Dict[str, Any]:
         if key not in FEATURE_FLAGS:
@@ -294,24 +416,148 @@ class CommandCenterRepository:
     # ---------------------------------------------------------------- audit --
 
     def audit(self, actor: str, action: str, entity_type: str, entity_id: Any,
-              before: Any = None, after: Any = None, reason: str = "") -> None:
+              before: Any = None, after: Any = None, reason: str = "", *, role: str | None = None,
+              risk: str | None = None, result: str | None = "OK") -> None:
+        """Append-only (no update / delete path exists). Secret-looking keys
+        and values are redacted before they are stored."""
+        from app.services.governance import flag_risk
+
+        if risk is None:
+            risk = flag_risk(str(entity_id)) if entity_type == "feature_flag" else "GREEN"
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,before_json,after_json,reason,created_at) VALUES(?,?,?,?,?,?,?,?)",
-                (actor, action, entity_type, str(entity_id), json.dumps(before, default=str),
-                 json.dumps(after, default=str), reason, _now()),
+                "INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,before_json,after_json,reason,created_at,"
+                "actor_role,risk,result) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (actor, action, entity_type, str(entity_id), json.dumps(redact(before), default=str),
+                 json.dumps(redact(after), default=str), redact(reason or ""), _now(),
+                 role or ("super_admin" if actor == "owner" else self._role_of(actor)), risk, result),
             )
 
-    def audit_log(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def _role_of(self, actor: str) -> Optional[str]:
+        if str(actor).startswith("staff-") and str(actor)[6:].isdigit():
+            staff = self.get_staff(int(str(actor)[6:]))
+            return staff["role"] if staff else None
+        return None
+
+    def audit_log(self, limit: int = 100, *, actor: str = "", action: str = "", entity_type: str = "",
+                  risk: str = "", q: str = "", since: str = "") -> List[Dict[str, Any]]:
+        sql, params = "SELECT * FROM admin_audit_log WHERE 1=1", []
+        for column, value in (("actor", actor), ("action", action), ("entity_type", entity_type), ("risk", risk)):
+            if value:
+                sql += f" AND {column}=?"
+                params.append(value)
+        if since:
+            sql += " AND created_at>=?"
+            params.append(since)
+        if q:
+            sql += " AND (entity_id LIKE ? OR action LIKE ? OR reason LIKE ?)"
+            params += [f"%{q}%"] * 3
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(max(1, min(limit, 5000)))
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM admin_audit_log ORDER BY id DESC LIMIT ?", (max(1, min(limit, 500)),)).fetchall()
+            rows = conn.execute(sql, tuple(params)).fetchall()
         items = []
         for row in rows:
             data = dict(row)
             data["before"] = json.loads(data.pop("before_json") or "null")
             data["after"] = json.loads(data.pop("after_json") or "null")
+            data["risk"] = data.get("risk") or "GREEN"
             items.append(data)
         return items
+
+    # ------------------------------------------------------------ approvals --
+
+    def create_approval(self, *, action: str, target: str, risk: str, reason: str, old: Any, proposed: Any,
+                        params: Dict[str, Any], requested_by: str, requested_role: str) -> Dict[str, Any]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO cc_approvals(action,target,risk,reason,old_json,proposed_json,params_json,status,"
+                "requested_by,requested_role,requested_at) VALUES(?,?,?,?,?,?,?,'PENDING',?,?,?)",
+                (action, str(target)[:200], risk, redact(reason or "")[:1000], json.dumps(redact(old), default=str),
+                 json.dumps(redact(proposed), default=str), json.dumps(params, default=str), requested_by,
+                 requested_role, _now()))
+            approval_id = int(cur.lastrowid)
+        return self.get_approval(approval_id) or {}
+
+    def get_approval(self, approval_id: int, *, with_params: bool = False) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM cc_approvals WHERE id=?", (int(approval_id),)).fetchone()
+        return self._approval(row, with_params) if row else None
+
+    def approvals(self, status: str = "", limit: int = 200) -> List[Dict[str, Any]]:
+        sql, params = "SELECT * FROM cc_approvals", []
+        if status:
+            sql += " WHERE status=?"
+            params.append(status)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(max(1, min(limit, 1000)))
+        with self._connect() as conn:
+            rows = conn.execute(sql, tuple(params)).fetchall()
+        return [self._approval(r, False) for r in rows]
+
+    def decide_approval(self, approval_id: int, *, status: str, decided_by: str, note: str = "",
+                        result: Any = None) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE cc_approvals SET status=?, decided_by=?, decided_at=?, decision_note=?, result_json=? "
+                "WHERE id=? AND status='PENDING'",
+                (status, decided_by, _now(), redact(note or "")[:1000], json.dumps(redact(result), default=str),
+                 int(approval_id)))
+            if cur.rowcount == 0:
+                return None  # already decided (idempotent, no double execution)
+        return self.get_approval(approval_id)
+
+    def set_approval_result(self, approval_id: int, status: str, result: Any) -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE cc_approvals SET status=?, result_json=? WHERE id=?",
+                         (status, json.dumps(redact(result), default=str), int(approval_id)))
+
+    @staticmethod
+    def _approval(row, with_params: bool) -> Dict[str, Any]:
+        data = dict(row)
+        data["old"] = json.loads(data.pop("old_json") or "null")
+        data["proposed"] = json.loads(data.pop("proposed_json") or "null")
+        data["result"] = json.loads(data.pop("result_json") or "null")
+        params = json.loads(data.pop("params_json") or "{}")
+        if with_params:
+            data["params"] = params
+        return data
+
+    # ---------------------------------------------------------------- roles --
+
+    def roles(self) -> Dict[str, Dict[str, Any]]:
+        """Presets merged with the Owner's overrides and custom roles."""
+        out = {name: {"name": name, "label": name.replace("_", " ").title(), "permissions": list(perms),
+                      "preset": True, "customised": False} for name, perms in ROLE_PRESETS.items()}
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM cc_roles").fetchall()
+        for row in rows:
+            perms = [p for p in json.loads(row["permissions_json"] or "[]") if p in PERMISSIONS]
+            if row["name"] == "super_admin":
+                continue  # the Owner role always has everything
+            base = out.get(row["name"])
+            out[row["name"]] = {"name": row["name"], "label": row["label"] or row["name"], "permissions": perms,
+                                "preset": bool(base), "customised": True, "updated_by": row["updated_by"],
+                                "updated_at": row["updated_at"]}
+        return out
+
+    def role_permissions(self, role: str) -> Optional[List[str]]:
+        item = self.roles().get(role)
+        return list(item["permissions"]) if item else None
+
+    def save_role(self, name: str, label: str, permissions: Iterable[str], actor: str) -> Dict[str, Any]:
+        clean = sorted({p for p in permissions if p in PERMISSIONS})
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO cc_roles(name,label,permissions_json,updated_by,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(name) DO UPDATE SET label=excluded.label, permissions_json=excluded.permissions_json, "
+                "updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+                (name, label, json.dumps(clean), actor, _now()))
+        return self.roles()[name]
+
+    def reset_role(self, name: str) -> bool:
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM cc_roles WHERE name=?", (name,)).rowcount > 0
 
     # ------------------------------------------------------- no-match queue --
 

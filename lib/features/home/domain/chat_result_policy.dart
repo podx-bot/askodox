@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../matching/data/universal_match_repository.dart';
+import 'conversation_language.dart';
 
 /// What a result card embedded in the ASKODOX chat lets the user do.
 ///
@@ -115,6 +116,13 @@ class AskodoxChatResults {
       ];
 }
 
+/// The ask used for reasoning when an attachment is sent without words. It
+/// is never shown as the customer's message and never decides the language
+/// (the reply follows the conversation language).
+const askodoxAttachmentOnlyAsk =
+    'The customer sent this attachment without a question. Say what it is and help with the likely need '
+    '(where to get it nearby or online, a service for it, or what the document means).';
+
 /// Combines the user's words with facts extracted from an attached photo or
 /// file so the same intent → category → questions → matching pipeline runs
 /// on both.
@@ -188,10 +196,16 @@ enum AskodoxResultSegment {
   widerLocal,
   jobs,
   online,
+  // Affiliate / partner stores (Partner Hub): after local and normal online.
+  partner,
+  // Paid placements (Command Center sponsored campaigns): their own labelled
+  // section, never ranked among organic results.
+  sponsored,
   video,
 }
 
 AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
+  if (match.sponsored) return AskodoxResultSegment.sponsored;
   switch (match.segment) {
     case 'registered':
       return AskodoxResultSegment.registered;
@@ -209,6 +223,8 @@ AskodoxResultSegment askodoxSegmentOf(UniversalMatch match) {
       return AskodoxResultSegment.widerLocal;
     case 'jobs':
       return AskodoxResultSegment.jobs;
+    case 'partner':
+      return AskodoxResultSegment.partner;
   }
   return switch (chatResultActionFor(match)) {
     ChatResultAction.watchVideo => AskodoxResultSegment.video,
@@ -228,6 +244,8 @@ String askodoxSegmentLabel(String segment) => switch (segment) {
       'nearby_external' => 'Nearby shop',
       'wider_local' => 'Wider local area',
       'jobs' => 'Job opening (from a job site)',
+      'partner' => 'Partner store (affiliate link)',
+      'sponsored' => 'Sponsored (paid placement)',
       _ => segment,
     };
 
@@ -235,7 +253,24 @@ String askodoxSegmentTitle(
   AskodoxResultSegment segment, {
   required bool telugu,
   required bool hasLocal,
+  String lang = 'en',
 }) {
+  // Other app languages: the online/no-local headings from the label table.
+  if (segment == AskodoxResultSegment.sponsored) {
+    return switch (lang) {
+      'te' => 'స్పాన్సర్డ్',
+      'hi' => 'प्रायोजित',
+      _ => telugu ? 'స్పాన్సర్డ్' : 'Sponsored',
+    };
+  }
+  if (lang != 'en' && lang != 'te' && segment == AskodoxResultSegment.partner) {
+    return askodoxChatLabel('partner', lang);
+  }
+  if (lang != 'en' && lang != 'te' && segment == AskodoxResultSegment.online) {
+    return hasLocal
+        ? askodoxChatLabel('online', lang)
+        : '${askodoxChatLabel('no_local', lang)} -- ${askodoxChatLabel('online', lang)}';
+  }
   if (telugu) {
     return switch (segment) {
       AskodoxResultSegment.askodoxMatches => 'ASKODOX మ్యాచ్‌లు',
@@ -250,6 +285,8 @@ String askodoxSegmentTitle(
       AskodoxResultSegment.online => hasLocal
           ? 'ఆన్‌లైన్ ఎంపికలు'
           : 'స్థానిక match లేదు -- ఆన్‌లైన్ ఎంపికలు',
+      AskodoxResultSegment.partner => 'భాగస్వామి స్టోర్లు',
+      AskodoxResultSegment.sponsored => 'స్పాన్సర్డ్',
       AskodoxResultSegment.video => 'వీడియోలు & రివ్యూలు',
     };
   }
@@ -265,6 +302,8 @@ String askodoxSegmentTitle(
     AskodoxResultSegment.jobs => 'Job openings',
     AskodoxResultSegment.online =>
       hasLocal ? 'Online options' : 'No local match yet -- online options',
+    AskodoxResultSegment.partner => 'Partner stores',
+    AskodoxResultSegment.sponsored => 'Sponsored',
     AskodoxResultSegment.video => 'Videos & reviews',
   };
 }
@@ -559,3 +598,85 @@ String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) 
   }
   return parts.join(' ');
 }
+
+/// The comparison columns shown after a request (the approved reference:
+/// LOCAL | SPONSORED | ONLINE, extended only when a type is present).
+/// Paid placements keep their own column and label; they never change the
+/// order of the organic rows inside the other columns.
+enum AskodoxCompareKind { local, jobs, deals, sponsored, online, affiliate, used, surplus, videos }
+
+AskodoxCompareKind askodoxCompareKindOf(UniversalMatch match) => switch (askodoxSegmentOf(match)) {
+      AskodoxResultSegment.askodoxMatches ||
+      AskodoxResultSegment.registered ||
+      AskodoxResultSegment.individual ||
+      AskodoxResultSegment.nearbyExternal ||
+      AskodoxResultSegment.widerLocal =>
+        AskodoxCompareKind.local,
+      AskodoxResultSegment.jobs => AskodoxCompareKind.jobs,
+      AskodoxResultSegment.deals => AskodoxCompareKind.deals,
+      AskodoxResultSegment.sponsored => AskodoxCompareKind.sponsored,
+      AskodoxResultSegment.online => AskodoxCompareKind.online,
+      AskodoxResultSegment.partner => AskodoxCompareKind.affiliate,
+      AskodoxResultSegment.used => AskodoxCompareKind.used,
+      AskodoxResultSegment.surplus => AskodoxCompareKind.surplus,
+      AskodoxResultSegment.video => AskodoxCompareKind.videos,
+    };
+
+/// Only the kinds this request actually returned, in column order; rows keep
+/// their organic order inside each kind.
+List<(AskodoxCompareKind, List<UniversalMatch>)> askodoxCompareGroups(List<UniversalMatch> matches) {
+  final groups = <AskodoxCompareKind, List<UniversalMatch>>{};
+  for (final match in matches) {
+    groups.putIfAbsent(askodoxCompareKindOf(match), () => []).add(match);
+  }
+  return [
+    for (final kind in AskodoxCompareKind.values)
+      if (groups[kind] case final rows?) (kind, rows),
+  ];
+}
+
+String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang) {
+      'te' => switch (kind) {
+          AskodoxCompareKind.local => 'స్థానికం',
+          AskodoxCompareKind.jobs => 'ఉద్యోగాలు',
+          AskodoxCompareKind.deals => 'డీల్స్',
+          AskodoxCompareKind.sponsored => 'స్పాన్సర్డ్',
+          AskodoxCompareKind.online => 'ఆన్‌లైన్',
+          AskodoxCompareKind.affiliate => 'అఫిలియేట్',
+          AskodoxCompareKind.used => 'వాడినవి',
+          AskodoxCompareKind.surplus => 'సర్ప్లస్',
+          AskodoxCompareKind.videos => 'వీడియోలు',
+        },
+      'hi' => switch (kind) {
+          AskodoxCompareKind.local => 'लोकल',
+          AskodoxCompareKind.jobs => 'नौकरियाँ',
+          AskodoxCompareKind.deals => 'डील्स',
+          AskodoxCompareKind.sponsored => 'प्रायोजित',
+          AskodoxCompareKind.online => 'ऑनलाइन',
+          AskodoxCompareKind.affiliate => 'एफ़िलिएट',
+          AskodoxCompareKind.used => 'पुराना',
+          AskodoxCompareKind.surplus => 'सरप्लस',
+          AskodoxCompareKind.videos => 'वीडियो',
+        },
+      _ => switch (kind) {
+          AskodoxCompareKind.local => 'Local',
+          AskodoxCompareKind.jobs => 'Jobs',
+          AskodoxCompareKind.deals => 'Deals',
+          AskodoxCompareKind.sponsored => 'Sponsored',
+          AskodoxCompareKind.online => 'Online',
+          AskodoxCompareKind.affiliate => 'Affiliate',
+          AskodoxCompareKind.used => 'Used',
+          AskodoxCompareKind.surplus => 'Surplus',
+          AskodoxCompareKind.videos => 'Videos',
+        },
+    };
+
+
+/// The customer asked for videos / reviews / demos (English, Telugu, Hindi).
+/// Such a message is always a real search -- the chat never answers it with
+/// an AI "here are the videos" claim that shows nothing.
+final _videoAsk = RegExp(
+    r'\b(videos?|reviews?|youtube|unboxing|demo|comparison)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|वीडियो|रिव्यू|समीक्षा)',
+    caseSensitive: false);
+
+bool askodoxAsksForVideos(String text) => _videoAsk.hasMatch(text);

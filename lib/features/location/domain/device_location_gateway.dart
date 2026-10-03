@@ -8,6 +8,11 @@ import 'geo_models.dart';
 /// fake implementation instead of touching real hardware, mirroring how
 /// [GeoRepository]/`MockGeoRepository` are already used in this feature.
 abstract class DeviceLocationGateway {
+  /// A last-known fix older than this is never used as the current place.
+  static const maxLastKnownAge = Duration(minutes: 10);
+
+  const DeviceLocationGateway();
+
   /// Ensures location services are enabled and permission is granted,
   /// requesting permission from the OS if it has not been decided yet.
   ///
@@ -33,4 +38,17 @@ abstract class DeviceLocationGateway {
   /// the device (never for a place the user picked by hand) and while the
   /// app is in the foreground. Errors end the stream quietly.
   Stream<GeoPoint> watchPosition({int distanceFilterMetres = 300});
+
+  /// The phone's last known fix (used when a fresh fix cannot be read in
+  /// time, e.g. indoors). Null when there is none. Never throws.
+  Future<GeoPoint?> getLastKnownPosition() async => null;
+
+  /// True when the user allowed only APPROXIMATE location (Android 12+).
+  Future<bool> isApproximate() async => false;
+
+  /// Opens the phone's Location (GPS) switch screen. False when unavailable.
+  Future<bool> openLocationSettings() async => false;
+
+  /// Opens this app's permission settings (after "Don't ask again").
+  Future<bool> openAppSettings() async => false;
 }

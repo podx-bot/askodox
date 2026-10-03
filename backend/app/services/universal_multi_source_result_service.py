@@ -36,6 +36,8 @@ from app.services.universal_external_result_service import (
     _price_fields,
     _host_matches,
     _tokens,
+    category_conflict,
+    intent_conflict,
     classify_page,
     place_region_mismatch,
     region_mismatch,
@@ -65,7 +67,7 @@ _PARTY_DOMAINS = {"JOB", "JOBS", "WORK", "WORKERS", "JOB_SEEKER", "RIDE", "MOBIL
 _JOB_DOMAINS = {"JOB", "JOBS", "WORK", "JOB_SEEKER"}
 SOURCE_PLAN = {
     NEED_PRODUCT: {"askodox", "nearby", "used_deals", "online", "videos"},
-    NEED_SERVICE: {"askodox", "nearby", "online"},
+    NEED_SERVICE: {"askodox", "nearby", "online", "videos"},  # videos only when asked
     NEED_PARTY: {"askodox"},
     # A job seeker: ASKODOX employers first, then real job openings online.
     NEED_JOB: {"askodox", "jobs"},
@@ -84,7 +86,28 @@ GEO_LADDER = (
 
 def _public_image(value: Any) -> str | None:
     text = str(value or "").strip()
+    # A seller's own catalogue photo is served by ASKODOX (the app resolves
+    # the relative path against its API base).
+    if text.startswith("catalog-photo:") and text.split(":", 1)[1].isdigit():
+        return f"/api/catalog/photos/{text.split(':', 1)[1]}"
     return text if text.startswith("https://") else None
+
+
+# Service wording: "AC installation", "fridge repair", "bike servicing" ask
+# for a PROVIDER, even when the object named is a product the AI may have
+# tagged as PRODUCT. Explicit buying wording keeps it a product search.
+_SERVICE_WORDS = re.compile(
+    r"\b(install(ation|ing|er)?|uninstall(ation)?|repair(s|ing|er)?|servic(e|es|ing)|fix(ing)?|mechanic|"
+    r"plumb(er|ing)|electrician|carpenter|technician|cleaning|painting|painter|maintenance|fitting|wiring|"
+    r"pest control|gas (refill|filling)|tutor(ing)?|tuition|driver|mason|welder|shifting|packers?)\b",
+    re.IGNORECASE,
+)
+_BUY_WORDS = re.compile(r"\b(buy|purchase|price of|for sale|order|shop for|new [a-z]+ with|warranty)\b", re.IGNORECASE)
+
+
+def is_service_wording(text: str) -> bool:
+    text = str(text or "")
+    return bool(_SERVICE_WORDS.search(text)) and not _BUY_WORDS.search(text)
 
 
 def need_kind(demand: dict[str, Any]) -> str:
@@ -94,6 +117,10 @@ def need_kind(demand: dict[str, Any]) -> str:
     if domain in _PARTY_DOMAINS:
         return NEED_PARTY
     if domain in _SERVICE_DOMAINS:
+        return NEED_SERVICE
+    if domain in {"", "PRODUCT", "PRODUCTS", "GENERAL", "OTHER"} and is_service_wording(
+        f"{demand.get('subject') or ''} {demand.get('raw_text') or ''}"
+    ):
         return NEED_SERVICE
     return NEED_PRODUCT
 
@@ -181,6 +208,9 @@ class UniversalMultiSourceResultService:
         self.web_search = web_search
         self.fallback = UniversalOnlineFallbackService(web_search)
         self._status: dict[str, str] = {}
+        # Sources the Self-Healing Engine is bypassing right now (GREEN,
+        # temporary): skipped instead of waiting on a failing provider.
+        self.bypassed: set[str] = set()
         self._kind = NEED_PRODUCT
         self._filtered: dict[str, int] = {}
         # Geographic scope actually used for local results (admin trace +
@@ -216,6 +246,13 @@ class UniversalMultiSourceResultService:
         category = str(demand.get("domain") or "").strip()
         constraints = demand.get("constraints") or {}
         context_text = f"{subject} {constraints}"
+        # The AI's category ("grocery", "fashion" ...) travels with the demand:
+        # every web row must belong to it (category_conflict).
+        self._category = f"{category} {constraints.get('aiCategory') or ''}".strip()
+        setattr(self.fallback, "category_hint", self._category)
+        # A seller / provider (OFFER side) is not shopping: buyer-side web
+        # searches (used, open box, deals, online shops) are not their results.
+        self._supply = str(demand.get("side") or "").upper() == "OFFER" and self._kind == NEED_PRODUCT
         budget = self._number(demand.get("price"))
         lat, lon = demand.get("latitude"), demand.get("longitude")
         location_text = str(demand.get("location_text") or "").strip()
@@ -228,10 +265,14 @@ class UniversalMultiSourceResultService:
                              (constraints or {}).get("pickup"), (constraints or {}).get("drop")) if v
         ))
 
+        skip = self.bypassed
         with ThreadPoolExecutor(max_workers=4) as pool:
-            external = pool.submit(self._external, subject, location_text, lat, lon, radius_km) if "nearby" in plan else None
-            web = pool.submit(self._web_segments, subject, location_text) if "used_deals" in plan else None
-            jobs = pool.submit(self._jobs, subject, location_text, constraints) if "jobs" in plan else None
+            external = (pool.submit(self._external, subject, location_text, lat, lon, radius_km)
+                        if "nearby" in plan and "nearby" not in skip else None)
+            web = (pool.submit(self._web_segments, subject, location_text)
+                   if "used_deals" in plan and "used_deals" not in skip else None)
+            jobs = (pool.submit(self._jobs, subject, location_text, constraints)
+                    if "jobs" in plan and "jobs" not in skip else None)
             registered = self._registered(subject, location_text, budget, lat, lon, condition, place_words)
             external_rows = external.result() if external else []
             web_rows = web.result() if web else []
@@ -251,6 +292,9 @@ class UniversalMultiSourceResultService:
         self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
         if "jobs" in plan:
             self._status["jobs"] = (STATUS_OK if job_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
+        for source in skip:
+            if source in plan and self._status.get(source) != STATUS_NEEDS_LOCATION:
+                self._status[source] = "bypassed_unhealthy"
         return sorted(rows, key=lambda item: -float(item.get("rank_score") or 0))
 
     def online_and_videos(self, *, category: str, subject: str, include_online: bool,
@@ -262,13 +306,14 @@ class UniversalMultiSourceResultService:
             query = f"{subject} service in {where} book"
         rows = (self.fallback.online(category=category, subject=subject, query=query, location_text=location_text,
                                      allow_directories=self._kind == NEED_SERVICE)
-                if include_online and "online" in plan else [])
+                if include_online and "online" in plan and not getattr(self, "_supply", False) else [])
         if "videos" in plan and not include_videos:
             # Reviews/videos only when the customer asked for them (never
             # mixed into "buy a TV" results just because search found some).
             self.fallback.status["videos"] = STATUS_NOT_APPLICABLE
             return rows
-        return rows + (self.fallback.videos(category=category, subject=subject) if "videos" in plan else [])
+        return rows + (self.fallback.videos(category=category, subject=subject, service=self._kind == NEED_SERVICE)
+                       if "videos" in plan else [])
 
     # ----------------------------------------------------------- sources --
 
@@ -406,6 +451,9 @@ class UniversalMultiSourceResultService:
                 "review_count": int(place["rating_count"]) if place.get("rating_count") not in (None, "") else None,
                 "availability": ("Open now" if place.get("open_now") is True else None),
                 "destination_url": place.get("maps_url") or None,
+                # Real coordinates for Directions (never a guessed point).
+                "latitude": place.get("latitude"),
+                "longitude": place.get("longitude"),
                 "source": "external",
                 "match_source": "external",
                 "segment": segment,
@@ -420,6 +468,8 @@ class UniversalMultiSourceResultService:
 
     def _web_segments(self, subject, location_text) -> list[dict[str, Any]]:
         if not callable(self.web_search) or not getattr(self.web_search, "configured", True):
+            return []
+        if getattr(self, "_supply", False):
             return []
         near = f" {location_text}" if location_text else " India"
         queries = {
@@ -443,6 +493,12 @@ class UniversalMultiSourceResultService:
                 # Must be about the requirement AND genuinely this segment.
                 if not relevant_to(subject, title, snippet) or not _mentions(f"{title} {snippet}", words):
                     self._filter("not_relevant")
+                    continue
+                if category_conflict(subject, getattr(self, "_category", ""), url, title, snippet):
+                    self._filter("other_category")
+                    continue
+                if intent_conflict(subject, getattr(self, "_category", ""), url, title, snippet):
+                    self._filter("other_intent")
                     continue
                 if region_mismatch(url, title, snippet, wanted_place=location_text):
                     self._filter("wrong_region")

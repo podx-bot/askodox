@@ -1,0 +1,39 @@
+name: Phone-test download check
+
+# Downloads the public staging phone-test APK URL exactly as a phone would
+# and verifies status, headers, full length and SHA-256 (staging only).
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/phone-test-link.json', 'backend/app/api/routes/phone_test_download.py']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify (waits for the staging deploy)
+        run: |
+          set -uo pipefail
+          BUILD=$(jq -r .build_number .github/phone-test-link.json)
+          SHA=$(grep -oE "\"${BUILD}\": \"[0-9a-f]{64}\"" backend/app/api/routes/phone_test_download.py | grep -oE '[0-9a-f]{64}')
+          URL="https://staging.askodox.com/downloads/askodox-phone-test-${BUILD}.apk"
+          UA="Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36"
+          for i in $(seq 1 30); do
+            rm -f apk headers.txt
+            code=$(curl -sS -A "$UA" -H 'Accept-Encoding: gzip, deflate, br' -D headers.txt -o apk -w '%{http_code}' "$URL" || echo 000)
+            got=$(sha256sum apk 2>/dev/null | cut -d' ' -f1)
+            if [ "$code" = "200" ] && [ "$got" = "$SHA" ]; then break; fi
+            echo "attempt $i: HTTP $code sha=${got:-none} (waiting for deploy)"; sleep 20
+          done
+          echo "URL: $URL"; cat headers.txt
+          echo "downloaded bytes: $(stat -c %s apk)"; echo "sha256: $got (expected $SHA)"
+          fail=0
+          [ "$code" = "200" ] || { echo "FAIL status"; fail=1; }
+          [ "$got" = "$SHA" ] || { echo "FAIL sha256"; fail=1; }
+          grep -qi '^content-type: application/vnd.android.package-archive' headers.txt || { echo "FAIL content-type"; fail=1; }
+          grep -qi "^content-length: $(stat -c %s apk)" headers.txt || { echo "FAIL content-length"; fail=1; }
+          grep -qi "^content-disposition: attachment; filename=\"askodox-phone-test-${BUILD}.apk\"" headers.txt || { echo "FAIL content-disposition"; fail=1; }
+          grep -qi '^content-encoding:' headers.txt && { echo "FAIL compressed"; fail=1; }
+          [ "$fail" = 0 ] && echo "PASS: $URL"
+          exit $fail

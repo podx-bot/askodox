@@ -34,6 +34,12 @@ void main() {
     expect(askodoxWantsResultsNow('Vijayawada'), isFalse);
     expect(askodoxWantsResultsNow('చూపించండి'), isTrue);
     expect(askodoxWantsResultsNow('find it'), isTrue);
+    // "Where can I get it here" searches real sellers (never shop names
+    // from the AI's memory) -- found by the real-content video proof.
+    expect(askodoxWantsResultsNow('Is it worth buying, and where can I get it here?'), isTrue);
+    expect(askodoxWantsResultsNow('where to buy it'), isTrue);
+    expect(askodoxWantsResultsNow('ఇది ఎక్కడ దొరుకుతుంది?'), isTrue);
+    expect(askodoxWantsResultsNow('Is it worth buying?'), isFalse);
   });
 
   test('same-need detection', () {

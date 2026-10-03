@@ -43,6 +43,14 @@ class _Client implements ApiClient {
       ApiSuccess<Uri>(Uri.parse('https://files.example/$fileName'));
 }
 
+class _Places extends _Growth {
+  _Places(this.places);
+  final List<AskodoxPlace> places;
+
+  @override
+  Future<List<AskodoxPlace>> searchPlaces(String query, {double? latitude, double? longitude}) async => places;
+}
+
 class _Growth implements GrowthRepository {
   @override
   Future<List<AskodoxPlace>> searchPlaces(String query, {double? latitude, double? longitude}) async =>
@@ -158,6 +166,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(picked!.label, 'Governorpet, Vijayawada');
     expect([picked!.latitude, picked!.longitude], [16.51, 80.62]);
+  });
+
+  testWidgets('typing "vijayawada" moves the pin there at once (not left near Vuyyuru); phone geocoder fallback',
+      (tester) async {
+    AskodoxPlace? picked;
+    final searches = <String>[];
+    Future<void> open(GrowthRepository growth) async {
+      await tester.pumpWidget(ProviderScope(
+        overrides: [growthRepositoryProvider.overrideWithValue(growth)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                picked = await Navigator.of(context).push<AskodoxPlace>(MaterialPageRoute(
+                  builder: (_) => AskodoxMapPinPicker(
+                    title: 'Your location',
+                    showTiles: false,
+                    initial: const AskodoxPlace(latitude: 16.36, longitude: 80.84, label: 'Vuyyuru, Andhra Pradesh'),
+                    deviceSearch: (q) async {
+                      searches.add(q);
+                      return q == 'gannavaram' ? [(latitude: 16.54, longitude: 80.8, label: 'Gannavaram, Andhra Pradesh')] : [];
+                    },
+                  ),
+                ));
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    await open(_Places([
+      const AskodoxPlace(latitude: 16.5062, longitude: 80.648, label: 'Vijayawada, Andhra Pradesh', kind: 'area'),
+      const AskodoxPlace(latitude: 16.5176, longitude: 80.6197, label: 'Vijayawada Junction, Vijayawada'),
+    ]));
+    await tester.enterText(find.byKey(const Key('askodoxPlaceSearch')), 'vijayawada');
+    await tester.tap(find.byKey(const Key('askodoxPlaceSearchGo')));
+    await tester.pumpAndSettle();
+    final label = tester.widget<Text>(find.byKey(const Key('askodoxPinLabel')));
+    expect(label.data, 'Vijayawada, Andhra Pradesh', reason: 'pin moved to the typed town without tapping a row');
+    expect(find.text('Vijayawada Junction, Vijayawada'), findsOneWidget, reason: 'alternatives stay listed');
+    await tester.tap(find.byKey(const Key('askodoxUsePin')));
+    await tester.pumpAndSettle();
+    expect([picked!.latitude, picked!.longitude], [16.5062, 80.648]);
+
+    // Backend has nothing: the phone's geocoder finds it; nothing at all -> said so.
+    await open(_Places(const []));
+    await tester.enterText(find.byKey(const Key('askodoxPlaceSearch')), 'gannavaram');
+    await tester.tap(find.byKey(const Key('askodoxPlaceSearchGo')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxPinLabel'))).data, 'Gannavaram, Andhra Pradesh');
+    await tester.enterText(find.byKey(const Key('askodoxPlaceSearch')), 'xyzzy');
+    await tester.tap(find.byKey(const Key('askodoxPlaceSearchGo')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPlaceSearchMessage')), findsOneWidget);
+    expect(searches, ['gannavaram', 'xyzzy']);
   });
 
   test('a map pin fills that route end with its real coordinates, never asked again', () {

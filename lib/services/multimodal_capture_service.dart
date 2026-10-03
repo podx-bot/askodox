@@ -16,6 +16,15 @@ class MultimodalCaptureService {
 
   Future<XFile?> chooseVideo() => _pickVideo(ImageSource.gallery);
 
+  /// Several photos at once (the chat accepts up to [limit]).
+  Future<List<XFile>> chooseGalleryMulti({int limit = 4}) async {
+    try {
+      return await _picker.pickMultiImage(imageQuality: 85, maxWidth: 1600, limit: limit < 2 ? 2 : limit);
+    } catch (error) {
+      throw MultimodalCaptureException('image', error);
+    }
+  }
+
   Future<XFile?> _pick(ImageSource source) async {
     try {
       return await _picker.pickImage(
@@ -32,7 +41,7 @@ class MultimodalCaptureService {
     try {
       return await _picker.pickVideo(
         source: source,
-        maxDuration: const Duration(seconds: 60),
+        maxDuration: const Duration(seconds: 30),
       );
     } catch (error) {
       throw MultimodalCaptureException('video', error);

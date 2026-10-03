@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../../config/localization/askodox_language_catalog.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../profile/data/user_profile_repository.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.signIn = false});
@@ -221,6 +224,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           displayName: _name.text.trim(),
           token: (token == null || token.isEmpty) ? null : token,
         );
+    // The name the user typed and their language go to the ONE stored
+    // profile (Profile, selling, Admin read it from there).
+    if (token != null && token.isNotEmpty) {
+      unawaited(ref
+          .read(askodoxUserProfileProvider.notifier)
+          .save({'name': _name.text.trim(), 'language': _languageCode})
+          .catchError((Object _) => false));
+    }
     if (!mounted) return;
     if (widget.signIn && context.canPop()) {
       context.pop(true);

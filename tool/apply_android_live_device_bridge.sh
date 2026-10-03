@@ -35,10 +35,15 @@ permissions = [
     'android.permission.ACCESS_FINE_LOCATION',
     'android.permission.ACCESS_COARSE_LOCATION',
     'android.permission.POST_NOTIFICATIONS',
+    'android.permission.SYSTEM_ALERT_WINDOW',
+    'android.permission.FOREGROUND_SERVICE',
+    'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
 ]
 for permission in permissions:
     if permission not in s:
         s = s.replace('<application', f'<uses-permission android:name="{permission}" />\n    <application', 1)
+if 'AskodoxFloatingCompanionService' not in s:
+    raise SystemExit('AndroidManifest.xml lost the floating bubble service declaration')
 p.write_text(s)
 PY
 

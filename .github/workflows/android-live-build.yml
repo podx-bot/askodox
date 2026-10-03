@@ -13,6 +13,21 @@ on:
         required: false
         default: '919'
         type: string
+      compare_run_id:
+        description: Optional Live Build run id whose signed APK must be updatable by this one (e.g. the build installed on a test phone)
+        required: false
+        default: ''
+        type: string
+      include_screen_guide:
+        description: Declare the Screen Guide accessibility service (ONLY for Play-distributed builds after the Play accessibility declaration; sideloaded builds must leave this off)
+        required: false
+        default: false
+        type: boolean
+      api_base_url:
+        description: Optional backend for a phone-test build (e.g. the staging environment). Refused on main.
+        required: false
+        default: ''
+        type: string
   push:
     branches: [main]
     paths:
@@ -24,6 +39,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: android-live-${{ github.ref }}
@@ -33,7 +49,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      API_BASE_URL: ${{ vars.API_BASE_URL || 'https://podx-ai-connect-production-3279.up.railway.app' }}
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL || 'https://podx-ai-connect-production-3279.up.railway.app' }}
+      API_BASE_URL_OVERRIDE: ${{ inputs.api_base_url }}
       ANDROID_ORG: ${{ vars.ANDROID_ORG }}
       KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -92,6 +109,13 @@ jobs:
             echo 'API_BASE_URL must be an https:// URL.' >&2
             exit 1
           fi
+          # A backend override is for phone-test builds only: main always
+          # ships the production backend.
+          if [ -n "${API_BASE_URL_OVERRIDE:-}" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo 'api_base_url overrides are not allowed on main.' >&2
+            exit 1
+          fi
+          echo "Backend for this build: $API_BASE_URL"
           echo "ANDROID_ORG=${ANDROID_ORG:-com.askodox}" >> "$GITHUB_ENV"
 
       - name: Verify ASKODOX production backend
@@ -107,6 +131,9 @@ jobs:
           set -euo pipefail
           bash tool/apply_android_askodox_branding.sh
           bash tool/apply_android_live_device_bridge.sh
+          if [ "${{ inputs.include_screen_guide || false }}" = "true" ]; then
+            bash tool/apply_android_screen_guide.sh
+          fi
 
       - name: Install dependencies and verify
         run: |
@@ -122,6 +149,7 @@ jobs:
             --dart-define=APP_ENV=staging \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
 
@@ -149,6 +177,11 @@ jobs:
           signing = '''    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n'''
           s = s.replace(needle, signing + needle, 1)
           s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
+          # Fail closed: never ship a "release" APK that silently fell back to
+          # the runner's throwaway debug key (a different key on every run).
+          if 'create("release")' not in s or 'signingConfigs.getByName("release")' not in s \
+                  or 'signingConfigs.getByName("debug")' in s:
+              raise SystemExit("release signing patch did not apply to android/app/build.gradle.kts")
           p.write_text(s)
           PY
             echo 'configured=true' >> "$GITHUB_OUTPUT"
@@ -165,6 +198,7 @@ jobs:
             --dart-define=APP_ENV=production \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
 
@@ -178,6 +212,41 @@ jobs:
             cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${BUILD_NUMBER}.apk"
           fi
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          # Measured size report (exact bytes + the largest parts of each APK).
+          python3 - <<'PY' | tee dist/APK_SIZES.txt
+          import glob, os, zipfile
+          for path in sorted(glob.glob("dist/*.apk")):
+              print(f"{os.path.basename(path)}: {os.path.getsize(path)} bytes ({os.path.getsize(path) / 1048576:.1f} MB)")
+              with zipfile.ZipFile(path) as apk:
+                  entries = sorted(apk.infolist(), key=lambda e: -e.compress_size)[:12]
+                  for e in entries:
+                      print(f"  {e.compress_size / 1048576:7.2f} MB  {e.filename}")
+          PY
+
+      - name: Verify the APK's backend
+        # Every service in the app reads API_BASE_URL or ASKODOX_API_BASE_URL;
+        # both are compiled in. Proves the phone talks to the chosen backend.
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${API_BASE_URL#https://}"; HOST="${HOST%%/*}"
+          for apk in dist/*.apk; do
+            case "$apk" in *-debug.apk) continue ;; esac  # debug builds carry no AOT libapp.so
+            n=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o "$HOST" | wc -l || true)
+            p=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o 'podx-ai-connect-production-3279.up.railway.app' | wc -l || true)
+            # Accessibility service only when explicitly requested (Play builds).
+            BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+            a=$("$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -c 'BIND_ACCESSIBILITY_SERVICE' || true)
+            echo "$(basename "$apk"): accessibility service declarations x$a" | tee -a dist/BACKEND.txt
+            if [ "${{ inputs.include_screen_guide || false }}" != "true" ] && [ "$a" -gt 0 ]; then
+              echo "FAIL: $apk declares an accessibility service but include_screen_guide is off"; exit 1
+            fi
+            echo "$(basename "$apk"): $HOST x$n; production host x$p" | tee -a dist/BACKEND.txt
+            [ "$n" -gt 0 ] || { echo "FAIL: $apk does not contain $HOST"; exit 1; }
+            if [ -n "${API_BASE_URL_OVERRIDE:-}" ] && [ "$p" -gt 0 ]; then
+              echo "FAIL: $apk still contains the production host"; exit 1
+            fi
+          done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -185,8 +254,98 @@ jobs:
           path: dist/*
           retention-days: 30
 
-      - name: Publish ASKODOX in-app update channel
+      - name: Verify release signing and update compatibility
+        id: verify
         if: steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPARE_RUN_ID: ${{ inputs.compare_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only PUBLIC certificate fingerprints are printed -- never keystore
+          # contents or passwords (keytool reads the password from the env).
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          REL="dist/askodox-live-${BUILD_NUMBER}.apk"
+          norm() { tr -d ': ' | tr 'A-F' 'a-f'; }
+          cert() {
+            "$BT/apksigner" verify --print-certs "$1" > /tmp/certs.txt 2>&1 || true
+            # "Signer #1 certificate ..." (v3) or "V2 Signer: certificate ..." (v2 only)
+            sed -n 's/.*[Ss]igner[^:]*:\{0,1\} *certificate SHA-256 digest: *//p' /tmp/certs.txt | head -n 1 | norm
+          }
+          badge() { "$BT/aapt2" dump badging "$1" > /tmp/badge.txt 2>/dev/null || true; sed -n 1p /tmp/badge.txt; }
+          # First field of "package: name='<id>' versionCode='<n>' ..." (later
+          # fields such as platformBuildVersionName='16' must not be matched).
+          pkg() { badge "$1" | sed -n "s/^package: name='\([^']*\)'.*/\1/p"; }
+          vcode() { badge "$1" | sed -n "s/^package: .* versionCode='\([0-9]*\)'.*/\1/p"; }
+          "$BT/apksigner" verify --verbose "$REL" > verify.log
+          grep -E 'Verified using|Verifies' verify.log
+          # Public certificate details of the release APK (no secrets).
+          "$BT/apksigner" verify --print-certs "$REL" 2>&1 | grep -E 'certificate (DN|SHA-256 digest)' | head -n 2 || true
+          REL_CERT="$(cert "$REL")"
+          # Public fingerprint of the ASKODOX release key (keytool reads the
+          # store password from the environment; only fingerprints printed).
+          keytool -list -v -keystore android/app/askodox-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD \
+            > /tmp/keystore.txt 2>&1 || true
+          KEY_CERT="$(sed -n 's/^[[:space:]]*SHA256: *//p' /tmp/keystore.txt | head -n 1 | norm)"
+          if [ -z "$KEY_CERT" ]; then
+            echo "keytool could not read the release keystore certificate:"
+            grep -iE 'error|exception' /tmp/keystore.txt | sed 's/password[^ ]*/[redacted]/Ig' | head -n 3 || true
+          fi
+          [ -n "$REL_CERT" ] || { echo "FAIL: could not read the release APK certificate"; sed -n 1,5p /tmp/certs.txt; exit 1; }
+          [ -n "$(pkg "$REL")" ] && [ -n "$(vcode "$REL")" ] || { echo "FAIL: could not read package / versionCode"; badge "$REL"; exit 1; }
+          [ -n "$KEY_CERT" ] || { echo "FAIL: could not read the release keystore certificate"; exit 1; }
+          {
+            echo "APK: $(basename "$REL")"
+            echo "package: $(pkg "$REL")"
+            echo "versionCode: $(vcode "$REL")"
+            echo "certificate SHA-256: $REL_CERT"
+            echo "ASKODOX release keystore certificate SHA-256: $KEY_CERT"
+          } | tee VERIFICATION.txt
+          if [ "$REL_CERT" != "$KEY_CERT" ]; then
+            echo "FAIL: release APK is not signed with the ASKODOX release key" | tee -a VERIFICATION.txt
+            exit 1
+          fi
+          # The production in-app update APK (main) must share key + package.
+          mkdir -p ref
+          if gh release download askodox-latest -p askodox-latest.apk -D ref --clobber 2>/dev/null; then
+            {
+              echo "production askodox-latest.apk: package $(pkg ref/askodox-latest.apk), versionCode $(vcode ref/askodox-latest.apk), certificate $(cert ref/askodox-latest.apk)"
+            } | tee -a VERIFICATION.txt
+            [ "$(cert ref/askodox-latest.apk)" = "$REL_CERT" ] || { echo "FAIL: certificate differs from production" | tee -a VERIFICATION.txt; exit 1; }
+            [ "$(pkg ref/askodox-latest.apk)" = "$(pkg "$REL")" ] || { echo "FAIL: package differs from production" | tee -a VERIFICATION.txt; exit 1; }
+          else
+            echo "WARN: production askodox-latest.apk not found for comparison" | tee -a VERIFICATION.txt
+          fi
+          # The build installed on the test phone (optional run id).
+          if [ -n "${COMPARE_RUN_ID:-}" ]; then
+            mkdir -p baseline
+            gh run download "$COMPARE_RUN_ID" --dir baseline
+            BASE="$(find baseline -name '*.apk' ! -name '*-debug.apk' | head -1)"
+            [ -n "$BASE" ] || { echo "FAIL: no signed APK in run $COMPARE_RUN_ID" | tee -a VERIFICATION.txt; exit 1; }
+            echo "installed baseline $(basename "$BASE"): package $(pkg "$BASE"), versionCode $(vcode "$BASE"), certificate $(cert "$BASE")" | tee -a VERIFICATION.txt
+            [ "$(cert "$BASE")" = "$REL_CERT" ] || { echo "FAIL: certificate differs from the installed build" | tee -a VERIFICATION.txt; exit 1; }
+            [ "$(pkg "$BASE")" = "$(pkg "$REL")" ] || { echo "FAIL: package differs from the installed build" | tee -a VERIFICATION.txt; exit 1; }
+            [ "$(vcode "$REL")" -gt "$(vcode "$BASE")" ] || { echo "FAIL: versionCode is not higher than the installed build" | tee -a VERIFICATION.txt; exit 1; }
+          fi
+          echo "PASS: signed with the ASKODOX release key; installs over builds with the same package and a lower versionCode" | tee -a VERIFICATION.txt
+          mkdir -p phone-test
+          cp "$REL" phone-test/
+          cp VERIFICATION.txt phone-test/
+          cp dist/BACKEND.txt phone-test/ 2>/dev/null || true
+
+      - name: Upload verified phone-test APK
+        if: steps.signing.outputs.configured == 'true' && steps.verify.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: askodox-phone-test-${{ env.BUILD_NUMBER }}
+          path: phone-test/*
+          retention-days: 30
+
+      - name: Publish ASKODOX in-app update channel
+        # Only merged code reaches users' phones: a build started by hand on
+        # a PR branch keeps its APK as a workflow artifact for testing.
+        if: steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -226,7 +385,7 @@ jobs:
           gh release view "$TAG" --json tagName,url,assets --jq '.tagName, .url, (.assets[].name)'
 
       - name: Publish prerelease download link
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

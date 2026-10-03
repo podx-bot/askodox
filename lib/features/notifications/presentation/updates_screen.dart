@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/backend_providers.dart';
 import '../application/askodox_notifications.dart';
+import '../data/promotions_repository.dart';
 
 /// "Updates": the ONE place for what happened to the user's requests --
 /// requests they sent, requests sent to them, and customer leads. Real
@@ -35,6 +37,7 @@ class UpdatesScreen extends ConsumerWidget {
             ),
           ]),
           const AskodoxNotificationsOffBanner(),
+          if (signedIn) const AskodoxPromotionsSection(),
           if (!signedIn)
             Card(
               key: const Key('askodoxUpdatesSignIn'),
@@ -60,13 +63,24 @@ class UpdatesScreen extends ConsumerWidget {
                 ),
               ),
               data: (items) => items.isEmpty
-                  ? Padding(
+                  ? Card(
                       key: const Key('askodoxUpdatesEmpty'),
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Text(
-                        t('No updates yet. When you send a request, its status shows here.',
-                            'ఇంకా అప్‌డేట్స్ లేవు. మీరు అభ్యర్థన పంపినప్పుడు దాని స్థితి ఇక్కడ కనిపిస్తుంది.'),
-                        textAlign: TextAlign.center,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                        child: Column(children: [
+                          Icon(Icons.receipt_long_rounded, size: 40, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(height: 12),
+                          Text(
+                            t('No active orders yet. Your requests, seller acceptance, delivery and status updates will appear here.',
+                                'ఇంకా ఆర్డర్లు లేవు. మీ అభ్యర్థనలు, విక్రేత అంగీకారం, డెలివరీ మరియు స్థితి అప్‌డేట్స్ ఇక్కడ కనిపిస్తాయి.'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                height: 1.4,
+                                color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                        ]),
                       ),
                     )
                   : Column(children: [
@@ -89,6 +103,123 @@ class UpdatesScreen extends ConsumerWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// "Offers for you": reviewed promotions delivered to this customer (at
+/// most five, compact / quarter / half card, "Sponsored" when paid). Hidden
+/// when there are none; each can be dismissed.
+class AskodoxPromotionsSection extends ConsumerWidget {
+  const AskodoxPromotionsSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final te = Localizations.localeOf(context).languageCode == 'te';
+    final promos = ref.watch(askodoxPromotionsProvider).valueOrNull ?? const <AskodoxPromotion>[];
+    if (promos.isEmpty) return const SizedBox.shrink();
+    final repo = ref.read(promotionsRepositoryProvider);
+    return Column(
+      key: const Key('askodoxPromotions'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(te ? 'మీ కోసం ఆఫర్లు' : 'Offers for you',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        for (final promo in promos)
+          _PromotionCard(
+            key: ValueKey('askodoxPromo-${promo.deliveryId}'),
+            promo: promo,
+            te: te,
+            onShown: () => repo.track(promo.deliveryId, 'open'),
+            onOpen: () async {
+              await repo.track(promo.deliveryId, 'click');
+              final link = promo.deepLink;
+              if (link == null || !context.mounted) return;
+              if (link.startsWith('/')) {
+                context.push(link);
+              } else if (Uri.tryParse(link) case final uri?) {
+                try {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
+            },
+            onDismiss: () async {
+              await repo.track(promo.deliveryId, 'dismiss');
+              ref.invalidate(askodoxPromotionsProvider);
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _PromotionCard extends StatefulWidget {
+  const _PromotionCard({
+    super.key,
+    required this.promo,
+    required this.te,
+    required this.onShown,
+    required this.onOpen,
+    required this.onDismiss,
+  });
+
+  final AskodoxPromotion promo;
+  final bool te;
+  final VoidCallback onShown;
+  final Future<void> Function() onOpen;
+  final Future<void> Function() onDismiss;
+
+  @override
+  State<_PromotionCard> createState() => _PromotionCardState();
+}
+
+class _PromotionCardState extends State<_PromotionCard> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onShown();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.promo;
+    final imageHeight = switch (p.size) { 'half' => 150.0, 'quarter' => 84.0, _ => 0.0 };
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (imageHeight > 0 && p.imageUrl != null)
+          SizedBox(
+            height: imageHeight,
+            width: double.infinity,
+            child: Image.network(p.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
+          ),
+        ListTile(
+          dense: p.size == 'compact',
+          leading: p.size == 'compact' ? const Icon(Icons.local_offer_outlined) : null,
+          title: Text(p.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.body, maxLines: p.size == 'half' ? 4 : 2, overflow: TextOverflow.ellipsis),
+            if (p.disclosure != null)
+              Text(
+                  [widget.te ? 'ప్రాయోజిత' : p.disclosure!, if (p.advertiser != null) p.advertiser!].join(' · '),
+                  key: const Key('askodoxPromoDisclosure'),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          ]),
+          trailing: IconButton(
+            tooltip: widget.te ? 'తీసివేయి' : 'Dismiss',
+            icon: const Icon(Icons.close_rounded, size: 18),
+            onPressed: widget.onDismiss,
+          ),
+        ),
+        if (p.ctaLabel != null && p.deepLink != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: FilledButton.tonal(onPressed: widget.onOpen, child: Text(p.ctaLabel!)),
+          ),
+      ]),
     );
   }
 }

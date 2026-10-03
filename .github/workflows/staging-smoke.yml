@@ -1,0 +1,58 @@
+name: Staging smoke test
+
+# Proves the non-production staging backend runs this branch (real video
+# rows, explain, where-to-get search) and that production is untouched.
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: Staging backend URL
+        required: false
+        default: 'https://podx-ai-connect-staging.up.railway.app'
+        type: string
+      alt_staging_url:
+        description: Another address of the same staging service (compared commit + environment)
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: [claude/friendly-ramanujan-538sbj]
+    paths:
+      - '.github/workflows/staging-smoke.yml'
+      - 'tool/video_proof/staging_smoke.py'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      STAGING_URL: ${{ inputs.staging_url || 'https://podx-ai-connect-staging.up.railway.app' }}
+      ALT_STAGING_URL: ${{ inputs.alt_staging_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install httpx
+      - name: Wait until staging serves this commit
+        run: |
+          want="${GITHUB_SHA:0:12}"
+          for i in $(seq 1 45); do
+            got="$(curl -fsS --max-time 15 "$STAGING_URL/health" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit",""))' || true)"
+            echo "staging commit: ${got:-?} (want $want)"
+            if [ "$got" = "$want" ]; then sleep 30; exit 0; fi  # let the old container finish draining
+            sleep 20
+          done
+          echo "staging never served $want"; exit 1
+      - name: Staging runs this branch; production untouched
+        working-directory: tool/video_proof
+        run: |
+          set -o pipefail
+          python staging_smoke.py "$STAGING_URL" | tee staging_smoke.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-smoke
+          path: tool/video_proof/staging_smoke.txt

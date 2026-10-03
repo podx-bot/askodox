@@ -170,6 +170,40 @@ def test_refer_to_askodox_code_registers_the_invitee_and_credits_the_referrer(ap
     assert customer not in str(admin) and provider not in str(admin)
 
 
+def test_referral_fraud_safeguards(api, monkeypatch):
+    client, container = api
+    from app.api.routes import platform as platform_routes
+
+    alice, bob, carol = phone(), phone(), phone()
+    code = lambda who: client.post("/api/referrals", headers=auth(container, who), json={}).json()["code"]
+    assert client.post(f"/api/referrals/{code(alice)}/redeem", headers=auth(container, bob)).status_code == 200
+    # Bob was already credited to Alice: another code cannot re-credit him.
+    assert client.post(f"/api/referrals/{code(carol)}/redeem", headers=auth(container, bob)).status_code == 404
+    # Circular: Alice cannot be "registered" through Bob, whom she referred.
+    assert client.post(f"/api/referrals/{code(bob)}/redeem", headers=auth(container, alice)).status_code == 404
+    # A referrer blocked in the Command Center earns nothing.
+    blocked_code = code(carol)
+    with monkeypatch.context() as patch:
+        patch.setattr(platform_routes, "is_blocked_user", lambda c, user: user == carol)
+        assert client.post(f"/api/referrals/{blocked_code}/redeem",
+                           headers=auth(container, phone())).status_code == 404
+    # Daily invite cap.
+    spammer = phone()
+    from app.api.routes.growth import growth
+
+    for _ in range(growth(container).REFERRALS_PER_DAY):
+        client.post("/api/referrals", headers=auth(container, spammer), json={})
+    assert client.post("/api/referrals", headers=auth(container, spammer), json={}).status_code == 429
+    # Bursts of registrations are flagged for admin review (not auto-blocked).
+    burst = phone()
+    for _ in range(growth(container).REVIEW_REGISTRATIONS_PER_DAY + 1):
+        client.post(f"/api/referrals/{code(burst)}/redeem", headers=auth(container, phone()))
+    listing = client.get("/admin/cc/growth/referrals", headers=OWNER)
+    assert listing.status_code == 200, listing.text
+    admin = listing.json()["items"]
+    assert any(i["review"] for i in admin) and burst not in str(admin)
+
+
 # ---------------------------------------------------- plans / subscriptions --
 
 def test_plans_are_admin_configured_and_paid_plans_are_never_faked_active(api):

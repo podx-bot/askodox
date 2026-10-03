@@ -1,0 +1,61 @@
+name: Phone-test download link
+
+# Gives a verified phone-test APK (from an Android Live Build run on a
+# non-main branch) ONE direct download URL:
+#   https://github.com/<repo>/releases/download/phone-test-<build>/askodox-phone-test-<build>.apk
+# It is a separate, test-only prerelease. It never touches the in-app update
+# channel (tag askodox-latest / latest.json), never runs a build and never
+# signs anything -- it only republishes the already signed + verified artifact.
+#
+# Trigger: push a change to .github/phone-test-link.json on a non-main branch
+# ({"run_id": "<Android Live Build run id>", "build_number": "<n>"}).
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/phone-test-link.json']
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the request
+        run: |
+          set -euo pipefail
+          echo "RUN_ID=$(jq -r .run_id .github/phone-test-link.json)" >> "$GITHUB_ENV"
+          echo "BUILD=$(jq -r .build_number .github/phone-test-link.json)" >> "$GITHUB_ENV"
+      - name: Download the verified phone-test artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "${BUILD}" =~ ^[0-9]+$ ]] || { echo "build_number must be digits"; exit 1; }
+          [[ "${RUN_ID}" =~ ^[0-9]+$ ]] || { echo "run_id must be digits"; exit 1; }
+          gh run download "${RUN_ID}" -R "$GITHUB_REPOSITORY" \
+            -n "askodox-phone-test-${BUILD}" -D phone-test
+          ls -la phone-test
+          grep -q '^PASS' phone-test/VERIFICATION.txt || { echo "artifact is not verified"; exit 1; }
+
+      - name: Publish test-only prerelease (never the update channel)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="phone-test-${BUILD}"
+          [ "$TAG" != "askodox-latest" ]
+          APK="$(ls phone-test/*.apk | head -n 1)"
+          cp "$APK" "askodox-phone-test-${BUILD}.apk"
+          sha256sum "askodox-phone-test-${BUILD}.apk" | tee SHA256.txt
+          NOTES="STAGING phone-test build ${BUILD} (backend: $(cat phone-test/BACKEND.txt 2>/dev/null || echo staging)). Not a production release; the in-app update channel is unchanged. Source run: ${RUN_ID}."
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "askodox-phone-test-${BUILD}.apk" SHA256.txt --clobber -R "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "askodox-phone-test-${BUILD}.apk" SHA256.txt -R "$GITHUB_REPOSITORY" \
+              --prerelease --latest=false --target "$GITHUB_SHA" \
+              --title "ASKODOX phone test ${BUILD} (staging)" --notes "$NOTES"
+          fi
+          echo "Direct link: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-phone-test-${BUILD}.apk"

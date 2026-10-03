@@ -171,6 +171,38 @@ class InAppAssistantService {
       if (ownClient) client.close();
     }
   }
+  static final Map<String, String> _localized = {};
+
+  /// One deal question in the conversation language (any language the AI
+  /// supports). Null when it cannot be localized -- the caller keeps its own
+  /// fallback. English needs no call.
+  Future<String?> localizeQuestion(String text, {required String language}) async {
+    final clean = text.trim();
+    final lang = language.trim().toLowerCase();
+    if (clean.isEmpty || lang.isEmpty || lang.split('-').first == 'en') return null;
+    final key = '$lang|$clean';
+    if (_localized[key] case final cached?) return cached;
+    final ownClient = _client == null;
+    final client = _client ?? http.Client();
+    try {
+      final response = await client
+          .post(
+            Uri.parse('$_baseUrl/api/in-app/assistant/localize'),
+            headers: const {'Accept': 'application/json', 'Content-Type': 'application/json'},
+            body: jsonEncode({'text': clean, 'language': language}),
+          )
+          .timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final out = decoded is Map ? '${decoded['text'] ?? ''}'.trim() : '';
+      if (out.isEmpty || decoded['localized'] != true) return null;
+      return _localized[key] = out;
+    } catch (_) {
+      return null;
+    } finally {
+      if (ownClient) client.close();
+    }
+  }
 }
 
 extension<T> on Iterable<T> {
@@ -180,4 +212,5 @@ extension<T> on Iterable<T> {
     if (list.length <= count) return list;
     return list.skip(list.length - count);
   }
+
 }

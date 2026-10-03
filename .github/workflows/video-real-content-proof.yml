@@ -1,0 +1,119 @@
+name: Video real-content proof
+
+# Proves the video journey on REAL content without deploying anything:
+# production is only READ (public search + public assistant endpoints);
+# this branch's backend runs in-process on the real rows; the app is rendered
+# with the real thumbnails and AI answers. Evidence is committed back to the
+# branch under docs/video_proof/ (no APK, no release, no production writes).
+
+on:
+  push:
+    branches: [claude/friendly-ramanujan-538sbj]
+    paths:
+      - .github/workflows/video-real-content-proof.yml
+      - tool/video_proof/**
+      - '!tool/video_proof/staging_smoke.py'
+      # What the proof exercises: the video pipeline and the app's chat/viewer.
+      - backend/app/services/video_content.py
+      - backend/app/api/routes/platform.py
+      - backend/app/api/routes/universal_deals.py
+      - backend/app/services/universal_ai_assistant_service.py
+      - lib/features/home/**
+      - lib/features/matching/**
+      - test/features/home/askodox_unified_chat_flow_test.dart
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: video-real-content-proof-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: 3.47.0
+  PROOF_DIR: ${{ github.workspace }}/proof_out
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: 1. Real videos + next-step options from production (read-only)
+        working-directory: tool/video_proof
+        run: python collect.py "$PROOF_DIR"
+
+      - name: 2. This branch's video flow on the real rows (+ real YouTube oEmbed, real production AI)
+        working-directory: tool/video_proof
+        run: python run_branch_flow.py "$PROOF_DIR"
+
+      - name: 3. Real thumbnails
+        working-directory: tool/video_proof
+        run: python fetch_thumbs.py "$PROOF_DIR"
+
+      - name: Telugu font (Noto Sans Telugu, OFL) for the renders
+        run: |
+          curl -fsSL -o "$PROOF_DIR/NotoSansTelugu-Regular.ttf" \
+            https://raw.githubusercontent.com/notofonts/notofonts.github.io/main/fonts/NotoSansTelugu/hinted/ttf/NotoSansTelugu-Regular.ttf
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 4. App renders with the real content
+        id: renders
+        continue-on-error: true
+        run: |
+          flutter pub get
+          ASKODOX_VIDEO_PROOF="$PROOF_DIR" flutter test --update-goldens \
+            test/features/home/askodox_unified_chat_flow_test.dart --plain-name "Real video proof"
+
+      - name: 5. Report
+        if: always()
+        working-directory: tool/video_proof
+        run: |
+          echo "renders step: ${{ steps.renders.outcome }}"
+          python report.py "$PROOF_DIR" "${{ github.run_id }}"
+          cat "$PROOF_DIR/README.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: video-real-content-proof
+          path: proof_out
+          retention-days: 30
+
+      - name: Commit evidence to the branch
+        if: always()
+        run: |
+          rm -rf docs/video_proof && mkdir -p docs/video_proof
+          cp "$PROOF_DIR/proof.json" docs/video_proof/ || true
+          cp "$PROOF_DIR/README.md" docs/video_proof/ || true
+          cp "$PROOF_DIR/thumbs.json" docs/video_proof/ || true
+          if [ -d "$PROOF_DIR/thumbs" ]; then cp -r "$PROOF_DIR/thumbs" docs/video_proof/; fi
+          cp "$PROOF_DIR/production_capture.json" docs/video_proof/ || true
+          if [ -d "$PROOF_DIR/renders" ]; then cp -r "$PROOF_DIR/renders" docs/video_proof/; fi
+          git config user.name "askodox-video-proof[bot]"
+          git config user.email "askodox-video-proof@users.noreply.github.com"
+          # flutter pub get rewrites analysis_options.yaml; never commit that.
+          git checkout -- analysis_options.yaml 2>/dev/null || true
+          git add docs/video_proof
+          git commit -m "Video real-content proof (run ${{ github.run_id }})" || exit 0
+          for i in 1 2 3; do
+            if git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "evidence pushed"; exit 0
+            fi
+            sleep 5
+          done
+          echo "could not push the evidence commit"; exit 1

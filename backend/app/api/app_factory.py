@@ -272,13 +272,56 @@ def create_app() -> FastAPI:
 
     app.include_router(account_privacy_router)
     # Sessions of a deleted account stop working everywhere at once.
-    session_tokens.set_revocation_check(
-        lambda user_id, issued_at: deleted_before(container.settings.database_path, user_id, issued_at)
-    )
+    # ... and so do sessions of an account blocked in the Command Center.
+    from app.api.routes.platform import revocation_check
+
+    session_tokens.set_revocation_check(revocation_check(container, deleted_before))
     from app.api.routes.growth import admin_router as growth_admin_router, router as growth_router
 
     app.include_router(growth_router)
     app.include_router(growth_admin_router)
+    _redact_access_log_tokens()
+    from app.api.routes.attachments import router as attachments_router
+    from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router
+
+    app.include_router(attachments_router)
+    from app.api.routes.screen_guide import admin_router as screen_guide_admin_router, router as screen_guide_router
+
+    app.include_router(screen_guide_router)
+    app.include_router(screen_guide_admin_router)
+    from app.api.routes.owner_os import admin_router as owner_os_admin_router, router as owner_os_router
+
+    app.include_router(owner_os_router)
+    from app.api.routes.phone_test_download import router as phone_test_download_router
+
+    app.include_router(phone_test_download_router)
+    from app.api.routes.delivery import router as delivery_router
+
+    app.include_router(delivery_router)
+    app.include_router(owner_os_admin_router)
+    from app.api.routes.catalogue import router as catalogue_router
+    from app.api.routes.profile import router as profile_router
+
+    app.include_router(catalogue_router)
+    app.include_router(profile_router)
+    from app.api.routes.benefits import admin_router as benefits_admin_router, router as benefits_router
+
+    app.include_router(benefits_router)
+    app.include_router(benefits_admin_router)
+    from app.api.routes.sponsored import admin_router as sponsored_admin_router, router as sponsored_router
+
+    app.include_router(sponsored_router)
+    app.include_router(sponsored_admin_router)
+
+    app.include_router(partners_router)
+    app.include_router(partners_admin_router)
+    from app.api.routes.platform import admin_router as platform_admin_router, router as platform_router
+
+    app.include_router(platform_router)
+    app.include_router(platform_admin_router)
+    from app.api.routes.admin_console import router as admin_console_router
+
+    app.include_router(admin_console_router)
 
     # Persist external API usage per day (Admin "API usage", cost estimate).
     try:
@@ -294,3 +337,24 @@ def create_app() -> FastAPI:
         container.close()
 
     return app
+
+
+def _redact_access_log_tokens() -> None:
+    """Partner postback URLs carry ?token=...; access logs never show it."""
+    import logging
+    import re
+
+    pattern = re.compile(r"((?:token|api_key|apikey|key|secret)=)[^&\s\"]+", re.IGNORECASE)
+
+    class _Redact(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            if record.args:
+                record.args = tuple(pattern.sub(r"\1[redacted]", a) if isinstance(a, str) else a
+                                    for a in record.args)
+            if isinstance(record.msg, str):
+                record.msg = pattern.sub(r"\1[redacted]", record.msg)
+            return True
+
+    logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _Redact) or type(f).__name__ == "_Redact" for f in logger.filters):
+        logger.addFilter(_Redact())

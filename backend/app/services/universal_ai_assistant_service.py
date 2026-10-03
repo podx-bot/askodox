@@ -22,6 +22,29 @@ from app.services.runtime_time_context import grounded_search_query, needs_live_
 logger = logging.getLogger(__name__)
 
 
+
+_LANGUAGE_NAMES = {
+    "en": "English", "te": "Telugu", "hi": "Hindi", "ta": "Tamil", "kn": "Kannada", "ml": "Malayalam",
+    "bn": "Bengali", "mr": "Marathi", "gu": "Gujarati", "pa": "Punjabi", "or": "Odia", "ur": "Urdu",
+    "as": "Assamese", "mni": "Manipuri", "sat": "Santali",
+}
+
+
+def _reply_language_rule(locale: str) -> str:
+    """The app sends the CONVERSATION language (the user's Preferred Language,
+    or the one they have been using). It is authoritative: a short reply
+    such as 'yes', 'ok', 'go' or '?' must never switch the reply to English."""
+    code = str(locale or "").strip().lower().split("-")[0].split("_")[0]
+    name = _LANGUAGE_NAMES.get(code)
+    if not name:
+        return "Locale hint: auto\n"
+    return (
+        f"Reply language: {name} ({code}). Write reply in {name}{'' if code == 'en' else ' (native script)'} for EVERY turn, including short "
+        "answers like yes / ok / go / ? and messages that contain English words, brand names or numbers. "
+        "Only a clear request to change language changes this. Keep brand names, product names and source "
+        "titles as they are.\n"
+    )
+
 class UniversalAIAssistantService:
     GENERAL_MARKER = "OASAT domain=GENERAL;"
     ALLOWED_DOMAINS = {
@@ -113,6 +136,40 @@ class UniversalAIAssistantService:
             return False
         lowered = sentence.lower()
         return any(keyword.lower() in lowered for keyword in cls._LOCATION_ASK_KEYWORDS)
+
+    _VIDEO_ASK = re.compile(
+        r"\b(videos?|reviews?|youtube|unboxing|demo|comparison)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|వీడియోలు|वीडियो|रिव्यू|समीक्षा)",
+        re.IGNORECASE)
+
+    @classmethod
+    def _asks_for_videos(cls, text: str) -> bool:
+        return bool(cls._VIDEO_ASK.search(text or ""))
+
+    _WHERE_TO_GET = re.compile(
+        r"\bwhere (can|do|should|could) (i|we) (get|buy|find|purchase|book)\b|\bwhere to (get|buy|find|book)\b"
+        r"|\b(shops?|stores?|dealers?|showrooms?) (near|nearby|around)\b"
+        r"|ఎక్కడ (దొరుకు|కొన|లభి)|ఎక్కడ దొరుకుతుంది|कहाँ मिल|कहां मिल|कहाँ से खरीद|कहां से खरीद",
+        re.IGNORECASE)
+
+    @classmethod
+    def _asks_where_to_get(cls, text: str) -> bool:
+        return bool(cls._WHERE_TO_GET.search(text or ""))
+
+    @staticmethod
+    def _local_search_reply(locale: str) -> str:
+        if str(locale or "").lower().startswith("te"):
+            return "సరే, మీ దగ్గర నిజంగా ఉన్న షాపులు, విక్రేతలు, ఆన్‌లైన్ ఆప్షన్లు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి."
+        if str(locale or "").lower().startswith("hi"):
+            return "ठीक है, आपके पास असली दुकानें, विक्रेता और ऑनलाइन विकल्प ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
+        return "Let me check real sellers, shops and online options near you -- the results appear below."
+
+    @staticmethod
+    def _video_search_reply(locale: str) -> str:
+        if str(locale or "").lower().startswith("te"):
+            return "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి."
+        if str(locale or "").lower().startswith("hi"):
+            return "ठीक है, असली वीडियो और रिव्यू ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
+        return "Sure -- looking for real videos and reviews; the results appear below."
 
     @classmethod
     def _strip_location_question(cls, reply: str, locale: str) -> str:
@@ -250,6 +307,11 @@ class UniversalAIAssistantService:
             "Never use clarify_need for brand, budget, size, quantity or anything a normal follow-up can ask. "
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
             "Do not claim a booking, payment, message, search or match happened. "
+            "If the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
+            "set transactional true, action search_videos, entities.subject = the thing itself (without the words "
+            "video/review), and never say 'here are' results or describe specs -- the app shows the real results. "
+            "Never name specific shops, stores, dealers, showrooms or service companies from memory: if the user asks where "
+            "to get or buy something, that is a search (transactional true) and the app shows real sellers. "
             "Important distinction: 'delivery job kavali' is JOB_SEEKER; 'delivery boys/staff kavali na shop ki' is STAFFING; "
             "'parcel/courier pampali' is PARCEL; temporary catering/function workers are STAFFING. General planning/chat is GENERAL. "
             "Conversation continuity rule: if the current message supplies a missing detail, correction, quantity, date, time, location, budget, salary, "
@@ -262,7 +324,7 @@ class UniversalAIAssistantService:
             "location again, and do not include a location question in reply. Only ask about "
             "location if the user is explicitly asking to use a different/new location than the "
             "known one. You may still copy the known location into entities.location when relevant.\n"
-            f"Locale hint: {locale or 'auto'}\n"
+            + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
             + (
@@ -334,6 +396,25 @@ class UniversalAIAssistantService:
                 reply = self._strip_location_question(reply, locale)
             if not reply:
                 return None
+            if self._asks_for_videos(clean):
+                # Deterministic: a video / review ask is a real search. The
+                # app shows the real videos; the reply never claims results
+                # or describes specs it did not get from a source.
+                transactional = True
+                action = "search_videos"
+                if domain in {"GENERAL", "UNKNOWN"}:
+                    domain = "PRODUCT"
+                reply = self._video_search_reply(locale)
+            elif self._asks_where_to_get(clean):
+                # Deterministic: "where can I get it here" is a real search.
+                # Shop / dealer names come only from real results, never
+                # from the model's memory.
+                transactional = True
+                if action not in {"search", "find_local", "order", "book"}:
+                    action = "find_local"
+                if domain in {"GENERAL", "UNKNOWN"}:
+                    domain = "PRODUCT"
+                reply = self._local_search_reply(locale)
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"

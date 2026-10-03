@@ -380,6 +380,77 @@ def relevant_to(subject: str, *texts: Any) -> bool:
     return len(wanted & hay) >= max(1, -(-len(wanted) // 2))
 
 
+# ----------------------------------------------------- category relevance --
+# A row must belong to the SAME kind of thing the conversation is about. A
+# word overlap alone ("fresh", "home", "store") let Used Cars / classifieds /
+# kitchen-appliance pages into a grocery conversation; these rules drop a row
+# whose own category plainly differs from the requirement's.
+_VEHICLE_HOSTS = ("cars24.com", "spinny.com", "cardekho.com", "carwale.com", "bikedekho.com", "droom.in",
+                  "bikewale.com", "carandbike.com", "truebil.com")
+_CLASSIFIED_HOSTS = ("olx.in", "quikr.com", "click.in", "locanto.")
+_PROPERTY_HOSTS = ("magicbricks.com", "99acres.com", "housing.com", "nobroker.in", "commonfloor.com")
+_VEHICLE_WORDS = re.compile(r"\b(cars?|bikes?|motorcycles?|scooters?|scooty|vehicles?|suv|sedan|hatchback|"
+                            r"two[- ]wheelers?|four[- ]wheelers?|auto ?rickshaw|tractors?)\b", re.IGNORECASE)
+_PROPERTY_WORDS = re.compile(r"\b(flats?|apartments?|plots?|houses? for (sale|rent)|villas?|bhk|real estate|"
+                             r"property|properties)\b", re.IGNORECASE)
+_APPLIANCE_WORDS = re.compile(r"\b(refrigerators?|fridges?|washing machines?|microwaves?|mixer grinders?|"
+                              r"air conditioners?|\bac\b|televisions?|tvs?|kitchen appliances?|home appliances?|"
+                              r"geysers?|chimneys?|induction)\b", re.IGNORECASE)
+_USED_WORDS_RE = re.compile(r"\b(used|second[- ]hand|pre[- ]owned|old)\b", re.IGNORECASE)
+_GOODS_CATEGORIES = {"grocery", "groceries", "kirana", "food", "fruits", "vegetables", "fruits_vegetables",
+                     "fashion", "clothing", "clothes", "apparel", "footwear", "meat", "chicken", "fish", "dairy",
+                     "bakery", "pharmacy", "medicine", "stationery", "cosmetics", "beauty"}
+
+
+# Same keyword, different intent: "fresh chicken delivery" is food for a
+# kitchen, not day-old chicks, hatcheries or poultry-farm supplies; a retail
+# request is not a manufacturer / exporter / wholesale (B2B) listing.
+_LIVESTOCK_WORDS = re.compile(r"\b(chicks?|day[- ]old|hatcher(y|ies)|broiler farm|layer farm|poultry farm(ing)?|"
+                              r"poultry (feed|equipment|cage|shed)|breeding|breeders?|livestock|fertile eggs|"
+                              r"incubators?|cattle feed|fish seed|fingerlings)\b", re.IGNORECASE)
+_FOOD_WORDS = re.compile(r"\b(chicken|mutton|meat|fish|prawns?|eggs?|curry cut|boneless|grocery|groceries|"
+                         r"vegetables?|fruits?|milk|food|biryani)\b", re.IGNORECASE)
+_B2B_HOSTS = ("indiamart.com", "tradeindia.com", "exportersindia.com", "alibaba.com", "made-in-china.com",
+              "go4worldbusiness.com", "dir.indiamart")
+_B2B_WORDS = re.compile(r"\b(manufacturers?|exporters?|wholesalers?|wholesale|bulk (supplier|order|buy)|"
+                        r"b2b|moq|minimum order|per tonne|per ton|metric ton)\b", re.IGNORECASE)
+_WANTS_B2B = re.compile(r"\b(wholesale|bulk|manufacturer|exporter|b2b|distributor|dealer(ship)?)\b", re.IGNORECASE)
+
+
+def intent_conflict(subject: Any, category: Any, url: str, title: Any = "", snippet: Any = "") -> str | None:
+    """A row that shares the keyword but serves another intent, or None."""
+    want = f"{subject or ''} {category or ''}"
+    row = f"{title or ''} {snippet or ''}"
+    if _FOOD_WORDS.search(want) and _LIVESTOCK_WORDS.search(row) and not _LIVESTOCK_WORDS.search(want):
+        return "livestock_page"
+    if not _WANTS_B2B.search(want) and (_host_matches(url, _B2B_HOSTS) or _B2B_WORDS.search(str(title or ""))):
+        return "wholesale_page"
+    return None
+
+
+def category_conflict(subject: Any, category: Any, url: str, title: Any = "", snippet: Any = "") -> str | None:
+    """Why a row does NOT belong to this requirement's category, or None."""
+    want = f"{subject or ''} {category or ''}"
+    row = f"{title or ''} {snippet or ''}"
+    wants_vehicle = bool(_VEHICLE_WORDS.search(want))
+    wants_property = bool(_PROPERTY_WORDS.search(want))
+    wants_used = bool(_USED_WORDS_RE.search(want))
+    goods = bool(set(re.findall(r"[a-z_]+", str(category or "").casefold())) & _GOODS_CATEGORIES) or bool(
+        set(re.findall(r"[a-z]+", str(subject or "").casefold())) & _GOODS_CATEGORIES)
+    if not wants_vehicle and (_host_matches(url, _VEHICLE_HOSTS) or
+                              (_VEHICLE_WORDS.search(str(title or "")) and not _VEHICLE_WORDS.search(want))):
+        return "vehicle_page"
+    if not wants_property and (_host_matches(url, _PROPERTY_HOSTS) or _PROPERTY_WORDS.search(str(title or ""))):
+        return "property_page"
+    if _host_matches(url, _CLASSIFIED_HOSTS) and (goods or not (wants_used or wants_vehicle or wants_property)):
+        # Classifieds are for used goods / vehicles / property, not a shop's
+        # grocery or clothing catalogue.
+        return "classifieds_page"
+    if goods and _APPLIANCE_WORDS.search(row) and not _APPLIANCE_WORDS.search(want):
+        return "other_category"
+    return None
+
+
 STATUS_OK = "ok"
 STATUS_NO_RESULTS = "no_results"
 STATUS_UNAVAILABLE = "unavailable"
@@ -444,6 +515,12 @@ class UniversalOnlineFallbackService:
             if not relevant_to(subject, title, snippet):
                 self._drop("not_relevant")
                 continue
+            if category_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
+                self._drop("other_category")
+                continue
+            if intent_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
+                self._drop("other_intent")
+                continue
             if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
                 self._drop("wrong_region")
                 continue
@@ -462,14 +539,16 @@ class UniversalOnlineFallbackService:
         self.status["online"] = STATUS_OK if results else STATUS_NO_RESULTS
         return results
 
-    def videos(self, *, category: str, subject: str, limit: int = 4) -> list[dict[str, Any]]:
+    def videos(self, *, category: str, subject: str, limit: int = 4, service: bool = False) -> list[dict[str, Any]]:
         subject = " ".join(str(subject or "").split())
         if not subject or str(category or "").strip().upper() in _NO_VIDEO_DOMAINS:
             return []
         if not self._search_configured:
             self.status["videos"] = STATUS_UNAVAILABLE
             return []
-        query = f"{subject} review"
+        # A service need wants to see the work explained ("AC service
+        # explained"); "review" finds marketing videos for businesses.
+        query = f"{subject} explained" if service else f"{subject} review"
         video_search = getattr(self.web_search, "videos", None)
         rows: list[dict[str, Any]] = []
         if callable(video_search):

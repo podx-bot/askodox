@@ -29,7 +29,7 @@ _USER_COLUMNS = ("user_id", "app_user_id", "seller_user_id", "buyer_user_id", "o
 # Internal/staff tables are not the customer's data export.
 _SKIP_TABLES = {"flow_traces", "admin_audit_log", "admin_staff", "admin_notifications", "feature_flags",
                 "integration_checks", "growth_api_usage", "account_deletions"}
-_SECRET_COLUMNS = {"token", "password", "otp", "otp_hash", "secret"}
+_SECRET_COLUMNS = {"token", "password", "otp", "otp_hash", "secret", "photo_jpeg", "jpeg"}
 
 
 def _db(request: Request) -> str:
@@ -116,6 +116,10 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
             done["requirements_closed"] = conn.execute(
                 "UPDATE universal_need_offer_records SET status='CLOSED' WHERE user_id=? AND status='ACTIVE'",
                 (user_id,)).rowcount
+        if "user_profiles" in tables:
+            conn.execute("DELETE FROM user_profiles WHERE user_id=?", (user_id,))  # name, photo, addresses
+        if "catalog_item_photos" in tables:
+            conn.execute("DELETE FROM catalog_item_photos WHERE seller_user_id=?", (user_id,))
         if "push_tokens" in tables:
             conn.execute("DELETE FROM push_tokens WHERE user_id=?", (user_id,))  # no more notifications
         conn.execute("INSERT OR REPLACE INTO account_deletions(user_id, deleted_at) VALUES(?,?)", (user_id, now))

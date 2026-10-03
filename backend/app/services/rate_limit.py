@@ -37,6 +37,22 @@ def check(request: Request, bucket: str, *, limit: int, window_seconds: int = 60
         hits.append(now)
 
 
+def blocked(request: Request, bucket: str, *, limit: int, window_seconds: int = 60) -> bool:
+    """True when the client already reached ``limit`` in the window (no hit recorded)."""
+    key = (bucket, client_key(request))
+    now = time.monotonic()
+    with _lock:
+        hits = _hits[key]
+        while hits and now - hits[0] > window_seconds:
+            hits.popleft()
+        return len(hits) >= limit
+
+
+def hit(request: Request, bucket: str) -> None:
+    with _lock:
+        _hits[(bucket, client_key(request))].append(time.monotonic())
+
+
 def reset_for_tests() -> None:
     with _lock:
         _hits.clear()

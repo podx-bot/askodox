@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../companion/companion_hub.dart';
+
 /// History status filters.
 enum AskodoxConversationStatus { active, matched, completed }
 
@@ -139,28 +141,50 @@ class AskodoxChatRequest {
   AskodoxChatRequest.restore(this.conversationId)
       : prompt = null,
         newConversation = false,
-        voice = false;
+        voice = false,
+        hubAction = null,
+        search = false;
   AskodoxChatRequest.newConversation()
       : conversationId = null,
         prompt = null,
         newConversation = true,
-        voice = false;
-  AskodoxChatRequest.ask(this.prompt)
+        voice = false,
+        hubAction = null,
+        search = false;
+  AskodoxChatRequest.ask(this.prompt, {this.search = false})
       : conversationId = null,
         newConversation = false,
-        voice = false;
+        voice = false,
+        hubAction = null;
 
   /// The centre ASKODOX button: open Main Chat and start listening at once.
   AskodoxChatRequest.voice()
       : conversationId = null,
         prompt = null,
         newConversation = false,
-        voice = true;
+        voice = true,
+        hubAction = null,
+        search = false;
 
+  /// A companion action (Voice, Chat, Camera, Photos, Video, Files,
+  /// Location) chosen outside Main Chat -- nav avatar or floating companion
+  /// -- carried into the SAME conversation.
+  AskodoxChatRequest.action(AskodoxHubAction this.hubAction)
+      : conversationId = null,
+        prompt = null,
+        newConversation = false,
+        voice = false,
+        search = false;
+
+  final AskodoxHubAction? hubAction;
   final String? conversationId;
   final String? prompt;
   final bool newConversation;
   final bool voice;
+
+  /// A next step ASKODOX itself offered ("AC service near me" from a video):
+  /// always a search with what is known, never routed as general chat.
+  final bool search;
 }
 
 final askodoxChatRequestProvider = StateProvider<AskodoxChatRequest?>((ref) => null);

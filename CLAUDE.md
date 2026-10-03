@@ -7,12 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `d95e2d2` — PR #106 (real-phone E2E fixes + simple UX), merged
-  2026-09-28. Previous: PR #103 (`261f0aa`) Master Fix Ticket remainder,
-  PR #101 (`b79ebc9`) universal human flow.
-- PR #106 CI was green on its head `de6e3c6` (askodox-ci, build-apk incl.
-  the new Kotlin notification code, docker-smoke, gates). Backend 269
-  tests, Flutter 530.
+- `main` @ `c2ae7d4` — PR #109 (3D friend expressions/gestures/lip-sync, one
+  native bridge, location follows the phone, universal clarification and
+  grounding), merged 2026-09-28. Previous: #108 (`c70eabd`) widget_test fix,
+  #107 (`c2c7526`), #106 (`d95e2d2`).
+- Android Live Build #253 on `c2ae7d4`: PASS, in-app update published.
+  Real phone: current place named "Uyyuru" (location naming verified).
 - Sprint status: NOT complete. NOT yet verified: real Brave/Maps/Routes/
   Geocoding results in production (the cloud dev container cannot reach
   Brave, Railway or OSM tiles) and real-phone acceptance for every flow
@@ -109,6 +109,28 @@ this file, don't trust it blindly.
   rule rows evaluated by `offers_engine.py` (never hard-coded promotions);
   rewards accrue only on customer-confirmed completion and need admin
   APPROVED -> PAID. Paid plans stay PENDING_PAYMENT (no gateway).
+- Affiliate / Partner Hub + Revenue Center live in `partner_revenue_repository.py`
+  (tables `partners`, `partner_secrets`, `revenue_events`,
+  `partner_conversions`, `revenue_entries`), `affiliate_partner_service.py`,
+  `revenue_center_service.py` and `routes/partners.py` (admin
+  `/admin/cc/partners|revenue`, permissions `partners:*`, `revenue:*`).
+  Partner rows join `_discover` AFTER local + online (segment `partner`);
+  opens go through `/go/{click_id}` (only URLs stored with an impression);
+  conversions come only from token-verified postbacks or CSV imports.
+  Secrets are never returned by any API. Revenue = confirmed + paid
+  commission + recorded entries; "why" findings are rule-based and graded
+  CONFIRMED / POSSIBLE_CORRELATION / INSUFFICIENT_EVIDENCE.
+- Offers & rewards (benefits): `benefits_repository.py` (tables `benefit_*`),
+  `benefits_engine.py`, `routes/benefits.py`; results carry `benefits`
+  (verified campaigns only: external types need source_url + verified_at);
+  claims idempotent per (campaign, user, trigger); Scratch & Reveal is
+  server-decided (highest-priority live campaign) once per completed order.
+  Distinct from the older seller/admin promotions in `offers_engine.py`.
+- Chat attachments: ONE endpoint `POST /api/attachments/analyze` (MIME ->
+  image / video / document processor, facts via `attachment_facts.py`);
+  the chat keeps real bytes (`ChatAttachment`), pickers are injectable
+  (`askodoxMediaPickerProvider`); facts go in `ConversationTurnRecord.context`,
+  never in the shown text.
 - Customer shell (`app_shell.dart`): Home · History · centre mic (starts
   voice via `AskodoxChatRequest.voice()`) · Updates · Profile. No drawer.
   One place per function: request status lives in Updates
@@ -154,11 +176,13 @@ this file, don't trust it blindly.
   listings (`/api/products/brands`), or a short reply that filled nothing.
   A brand the AI misses in the FIRST message and that no listing carries
   can stay in the subject next to a later brand.
-- 3D friend is a procedural canvas mesh (`companion_3d.dart`: expressions,
-  hands/gestures, blink/gaze, mic-reactive, lip-sync from
-  `companion_voice.dart`); no asset avatars yet (`AskodoxMesh.fromJson`).
-  Lip-sync needs device TTS `onRangeStart` (API 26+) or Sarvam audio
-  position; otherwise text-paced.
+- Companion: human 3D personas are ONE procedural rig (`companion_human.dart`)
+  on the shared rasterizer (`AskodoxRaster` in `companion_3d.dart`) --
+  stylized, not photoreal; robot = Lite fallback; flat 2D = 3D off. Optional
+  avatar packs (`companion_avatar_packs.dart`, `ASKODOX_AVATAR_BASE_URL`) are
+  not hosted anywhere yet. Lip-sync needs device TTS `onRangeStart` (API
+  26+) or Sarvam audio position; otherwise text-paced. See
+  `docs/COMPANION_AVATARS.md`.
 - Monetization/price-benchmark l10n strings still contain demo wording but
   are not reachable from customer screens. No-match "Notify me" not built.
 - Rate limits, the API cache and live counters are per process; daily API
@@ -176,6 +200,11 @@ this file, don't trust it blindly.
   Advisory is rule-based, not LLM-generated.
 - Pre-existing: `deal-completion-memory-smoke` block 2 fails when run
   outside its workflow env (same on `main` before PR #101).
+- Partner Hub: secrets are Fernet-encrypted (`ASKODOX_SECRETS_KEY`, fail
+  closed without it); click ids are HMAC-signed, counted once, expire
+  (`ASKODOX_CLICK_TTL_HOURS`); raw events roll up per day after
+  `ASKODOX_EVENT_RETENTION_DAYS` (run lazily at most daily -- no cron). No real
+  partner is configured.
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

@@ -69,6 +69,11 @@ class UniversalImageService:
             caption=caption,
         )
 
+    # Gemini accepts inline media up to ~20 MB per request; larger videos go
+    # through the Files API (upload -> wait until ACTIVE -> reference).
+    INLINE_MEDIA_LIMIT = 15 * 1024 * 1024
+    FILE_ACTIVE_TIMEOUT_SECONDS = 90.0
+
     def analyze_video(
         self,
         video_bytes: bytes,
@@ -85,21 +90,84 @@ class UniversalImageService:
             "Return both visual evidence and a spoken transcript when present. "
             "Keep the user's current request intent separate from observed facts."
         )
+        payload = self._generate_from_media(video_bytes, mime_type, prompt)
+        if not payload:
+            return None
+        return {
+            **payload,
+            "visual_summary": payload.get("visual_summary") or payload.get("summary"),
+            "spoken_transcript": payload.get("spoken_transcript") or payload.get("transcript"),
+        }
+
+    def analyze_pdf(self, pdf_bytes: bytes, caption: str | None = None) -> Optional[Dict[str, Any]]:
+        """Read a PDF that has no text layer (a scanned bill, a photographed
+        catalogue) with the multimodal brain. Only what is visible is used."""
+        if not pdf_bytes or self.client is None:
+            return None
+        prompt = self._prompt(caption) + (
+            "\nThis is a PDF document (possibly scanned). Read it. Put the readable text in visible_text, "
+            "a short factual summary in summary and the document type (invoice, price list, catalogue, "
+            "certificate ...) in document_type. Do not invent values that are not visible."
+        )
+        return self._generate_from_media(pdf_bytes, "application/pdf", prompt) or None
+
+    def _generate_from_media(self, data: bytes, mime_type: str, prompt: str) -> Dict[str, Any]:
+        """Gemini call for video/PDF bytes: inline when small, Files API when
+        large; the second model is tried when the first fails."""
+        uploaded = None
         try:
-            response = self.client.models.generate_content(
-                model=self.GEMINI_IMAGE_MODELS[0],
-                contents=[types.Part.from_bytes(data=video_bytes, mime_type=mime_type), prompt],
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
-            )
-            payload = self._parse_json(str(getattr(response, "text", "") or ""))
-            if not payload:
-                return None
-            return {
-                **payload,
-                "visual_summary": payload.get("visual_summary") or payload.get("summary"),
-                "spoken_transcript": payload.get("spoken_transcript") or payload.get("transcript"),
-            }
-        except Exception:
+            if len(data) > self.INLINE_MEDIA_LIMIT:
+                uploaded = self._upload_media(data, mime_type)
+                if uploaded is None:
+                    return {}
+                part: Any = uploaded
+            else:
+                part = types.Part.from_bytes(data=data, mime_type=mime_type)
+            for model in self.GEMINI_IMAGE_MODELS:
+                try:
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=[part, prompt],
+                        config=types.GenerateContentConfig(response_mime_type="application/json"),
+                    )
+                except Exception as error:
+                    print(f"ASKODOX MEDIA BRAIN: model={model} mime={mime_type} status=failed "
+                          f"error={type(error).__name__}", flush=True)
+                    continue
+                payload = self._parse_json(str(getattr(response, "text", "") or ""))
+                if payload:
+                    print(f"ASKODOX MEDIA BRAIN: model={model} mime={mime_type} bytes={len(data)} "
+                          f"via={'files' if uploaded is not None else 'inline'} status=success", flush=True)
+                    return payload
+            return {}
+        finally:
+            if uploaded is not None:
+                try:
+                    self.client.files.delete(name=uploaded.name)
+                except Exception:
+                    pass
+
+    def _upload_media(self, data: bytes, mime_type: str) -> Any | None:
+        import io
+        import time
+
+        files = getattr(self.client, "files", None)
+        if files is None:
+            return None
+        try:
+            uploaded = files.upload(file=io.BytesIO(data), config={"mime_type": mime_type})
+            deadline = time.monotonic() + self.FILE_ACTIVE_TIMEOUT_SECONDS
+            while str(getattr(getattr(uploaded, "state", None), "name", getattr(uploaded, "state", ""))
+                      ).upper().endswith("PROCESSING"):
+                if time.monotonic() > deadline:
+                    print("ASKODOX MEDIA BRAIN: upload still processing at timeout", flush=True)
+                    return None
+                time.sleep(2)
+                uploaded = files.get(name=uploaded.name)
+            state = str(getattr(getattr(uploaded, "state", None), "name", getattr(uploaded, "state", ""))).upper()
+            return None if state.endswith("FAILED") else uploaded
+        except Exception as error:
+            print(f"ASKODOX MEDIA BRAIN: upload failed error={type(error).__name__}", flush=True)
             return None
 
     def process_image(

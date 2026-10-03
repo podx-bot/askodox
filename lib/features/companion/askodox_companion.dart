@@ -8,12 +8,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'companion_3d.dart';
+import 'companion_avatar_packs.dart';
+import 'companion_human.dart';
+import 'companion_human2d.dart';
 import 'companion_voice.dart';
+import 'companion_vrm_view.dart';
 
 /// What the ASKODOX friend is doing right now. Driven by the SAME chat /
 /// voice / results state as the rest of the app -- the companion is a view
 /// of the one conversation, never a second workflow.
-enum AskodoxCompanionMood { idle, greeting, listening, thinking, speaking, explaining, success, help }
+///
+/// * understanding -- reading what was sent (voice being transcribed, a
+///   photo / video / document being analyzed);
+/// * suggesting -- ASKODOX asked for the one detail it still needs;
+/// * explaining -- real options are on screen (it turns to them);
+/// * guiding -- a real action (send request / connect) is in flight;
+/// * help -- something failed; recovery is offered.
+enum AskodoxCompanionMood {
+  idle,
+  greeting,
+  listening,
+  understanding,
+  thinking,
+  speaking,
+  suggesting,
+  explaining,
+  guiding,
+  success,
+  help,
+}
 
 /// How the friend looks. The ASKODOX robot is the default brand look; other
 /// looks are neutral (no gender is ever assumed). New looks/meshes plug into
@@ -21,8 +44,28 @@ enum AskodoxCompanionMood { idle, greeting, listening, thinking, speaking, expla
 enum AskodoxCompanionLook { robot, friendlyFace, simpleOrb }
 
 class AskodoxCompanionSettings {
-  const AskodoxCompanionSettings(
-      {this.look = AskodoxCompanionLook.robot, this.animate = true, this.render3d = true, this.enabled = true});
+  const AskodoxCompanionSettings({
+    this.look = AskodoxCompanionLook.robot,
+    this.animate = true,
+    this.render3d = true,
+    this.enabled = true,
+    this.companion = automatic,
+  });
+
+  /// The approved ASKODOX companion (the "Smart Advisor" natural human,
+  /// 2D photo states -- see [AskodoxHuman2d]). Automatic = this companion.
+  static const automatic = 'auto';
+  static const robotLite = 'robot';
+
+  /// Human HD (beta): a real VRM human rendered by the WebView engine
+  /// (companion_vrm_view.dart); falls back to the light human rig.
+  static const humanHd = 'humanHd';
+
+  /// Which companion: [automatic] (the persona follows what ASKODOX is
+  /// helping with), an [AskodoxPersona] name (human 3D), or [robotLite].
+  final String companion;
+
+  AskodoxPersona? get persona => AskodoxPersona.values.where((p) => p.name == companion).firstOrNull;
 
   /// Off = no friend at all (a plain mic button and text status instead).
   final bool enabled;
@@ -36,14 +79,22 @@ class AskodoxCompanionSettings {
   /// (also used automatically when the phone asks for reduced motion).
   final bool render3d;
 
-  Map<String, Object?> toJson() => {'look': look.name, 'animate': animate, 'render3d': render3d, 'enabled': enabled};
+  Map<String, Object?> toJson() =>
+      {'look': look.name, 'animate': animate, 'render3d': render3d, 'enabled': enabled, 'companion': companion};
 
   static AskodoxCompanionSettings fromJson(Map<String, Object?> json) => AskodoxCompanionSettings(
         look: AskodoxCompanionLook.values.where((l) => l.name == json['look']).firstOrNull ?? AskodoxCompanionLook.robot,
         animate: json['animate'] != false,
         render3d: json['render3d'] != false,
         enabled: json['enabled'] != false,
+        companion: _validCompanion(json['companion']),
       );
+
+  static String _validCompanion(Object? value) {
+    final v = '${value ?? automatic}';
+    if (v == automatic || v == robotLite || v == humanHd || AskodoxPersona.values.any((p) => p.name == v)) return v;
+    return automatic;
+  }
 }
 
 class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionSettings> {
@@ -51,7 +102,9 @@ class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionS
     _load();
   }
 
-  static const _key = 'askodox.companion.v1';
+  // v2: the approved natural human companion became the default; an older
+  // saved pick (low-poly persona / VRM) is not carried over.
+  static const _key = 'askodox.companion.v2';
 
   Future<void> _load() async {
     try {
@@ -62,12 +115,15 @@ class AskodoxCompanionSettingsController extends StateNotifier<AskodoxCompanionS
     } catch (_) {}
   }
 
-  Future<void> update({AskodoxCompanionLook? look, bool? animate, bool? render3d, bool? enabled}) async {
+  Future<void> update({AskodoxCompanionLook? look, bool? animate, bool? render3d, bool? enabled, String? companion}) async {
+    // An explicit choice always applies (a session step-down never hides it).
+    if (companion != null || render3d == true) AskodoxCompanionPerformance.reset();
     state = AskodoxCompanionSettings(
         look: look ?? state.look,
         animate: animate ?? state.animate,
         render3d: render3d ?? state.render3d,
-        enabled: enabled ?? state.enabled);
+        enabled: enabled ?? state.enabled,
+        companion: companion == null ? state.companion : AskodoxCompanionSettings._validCompanion(companion));
     try {
       await (await SharedPreferences.getInstance()).setString(_key, jsonEncode(state.toJson()));
     } catch (_) {}
@@ -79,39 +135,141 @@ final askodoxCompanionSettingsProvider =
   (ref) => AskodoxCompanionSettingsController(),
 );
 
-/// One short, friendly line for the mood (never a lecture).
-String askodoxCompanionLine(AskodoxCompanionMood mood, {required bool telugu, int results = 0}) => switch (mood) {
-      AskodoxCompanionMood.greeting => telugu ? 'నమస్తే! మీకు ఏం కావాలో చెప్పండి.' : 'Hi! Tell me what you need.',
-      AskodoxCompanionMood.listening => telugu ? 'వింటున్నాను…' : 'Listening…',
-      AskodoxCompanionMood.thinking => telugu ? 'వెతుకుతున్నాను…' : 'Finding real options…',
-      AskodoxCompanionMood.speaking => telugu ? 'చెబుతున్నాను…' : 'Speaking…',
-      AskodoxCompanionMood.explaining => telugu ? 'ఇదిగో వివరాలు' : 'Here is what I found',
-      AskodoxCompanionMood.success =>
-        results > 0 ? (telugu ? '$results ఎంపికలు దొరికాయి' : 'Found $results option${results == 1 ? '' : 's'}') : (telugu ? 'పూర్తయింది' : 'Done'),
-      AskodoxCompanionMood.help => telugu ? 'చిన్న సమస్య. మళ్లీ ప్రయత్నిద్దాం.' : 'Something went wrong. Let’s try again.',
-      AskodoxCompanionMood.idle => telugu ? 'సిద్ధంగా ఉన్నాను' : 'Ready',
-    };
+/// What the ASKODOX brain last decided the conversation is about (its
+/// generic domain). Automatic mode dresses the companion for it; behaviour
+/// (moods, gestures, lip-sync) is the same for every persona.
+final askodoxCompanionDomainProvider = StateProvider<String?>((ref) => null);
 
-/// Session-wide guard for low-end phones: when real frames of the 3D friend
-/// are too slow, the friend drops to the light 2D drawing for the rest of
-/// the session (the user's 3D setting is not changed).
+/// One short, friendly line for the mood (never a lecture), in the
+/// conversation language ([lang] wins over [telugu]; Hindi lines avoid
+/// gendered first-person verbs -- the companion never assumes a gender).
+/// [subject] is what ASKODOX understood (only used when it asks for more).
+String askodoxCompanionLine(AskodoxCompanionMood mood,
+    {required bool telugu, int results = 0, String? lang, String? subject}) {
+  final code = lang ?? (telugu ? 'te' : 'en');
+  final about = (subject ?? '').trim();
+  final plural = results == 1 ? '' : 's';
+  final lines = switch (code) {
+    'te' => {
+        AskodoxCompanionMood.greeting: 'నమస్తే! మీకు ఏం కావాలో చెప్పండి.',
+        AskodoxCompanionMood.listening: 'వింటున్నాను…',
+        AskodoxCompanionMood.understanding: 'మీరు పంపింది చదువుతున్నాను…',
+        AskodoxCompanionMood.thinking: 'వెతుకుతున్నాను…',
+        AskodoxCompanionMood.speaking: 'చెబుతున్నాను…',
+        AskodoxCompanionMood.suggesting: about.isEmpty
+            ? 'ఇంకో వివరం చెబితే వెతుకుతాను.'
+            : '"$about" అర్థమైంది. ఇంకో వివరం చెబితే వెతుకుతాను.',
+        AskodoxCompanionMood.explaining:
+            results > 0 ? '$results ఎంపికలు దొరికాయి — ఒకటి ఎంచుకోండి' : 'ఇదిగో వివరాలు',
+        AskodoxCompanionMood.guiding: 'మీ అభ్యర్థన పంపుతున్నాను…',
+        AskodoxCompanionMood.success:
+            results > 0 ? '$results ఎంపికలు దొరికాయి' : 'పూర్తయింది! అప్‌డేట్స్‌లో తెలియజేస్తాను.',
+        AskodoxCompanionMood.help: 'చిన్న సమస్య. మళ్లీ ప్రయత్నిద్దాం.',
+        AskodoxCompanionMood.idle: 'సిద్ధంగా ఉన్నాను',
+      },
+    'hi' => {
+        AskodoxCompanionMood.greeting: 'नमस्ते! बताइए, आपको क्या चाहिए।',
+        AskodoxCompanionMood.listening: 'बोलिए…',
+        AskodoxCompanionMood.understanding: 'आपका भेजा हुआ पढ़ा जा रहा है…',
+        AskodoxCompanionMood.thinking: 'असली विकल्प खोजे जा रहे हैं…',
+        AskodoxCompanionMood.speaking: 'जवाब…',
+        AskodoxCompanionMood.suggesting: about.isEmpty
+            ? 'एक और जानकारी दीजिए, फिर खोज शुरू होगी।'
+            : '"$about" समझ आ गया। एक और जानकारी दीजिए, फिर खोज शुरू होगी।',
+        AskodoxCompanionMood.explaining: results > 0 ? '$results विकल्प मिले — एक चुनें' : 'यह रहा जो मिला',
+        AskodoxCompanionMood.guiding: 'आपका अनुरोध भेजा जा रहा है…',
+        AskodoxCompanionMood.success: results > 0 ? '$results विकल्प मिले' : 'हो गया! अपडेट्स में बताया जाएगा।',
+        AskodoxCompanionMood.help: 'कुछ गड़बड़ हुई। फिर कोशिश करें।',
+        AskodoxCompanionMood.idle: 'तैयार',
+      },
+    _ => {
+        AskodoxCompanionMood.greeting: 'Hi! Tell me what you need.',
+        AskodoxCompanionMood.listening: 'Listening…',
+        AskodoxCompanionMood.understanding: 'Reading what you sent…',
+        AskodoxCompanionMood.thinking: 'Finding real options…',
+        AskodoxCompanionMood.speaking: 'Speaking…',
+        AskodoxCompanionMood.suggesting: about.isEmpty
+            ? 'One more detail and I can search.'
+            : 'Got it: "$about". One more detail and I can search.',
+        AskodoxCompanionMood.explaining:
+            results > 0 ? 'Found $results option$plural — pick one to continue' : 'Here is what I found',
+        AskodoxCompanionMood.guiding: 'Sending your request…',
+        AskodoxCompanionMood.success:
+            results > 0 ? 'Found $results option$plural' : 'Done! I’ll keep you posted in Updates.',
+        AskodoxCompanionMood.help: 'Something went wrong. Let’s try again.',
+        AskodoxCompanionMood.idle: 'Ready',
+      },
+  };
+  return lines[mood]!;
+}
+
+/// Session-wide guard for slower phones. When real frames are too slow the
+/// companion steps down -- but keeps its human face and identity:
+/// 0 = full motion, 1 = lighter motion (short gestures instead of continuous
+/// loops), 2 = lightweight still pose per state. After [retryAfter] it tries
+/// one level up again (step back up when the phone copes). The robot is only
+/// a last resort when the human renderer itself fails.
 class AskodoxCompanionPerformance {
-  static bool lite = false;
+  static int level = 0;
 
-  /// Frames slower than this (build+raster) count as janky.
-  static const jankMicros = 24000;
+  /// When the last step down happened (for stepping back up).
+  static DateTime? steppedDownAt;
+  static Duration retryAfter = const Duration(minutes: 2);
+
+  static void stepDown() {
+    if (level >= 2) return;
+    level++;
+    steppedDownAt = DateTime.now();
+  }
+
+  /// Called when motion starts: try one level up after a quiet period.
+  static void maybeStepUp([DateTime? now]) {
+    final at = steppedDownAt;
+    if (level == 0 || at == null) return;
+    if ((now ?? DateTime.now()).difference(at) >= retryAfter) {
+      level--;
+      steppedDownAt = level == 0 ? null : (now ?? DateTime.now());
+    }
+  }
+
+  static bool get lite => level >= 2;
+  static set lite(bool value) => level = value ? 2 : 0;
+
+  /// Step down only when the MEDIAN frame is slower than ~30 fps.
+  static const jankMicros = 34000;
+
+  /// Frames ignored after the companion starts animating (shader warm-up,
+  /// first layout) -- they are slow on every phone and prove nothing.
+  static const warmupFrames = 30;
 
   static bool judge(List<int> frameMicros) {
-    if (frameMicros.length < 45) return false;
-    final sorted = [...frameMicros]..sort();
+    if (frameMicros.length < warmupFrames + 60) return false;
+    final sorted = frameMicros.sublist(warmupFrames)..sort();
     return sorted[sorted.length ~/ 2] > jankMicros;
+  }
+
+  /// Why Human HD handed over to the light rig this session (error,
+  /// timeout, slow); null = not tried or working.
+  static String? vrmFallback;
+
+  /// The user picked a companion: give 3D a fresh chance this session.
+  static void reset() {
+    level = 0;
+    steppedDownAt = null;
+    vrmFallback = null;
   }
 }
 
-/// The ASKODOX friend. 3D by default (lit mesh with expressions, gestures,
-/// blinking, gaze, mic-reactive listening and lip-synced speaking); the flat
-/// 2D drawing is used when the user turns 3D off, the phone asks for reduced
-/// motion, or real frames prove too slow. Tapping it talks to ASKODOX.
+/// Which renderer the companion actually uses right now.
+enum AskodoxCompanionRender { human2d, humanHd, human3d, robot3d, flat2d, off }
+
+/// The ASKODOX friend. By default a human-like 3D companion (persona chosen
+/// in Profile or Automatic), with expressions, gestures, blinking, gaze,
+/// mic-reactive listening and lip-synced speaking -- all driven by the one
+/// ASKODOX conversation state. Fallbacks, in order: the lightweight robot
+/// (Lite mode: chosen, slow phone, or a 3D failure), the flat 2D friend
+/// (3D off, reduced motion, very slow phone), and a plain mic button
+/// (friend off). Tapping it talks to ASKODOX.
 class AskodoxCompanion extends ConsumerStatefulWidget {
   const AskodoxCompanion({super.key, this.mood = AskodoxCompanionMood.idle, this.size = 112, this.onTap});
 
@@ -123,7 +281,25 @@ class AskodoxCompanion extends ConsumerStatefulWidget {
   ConsumerState<AskodoxCompanion> createState() => _AskodoxCompanionState();
 }
 
-class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with SingleTickerProviderStateMixin {
+/// Meshes are built once per look/persona and shared by every companion on
+/// screen; at most a few are kept (memory-safe).
+class _MeshCache {
+  static final _items = <String, AskodoxMesh>{};
+
+  static AskodoxMesh get(String key, AskodoxMesh Function() build) {
+    final hit = _items.remove(key);
+    if (hit != null) return _items[key] = hit; // most recently used last
+    final mesh = build();
+    _items[key] = mesh;
+    while (_items.length > 4) {
+      _items.remove(_items.keys.first);
+    }
+    return mesh;
+  }
+}
+
+class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _clock =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
   final _random = math.Random();
@@ -132,27 +308,48 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
   Offset _gaze = Offset.zero;
   final List<int> _frames = [];
   bool _watchingFrames = false;
+  bool _humanFailed = false;
+  bool _paused = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scheduleBlink();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _blinkTimer?.cancel();
     _stopFrameWatch();
     _clock.dispose();
     super.dispose();
   }
 
+  /// App in the background: no timers, no animation, no frame watching.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final paused = state != AppLifecycleState.resumed;
+    if (paused == _paused) return;
+    _paused = paused;
+    if (paused) {
+      _blinkTimer?.cancel();
+      _clock.stop();
+      _stopFrameWatch();
+    } else {
+      _scheduleBlink();
+      if (mounted) setState(() {});
+    }
+  }
+
   /// Natural blinks every 2.5-6 s (and an occasional glance), cheap enough
   /// to run even while the friend is otherwise still.
   void _scheduleBlink() {
     _blinkTimer?.cancel();
+    if (_paused) return;
     _blinkTimer = Timer(Duration(milliseconds: 2500 + _random.nextInt(3500)), () {
-      if (!mounted) return;
+      if (!mounted || _paused) return;
       setState(() {
         _blink = 1;
         if (_random.nextDouble() < .35) {
@@ -173,9 +370,12 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
     for (final t in timings) {
       _frames.add(t.totalSpan.inMicroseconds);
     }
-    if (_frames.length > 120) _frames.removeRange(0, _frames.length - 120);
-    if (!AskodoxCompanionPerformance.lite && AskodoxCompanionPerformance.judge(_frames)) {
-      AskodoxCompanionPerformance.lite = true;
+    if (_frames.length > 150) _frames.removeRange(AskodoxCompanionPerformance.warmupFrames, _frames.length - 120);
+    if (AskodoxCompanionPerformance.level < 2 && AskodoxCompanionPerformance.judge(_frames)) {
+      // Too slow on this phone: lighter motion, then a still pose -- same
+      // human companion; the user's choice is kept for next time.
+      AskodoxCompanionPerformance.stepDown();
+      _frames.clear();
       _stopFrameWatch();
       if (mounted) setState(() {});
     }
@@ -193,40 +393,71 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
     SchedulerBinding.instance.removeTimingsCallback(_onTimings);
   }
 
-  void _syncAnimation(bool animate, bool use3d) {
+  AskodoxCompanionMood? _burstMood;
+
+  void _syncAnimation(bool animate, bool is3d) {
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    // Motion only while ASKODOX is actively doing something; at rest it is
-    // a still image (battery friendly, never distracting) that still blinks.
-    const active = {
+    // Continuous motion only while ASKODOX is actively working (listening,
+    // thinking, speaking). Guiding toward results and happy confirmation are
+    // a short gesture burst that then settles; at rest it is a still image
+    // (battery friendly, never distracting) that still blinks.
+    const continuous = {
       AskodoxCompanionMood.listening,
+      AskodoxCompanionMood.understanding,
       AskodoxCompanionMood.thinking,
       AskodoxCompanionMood.speaking,
-      AskodoxCompanionMood.explaining,
+      AskodoxCompanionMood.guiding,
     };
-    final run = animate && !reduceMotion && active.contains(widget.mood);
-    if (run) {
+    const burst = {
+      AskodoxCompanionMood.suggesting,
+      AskodoxCompanionMood.explaining,
+      AskodoxCompanionMood.success,
+    };
+    AskodoxCompanionPerformance.maybeStepUp();
+    final level = AskodoxCompanionPerformance.level;
+    // Level 2: still pose per state (no motion at all).
+    final allowed = animate && !reduceMotion && !_paused && level < 2;
+    // Level 1: continuous loops become short gestures.
+    if (allowed && level == 1 && continuous.contains(widget.mood)) {
+      if (_burstMood != widget.mood) {
+        _burstMood = widget.mood;
+        _clock
+          ..stop()
+          ..value = 0
+          ..repeat(count: 2);
+      }
+    } else if (allowed && continuous.contains(widget.mood)) {
+      _burstMood = null;
       if (!_clock.isAnimating) _clock.repeat();
-    } else if (_clock.isAnimating) {
-      _clock.stop();
+    } else if (allowed && burst.contains(widget.mood)) {
+      if (_burstMood != widget.mood) {
+        _burstMood = widget.mood;
+        _clock
+          ..stop()
+          ..value = 0
+          ..repeat(count: 2);
+      }
+    } else {
+      if (!burst.contains(widget.mood)) _burstMood = null;
+      if (_clock.isAnimating) _clock.stop();
     }
-    if (run && use3d && !AskodoxCompanionPerformance.lite) {
+    if (allowed && _clock.isAnimating && is3d && AskodoxCompanionPerformance.level < 2) {
       _startFrameWatch();
     } else {
       _stopFrameWatch();
     }
   }
 
-  AskodoxMesh? _mesh;
-  (AskodoxCompanionLook, int)? _meshKey;
-
-  AskodoxMesh _meshFor(AskodoxCompanionLook look) {
+  AskodoxMesh _robotMesh(AskodoxCompanionLook look) {
     final accent = _CompanionPainter(mood: widget.mood, look: look, t: 0)._accent;
-    final key = (look, accent.toARGB32());
-    if (_mesh == null || _meshKey != key) {
-      _mesh = AskodoxMesh.forLook(look, accent);
-      _meshKey = key;
-    }
-    return _mesh!;
+    return _MeshCache.get('robot:${look.name}:${accent.toARGB32()}', () => AskodoxMesh.forLook(look, accent));
+  }
+
+  AskodoxMesh _humanMesh(AskodoxPersona persona) {
+    // A downloaded avatar pack (same rig) wins once it is ready; until then
+    // (or without one) the procedural rig renders instantly.
+    final pack = AskodoxAvatarPacks.baseUrl.isEmpty ? null : ref.watch(askodoxAvatarPackProvider(persona)).valueOrNull;
+    return pack ?? _MeshCache.get('human:${persona.name}', () => AskodoxHumanRig.build(AskodoxHumanStyle.of(persona)));
   }
 
   AskodoxCompanionSignals _signals(AskodoxCompanionVoice voice) => AskodoxCompanionSignals(
@@ -236,13 +467,43 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
         gaze: _gaze,
       );
 
+  AskodoxCompanionRender _renderFor(AskodoxCompanionSettings settings, bool reduceMotion) {
+    if (!settings.enabled) return AskodoxCompanionRender.off;
+    // The approved natural human (2D photo states) is the companion
+    // everywhere. The experimental 3D renderers run only when explicitly
+    // picked in Profile, and any failure comes back to the same human --
+    // never to a different identity.
+    final c = settings.companion;
+    if (c == AskodoxCompanionSettings.robotLite) {
+      return settings.render3d && !reduceMotion ? AskodoxCompanionRender.robot3d : AskodoxCompanionRender.flat2d;
+    }
+    if (!settings.render3d || reduceMotion || _humanFailed) return AskodoxCompanionRender.human2d;
+    if (c == AskodoxCompanionSettings.humanHd && AskodoxCompanionPerformance.vrmFallback == null) {
+      return AskodoxCompanionRender.humanHd;
+    }
+    if (settings.persona != null) return AskodoxCompanionRender.human3d;
+    return AskodoxCompanionRender.human2d;
+  }
+
+  void _humanError() {
+    if (_humanFailed) return;
+    _humanFailed = true;
+    // Never paint-time setState: switch to the robot on the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(askodoxCompanionSettingsProvider);
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (!settings.enabled) {
+    final render = _renderFor(settings, reduceMotion);
+    if (render == AskodoxCompanionRender.off) {
+      _syncAnimation(false, false);
       // Friend off: a plain, still mic button with the same tap action.
       return Semantics(
+        container: true,
         label: 'ASKODOX ${widget.mood.name}',
         button: widget.onTap != null,
         child: GestureDetector(
@@ -261,11 +522,68 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
         ),
       );
     }
-    final use3d = settings.render3d && !reduceMotion && !AskodoxCompanionPerformance.lite;
-    _syncAnimation(settings.animate, use3d);
+    _syncAnimation(settings.animate,
+        render != AskodoxCompanionRender.flat2d && render != AskodoxCompanionRender.human2d);
     final voice = ref.watch(askodoxCompanionVoiceProvider);
+    if (render == AskodoxCompanionRender.human2d) {
+      return Semantics(
+        container: true,
+        label: 'ASKODOX ${widget.mood.name}',
+        button: widget.onTap != null,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedBuilder(
+            animation: _clock,
+            builder: (context, _) => AskodoxHuman2d(
+              mood: widget.mood,
+              size: widget.size,
+              t: _clock.value,
+              level: widget.mood == AskodoxCompanionMood.listening
+                  ? voice.micLevel
+                  : (widget.mood == AskodoxCompanionMood.speaking && voice.speaking ? voice.mouthOpenness() : 0),
+            ),
+          ),
+        ),
+      );
+    }
+    final persona = render == AskodoxCompanionRender.human3d || render == AskodoxCompanionRender.humanHd
+        ? (settings.persona ?? askodoxPersonaForDomain(ref.watch(askodoxCompanionDomainProvider)))
+        : null;
+    if (render == AskodoxCompanionRender.humanHd) {
+      // The light human rig shows while the HD model loads, and takes over
+      // for the session if the engine fails or is slow on this phone.
+      final light = AnimatedBuilder(
+        animation: _clock,
+        builder: (context, _) => CustomPaint(
+          painter: AskodoxHuman3dPainter(
+              mesh: _humanMesh(persona!), mood: widget.mood, t: _clock.value, signals: _signals(voice), onError: _humanError),
+        ),
+      );
+      return Semantics(
+        container: true,
+        label: 'ASKODOX Human HD ${widget.mood.name}',
+        button: widget.onTap != null,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: ref.watch(askodoxVrmViewBuilderProvider)(
+            mood: widget.mood,
+            size: widget.size,
+            fallback: light,
+            onFallback: (reason) {
+              AskodoxCompanionPerformance.vrmFallback = reason;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {});
+              });
+            },
+          ),
+        ),
+      );
+    }
+    final human = render == AskodoxCompanionRender.human3d && persona != null ? _humanMesh(persona) : null;
+    final robot = render == AskodoxCompanionRender.robot3d ? _robotMesh(settings.look) : null;
     return Semantics(
-      label: 'ASKODOX ${widget.mood.name}',
+      container: true,
+      label: 'ASKODOX ${persona == null ? '' : '${askodoxPersonaLabel(persona)} '}${widget.mood.name}',
       button: widget.onTap != null,
       child: GestureDetector(
         onTap: widget.onTap,
@@ -274,11 +592,18 @@ class _AskodoxCompanionState extends ConsumerState<AskodoxCompanion> with Single
           child: AnimatedBuilder(
             animation: _clock,
             builder: (context, _) => CustomPaint(
-              key: ValueKey(use3d ? 'askodoxCompanion3d' : 'askodoxCompanion2d'),
-              painter: use3d
-                  ? AskodoxCompanion3dPainter(
-                      mesh: _meshFor(settings.look), mood: widget.mood, t: _clock.value, signals: _signals(voice))
-                  : _CompanionPainter(mood: widget.mood, look: settings.look, t: _clock.value, blinkAmount: _blink),
+              key: ValueKey(switch (render) {
+                AskodoxCompanionRender.human3d => 'askodoxCompanionHuman3d',
+                AskodoxCompanionRender.robot3d => 'askodoxCompanion3d',
+                _ => 'askodoxCompanion2d',
+              }),
+              painter: switch (render) {
+                AskodoxCompanionRender.human3d => AskodoxHuman3dPainter(
+                    mesh: human!, mood: widget.mood, t: _clock.value, signals: _signals(voice), onError: _humanError),
+                AskodoxCompanionRender.robot3d =>
+                  AskodoxCompanion3dPainter(mesh: robot!, mood: widget.mood, t: _clock.value, signals: _signals(voice)),
+                _ => _CompanionPainter(mood: widget.mood, look: settings.look, t: _clock.value, blinkAmount: _blink),
+              },
             ),
           ),
         ),
@@ -300,8 +625,9 @@ class _CompanionPainter extends CustomPainter {
   static const _blue = Color(0xFF1769FF);
 
   Color get _accent => switch (mood) {
-        AskodoxCompanionMood.listening => const Color(0xFF1FA2FF),
-        AskodoxCompanionMood.speaking || AskodoxCompanionMood.success => const Color(0xFF1B8A3B),
+        AskodoxCompanionMood.listening || AskodoxCompanionMood.understanding => const Color(0xFF1FA2FF),
+        AskodoxCompanionMood.speaking || AskodoxCompanionMood.success || AskodoxCompanionMood.guiding =>
+          const Color(0xFF1B8A3B),
         AskodoxCompanionMood.help => const Color(0xFFE08A00),
         _ => _violet,
       };
@@ -320,7 +646,7 @@ class _CompanionPainter extends CustomPainter {
             Paint()..color = _accent.withValues(alpha: .35 * (1 - p))..style = PaintingStyle.stroke..strokeWidth = 3);
       }
     }
-    if (mood == AskodoxCompanionMood.thinking) {
+    if (mood == AskodoxCompanionMood.thinking || mood == AskodoxCompanionMood.understanding) {
       for (var i = 0; i < 3; i++) {
         final a = (t + i / 3) * 2 * math.pi;
         canvas.drawCircle(c + Offset(math.cos(a), math.sin(a)) * r * .9, r * .06, Paint()..color = _accent);
@@ -373,10 +699,15 @@ class _CompanionPainter extends CustomPainter {
     }
     _mouth(canvas, head, headR, wave);
 
-    // Explaining: a small pointing hand toward the results (to the right).
-    if (mood == AskodoxCompanionMood.explaining) {
+    // Explaining / guiding: a small pointing hand toward the results (to
+    // the right); suggesting: an open palm offered below.
+    if (mood == AskodoxCompanionMood.explaining || mood == AskodoxCompanionMood.guiding) {
       final hand = head + Offset(headR * 1.05 + wave * r * .04, headR * .45);
       canvas.drawCircle(hand, r * .12, Paint()..color = _accent);
+    }
+    if (mood == AskodoxCompanionMood.suggesting) {
+      final palm = head + Offset(headR * .8, headR * .95 - wave.abs() * r * .03);
+      canvas.drawOval(Rect.fromCenter(center: palm, width: r * .3, height: r * .14), Paint()..color = _accent);
     }
   }
 
@@ -406,32 +737,87 @@ class _CompanionPainter extends CustomPainter {
       old.t != t || old.mood != mood || old.look != look || old.blinkAmount != blinkAmount;
 }
 
-/// Compact "friend" bar shown above the input while ASKODOX works: the
-/// companion + one short line. Hidden when idle so it never takes space.
+/// The companion docked above the input for the WHOLE conversation
+/// (listening, thinking, speaking, results, follow-ups, idle) -- it never
+/// disappears. [showLine] is off while the voice panel already says the
+/// same status.
 class AskodoxCompanionBar extends StatelessWidget {
-  const AskodoxCompanionBar({super.key, required this.mood, required this.telugu, this.results = 0, this.onTap});
+  const AskodoxCompanionBar({
+    super.key,
+    required this.mood,
+    required this.telugu,
+    this.results = 0,
+    this.onTap,
+    this.showLine = true,
+    this.size = 64,
+    this.foundLabel,
+    this.lang,
+    this.subject,
+    this.guidance,
+  });
+
+  /// Contextual guidance from the conversation (local vs online, set your
+  /// location, "tap me again to stop" ...); replaces the plain mood line.
+  final String? guidance;
+
+  /// Conversation language code (te / en / hi ...); null = [telugu].
+  final String? lang;
+
+  /// What ASKODOX understood so far (shown when it asks for one more detail).
+  final String? subject;
+
+  /// "Found N options" in the conversation language when it is not te/en.
+  final String? foundLabel;
 
   final AskodoxCompanionMood mood;
   final bool telugu;
   final int results;
   final VoidCallback? onTap;
+  final bool showLine;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    if (mood == AskodoxCompanionMood.idle) return const SizedBox.shrink();
+    // Idle with nothing contextual to say: no bubble. A generic "Anything
+    // else? Just ask." after every reply was repetitive (APK 1274 finding).
+    final String? line = guidance ??
+        (mood == AskodoxCompanionMood.idle
+            ? null
+            : (foundLabel != null && results > 0 && mood == AskodoxCompanionMood.explaining)
+                ? foundLabel!
+                : askodoxCompanionLine(mood, telugu: telugu, results: results, lang: lang, subject: subject));
     return Padding(
-      key: const Key('askodoxCompanionBar'),
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
-      child: Row(children: [
-        AskodoxCompanion(mood: mood, size: 40, onTap: onTap),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            askodoxCompanionLine(mood, telugu: telugu, results: results),
-            key: const Key('askodoxCompanionLine'),
-            style: const TextStyle(color: Color(0xFF10204A), fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        AskodoxCompanion(key: const Key('askodoxCompanionStage'), mood: mood, size: size, onTap: onTap),
+        const SizedBox(width: 6),
+        if (showLine && line != null)
+          Expanded(
+            // A speech bubble next to the companion: what it is doing or
+            // suggesting right now.
+            child: Container(
+              margin: EdgeInsets.only(bottom: size * .35),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(4),
+                ),
+                border: Border.all(color: const Color(0xFFE2DDFF)),
+                boxShadow: const [BoxShadow(color: Color(0x146C4DFF), blurRadius: 10, offset: Offset(0, 3))],
+              ),
+              child: Text(
+                line,
+                key: const Key('askodoxCompanionLine'),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xFF10204A), fontWeight: FontWeight.w700, height: 1.3),
+              ),
+            ),
           ),
-        ),
       ]),
     );
   }
