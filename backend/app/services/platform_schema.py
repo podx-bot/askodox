@@ -666,6 +666,137 @@ _register(Resource(
     actions=tuple(_A(s.lower().replace(" ", "_"), "Mark " + s, s, ()) for s in QA_STATUSES),
 ))
 
+# ----------------------------------------------- advisor / demand / auto --
+# Configuration that used to need code changes: the Universal Advisor's
+# category questions, demand-alert rules for sellers, business auto-response
+# rules and bounded platform settings. One generic engine (this schema) gives
+# them create / edit / enable / disable / archive / history / CSV export.
+
+ADVISOR_FIELDS = ("budget", "brand", "usage", "size", "quantity", "condition", "model", "variant", "timing",
+                  "location", "quality", "material", "capacity", "duration", "guests", "travel_dates",
+                  "experience", "property_type", "income", "coverage", "other")
+ANSWER_TYPES = ("text", "number", "money", "choice", "multi_choice", "yes_no", "date")
+
+_register(Resource(
+    name="advisor_questions", label="Advisor questions", group="Advisor", prefix="adq",
+    permission="advisor", name_field="question_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Questions the Universal Advisor may ask before recommending, per category (or 'any'). Only the "
+                "highest-priority UNANSWERED questions that matter are asked, at most the configured number per "
+                "turn; an answer of 'any / no preference' settles only that one field. Required = results wait "
+                "for this answer; optional = asked once, results still shown.",
+    fields=(
+        F("category", "Category (domain or 'any')", required=True, list_column=True, filter=True,
+          help="e.g. footwear, fashion, electronics, vehicle, travel, hotel, insurance, loan, home_service, any"),
+        F("keywords", "Applies when the need mentions (any of)", "list",
+          help="Optional: only ask when the subject contains one of these words (e.g. shoes, sneakers)."),
+        F("field", "Fills field", "enum", options=ADVISOR_FIELDS, required=True, list_column=True, filter=True),
+        F("question_en", "Question (English)", required=True, list_column=True),
+        F("question_te", "Question (Telugu)"),
+        F("question_hi", "Question (Hindi)"),
+        F("answer_type", "Answer type", "enum", options=ANSWER_TYPES),
+        F("choices", "Suggested answers (optional chips)", "list"),
+        F("required", "Required before results", "bool", list_column=True),
+        F("priority", "Priority (higher first)", "int", min=0, max=1000, list_column=True),
+        F("depends_on", "Ask only after these fields are known", "list", options=ADVISOR_FIELDS),
+        F("skip_if", "Skip when these fields are known", "list", options=ADVISOR_FIELDS),
+        F("why", "Why it matters (shown to staff, used in the reply)", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="advisor_rules", label="Advisor guidance rules", group="Advisor", prefix="adr",
+    permission="advisor", name_field="title", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="What matters for a kind of need, used to explain trade-offs (e.g. standing all day -> comfort, "
+                "cushioning, grip). Shown as guidance only; never forces the user's choice.",
+    fields=(
+        F("title", "Title", required=True, list_column=True),
+        F("category", "Category (domain or 'any')", required=True, list_column=True, filter=True),
+        F("keywords", "When the need mentions (any of)", "list", required=True),
+        F("factors", "Factors that matter", "list", required=True, list_column=True),
+        F("advice_en", "Guidance (English)", "longtext", required=True),
+        F("advice_te", "Guidance (Telugu)", "longtext"),
+        F("advice_hi", "Guidance (Hindi)", "longtext"),
+        F("high_stakes", "High-stakes domain (no guarantees, suggest a professional)", "bool"),
+        F("priority", "Priority", "int", min=0, max=1000),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="demand_alert_rules", label="Demand alert rules", group="Demand", prefix="dar",
+    permission="demand", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="When unmet customer demand reaches a threshold, matching registered sellers / providers get an "
+                "in-app opportunity (never the customers' identity or contact). Recipients are ranked by "
+                "relevance, area, price fit and response history; cooldown and daily maximum stop spam.",
+    fields=(
+        F("name", "Rule name", required=True, list_column=True),
+        F("category", "Category (domain or 'any')", list_column=True, filter=True),
+        F("keywords", "Only for needs mentioning (any of)", "list"),
+        F("area", "Area / locality (blank = any)", list_column=True),
+        F("window_days", "Look back (days)", "int", min=1, max=90),
+        F("min_searches", "Minimum demand (searches + requests)", "int", required=True, min=1, max=100000,
+          list_column=True),
+        F("max_local_results", "Only when local results are at most", "int", min=0, max=100),
+        F("require_budget_fit", "Seller price must fit the demand budget", "bool"),
+        F("require_in_stock", "Seller listing must be active", "bool"),
+        F("mode", "Delivery", "enum", options=("instant", "digest"), list_column=True),
+        F("cooldown_hours", "Same seller + same demand at most once per (hours)", "int", min=1, max=720),
+        F("daily_max_per_seller", "Max alerts per seller per day", "int", min=1, max=50),
+        F("max_recipients", "Max sellers per opportunity", "int", min=1, max=100),
+        F("channels", "Channels", "list", options=NOTIFICATION_CHANNELS),
+        F("business_hours", "Send only between (e.g. 09-21, blank = any time)"),
+        F("priority", "Priority", "int", min=0, max=1000),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="auto_response_rules", label="Auto responses", group="Conversation", prefix="arr",
+    permission="autoresponse", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    owner_scoped=True,
+    description="A registered business's automatic answers to common customer questions, using ONLY approved "
+                "knowledge (these FAQ answers + the business's studied videos / catalog). Unknown questions, "
+                "out-of-hours messages and handoff words go to the human owner. In ASKODOX only; external social "
+                "channels need the owner's authorised platform API.",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("business_ref", "Business (seller user id)", list_column=True, filter=True),
+        F("language", "Reply language (blank = customer's)", list_column=True),
+        F("business_hours", "Business hours (e.g. 09-21, blank = always)"),
+        F("faq", "Approved answers", "json",
+          help='{"delivery": "We deliver in Vijayawada within 2 days", "returns": "7-day returns"}'),
+        F("knowledge", "Also answer from", "list", options=("video_study", "catalog")),
+        F("handoff_words", "Hand to a human when the message mentions", "list"),
+        F("out_of_hours_reply", "Out-of-hours reply", "longtext"),
+        F("share_contact", "Contact sharing", "enum", options=("after_consent",),
+          help="Contact details are only shared through the request -> acceptance flow."),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
+    # key: (minimum, maximum, default)
+    "video_study.max_seconds": (10, 600, 180),
+    "advisor.max_questions_per_turn": (0, 3, 1),
+    "advisor.ask_budget": (0, 1, 1),
+    "demand.default_window_days": (1, 90, 7),
+}
+
+_register(Resource(
+    name="platform_settings", label="Platform settings", group="Setup", prefix="pst",
+    permission="config", name_field="key", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Bounded numeric settings that used to need a deployment. Values outside the safe range are "
+                "refused. Disabled = the built-in default applies.",
+    fields=(
+        F("key", "Setting", "enum", options=tuple(SETTING_BOUNDS), required=True, list_column=True),
+        F("value", "Value", "number", required=True, list_column=True),
+        F("reason", "Reason for the change", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+
 def resource(name: str) -> Resource:
     try:
         return RESOURCES[name]
@@ -710,6 +841,13 @@ def clean_data(res: Resource, data: Dict[str, Any], *, partial: bool = False,
             raise SchemaError("commission_percent is required for a percent commission")
         if out.get("commission_type") == "fixed" and out.get("commission_fixed") is None:
             raise SchemaError("commission_fixed is required for a fixed commission")
+    if res.name == "platform_settings" and out.get("key") in SETTING_BOUNDS and out.get("value") is not None:
+        low, high, _ = SETTING_BOUNDS[out["key"]]
+        if not low <= float(out["value"]) <= high:
+            raise SchemaError(f"value: {out['key']} must be between {low:g} and {high:g}")
+    if res.name == "demand_alert_rules" and out.get("business_hours"):
+        if not re.match(r"^\d{1,2}-\d{1,2}$", str(out["business_hours"]).strip()):
+            raise SchemaError("business_hours: use HH-HH, e.g. 09-21")
     if res.name == "videos" and out.get("relationship") == "affiliate" and not out.get("affiliate_link_id"):
         raise SchemaError("an affiliate video must name its affiliate link")
     if res.name == "videos" and out.get("relationship") == "sponsored" and not out.get("campaign_id"):

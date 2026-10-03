@@ -82,6 +82,15 @@ _LEGACY_PERMISSIONS = (
     "affiliate_products:commission",
     "affiliate_products:links",
     "affiliate_products:bulk_import",
+    # Demand intelligence: see insights / send seller opportunity alerts.
+    "demand:view",
+    "demand:notify",
+    "demand:manage",
+    # Universal Advisor questions + guidance rules; business auto responses.
+    "advisor:view",
+    "advisor:manage",
+    "autoresponse:view",
+    "autoresponse:manage",
 )
 
 # Every module gets the full verb set (view / create / edit / approve /
@@ -115,7 +124,12 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "catalog_manager": (
         "overview:view", "catalog:view", "catalog:manage", "nomatch:view", "nomatch:manage",
     ),
-    "analyst": ("overview:view", "analytics:view", "analytics:export", "health:view", "nomatch:view", "revenue:view"),
+    "analyst": ("overview:view", "analytics:view", "analytics:export", "health:view", "nomatch:view", "revenue:view",
+                "demand:view"),
+    # Demand / supply operations: sees unmet demand and may alert matching
+    # sellers (rules decide who); no configuration or money rights.
+    "demand_operations": ("overview:view", "demand:view", "demand:notify", "nomatch:view", "nomatch:manage",
+                          "analytics:view", "catalog:view"),
     "integrations_manager": (
         "overview:view", "integrations:view", "integrations:manage", "config:view", "config:manage", "health:view",
         "selfheal:view",

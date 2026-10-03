@@ -131,7 +131,7 @@ class AskodoxPrimaryHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _AskodoxPrimaryHomeScreenState
-    extends ConsumerState<AskodoxPrimaryHomeScreen> {
+    extends ConsumerState<AskodoxPrimaryHomeScreen> with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -221,6 +221,13 @@ class _AskodoxPrimaryHomeScreenState
   bool _active = false;
   bool _sending = false;
   _VoicePhase _voicePhase = _VoicePhase.idle;
+
+  /// The field the Universal Advisor asked about last turn (budget, usage,
+  /// size...): the next short reply answers THAT field only.
+  String? _pendingAdvisorField;
+
+  /// Guidance already given in this conversation (never repeated).
+  final Set<String> _guidanceGiven = {};
   // Real attachments waiting in the composer (bytes + MIME), analyzed by
   // the backend when sent -- never reduced to a file name.
   final List<ChatAttachment> _attachments = [];
@@ -476,6 +483,24 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
+  /// Leaving the app (an external link, a call, the home button) stops the
+  /// recorder natively; the chat must not stay in "recording" or
+  /// "transcribing" when the user comes back -- the mic and the keyboard
+  /// are usable again at once.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.paused && _voicePhase == _VoicePhase.recording) {
+      unawaited(_cancelVoice());
+    } else if (state == AppLifecycleState.resumed) {
+      if (_voicePhase == _VoicePhase.recording || _voicePhase == _VoicePhase.speaking) {
+        _voiceTimer?.cancel();
+        _voiceTimer = null;
+        setState(() => _voicePhase = _VoicePhase.idle);
+      }
+    }
+  }
+
   Future<void> _cancelVoice() async {
     _voiceFinishing = true;
     _stopVoiceTimer();
@@ -564,6 +589,7 @@ class _AskodoxPrimaryHomeScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ref.listenManual<AskodoxChatRequest?>(askodoxChatRequestProvider,
         (previous, next) {
       if (next != null) unawaited(_handleChatRequest(next));
@@ -998,7 +1024,7 @@ class _AskodoxPrimaryHomeScreenState
     if (videoId != null && videoId.isNotEmpty) {
       final explanation = await ref
           .read(askodoxVideoServiceProvider)
-          .explain(videoId, question: match.title, language: _te ? 'te' : 'en');
+          .explain(videoId, question: match.title, language: _lang);
       if (!mounted) return;
       if (explanation != null) videoFacts = '\n${explanation.groundingContext()}';
     }
@@ -1205,6 +1231,7 @@ class _AskodoxPrimaryHomeScreenState
         advice: result.advice,
         nextActions: result.nextActions,
         traceKey: result.traceKey,
+        advisor: result.advisor,
       );
     } on DealNeedsDetailsException catch (error) {
       if (error.missingFields.isNotEmpty) {
@@ -1246,7 +1273,19 @@ class _AskodoxPrimaryHomeScreenState
     unawaited(_saveSnapshot());
   }
 
+  /// Sends one turn. Whatever happens inside (a network error, an AI
+  /// timeout, a parse failure), the composer, mic and card actions are
+  /// usable again afterwards -- a stuck "sending" state disabled the input
+  /// and the keyboard on real phones.
   Future<void> _send([String? preset, bool speakResponse = false]) async {
+    try {
+      await _sendTurn(preset, speakResponse);
+    } finally {
+      if (mounted && _sending) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _sendTurn([String? preset, bool speakResponse = false]) async {
     final attachments = List<ChatAttachment>.of(_attachments);
     final typed = (preset ?? _controller.text).trim();
     if (_sending || _analyzingAttachments || (typed.isEmpty && attachments.isEmpty)) {
@@ -1546,8 +1585,10 @@ class _AskodoxPrimaryHomeScreenState
     // longer general message) still goes to general chat, and the unfinished
     // deal is kept so the user can resume it.
     final activeDealSession = ref.read(universalDealControllerProvider);
-    final continuingActiveDeal =
-        activeDealSession.deal != null && !activeDealSession.completed;
+    // A request whose results the advisor is holding for one more answer
+    // (budget...) is still the active request.
+    final continuingActiveDeal = activeDealSession.deal != null &&
+        (!activeDealSession.completed || _pendingAdvisorField != null);
     final detailAnswer = !discussOnly &&
         clarified == null &&
         continuingActiveDeal &&
@@ -1591,6 +1632,9 @@ class _AskodoxPrimaryHomeScreenState
     AskodoxChatResults? results;
     UniversalDeal? matchedDeal;
     String? detailQuestion;
+    AskodoxAdvisorView? advisorHeld;
+    final advisorFieldAsked = _pendingAdvisorField;
+    _pendingAdvisorField = null;
     AskodoxClarification? needClarification;
     if (clarified != null) _showNowAfterClarification = false;
     String? roleNotice;
@@ -1641,9 +1685,26 @@ class _AskodoxPrimaryHomeScreenState
         // "i want to buy 1 kg" would look like a new retail request and
         // restart (drop) the active chicken deal.
         dealBeforeAnswer = session.deal;
-        final brandLike = askodoxQualifierReply(text) ??
-            askodoxDetectBrand(text, known: ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{});
-        if (brandLike != null) {
+        final noPreference = askodoxIsNoPreference(text);
+        final advisorField = advisorFieldAsked;
+        final brandLike = noPreference
+            ? null
+            : askodoxQualifierReply(text) ??
+                askodoxDetectBrand(text, known: ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{});
+        if (advisorField != null && noPreference) {
+          // "any" to the advisor's question settles THAT field only.
+          notifier.markNoPreference(advisorField);
+        } else if (advisorField == 'budget' && !askodoxBudgetRange(text).isEmpty) {
+          // The amount is applied below (applyBudget) -- never written into
+          // another slot such as TV size.
+        } else if (advisorField != null && advisorField != 'budget' && brandLike == null &&
+            _lastAskedQuestion == null) {
+          notifier.answerAdvisorField(advisorField, text);
+        } else if (noPreference && _lastAskedQuestion == null) {
+          // "any" to the assistant's own brand question: the brand only --
+          // never the next schema slot, never the budget (real-phone bug).
+          notifier.markNoPreference('brand');
+        } else if (brandLike != null) {
           notifier.answerOrBrand(text,
               brand: brandLike, known: ref.read(askodoxListedBrandsProvider).valueOrNull ?? const <String>{});
         } else {
@@ -1722,6 +1783,8 @@ class _AskodoxPrimaryHomeScreenState
       // sandbox data. `readyToMatch` keeps the same "don't show anything
       // until the request is actually understood" gate the demo catalog
       // used internally, now applied explicitly here.
+      final namedGroups = askodoxRequestedGroups(text);
+      if (namedGroups.isNotEmpty) notifier.rememberGroups(namedGroups);
       final dealSession = ref.read(universalDealControllerProvider);
       final deal = dealSession.deal;
       if (deal != null) {
@@ -1779,6 +1842,16 @@ class _AskodoxPrimaryHomeScreenState
           final searchDeal = deal.intent == DealIntent.sell ? deal.copyWith(intent: DealIntent.buy) : deal;
           matchedDeal = searchDeal;
           results = await _findUniversalMatches(searchDeal);
+          // Universal Advisor: a required, decision-changing detail (e.g.
+          // budget for a TV) is asked BEFORE final recommendations, unless
+          // the user asked to see options now.
+          final advisor = results.advisor;
+          if (askodoxAdvisorHolds(advisor, showNow: showNow, videoAsk: videoAsk)) {
+            advisorHeld = advisor;
+            notifier.markAdvisorAsked(advisor!.field ?? '');
+            results = null;
+            matchedDeal = null;
+          }
         }
       }
     } else if (!continuingActiveDeal && !discussOnly) {
@@ -1859,8 +1932,42 @@ class _AskodoxPrimaryHomeScreenState
       reply = reply.trim().isEmpty || reply == ask ? ask : '${reply.trim()}\n\n$ask';
     }
 
+    if (advisorHeld != null) {
+      // The advisor's question IS the reply this turn (plus a short "why"
+      // when guidance applies): no results were claimed.
+      final guidance = advisorHeld.guidance.where((g) => !_guidanceGiven.contains(g)).take(1).toList();
+      _guidanceGiven.addAll(guidance);
+      reply = [...guidance, advisorHeld.question!.trim()].join('\n\n');
+      _pendingAdvisorField = advisorHeld.field;
+    } else if (results != null && results.advisor != null) {
+      // With results: one line of trade-off guidance when it applies, never
+      // repeated; an optional open question is offered, not forced.
+      final guidance = results.advisor!.guidance.where((g) => !_guidanceGiven.contains(g)).take(1).toList();
+      if (guidance.isNotEmpty && !reply.contains(guidance.first)) {
+        _guidanceGiven.addAll(guidance);
+        reply = '${reply.trim()}\n\n${guidance.first}';
+      }
+      final optional = results.advisor!.question?.trim();
+      if (optional != null && optional.isNotEmpty && !reply.trim().endsWith('?') &&
+          advisorFieldAsked != results.advisor!.field) {
+        reply = '${reply.trim()}\n\n$optional';
+        _pendingAdvisorField = results.advisor!.field;
+        if (results.advisor!.field != null) notifier.markAdvisorAsked(results.advisor!.field!);
+      }
+    }
+
     // A clarification turn did not actually ask the detail question.
-    _lastAskedQuestion = transactional && results == null && needClarification == null ? detailQuestion : null;
+    // Only a question the user actually SAW counts as asked: when the AI's
+    // own reply asked something else ("Any brand you prefer?"), the hidden
+    // schema question is not pending, so "any" never fills its slot
+    // (real-phone: "any" brand jumped straight to results).
+    _lastAskedQuestion = transactional &&
+            results == null &&
+            needClarification == null &&
+            detailQuestion != null &&
+            reply.contains(detailQuestion.trim())
+        ? detailQuestion
+        : null;
     _lastMissing = transactional && results == null
         ? (ref.read(universalDealControllerProvider).deal?.missingForMatch ?? const [])
         : const [];
@@ -2710,6 +2817,16 @@ class _AskodoxPrimaryHomeScreenState
     ref.watch(askodoxReplyLanguageProvider);
     final te = _te;
     _publishCompanion();
+    // The centre mic / companion opens on Main Chat: a video, details or
+    // study page pushed on top is closed first, so the hub, the composer and
+    // the voice controls are visible instead of opening underneath it.
+    ref.listen<bool>(askodoxCompanionHubOpenProvider, (previous, open) {
+      if (!open || !mounted) return;
+      final route = ModalRoute.of(context);
+      if (route != null && !route.isCurrent) {
+        Navigator.of(context).popUntil((r) => r == route || r.isFirst);
+      }
+    });
     final hubOpen = ref.watch(askodoxCompanionHubOpenProvider);
     return ColoredBox(
         color: const Color(0xFFF9FBFF),
@@ -3096,18 +3213,25 @@ class _AskodoxPrimaryHomeScreenState
   /// next steps); a next step continues in THIS conversation.
   Future<void> _openUploadStudy(String studyRef) async {
     final lang = _lang;
-    final result = await Navigator.of(context).push<String>(MaterialPageRoute(
-      builder: (context) => Scaffold(
-        appBar: AppBar(title: Text(askodoxChatLabel('video_study_ask', lang))),
-        body: ListView(padding: const EdgeInsets.all(16), children: [
-          AskodoxVideoStudyPanel(
-            videoRef: studyRef,
-            lang: lang,
-            onFollow: (ask) => Navigator.of(context).pop('$askodoxVideoFollowUpPrefix$ask'),
-          ),
-        ]),
-      ),
-    ));
+    final pages = ref.read(askodoxDetailPagesOpenProvider.notifier);
+    pages.state++;
+    final String? result;
+    try {
+      result = await Navigator.of(context).push<String>(MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: Text(askodoxChatLabel('video_study_ask', lang))),
+          body: ListView(padding: const EdgeInsets.all(16), children: [
+            AskodoxVideoStudyPanel(
+              videoRef: studyRef,
+              lang: lang,
+              onFollow: (ask) => Navigator.of(context).pop('$askodoxVideoFollowUpPrefix$ask'),
+            ),
+          ]),
+        ),
+      ));
+    } finally {
+      pages.state = pages.state > 0 ? pages.state - 1 : 0;
+    }
     if (!mounted || result == null || !result.startsWith(askodoxVideoFollowUpPrefix)) return;
     final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
     if (ask.isNotEmpty) await _send(ask);
@@ -3659,6 +3783,7 @@ class _AskodoxPrimaryHomeScreenState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _device.setMethodCallHandler(null);
     _lipSyncTimer?.cancel();
     // (No ref use while disposing.)
@@ -4634,21 +4759,31 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
 
   /// Videos play inside ASKODOX; back returns to this exact chat position.
   Future<void> _openVideo() async {
-    final result = await Navigator.of(context).push<String>(MaterialPageRoute(
-      builder: (_) => AskodoxVideoViewerScreen(
-        video: _match,
-        telugu: _te,
-        lang: ref.read(askodoxReplyLanguageProvider),
-        related: widget.relatedVideos,
-      ),
-    ));
+    final pages = ref.read(askodoxDetailPagesOpenProvider.notifier);
+    // Captured before awaiting: this card may be rebuilt elsewhere while
+    // the viewer is open, and the follow-up must still reach the chat.
+    final chatRequests = ref.read(askodoxChatRequestProvider.notifier);
+    pages.state++;
+    final String? result;
+    try {
+      result = await Navigator.of(context).push<String>(MaterialPageRoute(
+        builder: (_) => AskodoxVideoViewerScreen(
+          video: _match,
+          telugu: _te,
+          lang: ref.read(askodoxReplyLanguageProvider),
+          related: widget.relatedVideos,
+        ),
+      ));
+    } finally {
+      pages.state = pages.state > 0 ? pages.state - 1 : 0;
+    }
     if (result == askodoxVideoAskResult) {
       widget.onAsk?.call();
     } else if (result != null && result.startsWith(askodoxVideoFollowUpPrefix)) {
       // "Find near me" / "Show deals"...: the same conversation, same discovery.
       final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
       if (ask.isNotEmpty) {
-        ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(ask, search: true);
+        chatRequests.state = AskodoxChatRequest.ask(ask, search: true);
       }
     }
   }

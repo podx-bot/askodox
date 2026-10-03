@@ -580,7 +580,10 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         constraints["wants_videos"] = True
     # Every result group the customer named is produced -- one request can
     # ask for videos AND places AND online links AND offers.
-    groups: list[str] = []
+    # Groups the app remembered for this request (asked in an earlier turn)
+    # stay requested while the customer answers follow-up questions.
+    remembered = constraints.get("requested_groups")
+    groups: list[str] = [str(g) for g in remembered if str(g).strip()] if isinstance(remembered, list) else []
     for text in (str(payload.raw_text or ""), str((getattr(payload, "trace", None) or {}).get("query") or "")[:500],
                  str(payload.subject or "")):
         groups += [g for g in requested_result_groups(text) if g not in groups]
@@ -692,6 +695,14 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
 
         broadcast = broadcast_need(container, stored)
         _trace_stage(container, int(stored["id"]), broadcast=broadcast)
+        from app.api.routes.platform import journey_event
+        from app.services.demand_insights import budget_band
+
+        journey_event(container, "request", category=str(stored.get("domain") or ""),
+                      location=str(stored.get("location_text") or ""),
+                      detail={"subject": str(stored.get("subject") or "")[:120],
+                              "budget_band": budget_band(stored.get("price")),
+                              "providers_notified": int((broadcast or {}).get("sent") or 0)})
         response = _deal_response(stored, "", intent_context)
         response["broadcast"] = broadcast
         return response
@@ -812,9 +823,25 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "group_counts": group_counts(matches),
         # Which approved marketplaces were searched and what each returned.
         "marketplaces": discovered.get("marketplaces") or {},
+        # Universal Advisor: decision-relevant questions still open (each
+        # field tracked separately), readiness and trade-off guidance.
+        "advisor": _advisor_for(container, demand, payload),
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
     }
+
+
+def _advisor_for(container, demand: dict, payload) -> dict:
+    from app.api.routes.demand_advisor import advisor_view, maybe_run_instant_rules, wants_results_now
+
+    trace = dict(payload.trace or {}) if getattr(payload, "trace", None) else {}
+    dynamic = dict(payload.dynamic_fields or {})
+    language = str(trace.get("language") or (demand.get("constraints") or {}).get("language") or "en")
+    said = f"{trace.get('query') or ''} {payload.raw_text or ''}"
+    view = advisor_view(container, {**demand, "trace": trace}, language=language,
+                        asked=list(dynamic.get("advisor_asked") or []), show_now=wants_results_now(said))
+    maybe_run_instant_rules(container)
+    return view
 
 
 class TraceEventRequest(BaseModel):
@@ -896,6 +923,11 @@ def provider_interest(deal_id: int, request: Request) -> dict:
     result = container.universal_notification_service.register_interest(demand, provider)
     _trace_stage(container, deal_id, stage="provider_interested",
                  seller_request={"provider": mask_user_id(provider), "status": "INTERESTED"})
+    from app.api.routes.platform import journey_event
+
+    journey_event(container, "seller_accept", category=str(demand.get("domain") or ""),
+                  location=str(demand.get("location_text") or ""),
+                  detail={"kind": "lead_interest", "subject": str(demand.get("subject") or "")[:120]})
     return {"deal_id": deal_id, "status": "INTERESTED", "result": result}
 
 

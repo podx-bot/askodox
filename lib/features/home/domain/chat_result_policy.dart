@@ -49,9 +49,13 @@ class AskodoxChatResults {
     this.advice = const [],
     this.nextActions = const [],
     this.traceKey,
+    this.advisor,
   });
 
   final String? dealId;
+
+  /// Universal Advisor view of this search (open question, guidance).
+  final AskodoxAdvisorView? advisor;
 
   /// Admin flow trace of this search (selected result / action outcome
   /// are appended to it).
@@ -735,4 +739,41 @@ String? askodoxCheckedLabel(UniversalMatch match, {required bool te}) {
   final local = at.toLocal();
   final day = '${local.day} ${months[local.month - 1]}';
   return te ? '$day న తనిఖీ' : 'Checked $day';
+}
+
+
+/// "any", "no preference", "ఏదైనా", "कोई भी"...: the user does not mind for
+/// THE field just asked -- it settles that one field only.
+bool askodoxIsNoPreference(String text) {
+  final t = text.trim().toLowerCase().replaceAll(RegExp(r'[.!?,]+$'), '');
+  const words = {
+    'any', 'anything', 'any brand', 'any one', 'anyone', 'no preference', "doesn't matter", 'does not matter',
+    "don't care", 'dont care', 'whatever', 'no idea', 'not sure', 'skip',
+    'ఏదైనా', 'ఏదైనా సరే', 'ఏదో ఒకటి', 'పర్వాలేదు', 'ఏదైనా పర్వాలేదు', 'తెలియదు',
+    'कोई भी', 'कुछ भी', 'कोई फर्क नहीं', 'पता नहीं',
+  };
+  return words.contains(t);
+}
+
+/// Final recommendations wait while the advisor still needs a REQUIRED,
+/// decision-changing answer (e.g. budget for a TV) -- unless the user asked
+/// to see options now or asked for videos.
+bool askodoxAdvisorHolds(AskodoxAdvisorView? advisor, {required bool showNow, required bool videoAsk}) =>
+    advisor != null &&
+    !advisor.ready &&
+    advisor.required &&
+    (advisor.question?.trim().isNotEmpty ?? false) &&
+    !showNow &&
+    !videoAsk;
+
+/// Result groups named in the customer's own words (any of en / te / hi).
+List<String> askodoxRequestedGroups(String text) {
+  final t = text.toLowerCase();
+  return [
+    // Reviews are the videos group on the backend (review videos, unboxing).
+    if (RegExp(r'\b(videos?|shorts?|reels?|youtube|reviews?|unboxing)\b|వీడియో|రివ్యూ|वीडियो|रिव्यू').hasMatch(t))
+      'videos',
+    if (RegExp(r'\b(deals?|offers?|discounts?|coupons?|cashback|bank offer)\b|ఆఫర్|డీల్|ऑफ़र|डील').hasMatch(t))
+      'deals',
+  ];
 }

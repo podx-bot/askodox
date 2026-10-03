@@ -34,6 +34,10 @@ def attachment_facts(kind: str, analysis: Dict[str, Any] | None) -> str:
 
     def add(label: str, value: Any) -> None:
         text = _text(value)
+        if kind == "video":
+            from app.services.pii_mask import mask
+
+            text = mask(text)  # contacts in a video are shared only after consent
         if text and all(text not in p for p in parts):
             parts.append(f"{label}: {text}" if label else text)
 

@@ -280,6 +280,14 @@ def _trace_order(container: Any, order: dict[str, Any] | None, stage: str, **fie
     """Advance the admin flow trace of the conversation request this deal
     came from (seller request status, deal stage)."""
     _push_order_event(container, order, stage)
+    event = {"request_sent": "order", "seller_accepted": "seller_accept", "seller_rejected": "seller_decline",
+             "deal_closed": "order_completed"}.get(stage)
+    if event and order:
+        from app.api.routes.platform import journey_event
+
+        journey_event(container, event, category=str(order.get("kind") or ""),
+                      detail={"stage": stage, "subject": str(order.get("product_title") or "")[:120]},
+                      value=float(order.get("total_amount") or order.get("price") or 0) or None)
     try:
         deal_id = ((order or {}).get("request_context") or {}).get("deal_id")
         if not deal_id:

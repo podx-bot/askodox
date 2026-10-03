@@ -148,7 +148,10 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
                   'ASKODOX वीडियो स्टडी अभी 3 मिनट तक के वीडियो के लिए उपलब्ध है।'));
     }
     final study = _study;
-    if (study == null || (!study.ready && study.status == 'none' && study.eligible)) {
+    // Nothing until the backend says the video is studyable (an external
+    // video, or a failed status call, never shows a Study button).
+    if (study == null) return const SizedBox.shrink();
+    if (!study.ready && study.status == 'none' && study.eligible) {
       return Align(
         alignment: Alignment.centerLeft,
         child: FilledButton.tonalIcon(

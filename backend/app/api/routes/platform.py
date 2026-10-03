@@ -290,6 +290,16 @@ def platform(container: Any) -> Platform:
     if existing is None or existing.repo.db_path != container.settings.database_path:
         existing = Platform(container)
         container.platform = existing
+        from app.services import platform_settings
+
+        repo = existing.repo
+        platform_settings.set_source(lambda: repo.list("platform_settings"))
+        try:  # editable defaults for the Universal Advisor (only into an empty resource)
+            from app.services.advisor_engine import seed_defaults
+
+            seed_defaults(existing.resources)
+        except Exception:
+            pass
     return existing
 
 
@@ -1230,7 +1240,56 @@ def _study_target(request: Request, video_id: str) -> Dict[str, Any]:
     from app.services.video_study import duration_seconds
 
     return {"ref": video_id, "source": "youtube" if youtube_id(web.get("url") or "") else "web",
-            "duration": duration_seconds(web.get("duration")), "url": web.get("url") or "", "web": web}
+            "duration": duration_seconds(web.get("duration")), "url": web.get("url") or "", "web": web,
+            "registered": _registered_video(pf, video_id, web.get("url") or "")}
+
+
+def _registered_video(pf: Any, ref: str, url: str) -> Optional[Dict[str, Any]]:
+    """The Command Center video record of a REGISTERED ASKODOX seller /
+    provider / creator for this web video, if any. Only such videos (and the
+    user's own uploads) get deep Video Study; other external videos are
+    normal results and playback."""
+    from app.services.video_content import youtube_id
+
+    yid = youtube_id(url) if url else None
+    for record in pf.repo.list("videos"):
+        if record.get("status") != "ACTIVE":
+            continue
+        d = record.get("data") or {}
+        if not (d.get("merchant_ref") or d.get("provider_ref") or d.get("creator_id")):
+            continue
+        if d.get("source_ref") == ref or (yid and youtube_id(str(d.get("url") or "")) == yid):
+            return {"id": record["id"], "owner": "merchant" if d.get("merchant_ref") else
+                    "provider" if d.get("provider_ref") else "creator"}
+    return None
+
+
+_PUBLIC_DROP = ("transcript", "visible_text")
+
+
+def _public_study(study: Optional[Dict[str, Any]], language: str) -> Optional[Dict[str, Any]]:
+    """What the customer app receives: facts with evidence + timestamps,
+    suggestions in THEIR language; never the raw transcript."""
+    if not study:
+        return study
+    from app.services.video_study import suggested_questions
+
+    out = {k: v for k, v in study.items() if k not in _PUBLIC_DROP}
+    if study.get("status") == "ready":
+        out["suggested_questions"] = suggested_questions(study, language)
+    return out
+
+
+def _external_not_eligible(target: Dict[str, Any], language: str) -> Optional[Dict[str, Any]]:
+    if target["source"] == "upload" or target.get("registered"):
+        return None
+    message = {"te": "ఇది బయటి వీడియో: ఇక్కడ చూడవచ్చు. లోతైన వీడియో అధ్యయనం ASKODOX లో నమోదైన విక్రేతల / ప్రొవైడర్ల "
+                     "వీడియోలకు మాత్రమే.",
+               "hi": "यह बाहरी वीडियो है: इसे यहाँ देख सकते हैं। गहन वीडियो अध्ययन केवल ASKODOX पर पंजीकृत विक्रेताओं / "
+                     "प्रदाताओं के वीडियो के लिए है।"}.get(language[:2],
+                    "This is an external video: you can watch it here. Deep Video Study is for videos from "
+                    "registered ASKODOX sellers / providers and your own uploads.")
+    return {"eligible": False, "reason": "external_video", "message": message}
 
 
 @router.get("/api/videos/{video_id}/study")
@@ -1240,11 +1299,15 @@ def video_study_status(video_id: str, request: Request, language: str = "en") ->
 
     target = _study_target(request, video_id)
     gate = eligibility(target["duration"], language)
-    if target["source"] == "web":
+    external = _external_not_eligible(target, language)
+    if external:
+        gate = {**gate, **external}
+    elif target["source"] == "web":
         gate = {**gate, "eligible": False, "reason": "unsupported_source",
                 "message": "Video Study supports YouTube videos and your own uploads."}
-    study = _pf(request).video_study.cached(video_id)
-    return {"ref": video_id, **gate, "status": (study or {}).get("status") or "none", "study": study}
+    study = None if external else _pf(request).video_study.cached(video_id)
+    return {"ref": video_id, **gate, "studyable": bool(gate.get("eligible")) and not external,
+            "status": (study or {}).get("status") or "none", "study": _public_study(study, language)}
 
 
 @router.post("/api/videos/{video_id}/study")
@@ -1255,6 +1318,9 @@ def video_study_run(video_id: str, body: StudyBody, request: Request) -> dict:
 
     target = _study_target(request, video_id)
     pf = _pf(request)
+    external = _external_not_eligible(target, body.language)
+    if external:
+        return {"ref": video_id, "status": "not_eligible", **external}
     cached = pf.video_study.cached(video_id)
     if cached:
         study = {**cached, "cached": True}
@@ -1267,8 +1333,7 @@ def video_study_run(video_id: str, body: StudyBody, request: Request) -> dict:
         if not _flag(request, "results.videos"):
             raise HTTPException(status_code=403, detail="videos switched off")
         study = pf.video_study.study_youtube(video_id, target["url"], target["duration"], language=body.language)
-    if study.get("status") == "ready":
-        study = {**study, "suggested_questions": suggested_questions(study, body.language)}
+    study = _public_study(study, body.language) or study
     user = _optional_user(request)
     pf.repo.record_event("video_study", video_id=video_id, user_ref=user_ref(user) if user else None,
                          language=body.language, detail={"status": study.get("status"),
@@ -1283,7 +1348,11 @@ def video_study_ask(video_id: str, body: StudyAskBody, request: Request) -> dict
     from app.services.video_study import unavailable_message
 
     rate_limit.check(request, "video_ask", limit=40)
-    _study_target(request, video_id)
+    target = _study_target(request, video_id)
+    external = _external_not_eligible(target, body.language)
+    if external:
+        return {"ref": video_id, "found": False, "status": "not_eligible", "answer": external["message"],
+                "facts": [], "timestamps": []}
     pf = _pf(request)
     study = pf.video_study.store.get(video_id)
     if not study:
@@ -1304,18 +1373,27 @@ def video_market(video_id: str, body: MarketBody, request: Request) -> dict:
     from app.api.routes.universal_deals import UniversalDealCreateRequest, discover_results
     from app.services.video_study import market_comparison, market_subject
 
-    _study_target(request, video_id)
+    target = _study_target(request, video_id)
+    if _external_not_eligible(target, body.language):
+        raise HTTPException(status_code=409, detail="Market comparison follows a studied registered video")
     pf = _pf(request)
     study = pf.video_study.store.get(video_id)
     if not study or study.get("status") != "ready":
         raise HTTPException(status_code=409, detail="Study the video first")
     subject = market_subject(study)
-    if not subject:
-        return market_comparison(study, [], body.language)
+    # Only a structured item (brand / model / year / product name) is looked
+    # up -- never a free sentence that a search could misread (translation,
+    # unrelated general search).
+    if not subject or len(subject.split()) > 8:
+        return {**market_comparison(study, [], body.language), "skipped": "no_structured_product"}
     service = study.get("category") == "service"
+    facts = {f["key"]: f["value"] for f in study.get("facts") or []}
+    structured = {k: v for k, v in facts.items()
+                  if any(h in k for h in ("brand", "make", "model", "year", "variant", "size", "capacity"))}
     payload = UniversalDealCreateRequest(
         user_id="", raw_text=f"{subject} price", subject=subject,
         intent="needService" if service else "buy", category="services" if service else "product",
+        dynamic_fields={k: str(v)[:60] for k, v in list(structured.items())[:6]},
         location=body.location or None, trace={"query": f"{subject} price", "source": "video_market"})
     try:
         rows = discover_results(payload, request).get("matches") or []
@@ -1706,6 +1784,21 @@ def annotate_merchant_offers(container: Any, matches: List[Dict[str, Any]]) -> N
                                       "claim_path": f"/api/merchant-offers/{offer['id']}/claim"}
 
 
+def journey_event(container: Any, event: str, *, category: str = "", location: str = "",
+                  detail: Dict[str, Any] | None = None, value: float | None = None) -> None:
+    """One funnel step in the shared event store (request, seller_accept,
+    order ...). Aggregate-safe dimensions only -- no names, phones or ids of
+    people. Never raises."""
+    try:
+        from app.services.demand_insights import area_key
+
+        platform(container).repo.record_event(event, category=str(category or "")[:60],
+                                              location=area_key(location)[:60], value=value,
+                                              detail={k: v for k, v in (detail or {}).items() if v is not None})
+    except Exception:
+        pass
+
+
 def record_search(container: Any, demand: Dict[str, Any], matches: List[Dict[str, Any]], *,
                   trace_key: str = "") -> None:
     """search + no_match events with stable ids for the attribution funnel."""
@@ -1720,7 +1813,20 @@ def record_search(container: Any, demand: Dict[str, Any], matches: List[Dict[str
               "language": str(constraints.get("language") or (demand.get("trace") or {}).get("language") or "")[:12],
               "search_id": trace_key[:80] or None}
     detail = {"results": len(matches), "domain": str(demand.get("domain") or "")[:40],
-              "subject": str(demand.get("subject") or "")[:120], "intent": str(demand.get("side") or "").lower()}
+              "subject": str(demand.get("subject") or "")[:120], "intent": str(demand.get("side") or "").lower(),
+              # Supply signal for Demand Intelligence: how many results were
+              # local (registered / nearby), never who searched.
+              "local": sum(1 for m in matches if m.get("match_source") in {"registered", "interest", "demo_discovery"}
+                           or m.get("segment") in {"nearby_external", "wider_local"})}
+    from app.services.demand_insights import budget_band
+
+    dynamic = dict(constraints.get("dynamic_fields") or {})
+    band = budget_band(dynamic.get("budget_max") or dynamic.get("budget") or demand.get("price"))
+    if band:
+        detail["budget_band"] = band
+    brand = str(constraints.get("brand") or dynamic.get("brand") or "").strip()
+    if brand and brand.casefold() not in {"any", "no preference", "none"}:
+        detail["brand"] = brand[:40]
     if subcategory:
         detail["subcategory"] = subcategory
     pf.repo.record_event("search", detail=detail, **common)

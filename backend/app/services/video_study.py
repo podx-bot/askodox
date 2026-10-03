@@ -32,6 +32,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 DEFAULT_MAX_SECONDS = 180
 
+from app.services.pii_mask import CONTACT_KEY, mask  # noqa: E402
+
 # Basis labels the app shows next to every value.
 BASIS_CONFIRMED = "confirmed_from_video"
 BASIS_CLAIM = "seller_claim"
@@ -40,7 +42,16 @@ BASIS_MISSING = "not_confirmed"
 
 
 def study_max_seconds() -> int:
-    """The hard study cap (configuration, not code)."""
+    """The hard study cap (configuration, not code): the Command Center
+    setting ``video_study.max_seconds`` when one is active (10-600 s), else
+    the ASKODOX_VIDEO_STUDY_MAX_SECONDS deployment value, else 180."""
+    try:
+        from app.services import platform_settings
+
+        if "video_study.max_seconds" in platform_settings._values():
+            return int(platform_settings.get("video_study.max_seconds"))
+    except Exception:
+        pass
     try:
         value = int(str(os.environ.get("ASKODOX_VIDEO_STUDY_MAX_SECONDS", "") or DEFAULT_MAX_SECONDS).strip())
     except ValueError:
@@ -221,26 +232,30 @@ def normalize_study(payload: Dict[str, Any] | None, *, ref: str, source: str, du
         evidence = _clean(raw.get("evidence"))
         if not key or not value or not evidence or (key, value) in seen:
             continue
+        if CONTACT_KEY.search(key):
+            continue  # a contact detail is shared only after consent, never as a fact
+        value, evidence = mask(value), mask(evidence)
         seen.add((key, value))
         facts.append({
             "key": key, "label": _clean(raw.get("label"), 60) or key.replace("_", " ").title(), "value": value,
             "basis": BASIS_CONFIRMED if str(raw.get("basis") or "").lower() == "shown" else BASIS_CLAIM,
             "timestamp": _ts(raw.get("timestamp")), "evidence": evidence,
         })
-    transcript = [{"t": _ts(s.get("t")), "text": _clean(s.get("text"), 500)}
+    transcript = [{"t": _ts(s.get("t")), "text": mask(_clean(s.get("text"), 500))}
                   for s in (data.get("transcript") or []) if isinstance(s, dict) and _clean(s.get("text"))][:80]
-    visible = [{"t": _ts(s.get("t")), "text": _clean(s.get("text"), 300)}
+    visible = [{"t": _ts(s.get("t")), "text": mask(_clean(s.get("text"), 300))}
                for s in (data.get("visible_text") or []) if isinstance(s, dict) and _clean(s.get("text"))][:40]
     accessible = data.get("content_accessible") is not False and bool(facts or transcript or visible)
     study = {
         "ref": ref, "source": source, "status": "ready" if accessible else "unavailable",
         "duration_seconds": int(duration) if duration is not None else None,
         "category": _clean(data.get("category"), 20).lower() or "other",
-        "subject": _clean(data.get("subject"), 120), "summary": _clean(data.get("summary"), 700),
+        "subject": mask(_clean(data.get("subject"), 120)), "summary": mask(_clean(data.get("summary"), 700)),
         "spoken_language": _clean(data.get("spoken_language"), 30),
         "facts": facts, "transcript": transcript, "visible_text": visible,
         "missing": [m for m in (_clean(x, 60) for x in (data.get("missing") or [])) if m][:12],
-        "suggested_questions": [q for q in (_clean(x, 120) for x in (data.get("suggested_questions") or [])) if q][:8],
+        "suggested_questions": [mask(q) for q in (_clean(x, 120) for x in (data.get("suggested_questions") or []))
+                                if q][:8],
         "studied_at": _now(),
     }
     if not accessible:
