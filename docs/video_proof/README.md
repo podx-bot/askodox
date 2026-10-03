@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-03T09:10:45Z by `.github/workflows/video-real-content-proof.yml` (run 37111953155).
+Generated 2026-10-03T12:28:08Z by `.github/workflows/video-real-content-proof.yml` (run 37122761936).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -10,29 +10,29 @@ Generated 2026-10-03T09:10:45Z by `.github/workflows/video-real-content-proof.ym
 
 | Case | Lang | Videos | Top video | Channel | Plays in app | Disclosure | AI answer | Follow-up | Next step → options |
 |---|---|---|---|---|---|---|---|---|---|
-| electronics | en | 1 | [Best 43-Inch TVs 2026? We Tested Them ALL!](https://www.youtube.com/watch?v=cAO6Trmb7as) | ClearBuy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 3 (deals) |
-| electronics-te | te | 1 | [Best 43-Inch TVs 2026? We Tested Them ALL!](https://www.youtube.com/watch?v=cAO6Trmb7as) | ClearBuy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 3 (deals) |
+| electronics | en | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 3 (deals) |
+| electronics-te | te | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 3 (deals) |
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 6 (deals, surplus, used) |
 | vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 5 (deals, surplus) |
-| service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
+| service | en | 1 | [Urban Company AC Service Vs Nobroker AC Service / Which is …](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 | home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 4 () |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (registered) |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals) |
 | used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, surplus) |
-| service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
+| service-te | te | 1 | [Urban Company AC Service Vs Nobroker AC Service / Which is …](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 
 ## Conversations (real AI answers)
 
 ### electronics (en) -- "Samsung 43 inch TV review videos"
 
-**Video:** Best 43-Inch TVs 2026? We Tested Them ALL! -- ClearBuy (https://www.youtube.com/watch?v=cAO6Trmb7as)
+**Video:** Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| -- TechTraveller Blend (https://www.youtube.com/watch?v=nMMmLxoa_Vg)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Best 43-Inch TVs 2026? We Tested Them ALL! / Looking for the best 43-inch TV in India in 2026? / With so many options between ₹25,000 and ₹40,000, choosing the right 43-inch TV can be confusing. / LED, QLED, Mini LED, Dolby Vision, AI features and more — every TV sounds great on paper. / in flipkar…  
+Quoted from source: Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| / Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review! / In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model). / Get a complete look at its design, display quality, audio perf…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Best 43-Inch TVs 2026? We Tested Them ALL!"
+**User:** Tell me more about "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -45,19 +45,19 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
-**Video:** Best 43-Inch TVs 2026? We Tested Them ALL! -- ClearBuy (https://www.youtube.com/watch?v=cAO6Trmb7as)
+**Video:** Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| -- TechTraveller Blend (https://www.youtube.com/watch?v=nMMmLxoa_Vg)
 
 **ASKODOX explain (branch):** ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.  
-Quoted from source: Best 43-Inch TVs 2026? We Tested Them ALL! / Looking for the best 43-inch TV in India in 2026? / With so many options between ₹25,000 and ₹40,000, choosing the right 43-inch TV can be confusing. / LED, QLED, Mini LED, Dolby Vision, AI features and more — every TV sounds great on paper. / in flipkar…  
+Quoted from source: Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| / Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review! / In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model). / Get a complete look at its design, display quality, audio perf…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** "Best 43-Inch TVs 2026? We Tested Them ALL!" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
+**User:** "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
 **ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు. సాధారణంగా 43 అంగుళాల టీవీకి 5 నుండి 6 అడుగుల వీక్షణ దూరం సరిపోతుంది.
+**ASKODOX AI:** ఈ టీవీ చిన్న గదికి సరిపోతుందో లేదా చూద్దాం.
 
 **Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India [online]
 
@@ -101,13 +101,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### service (en) -- "AC service video"
 
-**Video:** Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | -- KP Vlogs & Review (https://www.youtube.com/watch?v=qPF6hbFHCUc)
+**Video:** Urban Company AC Service Vs Nobroker AC Service | Which is Best?? -- Crazyy Unboxing (https://www.youtube.com/watch?v=KOYoiZG5_3E)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | / #urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #y…  
+Quoted from source: Urban Company AC Service Vs Nobroker AC Service | Which is Best?? / Urban Company Vs NoBroker AC Service 🧹❄️ | Full Honest Review | Kaun Jeeta? / Bhaiyon aur behno! / Garmi aayi nahi, AC ki yaad aa gayi! / Isliye humne kiya Urban Company aur NoBroker ka AC Service ka Dangal!  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |"
+**User:** Tell me more about "Urban Company AC Service Vs Nobroker AC Service | Which is Best??"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -215,19 +215,19 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### service-te (te) -- "ఏసీ సర్వీస్ వీడియో"
 
-**Video:** Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | -- KP Vlogs & Review (https://www.youtube.com/watch?v=qPF6hbFHCUc)
+**Video:** Urban Company AC Service Vs Nobroker AC Service | Which is Best?? -- Crazyy Unboxing (https://www.youtube.com/watch?v=KOYoiZG5_3E)
 
 **ASKODOX explain (branch):** ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.  
-Quoted from source: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | / #urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #y…  
+Quoted from source: Urban Company AC Service Vs Nobroker AC Service | Which is Best?? / Urban Company Vs NoBroker AC Service 🧹❄️ | Full Honest Review | Kaun Jeeta? / Bhaiyon aur behno! / Garmi aayi nahi, AC ki yaad aa gayi! / Isliye humne kiya Urban Company aur NoBroker ka AC Service ka Dangal!  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
+**User:** "Urban Company AC Service Vs Nobroker AC Service | Which is Best??" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
 **ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఈ సర్వీస్ ప్రొఫైల్ సరిపోతుంది. రివ్యూలు, ఇతర వివరాలు కింద ఫలితాల్లో చూడవచ్చు.
+**ASKODOX AI:** చిన్న గదికి ఏసీ సరిపోతుందో లేదో తెలుసుకోవడానికి గది సైజు లేదా ఏసీ సామర్థ్యం (టన్) వివరాలు చెప్పండి.
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 
