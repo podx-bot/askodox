@@ -1569,7 +1569,14 @@ class _AskodoxPrimaryHomeScreenState
     // A Seller / Provider describing what they offer ("grocery", "fashion
     // items") is never rewritten into a purchase; only an explicit "I want
     // to buy" is.
-    final actsAsSupplier = askodoxActsAsSupplier(ref.read(askodoxRoleProvider).active, text);
+    // But a message that ASKS to see / find something (the brain's search_*
+    // action, a video ask, "show me") is a search whatever the saved role is:
+    // a Seller role kept on the phone once turned every search into a
+    // published listing -- text only, no results (APK 1276-1283).
+    final asksToFind = videoAsk ||
+        showNow ||
+        (aiUsable && decision!.action.trim().toLowerCase().startsWith('search'));
+    final actsAsSupplier = !asksToFind && askodoxActsAsSupplier(ref.read(askodoxRoleProvider).active, text);
     final routedText =
         aiUsable ? AskodoxSemanticDealInput.build(text, decision!, supplySide: actsAsSupplier) : text;
     final notifier = ref.read(universalDealControllerProvider.notifier);
@@ -1753,7 +1760,7 @@ class _AskodoxPrimaryHomeScreenState
             detailQuestion;
       }
       if (deal != null && searchNow && needClarification == null) {
-        if (deal.intent == DealIntent.sell && _userMeansToSell(text, deal)) {
+        if (deal.intent == DealIntent.sell && !asksToFind && _userMeansToSell(text, deal)) {
           // A completed "sell" deal is a real listing to save, not a buyer
           // search -- see `_createRealListing`.
           final outcome = await _createRealListing(deal);
