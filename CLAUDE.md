@@ -169,6 +169,18 @@ this file, don't trust it blindly.
   (aliases in `ENV_ALIASES`), never `os.getenv` directly in a new caller.
 - #128's campaigns live in `social_sponsored_campaigns`; `sponsored_campaigns`
   belongs to `sponsored_repository.py` (rename migration in both).
+- Affiliate Product Manager: `affiliate_catalog.py` + `routes/affiliate_catalog.py`
+  on #127's `affiliate_products` table (columns added by migration; history in
+  `affiliate_product_history`, health in `affiliate_source_health`). Eligibility
+  and affiliate/organic routing are computed on read (never stored); source
+  settings live in the #113 `affiliate_providers` registry via `save_source`
+  (merge, never overwrite). Permissions `affiliate_products:*` (stock /
+  commission / links are separate grants); console views `affproducts` /
+  `affsources`. Catalog rows are `source: online` + `origin: affiliate_catalog`.
+- Marketplaces (Amazon.in / Flipkart / Meesho) come from ONE site-restricted
+  Brave query after local + online (`_marketplace_and_catalog`), never for
+  services, fresh food or used. `classify_page` treats a store host's catalogue
+  page as a store BEFORE the article regex ("Best Prices" used to drop them).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -227,6 +239,11 @@ this file, don't trust it blindly.
   (`ASKODOX_CLICK_TTL_HOURS`); raw events roll up per day after
   `ASKODOX_EVENT_RETENTION_DAYS` (run lazily at most daily -- no cron). No real
   partner is configured.
+- Affiliate catalog: no marketplace product API (Amazon PA-API / Flipkart /
+  Meesho) is connected -- stock / commission change only by staff edits or a
+  feed import; page-metadata extraction often gets blocked by marketplaces.
+  #127's partner registry / staff assignments / BFSI flows and
+  `partner_revenue_events` remain unwired (superseded by Partner Hub).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.
