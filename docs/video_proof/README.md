@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-03T12:50:31Z by `.github/workflows/video-real-content-proof.yml` (run 37123980724).
+Generated 2026-10-03T17:28:06Z by `.github/workflows/video-real-content-proof.yml` (run 37140362272).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -10,29 +10,29 @@ Generated 2026-10-03T12:50:31Z by `.github/workflows/video-real-content-proof.ym
 
 | Case | Lang | Videos | Top video | Channel | Plays in app | Disclosure | AI answer | Follow-up | Next step → options |
 |---|---|---|---|---|---|---|---|---|---|
-| electronics | en | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 3 (deals) |
-| electronics-te | te | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 3 (deals) |
+| electronics | en | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 6 (deals) |
+| electronics-te | te | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 6 (deals) |
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 6 (deals, surplus, used) |
-| vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 5 (deals, surplus) |
-| service | en | 1 | [Urban Company AC Service Vs Nobroker AC Service / Which is …](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
+| vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 6 (deals, surplus) |
+| service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 | home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 4 () |
-| food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (registered) |
+| food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 6 (deals, registered) |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals) |
-| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 5 (deals, used) |
-| deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, surplus) |
-| service-te | te | 1 | [Urban Company AC Service Vs Nobroker AC Service / Which is …](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
+| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
+| deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, surplus, used) |
+| service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 
 ## Conversations (real AI answers)
 
 ### electronics (en) -- "Samsung 43 inch TV review videos"
 
-**Video:** Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| -- TechTraveller Blend (https://www.youtube.com/watch?v=nMMmLxoa_Vg)
+**Video:** Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio -- The Grapevine (https://www.youtube.com/watch?v=fAaGDKl2xrA)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| / Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review! / In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model). / Get a complete look at its design, display quality, audio perf…  
+Quoted from source: Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio / Looking for the best 43 inch TV in India in 2026? / I compared over 90 43 inch TVs across budgets to help you find the right one for your room. / This video covers mini-LED (now available at 43 inch for the first time)…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|"
+**User:** Tell me more about "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -41,25 +41,25 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "samsung 43 inch tv near me" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Samsung 108 cm (43 inches) Crystal 4K Vista Ultra HD Smart LED TV UA43UE81AFULXL : Amazon.in: Electronics [online]
+**Next step:** "samsung 43 inch tv near me" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
-**Video:** Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| -- TechTraveller Blend (https://www.youtube.com/watch?v=nMMmLxoa_Vg)
+**Video:** Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio -- The Grapevine (https://www.youtube.com/watch?v=fAaGDKl2xrA)
 
 **ASKODOX explain (branch):** ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.  
-Quoted from source: Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| / Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review! / In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model). / Get a complete look at its design, display quality, audio perf…  
+Quoted from source: Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio / Looking for the best 43 inch TV in India in 2026? / I compared over 90 43 inch TVs across budgets to help you find the right one for your room. / This video covers mini-LED (now available at 43 inch for the first time)…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
+**User:** "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
 **ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సాధారణంగా కాస్త పెద్దదిగానే ఉంటుంది. మీ గది పరిమాణం లేదా చూసే దూరం ఎంతో చెబితే సరిగ్గా సరిపోతుందో లేదో చెప్పగలను.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి ఎంత దూరంలో కూర్చుంటారో చూసుకోవాలి.
 
-**Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Samsung 108 cm (43 inches) Crystal 4K Vista Ultra HD Smart LED TV UA43UE81AFULXL : Amazon.in: Electronics [online]
+**Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]
 
 ### phone (en) -- "Redmi Note 13 Pro review video"
 
@@ -78,7 +78,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "redmi note 13 pro offers" → Buy Old Used Xiaomi Redmi Note 13 Pro 4G Phones Under ... [used]; Open Box Store [surplus]; Redmi Note 13 5G, Note 13 Pro 5G, Note 13 Pro+ 5G goes on sale on Vijay Sales - Times of India [deals]; Buy Refurbished and Second Hand Xiaomi Redmi Note 13 Pro 5G Online at Cashify Store [used]
+**Next step:** "redmi note 13 pro offers" → Buy Old Used Xiaomi Redmi Note 13 Pro 4G Phones Under ... [used]; Open Box Store [surplus]; Redmi Note 13 5G, Note 13 Pro 5G, Note 13 Pro+ 5G goes on sale on Vijay Sales - Times of India [deals]; Buy Second Hand Xiaomi Redmi Note 13 Pro Mobile Online in Delhi | Best Prices – ORUphones [used]
 
 ### vehicle (en) -- "Tata Nexon review video"
 
@@ -101,13 +101,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### service (en) -- "AC service video"
 
-**Video:** Urban Company AC Service Vs Nobroker AC Service | Which is Best?? -- Crazyy Unboxing (https://www.youtube.com/watch?v=KOYoiZG5_3E)
+**Video:** Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | -- KP Vlogs & Review (https://www.youtube.com/watch?v=qPF6hbFHCUc)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Urban Company AC Service Vs Nobroker AC Service | Which is Best?? / Urban Company Vs NoBroker AC Service 🧹❄️ | Full Honest Review | Kaun Jeeta? / Bhaiyon aur behno! / Garmi aayi nahi, AC ki yaad aa gayi! / Isliye humne kiya Urban Company aur NoBroker ka AC Service ka Dangal!  
+Quoted from source: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | / #urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #y…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Urban Company AC Service Vs Nobroker AC Service | Which is Best??"
+**User:** Tell me more about "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -154,7 +154,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → Vijayawada chicken biryani [registered]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]; Order Online – HYDERABAD BIRYANI POINT [online]; Order Biryani Near Me Vijayawada [online]
+**Next step:** "hyderabadi biryani near me" → Vijayawada chicken biryani [registered]; Best Hyderabadi Biryani Restaurants In Vijayawada 2025 | Order Online [deals]; Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket [online]; Order Online – HYDERABAD BIRYANI POINT [online]
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -173,7 +173,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "araku valley trip reviews" → 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]; Araku Valley Tour Packages From Vijayawada - 9553537666 [deals]; Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare [online]
+**Next step:** "araku valley trip reviews" → Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]; Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare [online]
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
@@ -211,23 +211,23 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "iphone 15 offers" → Apple Open Box [surplus]; iPhone 15 is available for less than Rs 35,000 on Vijay Sales, here is how the deal works - India Today [deals]; Open Box iPhones [surplus]; iPhone 15 gets massive discount on Vijay Sales Apple Days sale [deals]
+**Next step:** "iphone 15 offers" → Buy Second Hand Apple iPhone 15 Phone Under ₹23000 in Vijayawada | Best Prices – ORUphones [used]; Apple Open Box [surplus]; iPhone 15 is available for less than Rs 35,000 on Vijay Sales, here is how the deal works - India Today [deals]; Open Box iPhones [surplus]
 
 ### service-te (te) -- "ఏసీ సర్వీస్ వీడియో"
 
-**Video:** Urban Company AC Service Vs Nobroker AC Service | Which is Best?? -- Crazyy Unboxing (https://www.youtube.com/watch?v=KOYoiZG5_3E)
+**Video:** Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | -- KP Vlogs & Review (https://www.youtube.com/watch?v=qPF6hbFHCUc)
 
 **ASKODOX explain (branch):** ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.  
-Quoted from source: Urban Company AC Service Vs Nobroker AC Service | Which is Best?? / Urban Company Vs NoBroker AC Service 🧹❄️ | Full Honest Review | Kaun Jeeta? / Bhaiyon aur behno! / Garmi aayi nahi, AC ki yaad aa gayi! / Isliye humne kiya Urban Company aur NoBroker ka AC Service ka Dangal!  
+Quoted from source: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | / #urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #y…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** "Urban Company AC Service Vs Nobroker AC Service | Which is Best??" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
+**User:** "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
 **ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఏసీ సైజ్ మరియు సామర్థ్యం సరిపోతుందో లేదో తెలిపే వీడియోలు వెతుకుతున్నాను.
+**ASKODOX AI:** చిన్న గది కోసం ఏసీ సైజు లేదా కెపాసిటీ సమాచారం కోసం రివ్యూ వీడియోలు వెతుకుతున్నాను.
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 
