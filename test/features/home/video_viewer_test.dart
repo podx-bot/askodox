@@ -179,7 +179,7 @@ void main() {
   });
 
   testWidgets('video page chat bar: typed question, mic and attachment continue the same chat', (tester) async {
-    var (_, __, popped) = await _pump(tester, _video({}));
+    final (_, _, popped) = await _pump(tester, _video({}));
     await tester.enterText(find.byKey(const Key('askodoxVideoChatInput')), 'is the range enough for highways?');
     await tester.tap(find.byKey(const Key('askodoxVideoSend')));
     await tester.pumpAndSettle();
@@ -206,7 +206,7 @@ void main() {
     expect(askodoxVideoChatRequest(popped.last, title: '')!.hubAction?.name, 'photos');
     // A follow-up step stays a search, as before.
     expect(askodoxVideoChatRequest('${askodoxVideoFollowUpPrefix}EV near me', title: '')!.search, isTrue);
-    expect(askodoxVideoChatRequest('${askodoxVideoChatPrefix}   ', title: ''), isNull);
+    expect(askodoxVideoChatRequest('$askodoxVideoChatPrefix   ', title: ''), isNull);
   });
 
   testWidgets('Ask ASKODOX returns to chat (the ask is counted once, by the backend)', (tester) async {
