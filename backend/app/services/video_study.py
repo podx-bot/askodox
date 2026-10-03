@@ -320,7 +320,12 @@ def suggested_questions(study: Dict[str, Any], language: str = "en") -> List[str
     """Category-aware follow-ups from what THIS study found (never a fixed
     car-only list): its own questions, then one per found field, then
     market / missing / contact."""
-    out = [q for q in study.get("suggested_questions") or [] if q]
+    # The study's own questions are kept only when they are in the
+    # conversation language (a cached study serves every language).
+    own = [q for q in study.get("suggested_questions") or [] if q]
+    lang = (language or "en")[:2].lower()
+    script = {"te": r"[\u0C00-\u0C7F]", "hi": r"[\u0900-\u097F]"}.get(lang)
+    out = [q for q in own if (re.search(script, q) if script else not re.search(r"[\u0900-\u0D7F]", q))]
     for fact in (study.get("facts") or [])[:5]:
         label = fact["label"].lower()
         out.append(_pick(language, f"What {label} did the video mention?", f"వీడియోలో {fact['label']} ఏమిటి?",
@@ -544,11 +549,26 @@ _FACTORS = {
 
 
 def market_subject(study: Dict[str, Any]) -> str:
-    facts = {f["key"]: f["value"] for f in study.get("facts") or []}
-    keys = _SUBJECT_KEYS.get(study.get("category") or "", ())
-    parts = [facts[k] for k in keys if facts.get(k)]
-    subject = " ".join(parts).strip() or study.get("subject") or ""
-    return " ".join(subject.split())[:120]
+    """What to look up in the market: the identifying fields the video
+    gave (matched by part of the key -- the model may say make_model), and
+    the study's subject when they do not name the item itself."""
+    facts = study.get("facts") or []
+    parts: List[str] = []
+    for hint in _SUBJECT_KEYS.get(study.get("category") or "", ()):
+        for fact in facts:
+            if hint in fact["key"] and fact["value"] not in parts and not any(fact["value"] in p for p in parts):
+                parts.append(fact["value"])
+                break
+    subject = str(study.get("subject") or "")
+    named = [p for p in parts if not re.fullmatch(r"[\d\s]+|[A-Z0-9]{1,4}", p)]
+    if not named and subject:
+        parts = [p for p in parts if p.lower() not in subject.lower()] + [subject]
+    text = " ".join(parts).strip() or subject
+    words: List[str] = []
+    for word in text.split():
+        if word.lower() not in {w.lower() for w in words}:
+            words.append(word)
+    return " ".join(words)[:120]
 
 
 def asking_price(study: Dict[str, Any]) -> Optional[Dict[str, Any]]:
