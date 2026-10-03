@@ -16,7 +16,7 @@ jobs:
       - name: Probe
         run: |
           python3 - <<'PY'
-          import json, urllib.request
+          import json, os, urllib.request
           q = json.load(open('.github/results-probe.json'))['queries']
           bases = {'production': 'https://podx-ai-connect-production-3279.up.railway.app'}
           coords = {'Vijayawada': (16.5062, 80.6480)}
@@ -69,8 +69,8 @@ jobs:
                       if h: hosts[h] = hosts.get(h, 0) + 1
                   print('DOMAINS:', json.dumps(hosts))
                   print('MARKETPLACES:', {k: sum(v for h, v in hosts.items() if k in h) for k in ('amazon', 'flipkart', 'meesho')})
-                  print('RAWJSON', json.dumps(data, ensure_ascii=False)[:20000])
-                  for x in m[:6]:
+                  print('RAWJSON', json.dumps(data, ensure_ascii=False)[:20000]) if os.environ.get('RAW') else None
+                  for x in m[:10]:
                       print('  -', x.get('segment'), '|', (x.get('match_source') or x.get('source')), '|',
                             str(x.get('title'))[:60], '|', str(x.get('destination_url'))[:90], '| img' if x.get('image_url') else '')
           PY
