@@ -63,18 +63,21 @@ def advisor_view(container, demand: Dict[str, Any], *, language: str = "en", ask
     try:
         from app.services import platform_settings
 
-        if not _flag(container, "advisor.enabled"):
+        from app.services import flag_targeting
+
+        if not flag_targeting.enabled(container, "advisor.enabled", flag_targeting.context_for_demand(demand)):
             return {"questions": [], "ready": True, "guidance": [], "field_states": {}, "switched_off": True}
         repo = _pf(container).repo
         limit = int(platform_settings.get("advisor.max_questions_per_turn"))
-        questions = repo.list("advisor_questions")
-        if not platform_settings.get("advisor.ask_budget"):
-            questions = [q for q in questions if (q.get("data") or {}).get("field") != "budget"]
-        view = advisor_engine.advise(demand, questions, repo.list("advisor_rules"), language=language,
-                                     limit=limit, asked=asked, show_now=show_now)
+        skip = () if platform_settings.get("advisor.ask_budget") else ("budget",)
+        view = advisor_engine.advise(demand, repo.list("advisor_questions"), repo.list("advisor_rules"),
+                                     language=language, limit=limit, asked=asked, show_now=show_now,
+                                     category_records=repo.list("advisor_categories"), skip_fields=skip)
+        category = (view.get("category") or {}).get("key") or str(demand.get("domain") or "")
         for q in view["questions"]:
-            repo.record_event("advisor_question_asked", category=str(demand.get("domain") or "")[:60],
-                              detail={"field": q["field"], "question_id": q.get("id"), "required": q["required"]})
+            repo.record_event("advisor_question_asked", category=category[:60],
+                              detail={"field": q["field"], "question_id": q.get("id"), "required": q["required"],
+                                      "matched_by": (view.get("category") or {}).get("matched_by")})
         return view
     except Exception as error:  # the advisor never breaks discovery
         return {"questions": [], "ready": True, "guidance": [], "field_states": {},
@@ -104,7 +107,8 @@ def advisor_next(body: AdvisorNextRequest, request: Request) -> dict:
     from app.services import rate_limit
 
     rate_limit.check(request, "advisor_next", limit=60)
-    demand = {"side": "NEED", "domain": (body.category or "").upper(), "subject": body.subject or body.raw_text,
+    demand = {"side": "NEED", "domain": (body.category or "").upper(), "category": body.category or "",
+              "subject": body.subject or body.raw_text,
               "raw_text": body.raw_text, "price": body.price,
               "constraints": {"dynamic_fields": dict(body.dynamic_fields or {})}}
     return advisor_view(request.app.state.container, demand, language=body.language, asked=body.asked,
@@ -123,11 +127,18 @@ def advisor_preview(body: AdvisorPreviewRequest, request: Request) -> dict:
     """'Why did ASKODOX ask this question?' -- the same decision, explained."""
     _require(request, "advisor:view")
     repo = _pf(request.app.state.container).repo
-    demand = {"side": "NEED", "domain": body.category.upper(), "subject": body.text, "raw_text": body.text,
+    demand = {"side": "NEED", "domain": body.category.upper(), "category": body.category, "subject": body.text,
+              "raw_text": body.text,
               "constraints": {"dynamic_fields": dict(body.known or {})}}
     view = advisor_engine.advise(demand, repo.list("advisor_questions"), repo.list("advisor_rules"),
-                                 language=body.language, limit=3)
-    view["explanation"] = [
+                                 language=body.language, limit=3, category_records=repo.list("advisor_categories"))
+    cat = view.get("category")
+    view["explanation"] = ([
+        f"Category '{cat['label']}' ({cat['key']}) -- matched by {cat['matched_by'].replace('_', ' ')} "
+        f"'{cat['alias']}'; required: {', '.join(cat['required_fields']) or 'none'}; optional: "
+        f"{', '.join(cat['optional_fields']) or 'none'}"] if cat else
+        ["No advisor category matched -- only legacy keyword questions can apply."])
+    view["explanation"] += [
         f"'{q['question']}' -- fills '{q['field']}' ({'required' if q['required'] else 'optional'}); "
         f"{q['why'] or 'configured for this category'}" for q in view["questions"]]
     view["explanation"] += [f"'{f}' already {state.replace('_', ' ')} -- not asked again"

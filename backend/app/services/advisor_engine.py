@@ -2,7 +2,14 @@
 said (field by field), and guidance on trade-offs -- for every category.
 
 One engine, configured by data (Command Center resources
-``advisor_questions`` and ``advisor_rules``), never a per-category code path:
+``advisor_categories``, ``advisor_questions`` and ``advisor_rules``), never a
+per-category code path:
+
+* The request is matched to an advisor CATEGORY: the AI-detected category
+  first, then the HEAD noun of what was asked ("car phone holder" -> holder
+  -> accessories; "phone holder for car" -> the same), only then any alias
+  inside the text. The category's decision fields say what to ask and which
+  answers are required -- no keyword ever triggers a question by itself.
 
 * Every field has its own state: ``known``, ``no_preference`` (the user said
   "any" for THAT field only) or ``unknown``. "Any brand" never settles budget.
@@ -21,7 +28,9 @@ stored records are used.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from app.services import advisor_defaults
 
 ANY_WORDS = {
     "any", "anything", "any brand", "any one", "anyone", "no preference", "doesn't matter", "does not matter",
@@ -52,7 +61,13 @@ _FIELD_KEYS: Dict[str, tuple] = {
     "property_type": ("property_type", "bhk"),
     "income": ("income",),
     "coverage": ("coverage", "sum_insured"),
+    "requirement": ("requirement", "speciality", "specialty", "issue", "problem", "symptom_area"),
+    "goal": ("goal", "objective", "loan_purpose", "loan_amount", "course_goal"),
 }
+
+# Settled when the request itself is more specific than a broad word
+# ("dentist" / "AC repair" / "home loan" vs "doctor" / "repair" / "loan").
+SPECIFICITY_FIELDS = ("requirement", "goal", "property_type")
 
 _FOOTWEAR = ["shoe", "shoes", "sneaker", "sneakers", "sandal", "sandals", "slipper", "slippers", "footwear", "boots",
              "చెప్పులు", "షూస్", "जूते"]
@@ -61,7 +76,9 @@ _HIGH_TICKET = ["tv", "television", "phone", "mobile", "laptop", "fridge", "refr
                 "camera", "watch", "smartwatch", "headphones", "earbuds", "speaker", "geyser", "chimney",
                 "mattress", "cycle", "bicycle", "dress", "saree", "kurti", "jeans", "shirt", "jacket"] + _FOOTWEAR
 
-DEFAULT_QUESTIONS: List[Dict[str, Any]] = [
+# v1 keyword defaults -- kept only so the v2 seed can archive the untouched
+# copies already stored; they are never seeded again.
+LEGACY_QUESTIONS: List[Dict[str, Any]] = [
     {"category": "any", "keywords": _HIGH_TICKET, "field": "budget", "required": True, "priority": 900,
      "answer_type": "money", "question_en": "What budget do you have in mind?",
      "question_te": "మీ బడ్జెట్ ఎంత అనుకుంటున్నారు?", "question_hi": "आपका बजट कितना है?",
@@ -182,12 +199,157 @@ def _text_of(demand: Dict[str, Any]) -> str:
                                            constraints.get("usage"))).casefold()
 
 
-def field_states(demand: Dict[str, Any]) -> Dict[str, str]:
+# ------------------------------------------------------------ category --
+
+_GENERIC = {"", "product", "products", "service", "services", "general", "unknown", "other", "commerce", "item",
+            "items", "need", "offer", "none", "null", "misc", "any"}
+# Words after which the rest of a phrase only qualifies the head noun.
+_CUT_WORDS = {"for", "with", "under", "below", "above", "near", "in", "from", "to", "at", "within", "around",
+              "upto", "between", "without", "like", "kosam", "కోసం", "కి", "లో", "के", "लिए", "में", "वाला", "वाली"}
+_FILLER = {"a", "an", "the", "i", "want", "need", "needed", "buy", "get", "please", "pls", "now", "today", "nearby",
+           "me", "my", "good", "best", "new", "cheap", "some", "one", "kavali", "kaavali", "కావాలి",
+           "కొనాలి", "చూపించు", "ఒక", "మంచి", "chahiye", "चाहिए", "एक", "अच्छा", "अच्छी", "show", "find", "looking",
+           "search", "is", "are", "of", "and", "or", "pair", "piece", "pieces", "kg", "litre", "liter", "l", "g"}
+
+
+def _tokens(text: Any) -> List[str]:
+    return [t for t in re.split(r"[\s,.;:!?/()\[\]{}\"'|+&-]+", str(text or "").casefold()) if t]
+
+
+def _is_number(token: str) -> bool:
+    return bool(re.fullmatch(r"[\d.,]+[a-z]*", token))
+
+
+def _head(tokens: List[str]) -> List[str]:
+    """The noun phrase that names the thing: cut at the first qualifier
+    ("for / with / under ..."), then drop trailing filler and numbers."""
+    out: List[str] = []
+    for token in tokens:
+        if token in _CUT_WORDS and out:
+            break
+        out.append(token)
+    while out and (out[-1] in _FILLER or _is_number(out[-1])):
+        out.pop()
+    return out
+
+
+def _tok_eq(have: str, alias: str) -> bool:
+    # Indian-language nouns take suffixes (కారుకి, कार की): accept a prefix match
+    # for non-ASCII aliases; English needs the exact token.
+    return have == alias or (not alias.isascii() and len(alias) >= 2 and have.startswith(alias))
+
+
+def _ends_with(tokens: List[str], alias: List[str]) -> bool:
+    n = len(alias)
+    return 0 < n <= len(tokens) and all(_tok_eq(h, a) for h, a in zip(tokens[-n:], alias))
+
+
+def _contains(tokens: List[str], alias: List[str]) -> bool:
+    n = len(alias)
+    return any(all(_tok_eq(h, a) for h, a in zip(tokens[i:i + n], alias)) for i in range(0, len(tokens) - n + 1)) \
+        if n else False
+
+
+def _ai_categories(demand: Dict[str, Any]) -> List[str]:
+    constraints = demand.get("constraints") or {}
+    trace = demand.get("trace") or {}
+    values: List[Any] = [constraints.get(k) for k in ("category_detected", "subcategory_detected", "category",
+                                                      "product_category", "service_category", "product_type",
+                                                      "service_type")]
+    cats = trace.get("categories")
+    values += list(cats) if isinstance(cats, (list, tuple)) else [cats]
+    values += [trace.get("category"), demand.get("category")]
+    out = []
+    for value in values:
+        text = " ".join(str(value or "").replace("_", " ").split())
+        if text and text.casefold() not in _GENERIC and text not in out:
+            out.append(text)
+    return out
+
+
+def _subjects(demand: Dict[str, Any]) -> List[str]:
+    trace = demand.get("trace") or {}
+    out = []
+    for value in (demand.get("subject"), trace.get("query"), demand.get("raw_text")):
+        text = str(value or "").strip()
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def _active_categories(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [c for c in _active(records) if str(c.get("key") or "").strip()]
+
+
+def resolve_category(demand: Dict[str, Any], category_records: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Best advisor category for a request, with how it was matched.
+
+    Tiers (higher wins, then the longer alias, then priority):
+    4 AI category ends with an alias  ("Car accessories" -> accessories)
+    3 head noun of the request        ("car phone holder" -> holder)
+    2 AI category contains an alias
+    1 any alias anywhere in the request text
+    """
+    cats = _active_categories(category_records)
+    if not cats:
+        return None
+    ai = [_tokens(t) for t in _ai_categories(demand)]
+    subjects = [_tokens(t) for t in _subjects(demand)]
+    heads = [_head(t) for t in subjects]
+    best: Optional[Tuple[Tuple[int, int, int], Dict[str, Any], str, str]] = None
+    for cat in cats:
+        for raw_alias in cat.get("aliases") or []:
+            alias = _tokens(raw_alias)
+            if not alias:
+                continue
+            tier, how = 0, ""
+            if any(_ends_with(t, alias) for t in ai):
+                tier, how = 4, "ai_category"
+            elif any(_ends_with(h, alias) for h in heads):
+                tier, how = 3, "head_noun"
+            elif any(_contains(t, alias) for t in ai):
+                tier, how = 2, "ai_category_word"
+            elif any(_contains(t, alias) for t in subjects):
+                tier, how = 1, "mentioned"
+            if not tier:
+                continue
+            rank = (tier, len(" ".join(alias)), int(cat.get("priority") or 0))
+            if best is None or rank > best[0]:
+                best = (rank, cat, how, " ".join(alias))
+    if best is None:
+        return None
+    _, cat, how, alias = best
+    return {"id": cat.get("_id"), "key": str(cat.get("key")), "label": cat.get("label") or cat.get("key"),
+            "group": cat.get("group") or "", "matched_by": how, "alias": alias,
+            "high_stakes": bool(cat.get("high_stakes")),
+            "required_fields": [str(f) for f in cat.get("required_fields") or []],
+            "optional_fields": [str(f) for f in cat.get("optional_fields") or []],
+            "broad_aliases": [" ".join(_tokens(a)) for a in cat.get("broad_aliases") or []]}
+
+
+def _more_specific(demand: Dict[str, Any], category: Dict[str, Any]) -> bool:
+    """True when the request names more than a broad word of its category."""
+    if category["alias"] not in category["broad_aliases"]:
+        return True
+    location = set(_tokens(demand.get("location_text")))
+    alias = set(category["alias"].split())
+    for text in _subjects(demand)[:2]:
+        extra = [t for t in _tokens(text) if t not in alias and t not in _FILLER and t not in _CUT_WORDS
+                 and t not in location and not _is_number(t) and t not in category["broad_aliases"]]
+        if extra:
+            return True
+    return False
+
+
+# --------------------------------------------------------------- state --
+
+def field_states(demand: Dict[str, Any], category: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     """Each advisor field: known / no_preference / unknown -- independently."""
     constraints = dict(demand.get("constraints") or {})
     dynamic = dict(constraints.get("dynamic_fields") or {})
     bag = {**constraints, **dynamic}
     no_pref = {str(f) for f in (bag.get("no_preference") or [])}
+    specific = bool(category) and _more_specific(demand, category)
     states: Dict[str, str] = {}
     for field, keys in _FIELD_KEYS.items():
         if field in no_pref:
@@ -198,10 +360,12 @@ def field_states(demand: Dict[str, Any]) -> Dict[str, str]:
             value = demand.get("price")
         if field == "quantity" and value is None and demand.get("quantity"):
             value = demand.get("quantity")
-        if field == "timing" and value is None and demand.get("when_text"):
+        if field in ("timing", "travel_dates") and value is None and demand.get("when_text"):
             value = demand.get("when_text")
         if field == "location" and value is None and demand.get("location_text"):
             value = demand.get("location_text")
+        if field in SPECIFICITY_FIELDS and value is None and specific:
+            value = category["alias"]
         if value is None:
             states[field] = "unknown"
         elif is_no_preference(value):
@@ -233,18 +397,61 @@ def _active(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if r.get("status") == "ACTIVE" and not r.get("archived")]
 
 
-def next_questions(demand: Dict[str, Any], question_records: Iterable[Dict[str, Any]], *, language: str = "en",
-                   limit: int = 1, asked: Iterable[str] = ()) -> List[Dict[str, Any]]:
-    """The most decision-relevant unanswered questions (required first)."""
-    if str(demand.get("side") or "NEED").upper() == "OFFER":
-        return []  # a seller listing is not a buying decision
-    states = field_states(demand)
+def _shape(q: Dict[str, Any], lang: str, *, field: str, required: bool) -> Dict[str, Any]:
+    return {
+        "id": q.get("_id"), "field": field, "required": required,
+        "question": q.get(f"question_{lang}") or q.get("question_en"),
+        "answer_type": q.get("answer_type") or "text", "choices": list(q.get("choices") or []),
+        "why": q.get("why") or "",
+    }
+
+
+def _wording(field: str, category_key: str, records: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """This category's question for the field, else the generic one. A field
+    whose stored questions are all disabled is not asked; the built-in
+    generic wording is used only when nothing is stored for the field."""
+    stored = [dict(r.get("data") or {}, _id=r.get("id"), _status=r.get("status")) for r in records
+              if not r.get("archived") and (r.get("data") or {}).get("field") == field]
+    own = [q for q in stored if str(q.get("category") or "").casefold() == category_key]
+    generic = [q for q in stored if str(q.get("category") or "any").casefold() in {"", "any", "*"}
+               and not q.get("keywords")]
+    for group in (own, generic):
+        live = [q for q in group if q["_status"] == "ACTIVE"]
+        if live:
+            return max(live, key=lambda q: int(q.get("priority") or 0))
+        if group:
+            return None  # staff switched this wording off
+    if stored:
+        return None
+    return next((dict(q, _id=None) for q in advisor_defaults.DEFAULT_FIELD_QUESTIONS if q["field"] == field), None)
+
+
+def _category_questions(demand, category, records, states, lang, asked_set, skip) -> List[Dict[str, Any]]:
+    out = []
+    fields = [(f, True) for f in category["required_fields"]]
+    fields += [(f, False) for f in category["optional_fields"] if f not in category["required_fields"]]
+    for field, required in fields:
+        if field in skip or field in asked_set or states.get(field, "unknown") != "unknown":
+            continue
+        q = _wording(field, category["key"].casefold(), records)
+        if q is None:
+            continue
+        if any(states.get(f) == "unknown" for f in q.get("depends_on") or [] if f not in skip):
+            continue
+        if any(states.get(f) in {"known", "no_preference"} for f in q.get("skip_if") or []):
+            continue
+        out.append(_shape(q, lang, field=field, required=required))
+    return out
+
+
+def _legacy_questions(demand, records, states, lang, asked_set, skip) -> List[Dict[str, Any]]:
+    """Staff keyword questions -- only when no advisor category matched."""
     text = _text_of(demand)
-    lang = _lang(language)
-    asked_set = {str(a) for a in asked or []}
     picked: Dict[str, Dict[str, Any]] = {}
-    for q in _active(question_records):
+    for q in _active(records):
         field = str(q.get("field") or "")
+        if not q.get("keywords") or field in skip:
+            continue
         if states.get(field, "unknown") != "unknown" or field in asked_set:
             continue
         if not _category_ok(q, demand) or not _keywords_ok(q.get("keywords"), text):
@@ -258,55 +465,114 @@ def next_questions(demand: Dict[str, Any], question_records: Iterable[Dict[str, 
         if current is None or rank > (bool(current.get("required")), int(current.get("priority") or 0)):
             picked[field] = q
     ordered = sorted(picked.values(), key=lambda q: (not q.get("required"), -int(q.get("priority") or 0)))
-    out = []
-    for q in ordered[:max(0, limit)]:
-        out.append({
-            "id": q.get("_id"), "field": q.get("field"), "required": bool(q.get("required")),
-            "question": q.get(f"question_{lang}") or q.get("question_en"),
-            "answer_type": q.get("answer_type") or "text", "choices": list(q.get("choices") or []),
-            "why": q.get("why") or "",
-        })
-    return out
+    return [_shape(q, lang, field=str(q.get("field")), required=bool(q.get("required"))) for q in ordered]
+
+
+def next_questions(demand: Dict[str, Any], question_records: Iterable[Dict[str, Any]], *, language: str = "en",
+                   limit: int = 1, asked: Iterable[str] = (), category_records: Iterable[Dict[str, Any]] = (),
+                   skip_fields: Iterable[str] = (), category: Optional[Dict[str, Any]] = None
+                   ) -> List[Dict[str, Any]]:
+    """The most decision-relevant unanswered questions (required first)."""
+    if str(demand.get("side") or "NEED").upper() == "OFFER":
+        return []  # a seller listing is not a buying decision
+    records = list(question_records or [])
+    if category is None:
+        category = resolve_category(demand, category_records)
+    states = field_states(demand, category)
+    lang = _lang(language)
+    asked_set = {str(a) for a in asked or []}
+    skip = {str(f) for f in skip_fields or []}
+    if category:
+        found = _category_questions(demand, category, records, states, lang, asked_set, skip)
+    else:
+        found = _legacy_questions(demand, records, states, lang, asked_set, skip)
+    return found[:max(0, limit)]
 
 
 def guidance(demand: Dict[str, Any], rule_records: Iterable[Dict[str, Any]], *, language: str = "en",
-             limit: int = 2) -> List[Dict[str, Any]]:
+             limit: int = 2, category: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     text = _text_of(demand)
     lang = _lang(language)
-    hits = [r for r in _active(rule_records) if _category_ok(r, demand) and r.get("keywords")
-            and _keywords_ok(r.get("keywords"), text)]
+    key = (category or {}).get("key", "").casefold()
+    hits = []
+    for r in _active(rule_records):
+        rule_cat = str(r.get("category") or "any").strip().casefold()
+        if key and rule_cat == key:
+            if _keywords_ok(r.get("keywords"), text):  # no keywords = the whole category
+                hits.append(r)
+        elif _category_ok(r, demand) and r.get("keywords") and _keywords_ok(r.get("keywords"), text):
+            hits.append(r)
     hits.sort(key=lambda r: (not r.get("high_stakes"), -int(r.get("priority") or 0)))
-    return [{"title": r.get("title"), "factors": list(r.get("factors") or []),
-             "advice": r.get(f"advice_{lang}") or r.get("advice_en"), "high_stakes": bool(r.get("high_stakes"))}
-            for r in hits[:limit]]
+    out = [{"title": r.get("title"), "factors": list(r.get("factors") or []),
+            "advice": r.get(f"advice_{lang}") or r.get("advice_en"), "high_stakes": bool(r.get("high_stakes"))}
+           for r in hits[:limit]]
+    if category and category.get("high_stakes") and not any(g["high_stakes"] for g in out):
+        out.insert(0, {"title": "No guarantees", "factors": ["qualified professional", "provider's own checks"],
+                       "advice": advisor_defaults.HIGH_STAKES_NOTE[lang], "high_stakes": True})
+        out = out[:max(limit, 1)]
+    return out
 
 
 def advise(demand: Dict[str, Any], question_records, rule_records, *, language: str = "en", limit: int = 1,
-           asked: Iterable[str] = (), show_now: bool = False) -> Dict[str, Any]:
-    """The advisor's view of one turn: questions, readiness, guidance."""
-    pending = next_questions(demand, question_records, language=language, limit=max(limit, 3), asked=asked)
+           asked: Iterable[str] = (), show_now: bool = False, category_records: Iterable[Dict[str, Any]] = (),
+           skip_fields: Iterable[str] = ()) -> Dict[str, Any]:
+    """The advisor's view of one turn: category, questions, readiness, guidance."""
+    category = resolve_category(demand, category_records)
+    pending = next_questions(demand, question_records, language=language, limit=max(limit, 3), asked=asked,
+                             skip_fields=skip_fields, category=category)
+    # A required field the user already skipped once is not held again.
     required = [q for q in pending if q["required"]]
+    public_category = None
+    if category:
+        public_category = {k: category[k] for k in ("key", "label", "group", "matched_by", "alias", "high_stakes")}
+        public_category["required_fields"] = category["required_fields"]
+        public_category["optional_fields"] = category["optional_fields"]
     return {
-        "field_states": field_states(demand),
+        "category": public_category,
+        "field_states": field_states(demand, category),
         "questions": pending[:limit],
         # Final recommendations wait for a required answer unless the user
         # explicitly asked to see options now.
         "ready": show_now or not required,
         "hold_reason": None if (show_now or not required) else f"needs {required[0]['field']}",
-        "guidance": guidance(demand, rule_records, language=language),
+        "guidance": guidance(demand, rule_records, language=language, category=category),
     }
 
 
-def seed_defaults(resources, actor: str = "system") -> int:
-    """Store the default questions / rules once, so the Command Center owns
-    them from then on (an empty resource only; never overwrites)."""
+SEED_ACTOR = "system"
+
+
+def seed_defaults(resources, actor: str = SEED_ACTOR) -> int:
+    """Store the editable defaults so the Command Center owns them.
+
+    * ``advisor_rules``: only into an empty resource.
+    * v2 (once, when ``advisor_categories`` has never held a record): store
+      the categories and the per-field / per-category questions, and archive
+      the v1 keyword questions that were seeded and never edited (an edited or
+      staff-made question is kept and still used when no category matches).
+    """
     created = 0
     repo = resources.repo
-    for name, rows in (("advisor_questions", DEFAULT_QUESTIONS), ("advisor_rules", DEFAULT_RULES)):
-        if repo.list(name, include_archived=True):
-            continue
-        for row in rows:
-            data = {k: v for k, v in row.items()}
-            resources.create(name, data, actor=actor)
+    if not repo.list("advisor_rules", include_archived=True):
+        for row in DEFAULT_RULES:
+            resources.create("advisor_rules", dict(row), actor=actor)
             created += 1
+    if repo.list("advisor_categories", include_archived=True):
+        return created
+    legacy = {q["question_en"] for q in LEGACY_QUESTIONS}
+    for record in repo.list("advisor_questions"):
+        data = record.get("data") or {}
+        if (record.get("created_by") == SEED_ACTOR and int(record.get("version") or 1) <= 1
+                and data.get("keywords") and data.get("question_en") in legacy):
+            repo.update(record["id"], actor="system:advisor_v2", action="archive", archived=True)
+    existing = {(str((r.get("data") or {}).get("category") or "any").casefold(), (r.get("data") or {}).get("field"))
+                for r in repo.list("advisor_questions") if not (r.get("data") or {}).get("keywords")}
+    for row in advisor_defaults.question_records():
+        if (row["category"].casefold(), row["field"]) in existing:
+            continue
+        resources.create("advisor_questions", row, actor=actor)
+        created += 1
+    for row in advisor_defaults.category_records():
+        resources.create("advisor_categories", row, actor=actor)
+        created += 1
     return created

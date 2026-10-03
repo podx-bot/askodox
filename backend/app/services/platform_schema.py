@@ -674,8 +674,67 @@ _register(Resource(
 
 ADVISOR_FIELDS = ("budget", "brand", "usage", "size", "quantity", "condition", "model", "variant", "timing",
                   "location", "quality", "material", "capacity", "duration", "guests", "travel_dates",
-                  "experience", "property_type", "income", "coverage", "other")
+                  "experience", "property_type", "income", "coverage", "requirement", "goal", "other")
 ANSWER_TYPES = ("text", "number", "money", "choice", "multi_choice", "yes_no", "date")
+
+def _flag_keys() -> tuple:
+    from app.repositories.command_center_repository import FEATURE_FLAGS
+
+    return tuple(FEATURE_FLAGS)
+
+
+ROLLOUT_PLATFORMS = ("android", "ios", "web", "admin")
+
+_register(Resource(
+    name="flag_rollouts", label="Feature flag targeting", group="Configuration", prefix="flr",
+    permission="config", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="Narrow a feature flag to some categories / sub-categories / roles / platforms / locations and a "
+                "percentage of people. The global flag stays the master switch: OFF is off everywhere. With "
+                "ACTIVE 'only for' rules the feature is on only where one matches; an ACTIVE 'never for' rule "
+                "switches it off where it matches. Blank lists match everything. The percentage bucket is "
+                "stable per person (same answer every time).",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("flag", "Feature flag", "enum", options=_flag_keys(), required=True, list_column=True, filter=True),
+        F("effect", "Effect", "enum", options=("only_for", "never_for"), required=True, list_column=True),
+        F("categories", "Categories (advisor category keys or detected categories)", "list"),
+        F("subcategories", "Sub-categories", "list"),
+        F("roles", "Roles", "list", options=("buyer", "seller", "service_provider", "job_seeker", "employer",
+                                              "delivery_partner", "driver", "staff", "admin", "guest")),
+        F("platforms", "Platforms", "list", options=ROLLOUT_PLATFORMS),
+        F("locations", "Locations (city / area words)", "list"),
+        F("percentage", "Percentage of people (0-100)", "int", min=0, max=100, list_column=True),
+        F("notes", "Why", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="advisor_categories", label="Advisor categories", group="Advisor", prefix="adc",
+    permission="advisor", name_field="label", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Which details change the decision for each kind of need. A request is matched to a category "
+                "from the AI-detected category first, then from the HEAD noun of what was asked ('car phone "
+                "holder' -> holder -> accessories), then from any alias. Required fields hold final results until "
+                "answered; optional fields are asked once. Questions come from 'Advisor questions' (this "
+                "category's wording first, then the generic one for the field).",
+    fields=(
+        F("key", "Key (stable id)", required=True, list_column=True, filter=True,
+          help="lower_case_id, e.g. footwear, hotel, loans. Questions use it as their category."),
+        F("label", "Label", required=True, list_column=True),
+        F("group", "Group", list_column=True, filter=True,
+          help="ecommerce, grocery_food, travel, finance, health, education, jobs, real_estate, home_services, "
+               "logistics, used, b2b, entertainment, saas, automobile ..."),
+        F("aliases", "Matches (AI category names and nouns, any language)", "list", required=True),
+        F("broad_aliases", "Too broad to act on (asks requirement / goal / type)", "list",
+          help="e.g. doctor, repair, loan: 'requirement', 'goal' and 'property_type' count as already known "
+               "when the request names something more specific (dentist, AC repair, home loan)."),
+        F("required_fields", "Required before results (in order)", "list", options=ADVISOR_FIELDS),
+        F("optional_fields", "Optional, asked once (in order)", "list", options=ADVISOR_FIELDS),
+        F("high_stakes", "High-stakes (no guarantees; suggest a professional)", "bool", list_column=True),
+        F("priority", "Priority when two categories match equally", "int", min=0, max=1000),
+    ),
+    actions=ENABLE_DISABLE,
+))
 
 _register(Resource(
     name="advisor_questions", label="Advisor questions", group="Advisor", prefix="adq",
@@ -685,10 +744,11 @@ _register(Resource(
                 "turn; an answer of 'any / no preference' settles only that one field. Required = results wait "
                 "for this answer; optional = asked once, results still shown.",
     fields=(
-        F("category", "Category (domain or 'any')", required=True, list_column=True, filter=True,
-          help="e.g. footwear, fashion, electronics, vehicle, travel, hotel, insurance, loan, home_service, any"),
-        F("keywords", "Applies when the need mentions (any of)", "list",
-          help="Optional: only ask when the subject contains one of these words (e.g. shoes, sneakers)."),
+        F("category", "Category key (or 'any' = generic wording)", required=True, list_column=True, filter=True,
+          help="An 'Advisor categories' key (footwear, tv, hotel, loans ...) for category-specific wording, or "
+               "'any' for the generic question of that field."),
+        F("keywords", "Legacy: only when the need mentions (any of)", "list",
+          help="Only used when no advisor category matches the request."),
         F("field", "Fills field", "enum", options=ADVISOR_FIELDS, required=True, list_column=True, filter=True),
         F("question_en", "Question (English)", required=True, list_column=True),
         F("question_te", "Question (Telugu)"),

@@ -59,30 +59,35 @@ def test_defaults_are_seeded_into_the_command_center_and_editable(api):
     assert listing.status_code == 200 and listing.json()["items"]
 
 
+def _cats(pf):
+    return _records(pf, "advisor_categories")
+
+
 def test_each_field_has_its_own_state_any_brand_never_settles_budget(api):
     _, _, _, pf, _ = api
     qs, rules = _records(pf, "advisor_questions"), _records(pf, "advisor_rules")
+    cats = _cats(pf)
     demand = {"side": "NEED", "domain": "PRODUCT", "subject": "running shoes", "raw_text": "running shoes",
               "constraints": {"dynamic_fields": {"brand": "any", "no_preference": ["brand"]}}}
-    view = ae.advise(demand, qs, rules, language="en")
+    view = ae.advise(demand, qs, rules, language="en", category_records=cats)
     assert view["field_states"]["brand"] == "no_preference"
     assert view["field_states"]["budget"] == "unknown"
     assert view["ready"] is False and view["questions"][0]["field"] == "budget"
     # Telugu conversation: the same question in Telugu.
-    te = ae.advise(demand, qs, rules, language="te")
+    te = ae.advise(demand, qs, rules, language="te", category_records=cats)
     assert te["questions"][0]["question"] == "మీ బడ్జెట్ ఎంత అనుకుంటున్నారు?"
     # Budget given -> ready; the next useful question is optional usage.
     demand["constraints"]["dynamic_fields"]["budget_max"] = 2000
-    view = ae.advise(demand, qs, rules)
+    view = ae.advise(demand, qs, rules, category_records=cats)
     assert view["ready"] is True and view["questions"][0]["field"] == "usage"
     assert view["questions"][0]["required"] is False
     # "any" for budget settles budget only (not usage).
     demand2 = {"side": "NEED", "subject": "shoes", "raw_text": "shoes",
                "constraints": {"dynamic_fields": {"no_preference": ["budget"]}}}
-    view2 = ae.advise(demand2, qs, rules)
+    view2 = ae.advise(demand2, qs, rules, category_records=cats)
     assert view2["ready"] is True and view2["field_states"]["usage"] == "unknown"
     # "show me now" never waits.
-    assert ae.advise({"side": "NEED", "subject": "tv", "raw_text": "tv"}, qs, rules, show_now=True)["ready"]
+    assert ae.advise({"side": "NEED", "subject": "tv", "raw_text": "tv"}, qs, rules, show_now=True, category_records=cats)["ready"]
 
 
 def test_guidance_explains_tradeoffs_and_high_stakes_boundaries(api):
@@ -99,30 +104,38 @@ def test_guidance_explains_tradeoffs_and_high_stakes_boundaries(api):
 def test_admin_controls_questions_without_code(api):
     client, container, owner, pf, _ = api
     budget = next(q for q in _records(pf, "advisor_questions")
-                  if q["data"]["field"] == "budget" and "tv" in q["data"]["keywords"])
+                  if q["data"]["field"] == "budget" and q["data"]["category"] == "any")
+    tv = next(c for c in _cats(pf) if c["data"]["key"] == "tv")
     r = client.post(f"/admin/cc/platform/r/advisor_questions/{budget['id']}/actions/disable", headers=owner,
                     json={"params": {}, "confirm": True})
     assert r.status_code == 200, r.text
     try:
-        _check_admin_question_changes(client, owner)
+        _check_admin_question_changes(client, owner, tv)
     finally:  # the seeded records are shared by later tests
         client.post(f"/admin/cc/platform/r/advisor_questions/{budget['id']}/actions/enable", headers=owner,
                     json={"params": {}, "confirm": True})
+        client.patch(f"/admin/cc/platform/r/advisor_categories/{tv['id']}", headers=owner,
+                     json={"data": {"required_fields": tv["data"]["required_fields"]}})
         for q in _records(pf, "advisor_questions"):
             if q["data"].get("question_en") == "Smart TV or regular?":
                 client.delete(f"/admin/cc/platform/r/advisor_questions/{q['id']}?confirm=true", headers=owner)
 
 
-def _check_admin_question_changes(client, owner):
+def _check_admin_question_changes(client, owner, tv):
     preview = client.post("/admin/cc/advisor/preview", headers=owner, json={"text": "43 inch tv"}).json()
-    assert all(q["field"] != "budget" for q in preview["questions"])
+    assert preview["category"]["key"] == "tv"
+    assert all(q["field"] != "budget" for q in preview["questions"])  # generic budget wording switched off
+    # Staff add a decision field to the TV category and its wording -- no release.
+    r = client.patch(f"/admin/cc/platform/r/advisor_categories/{tv['id']}", headers=owner,
+                     json={"data": {"required_fields": ["capacity", "budget"]}})
+    assert r.status_code == 200, r.text
     created = client.post("/admin/cc/platform/r/advisor_questions", headers=owner, json={"data": {
-        "category": "any", "keywords": ["tv"], "field": "capacity", "question_en": "Smart TV or regular?",
-        "required": True, "priority": 999}})
+        "category": "tv", "field": "capacity", "question_en": "Smart TV or regular?", "priority": 900}})
     assert created.status_code == 200, created.text
     preview = client.post("/admin/cc/advisor/preview", headers=owner, json={"text": "43 inch tv"}).json()
     assert preview["questions"][0]["question"] == "Smart TV or regular?"
-    assert any("required" in line for line in preview["explanation"])
+    assert preview["questions"][0]["required"] is True
+    assert any("matched by head noun" in line for line in preview["explanation"])
     # Advisor configuration needs advisor permissions.
     analyst = _staff(client, owner, "analyst")
     assert client.post("/admin/cc/advisor/preview", headers=analyst, json={"text": "tv"}).status_code == 403
