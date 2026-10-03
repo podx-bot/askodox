@@ -7,16 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `e93518d` -- PR #140 (2026-10-03): Universal Advisor (configurable
-  questions + guidance, per-field state, required answers hold results),
-  Demand Intelligence (insights, rules, ranked seller alerts with reasons,
-  seller opportunities, Admin Assistant, Staff work queue), business
-  auto-responses in deal chats, bounded platform settings, video privacy
-  (masking, registered-only deep study, language, structured market) and
-  chat/voice continuity fixes (brand "any", hub over detail pages, YouTube
-  153). Production probe 37141666470 shows the advisor live (te/en, loan
-  boundary). Signed MAIN APK 1290 (Live Build 37141566026). Before: #139
-  Affiliate Product Manager + marketplaces (APK 1289), #137/#138 Video Study.
+- `main` @ `8625a92` -- PR #141 (2026-10-03): category-driven Universal
+  Advisor (`advisor_categories`: AI category -> head noun -> alias; "car
+  phone holder" = accessories, budget optional), flag targeting
+  (`flag_rollouts`) + config import/export with snapshot rollback, unified
+  inbox (`/api/me/inbox`, `/admin/cc/inbox`) + Seller Opportunities
+  (expiry, accept/decline/fulfil; app `/opportunities`), customer web chat
+  `/chat`, support handoff summary, affiliate URL product id / canonical /
+  per-field manual entry, Auto-DM triggers (internal; external channels
+  EXTERNAL_SETUP_REQUIRED), one integration health vocabulary, outcome
+  analytics, video page chat bar. Production probe 37147224406 proves the
+  advisor categories, `/chat`, `/api/flags`, inbox auth (401). Before: #140
+  Universal Advisor v1 + Demand Intelligence (APK 1290).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -184,12 +186,17 @@ this file, don't trust it blindly.
   services, fresh food or used. `classify_page` treats a store host's catalogue
   page as a store BEFORE the article regex ("Best Prices" used to drop them).
 - Universal Advisor = ONE engine (`advisor_engine.py`) configured by schema
-  resources `advisor_questions` / `advisor_rules` (seeded once with editable
-  defaults by `platform()`). Each field has its own state (known /
-  no_preference / unknown); "any" settles only the field just asked. A
-  REQUIRED unanswered question holds final results in the app
+  resources `advisor_categories` (aliases, broad aliases, required /
+  optional decision fields), `advisor_questions` (generic per-field wording,
+  category overrides; keyword questions only when NO category matches) and
+  `advisor_rules`; defaults in `advisor_defaults.py`, seeded once by
+  `platform()` (v2 archives untouched v1 keyword seeds). Category = AI
+  category (ignored when it just echoes the subject) -> head noun -> alias;
+  a broad AI group yields to a same-group head noun. Each field has its own
+  state (known / no_preference / unknown); "any" settles only the field just
+  asked. A REQUIRED unanswered question holds final results in the app
   (`askodoxAdvisorHolds`) unless "show me". A question counts as asked
-  (`_lastAskedQuestion`) only if the reply showed it. Flag `advisor.enabled`.
+(`_lastAskedQuestion`) only if the reply showed it. Flag `advisor.enabled`.
 - Demand Intelligence reads `pf_events` (`search` carries `local` + budget
   band; `request` / `seller_accept` / `order` / `order_completed` via
   `journey_event`). Rules = `demand_alert_rules`; matching reuses
@@ -268,12 +275,14 @@ this file, don't trust it blindly.
   feed import; page-metadata extraction often gets blocked by marketplaces.
   #127's partner registry / staff assignments / BFSI flows and
   `partner_revenue_events` remain unwired (superseded by Partner Hub).
-- Customer WEB chat does not exist yet: `/website` is a static marketing
-  site; the backend APIs (`/deals/discover`, `/api/advisor/next`,
-  `/api/in-app/assistant`) are web-ready, the Flutter web build is not deployed.
-- Auto-DM on Facebook / Instagram / WhatsApp is NOT built (needs the owner's
-  authorised platform API); auto-responses work inside ASKODOX deal chats only.
-- Feature flags are global booleans (no per-category / role / % rollout).
+- Customer web chat is the backend-served `/chat` page (same APIs as the
+  app); it is not linked from askodox.com yet and cannot send requests
+  (identity stays in the app).
+- Auto-DM on Facebook / Instagram / WhatsApp / Snapchat is NOT built (needs
+  the owner's authorised platform API); triggers work inside ASKODOX only
+  (deal chats + `/api/auto-response/ask`).
+- Flag targeting (`flag_rollouts`) is applied to discovery results and the
+  advisor server-side; the app does not read `/api/flags` yet.
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

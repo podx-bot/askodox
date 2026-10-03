@@ -85,6 +85,11 @@ def test_car_accessory_never_inherits_car_budget_rules():
     # The subject echoed back as "category_detected" is not an AI signal.
     echo = _advise("phone holder for car", constraints={"category_detected": "phone holder for car"})
     assert echo["category"]["key"] == "accessories"
+    # A broad AI group gives way to the specific head noun in the same group.
+    assert _advise("running shoes", category="fashion")["category"]["key"] == "footwear"
+    assert _advise("43 inch tv", category="Electronics")["category"]["key"] == "tv"
+    # ...but not across groups: the AI's specific category stays.
+    assert _advise("car phone holder", category="automotive")["category"]["key"] == "accessories"
     # The AI category wins when it names the thing.
     ai = _advise("car phone holder", category="Car accessories")
     assert ai["category"]["key"] == "accessories" and ai["category"]["matched_by"] == "ai_category"
