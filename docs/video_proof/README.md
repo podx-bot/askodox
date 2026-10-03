@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-03T12:28:08Z by `.github/workflows/video-real-content-proof.yml` (run 37122761936).
+Generated 2026-10-03T12:50:31Z by `.github/workflows/video-real-content-proof.yml` (run 37123980724).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -18,7 +18,7 @@ Generated 2026-10-03T12:28:08Z by `.github/workflows/video-real-content-proof.ym
 | home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 4 () |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (registered) |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals) |
-| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
+| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 5 (deals, used) |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, surplus) |
 | service-te | te | 1 | [Urban Company AC Service Vs Nobroker AC Service / Which is …](https://www.youtube.com/watch?v=KOYoiZG5_3E) | Crazyy Unboxing | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 
@@ -41,7 +41,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "samsung 43 inch tv near me" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India [online]
+**Next step:** "samsung 43 inch tv near me" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Samsung 108 cm (43 inches) Crystal 4K Vista Ultra HD Smart LED TV UA43UE81AFULXL : Amazon.in: Electronics [online]
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
@@ -57,9 +57,9 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** ఈ టీవీ చిన్న గదికి సరిపోతుందో లేదా చూద్దాం.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సాధారణంగా కాస్త పెద్దదిగానే ఉంటుంది. మీ గది పరిమాణం లేదా చూసే దూరం ఎంతో చెబితే సరిగ్గా సరిపోతుందో లేదో చెప్పగలను.
 
-**Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India [online]
+**Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Samsung 108 cm (43 inches) Crystal 4K Vista Ultra HD Smart LED TV UA43UE81AFULXL : Amazon.in: Electronics [online]
 
 ### phone (en) -- "Redmi Note 13 Pro review video"
 
@@ -154,7 +154,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → Vijayawada chicken biryani [registered]; Order Online – HYDERABAD BIRYANI POINT [online]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]; Order Biryani Near Me Vijayawada [online]
+**Next step:** "hyderabadi biryani near me" → Vijayawada chicken biryani [registered]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]; Order Online – HYDERABAD BIRYANI POINT [online]; Order Biryani Near Me Vijayawada [online]
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఏసీ సరిపోతుందో లేదో తెలుసుకోవడానికి గది సైజు లేదా ఏసీ సామర్థ్యం (టన్) వివరాలు చెప్పండి.
+**ASKODOX AI:** చిన్న గదికి ఏసీ సైజ్ మరియు సామర్థ్యం సరిపోతుందో లేదో తెలిపే వీడియోలు వెతుకుతున్నాను.
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 

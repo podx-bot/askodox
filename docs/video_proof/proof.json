@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-03T12:28:08Z",
+ "generated_at": "2026-10-03T12:50:31Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:a4944d1e795f4c68",
+   "trace_key": "browse:2c53d2ca05894567",
    "videos": [
     {
      "video_id": "yt_nMMmLxoa_Vg",
@@ -33,12 +33,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 inch",
      "subject": "Samsung 43 inch TV",
+     "size": "43 inch",
      "location": "Vijayawada"
     }
    },
@@ -144,17 +144,17 @@
       "location_label": null
      },
      {
-      "title": "Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India",
+      "title": "Samsung 108 cm (43 inches) Crystal 4K Vista Ultra HD Smart LED TV UA43UE81AFULXL : Amazon.in: Electronics",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.samsung.com",
+      "source_name": "www.amazon.in",
       "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.samsung.com/in/tvs/uhd-4k-tv/ue81a-43-inch-crystal-4k-uhd-smart-tv-ua43ue81afulxl/",
-      "image_url": "https://imgs.search.brave.com/Q839shPZPLvcUDXXd7br5qMfWJniubzSWqo_7SjWCeA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuc2Ftc3VuZy5j/b20vaXMvaW1hZ2Uv/c2Ftc3VuZy9wNnBp/bS9pbi91YTQzdWU4/MWFmdWx4bC9nYWxs/ZXJ5L2luLXVoZC11/ODEwMGYtdWE0M3Vl/ODFhZnVseGwtNTQ1/OTcwMDE1",
+      "destination_url": "https://www.amazon.in/Samsung-inches-Crystal-Vista-UA43UE81AFULXL/dp/B0F43DMKDJ",
+      "image_url": "https://imgs.search.brave.com/NKWi5ieEXjD8-1aANlKhMxlCkNlxqwhsszawIjPtA2E/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0cv/MDEvc2hhcmUtaWNv/bnMvcHJldmlld2Rv/aC9hbWF6b24ucG5n",
       "location_label": null
      }
     ]
@@ -165,7 +165,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:a5027ea619d34bfa",
+   "trace_key": "browse:949404e08c8d4c30",
    "videos": [
     {
      "video_id": "yt_nMMmLxoa_Vg",
@@ -194,9 +194,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
-     "brand": "Samsung",
-     "size": "43 inch",
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
+     "brand": "శామ్‌సంగ్",
+     "size": "43 అంగుళాలు",
      "location": "Vijayawada"
     }
    },
@@ -249,7 +249,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "ఈ టీవీ చిన్న గదికి సరిపోతుందో లేదా చూద్దాం.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సాధారణంగా కాస్త పెద్దదిగానే ఉంటుంది. మీ గది పరిమాణం లేదా చూసే దూరం ఎంతో చెబితే సరిగ్గా సరిపోతుందో లేదో చెప్పగలను.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "search_videos"
@@ -298,17 +298,17 @@
       "location_label": null
      },
      {
-      "title": "Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India",
+      "title": "Samsung 108 cm (43 inches) Crystal 4K Vista Ultra HD Smart LED TV UA43UE81AFULXL : Amazon.in: Electronics",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.samsung.com",
+      "source_name": "www.amazon.in",
       "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.samsung.com/in/tvs/uhd-4k-tv/ue81a-43-inch-crystal-4k-uhd-smart-tv-ua43ue81afulxl/",
-      "image_url": "https://imgs.search.brave.com/Q839shPZPLvcUDXXd7br5qMfWJniubzSWqo_7SjWCeA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuc2Ftc3VuZy5j/b20vaXMvaW1hZ2Uv/c2Ftc3VuZy9wNnBp/bS9pbi91YTQzdWU4/MWFmdWx4bC9nYWxs/ZXJ5L2luLXVoZC11/ODEwMGYtdWE0M3Vl/ODFhZnVseGwtNTQ1/OTcwMDE1",
+      "destination_url": "https://www.amazon.in/Samsung-inches-Crystal-Vista-UA43UE81AFULXL/dp/B0F43DMKDJ",
+      "image_url": "https://imgs.search.brave.com/NKWi5ieEXjD8-1aANlKhMxlCkNlxqwhsszawIjPtA2E/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0cv/MDEvc2hhcmUtaWNv/bnMvcHJldmlld2Rv/aC9hbWF6b24ucG5n",
       "location_label": null
      }
     ]
@@ -319,7 +319,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:55cd0f04a6ed4626",
+   "trace_key": "browse:1e6fb4b96d49433e",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -349,7 +349,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
-     "brand": "Redmi",
      "location": "Vijayawada"
     }
    },
@@ -520,7 +519,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:5697f052e7694664",
+   "trace_key": "browse:36ca06077eaa45fa",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -708,7 +707,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:83fdd883b91141b6",
+   "trace_key": "browse:1557a2c08e054af1",
    "videos": [
     {
      "video_id": "yt_KOYoiZG5_3E",
@@ -877,7 +876,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:c0bb9fe26ecf4118",
+   "trace_key": "browse:cbb0adab364d452a",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -959,7 +958,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "SERVICE",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -1043,7 +1042,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:372107ab2db94f7b",
+   "trace_key": "browse:616599c313b84500",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1066,10 +1065,10 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Hyderabadi biryani",
@@ -1164,20 +1163,6 @@
       "location_label": "Vuyyuru, Andhra Pradesh"
      },
      {
-      "title": "Order Online – HYDERABAD BIRYANI POINT",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "hyderabadbiryanipoint.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://hyderabadbiryanipoint.com/store/",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
       "segment": null,
       "match_source": "online",
@@ -1189,6 +1174,20 @@
       "sponsored": null,
       "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
       "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
+      "location_label": null
+     },
+     {
+      "title": "Order Online – HYDERABAD BIRYANI POINT",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "hyderabadbiryanipoint.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://hyderabadbiryanipoint.com/store/",
+      "image_url": null,
       "location_label": null
      },
      {
@@ -1227,7 +1226,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:b9e48b9fcdbc41e1",
+   "trace_key": "browse:916dc8c364b942be",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1250,7 +1249,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "EVENT",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1426,7 +1425,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:9303e8e07ecc462c",
+   "trace_key": "browse:f12d94eca22b48e9",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1455,9 +1454,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
+     "subject": "used Royal Enfield Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1604,20 +1603,6 @@
       "destination_url": "https://auto.shriramfinance.in/royal-enfield/classic-350-price-in-vijayawada",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Royal Enfield Classic 350 On Road Price In Vijayawada - 2026 Price Breakup & Offers",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "thebikejunction.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://thebikejunction.com/royal-enfield-bikes/classic-350/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/DQZW4q8YqGZQd8rDgWwUx6u2dWeN15hRegZLS5Zv7UM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudHJhY3Rvcmp1/bmN0aW9uLmNvbS9S/b3lhbF9FbmZpZWxk/X0NsYXNzaWNfMzUw/X0dvcmtoYV80XzQ1/ZThlYzhkODYud2Vi/cD9mb3JtYXQ9d2Vi/cCZxdWFsaXR5PTQw",
-      "location_label": null
      }
     ]
    }
@@ -1627,7 +1612,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:433623d57bd74995",
+   "trace_key": "browse:a69773308dfc45e1",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1658,6 +1643,7 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
+     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1828,7 +1814,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:7d6fd6cf81cc4bb0",
+   "trace_key": "browse:25884a234d784f06",
    "videos": [
     {
      "video_id": "yt_KOYoiZG5_3E",
@@ -1911,10 +1897,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఏసీ సరిపోతుందో లేదో తెలుసుకోవడానికి గది సైజు లేదా ఏసీ సామర్థ్యం (టన్) వివరాలు చెప్పండి.",
+    "follow_reply": "చిన్న గదికి ఏసీ సైజ్ మరియు సామర్థ్యం సరిపోతుందో లేదో తెలిపే వీడియోలు వెతుకుతున్నాను.",
     "follow_source": "universal_ai",
-    "follow_domain": "GENERAL",
-    "follow_action": "general_chat"
+    "follow_domain": "SERVICE",
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "local_service",
