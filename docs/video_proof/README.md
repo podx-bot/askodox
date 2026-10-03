@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-03T05:57:48Z by `.github/workflows/video-real-content-proof.yml` (run 37101311229).
+Generated 2026-10-03T07:19:56Z by `.github/workflows/video-real-content-proof.yml` (run 37105781606).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -13,12 +13,12 @@ Generated 2026-10-03T05:57:48Z by `.github/workflows/video-real-content-proof.ym
 | electronics | en | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 3 (deals) |
 | electronics-te | te | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 3 (deals) |
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 6 (deals, surplus, used) |
-| vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 5 (deals, surplus) |
+| vehicle | en | 1 | [2026 New Tata Nexon Creative Plus Cng Review // Nexon Car P…](https://www.youtube.com/watch?v=t9lapNvQD7w) | Mjk Cars | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 5 (deals, surplus) |
 | service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 | home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 4 () |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (registered) |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals) |
-| used-item | en | 1 | [How To Check & Buy Used Classic 350 - How To Buy 2nd Hand R…](https://www.youtube.com/watch?v=GW-rCk-eAoU) | Bindass Singh | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
+| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, used) |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, surplus) |
 | service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 
@@ -41,7 +41,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "samsung 43 inch tv near me" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy Samsung Crystal 4K Vivid 108 cm (43 inch) Ultra HD (4K) LED Smart Tizen TV (UA43DUE70B )- 2024 Edition at Reliance Digital [online]
+**Next step:** "samsung 43 inch tv near me" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India [online]
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
@@ -57,9 +57,9 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగానే ఉండవచ్చు. సాధారణంగా 32 అంగుళాల టీవీ చిన్న గదులకు సరిగ్గా సరిపోతుంది. మీరు చూడాల్సిన దూరాన్ని బట్టి నిర్ణయించుకోవచ్చు.
+**ASKODOX AI:** చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 6-8 అడుగుల దూరం ఉంటే సరిగ్గా సరిపోతుంది. మీరు గది కొలతలు లేదా చూసే దూరం ఎంత ఉందో చెప్తారా?
 
-**Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy Samsung Crystal 4K Vivid 108 cm (43 inch) Ultra HD (4K) LED Smart Tizen TV (UA43DUE70B )- 2024 Edition at Reliance Digital [online]
+**Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India [online]
 
 ### phone (en) -- "Redmi Note 13 Pro review video"
 
@@ -82,13 +82,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### vehicle (en) -- "Tata Nexon review video"
 
-**Video:** Tata Nexon Cons: What You Need to Know Before Buying -- TheAutoBharat (https://www.youtube.com/watch?v=77aOlpHhpOw)
+**Video:** 2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car -- Mjk Cars (https://www.youtube.com/watch?v=t9lapNvQD7w)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Tata Nexon Cons: What You Need to Know Before Buying / Tata Nexon Cons: What You Need to Know Before Buying / Tata Nexon Cons / Thinking of buying the Tata Nexon? / Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV.  
+Quoted from source: 2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car / New 2026 Tata Nexon Creative Plus Cng Review || Nexon Grey Color || Tata Nexon 2026 Best Safe Car / Tata Nexon 2026 Creative Plus Cng ka नया मॉडल, शानदार डिजाइन और दमदार फीचर्स के साथ। / इस वीडियो में Ta…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Tata Nexon Cons: What You Need to Know Before Buying"
+**User:** Tell me more about "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -97,7 +97,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "tata nexon near me" → Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive [deals]; Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price [deals]; Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX [online]
+**Next step:** "tata nexon near me" → Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive [deals]; Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX [online]; Tata Nexon (2020-2023) Price in Vijayawada - Tata Nexon (2020-2023) On Road Price in Vijayawada in July-2026 [online]
 
 ### service (en) -- "AC service video"
 
@@ -177,13 +177,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
-**Video:** How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350 -- Bindass Singh (https://www.youtube.com/watch?v=GW-rCk-eAoU)
+**Video:** Classic 350 BS4: Worth buying a used one in 2025? -- RPM Revelations  (https://www.youtube.com/watch?v=dzPSScYH1G4)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350 / How To Check And Buy Old Royal Enfield Classic 350.How To Buy Used Royal Enfield.How To Buy Second Hand Bullet.How To Buy 2nd Hand Royal Enfield Bullet or Classic.Purani Royal Enfield Classic 350cc Kaise Kya Kya C…  
+Quoted from source: Classic 350 BS4: Worth buying a used one in 2025? / Motorcyclists!!! / Almost every person was fascinated by the Royal Enfield Classic. / It's that type of bike that every generation from each family in India is aware of, now with the most recent iteration of the Classic 350 being the BS6 version, …  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350"
+**User:** Tell me more about "Classic 350 BS4: Worth buying a used one in 2025?"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఏ ఏసీ మోడల్ లేదా సామర్థ్యం (టన్నులు) సరిపోతుందో తెలుసుకోవాలనుకుంటున్నారా?
+**ASKODOX AI:** చిన్న గదికి ఏ ఏసీ మోడల్ సరిపోతుందో చూడటానికి నిజమైన వీడియోలు మరియు రివ్యూలు వెతుకుతున్నాను.
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 

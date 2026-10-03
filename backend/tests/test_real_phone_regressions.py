@@ -297,3 +297,57 @@ def test_brand_vocabulary_is_learned_from_real_listings():
     brand = "Zz" + _uuid.uuid4().hex[:6]
     container.product_catalog_repository.upsert_product("app-phone-91brand", "43 inch TV", brand=brand, price=25000)
     assert brand in TestClient(app).get("/api/products/brands").json()["brands"]
+
+
+# --- Mixed result-group requests (real phone: "Vijayawada chicken biryani
+# videos, restaurants, online links and offers చూపించు" returned one group).
+# Production evidence: with the group words left in the subject every
+# provider searched that literal phrase -> 2 rows; with the clean subject the
+# same request returned registered + deals + online + 5 YouTube videos.
+def test_mixed_request_searches_the_thing_and_returns_every_requested_group(api, monkeypatch):
+    from app.api.routes.universal_deals import requested_result_groups
+
+    client, container, _ = api
+
+    class _BiryaniVideos(_Brave):
+        def videos(self, query, limit):
+            self.queries.append("VIDEOS:" + query)
+            return [{"title": "Chicken biryani review Vijayawada", "creator": "Food Vlogs",
+                     "url": "https://www.youtube.com/watch?v=abc123def45"}]
+
+    web = _BiryaniVideos([
+        {"title": "Biryani house Vijayawada | order online", "url": "https://order.example/biryani-vja",
+         "snippet": "chicken biryani delivery Vijayawada"},
+        {"title": "Biryani deals and offers Vijayawada", "url": "https://deals.example/biryani",
+         "snippet": "chicken biryani offer 20% off Vijayawada"},
+    ])
+    monkeypatch.setattr(container, "brave_web_search_provider", web)
+    for raw in ("Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు",
+                "చికెన్ బిర్యానీ వీడియోలు, హోటల్స్, ఆన్‌లైన్ లింకులు, ఆఫర్లు చూపించు"):
+        web.queries.clear()
+        body = _body(raw, subject="chicken biryani videos, restaurants, online links and offers",
+                     category="food", price=None)
+        data = client.post("/deals/discover", json=body).json()
+        assert set(data["requested_groups"]) >= {"videos", "online", "deals"}, raw
+        assert all("online links" not in q and "restaurants" not in q and "," not in q for q in web.queries), web.queries
+        assert any(q.startswith("VIDEOS:") and "chicken biryani" in q for q in web.queries)
+        counts = data["group_counts"]
+        assert counts["videos"] >= 1 and counts["online"] + counts["deals"] >= 1, counts
+        assert data["source_status"]["videos"] != "not_applicable"
+    assert requested_result_groups("offer letter format") == []
+    assert requested_result_groups("Samsung TV deals") == ["deals"]
+
+
+def test_offers_on_a_service_request_still_search_deals(api, monkeypatch):
+    client, container, _ = api
+    monkeypatch.setattr(container, "brave_web_search_provider", _Brave([
+        {"title": "AC repair offer Vijayawada", "url": "https://svc.example/ac", "snippet": "AC repair ₹299 offer"},
+    ]))
+    plain = client.post("/deals/discover", json=_body("AC repair", subject="AC repair", category="services",
+                                                      intent="needService", price=None)).json()
+    assert plain["source_status"]["used_deals"] == "not_applicable"
+    offers = client.post("/deals/discover", json=_body("AC repair offers and online links", subject="AC repair",
+                                                       category="services", intent="needService",
+                                                       price=None)).json()
+    assert offers["source_status"]["used_deals"] != "not_applicable", "offers were asked for"
+    assert offers["requested_groups"] == ["online", "deals"]

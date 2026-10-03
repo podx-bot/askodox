@@ -231,18 +231,31 @@ class UniversalMultiSourceResultService:
         """Per source: ok / no_results / unavailable / not_applicable (never faked)."""
         status = {**self._status, **self.fallback.status}
         for source in ("askodox", "nearby", "used_deals", "online", "videos", "jobs"):
-            if source not in SOURCE_PLAN[self._kind]:
+            if source not in self._source_plan():
                 status[source] = STATUS_NOT_APPLICABLE
         return status
+
+    def _source_plan(self) -> set[str]:
+        """The kind's sources plus every group the customer explicitly asked
+        for (offers on a service request still search deals)."""
+        plan = set(SOURCE_PLAN[self._kind])
+        requested = set(getattr(self, "_requested", ()) or ())
+        if self._kind in (NEED_PRODUCT, NEED_SERVICE):
+            if "deals" in requested:
+                plan.add("used_deals")
+            if "videos" in requested:
+                plan.add("videos")
+        return plan
 
     # ------------------------------------------------------------ public --
 
     def collect(self, demand: dict[str, Any]) -> list[dict[str, Any]]:
         subject = " ".join(str(demand.get("subject") or "").split())
         self._kind = need_kind(demand)
+        self._requested = tuple((demand.get("constraints") or {}).get("requested_groups") or ())
         if not subject:
             return []
-        plan = SOURCE_PLAN[self._kind]
+        plan = self._source_plan()
         category = str(demand.get("domain") or "").strip()
         constraints = demand.get("constraints") or {}
         context_text = f"{subject} {constraints}"
@@ -299,7 +312,7 @@ class UniversalMultiSourceResultService:
 
     def online_and_videos(self, *, category: str, subject: str, include_online: bool,
                           location_text: str = "", include_videos: bool = True) -> list[dict[str, Any]]:
-        plan = SOURCE_PLAN[self._kind]
+        plan = self._source_plan()
         query = None
         where = location_text or "India"
         if self._kind == NEED_SERVICE:

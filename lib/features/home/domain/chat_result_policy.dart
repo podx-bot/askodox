@@ -635,6 +635,13 @@ List<(AskodoxCompareKind, List<UniversalMatch>)> askodoxCompareGroups(List<Unive
   ];
 }
 
+/// How many results of each group the "All" tab previews; the rest are one
+/// tap away ("View all" / the group's own tab).
+const askodoxAllPreviewPerGroup = 2;
+
+/// Width of a result card in a horizontal rail (a phone shows ~1.5).
+const askodoxCompactCardWidth = 236.0;
+
 String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang) {
       'te' => switch (kind) {
           AskodoxCompareKind.local => 'స్థానికం',
