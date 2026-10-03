@@ -351,3 +351,42 @@ def test_offers_on_a_service_request_still_search_deals(api, monkeypatch):
                                                        price=None)).json()
     assert offers["source_status"]["used_deals"] != "not_applicable", "offers were asked for"
     assert offers["requested_groups"] == ["online", "deals"]
+
+
+def test_signed_in_phone_payload_keeps_videos_from_the_customers_own_words(api):
+    """APK 1285 on a real phone: the app sends a REWRITTEN raw_text ("i want to
+    buy chicken biryani in Vijayawada") to POST /deals; the customer's words
+    ("videos, restaurants, online links and offers") are only in trace.query.
+    Videos were never searched -> no Videos group on the phone."""
+    from tests.test_flow_traces import auth, phone
+
+    client, container, _ = api
+
+    class _Videos(_Brave):
+        def videos(self, query, limit):
+            self.queries.append("VIDEOS:" + query)
+            return [{"title": "Chicken biryani review Vijayawada", "creator": "Food Vlogs",
+                     "url": "https://www.youtube.com/watch?v=abc123def45"}]
+
+    web = _Videos([{"title": "Biryani house Vijayawada | order online", "url": "https://order.example/b",
+                    "snippet": "chicken biryani delivery Vijayawada"}])
+    container.brave_web_search_provider = web
+    for said, groups in (
+        ("Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు",
+         {"videos", "online", "deals", "local"}),
+        ("Vijayawada chicken biryani YouTube videos చూపించు", set()),
+    ):
+        web.queries.clear()
+        user = phone()
+        body = _body("i want to buy chicken biryani in Vijayawada", subject="chicken biryani", category="food",
+                     price=None, user_id=user, dynamic_fields={"productKind": "chicken"},
+                     trace={"query": said, "language": "te", "intent": "search_videos"})
+        created = client.post("/deals", headers=auth(container, user), json=body)
+        assert created.status_code == 200, created.text
+        data = client.get(f"/deals/{created.json()['id']}/matches", headers=auth(container, user)).json()
+        assert data["source_status"]["videos"] != "not_applicable", said
+        assert any(q == "VIDEOS:chicken biryani review" for q in web.queries), web.queries
+        assert data["group_counts"]["videos"] >= 1, data["group_counts"]
+        assert set(data["requested_groups"]) >= groups
+        # The guest path (same payload) behaves the same.
+        assert client.post("/deals/discover", json=body).json()["group_counts"]["videos"] >= 1
