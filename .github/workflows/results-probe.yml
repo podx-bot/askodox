@@ -22,12 +22,25 @@ jobs:
                    'staging': 'https://staging.askodox.com'}
           coords = {'Vijayawada': (16.5062, 80.6480)}
           for env, base in bases.items():
-              for text, lang in (('shoes for standing all day', 'en'), ('రన్నింగ్ షూస్ కావాలి', 'te'), ('need a personal loan', 'en')):
+              for path in ('/chat', '/api/flags?category=footwear&platform=android'):
+                  try:
+                      with urllib.request.urlopen(urllib.request.Request(base + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60) as r:
+                          body = r.read().decode('utf-8', 'replace')
+                          print(f"PAGE[{env}] {path} -> {r.status}", body[:160].replace(chr(10), ' ') if path.startswith('/api') else ('uses /deals/discover' if '/deals/discover' in body else 'missing api'))
+                  except urllib.error.HTTPError as e:
+                      print(f"PAGE[{env}] {path} -> HTTP {e.code}")
+              for path in ('/api/me/inbox', '/api/opportunities'):
+                  try:
+                      urllib.request.urlopen(urllib.request.Request(base + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
+                      print(f"AUTH[{env}] {path} -> 200 (unexpected without sign-in)")
+                  except urllib.error.HTTPError as e:
+                      print(f"AUTH[{env}] {path} -> HTTP {e.code}")
+              for text, lang in (('car phone holder', 'en'), ('phone holder for car', 'en'), ('car', 'en'), ('కారు ఫోన్ హోల్డర్', 'te'), ('dentist', 'en'), ('doctor', 'te'), ('hotel in goa', 'en'), ('2 bhk flat for rent', 'en'), ('shoes for standing all day', 'en'), ('రన్నింగ్ షూస్ కావాలి', 'te'), ('need a personal loan', 'en')):
                   areq = urllib.request.Request(base + '/api/advisor/next', data=json.dumps({'raw_text': text, 'language': lang}).encode(),
                                                 headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
                   try:
                       with urllib.request.urlopen(areq, timeout=60) as r:
-                          a = json.loads(r.read()); print(f"ADVISOR_NEXT[{env}] {text!r} ->", json.dumps({'ready': a.get('ready'), 'q': [x.get('question') for x in a.get('questions') or []], 'guidance': [(g.get('title'), g.get('high_stakes')) for g in a.get('guidance') or []]}, ensure_ascii=False))
+                          a = json.loads(r.read()); print(f"ADVISOR_NEXT[{env}] {text!r} ->", json.dumps({'category': (a.get('category') or {}).get('key'), 'matched_by': (a.get('category') or {}).get('matched_by'), 'ready': a.get('ready'), 'q': [x.get('question') for x in a.get('questions') or []], 'guidance': [(g.get('title'), g.get('high_stakes')) for g in a.get('guidance') or []]}, ensure_ascii=False))
                   except urllib.error.HTTPError as e:
                       print(f"ADVISOR_NEXT[{env}] {text!r} -> HTTP {e.code}")
               for item in q:
@@ -79,7 +92,7 @@ jobs:
                   print('DOMAINS:', json.dumps(hosts))
                   print('MARKETPLACES:', {k: sum(v for h, v in hosts.items() if k in h) for k in ('amazon', 'flipkart', 'meesho')})
                   adv = data.get('advisor') or {}
-                  print('ADVISOR:', json.dumps({'ready': adv.get('ready'), 'questions': [(q.get('field'), q.get('required'), q.get('question')) for q in adv.get('questions') or []], 'guidance': [g.get('title') for g in adv.get('guidance') or []]}, ensure_ascii=False))
+                  print('ADVISOR:', json.dumps({'category': (adv.get('category') or {}).get('key'), 'ready': adv.get('ready'), 'questions': [(q.get('field'), q.get('required'), q.get('question')) for q in adv.get('questions') or []], 'guidance': [g.get('title') for g in adv.get('guidance') or []]}, ensure_ascii=False))
                   print('MARKETPLACE_INFO:', json.dumps(data.get('marketplaces'), ensure_ascii=False))
                   for x in m:
                       if x.get('marketplace') or x.get('origin') == 'affiliate_catalog':
