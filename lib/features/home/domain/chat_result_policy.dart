@@ -693,3 +693,46 @@ final _videoAsk = RegExp(
     caseSensitive: false);
 
 bool askodoxAsksForVideos(String text) => _videoAsk.hasMatch(text);
+
+/// The price line of a result card. A staff-catalog price is shown as the
+/// listed price with its MRP / discount when the source states them; a price
+/// found only in web-page text stays "Page mentions ₹X".
+String? askodoxPriceLabel(UniversalMatch match, {required bool te}) {
+  final price = match.price;
+  if (price == null) return null;
+  final amount = '₹${price.toStringAsFixed(0)}';
+  if (match.priceVerified) return amount;
+  if (match.priceSource == 'catalog') {
+    final mrp = match.originalPrice;
+    if (mrp != null && mrp > price) {
+      final off = match.discountPercent ?? ((mrp - price) / mrp * 100).round();
+      return te
+          ? '$amount (MRP ₹${mrp.toStringAsFixed(0)}, $off% తగ్గింపు)'
+          : '$amount (MRP ₹${mrp.toStringAsFixed(0)}, $off% off)';
+    }
+    return amount;
+  }
+  return te ? 'పేజీలో $amount' : 'Page mentions $amount';
+}
+
+/// "In stock" only when the source actually tracks stock; UNKNOWN is never
+/// shown as a fact.
+String? askodoxStockLabel(UniversalMatch match, {required bool te}) {
+  switch ((match.stockStatus ?? '').toUpperCase()) {
+    case 'IN_STOCK':
+      return te ? 'స్టాక్‌లో ఉంది' : 'In stock';
+    case 'OUT_OF_STOCK':
+      return te ? 'స్టాక్ లేదు' : 'Out of stock';
+  }
+  return null;
+}
+
+/// When the price / stock was last checked, e.g. "Checked 3 Oct".
+String? askodoxCheckedLabel(UniversalMatch match, {required bool te}) {
+  final at = DateTime.tryParse(match.lastChecked ?? '');
+  if (at == null) return null;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  final local = at.toLocal();
+  final day = '${local.day} ${months[local.month - 1]}';
+  return te ? '$day న తనిఖీ' : 'Checked $day';
+}

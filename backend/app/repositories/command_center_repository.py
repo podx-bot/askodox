@@ -71,6 +71,17 @@ _LEGACY_PERMISSIONS = (
     "rewards:view",
     "rewards:manage",
     "insights:view",
+    # Affiliate Product Manager (staff-curated Meesho / Amazon / Flipkart /
+    # Wishlink products): each operation is its own grant -- staff never get
+    # stock, commission or link control just because they can add products.
+    "affiliate_products:view",
+    "affiliate_products:create",
+    "affiliate_products:edit",
+    "affiliate_products:delete",
+    "affiliate_products:stock",
+    "affiliate_products:commission",
+    "affiliate_products:links",
+    "affiliate_products:bulk_import",
 )
 
 # Every module gets the full verb set (view / create / edit / approve /
@@ -117,7 +128,15 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "campaign_manager": ("overview:view", "sponsored:view", "sponsored:manage", "links:view", "links:manage",
                          "offers:view", "analytics:view", "insights:view"),
     "affiliate_manager": ("overview:view", "affiliate:view", "affiliate:manage", "partners:view", "partners:manage",
-                          "links:view", "links:manage", "revenue:view", "analytics:view"),
+                          "links:view", "links:manage", "revenue:view", "analytics:view",
+                          "affiliate_products:view", "affiliate_products:create", "affiliate_products:edit",
+                          "affiliate_products:delete", "affiliate_products:stock", "affiliate_products:commission",
+                          "affiliate_products:links", "affiliate_products:bulk_import"),
+    # Catalog staff: add / edit products, keep stock current, bulk entry.
+    # No commission, link, delete or admin rights unless granted separately.
+    "affiliate_catalog_staff": ("overview:view", "affiliate_products:view", "affiliate_products:create",
+                                "affiliate_products:edit", "affiliate_products:stock",
+                                "affiliate_products:bulk_import"),
     "finance": ("overview:view", "payments:view", "payments:manage", "finance:view", "finance:manage",
                 "revenue:view", "revenue:manage", "rewards:view", "rewards:manage", "analytics:view",
                 "analytics:export", "audit:view"),

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import hashlib
 import hmac
 import json
@@ -808,6 +810,8 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         # Evidence for mixed requests: what was asked vs what came back.
         "requested_groups": list((demand.get("constraints") or {}).get("requested_groups") or []),
         "group_counts": group_counts(matches),
+        # Which approved marketplaces were searched and what each returned.
+        "marketplaces": discovered.get("marketplaces") or {},
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
     }
@@ -1029,42 +1033,6 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     flags = _result_flags(container)
     errors: list[str] = []
     affiliate_rows: list[dict] = []
-    # Staff/authorized catalog records participate in the same universal search.
-    # Monetisation only changes the destination URL; it never gates/ranks a result.
-    partner_hub = getattr(container, "partner_revenue_hub", None)
-    if partner_hub is not None and flags.get("results.affiliate", True):
-        hub_category = str(demand.get("domain") or "").strip().lower()
-        hub_subject = str(demand.get("subject") or "").strip()
-        try:
-            curated = partner_hub.search_products(hub_subject, hub_category, 50)
-        except Exception as error:
-            curated, _ = [], errors.append(f"partner_hub:{type(error).__name__}")
-        for row in curated:
-            item_id = f"partner-product-{row.get('id')}"
-            if item_id in existing_ids:
-                continue
-            affiliate = bool(row.get("affiliate_url"))
-            affiliate_rows.append({
-                "id": item_id,
-                "match_id": item_id,
-                "provider_id": str(row.get("partner_id") or ""),
-                "title": str(row.get("title") or row.get("merchant") or "Online option"),
-                "subtitle": str(row.get("merchant") or "Partner catalog"),
-                "price": row.get("price"),
-                "currency": str(row.get("currency") or "INR"),
-                "image_url": str(row.get("image_url") or ""),
-                "match_source": "online",
-                "source": "partner_catalog",
-                "destination_url": str(row.get("destination_url") or ""),
-                "web_fallback_url": str(row.get("original_product_url") or ""),
-                "open_strategy": "web",
-                "affiliate": affiliate,
-                "disclosure": "Affiliate link" if affiliate else "",
-                "demo": False,
-            })
-        matches.extend(affiliate_rows)
-        existing_ids.update(str(item.get("id")) for item in affiliate_rows)
-
     affiliate_config = getattr(container, "affiliate_provider_config", None)
     # A service request ("AC installation in Vuyyuru") wants local PROVIDERS:
     # product stores (affiliate / partner links) are never shown for it.
@@ -1141,6 +1109,31 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         if url_key:
             seen_urls.add(url_key)
         matches.append(item)
+    # Approved marketplaces (Amazon.in / Flipkart / Meesho) and the staff
+    # Affiliate Product Manager come after local + registered + normal
+    # online. A catalog product shows only while eligible (enabled, not out
+    # of stock, its source on); it opens through its affiliate link only
+    # when commission is ACTIVE, else through its normal (organic) URL.
+    catalog_sponsored: list[dict] = []
+    marketplace_info: dict[str, Any] = {}
+    if online_on and str(demand.get("side") or "").upper() != "OFFER" and not service_need \
+            and not getattr(discovery, "_supply", False):
+        try:
+            marketplace_rows, catalog_sponsored, marketplace_info = _marketplace_and_catalog(
+                container, demand, discovery, matches, flags)
+        except Exception as error:  # a marketplace never breaks discovery
+            marketplace_rows = []
+            errors.append(f"marketplace:{type(error).__name__}")
+        for item in marketplace_rows:
+            url_key = _url_key(item.get("destination_url"))
+            fallback_key = _url_key(item.get("web_fallback_url"))
+            if str(item.get("id")) in seen or (url_key and url_key in seen_urls) or (
+                    fallback_key and fallback_key in seen_urls):
+                filtered["duplicate"] = filtered.get("duplicate", 0) + 1
+                continue
+            seen.add(str(item.get("id")))
+            seen_urls.update(k for k in (url_key, fallback_key) if k)
+            matches.append(item)
     # Affiliate / partner results (Partner Hub) come AFTER ASKODOX
     # registered + nearby/local + normal online: ASKODOX stays local-first.
     partner_rows: list[dict] = []
@@ -1219,8 +1212,9 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
             errors.append(f"sponsored:{type(error).__name__}")
         matches.extend(sponsored_rows)
     # Sponsored videos are paid placements too: after every organic row.
-    sponsored_rows = sponsored_rows + sponsored_videos
+    sponsored_rows = sponsored_rows + sponsored_videos + catalog_sponsored
     matches.extend(sponsored_videos)
+    matches.extend(catalog_sponsored)
     try:
         from app.api.routes.sponsored import sponsored_repo
 
@@ -1266,11 +1260,13 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         "partner": len(partner_rows),
         "sponsored": len(sponsored_rows),
         "videos": sum(1 for m in matches if m.get("match_source") == "video"),
+        "marketplace": sum(1 for m in matches if m.get("marketplace")),
+        "catalog": sum(1 for m in matches if m.get("origin") == "affiliate_catalog"),
     }
     if not online_on:
         fallback_decision = "online switched off by admin"
     elif has_online:
-        fallback_decision = "online search skipped: affiliate/online result already present"
+        fallback_decision = "online search skipped: online result already present"
     elif local_match_count == 0:
         fallback_decision = "no ASKODOX local match: online and nearby shown as fallback"
     else:
@@ -1284,6 +1280,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         "counts": counts,
         "filtered": filtered,
         "fallback_decision": fallback_decision,
+        "marketplaces": marketplace_info,
         "errors": errors,
         "latency_ms": round((_time.perf_counter() - started) * 1000),
         "need_kind": discovery._kind,
@@ -1300,6 +1297,71 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
             if source_status.get("nearby") == "needs_location" else None,
         },
     }
+
+
+_FRESH_FOOD_WORDS = {
+    "chicken", "mutton", "meat", "fish", "prawn", "prawns", "egg", "eggs", "curry", "cut", "boneless", "skinless",
+    "biryani", "vegetable", "vegetables", "fruit", "fruits", "milk", "fresh", "kg", "g", "gm", "grams", "litre",
+    "liter", "dozen", "whole", "leg", "legs", "breast", "wings", "pieces", "piece", "country", "natu", "kodi",
+    "half", "one", "two", "and", "with", "skin", "small", "medium", "large", "of", "chicken65", "tiffin", "meals",
+}
+
+
+def _marketplace_and_catalog(container, demand: dict, discovery, matches: list[dict],
+                             flags: dict) -> tuple[list[dict], list[dict], dict]:
+    """Staff catalog products + organic marketplace rows for a product need.
+
+    Returns (rows in display order, sponsored catalog rows, info for the trace)."""
+    from app.api.routes.affiliate_catalog import catalog, sources as catalog_sources
+    from app.services import affiliate_catalog as ac
+    from app.services.universal_multi_source_result_service import NEED_PRODUCT
+
+    subject = str(demand.get("subject") or "").strip()
+    info: dict[str, Any] = {"catalog": 0, "searched": [], "found": {}, "status": None}
+    domain = str(demand.get("domain") or "").lower()
+    # Fresh food / meals / property are never marketplace-catalog needs
+    # ("1 kg chicken curry cut"); "egg boiler" or "fish tank" still are.
+    words = set(re.findall(r"[a-z]+", subject.lower()))
+    fresh_food = bool(words) and words <= _FRESH_FOOD_WORDS
+    if not subject or discovery._kind != NEED_PRODUCT or fresh_food or any(
+            word in domain for word in ("food", "meat", "fish", "restaurant", "property", "real_estate")):
+        info["status"] = "not_applicable"
+        return [], [], info
+    settings = catalog_sources(container)
+    store = catalog(container)
+    organic, sponsored = [], []
+    for item in store.search(subject, sources=settings, limit=6):
+        row = ac.result_row(item)
+        if not flags.get("results.affiliate", True) and row["affiliate"]:
+            # Affiliate routing switched off: the product stays, organically.
+            row.update({"affiliate": False, "routing": "organic", "disclosure": "",
+                        "destination_url": row["web_fallback_url"]})
+        (sponsored if row["sponsored"] else organic).append(row)
+    info["catalog"] = len(organic) + len(sponsored)
+    constraints = demand.get("constraints") or {}
+    if str(constraints.get("condition") or "").lower() == "used":
+        info["status"] = "not_applicable"
+        return organic, sponsored, info
+    present = {str(m.get("marketplace") or "") for m in matches}
+    for m in matches:
+        host = ac._host(str(m.get("destination_url") or ""))
+        present.add(ac.detect_platform(f"https://{host}/") if host else "")
+    sites = {pid: (ac.PLATFORMS[pid]["search_host"], ac.PLATFORMS[pid]["name"])
+             for pid, row in settings.items()
+             if ac.PLATFORMS[pid]["search_host"] and row.get("organic_enabled") and pid not in present}
+    info["searched"] = sorted(sites)
+    rows = discovery.fallback.marketplaces(
+        category=str(demand.get("domain") or ""), subject=subject, sites=sites,
+        location_text=str(demand.get("location_text") or "")) if sites else []
+    info["status"] = discovery.fallback.status.get("marketplaces") if sites else "already_present"
+    for pid in sites:
+        found = sum(1 for r in rows if r.get("marketplace") == pid)
+        info["found"][pid] = found
+        try:
+            store.record_health(pid, status=str(info["status"] or ""), results=found, method="web_search")
+        except Exception:
+            pass
+    return organic + rows, sponsored, info
 
 
 def _annotate_benefits(container, matches: list[dict], demand: dict, trace_key: str) -> None:

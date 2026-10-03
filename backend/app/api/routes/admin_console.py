@@ -96,10 +96,10 @@ async function call(path,method="GET",body){const r=await fetch(path.startsWith(
   const t=await r.text();let d;try{d=t?JSON.parse(t):{}}catch(e){d=t}if(!r.ok)throw new Error(typeof d==="object"&&d.detail?(typeof d.detail==="string"?d.detail:JSON.stringify(d.detail)):(t||r.status));return d}
 const can=p=>ME&&ME.permissions.includes(p);
 function badge(s){s=String(s??"");const u=s.toUpperCase();let c="";
-  if(["ACTIVE","LIVE","APPROVED","PAID","CONFIRMED","SETTLED","REDEEMED","RESOLVED","MET","OK","SENT","ENABLED","VERIFIED","ON_TRACK","GREEN","EXECUTED","ON"].includes(u))c="b-ok";
+  if(["IN_STOCK","AFFILIATE","ACTIVE","LIVE","APPROVED","PAID","CONFIRMED","SETTLED","REDEEMED","RESOLVED","MET","OK","SENT","ENABLED","VERIFIED","ON_TRACK","GREEN","EXECUTED","ON"].includes(u))c="b-ok";
   else if(["PENDING_REVIEW","PENDING","TEST","SCHEDULED","EXPECTED","DUE_SOON","IN_PROGRESS","CREATED","CLAIMED","LOCKED","PARTIALLY_REFUNDED","WAITING_FOR_USER","DRAFT","OPEN","ORANGE","PENDING_APPROVAL","PROPOSED","APPROVAL","POSSIBLE"].includes(u))c="b-warn";
-  else if(["ERROR","FAILED","REJECTED","DISPUTED","OVERDUE","BREACHED","REVERSED","BLOCKED","URGENT","CRITICAL","RED","ALERTED","OWNER ONLY","PRIVACY_PAUSED"].includes(u))c="b-bad";
-  else if(["NEEDS_CONFIGURATION","AVAILABLE","HIGH","INFO"].includes(u))c="b-info";
+  else if(["OUT_OF_STOCK","DISABLED","ERROR","FAILED","REJECTED","DISPUTED","OVERDUE","BREACHED","REVERSED","BLOCKED","URGENT","CRITICAL","RED","ALERTED","OWNER ONLY","PRIVACY_PAUSED"].includes(u))c="b-bad";
+  else if(["UNKNOWN","ORGANIC","COMMISSION UNKNOWN","NEEDS_CONFIGURATION","AVAILABLE","HIGH","INFO"].includes(u))c="b-info";
   return '<span class="badge '+c+'">'+esc(s.replace(/_/g," "))+'</span>'}
 const money=v=>{if(v==null)return "—";const n=Number(v);return "₹"+n.toLocaleString("en-IN",Number.isInteger(n)?{}:{minimumFractionDigits:2,maximumFractionDigits:2})};
 const when=v=>v?new Date(v).toLocaleString():"—";
@@ -108,6 +108,7 @@ const when=v=>v?new Date(v).toLocaleString():"—";
 function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.name===n)||{}).label||n,perm:(SCHEMA.resources.find(x=>x.name===n)||{}).permission+":view"});
   return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"},{id:"revcmd",label:"Revenue command center",perm:"revenue:view"}]],
   ["Growth & ads",[{id:"sponsored",label:"Sponsored campaigns",perm:"sponsored:view"},r("affiliate_programs"),r("affiliate_links"),r("smart_links"),{id:"benefits",label:"Offers & coupons",perm:"growth:view"},r("merchant_offers"),{id:"referrals",label:"Referrals",perm:"growth:view"},r("promotion_campaigns")]],
+  ["Affiliate catalog",[{id:"affproducts",label:"Affiliate products",perm:"affiliate_products:view"},{id:"affsources",label:"Affiliate sources",perm:"affiliate_products:view"}]],
   ["Content",[r("videos"),{id:"discovered",label:"Discovered videos",perm:"content:view"},r("creators"),r("video_sources"),r("reviews")]],
   ["Money",[{id:"payments",label:"Payments",perm:"payments:view"},{id:"ledger",label:"Revenue ledger",perm:"finance:view"},{id:"rewards",label:"Rewards ledger",perm:"rewards:view"},{id:"transactions",label:"Transactions",perm:"finance:view"},r("subscription_promos")]],
   ["Customers",[{id:"support",label:"Support tickets",perm:"support:view"},{id:"accounts",label:"Users & accounts",perm:"users:view"},r("notification_templates"),r("notification_rules")]],
@@ -118,7 +119,7 @@ function renderNav(){const counts=STATE.pending||{};document.querySelector("#sid
   return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
 async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
-  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup}[VIEW];await (f||dashboard)()}
+  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources}[VIEW];await (f||dashboard)()}
   catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
 
 /* ---------------------------------------------------------------- auth -- */
@@ -368,6 +369,83 @@ async function setup(){const d=await call("owner/setup");const kv=o=>Object.entr
   '<div class="card"><h3>Referral credit rule</h3>'+(d.credit_rule?esc(d.credit_rule):'<span class="muted">No ACTIVE rule — referrals earn no credits.</span>')+'</div>'+
   '<div class="card"><h3>Integrations</h3>'+d.integrations.map(i=>esc(i.key)+' '+badge(i.status)).join("<br>")+'</div></div>';
   const b=document.querySelector("#seed");if(b)b.onclick=async()=>{const r=await call("owner/seed-staging","POST",{});alert("Created: "+JSON.stringify(r.created));setup()}}
+
+/* ------------------------------------------- affiliate product manager -- */
+const AFP={meesho:"Meesho",amazon:"Amazon",flipkart:"Flipkart",wishlink:"Wishlink",other:"Other"};
+function afWhy(ev){return (ev.reasons||[]).map(r=>r.replace(/_/g," ")).join(", ")}
+async function affproducts(){const s=STATE.af||(STATE.af={q:"",platform:"",stock:"",commission:"",state:""});
+  const d=await call("affiliate-products?"+new URLSearchParams(s));STATE.afcan=d.can;const sm=d.summary;
+  const sel=(k,opts,label)=>'<select onchange="STATE.af.'+k+'=this.value;affproducts()"><option value="">'+label+': any</option>'+opts.map(o=>'<option '+(s[k]===o?"selected":"")+'>'+o+'</option>').join("")+'</select>';
+  const k=(l,v)=>'<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>';
+  document.querySelector("#page").innerHTML=head("Affiliate products","Staff-managed Meesho / Amazon / Flipkart / Wishlink products. Out of stock = not recommended; commission ACTIVE + affiliate link = monetized link, otherwise the normal (organic) link.",
+   '<input placeholder="Search…" value="'+esc(s.q)+'" onchange="STATE.af.q=this.value;affproducts()">'+sel("platform",Object.keys(AFP),"Source")+sel("stock",["IN_STOCK","OUT_OF_STOCK","UNKNOWN"],"Stock")+sel("commission",["ACTIVE","INACTIVE","UNKNOWN"],"Commission")+sel("state",["ACTIVE","DISABLED"],"Result")+
+   '<span class="right"></span>'+(d.can.bulk_import?'<button onclick="affBulk()">Bulk / feed import</button>':'')+(d.can.create?'<button class="p" onclick="affForm()">+ Add product</button>':''))+
+   '<div class="kpis">'+k("Products",sm.total)+k("Shown in results",sm.eligible)+k("Out of stock",sm.out_of_stock)+k("Commission active",sm.commission_active)+k("Affiliate-routed",sm.affiliate_routed)+'</div>'+
+   '<div class="tbl">'+(d.items.length?'<table><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Commission</th><th>Link</th><th>Result</th><th>Last checked</th></tr></thead><tbody>'+
+   d.items.map(i=>'<tr class="r" onclick="affOpen('+i.id+')"><td>'+(i.image_url?'<img src="'+esc(i.image_url)+'" style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px">':'')+'<b>'+esc(i.title)+'</b><div class="muted">'+esc(i.platform_name)+(i.seller?' · '+esc(i.seller):'')+(i.sponsored?' · sponsored':'')+'</div></td>'+
+    '<td>'+money(i.price)+(i.mrp?'<div class="muted"><s>'+money(i.mrp)+'</s>'+(i.discount_percent?' '+i.discount_percent+'% off':'')+'</div>':'')+'</td><td>'+badge(i.stock_status)+'</td><td>'+badge(i.commission_status)+'</td><td>'+badge(i.eligibility.link)+'<div class="muted">routes '+i.eligibility.routing+'</div></td>'+
+    '<td>'+badge(i.eligibility.state)+'<div class="muted">'+esc(afWhy(i.eligibility))+'</div></td><td class="muted">'+when(i.eligibility.last_checked)+'<div>'+esc(i.stock_check_source||i.commission_check_source||"")+'</div></td></tr>').join("")+'</tbody></table>'
+   :'<div class="empty">No products yet.'+(d.can.create?' Use <b>+ Add product</b> or <b>Bulk / feed import</b>.':'')+'</div>')+'</div>'}
+async function affOpen(id){const d=await call("affiliate-products/"+id),i=d.item,c=STATE.afcan||{},ev=i.eligibility;
+  const row=(l,v)=>'<tr><td class="muted" style="width:38%">'+l+'</td><td>'+v+'</td></tr>';
+  const link=u=>u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(String(u).slice(0,48))+'</a>':'<span class="muted">—</span>';
+  const st=(kind,val)=>'<button onclick="affState('+id+',\''+kind+'\',\''+val+'\')">'+val.replace(/_/g," ")+'</button>';
+  drawer(i.title,'<div style="margin-bottom:10px">'+badge(ev.state)+' '+badge(i.stock_status)+' '+badge("commission "+i.commission_status)+' '+badge(ev.link)+'</div>'+
+   (ev.reasons.length?'<div class="card err">Not shown in results: '+esc(afWhy(ev))+'</div>':'')+
+   '<div class="muted" style="margin:6px 0 12px">Opens via the <b>'+ev.routing+'</b> link'+(ev.routing_reasons.length?' ('+esc(ev.routing_reasons.join(", ").replace(/_/g," "))+')':'')+'.</div>'+
+   (i.images.length?'<div style="display:flex;gap:6px;overflow:auto;margin-bottom:10px">'+i.images.map(u=>'<img src="'+esc(u)+'" style="height:70px;border-radius:8px">').join("")+'</div>':'')+
+   '<table>'+row("Source",esc(i.platform_name))+row("Normal URL",link(i.original_product_url))+row("Affiliate URL",link(i.affiliate_url))+row("Price",money(i.price)+(i.mrp?' · MRP '+money(i.mrp):''))+
+   row("Category",esc(i.category)+(i.subcategory?' / '+esc(i.subcategory):''))+row("Sizes / variants",esc(i.variants.join(", "))||"—")+row("Seller",esc(i.seller)||"—")+row("Location / availability",esc([i.location,i.availability].filter(Boolean).join(" · "))||"—")+
+   row("Stock checked",when(i.stock_checked_at)+' '+esc(i.stock_check_source))+row("Commission checked",when(i.commission_checked_at)+' '+esc(i.commission_check_source)+(i.verified_commission_rate!=null?' · '+i.verified_commission_rate+'%':''))+
+   row("Description",esc(i.description)||"—")+row("Added by",esc(i.created_by)+' · '+when(i.created_at))+'</table>'+
+   (c.stock?'<h3 style="margin:14px 0 6px;font-size:14px">Stock</h3>'+["IN_STOCK","OUT_OF_STOCK","UNKNOWN"].map(v=>st("stock",v)).join(""):'')+
+   (c.commission?'<h3 style="margin:14px 0 6px;font-size:14px">Commission</h3>'+["ACTIVE","INACTIVE","UNKNOWN"].map(v=>st("commission",v)).join(""):'')+
+   '<h3 style="margin:18px 0 8px;font-size:14px">History</h3><div class="hist">'+d.history.map(h=>'<div><b>'+esc(h.action)+'</b> by '+esc(h.actor)+' <span class="muted">'+when(h.at)+' · '+esc(h.check_source)+'</span><div class="muted mono">'+esc(Object.entries(h.changes).filter(([k,v])=>v&&typeof v==="object"&&"to" in v).map(([k,v])=>k+": "+(v.from??"—")+" → "+(v.to??"—")).join("; "))+'</div></div>').join("")+'</div><div id="ferr" class="err"></div>',
+   (c.edit?'<button class="p" onclick="affForm('+id+')">Edit</button><button onclick="affToggle('+id+','+(i.active?"'disable'":"'enable'")+')">'+(i.active?"Disable":"Enable")+'</button>':'')+(c.delete?'<button class="d" onclick="affDelete('+id+')">Delete</button>':''))}
+async function affState(id,kind,val){try{await call("affiliate-products/"+id+"/"+kind,"POST",{status:val});await affproducts();await affOpen(id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function affToggle(id,a){try{await call("affiliate-products/"+id+"/"+a,"POST",{});await affproducts();await affOpen(id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function affDelete(id){if(!confirm("Delete this product? It stops showing; its history is kept."))return;try{await call("affiliate-products/"+id+"?confirm=true","DELETE");closeDrawer();affproducts()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+const AFF_FIELDS=[["original_product_url","Normal product URL *"],["platform","Source"],["title","Product name *"],["affiliate_url","Affiliate URL / deep link"],["images","Image URLs (comma separated)"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["category","Category"],["subcategory","Subcategory"],["description","Description"],["variants","Sizes / variants (comma separated)"],["seller","Seller / brand"],["location","Location"],["availability","Availability (e.g. All India)"],["sponsored","Sponsored"],["stock_status","Stock"],["commission_status","Commission"]];
+async function affForm(id){const c=STATE.afcan||{};const i=id?(await call("affiliate-products/"+id)).item:{};
+  const f=([k,l])=>{const v=i[k];let el;
+    if(k==="platform")el='<select id="af_platform">'+Object.entries(AFP).map(([p,n])=>'<option value="'+p+'" '+(v===p?"selected":"")+'>'+n+'</option>').join("")+'</select>';
+    else if(k==="sponsored")el='<select id="af_sponsored"><option value="false">No</option><option value="true" '+(v?"selected":"")+'>Yes</option></select>';
+    else if(k==="stock_status"){if(!c.stock||id)return "";el='<select id="af_stock_status"><option>UNKNOWN</option><option>IN_STOCK</option><option>OUT_OF_STOCK</option></select>'}
+    else if(k==="commission_status"){if(!c.commission||id)return "";el='<select id="af_commission_status"><option>UNKNOWN</option><option>ACTIVE</option><option>INACTIVE</option></select>'}
+    else if(k==="description")el='<textarea id="af_description">'+esc(v||"")+'</textarea>';
+    else el='<input id="af_'+k+'" value="'+esc(Array.isArray(v)?v.join(", "):(v??""))+'"'+(k==="affiliate_url"&&!c.links?' disabled title="Needs the affiliate_products:links permission"':'')+'>';
+    return '<label class="f">'+l+el+'</label>'};
+  drawer(id?"Edit product":"Add product",(id?'':'<div class="muted" style="margin-bottom:8px">Paste the product page URL and press <b>Fetch details</b>: name, images and price are read from the page\'s own metadata where the site allows it. Always check them.</div><button onclick="affExtract()">Fetch details</button><div id="af_note" class="muted" style="margin:6px 0"></div>')+AFF_FIELDS.map(f).join("")+'<div id="ferr" class="err"></div>',
+   '<button class="p" onclick="affSave('+(id||0)+')">Save</button><button onclick="closeDrawer()">Cancel</button>')}
+async function affExtract(){const url=document.querySelector("#af_original_product_url").value.trim();const n=document.querySelector("#af_note");n.textContent="Reading the page…";
+  try{const r=await call("affiliate-products/extract","POST",{url});const fl=r.fields||{};
+    for(const [k,v] of Object.entries(fl)){const el=document.querySelector("#af_"+k);if(el&&v!=null&&v!==""&&!el.disabled)el.value=Array.isArray(v)?v.join(", "):v}
+    const ss=document.querySelector("#af_stock_status");if(ss&&r.suggested_stock)ss.value=r.suggested_stock;n.textContent=r.note+(r.found.length?" Found: "+r.found.join(", "):"")}catch(e){n.textContent=e.message}}
+async function affSave(id){const out={};for(const [k] of AFF_FIELDS){const el=document.querySelector("#af_"+k);if(!el||el.disabled)continue;let v=el.value.trim();
+    if(k==="images"||k==="variants")v=v?v.split(",").map(x=>x.trim()).filter(Boolean):[];else if(k==="price"||k==="mrp")v=v===""?null:Number(v);else if(k==="sponsored")v=v==="true";else if(v==="")v=null;
+    if(!id&&(v===null||(Array.isArray(v)&&!v.length)))continue;out[k]=v}
+  try{const r=id?await call("affiliate-products/"+id,"PATCH",out):await call("affiliate-products","POST",out);await affproducts();affOpen(r.item.id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function affBulk(){const c=STATE.afcan||{};drawer("Bulk / feed import",'<div class="muted">CSV with a header row, e.g.<div class="mono">platform,title,url,affiliate_url,price,original_price,category,stock,commission,image</div>'+
+   '<b>Add / update</b> creates or edits products. <b>Status feed</b> only updates stock / commission / price of products already in the catalog (from a trusted partner feed) and never creates any. Stock, commission and affiliate-link columns need their own permissions.</div>'+
+   '<label class="f">Mode<select id="ab_mode"><option value="upsert">Add / update products</option><option value="status">Status feed (stock / commission / price)</option></select></label>'+
+   '<label class="f">Check source<select id="ab_src"><option value="manual">Manual (staff)</option><option value="feed">Trusted feed</option></select></label>'+
+   '<label class="f">CSV<textarea id="ab_csv" class="mono" style="min-height:180px"></textarea></label><div id="ab_out"></div><div id="ferr" class="err"></div>',
+   '<button onclick="affBulkRun(true)">Check (dry run)</button><button class="p" onclick="affBulkRun(false)">Import</button><button onclick="closeDrawer()">Close</button>')}
+async function affBulkRun(dry){try{const r=await call("affiliate-products/bulk","POST",{csv:document.querySelector("#ab_csv").value,mode:document.querySelector("#ab_mode").value,check_source:document.querySelector("#ab_src").value,dry_run:dry});
+  document.querySelector("#ab_out").innerHTML='<div class="card"><b>'+(dry?"Dry run: ":"")+r.ok+' ok, '+r.failed+' failed</b>'+r.results.filter(x=>!x.ok).map(x=>'<div class="err">Row '+(x.row+1)+': '+esc(x.error)+'</div>').join("")+'</div>';if(!dry)affproducts()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+async function affsources(){const d=await call("affiliate-sources");const manage=can("affiliate:manage")||can("integrations:manage");
+  const yn=(p,k,v)=>manage?'<select onchange="affSrc(\''+p+'\',\''+k+'\',this.value===\'true\')"><option value="true" '+(v?"selected":"")+'>On</option><option value="false" '+(!v?"selected":"")+'>Off</option></select>':badge(v?"ON":"OFF");
+  const pick=(p,k,v,opts)=>manage?'<select onchange="affSrc(\''+p+'\',\''+k+'\',this.value)">'+opts.map(o=>'<option '+(v===o?"selected":"")+'>'+o+'</option>').join("")+'</select>':badge(v);
+  document.querySelector("#page").innerHTML=head("Affiliate sources","One place per provider: organic results, affiliate monetization, data mode, commission state and health. Credentials are never shown here.")+
+   '<div class="card muted" style="margin-bottom:12px">'+esc(d.notes.organic)+'<br>'+esc(d.notes.api)+'</div>'+
+   '<div class="tbl"><table><thead><tr><th>Source</th><th>Organic results</th><th>Affiliate monetization</th><th>Mode</th><th>Commission (source)</th><th>Health</th><th>Catalog</th><th>Tracking / API</th></tr></thead><tbody>'+
+   d.items.map(s=>'<tr><td><b>'+esc(s.name)+'</b><div class="muted">'+(s.organic_search?"web search + staff catalog":"staff catalog only")+'</div></td><td>'+yn(s.platform,"organic_enabled",s.organic_enabled)+'</td><td>'+yn(s.platform,"monetization_enabled",s.monetization_enabled)+'</td>'+
+    '<td>'+pick(s.platform,"mode",s.mode,["manual","feed","api"])+'</td><td>'+pick(s.platform,"commission_state",s.commission_state,["UNKNOWN","ACTIVE","INACTIVE"])+'</td>'+
+    '<td>'+badge(s.health.status)+'<div class="muted">'+(s.health.method?esc(s.health.method)+' · ':'')+'last ok '+when(s.health.last_success_at)+'</div><div class="muted">checked '+when(s.health.last_check_at)+'</div></td>'+
+    '<td>'+s.catalog.products+' products<div class="muted">'+s.catalog.eligible+' shown · '+s.catalog.out_of_stock+' out of stock · '+s.catalog.affiliate_routed+' affiliate</div></td>'+
+    '<td class="muted">'+[s.tracking_template_set?"tracking template":"",s.deep_link_set?"deep link":"",s.api_enabled?"API on":"",s.callback_enabled?"callbacks on":"",s.has_credentials?"credentials stored":""].filter(Boolean).join(", ")+'</td></tr>').join("")+'</tbody></table></div>'+
+   '<div class="muted" style="margin-top:10px">Staff permissions: '+esc(d.items[0].staff_permissions.join(", "))+'. Grant them in Staff &amp; roles (preset <b>affiliate_catalog_staff</b>).</div>'}
+async function affSrc(p,k,v){try{await call("affiliate-sources/"+p,"PUT",{[k]:v});affsources()}catch(e){alert(e.message);affsources()}}
 
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==VIEW&&ME){VIEW=h;renderNav();render()}});
 if(CRED)signIn();else document.querySelector("#login").style.display="block";

@@ -251,9 +251,11 @@ _STORE_HOSTS = ("amazon.in", "flipkart.com", "croma.com", "reliancedigital.in", 
                 "tatacliq.com", "jiomart.com", "bigbasket.com", "meesho.com", "myntra.com", "nykaa.com",
                 "urbancompany.com", "licious.in", "freshtohome.com", "swiggy.com", "zomato.com",
                 "pepperfry.com", "ikea.com/in", "decathlon.in", "samsung.com/in", "lg.com/in", "mi.com/in")
+_STORE_EDITORIAL_PATH = re.compile(r"(//(blog|blogs|stories|news)\.|/(blog|blogs|stories|story|article|articles|news|guides?)/)",
+                                   re.IGNORECASE)
 _PRODUCT_PATH = re.compile(r"/(dp|gp/product|p|product|products|item|buy|listing|ad|ads)/", re.IGNORECASE)
 _ARTICLE_WORDS = re.compile(
-    r"\b(review|reviews|vs\.?|versus|best \d*|top \d+|buying guide|how to|what is|explained|news|"
+    r"\b(review|reviews|vs\.?|versus|best (?!prices?\b|deals?\b|offers?\b|rates?\b)\d*|top \d+|buying guide|how to|what is|explained|news|"
     r"comparison|compared|tips|guide to|blog|opinion|ranked)\b",
     re.IGNORECASE,
 )
@@ -286,10 +288,12 @@ def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
         return PAGE_DIRECTORY
     if _host_matches(url, _LISTING_HOSTS):
         return PAGE_LISTING
+    # A marketplace's own catalogue page ("Buy ... Online at Best Prices |
+    # Amazon.in") is a store page; only its blog / stories pages are articles.
+    if _host_matches(url, _STORE_HOSTS) and not _STORE_EDITORIAL_PATH.search(url):
+        return PAGE_PRODUCT if _PRODUCT_PATH.search(url) else PAGE_STORE
     if _ARTICLE_WORDS.search(str(title or "")):
         return PAGE_ARTICLE
-    if _host_matches(url, _STORE_HOSTS):
-        return PAGE_PRODUCT if _PRODUCT_PATH.search(url) else PAGE_STORE
     if _PRODUCT_PATH.search(url):
         return PAGE_PRODUCT
     if _ARTICLE_WORDS.search(str(snippet or "")[:120]):
@@ -508,35 +512,89 @@ class UniversalOnlineFallbackService:
             self.status["online"] = STATUS_ERROR
             return []
         for row in rows:
-            url = UniversalExternalResultService._http_url(row.get("url"))
-            if not url or _is_video_host(url):
+            item = self._accept(row, len(results), subject=subject, category=category,
+                                location_text=location_text, allow_directories=allow_directories)
+            if item is None:
                 continue
-            title, snippet = row.get("title"), row.get("snippet")
-            if not relevant_to(subject, title, snippet):
-                self._drop("not_relevant")
-                continue
-            if category_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
-                self._drop("other_category")
-                continue
-            if intent_conflict(subject, f"{category} {getattr(self, 'category_hint', '')}", url, title, snippet):
-                self._drop("other_intent")
-                continue
-            if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
-                self._drop("wrong_region")
-                continue
-            page_type = classify_page(url, title, snippet)
-            if page_type not in BUYABLE_PAGES and not (allow_directories and page_type == PAGE_DIRECTORY):
-                self._drop("not_purchasable")  # review / article / forum / video
-                continue
-            item = self._row("online", len(results), title, snippet, url)
-            item["image_url"] = row.get("thumbnail") or None
-            item["source_name"] = row.get("host") or item["provider_id"]
-            item.update(_price_fields(title, snippet))
-            item["page_type"] = page_type
             results.append(item)
             if len(results) >= limit:
                 break
         self.status["online"] = STATUS_OK if results else STATUS_NO_RESULTS
+        return results
+
+    def _accept(self, row: dict[str, Any], index: int, *, subject: str, category: str, location_text: str,
+                allow_directories: bool = False, kind: str = "online") -> dict[str, Any] | None:
+        """One web row through every relevance / category / intent / region /
+        page-kind filter; the result row, or None (counted under ``filtered``)."""
+        url = UniversalExternalResultService._http_url(row.get("url"))
+        if not url or _is_video_host(url):
+            return None
+        title, snippet = row.get("title"), row.get("snippet")
+        if not relevant_to(subject, title, snippet):
+            self._drop("not_relevant")
+            return None
+        hint = f"{category} {getattr(self, 'category_hint', '')}"
+        if category_conflict(subject, hint, url, title, snippet):
+            self._drop("other_category")
+            return None
+        if intent_conflict(subject, hint, url, title, snippet):
+            self._drop("other_intent")
+            return None
+        if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
+            self._drop("wrong_region")
+            return None
+        page_type = classify_page(url, title, snippet)
+        if page_type not in BUYABLE_PAGES and not (allow_directories and page_type == PAGE_DIRECTORY):
+            self._drop("not_purchasable")  # review / article / forum / video
+            return None
+        item = self._row(kind, index, title, snippet, url)
+        item["image_url"] = row.get("thumbnail") or None
+        item["source_name"] = row.get("host") or item["provider_id"]
+        item.update(_price_fields(title, snippet))
+        item["page_type"] = page_type
+        return item
+
+    def marketplaces(self, *, category: str, subject: str, sites: dict[str, tuple[str, str]],
+                     per_site: int = 2, location_text: str = "") -> list[dict[str, Any]]:
+        """Organic results from approved marketplaces (Amazon.in / Flipkart /
+        Meesho ...) through ONE legitimate web-search query restricted to
+        their sites. ``sites`` maps a platform id to (search host, display
+        name). Same filters as ``online``; nothing is invented -- a platform
+        the search engine returns nothing for simply has no row."""
+        subject = " ".join(str(subject or "").split())
+        if not subject or not sites:
+            return []
+        if not self._search_configured:
+            self.status["marketplaces"] = STATUS_UNAVAILABLE
+            return []
+        query = f"{subject} " + " OR ".join(f"site:{host}" for host, _ in sites.values())
+        rows = self._search(query, 20)
+        if getattr(self.web_search, "last_error", False):
+            self.status["marketplaces"] = STATUS_ERROR
+            return []
+        taken: dict[str, int] = {}
+        results: list[dict[str, Any]] = []
+        self.marketplace_hits: dict[str, int] = {platform: 0 for platform in sites}
+        for row in rows:
+            host = _host(str(row.get("url") or ""))
+            platform = next((pid for pid, (site, _) in sites.items()
+                             if host == site or host.endswith("." + site)), None)
+            if platform is None:
+                continue  # the engine ignored the site restriction for this row
+            self.marketplace_hits[platform] += 1
+            if taken.get(platform, 0) >= per_site:
+                continue
+            item = self._accept(row, len(results), subject=subject, category=category,
+                                location_text=location_text, kind="online")
+            if item is None:
+                continue
+            item["id"] = item["match_id"] = f"marketplace-{platform}-{len(results)}"
+            item["marketplace"] = platform
+            item["source_name"] = sites[platform][1]
+            item["routing"] = "organic"
+            results.append(item)
+            taken[platform] = taken.get(platform, 0) + 1
+        self.status["marketplaces"] = STATUS_OK if results else STATUS_NO_RESULTS
         return results
 
     def videos(self, *, category: str, subject: str, limit: int = 4, service: bool = False) -> list[dict[str, Any]]:
