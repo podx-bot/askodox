@@ -112,7 +112,32 @@ class UniversalMatch {
     this.relatedProducts = const [],
     this.relatedServices = const [],
     this.merchantOffer,
+    this.originalPrice,
+    this.discountPercent,
+    this.priceSource,
+    this.stockStatus,
+    this.lastChecked,
+    this.routing,
   });
+
+  /// Original price / MRP when the source legitimately states one
+  /// (staff catalog), with its discount; null otherwise.
+  final double? originalPrice;
+  final int? discountPercent;
+
+  /// Where [price] came from: 'page_text' (web snippet) or 'catalog'
+  /// (staff-entered from the product page, see [lastChecked]).
+  final String? priceSource;
+
+  /// IN_STOCK / OUT_OF_STOCK / UNKNOWN when the source tracks stock.
+  final String? stockStatus;
+
+  /// ISO time the price / stock / commission was last checked.
+  final String? lastChecked;
+
+  /// 'affiliate' or 'organic' link routing (never shown as affiliate
+  /// unless the backend says so).
+  final String? routing;
 
   final String id;
   final String title;
@@ -283,6 +308,12 @@ class UniversalMatch {
           merchantOffer: json['merchant_offer'] is Map
               ? Map<String, Object?>.from(json['merchant_offer'] as Map)
               : null,
+          originalPrice: (json['original_price'] as num?)?.toDouble(),
+          discountPercent: (json['discount_percent'] as num?)?.toInt(),
+          priceSource: json['price_source']?.toString(),
+          stockStatus: json['stock_status']?.toString(),
+          lastChecked: (json['last_checked'] ?? json['price_checked_at'])?.toString(),
+          routing: json['routing']?.toString(),
       );
 
   static List<String> _strings(Object? value) =>
@@ -317,6 +348,12 @@ class UniversalMatch {
         'source_name': sourceName,
         'duration': duration,
         'price_verified': priceVerified,
+        if (originalPrice != null) 'original_price': originalPrice,
+        if (discountPercent != null) 'discount_percent': discountPercent,
+        if (priceSource != null) 'price_source': priceSource,
+        if (stockStatus != null) 'stock_status': stockStatus,
+        if (lastChecked != null) 'last_checked': lastChecked,
+        if (routing != null) 'routing': routing,
         'offer_title': offerTitle,
         'salary_text': salaryText,
         'page_type': pageType,
@@ -433,7 +470,7 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
     // Tracking must never block navigation. The backend stores only a masked user reference.
     try {
       await _client.post<Map<String, Object?>>(
-        '/external/click',
+        '/deals/external/click',
         body: <String, Object?>{
           'provider_id': provider,
           'result_id': match.id,
@@ -602,7 +639,10 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   static List<({String text, String textTe})> _advice(Object? raw) => [
         for (final a in (raw is List ? raw : const []))
-          if (a is Map && '${a['text'] ?? ''}'.isNotEmpty)
+          // The per-result "prices are from web pages" warning is replaced by
+          // ONE small accuracy note under the chat input (older backends
+          // still send it).
+          if (a is Map && '${a['text'] ?? ''}'.isNotEmpty && a['code'] != 'verify_price')
             (text: '${a['text']}', textTe: '${a['text_te'] ?? a['text']}'),
       ];
 

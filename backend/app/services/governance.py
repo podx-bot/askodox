@@ -34,7 +34,8 @@ ORANGE_PERMISSIONS = {
     "users:manage", "revenue:manage", "rewards:manage", "sponsored:manage", "notifications:manage",
     "notifications:approve", "partners:manage", "affiliate:manage", "analytics:export", "support:manage",
     "content:manage", "offers:manage", "growth:manage", "links:manage", "companion:manage", "catalog:manage",
-    "requests:manage",
+    "requests:manage", "affiliate_products:commission", "affiliate_products:links",
+    "affiliate_products:delete",
 }
 
 # Combinations that remove a separation of duties.

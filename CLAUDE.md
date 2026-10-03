@@ -7,13 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `c84928a` — PR #136 (2026-10-03): the signed-in app path
-  (`POST /deals` + `/matches`) sends a REWRITTEN raw_text ("i want to buy X
-  in Y"); the customer's own words live only in `trace.query`, which the
-  backend now reads for videos / requested result groups. Signed MAIN APK
-  1286 (staging mirror verified). Before it: #135 (`85a07c1`, mixed groups
-  + compact same-page results UI), #134 Seller-role search fix, #133
-  signing guard, #131/#132 reconciliation (`docs/PRODUCTION_RECONCILIATION.md`).
+- `main` @ `58c2616` — PR #137 + #138 (2026-10-03): ASKODOX Video Study
+  (`video_study.py`): <=180 s cap (`ASKODOX_VIDEO_STUDY_MAX_SECONDS`), study
+  on request from the YouTube URL / the upload's single analyze_video call,
+  cached per video, grounded Q&A + hallucination guard, external market
+  comparison, Shorts group; app panel in the viewer. Production-proven on
+  real Shorts (probe run 37113361447). Signed MAIN APK 1287 (mirror
+  verified). Before: #136 signed-in path reads `trace.query`, #135 mixed
+  groups + compact UI, #134 Seller-role fix, #133 signing guard.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -85,6 +86,9 @@ this file, don't trust it blindly.
 - Backend tests that only hit `/deals/discover` with the user's words in
   `raw_text` do NOT reproduce the phone: replay the app's real payload
   (rewritten raw_text + `trace.query`) on `POST /deals` + `/matches`.
+- Video Study: only `/api/videos/{id}/study|ask|market` + the attachment
+  path; never study search results automatically (cost). Answers must cite
+  the stored study (fact keys / timestamps) or say "not in this video".
 - Main Chat layout: the latest results turn (`_pinnedResultsTurn`) renders
   ONCE in `_resultContext` above the chat list (bounded height, foldable);
   `_chat` skips that turn's results. Don't render it in the list again.
@@ -165,6 +169,18 @@ this file, don't trust it blindly.
   (aliases in `ENV_ALIASES`), never `os.getenv` directly in a new caller.
 - #128's campaigns live in `social_sponsored_campaigns`; `sponsored_campaigns`
   belongs to `sponsored_repository.py` (rename migration in both).
+- Affiliate Product Manager: `affiliate_catalog.py` + `routes/affiliate_catalog.py`
+  on #127's `affiliate_products` table (columns added by migration; history in
+  `affiliate_product_history`, health in `affiliate_source_health`). Eligibility
+  and affiliate/organic routing are computed on read (never stored); source
+  settings live in the #113 `affiliate_providers` registry via `save_source`
+  (merge, never overwrite). Permissions `affiliate_products:*` (stock /
+  commission / links are separate grants); console views `affproducts` /
+  `affsources`. Catalog rows are `source: online` + `origin: affiliate_catalog`.
+- Marketplaces (Amazon.in / Flipkart / Meesho) come from ONE site-restricted
+  Brave query after local + online (`_marketplace_and_catalog`), never for
+  services, fresh food or used. `classify_page` treats a store host's catalogue
+  page as a store BEFORE the article regex ("Best Prices" used to drop them).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -223,6 +239,11 @@ this file, don't trust it blindly.
   (`ASKODOX_CLICK_TTL_HOURS`); raw events roll up per day after
   `ASKODOX_EVENT_RETENTION_DAYS` (run lazily at most daily -- no cron). No real
   partner is configured.
+- Affiliate catalog: no marketplace product API (Amazon PA-API / Flipkart /
+  Meesho) is connected -- stock / commission change only by staff edits or a
+  feed import; page-metadata extraction often gets blocked by marketplaces.
+  #127's partner registry / staff assignments / BFSI flows and
+  `partner_revenue_events` remain unwired (superseded by Partner Hub).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

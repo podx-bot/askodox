@@ -3430,6 +3430,22 @@ class _AskodoxPrimaryHomeScreenState
             padding: EdgeInsets.zero),
           icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
         ]),
+        // ONE small, global accuracy note (instead of a warning on every
+        // result): shown once results / answers are on screen.
+        if (_active)
+          Padding(
+            key: const Key('askodoxAccuracyNote'),
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              switch (_lang) {
+                'te' => 'ASKODOX తప్పులు చేయవచ్చు. ముఖ్యమైన వివరాలను ఒకసారి తనిఖీ చేయండి.',
+                'hi' => 'ASKODOX से गलती हो सकती है। ज़रूरी जानकारी एक बार जांच लें।',
+                _ => 'ASKODOX can make mistakes. Check important details.',
+              },
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF98A2B3), fontSize: 10.5),
+            ),
+          ),
       ]),
       );
 
@@ -4733,13 +4749,10 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
         : '${match.distanceKm!.toStringAsFixed(1)} km';
     // A price only found in page text is labelled as such, never shown as
     // a confirmed price.
-    final price = match.price == null
-        ? null
-        : match.priceVerified
-            ? '₹${match.price!.toStringAsFixed(0)}'
-            : (_te
-                ? 'పేజీలో ₹${match.price!.toStringAsFixed(0)}'
-                : 'Page mentions ₹${match.price!.toStringAsFixed(0)}');
+    // (Staff-catalog prices carry their MRP / discount and a checked date.)
+    final price = askodoxPriceLabel(match, te: _te);
+    final stock = askodoxStockLabel(match, te: _te);
+    final checked = askodoxCheckedLabel(match, te: _te);
     final score = match.score == null
         ? null
         : (match.score! <= 1 ? match.score! * 100 : match.score!);
@@ -4897,6 +4910,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                         '★ ${match.ratingAverage!.toStringAsFixed(1)} (${match.reviewCount})'),
                   if (distance != null) _meta(distance),
                   if (price != null) _meta(price),
+                  if (stock != null) _meta(stock),
+                  if (checked != null && !compact) _meta(checked),
                   if (match.salaryText?.trim().isNotEmpty == true)
                     _meta(te ? 'జీతం (పేజీ ప్రకారం): ${match.salaryText}' : 'Salary (as listed): ${match.salaryText}'),
                   if (match.offerTitle?.trim().isNotEmpty == true) _meta('🏷 ${match.offerTitle!.trim()}'),
@@ -4906,7 +4921,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                       !(compact && (match.subtitle ?? '').contains(match.locationLabel!.trim())))
                     _meta(match.locationLabel!),
                   // "Unknown" is not a fact worth a chip.
-                  if (match.availability?.trim().isNotEmpty == true &&
+                  if (match.stockStatus == null &&
+                      match.availability?.trim().isNotEmpty == true &&
                       match.availability!.trim().toLowerCase() != 'unknown')
                     _meta(match.availability!),
                     ];
@@ -5129,12 +5145,17 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       if (m.subtitle?.trim().isNotEmpty == true) (te ? 'వివరణ' : 'Description', m.subtitle!.trim()),
       (te ? 'మూలం' : 'Source', [_sourceLabel(m.source), if (m.sourceName?.trim().isNotEmpty == true) m.sourceName!.trim()].join(' · ')),
       if (m.segment?.trim().isNotEmpty == true) (te ? 'రకం' : 'Type', askodoxSegmentLabel(m.segment!)),
-      if (m.price != null)
+      if (m.price != null && m.priceSource == 'catalog')
+        (te ? 'ధర' : 'Price', askodoxPriceLabel(m, te: te)!)
+      else if (m.price != null)
         (te ? 'ధర' : 'Price', '₹${m.price!.toStringAsFixed(0)}${m.priceVerified ? '' : (te ? ' (పేజీలో, నిర్ధారించలేదు)' : ' (from the page, not verified)')}'),
+      if (askodoxStockLabel(m, te: te) != null) (te ? 'స్టాక్' : 'Stock', askodoxStockLabel(m, te: te)!),
+      if (askodoxCheckedLabel(m, te: te) != null) (te ? 'చివరి తనిఖీ' : 'Last checked', askodoxCheckedLabel(m, te: te)!),
       if (m.salaryText?.trim().isNotEmpty == true) (te ? 'జీతం' : 'Salary', m.salaryText!.trim()),
       if (m.distanceKm != null) (te ? 'దూరం' : 'Distance', '${m.distanceKm!.toStringAsFixed(1)} km'),
       if (m.locationLabel?.trim().isNotEmpty == true) (te ? 'ప్రదేశం' : 'Location', m.locationLabel!.trim()),
-      if (m.availability?.trim().isNotEmpty == true) (te ? 'అందుబాటు' : 'Availability', m.availability!.trim()),
+      if (m.stockStatus == null && m.availability?.trim().isNotEmpty == true)
+        (te ? 'అందుబాటు' : 'Availability', m.availability!.trim()),
       if (m.ratingAverage != null) (te ? 'రేటింగ్' : 'Rating', '★ ${m.ratingAverage!.toStringAsFixed(1)} (${m.reviewCount})'),
       if (m.destinationUrl?.trim().isNotEmpty == true) (te ? 'లింక్' : 'Link', m.destinationUrl!.trim()),
       if (m.affiliate || m.disclosure?.trim().isNotEmpty == true)
