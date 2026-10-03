@@ -88,8 +88,8 @@ class UniversalImageService:
         prompt = self._prompt(caption) + (
             "\nThis is a short video. Inspect visual frames and listen to spoken audio. "
             "Return both visual evidence and a spoken transcript when present. "
-            "Keep the user's current request intent separate from observed facts."
-        )
+            "Keep the user's current request intent separate from observed facts.\n"
+        ) + _video_study_schema()
         payload = self._generate_from_media(video_bytes, mime_type, prompt)
         if not payload:
             return None
@@ -451,3 +451,10 @@ class UniversalImageService:
             return float(cleaned)
         except ValueError:
             return None
+
+
+def _video_study_schema() -> str:
+    """The grounded study fields, returned by the SAME video call."""
+    from app.services.video_study import STUDY_SCHEMA
+
+    return "In the same JSON object also return these fields. " + STUDY_SCHEMA

@@ -154,6 +154,7 @@ String askodoxChatLabel(String key, String lang, {int count = 0}) {
 
 const _labels = <String, Map<String, String>>{
   'en': {
+    'video_study_ask': 'Ask ASKODOX about this video',
     'found': 'Found {n} options',
     'found_pick': 'Found {n} options — pick one to continue',
     'no_local': 'No local match yet',
@@ -216,6 +217,7 @@ const _labels = <String, Map<String, String>>{
     'scratch_done': 'Added to your rewards',
   },
   'te': {
+    'video_study_ask': 'ఈ వీడియో గురించి ASKODOXని అడగండి',
     'found': '{n} ఎంపికలు దొరికాయి',
     'found_pick': '{n} ఎంపికలు దొరికాయి — ఒకటి ఎంచుకోండి',
     'no_local': 'ఇంకా స్థానిక ఫలితం లేదు',
@@ -277,6 +279,7 @@ const _labels = <String, Map<String, String>>{
     'scratch_done': 'మీ రివార్డ్స్‌లో చేరింది',
   },
   'hi': {
+    'video_study_ask': 'इस वीडियो के बारे में ASKODOX से पूछें',
     'found': '{n} विकल्प मिले',
     'found_pick': '{n} विकल्प मिले — एक चुनें',
     'no_local': 'अभी कोई स्थानीय विकल्प नहीं',
@@ -338,6 +341,7 @@ const _labels = <String, Map<String, String>>{
     'scratch_done': 'आपके इनामों में जुड़ गया',
   },
   'or': {
+    'video_study_ask': 'ଏହି ଭିଡିଓ ବିଷୟରେ ASKODOXକୁ ପଚାରନ୍ତୁ',
     'found': '{n}ଟି ବିକଳ୍ପ ମିଳିଲା',
     'found_pick': '{n}ଟି ବିକଳ୍ପ ମିଳିଲା — ଗୋଟିଏ ବାଛନ୍ତୁ',
     'no_local': 'ଏପର୍ଯ୍ୟନ୍ତ ସ୍ଥାନୀୟ ବିକଳ୍ପ ନାହିଁ',

@@ -59,6 +59,7 @@ import '../../companion/companion_voice.dart';
 import 'deal_lifecycle_panel.dart';
 import '../data/askodox_video_service.dart';
 import 'video_viewer_screen.dart';
+import 'video_study_panel.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -1284,7 +1285,14 @@ class _AskodoxPrimaryHomeScreenState
               );
           if (job != _attachmentJob || !mounted) return; // cancelled
           facts.add(attachments.length > 1 ? '${attachment.name}: ${result.facts}' : result.facts);
-          sentAttachments.add({'name': attachment.name, 'kind': result.kind, 'id': result.id});
+          final study = result.videoStudy;
+          sentAttachments.add({
+            'name': attachment.name, 'kind': result.kind, 'id': result.id,
+            // A short upload ASKODOX studied: open its grounded Q&A.
+            if (study != null && study['status'] == 'ready' && study['ref'] != null) 'study_ref': '${study['ref']}',
+            if (study != null && study['status'] != 'ready' && '${study['message'] ?? ''}'.isNotEmpty)
+              'study_note': '${study['message']}',
+          });
           lowConfidence = lowConfidence || result.lowConfidence;
           if (result.kind == 'image') imageAnalysis ??= result.analysis;
           if (result.kind == 'video') videoAnalysis ??= result.analysis;
@@ -3084,6 +3092,27 @@ class _AskodoxPrimaryHomeScreenState
             : askodoxChatLabel('found_pick', _lang, count: _latestResults()?.matches.length ?? 0),
       );
 
+  /// An uploaded video's grounded study (fact sheet + Q&A + market +
+  /// next steps); a next step continues in THIS conversation.
+  Future<void> _openUploadStudy(String studyRef) async {
+    final lang = _lang;
+    final result = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (context) => Scaffold(
+        appBar: AppBar(title: Text(askodoxChatLabel('video_study_ask', lang))),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          AskodoxVideoStudyPanel(
+            videoRef: studyRef,
+            lang: lang,
+            onFollow: (ask) => Navigator.of(context).pop('$askodoxVideoFollowUpPrefix$ask'),
+          ),
+        ]),
+      ),
+    ));
+    if (!mounted || result == null || !result.startsWith(askodoxVideoFollowUpPrefix)) return;
+    final ask = result.substring(askodoxVideoFollowUpPrefix.length).trim();
+    if (ask.isNotEmpty) await _send(ask);
+  }
+
   /// A turn's message bubble and its notices.
   List<Widget> _turnHead(int index, ConversationTurnRecord turn, bool te) => [
             Align(
@@ -3128,6 +3157,25 @@ class _AskodoxPrimaryHomeScreenState
                           ),
                         ]),
                       ),
+                    for (final attachment in turn.attachments)
+                      if (attachment['study_ref'] case final studyRef?)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: ActionChip(
+                            key: ValueKey('askodoxUploadStudy-$studyRef'),
+                            avatar: const Icon(Icons.auto_awesome_motion_rounded, size: 16),
+                            label: Text(askodoxChatLabel('video_study_ask', _lang)),
+                            onPressed: () => _openUploadStudy(studyRef),
+                          ),
+                        )
+                      else if (attachment['study_note'] case final note?)
+                        Padding(
+                          key: const Key('askodoxUploadStudyNote'),
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(note,
+                              style: TextStyle(
+                                  fontSize: 12, color: turn.isUser ? Colors.white70 : _muted)),
+                        ),
                     if (turn.text.isNotEmpty)
                       Text(turn.text,
                           style: TextStyle(
@@ -4182,6 +4230,12 @@ class _ChatResultsView extends StatelessWidget {
         match: match,
         compact: compact,
         kind: kind,
+        relatedVideos: chatResultActionFor(match) == ChatResultAction.watchVideo
+            ? [
+                for (final m in results.matches)
+                  if (m.id != match.id && chatResultActionFor(m) == ChatResultAction.watchVideo) m,
+              ]
+            : const [],
         dealId: results.dealId,
         te: te,
         actionable: isActionable(match),
@@ -4334,6 +4388,7 @@ Color _kindColor(AskodoxCompareKind kind) => switch (kind) {
       AskodoxCompareKind.used => const Color(0xFF8A5A00),
       AskodoxCompareKind.surplus => const Color(0xFF00897B),
       AskodoxCompareKind.videos => const Color(0xFFD9344F),
+      AskodoxCompareKind.shorts => const Color(0xFFB0306A),
     };
 
 /// The compact comparison after a request: a row of kind tabs (only the
@@ -4464,8 +4519,12 @@ class _MatchCard extends ConsumerStatefulWidget {
     this.onSupport,
     this.compact = false,
     this.kind,
+    this.relatedVideos = const [],
   });
   final UniversalMatch match;
+
+  /// The other videos in these results (the viewer's Related / Next list).
+  final List<UniversalMatch> relatedVideos;
 
   /// The comparison column this card sits in (its visible label).
   final AskodoxCompareKind? kind;
@@ -4560,7 +4619,12 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
   /// Videos play inside ASKODOX; back returns to this exact chat position.
   Future<void> _openVideo() async {
     final result = await Navigator.of(context).push<String>(MaterialPageRoute(
-      builder: (_) => AskodoxVideoViewerScreen(video: _match, telugu: _te),
+      builder: (_) => AskodoxVideoViewerScreen(
+        video: _match,
+        telugu: _te,
+        lang: ref.read(askodoxReplyLanguageProvider),
+        related: widget.relatedVideos,
+      ),
     ));
     if (result == askodoxVideoAskResult) {
       widget.onAsk?.call();

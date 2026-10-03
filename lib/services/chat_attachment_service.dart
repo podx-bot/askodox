@@ -30,7 +30,12 @@ class ChatAttachmentResult {
     required this.facts,
     required this.analysis,
     this.lowConfidence = false,
+    this.videoStudy,
   });
+
+  /// An uploaded clip's Video Study ({ref, status, eligible, reason,
+  /// message, suggested_questions}); null for other kinds.
+  final Map<String, Object?>? videoStudy;
 
   /// The vision brain answered but was not sure -- the chat must say so and
   /// ask the customer to confirm instead of presenting it as fact.
@@ -184,6 +189,7 @@ class ApiChatAttachmentService implements ChatAttachmentService {
           facts: facts,
           analysis: data['analysis'] is Map ? Map<String, Object?>.from(data['analysis'] as Map) : const {},
           lowConfidence: data['understanding'] is Map && (data['understanding'] as Map)['status'] == 'low_confidence',
+          videoStudy: data['video_study'] is Map ? Map<String, Object?>.from(data['video_study'] as Map) : null,
         );
       }
       final failure = (result as ApiError<Map<String, Object?>>).failure;

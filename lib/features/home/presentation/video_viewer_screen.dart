@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../matching/data/universal_match_repository.dart';
 import '../data/askodox_video_service.dart';
+import 'video_study_panel.dart';
 
 /// What the viewer returns when the user wants to discuss the video.
 const askodoxVideoAskResult = 'ask';
@@ -114,10 +115,18 @@ List<({String action, String label, String ask, String event})> askodoxVideoNext
 /// mounted underneath); the user can ask ASKODOX about the video or pick a
 /// next step, both in the same conversation.
 class AskodoxVideoViewerScreen extends ConsumerStatefulWidget {
-  const AskodoxVideoViewerScreen({super.key, required this.video, this.telugu = false});
+  const AskodoxVideoViewerScreen(
+      {super.key, required this.video, this.telugu = false, this.related = const [], this.lang});
 
   final UniversalMatch video;
   final bool telugu;
+
+  /// Other videos from the same results: shown under the description and
+  /// played with this same in-app viewer.
+  final List<UniversalMatch> related;
+
+  /// The conversation language (te / hi / en); defaults from [telugu].
+  final String? lang;
 
   @override
   ConsumerState<AskodoxVideoViewerScreen> createState() => _AskodoxVideoViewerScreenState();
@@ -126,6 +135,27 @@ class AskodoxVideoViewerScreen extends ConsumerStatefulWidget {
 class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScreen> {
   UniversalMatch get video => widget.video;
   bool get telugu => widget.telugu;
+  String get _lang => widget.lang ?? (telugu ? 'te' : 'en');
+
+  /// Jump-to-timestamp: the embed reloads at this second.
+  int? _start;
+  bool _descriptionOpen = false;
+
+  Uri? _withStart(Uri? uri) {
+    if (uri == null || _start == null) return uri;
+    return uri.replace(queryParameters: {...uri.queryParameters, 'start': '$_start', 'autoplay': '1'});
+  }
+
+  void _openRelated(UniversalMatch other) {
+    Navigator.of(context).pushReplacement(MaterialPageRoute<String>(
+      builder: (_) => AskodoxVideoViewerScreen(
+        video: other,
+        telugu: telugu,
+        lang: widget.lang,
+        related: [video, ...widget.related.where((m) => m.id != other.id)],
+      ),
+    ));
+  }
 
   /// Reviewed (Command Center) videos carry the backend's embed decision;
   /// web-found videos keep the YouTube-or-page behaviour.
@@ -166,7 +196,7 @@ class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScr
   @override
   Widget build(BuildContext context) {
     final url = video.destinationUrl ?? '';
-    final embed = _embed;
+    final embed = _withStart(_embed);
     final label = video.paidPlacementLabel;
     final disclosure = askodoxVideoDisclosure(video.disclosure, telugu: telugu);
     return Scaffold(
@@ -182,7 +212,7 @@ class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScr
             aspectRatio: 16 / 9,
             child: embed != null
                 ? KeyedSubtree(
-                    key: const Key('askodoxVideoEmbed'),
+                    key: ValueKey('askodoxVideoEmbed${_start == null ? '' : '-$_start'}'),
                     child: ref.watch(askodoxVideoEmbedBuilderProvider)(embed),
                   )
                 : Container(
@@ -243,18 +273,86 @@ class _AskodoxVideoViewerScreenState extends ConsumerState<AskodoxVideoViewerScr
                           style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
                   ]),
                 ],
+                // A short preview of the description; the rest on demand, so
+                // the related videos stay visible without scrolling.
                 if (video.subtitle?.trim().isNotEmpty == true) ...[
                   const SizedBox(height: 10),
-                  Text(video.subtitle!, style: const TextStyle(height: 1.35)),
+                  Text(video.subtitle!,
+                      key: const Key('askodoxVideoDescription'),
+                      maxLines: _descriptionOpen ? null : 3,
+                      overflow: _descriptionOpen ? TextOverflow.visible : TextOverflow.ellipsis,
+                      style: const TextStyle(height: 1.35)),
+                  if (video.subtitle!.trim().length > 140 || video.subtitle!.contains('\n'))
+                    TextButton(
+                      key: Key(_descriptionOpen ? 'askodoxVideoDescLess' : 'askodoxVideoDescMore'),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 30)),
+                      onPressed: () => setState(() => _descriptionOpen = !_descriptionOpen),
+                      child: Text(_descriptionOpen
+                          ? (telugu ? 'తక్కువ చూపించు' : 'Show less')
+                          : (telugu ? 'మరింత / వివరణ' : 'More / Description')),
+                    ),
                 ],
-                const SizedBox(height: 16),
-                FilledButton.icon(
+                if (widget.related.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(telugu ? 'సంబంధిత / తదుపరి వీడియోలు' : 'Related / Next videos',
+                      style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF10204A))),
+                  const SizedBox(height: 6),
+                  for (final other in widget.related.take(6))
+                    InkWell(
+                      key: ValueKey('askodoxRelatedVideo-${other.id}'),
+                      onTap: () => _openRelated(other),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 96,
+                              height: 54,
+                              child: other.imageUrl?.trim().isNotEmpty == true
+                                  ? Image.network(other.imageUrl!, fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF10204A)))
+                                  : const ColoredBox(color: Color(0xFF10204A)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(other.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                              Text(
+                                [
+                                  if (other.sourceName?.isNotEmpty == true) other.sourceName!,
+                                  if (other.duration?.isNotEmpty == true) other.duration!,
+                                ].join(' • '),
+                                style: const TextStyle(color: Color(0xFF667085), fontSize: 12),
+                              ),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 12),
+                // ASKODOX Video Study: only for videos up to the study cap;
+                // longer ones play normally with a clear note.
+                AskodoxVideoStudyPanel(
+                  videoRef: video.videoId,
+                  durationSeconds: askodoxDurationSeconds(video.duration),
+                  lang: _lang,
+                  onJump: (seconds) => setState(() => _start = seconds),
+                  onFollow: (ask) {
+                    ref.read(askodoxVideoServiceProvider).track('video_contact', video.videoId);
+                    Navigator.of(context).pop('$askodoxVideoFollowUpPrefix$ask');
+                  },
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
                   key: const Key('askodoxVideoAsk'),
-                  // The ask itself is recorded once, by the backend, when
-                  // the chat asks /api/videos/{id}/explain.
+                  // Back to the same chat with this video as the topic.
                   onPressed: () => Navigator.of(context).pop(askodoxVideoAskResult),
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: Text(telugu ? 'ఈ వీడియో గురించి ASKODOXని అడగండి' : 'Ask ASKODOX about this video'),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: Text(telugu ? 'చాట్‌లో చర్చించండి' : 'Discuss in chat'),
                 ),
                 const SizedBox(height: 12),
                 Wrap(spacing: 8, runSpacing: 8, children: [

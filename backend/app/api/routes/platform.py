@@ -120,6 +120,19 @@ class Platform:
         from app.services.video_content import WebVideoStore
 
         self.web_videos = WebVideoStore(settings.database_path)
+        self._video_study: Any = None
+
+    @property
+    def video_study(self) -> Any:
+        """Grounded short-video study (lazy: one cache, the media brain's client)."""
+        if self._video_study is None:
+            from app.services.video_study import VideoStudyService, VideoStudyStore
+
+            brain = getattr(self.container, "universal_image_service", None)
+            self._video_study = VideoStudyService(
+                VideoStudyStore(self.container.settings.database_path), client=getattr(brain, "client", None),
+                models=tuple(getattr(brain, "GEMINI_IMAGE_MODELS", ()) or ("gemini-3.6-flash", "gemini-3.5-flash")))
+        return self._video_study
 
     def _flag_on(self, key: str) -> bool:
         from app.api.routes.command_center import feature_enabled
@@ -1172,10 +1185,143 @@ def video_explain(video_id: str, body: ExplainBody, request: Request) -> dict:
         if not web:
             raise HTTPException(status_code=404, detail="Video not found") from None
         result = explain_web(web, body.question, language=body.language)
+        # Studied on request: the chat discusses the video from its grounded
+        # study (facts with basis + timestamps), never from the title alone.
+        study = pf.video_study.cached(video_id)
+        if study and study.get("status") == "ready":
+            said = {"te": "విక్రేత చెప్పినది", "hi": "विक्रेता का दावा"}.get(body.language[:2], "seller claim")
+            shown = {"te": "వీడియోలో కనిపించింది", "hi": "वीडियो में दिखा"}.get(body.language[:2], "shown in the video")
+            result = {**result, "analyzed": True, "answer": study.get("summary") or result["answer"],
+                      "from_source": [f"{f['label']}: {f['value']} ({shown if f['basis'] == 'confirmed_from_video' else said})"
+                                      + (f" [{f['timestamp']}]" if f.get("timestamp") else "")
+                                      for f in study.get("facts") or []][:12]}
     user = _optional_user(request)
     pf.repo.record_event("video_ask", video_id=video_id, user_ref=user_ref(user) if user else None,
                          language=body.language, detail={"analyzed": result["analyzed"]})
     return result
+
+
+class StudyBody(BaseModel):
+    language: str = Field(default="en", max_length=8)
+
+
+class StudyAskBody(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+    language: str = Field(default="en", max_length=8)
+
+
+class MarketBody(BaseModel):
+    language: str = Field(default="en", max_length=8)
+    location: dict | None = None
+
+
+def _study_target(request: Request, video_id: str) -> Dict[str, Any]:
+    """A video ASKODOX knows: a web/YouTube result it showed, or an upload it studied."""
+    pf = _pf(request)
+    if video_id.startswith("up_"):
+        study = pf.video_study.store.get(video_id)
+        if not study:
+            raise HTTPException(status_code=404, detail="Video not found")
+        return {"ref": video_id, "source": "upload", "duration": study.get("duration_seconds"), "url": ""}
+    web = pf.web_videos.get(video_id)
+    if not web:
+        raise HTTPException(status_code=404, detail="Video not found")
+    from app.services.video_content import youtube_id
+    from app.services.video_study import duration_seconds
+
+    return {"ref": video_id, "source": "youtube" if youtube_id(web.get("url") or "") else "web",
+            "duration": duration_seconds(web.get("duration")), "url": web.get("url") or "", "web": web}
+
+
+@router.get("/api/videos/{video_id}/study")
+def video_study_status(video_id: str, request: Request, language: str = "en") -> dict:
+    """Eligibility (hard length cap) + the cached study, if any. Cheap: no model call."""
+    from app.services.video_study import eligibility
+
+    target = _study_target(request, video_id)
+    gate = eligibility(target["duration"], language)
+    if target["source"] == "web":
+        gate = {**gate, "eligible": False, "reason": "unsupported_source",
+                "message": "Video Study supports YouTube videos and your own uploads."}
+    study = _pf(request).video_study.cached(video_id)
+    return {"ref": video_id, **gate, "status": (study or {}).get("status") or "none", "study": study}
+
+
+@router.post("/api/videos/{video_id}/study")
+def video_study_run(video_id: str, body: StudyBody, request: Request) -> dict:
+    """Study the video now (only when eligible; cached by video)."""
+    from app.services import rate_limit
+    from app.services.video_study import eligibility, suggested_questions, unavailable_message
+
+    target = _study_target(request, video_id)
+    pf = _pf(request)
+    cached = pf.video_study.cached(video_id)
+    if cached:
+        study = {**cached, "cached": True}
+    elif target["source"] != "youtube":
+        gate = eligibility(target["duration"], body.language)
+        return {"ref": video_id, "status": "not_eligible" if not gate["eligible"] else "unavailable",
+                **gate, "message": gate["message"] or unavailable_message(body.language)}
+    else:
+        rate_limit.check(request, "video_study", limit=6)
+        if not _flag(request, "results.videos"):
+            raise HTTPException(status_code=403, detail="videos switched off")
+        study = pf.video_study.study_youtube(video_id, target["url"], target["duration"], language=body.language)
+    if study.get("status") == "ready":
+        study = {**study, "suggested_questions": suggested_questions(study, body.language)}
+    user = _optional_user(request)
+    pf.repo.record_event("video_study", video_id=video_id, user_ref=user_ref(user) if user else None,
+                         language=body.language, detail={"status": study.get("status"),
+                                                         "cached": bool(study.get("cached"))})
+    return study
+
+
+@router.post("/api/videos/{video_id}/ask")
+def video_study_ask(video_id: str, body: StudyAskBody, request: Request) -> dict:
+    """A grounded answer from the stored study (never re-processes the video)."""
+    from app.services import rate_limit
+    from app.services.video_study import unavailable_message
+
+    rate_limit.check(request, "video_ask", limit=40)
+    _study_target(request, video_id)
+    pf = _pf(request)
+    study = pf.video_study.store.get(video_id)
+    if not study:
+        return {"ref": video_id, "found": False, "status": "not_studied", "answer": unavailable_message(body.language),
+                "facts": [], "timestamps": []}
+    result = pf.video_study.answer(study, body.question, language=body.language)
+    user = _optional_user(request)
+    pf.repo.record_event("video_ask", video_id=video_id, user_ref=user_ref(user) if user else None,
+                         language=body.language, detail={"analyzed": True, "found": result["found"]})
+    return result
+
+
+@router.post("/api/videos/{video_id}/market")
+def video_market(video_id: str, body: MarketBody, request: Request) -> dict:
+    """External market comparison for what the video offers -- through the
+    existing discovery, always labelled external and kept apart from the
+    video's own facts."""
+    from app.api.routes.universal_deals import UniversalDealCreateRequest, discover_results
+    from app.services.video_study import market_comparison, market_subject
+
+    _study_target(request, video_id)
+    pf = _pf(request)
+    study = pf.video_study.store.get(video_id)
+    if not study or study.get("status") != "ready":
+        raise HTTPException(status_code=409, detail="Study the video first")
+    subject = market_subject(study)
+    if not subject:
+        return market_comparison(study, [], body.language)
+    service = study.get("category") == "service"
+    payload = UniversalDealCreateRequest(
+        user_id="", raw_text=f"{subject} price", subject=subject,
+        intent="needService" if service else "buy", category="services" if service else "product",
+        location=body.location or None, trace={"query": f"{subject} price", "source": "video_market"})
+    try:
+        rows = discover_results(payload, request).get("matches") or []
+    except HTTPException:
+        rows = []
+    return market_comparison(study, rows, body.language)
 
 
 @router.get("/api/reviews")

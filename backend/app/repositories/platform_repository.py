@@ -99,7 +99,7 @@ EVENTS = (
     "search", "impression", "result_view", "click", "deep_link", "redirect", "claim", "lead", "order", "payment",
     "redemption", "conversion", "commission", "revenue", "no_match", "abandon", "signup", "join", "referral_invite",
     "referral_signup", "coupon_claim", "coupon_redeem", "reward_claim", "reward_redeem",
-    "video_impression", "video_open", "video_watch_start", "video_watch_complete", "video_ask",
+    "video_impression", "video_open", "video_watch_start", "video_watch_complete", "video_ask", "video_study",
     "video_product_click", "video_service_click", "video_local_search", "video_affiliate_click", "video_contact",
     "support_ticket", "notification_sent", "notification_open",
     # 2026-09-30 Event Stream: the full journey with one vocabulary.
