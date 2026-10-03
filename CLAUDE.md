@@ -7,13 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `c84928a` — PR #136 (2026-10-03): the signed-in app path
-  (`POST /deals` + `/matches`) sends a REWRITTEN raw_text ("i want to buy X
-  in Y"); the customer's own words live only in `trace.query`, which the
-  backend now reads for videos / requested result groups. Signed MAIN APK
-  1286 (staging mirror verified). Before it: #135 (`85a07c1`, mixed groups
-  + compact same-page results UI), #134 Seller-role search fix, #133
-  signing guard, #131/#132 reconciliation (`docs/PRODUCTION_RECONCILIATION.md`).
+- `main` @ `58c2616` — PR #137 + #138 (2026-10-03): ASKODOX Video Study
+  (`video_study.py`): <=180 s cap (`ASKODOX_VIDEO_STUDY_MAX_SECONDS`), study
+  on request from the YouTube URL / the upload's single analyze_video call,
+  cached per video, grounded Q&A + hallucination guard, external market
+  comparison, Shorts group; app panel in the viewer. Production-proven on
+  real Shorts (probe run 37113361447). Signed MAIN APK 1287 (mirror
+  verified). Before: #136 signed-in path reads `trace.query`, #135 mixed
+  groups + compact UI, #134 Seller-role fix, #133 signing guard.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -85,6 +86,9 @@ this file, don't trust it blindly.
 - Backend tests that only hit `/deals/discover` with the user's words in
   `raw_text` do NOT reproduce the phone: replay the app's real payload
   (rewritten raw_text + `trace.query`) on `POST /deals` + `/matches`.
+- Video Study: only `/api/videos/{id}/study|ask|market` + the attachment
+  path; never study search results automatically (cost). Answers must cite
+  the stored study (fact keys / timestamps) or say "not in this video".
 - Main Chat layout: the latest results turn (`_pinnedResultsTurn`) renders
   ONCE in `_resultContext` above the chat list (bounded height, foldable);
   `_chat` skips that turn's results. Don't render it in the list again.
