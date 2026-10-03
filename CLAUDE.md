@@ -182,6 +182,28 @@ this file, don't trust it blindly.
   Brave query after local + online (`_marketplace_and_catalog`), never for
   services, fresh food or used. `classify_page` treats a store host's catalogue
   page as a store BEFORE the article regex ("Best Prices" used to drop them).
+- Universal Advisor = ONE engine (`advisor_engine.py`) configured by schema
+  resources `advisor_questions` / `advisor_rules` (seeded once with editable
+  defaults by `platform()`). Each field has its own state (known /
+  no_preference / unknown); "any" settles only the field just asked. A
+  REQUIRED unanswered question holds final results in the app
+  (`askodoxAdvisorHolds`) unless "show me". A question counts as asked
+  (`_lastAskedQuestion`) only if the reply showed it. Flag `advisor.enabled`.
+- Demand Intelligence reads `pf_events` (`search` carries `local` + budget
+  band; `request` / `seller_accept` / `order` / `order_completed` via
+  `journey_event`). Rules = `demand_alert_rules`; matching reuses
+  `app_demand_broadcast.candidate_providers`; every alert is logged with
+  reasons in `demand_alerts` (cooldown + per-seller daily max, across rules).
+  Sellers read `/api/opportunities`. Flag `demand.alerts`. No cron: instant
+  rules run at most every 10 min after new demand, digests via Run.
+- Auto-responses: `auto_response.py` (approved FAQ only, hours, handoff,
+  masked contacts) hooked into `/debug/deal-message`; sellers self-serve at
+  `/api/business/auto-response`. Flag `autoresponse.enabled`.
+- Bounded settings: `platform_settings` resource + `platform_settings.get`
+  (e.g. `video_study.max_seconds`, 30 s cache). Contact masking: one helper
+  `pii_mask.py`. Deep Video Study only for uploads and REGISTERED sellers'
+  videos (`_registered_video`); external videos are playback only.
+- A local server uses `PODX_DATABASE_PATH` (not DATABASE_PATH).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -245,6 +267,12 @@ this file, don't trust it blindly.
   feed import; page-metadata extraction often gets blocked by marketplaces.
   #127's partner registry / staff assignments / BFSI flows and
   `partner_revenue_events` remain unwired (superseded by Partner Hub).
+- Customer WEB chat does not exist yet: `/website` is a static marketing
+  site; the backend APIs (`/deals/discover`, `/api/advisor/next`,
+  `/api/in-app/assistant`) are web-ready, the Flutter web build is not deployed.
+- Auto-DM on Facebook / Instagram / WhatsApp is NOT built (needs the owner's
+  authorised platform API); auto-responses work inside ASKODOX deal chats only.
+- Feature flags are global booleans (no per-category / role / % rollout).
 - Phase 2 gaps: `service_provider` seller tier not computed, no
   duplicate/spam listing detection, no tier backfill for sellers who
   listed before round 12.

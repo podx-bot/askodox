@@ -40,6 +40,13 @@ def _pf(container):
     return platform(container)
 
 
+def _flag(container, key: str) -> bool:
+    try:
+        return command_center(container).is_enabled(key)
+    except Exception:
+        return True
+
+
 def _log(container) -> di.DemandAlertLog:
     log = getattr(container, "demand_alert_log", None)
     if log is None or log.db_path != container.settings.database_path:
@@ -56,6 +63,8 @@ def advisor_view(container, demand: Dict[str, Any], *, language: str = "en", ask
     try:
         from app.services import platform_settings
 
+        if not _flag(container, "advisor.enabled"):
+            return {"questions": [], "ready": True, "guidance": [], "field_states": {}, "switched_off": True}
         repo = _pf(container).repo
         limit = int(platform_settings.get("advisor.max_questions_per_turn"))
         questions = repo.list("advisor_questions")
@@ -190,6 +199,8 @@ def demand_notify(body: OpportunityAction, request: Request) -> dict:
     principal = _require(request, "demand:notify")
     _require_confirm(body.confirm, "alert matching sellers")
     container = request.app.state.container
+    if not _flag(container, "demand.alerts"):
+        raise HTTPException(status_code=409, detail="Demand alerts are switched off (feature flag demand.alerts)")
     rule, opp = _find(container, body)
     if rule["status"] != "ACTIVE":
         raise HTTPException(status_code=409, detail="Enable the rule before sending alerts with it")
@@ -205,6 +216,8 @@ def demand_notify(body: OpportunityAction, request: Request) -> dict:
 
 def run_rules(container, *, actor: str = "rules", mode: str | None = None) -> Dict[str, Any]:
     summary = {"rules": 0, "opportunities": 0, "sent": 0, "details": []}
+    if not _flag(container, "demand.alerts"):
+        return {**summary, "switched_off": True}
     for rule in _rules(container):
         if mode and (rule["data"].get("mode") or "instant") != mode:
             continue
@@ -476,3 +489,64 @@ def staff_work_queue(request: Request) -> dict:
                       "why": "Only reviewed videos are shown.", "done_when": "No PENDING_REVIEW videos."})
     items.sort(key=lambda i: -i["count"])
     return {"role": principal.get("role"), "items": items}
+
+
+# ------------------------------------------- business auto-response (owner) --
+
+class AutoResponseBody(BaseModel):
+    enabled: bool = False
+    language: str = Field(default="", max_length=12)
+    business_hours: str = Field(default="", max_length=8)
+    faq: Dict[str, str] = Field(default_factory=dict)
+    handoff_words: List[str] = Field(default_factory=list)
+    out_of_hours_reply: str = Field(default="", max_length=500)
+
+
+@router.get("/api/business/auto-response")
+def my_auto_response(request: Request) -> dict:
+    owner = _seller(request)
+    pf = _pf(request.app.state.container)
+    mine = [r for r in pf.repo.list("auto_response_rules", owner_ref=owner)]
+    return {"item": mine[0] if mine else None,
+            "note": "Answers only from your approved FAQ; anything else comes to you. Contact details are "
+                    "shared only after you accept a request."}
+
+
+@router.put("/api/business/auto-response")
+def save_my_auto_response(body: AutoResponseBody, request: Request) -> dict:
+    owner = _seller(request)
+    if len(body.faq) > 50:
+        raise HTTPException(status_code=400, detail="At most 50 approved answers")
+    if body.business_hours and not re.match(r"^\d{1,2}-\d{1,2}$", body.business_hours):
+        raise HTTPException(status_code=400, detail="business_hours: use HH-HH, e.g. 09-21")
+    pf = _pf(request.app.state.container)
+    data = {"name": f"Auto-response {owner[-4:]}", "business_ref": owner, "language": body.language,
+            "business_hours": body.business_hours, "faq": {k[:60]: v[:500] for k, v in body.faq.items()},
+            "handoff_words": [w[:40] for w in body.handoff_words[:30]], "out_of_hours_reply": body.out_of_hours_reply,
+            "knowledge": [], "share_contact": "after_consent"}
+    mine = pf.repo.list("auto_response_rules", owner_ref=owner)
+    if mine:
+        record = pf.resources.update("auto_response_rules", mine[0]["id"], data, actor=owner,
+                                     expected_version=mine[0].get("version"), owner_ref=owner)
+    else:
+        record = pf.resources.create("auto_response_rules", data, actor=owner, owner_ref=owner)
+    want = "ACTIVE" if body.enabled else "DISABLED"
+    if record["status"] != want:
+        record = pf.resources.action("auto_response_rules", record["id"], "enable" if body.enabled else "disable",
+                                     actor=owner, owner_ref=owner)
+    return {"item": record}
+
+
+class AutoPreviewBody(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/api/business/auto-response/preview")
+def preview_my_auto_response(body: AutoPreviewBody, request: Request) -> dict:
+    owner = _seller(request)
+    from app.services import auto_response
+
+    mine = _pf(request.app.state.container).repo.list("auto_response_rules", owner_ref=owner)
+    if not mine:
+        raise HTTPException(status_code=404, detail="Set up your auto-response first")
+    return auto_response.answer(body.message, mine[0]["data"])

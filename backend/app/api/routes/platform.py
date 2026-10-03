@@ -290,16 +290,16 @@ def platform(container: Any) -> Platform:
     if existing is None or existing.repo.db_path != container.settings.database_path:
         existing = Platform(container)
         container.platform = existing
-        from app.services import platform_settings
-
-        repo = existing.repo
-        platform_settings.set_source(lambda: repo.list("platform_settings"))
         try:  # editable defaults for the Universal Advisor (only into an empty resource)
             from app.services.advisor_engine import seed_defaults
 
             seed_defaults(existing.resources)
         except Exception:
             pass
+    from app.services import platform_settings
+
+    repo = existing.repo
+    platform_settings.set_source(lambda: repo.list("platform_settings"), key=repo.db_path)
     return existing
 
 

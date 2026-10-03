@@ -10,14 +10,18 @@ from typing import Any, Callable, Dict, Optional
 from app.services.platform_schema import SETTING_BOUNDS
 
 _SOURCE: Optional[Callable[[], list]] = None
+_SOURCE_KEY: Optional[str] = None
 _CACHE: Dict[str, Any] = {"at": 0.0, "values": {}}
 TTL_SECONDS = 30
 
 
-def set_source(reader: Callable[[], list]) -> None:
-    """``reader`` returns the platform_settings records (the platform repo)."""
-    global _SOURCE
-    _SOURCE = reader
+def set_source(reader: Callable[[], list], key: Optional[str] = None) -> None:
+    """``reader`` returns the platform_settings records (the platform repo);
+    ``key`` identifies the database, so a re-bind is cheap and exact."""
+    global _SOURCE, _SOURCE_KEY
+    if key is not None and key == _SOURCE_KEY and _SOURCE is not None:
+        return
+    _SOURCE, _SOURCE_KEY = reader, key
     _CACHE["at"] = 0.0
 
 

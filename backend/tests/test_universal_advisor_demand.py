@@ -315,3 +315,56 @@ def test_staff_work_queue_shows_only_permitted_work(api):
     assert "support" in keys and "stock_unknown" not in keys
     every = client.get("/admin/cc/staff/work-queue", headers=owner).json()["items"]
     assert all({"what_to_do", "why", "done_when", "where"} <= set(i) for i in every)
+
+
+# ------------------------------------------------------- auto-response --
+
+def test_auto_response_answers_only_from_approved_faq():
+    from datetime import datetime, timezone
+
+    from app.services import auto_response as ar
+
+    rule = {"faq": {"delivery": "We deliver across Vijayawada in 2 days.",
+                    "returns policy": "7-day returns. Call 98765 43210 for pickup."},
+            "business_hours": "09-21", "out_of_hours_reply": "We open at 9 AM."}
+    day = datetime(2026, 10, 3, 6, 0, tzinfo=timezone.utc)   # 11:30 IST
+    night = datetime(2026, 10, 3, 18, 0, tzinfo=timezone.utc)  # 23:30 IST
+    assert ar.answer("Do you deliver to Benz Circle?", rule, at=day)["source"] == "faq:delivery"
+    returns = ar.answer("what is your returns policy", rule, at=day)
+    assert returns["status"] == "answered" and "98765" not in returns["text"], "contacts masked"
+    assert ar.answer("Is the sole leather?", rule, at=day)["status"] == "unknown", "never guessed"
+    assert ar.answer("I want a refund now", rule, at=day)["status"] == "handoff"
+    assert ar.answer("Do you deliver?", rule, at=night) == {"status": "out_of_hours", "text": "We open at 9 AM.",
+                                                            "source": "business_hours"}
+
+
+def test_seller_sets_up_auto_response_and_it_replies_in_deal_chat(api):
+    client, container, owner, pf, _ = api
+    seller = _user(container, "app-seller-auto")
+    assert client.get("/api/business/auto-response").status_code == 401
+    saved = client.put("/api/business/auto-response", headers=seller, json={
+        "enabled": True, "business_hours": "", "faq": {"delivery": "Free delivery in Vijayawada."}})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["item"]["status"] == "ACTIVE"
+    assert client.post("/api/business/auto-response/preview", headers=seller,
+                       json={"message": "Do you deliver?"}).json()["status"] == "answered"
+    # Another seller cannot see it.
+    other = client.get("/api/business/auto-response", headers=_user(container, "app-seller-x")).json()
+    assert other["item"] is None
+    # In a deal chat the buyer's question gets the approved answer, marked as an auto-reply.
+    from app.api.routes.in_app_deal import _auto_reply, _ensure_messages_table
+
+    db = container.database
+    _ensure_messages_table(db)
+    result = _auto_reply(container, db, 991, "app-buyer-auto", "app-seller-auto", "do you deliver to my area?")
+    assert result["status"] == "answered" and result["handoff_to_owner"] is False
+    row = db.fetchone("SELECT * FROM in_app_deal_messages WHERE request_id=991 ORDER BY id DESC LIMIT 1")
+    assert row["message_type"] == "AUTO_REPLY" and row["message_text"].startswith("Auto-reply: Free delivery")
+    unknown = _auto_reply(container, db, 991, "app-buyer-auto", "app-seller-auto", "what colour is it?")
+    assert unknown["status"] == "unknown" and unknown["handoff_to_owner"] is True
+    # Admin kill switch.
+    client.put("/admin/cc/config/autoresponse.enabled", headers=owner, json={"enabled": False, "confirm": True})
+    try:
+        assert _auto_reply(container, db, 991, "app-buyer-auto", "app-seller-auto", "do you deliver?") is None
+    finally:
+        client.put("/admin/cc/config/autoresponse.enabled", headers=owner, json={"enabled": True, "confirm": True})
