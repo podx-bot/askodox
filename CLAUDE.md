@@ -17,7 +17,8 @@ this file, don't trust it blindly.
   per-field manual entry, Auto-DM triggers (internal; external channels
   EXTERNAL_SETUP_REQUIRED), one integration health vocabulary, outcome
   analytics, video page chat bar. Production probe 37147224406 proves the
-  advisor categories, `/chat`, `/api/flags`, inbox auth (401). Before: #140
+  advisor categories, `/chat`, `/api/flags`, inbox auth (401). Signed MAIN
+  APK 1291 (Live Build 37147115883, sha256 4bc78abe…a5b13a). Before: #140
   Universal Advisor v1 + Demand Intelligence (APK 1290).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
