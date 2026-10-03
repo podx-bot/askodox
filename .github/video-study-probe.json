@@ -1,0 +1,8 @@
+{"cases": [
+ {"label": "biryani (Telugu questions)", "ask": "Vijayawada chicken biryani YouTube videos చూపించు", "subject": "chicken biryani",
+  "category": "food", "language": "te",
+  "questions": ["ఈ వీడియోలో ఏ బిర్యానీ చూపించారు?", "ధర ఎంత చెప్పారు?", "ఈ వీడియోను సంక్షిప్తంగా చెప్పండి"]},
+ {"label": "used car (English questions)", "ask": "used Toyota Innova Crysta for sale video", "subject": "used Toyota Innova Crysta",
+  "category": "product", "language": "en",
+  "questions": ["What model is this?", "What price did he say?", "How many kilometres?", "What information is missing?"]}
+]}

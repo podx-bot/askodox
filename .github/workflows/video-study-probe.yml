@@ -1,0 +1,88 @@
+name: Video study probe
+
+# Runtime proof for ASKODOX Video Study against a real backend (production
+# by default): discovery returns real YouTube rows (PR #136 path), then the
+# shortest eligible one is studied ONCE, asked several questions (cached),
+# compared with the market (external, separate), and a > 3 min video is
+# shown to be refused without any study. Prints only public response data.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Backend base URL
+        required: false
+        default: https://podx-ai-connect-production-3279.up.railway.app
+  push:
+    branches-ignore: [main]
+    paths: ['.github/video-study-probe.json', '.github/workflows/video-study-probe.yml']
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Study a real short video end to end
+        env:
+          BASE_URL: ${{ inputs.base_url || 'https://podx-ai-connect-production-3279.up.railway.app' }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          base = os.environ["BASE_URL"].rstrip("/")
+          cfg = json.load(open(".github/video-study-probe.json"))
+
+          def call(method, path, body=None, timeout=150):
+              req = urllib.request.Request(base + path, method=method,
+                  data=None if body is None else json.dumps(body).encode(),
+                  headers={"Content-Type": "application/json", "User-Agent": "ASKODOX-video-probe"})
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      return r.status, json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, {"error": e.read()[:300].decode("utf8", "replace")}
+
+          def secs(d):
+              parts = [int(p) for p in str(d or "").split(":") if p.isdigit()]
+              return sum(v * 60 ** i for i, v in enumerate(reversed(parts))) if parts else None
+
+          for case in cfg["cases"]:
+              print(f"\n===== {case['label']} =====")
+              body = {"user_id": "guest", "raw_text": case["ask"], "intent": "buy", "subject": case["subject"],
+                      "category": case.get("category", "product"),
+                      "location": {"label": "Vijayawada", "latitude": 16.5062, "longitude": 80.648, "radius_km": 10}}
+              code, data = call("POST", "/deals/discover", body)
+              videos = [m for m in data.get("matches") or [] if m.get("match_source") == "video" and m.get("video_id")]
+              print("discover HTTP", code, "| videos:", len(videos), "| group_counts:", data.get("group_counts"))
+              for v in videos:
+                  print(f"  - {v['video_id']} | {v.get('duration')} | {v.get('video_format')} | {v.get('title','')[:70]}")
+              short = sorted([v for v in videos if (secs(v.get("duration")) or 9999) <= 180],
+                             key=lambda v: secs(v.get("duration")))
+              long_ = [v for v in videos if (secs(v.get("duration")) or 0) > 180]
+              if long_:
+                  ref = long_[0]["video_id"]
+                  print("LONG", ref, long_[0].get("duration"), "status:", call("GET", f"/api/videos/{ref}/study")[1])
+                  print("LONG study POST:", call("POST", f"/api/videos/{ref}/study", {"language": "en"})[1])
+              if not short:
+                  print("no video <= 3:00 in these results"); continue
+              ref = short[0]["video_id"]
+              print("STUDY TARGET", ref, short[0].get("duration"), short[0].get("title"))
+              print("status before:", json.dumps(call("GET", f"/api/videos/{ref}/study")[1])[:400])
+              code, study = call("POST", f"/api/videos/{ref}/study", {"language": case.get("language", "en")})
+              print("STUDY HTTP", code, "status:", study.get("status"), "cached:", study.get("cached"),
+                    "category:", study.get("category"), "subject:", study.get("subject"))
+              print("summary:", study.get("summary"))
+              for f in study.get("facts") or []:
+                  print(f"  FACT {f['key']}: {f['value']} [{f['basis']}] @{f.get('timestamp')} :: {f.get('evidence','')[:80]}")
+              print("transcript segments:", len(study.get("transcript") or []), "| missing:", study.get("missing"))
+              print("suggested:", study.get("suggested_questions"))
+              for q in case["questions"]:
+                  code, ans = call("POST", f"/api/videos/{ref}/ask", {"question": q, "language": case.get("language", "en")})
+                  print(f"ASK [{q}] HTTP {code} found={ans.get('found')} ts={ans.get('timestamps')} :: {ans.get('answer')}")
+              code, again = call("POST", f"/api/videos/{ref}/study", {"language": "en"})
+              print("second study call cached:", again.get("cached"))
+              code, market = call("POST", f"/api/videos/{ref}/market", {"language": "en"}, timeout=90)
+              m = (market or {}).get("market") or {}
+              print("MARKET HTTP", code, "| source:", m.get("source"), "| label:", m.get("label"),
+                    "| query:", m.get("query"), "| rows:", len(m.get("rows") or []), "| prices:", m.get("prices"))
+              print("video_facts.asking_price:", (market.get("video_facts") or {}).get("asking_price"))
+          PY

@@ -7,13 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `85a07c1` — PR #135 (2026-10-03): mixed requests return every
-  requested group (group words stripped from the subject; `requested_groups`
-  widen the source plan; responses carry `requested_groups`/`group_counts`)
-  + compact same-page results UI (active results pinned above the chat,
-  "All" = 2 previews/group + View all). Before it: #134 Seller-role search
-  fix (`ece74f2`, APK 1284), #133 signing/versionCode guard, #131/#132
-  production reconciliation + YouTube readiness (`docs/PRODUCTION_RECONCILIATION.md`).
+- `main` @ `c84928a` — PR #136 (2026-10-03): the signed-in app path
+  (`POST /deals` + `/matches`) sends a REWRITTEN raw_text ("i want to buy X
+  in Y"); the customer's own words live only in `trace.query`, which the
+  backend now reads for videos / requested result groups. Signed MAIN APK
+  1286 (staging mirror verified). Before it: #135 (`85a07c1`, mixed groups
+  + compact same-page results UI), #134 Seller-role search fix, #133
+  signing guard, #131/#132 reconciliation (`docs/PRODUCTION_RECONCILIATION.md`).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -82,6 +82,9 @@ this file, don't trust it blindly.
   Flutter caller was updated — this caused a real production outage once
   (round 13 → round 14 hotfix). Grep the whole Flutter app for every
   caller of a route whenever its auth changes.
+- Backend tests that only hit `/deals/discover` with the user's words in
+  `raw_text` do NOT reproduce the phone: replay the app's real payload
+  (rewritten raw_text + `trace.query`) on `POST /deals` + `/matches`.
 - Main Chat layout: the latest results turn (`_pinnedResultsTurn`) renders
   ONCE in `_resultContext` above the chat list (bounded height, foldable);
   `_chat` skips that turn's results. Don't render it in the list again.

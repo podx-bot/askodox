@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-03T07:54:01Z",
+ "generated_at": "2026-10-03T09:10:45Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,18 +7,18 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:b105efdcbe904493",
+   "trace_key": "browse:cfb0d81922264f5b",
    "videos": [
     {
-     "video_id": "yt_ugHQtXHwE2c",
-     "title": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
-     "source_name": "Technology Gyan",
-     "duration": "5:36",
+     "video_id": "yt_cAO6Trmb7as",
+     "title": "Best 43-Inch TVs 2026? We Tested Them ALL!",
+     "source_name": "ClearBuy",
+     "duration": "9:15",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/ugHQtXHwE2c?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/cAO6Trmb7as?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/ugHQtXHwE2c/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
+     "image_url": "https://i.ytimg.com/vi/cAO6Trmb7as/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=cAO6Trmb7as",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -27,7 +27,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "domain": "PRODUCT",
@@ -39,26 +39,26 @@
      "brand": "Samsung",
      "size": "43 inch",
      "subject": "Samsung 43 inch TV",
-     "category": "TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_ugHQtXHwE2c",
+    "video_id": "yt_cAO6Trmb7as",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
-     "Crazy Samsung 4K UHD Crystal TV at 28,990 only : is video mein mene samsung ke 4K UHD tv ki unboxing ki hai aur apna first impressions dia hai to kya ye best samsung tv hai under 30000 mein chaliye jante hai",
-     "#Samsung #samsungtv #Crystal4KTV #collab @SamsungIndia",
-     "* The Devic"
+     "Best 43-Inch TVs 2026? We Tested Them ALL!",
+     "Looking for the best 43-inch TV in India in 2026?",
+     "With so many options between ₹25,000 and ₹40,000, choosing the right 43-inch TV can be confusing.",
+     "LED, QLED, Mini LED, Dolby Vision, AI features and more — every TV sounds great on paper.",
+     "in flipkart big billiondays and amazon gre"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Technology Gyan",
+    "creator": "ClearBuy",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
-    "question": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
+    "url": "https://www.youtube.com/watch?v=cAO6Trmb7as",
+    "question": "Best 43-Inch TVs 2026? We Tested Them ALL!",
     "next": [
      {
       "action": "find_local",
@@ -88,7 +88,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *\"",
+    "question": "Tell me more about \"Best 43-Inch TVs 2026? We Tested Them ALL!\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -166,18 +166,18 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:7804450511834153",
+   "trace_key": "browse:70d1c0bdd1394db3",
    "videos": [
     {
-     "video_id": "yt_ugHQtXHwE2c",
-     "title": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
-     "source_name": "Technology Gyan",
-     "duration": "5:36",
+     "video_id": "yt_cAO6Trmb7as",
+     "title": "Best 43-Inch TVs 2026? We Tested Them ALL!",
+     "source_name": "ClearBuy",
+     "duration": "9:15",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/ugHQtXHwE2c?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/cAO6Trmb7as?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/ugHQtXHwE2c/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
+     "image_url": "https://i.ytimg.com/vi/cAO6Trmb7as/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=cAO6Trmb7as",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -186,7 +186,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "domain": "PRODUCT",
@@ -195,28 +195,29 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
-     "brand": "శామ్‌సంగ్",
-     "size": "43 అంగుళాల",
+     "subject": "Samsung 43 inch TV",
+     "brand": "Samsung",
+     "size": "43 inch",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_ugHQtXHwE2c",
+    "video_id": "yt_cAO6Trmb7as",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
-     "Crazy Samsung 4K UHD Crystal TV at 28,990 only : is video mein mene samsung ke 4K UHD tv ki unboxing ki hai aur apna first impressions dia hai to kya ye best samsung tv hai under 30000 mein chaliye jante hai",
-     "#Samsung #samsungtv #Crystal4KTV #collab @SamsungIndia",
-     "* The Devic"
+     "Best 43-Inch TVs 2026? We Tested Them ALL!",
+     "Looking for the best 43-inch TV in India in 2026?",
+     "With so many options between ₹25,000 and ₹40,000, choosing the right 43-inch TV can be confusing.",
+     "LED, QLED, Mini LED, Dolby Vision, AI features and more — every TV sounds great on paper.",
+     "in flipkart big billiondays and amazon gre"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Technology Gyan",
+    "creator": "ClearBuy",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
-    "question": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
+    "url": "https://www.youtube.com/watch?v=cAO6Trmb7as",
+    "question": "Best 43-Inch TVs 2026? We Tested Them ALL!",
     "next": [
      {
       "action": "find_local",
@@ -246,11 +247,11 @@
     ]
    },
    "ai": {
-    "question": "\"43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "question": "\"Best 43-Inch TVs 2026? We Tested Them ALL!\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ అనుకూలంగా ఉంటుందో లేదో తనిఖీ చేయడానికి వివరాలు చూస్తున్నాను.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు. సాధారణంగా 43 అంగుళాల టీవీకి 5 నుండి 6 అడుగుల వీక్షణ దూరం సరిపోతుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "search_videos"
@@ -320,7 +321,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:804d6e8541e7473f",
+   "trace_key": "browse:5338a24afb614cd3",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -329,7 +330,7 @@
      "duration": "6:20",
      "platform": "youtube",
      "embed_url": "https://www.youtube-nocookie.com/embed/kGG04jkdjxY?playsinline=1&rel=0",
-     "embeddable": null,
+     "embeddable": true,
      "image_url": "https://i.ytimg.com/vi/kGG04jkdjxY/hqdefault.jpg",
      "destination_url": "https://www.youtube.com/watch?v=kGG04jkdjxY",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
@@ -351,6 +352,7 @@
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -500,17 +502,17 @@
       "location_label": null
      },
      {
-      "title": "Redmi (Refurbished) Note 13 Pro 5G (Midnight Black, 8GB RAM, 128GB Storage) : Amazon.in: Electronics",
-      "segment": "used",
+      "title": "Redmi Note 13 Pro+ 5G Dual Sim Smartphone (8GB RAM, 256GB Storage) 6.67 inch 3D Curved AMOLED Display | MediaTek Dimensity 7200-Ultra (Fusion White) | Vijay sal",
+      "segment": "deals",
       "match_source": "online",
-      "source_name": "www.amazon.in",
-      "price": 18549.0,
+      "source_name": "stores.vijaysales.com",
+      "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.amazon.in/Refurbished-Redmi-Midnight-Black-Storage/dp/B0CSBT1HR2",
-      "image_url": "https://imgs.search.brave.com/NKWi5ieEXjD8-1aANlKhMxlCkNlxqwhsszawIjPtA2E/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0cv/MDEvc2hhcmUtaWNv/bnMvcHJldmlld2Rv/aC9hbWF6b24ucG5n",
+      "destination_url": "https://stores.vijaysales.com/vijay-sales-vijayawada-electronics-retail-and-repair-shop-m-g-road-vijayawada-281014/ProductDetails/224948",
+      "image_url": "https://imgs.search.brave.com/Kqmaiof6aZb1BfYvqmy2VdCdOrkjUG3o_eMQyb6ukq0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdG9y/ZXMudmlqYXlzYWxl/cy5jb20vZmlsZXMv/b3V0bGV0L291dGxl/dF9mYWNlYm9va19p/bWFnZXMvb3V0bGV0/X2NvdmVyX3Bob3Rv/LzI4MDUwNi9CYW5u/ZXJfNF9qcGcuanBn",
       "location_label": null
      }
     ]
@@ -521,18 +523,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:a7e3c6e872a249a8",
+   "trace_key": "browse:96bcf32676964523",
    "videos": [
     {
-     "video_id": "yt_STpnN_mLIGo",
-     "title": "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG",
-     "source_name": "Fuel Injected",
-     "duration": "2:11",
+     "video_id": "yt_77aOlpHhpOw",
+     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
+     "source_name": "TheAutoBharat",
+     "duration": "1:00",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/STpnN_mLIGo?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/STpnN_mLIGo/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=STpnN_mLIGo",
+     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -557,18 +559,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_STpnN_mLIGo",
+    "video_id": "yt_77aOlpHhpOw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG"
+     "Tata Nexon Cons: What You Need to Know Before Buying",
+     "Tata Nexon Cons: What You Need to Know Before Buying",
+     "Tata Nexon Cons",
+     "Thinking of buying the Tata Nexon?",
+     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Fuel Injected",
+    "creator": "TheAutoBharat",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=STpnN_mLIGo",
-    "question": "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG",
+    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
     "next": [
      {
       "action": "find_local",
@@ -598,7 +604,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG\"",
+    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -705,7 +711,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:e162b7bfd898429d",
+   "trace_key": "browse:67b1c8b38dbb4f07",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -787,7 +793,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -871,7 +877,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:619ce7515fef402a",
+   "trace_key": "browse:d6c6d5fd90fe4498",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -897,7 +903,7 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
@@ -1036,7 +1042,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:ab22c0d5003b43db",
+   "trace_key": "browse:fb4f73e729624417",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1220,7 +1226,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:9149d2198de24ce4",
+   "trace_key": "browse:d025608280a6420c",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1243,13 +1249,13 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "EVENT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1419,7 +1425,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:483ced34cc61455c",
+   "trace_key": "browse:a8e21259103e4c63",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1620,7 +1626,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:5efc59e21daf4551",
+   "trace_key": "browse:d99809bee8994c51",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1822,7 +1828,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:1d7d6515020043f1",
+   "trace_key": "browse:a1fa6a791fb047b7",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1902,7 +1908,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి సరిపోతుందో లేదో తెలుసుకోవడానికి సరియైన వీడియోలు వెతుకుతున్నాను, ఫలితాలు కింద కనిపిస్తాయి.",
+    "follow_reply": "చిన్న గదికి ఈ సర్వీస్ ప్రొఫైల్ సరిపోతుంది. రివ్యూలు, ఇతర వివరాలు కింద ఫలితాల్లో చూడవచ్చు.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"

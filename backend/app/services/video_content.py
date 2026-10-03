@@ -265,6 +265,7 @@ def enrich_rows(rows: Iterable[Dict[str, Any]], demand: Dict[str, Any], *, store
             "sponsored": bool(paid), "sponsored_label": "Paid promotion" if paid else None,
             "disclosure": PAID_DISCLOSURE if paid else WEB_DISCLOSURE,
             "products": products, "services": services, "analyzed": False,
+            "video_format": row.get("video_format") or ("short" if _short(row) else "video"),
             "image_url": row.get("image_url") or check.get("thumbnail_url")
             or (f"https://i.ytimg.com/vi/{yt}/hqdefault.jpg" if yt else None),
             "source_name": row.get("source_name") or check.get("author_name"),
@@ -276,6 +277,13 @@ def enrich_rows(rows: Iterable[Dict[str, Any]], demand: Dict[str, Any], *, store
                     "category": category, "embeddable": embeddable, "paid_promotion": paid})
         out.append(item)
     return out
+
+
+def _short(row: Dict[str, Any]) -> bool:
+    from app.services.video_study import duration_seconds, is_short
+
+    return is_short(str(row.get("url") or row.get("destination_url") or ""), duration_seconds(row.get("duration")),
+                    str(row.get("title") or ""), str(row.get("snippet") or row.get("subtitle") or ""))
 
 
 def youtube_rows_as_results(rows: List[Dict[str, Any]], subject: str) -> List[Dict[str, Any]]:
@@ -294,6 +302,7 @@ def youtube_rows_as_results(rows: List[Dict[str, Any]], subject: str) -> List[Di
             "image_url": row.get("thumbnail"), "source_name": row.get("creator"), "duration": row.get("duration"),
             "embeddable": row.get("embeddable"), "paid_promotion": row.get("paid_promotion"),
             "video_source": "youtube_data",
+            "video_format": "short" if _short(row) else "video",
         })
     return out
 

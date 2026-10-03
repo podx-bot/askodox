@@ -123,6 +123,22 @@ def analyze_attachment(payload: AttachmentRequest, request: Request) -> dict:
             if scanned:
                 analysis = {**analysis, **scanned, "scanned": True}
     else:
+        if kind == "video":
+            # The hard Video Study cap is checked from the file header BEFORE
+            # any model call: a longer clip stays attached, unstudied.
+            from app.services.video_study import clock, eligibility, mp4_duration_seconds
+
+            duration = mp4_duration_seconds(data)
+            gate = eligibility(duration, payload.language)
+            if not gate["eligible"] and gate["reason"] == "too_long":
+                record = {"id": "att_" + uuid.uuid4().hex[:20], "kind": kind, "mime_type": mime, "size": len(data),
+                          "filename": payload.filename[:120], "sha256": hashlib.sha256(data).hexdigest()}
+                note = f"Video attached ({clock(duration)}), not studied. {gate['message']}"
+                return {"status": "success", "attachment": record,
+                        "analysis": {"not_studied": True, "duration_seconds": int(duration)},
+                        "facts": note, "understanding": {"method": "none", "status": "too_long"},
+                        "video_study": {"ref": None, **gate, "status": "not_eligible"},
+                        "language": payload.language}
         image_service = getattr(container, "universal_image_service", None)
         if image_service is None:
             raise HTTPException(status_code=503, detail=f"{kind} analysis is not available right now")
@@ -151,8 +167,33 @@ def analyze_attachment(payload: AttachmentRequest, request: Request) -> dict:
             )
     except sqlite3.Error:
         pass  # the analysis is still returned; only the reference record failed
-    return {"status": "success", "attachment": record, "analysis": analysis, "facts": facts,
-            "understanding": understanding(kind, analysis, container), "language": payload.language}
+    response = {"status": "success", "attachment": record, "analysis": analysis, "facts": facts,
+                "understanding": understanding(kind, analysis, container), "language": payload.language}
+    if kind == "video":
+        response["video_study"] = _upload_study(container, record["sha256"], analysis, data, payload.language)
+    return response
+
+
+def _upload_study(container: Any, sha256: str, analysis: dict, data: bytes, language: str) -> dict:
+    """The uploaded clip's study, from the SAME model call (no second cost).
+    Only clips within the length cap; unknown length -> not studied."""
+    from app.api.routes.platform import platform
+    from app.services.video_study import eligibility, mp4_duration_seconds, suggested_questions
+
+    duration = mp4_duration_seconds(data)
+    gate = eligibility(duration, language)
+    ref = "up_" + sha256[:20]
+    if not gate["eligible"]:
+        return {"ref": None, **gate, "status": "not_eligible"}
+    try:
+        study = platform(container).video_study.study_from_upload(ref, analysis, duration, language)
+    except Exception:
+        return {"ref": None, **gate, "status": "unavailable"}
+    out = {"ref": ref, **gate, "status": study["status"], "summary": study.get("summary") or "",
+           "facts_count": len(study.get("facts") or [])}
+    if study["status"] == "ready":
+        out["suggested_questions"] = suggested_questions(study, language)
+    return out
 
 
 def understanding(kind: str, analysis: dict, container: Any) -> dict:

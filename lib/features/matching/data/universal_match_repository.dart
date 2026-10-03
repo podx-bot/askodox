@@ -106,6 +106,7 @@ class UniversalMatch {
     this.videoId,
     this.embedUrl,
     this.videoPlatform,
+    this.videoFormat,
     this.relationship,
     this.videoAnalyzed = false,
     this.relatedProducts = const [],
@@ -189,6 +190,9 @@ class UniversalMatch {
   final String? videoId;
   final String? embedUrl;
   final String? videoPlatform;
+
+  /// 'short' for a confidently identified YouTube Short, else 'video'.
+  final String? videoFormat;
   final String? relationship;
   final bool videoAnalyzed;
   final List<String> relatedProducts;
@@ -271,6 +275,7 @@ class UniversalMatch {
           videoId: json['video_id']?.toString(),
           embedUrl: json['embed_url']?.toString(),
           videoPlatform: json['platform']?.toString(),
+          videoFormat: json['video_format']?.toString(),
           relationship: json['relationship']?.toString(),
           videoAnalyzed: json['analyzed'] == true,
           relatedProducts: _strings(json['products']),
@@ -323,6 +328,7 @@ class UniversalMatch {
         if (videoId != null) 'video_id': videoId,
         if (embedUrl != null) 'embed_url': embedUrl,
         if (videoPlatform != null) 'platform': videoPlatform,
+        if (videoFormat != null) 'video_format': videoFormat,
         if (relationship != null) 'relationship': relationship,
         if (videoAnalyzed) 'analyzed': true,
         if (relatedProducts.isNotEmpty) 'products': relatedProducts,
