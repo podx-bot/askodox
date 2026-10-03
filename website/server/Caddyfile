@@ -1,0 +1,54 @@
+# ASKODOX website server. Static files built by build.py at container start.
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:{$PORT:8080} {
+	root * /srv/site
+	encode zstd gzip
+
+	# www -> apex (only when www.askodox.com is attached to this service)
+	@www host www.askodox.com
+	redir @www https://askodox.com{uri} 308
+
+	handle /health {
+		respond "ok" 200
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		X-Frame-Options "DENY"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	# CSP header and /go/<slug> partner redirects (generated from config)
+	import /srv/generated.caddy
+
+	@hashed path /static/css/* /static/js/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@assets path /static/fonts/* /static/img/* /favicon.svg /favicon-32.png /apple-touch-icon.png /icon-*.png
+	header @assets Cache-Control "public, max-age=604800"
+	@pages not path /static/*
+	header @pages Cache-Control "public, max-age=300, must-revalidate"
+
+	file_server
+
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		handle @notfound {
+			rewrite * /404.html
+			file_server {
+				status 404
+			}
+		}
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}

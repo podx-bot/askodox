@@ -1,0 +1,6 @@
+dist
+tools
+__pycache__
+*.pyc
+README.md
+tests
