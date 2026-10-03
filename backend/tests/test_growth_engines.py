@@ -268,7 +268,7 @@ def test_advice_is_contextual_short_and_never_constant():
     assert health[0]["code"] == "health_emergency" and "108" in health[0]["text"]
     assert "cardiologist" in health[1]["text"] and "can't diagnose" in health[1]["text"]
     used = advise({"subject": "used bike"}, [{"price": 30000, "price_verified": False}], need_kind="product")
-    assert [a["code"] for a in used] == ["inspect_used", "verify_price"]
+    assert [a["code"] for a in used] == ["inspect_used"], "no repeated web-price warning"
     spread = advise({"subject": "fridge"}, [{"price": 20000}, {"price": 30000}], need_kind="product")
     assert spread[0]["code"] == "price_spread"
     assert all(len(advise({"subject": s, "quantity": 20}, [], need_kind="service")) <= 2

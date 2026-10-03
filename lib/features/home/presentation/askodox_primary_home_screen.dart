@@ -3430,6 +3430,22 @@ class _AskodoxPrimaryHomeScreenState
             padding: EdgeInsets.zero),
           icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
         ]),
+        // ONE small, global accuracy note (instead of a warning on every
+        // result): shown once results / answers are on screen.
+        if (_active)
+          Padding(
+            key: const Key('askodoxAccuracyNote'),
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              switch (_lang) {
+                'te' => 'ASKODOX తప్పులు చేయవచ్చు. ముఖ్యమైన వివరాలను ఒకసారి తనిఖీ చేయండి.',
+                'hi' => 'ASKODOX से गलती हो सकती है। ज़रूरी जानकारी एक बार जांच लें।',
+                _ => 'ASKODOX can make mistakes. Check important details.',
+              },
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF98A2B3), fontSize: 10.5),
+            ),
+          ),
       ]),
       );
 

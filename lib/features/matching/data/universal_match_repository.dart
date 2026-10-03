@@ -602,7 +602,10 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
 
   static List<({String text, String textTe})> _advice(Object? raw) => [
         for (final a in (raw is List ? raw : const []))
-          if (a is Map && '${a['text'] ?? ''}'.isNotEmpty)
+          // The per-result "prices are from web pages" warning is replaced by
+          // ONE small accuracy note under the chat input (older backends
+          // still send it).
+          if (a is Map && '${a['text'] ?? ''}'.isNotEmpty && a['code'] != 'verify_price')
             (text: '${a['text']}', textTe: '${a['text_te'] ?? a['text']}'),
       ];
 

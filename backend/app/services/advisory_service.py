@@ -67,11 +67,10 @@ def advise(demand: dict[str, Any], matches: list[dict[str, Any]], *, need_kind: 
         add("inspect_used", "Inspect it in person and ask for the bill/warranty before paying for a used item.",
             "పాత వస్తువుకు చెల్లించే ముందు చూసి, బిల్లు/వారంటీ అడగండి.", "risk")
 
-    # Prices only from web page text.
+    # Prices only from web page text: no repeated warning here -- each card
+    # marks a page price and shows when it was last checked, and the app
+    # carries ONE small accuracy note under the chat input.
     priced = [m for m in matches if _num(m.get("price"))]
-    if priced and all(m.get("price_verified") is False for m in priced):
-        add("verify_price", "Prices shown come from web pages and may be outdated -- confirm the final price before paying.",
-            "చూపిన ధరలు వెబ్ పేజీల నుండి -- చెల్లించే ముందు తుది ధర నిర్ధారించుకోండి.", "cost")
 
     # Cheapest vs next: the difference is worth a look.
     verified = sorted((_num(m.get("price")), m) for m in priced if m.get("price_verified") is not False)
