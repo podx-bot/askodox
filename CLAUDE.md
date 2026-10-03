@@ -7,10 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `c2ae7d4` — PR #109 (3D friend expressions/gestures/lip-sync, one
-  native bridge, location follows the phone, universal clarification and
-  grounding), merged 2026-09-28. Previous: #108 (`c70eabd`) widget_test fix,
-  #107 (`c2c7526`), #106 (`d95e2d2`).
+- `main` @ `5eb456a` — PR #131 production reconciliation (Command Center
+  branch + #113–#130 + website #111/#112 + YouTube readiness fix), merged
+  2026-10-03; it also closed #110 (already an ancestor). Report:
+  `docs/PRODUCTION_RECONCILIATION.md`. Previous: #130 (`d69791d`), #109 (`c2ae7d4`).
+- Railway: production env → podx-ai-connect from `main` (no custom domain,
+  `podx-ai-connect-production-3279.up.railway.app`); staging env →
+  `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
+  variables + volume; askodox.com → askodox-website (root `/website`), still on
+  branch `claude/askodox-website` until switched to `main`.
 - Android Live Build #253 on `c2ae7d4`: PASS, in-app update published.
   Real phone: current place named "Uyyuru" (location naming verified).
 - Sprint status: NOT complete. NOT yet verified: real Brave/Maps/Routes/
@@ -147,6 +152,10 @@ this file, don't trust it blindly.
   country are filtered (`place_region_mismatch`, `region_mismatch`).
 - Account deletion revokes earlier tokens via
   `session_tokens.set_revocation_check` (table `account_deletions`).
+- Deployment keys: read through `commerce_finance.env_value` / `youtube_api_key`
+  (aliases in `ENV_ALIASES`), never `os.getenv` directly in a new caller.
+- #128's campaigns live in `social_sponsored_campaigns`; `sponsored_campaigns`
+  belongs to `sponsored_repository.py` (rename migration in both).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
