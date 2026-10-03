@@ -1062,7 +1062,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     usage_before = external_call_budget.usage_snapshot()
     matches = list(matches or [])
     existing_ids = {str(item.get("id")) for item in matches}
-    flags = _result_flags(container)
+    flags = _result_flags(container, demand)
     errors: list[str] = []
     affiliate_rows: list[dict] = []
     affiliate_config = getattr(container, "affiliate_provider_config", None)
@@ -1622,13 +1622,21 @@ def _url_key(url) -> str:
     return text.replace("https://", "").replace("http://", "").removeprefix("www.")
 
 
-def _result_flags(container) -> dict[str, bool]:
+def _result_flags(container, demand: dict | None = None) -> dict[str, bool]:
+    """Global flags with Command Center targeting (category / role / platform /
+    location / %) applied for this request."""
     try:
-        from app.api.routes.command_center import command_center
+        from app.services import flag_targeting
 
-        return command_center(container).flags_map()
+        ctx = flag_targeting.context_for_demand(demand or {})
+        return flag_targeting.effective(container, ctx)
     except Exception:
-        return {}
+        try:
+            from app.api.routes.command_center import command_center
+
+            return command_center(container).flags_map()
+        except Exception:
+            return {}
 
 
 def _result_allowed(item: dict, flags: dict[str, bool]) -> bool:

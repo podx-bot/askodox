@@ -409,9 +409,14 @@ def _auto_reply(container, db, request_id: int, party_a: str, party_b: str, body
         if not _flag_on(container, "autoresponse.enabled"):
             return None
         pf = platform(container)
-        rule = auto_response.rule_for(pf.repo.list("auto_response_rules"), party_b)
+        rule = auto_response.rule_for(pf.repo.list("auto_response_rules"), party_b, message=body)
         if rule is None:
             return None
+        blocked = auto_response_limit(pf, rule, party_a)
+        if blocked:
+            pf.repo.record_event("auto_response", detail={"status": "limited", "rule": rule.get("_id"),
+                                                          "reason": blocked})
+            return {"status": "limited", "source": blocked, "text": None, "handoff_to_owner": True}
         result = auto_response.answer(body, rule)
         if result["text"]:
             label = "Auto-reply" if result["status"] == "answered" else "Auto-reply (outside business hours)"
@@ -424,11 +429,34 @@ def _auto_reply(container, db, request_id: int, party_a: str, party_b: str, body
                 (request_id, party_a, party_b, party_b, f"{label}: {result['text']}"),
             )
         pf.repo.record_event("auto_response", detail={"status": result["status"], "rule": rule.get("_id"),
-                                                      "source": result["source"]})
+                                                      "source": result["source"], "customer": _cust(party_a),
+                                                      "trigger": "any_message", "sent": bool(result["text"])})
         return {"status": result["status"], "source": result["source"],
                 "text": result["text"], "handoff_to_owner": result["status"] != "answered"}
     except Exception:
         return None
+
+
+def _cust(user_id: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(f"auto:{user_id}".encode()).hexdigest()[:16]
+
+
+def auto_response_limit(pf, rule: dict, customer: str):
+    """Daily / per-customer caps of one rule (counted from today's events, India day)."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.services import auto_response
+
+    if not (rule.get("daily_limit") or rule.get("per_customer_daily_limit")):
+        return None
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    since = (ist.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(hours=5, minutes=30)).isoformat()
+    sent = [e for e in pf.repo.events(event="auto_response", since=since, limit=100000)
+            if (e.get("detail") or {}).get("rule") == rule.get("_id") and (e.get("detail") or {}).get("sent")]
+    mine = [e for e in sent if (e.get("detail") or {}).get("customer") == _cust(customer)]
+    return auto_response.within_limits(rule, sent_today=len(sent), sent_to_customer_today=len(mine))
 
 
 def _flag_on(container, key: str) -> bool:

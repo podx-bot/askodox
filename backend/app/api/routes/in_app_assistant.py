@@ -286,6 +286,9 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
         # The in-app AI answered first; the ticket records that it tried.
         "ai_attempted": any(turn.role != "user" for turn in payload.conversation),
     }
+    from app.services import support_handoff
+
+    context["handoff"] = support_handoff.build(issue=payload.issue, category=payload.category, context=context)
     case = _support_repository(container).create(
         _optional_app_user(request), payload.issue, payload.category, payload.critical, context
     )
@@ -303,7 +306,8 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
             )
         except Exception:
             pass
-    return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels(case.get("id"))}
+    return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels(case.get("id")),
+            "summary": context["handoff"]["summary"]}
 
 
 @router.get("/support/cases")

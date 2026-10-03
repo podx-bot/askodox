@@ -39,7 +39,7 @@ class ResourceService:
                 raise ps.SchemaError(f"{spec.name}: unknown {spec.ref} {value}")
 
     def _unique(self, res: ps.Resource, data: Dict[str, Any], record_id: str | None = None) -> None:
-        unique = {"smart_links": "slug", "notification_templates": "key"}.get(res.name)
+        unique = {"smart_links": "slug", "notification_templates": "key", "advisor_categories": "key"}.get(res.name)
         if not unique:
             return
         value = str(data.get(unique) or "").lower()

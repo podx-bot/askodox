@@ -63,18 +63,21 @@ def advisor_view(container, demand: Dict[str, Any], *, language: str = "en", ask
     try:
         from app.services import platform_settings
 
-        if not _flag(container, "advisor.enabled"):
+        from app.services import flag_targeting
+
+        if not flag_targeting.enabled(container, "advisor.enabled", flag_targeting.context_for_demand(demand)):
             return {"questions": [], "ready": True, "guidance": [], "field_states": {}, "switched_off": True}
         repo = _pf(container).repo
         limit = int(platform_settings.get("advisor.max_questions_per_turn"))
-        questions = repo.list("advisor_questions")
-        if not platform_settings.get("advisor.ask_budget"):
-            questions = [q for q in questions if (q.get("data") or {}).get("field") != "budget"]
-        view = advisor_engine.advise(demand, questions, repo.list("advisor_rules"), language=language,
-                                     limit=limit, asked=asked, show_now=show_now)
+        skip = () if platform_settings.get("advisor.ask_budget") else ("budget",)
+        view = advisor_engine.advise(demand, repo.list("advisor_questions"), repo.list("advisor_rules"),
+                                     language=language, limit=limit, asked=asked, show_now=show_now,
+                                     category_records=repo.list("advisor_categories"), skip_fields=skip)
+        category = (view.get("category") or {}).get("key") or str(demand.get("domain") or "")
         for q in view["questions"]:
-            repo.record_event("advisor_question_asked", category=str(demand.get("domain") or "")[:60],
-                              detail={"field": q["field"], "question_id": q.get("id"), "required": q["required"]})
+            repo.record_event("advisor_question_asked", category=category[:60],
+                              detail={"field": q["field"], "question_id": q.get("id"), "required": q["required"],
+                                      "matched_by": (view.get("category") or {}).get("matched_by")})
         return view
     except Exception as error:  # the advisor never breaks discovery
         return {"questions": [], "ready": True, "guidance": [], "field_states": {},
@@ -104,7 +107,8 @@ def advisor_next(body: AdvisorNextRequest, request: Request) -> dict:
     from app.services import rate_limit
 
     rate_limit.check(request, "advisor_next", limit=60)
-    demand = {"side": "NEED", "domain": (body.category or "").upper(), "subject": body.subject or body.raw_text,
+    demand = {"side": "NEED", "domain": (body.category or "").upper(), "category": body.category or "",
+              "subject": body.subject or body.raw_text,
               "raw_text": body.raw_text, "price": body.price,
               "constraints": {"dynamic_fields": dict(body.dynamic_fields or {})}}
     return advisor_view(request.app.state.container, demand, language=body.language, asked=body.asked,
@@ -123,11 +127,18 @@ def advisor_preview(body: AdvisorPreviewRequest, request: Request) -> dict:
     """'Why did ASKODOX ask this question?' -- the same decision, explained."""
     _require(request, "advisor:view")
     repo = _pf(request.app.state.container).repo
-    demand = {"side": "NEED", "domain": body.category.upper(), "subject": body.text, "raw_text": body.text,
+    demand = {"side": "NEED", "domain": body.category.upper(), "category": body.category, "subject": body.text,
+              "raw_text": body.text,
               "constraints": {"dynamic_fields": dict(body.known or {})}}
     view = advisor_engine.advise(demand, repo.list("advisor_questions"), repo.list("advisor_rules"),
-                                 language=body.language, limit=3)
-    view["explanation"] = [
+                                 language=body.language, limit=3, category_records=repo.list("advisor_categories"))
+    cat = view.get("category")
+    view["explanation"] = ([
+        f"Category '{cat['label']}' ({cat['key']}) -- matched by {cat['matched_by'].replace('_', ' ')} "
+        f"'{cat['alias']}'; required: {', '.join(cat['required_fields']) or 'none'}; optional: "
+        f"{', '.join(cat['optional_fields']) or 'none'}"] if cat else
+        ["No advisor category matched -- only legacy keyword questions can apply."])
+    view["explanation"] += [
         f"'{q['question']}' -- fills '{q['field']}' ({'required' if q['required'] else 'optional'}); "
         f"{q['why'] or 'configured for this category'}" for q in view["questions"]]
     view["explanation"] += [f"'{f}' already {state.replace('_', ' ')} -- not asked again"
@@ -272,8 +283,9 @@ def maybe_run_instant_rules(container) -> None:
 @router.get("/admin/cc/demand/alerts")
 def demand_alerts(request: Request, opportunity_key: str = "", limit: int = 200) -> dict:
     _require(request, "demand:view")
-    return {"items": _log(request.app.state.container).listing(limit=max(1, min(limit, 1000)),
-                                                                opportunity_key=opportunity_key)}
+    log = _log(request.app.state.container)
+    return {"items": log.listing(limit=max(1, min(limit, 1000)), opportunity_key=opportunity_key),
+            "summary": log.summary()}
 
 
 # --------------------------------------------- seller opportunities (Party B) --
@@ -284,39 +296,73 @@ def _seller(request: Request) -> str:
     return _authenticated_app_user(request)
 
 
+_CONSENT_NOTE = {
+    "en": "Customers' names and numbers are never shared. Accepting tells ASKODOX you can serve this demand: "
+          "your listing is shown to matching customers, and a customer contacts you only if they choose to.",
+    "te": "కస్టమర్ల పేర్లు, నంబర్లు ఎప్పుడూ పంచుకోబడవు. అంగీకరిస్తే మీ లిస్టింగ్ సరిపోయే కస్టమర్లకు చూపబడుతుంది; "
+          "కస్టమర్ కోరుకుంటేనే మిమ్మల్ని సంప్రదిస్తారు.",
+    "hi": "ग्राहकों के नाम और नंबर कभी साझा नहीं होते। स्वीकार करने पर आपकी लिस्टिंग मिलते-जुलते ग्राहकों को दिखेगी; "
+          "ग्राहक चाहें तभी आपसे संपर्क करेंगे।",
+}
+
+
+def _opportunity_view(alert: Dict[str, Any], language: str) -> Dict[str, Any]:
+    text = di.alert_text({"searches": alert["searches"], "subject": alert["subject"], "area": alert["area"],
+                          "budget_band": alert["budget_band"]}, language[:2])
+    return {"id": alert["id"], "subject": alert["subject"], "category": alert.get("category") or "",
+            "area": alert["area"], "searches": alert["searches"], "budget_band": alert["budget_band"],
+            "sent_at": alert["sent_at"], "expires_at": alert.get("expires_at"), "opened_at": alert["opened_at"],
+            "responded_at": alert.get("responded_at"), "fulfilled_at": alert.get("fulfilled_at"),
+            "response": alert["response"], "status": alert["lifecycle"],
+            "can_respond": alert["lifecycle"] in ("new", "opened"),
+            "can_fulfil": alert["lifecycle"] == "accepted", **text}
+
+
 @router.get("/api/opportunities")
 def my_opportunities(request: Request, language: str = "en") -> dict:
     """Demand relevant to what this seller offers. Aggregate only: how many
-    customers, what, where, budget band -- never who."""
+    customers, what, where (area only), budget band -- never who."""
     seller = _seller(request)
-    items = []
-    for alert in _log(request.app.state.container).for_recipient(seller):
-        text = di.alert_text({"searches": alert["searches"], "subject": alert["subject"], "area": alert["area"],
-                              "budget_band": alert["budget_band"]}, language[:2])
-        items.append({"id": alert["id"], "subject": alert["subject"], "area": alert["area"],
-                      "searches": alert["searches"], "budget_band": alert["budget_band"], "sent_at": alert["sent_at"],
-                      "opened_at": alert["opened_at"], "response": alert["response"], **text})
-    return {"items": items}
+    items = [_opportunity_view(a, language) for a in _log(request.app.state.container).for_recipient(seller)]
+    counts: Dict[str, int] = {}
+    for item in items:
+        counts[item["status"]] = counts.get(item["status"], 0) + 1
+    return {"items": items, "counts": counts, "privacy": _CONSENT_NOTE.get(language[:2], _CONSENT_NOTE["en"])}
 
 
 class OpportunityResponse(BaseModel):
-    response: str = Field(default="interested", pattern="^(interested|not_relevant|added_offer)$")
+    response: str = Field(default="interested",
+                          pattern="^(interested|not_relevant|added_offer|accepted|declined)$")
+    reason: str = Field(default="", max_length=120)
 
 
 @router.post("/api/opportunities/{alert_id}/{action}")
-def respond_opportunity(alert_id: int, action: str, request: Request, body: OpportunityResponse | None = None) -> dict:
-    if action not in {"open", "respond"}:
+def respond_opportunity(alert_id: int, action: str, request: Request, body: OpportunityResponse | None = None,
+                        language: str = "en") -> dict:
+    """open / respond (accept = interested, decline = not_relevant + reason) / fulfil."""
+    if action not in {"open", "respond", "accept", "decline", "fulfil"}:
         raise HTTPException(status_code=404, detail="Unknown action")
     seller = _seller(request)
     container = request.app.state.container
-    item = _log(container).mark(alert_id, seller, action=action,
-                                response=(body.response if body else "interested"))
+    response = (body.response if body else "interested")
+    response = {"accepted": "interested", "declined": "not_relevant"}.get(response, response)
+    if action == "accept":
+        action, response = "respond", (response if response in ("interested", "added_offer") else "interested")
+    elif action == "decline":
+        action, response = "respond", "not_relevant"
+    try:
+        item = _log(container).mark(alert_id, seller, action=action, response=response,
+                                    reason=(body.reason if body else ""))
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
     if item is None:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    if action == "respond":
-        _pf(container).repo.record_event("seller_opportunity_response", detail={"alert": alert_id,
-                                                                               "response": item["response"]})
-    return {"item": {k: item[k] for k in ("id", "subject", "area", "opened_at", "responded_at", "response")}}
+    if action in ("respond", "fulfil"):
+        _pf(container).repo.record_event(
+            "seller_opportunity_response", category=(item.get("category") or "")[:60],
+            detail={"alert": alert_id, "response": item["response"], "status": item["lifecycle"],
+                    "reason": item.get("decline_reason")})
+    return {"item": _opportunity_view(item, language)}
 
 
 # ------------------------------------------------------------- settings --
@@ -507,9 +553,13 @@ def my_auto_response(request: Request) -> dict:
     owner = _seller(request)
     pf = _pf(request.app.state.container)
     mine = [r for r in pf.repo.list("auto_response_rules", owner_ref=owner)]
+    from app.services import auto_response
+
     return {"item": mine[0] if mine else None,
+            "channels": auto_response.channel_status((mine[0]["data"] if mine else {})),
             "note": "Answers only from your approved FAQ; anything else comes to you. Contact details are "
-                    "shared only after you accept a request."}
+                    "shared only after you accept a request. Instagram / Facebook / WhatsApp / Snapchat need "
+                    "your authorised platform connection and are not messaged from here."}
 
 
 @router.put("/api/business/auto-response")
@@ -550,3 +600,43 @@ def preview_my_auto_response(body: AutoPreviewBody, request: Request) -> dict:
     if not mine:
         raise HTTPException(status_code=404, detail="Set up your auto-response first")
     return auto_response.answer(body.message, mine[0]["data"])
+
+
+class ContentAskBody(BaseModel):
+    business_ref: str = Field(min_length=1, max_length=120)
+    trigger_type: str = Field(pattern="^(video|image|catalog|product|offer|listing|creator_content)$")
+    target: str = Field(default="", max_length=120)
+    message: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/api/auto-response/ask")
+def ask_about_content(body: ContentAskBody, request: Request) -> dict:
+    """A customer asks about a business's video / image / catalog / product /
+    offer / listing / creator content inside ASKODOX: the business's matching
+    ACTIVE trigger answers from approved text only, or hands to the owner."""
+    from app.api.routes.in_app_deal import _cust, _flag_on, auto_response_limit
+    from app.services import auto_response, rate_limit
+
+    rate_limit.check(request, "auto_response_ask", limit=30)
+    container = request.app.state.container
+    if not _flag_on(container, "autoresponse.enabled"):
+        return {"status": "switched_off", "text": None, "handoff_to_owner": True}
+    pf = _pf(container)
+    rule = auto_response.rule_for(pf.repo.list("auto_response_rules"), body.business_ref,
+                                  trigger=body.trigger_type, target=body.target, message=body.message)
+    if rule is None:
+        return {"status": "no_rule", "text": None, "handoff_to_owner": True}
+    from app.api.routes.in_app_assistant import _optional_app_user
+
+    customer = _optional_app_user(request)
+    if customer in ("", "guest"):  # every signed-out caller shares "guest"
+        customer = "ip:" + (request.client.host if request.client else "anon")
+    blocked = auto_response_limit(pf, rule, customer)
+    if blocked:
+        return {"status": "limited", "text": None, "reason": blocked, "handoff_to_owner": True}
+    result = auto_response.answer(body.message, rule)
+    pf.repo.record_event("auto_response", detail={"status": result["status"], "rule": rule.get("_id"),
+                                                  "source": result["source"], "customer": _cust(customer),
+                                                  "trigger": body.trigger_type, "sent": bool(result["text"])})
+    return {**result, "handoff_to_owner": result["status"] != "answered",
+            "channels": auto_response.channel_status(rule)}

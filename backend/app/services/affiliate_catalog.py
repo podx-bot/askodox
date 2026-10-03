@@ -61,10 +61,14 @@ _SECRET_FIELD = re.compile(r"secret|token|password|api_key|apikey|private|signat
 
 EDITABLE_FIELDS = ("title", "platform", "original_product_url", "affiliate_url", "image_url", "images",
                    "price", "mrp", "currency", "category", "subcategory", "description", "variants",
-                   "seller", "merchant", "sponsored", "location", "availability", "verified_commission_rate")
+                   "seller", "merchant", "sponsored", "location", "availability", "verified_commission_rate",
+                   "brand", "product_id", "canonical_url")
 LINK_FIELDS = {"affiliate_url"}
 
 _NEW_COLUMNS = {
+    "brand": "TEXT",
+    "product_id": "TEXT",
+    "canonical_url": "TEXT",
     "platform": "TEXT NOT NULL DEFAULT ''",
     "mrp": "REAL",
     "images_json": "TEXT NOT NULL DEFAULT '[]'",
@@ -380,7 +384,7 @@ class AffiliateCatalog:
         for key, value in values.items():
             if key not in EDITABLE_FIELDS:
                 continue
-            if key in {"original_product_url", "affiliate_url", "image_url"}:
+            if key in {"original_product_url", "affiliate_url", "image_url", "canonical_url"}:
                 out[key] = https_url(value)
             elif key in {"price", "mrp", "verified_commission_rate"}:
                 out[key] = _money(value)
@@ -745,6 +749,8 @@ class _MetaParser(HTMLParser):
             self.ld.append("")
         elif tag == "title":
             self._in_title = True
+        elif tag == "link" and "canonical" in a.get("rel", "").lower() and a.get("href", "").startswith("https://"):
+            self.meta.setdefault("canonical", []).append(a["href"].strip())
 
     def handle_endtag(self, tag):
         if tag == "script":
@@ -813,11 +819,6 @@ def parse_metadata(html: str, url: str) -> dict[str, Any]:
                 images.append(value)
         if product.get("description") and "description" not in fields:
             fields["description"] = str(product["description"])[:4000]
-        brand = product.get("brand")
-        if isinstance(brand, dict):
-            brand = brand.get("name")
-        if brand:
-            fields["seller"] = str(brand)[:200]
         offers = product.get("offers")
         offer = (offers[0] if isinstance(offers, list) and offers else offers) or {}
         if isinstance(offer, dict):
@@ -835,8 +836,100 @@ def parse_metadata(html: str, url: str) -> dict[str, Any]:
     if stock_hint:
         hint = stock_hint.rsplit("/", 1)[-1]
         suggested_stock = normalize_stock(re.sub(r"(?<!^)(?=[A-Z])", " ", hint))
-    return {"fields": fields, "suggested_stock": suggested_stock,
-            "found": sorted(k for k in fields if k not in {"original_product_url", "platform"})}
+    canonical = first("canonical", "og:url")
+    fields["canonical_url"] = canonical if canonical.startswith("https://") else _strip_tracking(url)
+    product_id = product_id_from_url(url) or product_id_from_url(canonical)
+    for product in _ld_products(parser.ld)[:1]:
+        product_id = product_id or str(product.get("sku") or product.get("productID") or product.get("mpn") or "")
+        if product.get("category"):
+            fields["category"] = str(product["category"])[:120]
+        brand = product.get("brand")
+        if isinstance(brand, dict):
+            brand = brand.get("name")
+        if brand:
+            fields["brand"] = str(brand)[:120]
+        offers = product.get("offers")
+        offer = (offers[0] if isinstance(offers, list) and offers else offers) or {}
+        seller = offer.get("seller") if isinstance(offer, dict) else None
+        if isinstance(seller, dict) and seller.get("name"):
+            fields["seller"] = str(seller["name"])[:200]
+    if product_id:
+        fields["product_id"] = product_id[:80]
+    if "category" not in fields:
+        crumbs = _breadcrumbs(parser.ld)
+        if crumbs:
+            fields["category"] = " > ".join(crumbs[-3:])[:160]
+    if suggested_stock:
+        fields["availability"] = suggested_stock
+    fields["source"] = PLATFORMS.get(fields["platform"], {}).get("name") or _host(url)
+    found = sorted(k for k in fields if k not in {"original_product_url", "platform"})
+    return {"fields": fields, "suggested_stock": suggested_stock, "found": found,
+            "field_status": field_status(fields)}
+
+
+# What staff need before saving a product, and whether the page supplied it.
+METADATA_FIELDS = ("title", "images", "price", "seller", "brand", "source", "product_id", "category",
+                   "availability", "canonical_url")
+
+
+def field_status(fields: dict[str, Any]) -> dict[str, str]:
+    return {k: ("fetched" if fields.get(k) not in (None, "", []) else "manual_entry_required")
+            for k in METADATA_FIELDS}
+
+
+_PRODUCT_ID_PATTERNS = (
+    ("amazon", re.compile(r"/(?:dp|gp/product|gp/aw/d)/([A-Z0-9]{10})(?:[/?]|$)")),
+    ("flipkart", re.compile(r"[?&]pid=([A-Z0-9]{8,20})")),
+    ("flipkart", re.compile(r"/p/(itm[a-z0-9]{6,})")),
+    ("meesho", re.compile(r"/p/([a-z0-9]{3,20})(?:[/?]|$)")),
+)
+
+
+def product_id_from_url(url: str) -> str:
+    """The marketplace's own product id from a URL (ASIN, Flipkart pid / itm,
+    Meesho p/<id>) -- only from the URL itself, never guessed."""
+    if not url:
+        return ""
+    platform = detect_platform(url)
+    for pid, pattern in _PRODUCT_ID_PATTERNS:
+        if pid == platform:
+            match = pattern.search(url)
+            if match:
+                return match.group(1)
+    return ""
+
+
+def _strip_tracking(url: str) -> str:
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return url
+    keep = [q for q in (parts.query or "").split("&") if q and not re.match(
+        r"(utm_|ref|tag=|affid|affExtParam|srsltid|gclid|fbclid|_encoding|psc=|smid=|qid=|sr=|crid=|sprefix=|keywords=)",
+        q, re.IGNORECASE)]
+    return parts._replace(query="&".join(keep), fragment="").geturl()
+
+
+def _breadcrumbs(blobs: list[str]) -> list[str]:
+    for blob in blobs:
+        try:
+            data = json.loads(blob)
+        except ValueError:
+            continue
+        nodes = data if isinstance(data, list) else [data]
+        for node in nodes:
+            if isinstance(node, dict) and node.get("@type") == "BreadcrumbList":
+                items = sorted(node.get("itemListElement") or [], key=lambda i: int((i or {}).get("position") or 0))
+                names = []
+                for item in items:
+                    item = item or {}
+                    inner = item.get("item") if isinstance(item.get("item"), dict) else {}
+                    name = item.get("name") or inner.get("name")
+                    if name and str(name).casefold() not in ("home",):
+                        names.append(str(name))
+                if names:
+                    return names
+    return []
 
 
 def fetch_page(url: str, *, timeout: float = 6.0, max_bytes: int = 1_500_000) -> str:
@@ -874,7 +967,11 @@ def extract_metadata(url: str, fetch: Callable[[str], str] | None = None) -> dic
     try:
         html = (fetch or fetch_page)(url)
     except Exception as error:  # blocked by the site, timeout, non-public host
-        return {"status": "unavailable", "fields": {"original_product_url": url, "platform": detect_platform(url)},
+        fields = {"original_product_url": url, "platform": detect_platform(url),
+                  "canonical_url": _strip_tracking(url), "product_id": product_id_from_url(url),
+                  "source": PLATFORMS.get(detect_platform(url), {}).get("name") or _host(url)}
+        fields = {k: v for k, v in fields.items() if v}
+        return {"status": "unavailable", "fields": fields, "field_status": field_status(fields),
                 "found": [], "suggested_stock": None,
                 "note": f"The page could not be read automatically ({type(error).__name__}). Enter the details by hand."}
     parsed = parse_metadata(html, url)

@@ -7,10 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/backend_providers.dart';
 import '../../growth/data/growth_repository.dart';
+import '../../opportunities/data/opportunities_repository.dart';
 import '../../orders/data/order_repository.dart';
 
 /// What the user may choose to receive (advanced; all ON by default).
-enum AskodoxUpdateKind { requests, replies, leads }
+enum AskodoxUpdateKind { requests, replies, leads, opportunities, notices }
 
 /// Notifications: ON by default; routine ASKODOX updates are SILENT (no
 /// sound/vibration). One switch for everyone, per-kind choices only under
@@ -146,8 +147,9 @@ String askodoxOrderStatusWords(String raw, {required bool mine}) => switch (raw.
       final other => other.replaceAll('_', ' ').toLowerCase(),
     };
 
-/// Real updates from the user's own requests, incoming requests and leads.
-/// Guests have none (identity is needed to have requests).
+/// Real updates from the user's own requests, incoming requests, leads and
+/// the server inbox (demand opportunities for sellers, in-app notices) --
+/// ONE list for every role. Guests have none (identity is needed).
 Future<List<AskodoxUpdate>> askodoxLoadUpdates(Ref ref) async {
   if (ref.read(authSessionProvider).user == null) return const [];
   final orders = ref.read(orderRepositoryProvider);
@@ -155,10 +157,12 @@ Future<List<AskodoxUpdate>> askodoxLoadUpdates(Ref ref) async {
     orders.myOrders(limit: 30).catchError((_) => <Order>[]),
     orders.incomingOrders(limit: 30).catchError((_) => <Order>[]),
     ref.read(growthRepositoryProvider).leads().catchError((_) => <AskodoxLead>[]),
+    ref.read(opportunitiesRepositoryProvider).inbox().catchError((_) => <AskodoxInboxEntry>[]),
   ]);
   final mine = results[0] as List<Order>;
   final incoming = results[1] as List<Order>;
   final leads = results[2] as List<AskodoxLead>;
+  final inbox = results[3] as List<AskodoxInboxEntry>;
   final items = <AskodoxUpdate>[
     for (final order in mine)
       AskodoxUpdate(
@@ -185,6 +189,15 @@ Future<List<AskodoxUpdate>> askodoxLoadUpdates(Ref ref) async {
         title: lead.message,
         status: lead.responded ? 'You replied' : 'A customer needs this -- tap to reply',
         route: '/',
+      ),
+    for (final entry in inbox)
+      AskodoxUpdate(
+        key: entry.key,
+        kind: entry.kind == 'opportunity' ? AskodoxUpdateKind.opportunities : AskodoxUpdateKind.notices,
+        title: entry.title,
+        status: entry.status,
+        route: entry.route,
+        at: entry.at,
       ),
   ]..sort((a, b) => (b.at ?? DateTime(0)).compareTo(a.at ?? DateTime(0)));
   return items;

@@ -7,9 +7,9 @@ import '../../../core/providers/backend_providers.dart';
 import '../application/askodox_notifications.dart';
 import '../data/promotions_repository.dart';
 
-/// "Updates": the ONE place for what happened to the user's requests --
-/// requests they sent, requests sent to them, and customer leads. Real
-/// data only (no demo shops or sample notifications).
+/// "Updates": the ONE notification centre -- requests the user sent,
+/// requests sent to them, customer leads, demand opportunities (sellers /
+/// providers) and in-app notices. Real data only (no demo items).
 class UpdatesScreen extends ConsumerWidget {
   const UpdatesScreen({super.key});
 
@@ -92,6 +92,8 @@ class UpdatesScreen extends ConsumerWidget {
                               AskodoxUpdateKind.requests => Icons.shopping_bag_outlined,
                               AskodoxUpdateKind.replies => Icons.storefront_outlined,
                               AskodoxUpdateKind.leads => Icons.campaign_outlined,
+                              AskodoxUpdateKind.opportunities => Icons.trending_up_rounded,
+                              AskodoxUpdateKind.notices => Icons.info_outline_rounded,
                             }),
                             title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis),
                             subtitle: Text(item.status),

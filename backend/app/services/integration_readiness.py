@@ -84,6 +84,36 @@ def readiness(registry: fin.IntegrationRegistry, *, outbox: Any = None, repo: An
             if not active and not programs:
                 row["status"] = "NOT_CONFIGURED"
                 row["real_credential_required"] = True
+        row["health"], row["health_reason"] = health(row, statuses)
         rows.append(row)
     return rows
+
+
+HEALTH_STATES = ("LIVE", "CONFIGURED", "DEGRADED", "DISABLED", "NEEDS_CONFIGURATION", "CHECK_FAILED")
+
+
+def health(row: Dict[str, Any], statuses: List[Dict[str, Any]]) -> tuple:
+    """One vocabulary for every integration: LIVE (a real check passed),
+    CONFIGURED (credentials present, not yet verified), DEGRADED (live but
+    failing deliveries or near its quota), DISABLED, NEEDS_CONFIGURATION,
+    CHECK_FAILED. Derived from live state only -- never a hand-set flag."""
+    if row["status"] == "ERROR" or any(s["status"] == fin.STATUS_ERROR for s in statuses):
+        return "CHECK_FAILED", "the last real check failed"
+    if row["status"] == "NOT_CONFIGURED":
+        if statuses and all(s["status"] == fin.STATUS_DISABLED and not s["missing"] for s in statuses):
+            return "DISABLED", "switched off in the Command Center"
+        return "NEEDS_CONFIGURATION", "credentials missing: " + ", ".join(
+            sorted({m for s in statuses for m in s["missing"]})[:6]) if any(s["missing"] for s in statuses) \
+            else "no active provider"
+    if row["status"] == "LIVE":
+        failed = int((row.get("deliveries") or {}).get("FAILED", 0) or 0)
+        sent = sum(int(v or 0) for v in (row.get("deliveries") or {}).values())
+        if sent >= 5 and failed / sent > 0.2:
+            return "DEGRADED", f"{failed} of {sent} recent deliveries failed"
+        for s in statuses:
+            quota = s.get("quota") or {}
+            if quota.get("daily_cap") and quota.get("used_today", 0) >= 0.9 * quota["daily_cap"]:
+                return "DEGRADED", f"{s['label']} near its daily quota"
+        return "LIVE", "a real check passed"
+    return "CONFIGURED", "credentials present; run Check to verify"
 

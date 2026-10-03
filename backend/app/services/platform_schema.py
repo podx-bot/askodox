@@ -674,8 +674,67 @@ _register(Resource(
 
 ADVISOR_FIELDS = ("budget", "brand", "usage", "size", "quantity", "condition", "model", "variant", "timing",
                   "location", "quality", "material", "capacity", "duration", "guests", "travel_dates",
-                  "experience", "property_type", "income", "coverage", "other")
+                  "experience", "property_type", "income", "coverage", "requirement", "goal", "other")
 ANSWER_TYPES = ("text", "number", "money", "choice", "multi_choice", "yes_no", "date")
+
+def _flag_keys() -> tuple:
+    from app.repositories.command_center_repository import FEATURE_FLAGS
+
+    return tuple(FEATURE_FLAGS)
+
+
+ROLLOUT_PLATFORMS = ("android", "ios", "web", "admin")
+
+_register(Resource(
+    name="flag_rollouts", label="Feature flag targeting", group="Configuration", prefix="flr",
+    permission="config", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="Narrow a feature flag to some categories / sub-categories / roles / platforms / locations and a "
+                "percentage of people. The global flag stays the master switch: OFF is off everywhere. With "
+                "ACTIVE 'only for' rules the feature is on only where one matches; an ACTIVE 'never for' rule "
+                "switches it off where it matches. Blank lists match everything. The percentage bucket is "
+                "stable per person (same answer every time).",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("flag", "Feature flag", "enum", options=_flag_keys(), required=True, list_column=True, filter=True),
+        F("effect", "Effect", "enum", options=("only_for", "never_for"), required=True, list_column=True),
+        F("categories", "Categories (advisor category keys or detected categories)", "list"),
+        F("subcategories", "Sub-categories", "list"),
+        F("roles", "Roles", "list", options=("buyer", "seller", "service_provider", "job_seeker", "employer",
+                                              "delivery_partner", "driver", "staff", "admin", "guest")),
+        F("platforms", "Platforms", "list", options=ROLLOUT_PLATFORMS),
+        F("locations", "Locations (city / area words)", "list"),
+        F("percentage", "Percentage of people (0-100)", "int", min=0, max=100, list_column=True),
+        F("notes", "Why", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="advisor_categories", label="Advisor categories", group="Advisor", prefix="adc",
+    permission="advisor", name_field="label", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Which details change the decision for each kind of need. A request is matched to a category "
+                "from the AI-detected category first, then from the HEAD noun of what was asked ('car phone "
+                "holder' -> holder -> accessories), then from any alias. Required fields hold final results until "
+                "answered; optional fields are asked once. Questions come from 'Advisor questions' (this "
+                "category's wording first, then the generic one for the field).",
+    fields=(
+        F("key", "Key (stable id)", required=True, list_column=True, filter=True,
+          help="lower_case_id, e.g. footwear, hotel, loans. Questions use it as their category."),
+        F("label", "Label", required=True, list_column=True),
+        F("group", "Group", list_column=True, filter=True,
+          help="ecommerce, grocery_food, travel, finance, health, education, jobs, real_estate, home_services, "
+               "logistics, used, b2b, entertainment, saas, automobile ..."),
+        F("aliases", "Matches (AI category names and nouns, any language)", "list", required=True),
+        F("broad_aliases", "Too broad to act on (asks requirement / goal / type)", "list",
+          help="e.g. doctor, repair, loan: 'requirement', 'goal' and 'property_type' count as already known "
+               "when the request names something more specific (dentist, AC repair, home loan)."),
+        F("required_fields", "Required before results (in order)", "list", options=ADVISOR_FIELDS),
+        F("optional_fields", "Optional, asked once (in order)", "list", options=ADVISOR_FIELDS),
+        F("high_stakes", "High-stakes (no guarantees; suggest a professional)", "bool", list_column=True),
+        F("priority", "Priority when two categories match equally", "int", min=0, max=1000),
+    ),
+    actions=ENABLE_DISABLE,
+))
 
 _register(Resource(
     name="advisor_questions", label="Advisor questions", group="Advisor", prefix="adq",
@@ -685,10 +744,11 @@ _register(Resource(
                 "turn; an answer of 'any / no preference' settles only that one field. Required = results wait "
                 "for this answer; optional = asked once, results still shown.",
     fields=(
-        F("category", "Category (domain or 'any')", required=True, list_column=True, filter=True,
-          help="e.g. footwear, fashion, electronics, vehicle, travel, hotel, insurance, loan, home_service, any"),
-        F("keywords", "Applies when the need mentions (any of)", "list",
-          help="Optional: only ask when the subject contains one of these words (e.g. shoes, sneakers)."),
+        F("category", "Category key (or 'any' = generic wording)", required=True, list_column=True, filter=True,
+          help="An 'Advisor categories' key (footwear, tv, hotel, loans ...) for category-specific wording, or "
+               "'any' for the generic question of that field."),
+        F("keywords", "Legacy: only when the need mentions (any of)", "list",
+          help="Only used when no advisor category matches the request."),
         F("field", "Fills field", "enum", options=ADVISOR_FIELDS, required=True, list_column=True, filter=True),
         F("question_en", "Question (English)", required=True, list_column=True),
         F("question_te", "Question (Telugu)"),
@@ -751,6 +811,9 @@ _register(Resource(
     actions=ENABLE_DISABLE,
 ))
 
+AUTO_TRIGGERS = ("any_message", "video", "image", "catalog", "product", "offer", "listing", "creator_content")
+AUTO_CHANNELS = ("askodox_chat", "instagram", "facebook", "whatsapp", "snapchat")
+
 _register(Resource(
     name="auto_response_rules", label="Auto responses", group="Conversation", prefix="arr",
     permission="autoresponse", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
@@ -771,6 +834,19 @@ _register(Resource(
         F("out_of_hours_reply", "Out-of-hours reply", "longtext"),
         F("share_contact", "Contact sharing", "enum", options=("after_consent",),
           help="Contact details are only shared through the request -> acceptance flow."),
+        F("trigger_type", "Trigger", "enum", options=AUTO_TRIGGERS, list_column=True,
+          help="any_message = deal chats; the others fire when a customer asks about that kind of content."),
+        F("targets", "Only for these items (ids / slugs, blank = all)", "list"),
+        F("trigger_words", "Only when the message mentions (any of)", "list",
+          help="e.g. price, link, details -- the 'comment a keyword' pattern."),
+        F("reply_text", "Trigger reply (when no FAQ answer fits)", "longtext"),
+        F("channels", "Channels", "list", options=AUTO_CHANNELS,
+          help="askodox_chat is live. Instagram / Facebook / WhatsApp / Snapchat need the owner's authorised "
+               "platform API and stay EXTERNAL SETUP REQUIRED -- nothing is sent there."),
+        F("start_at", "Start", "date"),
+        F("end_at", "End", "date"),
+        F("daily_limit", "Max auto-replies per day (0 = no limit)", "int", min=0, max=100000),
+        F("per_customer_daily_limit", "Max per customer per day (0 = no limit)", "int", min=0, max=1000),
     ),
     actions=ENABLE_DISABLE,
 ))
@@ -781,6 +857,7 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "advisor.max_questions_per_turn": (0, 3, 1),
     "advisor.ask_budget": (0, 1, 1),
     "demand.default_window_days": (1, 90, 7),
+    "demand.opportunity_expiry_hours": (1, 720, 72),
 }
 
 _register(Resource(

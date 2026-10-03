@@ -354,3 +354,26 @@ def test_external_click_route_used_by_the_app_records_a_masked_click(api):
     # The old app path never existed (the #123 bug the app now avoids).
     assert client.post("/external/click", json={"provider_id": "x", "result_id": "y",
                                                  "destination_url": MEESHO_URL}).status_code == 404
+
+
+def test_extract_reports_ids_canonical_and_manual_fields():
+    from app.services import affiliate_catalog as ac
+
+    html = ('<link rel="canonical" href="https://www.amazon.in/dp/B0ABCDEF12">'
+            '<script type="application/ld+json">{"@type":"Product","name":"Car Phone Holder","brand":{"name":"Portronics"},'
+            '"category":"Car Accessories","offers":{"price":"499","availability":"https://schema.org/InStock",'
+            '"seller":{"name":"Appario"}}}</script>')
+    r = ac.extract_metadata("https://www.amazon.in/x/dp/B0ABCDEF12/ref=sr_1?tag=me&utm_source=y", fetch=lambda u: html)
+    f = r["fields"]
+    assert f["product_id"] == "B0ABCDEF12" and f["canonical_url"] == "https://www.amazon.in/dp/B0ABCDEF12"
+    assert f["brand"] == "Portronics" and f["seller"] == "Appario" and f["category"] == "Car Accessories"
+    assert r["field_status"]["images"] == "manual_entry_required" and r["field_status"]["price"] == "fetched"
+
+    def blocked(url):
+        raise TimeoutError()
+
+    r = ac.extract_metadata("https://www.flipkart.com/x/p/itmabc123xyz?pid=ACCABC12345XYZ&affid=me", fetch=blocked)
+    assert r["status"] == "unavailable" and r["fields"]["product_id"] == "ACCABC12345XYZ"
+    assert "affid" not in r["fields"]["canonical_url"]
+    assert r["field_status"]["title"] == "manual_entry_required"
+    assert ac.product_id_from_url("https://www.meesho.com/cotton-saree/p/4abc12") == "4abc12"

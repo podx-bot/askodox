@@ -386,6 +386,16 @@ def categories(request: Request) -> dict[str, Any]:
 
 # ------------------------------------------------------ support / disputes --
 
+def _handoff(item: dict[str, Any]) -> dict[str, Any]:
+    """Stored handoff package, or one built from older tickets' context."""
+    context = item.get("context") or {}
+    if context.get("handoff"):
+        return context["handoff"]
+    from app.services import support_handoff
+
+    return support_handoff.build(issue=item.get("issue") or "", category=item.get("category") or "", context=context)
+
+
 @router.get("/escalations")
 def escalations(request: Request, status: str = "", category: str = "", priority: str = "", assigned_to: str = "",
                 sla: str = "", channel: str = "", q: str = "", mine: bool = False) -> dict[str, Any]:
@@ -404,6 +414,7 @@ def escalations(request: Request, status: str = "", category: str = "", priority
         items = [i for i in items if i["channel"] == channel]
     for item in items:
         item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
+        item["handoff"] = _handoff(item)
     summary: dict[str, int] = {}
     for item in items:
         summary[item["sla_state"]] = summary.get(item["sla_state"], 0) + 1
@@ -417,6 +428,7 @@ def escalation(escalation_id: int, request: Request) -> dict[str, Any]:
     if not item:
         raise HTTPException(status_code=404, detail="Escalation not found")
     item["requester"] = mask_user_id(item.pop("requester_user_id", ""))
+    item["handoff"] = _handoff(item)
     item["history"] = _escalations(request.app.state.container).history(escalation_id)
     item["thread"] = _escalations(request.app.state.container).thread(escalation_id, public_only=False)
     return item
