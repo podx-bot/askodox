@@ -72,8 +72,9 @@ def readiness(request: Request) -> dict:
         from app.api.routes.platform import platform
 
         registry = platform(container).registry
-        payload["integrations"] = {item["provider"]: item["status"] for item in registry.all()
-                                   if not item["internal"]}
+        items = [item for item in registry.all() if not item["internal"]]
+        payload["integrations"] = {item["provider"]: item["status"] for item in items}
+        payload["integration_readiness"] = {item["provider"]: item["readiness"] for item in items}
         payload["environment"] = os.getenv("RAILWAY_ENVIRONMENT_NAME", "") or "local"
     except Exception:
         payload["integrations"] = {}

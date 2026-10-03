@@ -119,6 +119,12 @@ def youtube_api_key(env: Dict[str, str] | None = None) -> str:
     return env_value(dict(os.environ) if env is None else env, "youtube_data", "api_key")
 
 
+# Providers the runtime uses the moment a key is present: their callers
+# (e.g. platform.youtube_key() for video search) never consult the Command
+# Center on/off switch, so their status must not claim DISABLED while they
+# are in use. Configured => active, live mode; LIVE still needs a passed check.
+ACTIVE_WHEN_CONFIGURED = frozenset({"youtube_data"})
+
 # The sandbox gateway only ever exists outside production.
 PRODUCTION_ENV_NAMES = ("production", "prod")
 
@@ -265,15 +271,18 @@ class IntegrationRegistry:
         invalid = [n for n, src in sources.items() if src == "environment"
                    and validate_field(provider, n, self._env(provider, n))]
         mode = row.get("mode") or "test"
+        enabled = bool(row.get("enabled"))
+        if provider in ACTIVE_WHEN_CONFIGURED and not missing and mode != "mock":
+            enabled, mode = True, "live"
         if internal:
             state = STATUS_LIVE
         elif not self.available(provider):
             state = STATUS_DISABLED
-        elif row.get("enabled") and mode == "mock":
+        elif enabled and mode == "mock":
             state = STATUS_MOCK  # never contacts the provider, so credentials are not needed
         elif missing:
             state = STATUS_NEEDS
-        elif not row.get("enabled"):
+        elif not enabled:
             state = STATUS_DISABLED
         elif row.get("last_check_ok") == 0:
             state = STATUS_ERROR
@@ -293,7 +302,7 @@ class IntegrationRegistry:
             readiness = "CONFIGURED"  # credentials present, no passed real check yet
         return {"provider": provider, "group": group, "label": label, "status": state, "internal": internal,
                 "readiness": readiness,
-                "enabled": bool(row.get("enabled")) or internal, "mode": mode, "available": self.available(provider),
+                "enabled": enabled or internal, "mode": mode, "available": self.available(provider),
                 "config": public_config, "secrets_set": sorted(have_secrets), "missing": missing,
                 "secret_names": list(self.secret_names(provider)), "config_keys": list(self.config_keys(provider)),
                 "required": list(secret_names) + list(config_keys), "sources": sources, "invalid": invalid,
