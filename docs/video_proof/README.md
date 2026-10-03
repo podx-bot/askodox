@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-03T07:19:56Z by `.github/workflows/video-real-content-proof.yml` (run 37105781606).
+Generated 2026-10-03T07:54:01Z by `.github/workflows/video-real-content-proof.yml` (run 37107655070).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -10,10 +10,10 @@ Generated 2026-10-03T07:19:56Z by `.github/workflows/video-real-content-proof.ym
 
 | Case | Lang | Videos | Top video | Channel | Plays in app | Disclosure | AI answer | Follow-up | Next step → options |
 |---|---|---|---|---|---|---|---|---|---|
-| electronics | en | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 3 (deals) |
-| electronics-te | te | 1 | [Samsung 43 Inch Smart TV 🤑/ 2025 Edition💥/](https://www.youtube.com/watch?v=nMMmLxoa_Vg) | TechTraveller Blend | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 3 (deals) |
+| electronics | en | 1 | [43 Inch Samsung Crystal 4K UHD TV ₹28,990 only * Lets Test *](https://www.youtube.com/watch?v=ugHQtXHwE2c) | Technology Gyan | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 3 (deals) |
+| electronics-te | te | 1 | [43 Inch Samsung Crystal 4K UHD TV ₹28,990 only * Lets Test *](https://www.youtube.com/watch?v=ugHQtXHwE2c) | Technology Gyan | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 3 (deals) |
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 6 (deals, surplus, used) |
-| vehicle | en | 1 | [2026 New Tata Nexon Creative Plus Cng Review // Nexon Car P…](https://www.youtube.com/watch?v=t9lapNvQD7w) | Mjk Cars | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 5 (deals, surplus) |
+| vehicle | en | 1 | [Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG](https://www.youtube.com/watch?v=STpnN_mLIGo) | Fuel Injected | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 5 (deals, surplus) |
 | service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 4 () |
 | home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 4 () |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 5 (registered) |
@@ -26,13 +26,13 @@ Generated 2026-10-03T07:19:56Z by `.github/workflows/video-real-content-proof.ym
 
 ### electronics (en) -- "Samsung 43 inch TV review videos"
 
-**Video:** Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| -- TechTraveller Blend (https://www.youtube.com/watch?v=nMMmLxoa_Vg)
+**Video:** 43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test * -- Technology Gyan (https://www.youtube.com/watch?v=ugHQtXHwE2c)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| / Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review! / In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model). / Get a complete look at its design, display quality, audio perf…  
+Quoted from source: 43 Inch Samsung Crystal 4K UHD TV ₹28,990 only * Lets Test * / Crazy Samsung 4K UHD Crystal TV at 28,990 only : is video mein mene samsung ke 4K UHD tv ki unboxing ki hai aur apna first impressions dia hai to kya ye best samsung tv hai under 30000 mein chaliye jante hai / #Samsung #samsungtv #Cryst…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|"
+**User:** Tell me more about "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -45,19 +45,19 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
-**Video:** Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| -- TechTraveller Blend (https://www.youtube.com/watch?v=nMMmLxoa_Vg)
+**Video:** 43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test * -- Technology Gyan (https://www.youtube.com/watch?v=ugHQtXHwE2c)
 
 **ASKODOX explain (branch):** ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.  
-Quoted from source: Samsung 43 Inch Smart TV 🤑| 2025 Edition💥| / Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review! / In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model). / Get a complete look at its design, display quality, audio perf…  
+Quoted from source: 43 Inch Samsung Crystal 4K UHD TV ₹28,990 only * Lets Test * / Crazy Samsung 4K UHD Crystal TV at 28,990 only : is video mein mene samsung ke 4K UHD tv ki unboxing ki hai aur apna first impressions dia hai to kya ye best samsung tv hai under 30000 mein chaliye jante hai / #Samsung #samsungtv #Cryst…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
+**User:** "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
 **ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 6-8 అడుగుల దూరం ఉంటే సరిగ్గా సరిపోతుంది. మీరు గది కొలతలు లేదా చూసే దూరం ఎంత ఉందో చెప్తారా?
+**ASKODOX AI:** చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ అనుకూలంగా ఉంటుందో లేదో తనిఖీ చేయడానికి వివరాలు చూస్తున్నాను.
 
 **Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]; Buy 1.08 m (43) Crystal 4K UHD Smart TV UA43UE81AFULXL | Samsung India [online]
 
@@ -82,13 +82,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### vehicle (en) -- "Tata Nexon review video"
 
-**Video:** 2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car -- Mjk Cars (https://www.youtube.com/watch?v=t9lapNvQD7w)
+**Video:** Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG -- Fuel Injected (https://www.youtube.com/watch?v=STpnN_mLIGo)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: 2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car / New 2026 Tata Nexon Creative Plus Cng Review || Nexon Grey Color || Tata Nexon 2026 Best Safe Car / Tata Nexon 2026 Creative Plus Cng ka नया मॉडल, शानदार डिजाइन और दमदार फीचर्स के साथ। / इस वीडियो में Ta…  
+Quoted from source: Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car"
+**User:** Tell me more about "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -97,7 +97,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "tata nexon near me" → Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive [deals]; Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX [online]; Tata Nexon (2020-2023) Price in Vijayawada - Tata Nexon (2020-2023) On Road Price in Vijayawada in July-2026 [online]
+**Next step:** "tata nexon near me" → Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive [deals]; Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price [deals]; Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX [online]
 
 ### service (en) -- "AC service video"
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఏ ఏసీ మోడల్ సరిపోతుందో చూడటానికి నిజమైన వీడియోలు మరియు రివ్యూలు వెతుకుతున్నాను.
+**ASKODOX AI:** చిన్న గదికి సరిపోతుందో లేదో తెలుసుకోవడానికి సరియైన వీడియోలు వెతుకుతున్నాను, ఫలితాలు కింద కనిపిస్తాయి.
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 

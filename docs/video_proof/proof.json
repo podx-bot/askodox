@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-03T07:19:56Z",
+ "generated_at": "2026-10-03T07:54:01Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,18 +7,18 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:fda6b48e715c4eba",
+   "trace_key": "browse:b105efdcbe904493",
    "videos": [
     {
-     "video_id": "yt_nMMmLxoa_Vg",
-     "title": "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|",
-     "source_name": "TechTraveller Blend",
-     "duration": "1:15",
+     "video_id": "yt_ugHQtXHwE2c",
+     "title": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
+     "source_name": "Technology Gyan",
+     "duration": "5:36",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/nMMmLxoa_Vg?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/ugHQtXHwE2c?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/nMMmLxoa_Vg/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=nMMmLxoa_Vg",
+     "image_url": "https://i.ytimg.com/vi/ugHQtXHwE2c/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -27,7 +27,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 5,
+   "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "domain": "PRODUCT",
@@ -37,28 +37,28 @@
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "subject": "Samsung 43 inch TV",
      "size": "43 inch",
+     "subject": "Samsung 43 inch TV",
      "category": "TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_nMMmLxoa_Vg",
+    "video_id": "yt_ugHQtXHwE2c",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|",
-     "Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review!",
-     "In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model).",
-     "Get a complete look at its design, display quality, audio performance, smart features, and"
+     "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
+     "Crazy Samsung 4K UHD Crystal TV at 28,990 only : is video mein mene samsung ke 4K UHD tv ki unboxing ki hai aur apna first impressions dia hai to kya ye best samsung tv hai under 30000 mein chaliye jante hai",
+     "#Samsung #samsungtv #Crystal4KTV #collab @SamsungIndia",
+     "* The Devic"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TechTraveller Blend",
+    "creator": "Technology Gyan",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=nMMmLxoa_Vg",
-    "question": "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|",
+    "url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
+    "question": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
     "next": [
      {
       "action": "find_local",
@@ -88,7 +88,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|\"",
+    "question": "Tell me more about \"43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -166,18 +166,18 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:2f0680fdba324942",
+   "trace_key": "browse:7804450511834153",
    "videos": [
     {
-     "video_id": "yt_nMMmLxoa_Vg",
-     "title": "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|",
-     "source_name": "TechTraveller Blend",
-     "duration": "1:15",
+     "video_id": "yt_ugHQtXHwE2c",
+     "title": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
+     "source_name": "Technology Gyan",
+     "duration": "5:36",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/nMMmLxoa_Vg?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/ugHQtXHwE2c?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/nMMmLxoa_Vg/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=nMMmLxoa_Vg",
+     "image_url": "https://i.ytimg.com/vi/ugHQtXHwE2c/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -186,7 +186,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 5,
+   "production_video_rows": 4,
    "search_decision": {
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "domain": "PRODUCT",
@@ -195,28 +195,28 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Samsung",
-     "subject": "43 అంగుళాల టీవీ",
-     "size": "43 అంగుళాలు",
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
+     "brand": "శామ్‌సంగ్",
+     "size": "43 అంగుళాల",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_nMMmLxoa_Vg",
+    "video_id": "yt_ugHQtXHwE2c",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|",
-     "Samsung 43-Inch Full HD Smart TV (2025 Edition) | Unboxing, Features, & Review!",
-     "In this video, I bring you a full unboxing and review of the Samsung 43-inch Full HD Smart TV (2025 model).",
-     "Get a complete look at its design, display quality, audio performance, smart features, and"
+     "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
+     "Crazy Samsung 4K UHD Crystal TV at 28,990 only : is video mein mene samsung ke 4K UHD tv ki unboxing ki hai aur apna first impressions dia hai to kya ye best samsung tv hai under 30000 mein chaliye jante hai",
+     "#Samsung #samsungtv #Crystal4KTV #collab @SamsungIndia",
+     "* The Devic"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TechTraveller Blend",
+    "creator": "Technology Gyan",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=nMMmLxoa_Vg",
-    "question": "Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|",
+    "url": "https://www.youtube.com/watch?v=ugHQtXHwE2c",
+    "question": "43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *",
     "next": [
      {
       "action": "find_local",
@@ -246,14 +246,14 @@
     ]
    },
    "ai": {
-    "question": "\"Samsung 43 Inch Smart TV 🤑| 2025 Edition💥|\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "question": "\"43 Inch Samsung Crystal 4K UHD TV  ₹28,990 only * Lets Test *\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 6-8 అడుగుల దూరం ఉంటే సరిగ్గా సరిపోతుంది. మీరు గది కొలతలు లేదా చూసే దూరం ఎంత ఉందో చెప్తారా?",
+    "follow_reply": "చిన్న గదికి (సుమారు 10x10 అడుగులు) 43 అంగుళాల టీవీ అనుకూలంగా ఉంటుందో లేదో తనిఖీ చేయడానికి వివరాలు చూస్తున్నాను.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "get_product_info"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "deals",
@@ -320,7 +320,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:e59ffbf2c2d94a3d",
+   "trace_key": "browse:804d6e8541e7473f",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -329,7 +329,7 @@
      "duration": "6:20",
      "platform": "youtube",
      "embed_url": "https://www.youtube-nocookie.com/embed/kGG04jkdjxY?playsinline=1&rel=0",
-     "embeddable": true,
+     "embeddable": null,
      "image_url": "https://i.ytimg.com/vi/kGG04jkdjxY/hqdefault.jpg",
      "destination_url": "https://www.youtube.com/watch?v=kGG04jkdjxY",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
@@ -346,12 +346,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
-     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -522,18 +521,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:d5452207c81b41e8",
+   "trace_key": "browse:a7e3c6e872a249a8",
    "videos": [
     {
-     "video_id": "yt_t9lapNvQD7w",
-     "title": "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car",
-     "source_name": "Mjk Cars",
-     "duration": "13:21",
+     "video_id": "yt_STpnN_mLIGo",
+     "title": "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG",
+     "source_name": "Fuel Injected",
+     "duration": "2:11",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/t9lapNvQD7w?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/STpnN_mLIGo?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/t9lapNvQD7w/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=t9lapNvQD7w",
+     "image_url": "https://i.ytimg.com/vi/STpnN_mLIGo/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=STpnN_mLIGo",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -542,7 +541,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 6,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "domain": "PRODUCT",
@@ -553,25 +552,23 @@
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
+     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_t9lapNvQD7w",
+    "video_id": "yt_STpnN_mLIGo",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car",
-     "New 2026 Tata Nexon Creative Plus Cng Review || Nexon Grey Color || Tata Nexon 2026 Best Safe Car",
-     "Tata Nexon 2026 Creative Plus Cng ka नया मॉडल, शानदार डिजाइन और दमदार फीचर्स के साथ।",
-     "इस वीडियो में Tata Nexon के Exterior, Interior, Features और Performance के बारे में पूरी जानकार"
+     "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Mjk Cars",
+    "creator": "Fuel Injected",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=t9lapNvQD7w",
-    "question": "2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car",
+    "url": "https://www.youtube.com/watch?v=STpnN_mLIGo",
+    "question": "Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG",
     "next": [
      {
       "action": "find_local",
@@ -601,7 +598,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"2026 New Tata Nexon Creative Plus Cng Review || Nexon Car Price || Tata Nexon 2026✅ Nexon Car\"",
+    "question": "Tell me more about \"Tata is Very Clever🔥 ft. New Tata Nexon Camo CNG\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -659,6 +656,20 @@
       "location_label": null
      },
      {
+      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
+      "location_label": null
+     },
+     {
       "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
       "segment": null,
       "match_source": "online",
@@ -685,20 +696,6 @@
       "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
       "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
       "location_label": null
-     },
-     {
-      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.91wheels.com",
-      "price": 38323.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
-      "location_label": null
      }
     ]
    }
@@ -708,7 +705,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:42d4c08b8560453a",
+   "trace_key": "browse:e162b7bfd898429d",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -790,7 +787,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "SERVICE",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -874,7 +871,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:23a74a0967c94ca6",
+   "trace_key": "browse:619ce7515fef402a",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -900,11 +897,10 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
-     "category": "plumbing",
      "location": "Vijayawada"
     }
    },
@@ -1040,7 +1036,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:c2ea76560b5a4193",
+   "trace_key": "browse:ab22c0d5003b43db",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1224,7 +1220,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:f31f4b518a63480e",
+   "trace_key": "browse:9149d2198de24ce4",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1247,13 +1243,13 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "EVENT",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku Valley trip",
+     "subject": "Araku valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1423,7 +1419,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:92ded285e01f4509",
+   "trace_key": "browse:483ced34cc61455c",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1624,7 +1620,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:57574690807c4b61",
+   "trace_key": "browse:5efc59e21daf4551",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1655,6 +1651,7 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
+     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1825,7 +1822,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:dfb0871ce1204fca",
+   "trace_key": "browse:1d7d6515020043f1",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1855,7 +1852,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "ఏసీ సర్వీస్",
-     "category": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -1906,7 +1902,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఏ ఏసీ మోడల్ సరిపోతుందో చూడటానికి నిజమైన వీడియోలు మరియు రివ్యూలు వెతుకుతున్నాను.",
+    "follow_reply": "చిన్న గదికి సరిపోతుందో లేదో తెలుసుకోవడానికి సరియైన వీడియోలు వెతుకుతున్నాను, ఫలితాలు కింద కనిపిస్తాయి.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"

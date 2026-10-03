@@ -2849,6 +2849,27 @@ void main() {
     expect(find.textContaining('Urban Company AC Service'), findsWidgets, reason: 'real video shown');
   });
 
+  // APK 1285 real phone: the deal's raw_text is the app's rewrite ("i want to
+  // buy chicken biryani in Vijayawada"); the backend reads the customer's own
+  // words ("videos, ... offers") from trace.query. Keep both on every search.
+  testWidgets('signed-in search keeps the customer\'s own words (videos/offers) in trace.query', (tester) async {
+    final h = _Harness(
+      matches: _FakeMatchRepository([_productionResult('discover_biryani_mixed.json')]),
+      assistant: _Assistant((_) => {
+            'reply': 'సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.',
+            'domain': 'PRODUCT', 'transactional': true, 'action': 'search_videos', 'confidence': 0.95,
+            'source': 'universal_ai', 'entities': {'subject': 'chicken biryani', 'location': 'Vijayawada'},
+          }),
+    );
+    await h.pump(tester, locale: 'te');
+    const said = 'Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు';
+    await h.send(tester, said);
+    await tester.pumpAndSettle();
+    expect(h.matches.deals, hasLength(1));
+    expect(h.matches.deals.single.subject, 'chicken biryani');
+    expect(h.matches.traces.single?['query'], said, reason: 'the backend derives videos/offers from these words');
+  });
+
   group('compact same-page results (mixed groups, categories, conversation below)', () {
     const mixedTe = 'Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు';
     Map<String, Object?> searchDecision(String lang) => {

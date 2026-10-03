@@ -566,11 +566,22 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     radius = location.get("radius_km")
     if _present(radius):
         constraints.setdefault("radius_km", radius)
-    if _VIDEO_ASK.search(str(payload.raw_text or "")) or _VIDEO_ASK_LOCAL.search(str(payload.raw_text or "")):
+    # The customer's OWN words: the app sends a rewritten raw_text ("i want
+    # to buy chicken biryani in Vijayawada") and keeps what they actually
+    # typed/said in trace.query -- "videos / offers / online links" live only
+    # there (APK 1285: no Videos group on the signed-in path).
+    said = " ".join(
+        part for part in (str(payload.raw_text or ""),
+                          str((getattr(payload, "trace", None) or {}).get("query") or "")[:500])
+        if part.strip())
+    if _VIDEO_ASK.search(said) or _VIDEO_ASK_LOCAL.search(said):
         constraints["wants_videos"] = True
     # Every result group the customer named is produced -- one request can
     # ask for videos AND places AND online links AND offers.
-    groups = requested_result_groups(f"{payload.raw_text or ''} {payload.subject or ''}")
+    groups: list[str] = []
+    for text in (str(payload.raw_text or ""), str((getattr(payload, "trace", None) or {}).get("query") or "")[:500],
+                 str(payload.subject or "")):
+        groups += [g for g in requested_result_groups(text) if g not in groups]
     if groups:
         constraints["requested_groups"] = groups
         if "videos" in groups:

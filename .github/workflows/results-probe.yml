@@ -27,6 +27,9 @@ jobs:
                           'subject': item['subject'], 'category': item['category'],
                           'location': {'label': item['place'], 'latitude': lat, 'longitude': lon, 'radius_km': 10},
                           'party_a': {'side': 'demand'}, 'party_b': {'side': 'supply'}}
+                  # The app's exact payload: its rewritten raw_text + the user's own words in trace.
+                  for extra in ('trace', 'dynamic_fields'):
+                      if item.get(extra): body[extra] = item[extra]
                   req = urllib.request.Request(base + '/deals/discover', data=json.dumps(body).encode(),
                                                headers={'Content-Type': 'application/json',
                                                         'User-Agent': 'ASKODOX-probe'}, method='POST')
@@ -40,7 +43,7 @@ jobs:
                   m = data.get('matches') or []
                   for loc in ('te', 'en'):
                       dreq = urllib.request.Request(base + '/api/in-app/assistant', data=json.dumps(
-                          {'message': item['raw_text'], 'locale': loc, 'history': [], 'location': item['place']}).encode(),
+                          {'message': (item.get('trace') or {}).get('query') or item['raw_text'], 'locale': loc, 'history': [], 'location': item['place']}).encode(),
                           headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
                       try:
                           with urllib.request.urlopen(dreq, timeout=60) as r:
