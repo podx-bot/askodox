@@ -320,6 +320,20 @@ def resolve_category(demand: Dict[str, Any], category_records: Iterable[Dict[str
                 best = (rank, cat, how, " ".join(alias))
     if best is None:
         return None
+    # The AI often names a broad group ("fashion", "electronics") while the
+    # head noun names the specific kind ("shoes" -> footwear). Within the
+    # same group the head noun is more specific, so it wins.
+    if best[2].startswith("ai_category"):
+        for cat in cats:
+            if cat is best[1] or str(cat.get("group") or "") != str(best[1].get("group") or ""):
+                continue
+            for raw_alias in cat.get("aliases") or []:
+                alias = _tokens(raw_alias)
+                if alias and any(_ends_with(h, alias) for h in heads):
+                    best = ((3, len(" ".join(alias)), 0), cat, "head_noun", " ".join(alias))
+                    break
+            if best[2] == "head_noun":
+                break
     _, cat, how, alias = best
     return {"id": cat.get("_id"), "key": str(cat.get("key")), "label": cat.get("label") or cat.get("key"),
             "group": cat.get("group") or "", "matched_by": how, "alias": alias,
