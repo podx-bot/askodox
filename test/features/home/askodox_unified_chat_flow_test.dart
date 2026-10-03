@@ -40,6 +40,7 @@ import 'package:podx/services/support_escalation_service.dart';
 import 'package:podx/services/voice_transcription_service.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/home/domain/active_role.dart';
+import 'package:podx/features/home/domain/chat_result_policy.dart';
 import 'package:podx/features/home/application/saved_options.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/selling/data/catalogue_repository.dart';
@@ -69,8 +70,13 @@ class _FakeMatchRepository implements UniversalMatchRepository {
     throw next;
   }
 
+  /// Every link the customer opened (destination URLs, in order).
+  final List<String> clicks = [];
+
   @override
-  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl}) async {}
+  Future<void> recordExternalClick({required UniversalMatch match, required String destinationUrl}) async {
+    clicks.add(destinationUrl);
+  }
 
   @override
   Future<void> acceptMatch({required String dealId, required String matchId}) async {
@@ -580,6 +586,7 @@ class _Harness {
       child: withShell
           ? MaterialApp.router(
               debugShowCheckedModeBanner: false,
+              theme: theme,
               routerConfig: GoRouter(routes: [
                 StatefulShellRoute.indexedStack(
                   builder: (context, state, shell) => AppShell(shell: shell),
@@ -769,6 +776,7 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 }
 
 void main() {
+  _compactRenders();
   group('rich result cards in the conversation', () {
     testWidgets('nearby vs online line, Directions to real coordinates, Save and Share', (tester) async {
       const shop = UniversalMatch(
@@ -1188,7 +1196,7 @@ void main() {
     expect(find.text('82% match'), findsNothing);
     expect(find.text('★ 4.5 (2)'), findsOneWidget);
     _expectKind('videos');
-    expect(find.text('Watch'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
     expect(find.textContaining('app-seller-1'), findsNothing);
 
     // AI-first: the first card offers a conversation, not a request.
@@ -1220,7 +1228,7 @@ void main() {
     expect(find.textContaining('No verified local match yet'), findsOneWidget);
     expect(find.text('Open'), findsOneWidget);
     expect(find.text('Affiliate link'), findsOneWidget);
-    expect(find.text('Watch'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
     expect(find.text('Send request'), findsNothing);
     expect(find.text('Connect'), findsNothing);
   });
@@ -1676,7 +1684,7 @@ void main() {
     expect(h.matches.deals.single.size, '43 inch');
     _expectKind('local');
     expect(find.text('Affiliate link'), findsOneWidget);
-    expect(find.text('Watch'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
 
     await h.send(tester, 'Samsung under 30000');
 
@@ -1770,13 +1778,21 @@ void main() {
     ]) {
       _expectKind(heading);
     }
-    // Nearby shop not on ASKODOX: open its real map page / ask ASKODOX,
-    // never a request to a seller who is not on ASKODOX.
-    expect(find.byKey(const ValueKey('askodoxOpen-external-p1')), findsOneWidget);
     expect(find.text('Affiliate link'), findsOneWidget);
     // AI-first: no request buttons on first results.
     expect(find.text('Send request'), findsNothing);
-    expect(_askButtons(), findsNWidgets(8));
+    // "All" previews at most 2 per group (3 local -> 2 + View all).
+    expect(_askButtons(), findsNWidgets(7));
+    expect(find.byKey(const ValueKey('askodoxViewAll-local')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxViewAll-local')));
+    await tester.tap(find.byKey(const ValueKey('askodoxViewAll-local')));
+    await tester.pumpAndSettle();
+    // Nearby shop not on ASKODOX: open its real map page / ask ASKODOX,
+    // never a request to a seller who is not on ASKODOX.
+    expect(find.byKey(const ValueKey('askodoxOpen-external-p1')), findsOneWidget);
+    expect(_askButtons(), findsNWidgets(3), reason: 'Local tab: only local rows');
+    await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-all')));
+    await tester.pumpAndSettle();
 
     // A comparison question stays in the conversation (no new search) ...
     await h.send(tester, 'Which one is better, new or used?');
@@ -2833,6 +2849,270 @@ void main() {
     expect(find.textContaining('Urban Company AC Service'), findsWidgets, reason: 'real video shown');
   });
 
+  group('compact same-page results (mixed groups, categories, conversation below)', () {
+    const mixedTe = 'Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు';
+    Map<String, Object?> searchDecision(String lang) => {
+          'reply': lang == 'te'
+              ? 'సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.'
+              : 'Sure -- looking for real videos and reviews; the results appear below.',
+          'domain': 'FOOD', 'transactional': true, 'action': 'search_videos', 'confidence': 0.95,
+          'source': 'universal_ai', 'entities': {'subject': 'chicken biryani', 'location': 'Vijayawada'},
+        };
+    Finder cards() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxResultCard-'));
+    Finder thumbs() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxVideoThumb-'));
+
+    _Harness mixed({String lang = 'te', int searches = 1}) {
+      var n = 0;
+      return _Harness(
+        matches: _FakeMatchRepository([_productionResult('discover_biryani_mixed.json')]),
+        assistant: _Assistant((_) => n++ < searches ? searchDecision(lang) : null),
+      );
+    }
+
+    for (final (lang, text) in [
+      ('te', mixedTe),
+      ('en', 'Vijayawada chicken biryani videos, restaurants, online links and offers'),
+      ('en', 'chicken biryani వీడియోలు, restaurants, online links, offers చూపించు'),
+    ]) {
+      testWidgets('mixed request ($lang): LOCAL + DEALS + ONLINE + VIDEOS from the real production payload',
+          (tester) async {
+        final h = mixed(lang: lang);
+        await h.pump(tester, locale: lang);
+        await h.send(tester, text);
+        await tester.pumpAndSettle();
+        expect(h.matches.deals, hasLength(1), reason: 'ONE discovery returns every group');
+        for (final kind in ['all', 'local', 'deals', 'online', 'videos']) {
+          expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsOneWidget, reason: kind);
+        }
+        // "All": at most 2 previews per group, "View all" for the rest.
+        expect(cards(), findsNWidgets(1 + 1 + 2 + 2));
+        expect(find.byKey(const ValueKey('askodoxViewAll-online')), findsOneWidget);
+        expect(find.byKey(const ValueKey('askodoxViewAll-videos')), findsOneWidget);
+        expect(find.byKey(const ValueKey('askodoxViewAll-local')), findsNothing, reason: 'only 1 local row');
+        expect(find.text(lang == 'te' ? 'అన్ని చూడండి' : 'View all'), findsNWidgets(2));
+        // Real YouTube card: thumbnail, title, channel, duration.
+        expect(find.byKey(const ValueKey('askodoxVideoThumb-video-yt-0-P8NlIQPsXNY')), findsOneWidget);
+        expect(find.textContaining('Full Bucket Biryani Unboxing'), findsOneWidget);
+        expect(find.text('Chetana Foods'), findsWidgets);
+        expect(find.text('0:15'), findsOneWidget);
+      });
+    }
+
+    testWidgets('category switching: a selected category shows only its compact results; All restores previews',
+        (tester) async {
+      final h = mixed();
+      await h.pump(tester, locale: 'te');
+      await h.send(tester, mixedTe);
+      await tester.pumpAndSettle();
+      Future<void> tab(String key) async {
+        await tester.ensureVisible(find.byKey(ValueKey('askodoxCompareTab-$key')));
+        await tester.tap(find.byKey(ValueKey('askodoxCompareTab-$key')));
+        await tester.pumpAndSettle();
+      }
+
+      await tab('videos');
+      expect(cards(), findsNWidgets(5));
+      expect(thumbs(), findsNWidgets(5), reason: 'every video row has its thumbnail');
+      expect(find.textContaining('KG BIRYANI'), findsNothing);
+      await tab('online');
+      expect(cards(), findsNWidgets(3));
+      expect(thumbs(), findsNothing);
+      await tab('deals');
+      expect(cards(), findsOneWidget);
+      expect(find.textContaining('EazyDiner'), findsOneWidget);
+      await tab('local');
+      expect(cards(), findsOneWidget);
+      await tab('all');
+      expect(cards(), findsNWidgets(6));
+      // "View all" opens that category.
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxViewAll-videos')));
+      await tester.tap(find.byKey(const ValueKey('askodoxViewAll-videos')));
+      await tester.pumpAndSettle();
+      expect(cards(), findsNWidgets(5));
+    });
+
+    testWidgets('layout: results above the latest conversation, then the input; compact card size', (tester) async {
+      final h = mixed();
+      await h.pump(tester, locale: 'te');
+      await h.send(tester, mixedTe);
+      await tester.pumpAndSettle();
+      final context = find.byKey(const Key('askodoxResultContext'));
+      expect(context, findsOneWidget);
+      final input = find.byType(TextField).last;
+      final userMessage = find.text(mixedTe).last;
+      expect(tester.getBottomLeft(context).dy, lessThanOrEqualTo(tester.getTopLeft(userMessage).dy),
+          reason: 'results sit above the conversation');
+      expect(tester.getBottomLeft(userMessage).dy, lessThan(tester.getTopLeft(input).dy),
+          reason: 'conversation sits above the input');
+      expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget, reason: 'shown once, no duplicate');
+      final card = find.byKey(const ValueKey('askodoxResultCard-video-video-yt-0-P8NlIQPsXNY'));
+      expect(tester.getSize(card).width, askodoxCompactCardWidth + 8, reason: 'card + its 8px gap');
+      expect(tester.getSize(card).height, lessThan(300), reason: 'compact row, not a tall card (test font is wider)');
+      final thumb = tester.getSize(find.byKey(const ValueKey('askodoxVideoThumb-video-yt-0-P8NlIQPsXNY')));
+      expect(thumb.width, lessThanOrEqualTo(96));
+      // Folding the context keeps one line and gives the conversation room.
+      await tester.tap(find.byKey(const Key('askodoxResultContextToggle')));
+      await tester.pumpAndSettle();
+      expect(cards(), findsNothing);
+      await tester.tap(find.byKey(const Key('askodoxResultContextToggle')));
+      await tester.pumpAndSettle();
+      expect(cards(), findsNWidgets(6));
+    });
+
+    testWidgets('small phone (360x640): results, the latest message and a usable input on one screen',
+        (tester) async {
+      final h = mixed();
+      await h.pump(tester, locale: 'te');
+      tester.view.physicalSize = const Size(1080, 1920);
+      await tester.pumpAndSettle();
+      await h.send(tester, mixedTe);
+      await tester.pumpAndSettle();
+      const screen = Size(360, 640);
+      final context = tester.getRect(find.byKey(const Key('askodoxResultContext')));
+      expect(context.height, lessThanOrEqualTo(screen.height * .5), reason: 'results never take the whole screen');
+      final input = tester.getRect(find.byType(TextField).last);
+      expect(input.bottom, lessThanOrEqualTo(screen.height), reason: 'input on screen');
+      expect(input.top, greaterThan(context.bottom));
+      await tester.enterText(find.byType(TextField).last, 'ఏది తక్కువ ధర?');
+      await tester.pump();
+      expect(find.text('ఏది తక్కువ ధర?'), findsOneWidget, reason: 'the input is usable');
+      expect(tester.takeException(), isNull, reason: 'no overflow on a small screen');
+    });
+
+    testWidgets('long conversation: the active results stay above the latest follow-up', (tester) async {
+      final h = mixed();
+      await h.pump(tester, locale: 'en');
+      await h.send(tester, 'Vijayawada chicken biryani videos, restaurants, online links and offers');
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 6; i++) {
+        await h.send(tester, 'Which one is better, the first or the second? ($i)');
+        await tester.pumpAndSettle();
+      }
+      expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxCompareTab-videos')), findsOneWidget);
+      final latest = find.textContaining('(5)').last;
+      expect(tester.getBottomLeft(find.byKey(const Key('askodoxResultContext'))).dy,
+          lessThanOrEqualTo(tester.getTopLeft(latest).dy));
+      final chatResults = find.byWidgetPredicate(
+          (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxChatResults-'));
+      expect(chatResults, findsOneWidget, reason: 'one results block, never repeated in the chat');
+    });
+
+    testWidgets('actions: video Play opens the in-app player; URL and offer clicks open their real links',
+        (tester) async {
+      final h = mixed();
+      await h.pump(tester, locale: 'te');
+      await h.send(tester, mixedTe);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxOpen-online-0-swiggy.com')));
+      await tester.tap(find.byKey(const ValueKey('askodoxOpen-online-0-swiggy.com')));
+      await _Harness.settle(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('askodoxOpen-deals-0-eazydiner.com')));
+      await tester.tap(find.byKey(const ValueKey('askodoxOpen-deals-0-eazydiner.com')));
+      await _Harness.settle(tester);
+      expect(h.matches.clicks, [
+        'https://www.swiggy.com/city/vijayawada/kg-biryani-benz-circle-and-auto-nagar-tulasi-nagar-rest360679',
+        'https://www.eazydiner.com/vijayawada/restaurants/biryani',
+      ]);
+      for (final id in ['online-0-swiggy.com', 'video-yt-0-P8NlIQPsXNY']) {
+        expect(find.byKey(ValueKey('askodoxSave-$id')), findsOneWidget, reason: 'Save on $id');
+        expect(find.byKey(ValueKey('askodoxShare-$id')), findsOneWidget, reason: 'Share on $id');
+        expect(find.byKey(ValueKey('askodoxDetails-$id')), findsOneWidget, reason: 'Details on $id');
+      }
+      const thumb = ValueKey('askodoxVideoThumb-video-yt-0-P8NlIQPsXNY');
+      await tester.ensureVisible(find.byKey(thumb));
+      await tester.tap(find.byKey(thumb));
+      await tester.pumpAndSettle();
+      expect(find.byType(AskodoxVideoViewerScreen), findsOneWidget);
+      expect(h.embeddedVideos.single.toString(), startsWith('https://www.youtube-nocookie.com/embed/P8NlIQPsXNY'));
+    });
+
+    // One kind only: no tab row, every row shown (nothing hidden behind "View all").
+    for (final (name, rows) in [
+      ('local only', const [
+        UniversalMatch(id: 'l1', title: 'Sri Biryani Point', source: 'external', segment: 'nearby_external',
+            latitude: 16.51, longitude: 80.64, locationLabel: 'Benz Circle, Vijayawada'),
+        UniversalMatch(id: 'l2', title: 'Ravi Biryani House', source: 'external', segment: 'nearby_external',
+            latitude: 16.50, longitude: 80.65, locationLabel: 'Labbipet, Vijayawada'),
+        UniversalMatch(id: 'l3', title: 'Hotel Annapurna', source: 'external', segment: 'nearby_external',
+            latitude: 16.52, longitude: 80.63, locationLabel: 'Governorpet, Vijayawada'),
+      ]),
+      ('online only (generic HTTPS)', const [
+        UniversalMatch(id: 'o1', title: 'Biryani order page', source: 'online', destinationUrl: 'https://a.example/b'),
+        UniversalMatch(id: 'o2', title: 'Second store', source: 'online', destinationUrl: 'https://b.example/c'),
+        UniversalMatch(id: 'o3', title: 'Third store', source: 'online', destinationUrl: 'https://c.example/d'),
+      ]),
+      ('deals only', const [
+        UniversalMatch(id: 'd1', title: 'Flat 25% off biryani', source: 'online', segment: 'deals',
+            destinationUrl: 'https://deals.example/1'),
+        UniversalMatch(id: 'd2', title: 'Combo offer', source: 'online', segment: 'deals',
+            destinationUrl: 'https://deals.example/2'),
+        UniversalMatch(id: 'd3', title: 'Bank offer', source: 'online', segment: 'deals',
+            destinationUrl: 'https://deals.example/3'),
+      ]),
+      ('videos only (YouTube)', const [
+        UniversalMatch(id: 'v1', title: 'Biryani review 1', source: 'video', sourceName: 'Food Vlogs',
+            destinationUrl: 'https://www.youtube.com/watch?v=abc123def45', imageUrl: 'https://i.ytimg.com/vi/abc123def45/hqdefault.jpg',
+            duration: '4:10'),
+        UniversalMatch(id: 'v2', title: 'Biryani review 2', source: 'video', sourceName: 'Taste Trips',
+            destinationUrl: 'https://www.youtube.com/watch?v=xyz987uvw65', imageUrl: 'https://i.ytimg.com/vi/xyz987uvw65/hqdefault.jpg',
+            duration: '9:02'),
+        UniversalMatch(id: 'v3', title: 'Biryani review 3', source: 'video', sourceName: 'Street Eats',
+            destinationUrl: 'https://www.youtube.com/watch?v=qwe456rty78', imageUrl: 'https://i.ytimg.com/vi/qwe456rty78/hqdefault.jpg',
+            duration: '2:33'),
+      ]),
+      ('affiliate only', const [
+        UniversalMatch(id: 'a1', title: 'Partner store A', source: 'online', affiliate: true,
+            disclosure: 'Affiliate link', destinationUrl: 'https://partner.example/a'),
+        UniversalMatch(id: 'a2', title: 'Partner store B', source: 'online', affiliate: true,
+            disclosure: 'Affiliate link', destinationUrl: 'https://partner.example/b'),
+        UniversalMatch(id: 'a3', title: 'Partner store C', source: 'online', affiliate: true,
+            disclosure: 'Affiliate link', destinationUrl: 'https://partner.example/c'),
+      ]),
+    ]) {
+      testWidgets('$name: every row shown compactly with its own action', (tester) async {
+        final h = _Harness(matches: _FakeMatchRepository([UniversalMatchResult(dealId: 'k1', matches: rows)]));
+        await h.pump(tester);
+        await h.send(tester, 'chicken biryani in Vijayawada show me');
+        await tester.pumpAndSettle();
+        expect(cards(), findsNWidgets(3), reason: 'no preview limit for a single kind');
+        expect(find.byKey(const ValueKey('askodoxCompareTab-all')), findsNothing, reason: 'one kind: no tab row');
+        final first = rows.first;
+        if (first.source == 'video') {
+          expect(thumbs(), findsNWidgets(3));
+          expect(find.text('4:10'), findsOneWidget);
+        } else if (first.destinationUrl != null) {
+          await tester.ensureVisible(find.byKey(ValueKey('askodoxOpen-${first.id}')));
+          await tester.tap(find.byKey(ValueKey('askodoxOpen-${first.id}')));
+          await _Harness.settle(tester);
+          expect(h.matches.clicks, [first.destinationUrl]);
+        } else {
+          expect(find.byKey(ValueKey('askodoxDirections-${first.id}')), findsOneWidget, reason: 'Map / directions');
+        }
+      });
+    }
+
+    testWidgets('Local + Online only: two tabs plus All, no empty groups invented', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: 'k2', matches: [
+          UniversalMatch(id: 'l1', title: 'Sri Biryani Point', source: 'external', segment: 'nearby_external',
+              latitude: 16.51, longitude: 80.64, locationLabel: 'Benz Circle, Vijayawada'),
+          UniversalMatch(id: 'o1', title: 'Biryani order page', source: 'online', destinationUrl: 'https://a.example/b'),
+        ]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'chicken biryani in Vijayawada show me');
+      await tester.pumpAndSettle();
+      for (final kind in ['all', 'local', 'online']) {
+        expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsOneWidget, reason: kind);
+      }
+      expect(find.byKey(const ValueKey('askodoxCompareTab-videos')), findsNothing);
+      expect(find.byKey(const ValueKey('askodoxCompareTab-deals')), findsNothing);
+    });
+  });
+
   group('production replay (exact production JSON + decisions)', () {
     testWidgets('Telugu YouTube ask: real video cards (thumbnail, title, channel) + online links + in-app playback',
         (tester) async {
@@ -3712,6 +3992,87 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.byKey(const Key('askodoxFloatingCompanion')));
     await shot('06_floating_companion');
+  });
+}
+
+// Compact same-page renders from the REAL production payload (opt-in:
+// ASKODOX_RENDER=<out dir> flutter test --update-goldens --plain-name "Compact results render").
+void _compactRenders() {
+  testWidgets('Compact results render: mixed request (TE/EN), categories, follow-up, small phone',
+      skip: !Platform.environment.containsKey('ASKODOX_RENDER'), (tester) async {
+    final out = Platform.environment['ASKODOX_RENDER']!;
+    Future<void> font(String family, List<String> files) async {
+      final loader = FontLoader(family);
+      for (final f in files.where((f) => File(f).existsSync())) {
+        loader.addFont(File(f).readAsBytes().then((b) => ByteData.view(b.buffer)));
+      }
+      await loader.load();
+    }
+
+    const fonts = '/root/sdk/flutter/bin/cache/artifacts/material_fonts';
+    final telugu = Platform.environment['ASKODOX_TELUGU_FONT'] ?? '';
+    await tester.runAsync(() async {
+      await font('Roboto', ['$fonts/Roboto-Regular.ttf', '$fonts/Roboto-Medium.ttf', '$fonts/Roboto-Bold.ttf',
+          '$fonts/Roboto-Black.ttf']);
+      await font('NotoSansTelugu', [telugu]);
+      await font('MaterialIcons', ['$fonts/MaterialIcons-Regular.otf']);
+    });
+    Future<void> shot(String name) async {
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+        await _Harness.settle(tester);
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile(Uri.file('$out/$name.png')));
+    }
+
+    for (final (lang, text, size) in [
+      ('te', 'Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు', const Size(1080, 2340)),
+      ('en', 'Vijayawada chicken biryani videos, restaurants, online links and offers', const Size(1080, 2340)),
+      ('te', 'Vijayawada chicken biryani videos, restaurants, online links and offers చూపించు', const Size(1080, 1920)),
+    ]) {
+      var n = 0;
+      final h = _Harness(
+        matches: _FakeMatchRepository([_productionResult('discover_biryani_mixed.json')]),
+        assistant: _Assistant((m) => n++ == 0
+            ? {
+                'reply': lang == 'te'
+                    ? 'సరే, నిజమైన వీడియోలు, రెస్టారెంట్లు, లింకులు, ఆఫర్లు -- ఫలితాలు పైన కనిపిస్తాయి.'
+                    : 'Here are real videos, restaurants, online links and offers -- results are above.',
+                'domain': 'FOOD', 'transactional': true, 'action': 'search_videos', 'confidence': 0.95,
+                'source': 'universal_ai', 'entities': {'subject': 'chicken biryani', 'location': 'Vijayawada'},
+              }
+            : {
+                'reply': lang == 'te'
+                    ? 'Swiggyలో KG BIRYANI ఆర్డర్ పేజీ ఉంది; EazyDinerలో బ్యాంక్ ఆఫర్లు కనిపిస్తున్నాయి -- ధర చెల్లించే ముందు నిర్ధారించుకోండి.'
+                    : 'KG BIRYANI has an order page on Swiggy; EazyDiner lists bank offers -- confirm the price before paying.',
+                'transactional': false, 'source': 'universal_ai',
+              }),
+      )
+        // The shell applies the app's own light theme (the phone's system
+        // font draws Telugu); the test renderer has no system font, so the
+        // Telugu renders use the bare screen with a Telugu fallback font.
+        ..withShell = lang != 'te'
+        ..theme = ThemeData(fontFamily: 'Roboto', fontFamilyFallback: const ['NotoSansTelugu'], useMaterial3: true);
+      await h.pump(tester, locale: lang);
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      final tag = '${lang}_${size.height.toInt() ~/ 3}';
+      await h.send(tester, text);
+      await shot('${tag}_1_all');
+      if (size.height > 2000) {
+        await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompareTab-videos')));
+        await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-videos')));
+        await shot('${tag}_2_videos');
+        await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompareTab-local')));
+        await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-local')));
+        await shot('${tag}_3_local');
+        await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompareTab-all')));
+        await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-all')));
+      }
+      await h.send(tester, lang == 'te' ? 'వీటిలో ఏది మంచిది? ఆఫర్ ఉందా?' : 'Which of these is best? Any offer?');
+      await shot('${tag}_4_followup');
+    }
   });
 }
 

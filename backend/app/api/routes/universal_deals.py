@@ -436,6 +436,98 @@ def _without_video_words(subject: str) -> str:
     return cleaned or subject
 
 
+# Words that name WHICH KIND of results the customer wants (videos, online
+# links, offers, places near them) -- never what is searched. "chicken
+# biryani videos, restaurants, online links and offers" searches for
+# "chicken biryani" and asks for four result groups. Any language listed;
+# the subject is never emptied by this.
+_RESULT_GROUP_WORDS = {
+    "videos": re.compile(r"\b(videos?|youtube|reels?|reviews?|unboxing|demo|clips?)\b|"
+                         r"(వీడియో\S*|విడియో\S*|రివ్యూ\S*|యూట్యూబ్|रिव्यू|वीडियो|यूट्यूब)", re.IGNORECASE),
+    "online": re.compile(r"\b(online( links?| stores?| shops?| sites?)?|links?|websites?|web ?sites?|sites?|"
+                         r"e-?commerce)\b|(ఆన్\s*లైన్\S*|ఆన్‌లైన్\S*|లింక్\S*|वेबसाइट|ऑनलाइन|लिंक)", re.IGNORECASE),
+    "deals": re.compile(r"\b(offers?|deals?|discounts?|coupons?|cashback|sale)\b|"
+                        r"(ఆఫర్\S*|డీల్\S*|డిస్కౌంట్\S*|తగ్గింపు\S*|ऑफ़र|ऑफर|डील|छूट)", re.IGNORECASE),
+    "local": re.compile(r"\b(restaurants?|hotels?|shops?|stores?|showrooms?|outlets?|near ?me|nearby|"
+                        r"local (shops?|stores?|places?))\b|(రెస్టారెంట్\S*|హోటల్\S*|షాప్\S*|షాపు\S*|"
+                        r"దుకాణ\S*|దగ్గర\S*|నా దగ్గర|రेस्टोरेंट|दुकान|पास में)", re.IGNORECASE),
+}
+_LIST_GLUE = re.compile(r"(\s*[,&/+]\s*|\s+(and|or|with|plus)\s+|\s+(మరియు|ఇంకా)\s+|\s+(और|या)\s+)", re.IGNORECASE)
+_SHOW_WORDS = re.compile(r"\b(show( me)?|find|search|get|give( me)?|list)\b|"
+                         r"(చూపించు\S*|చూపండి|చూపు|వెతుకు\S*|दिखाओ|दिखाइए)", re.IGNORECASE)
+
+
+def group_counts(matches: list[dict]) -> dict[str, int]:
+    """How many returned rows fall in each result group the app shows."""
+    counts = {"local": 0, "deals": 0, "online": 0, "videos": 0}
+    for item in matches:
+        source = str(item.get("match_source") or item.get("source") or "").lower()
+        segment = str(item.get("segment") or "").lower()
+        if source == "video":
+            counts["videos"] += 1
+        elif segment in {"deals", "used", "surplus"}:
+            counts["deals"] += 1
+        elif source in {"online"}:
+            counts["online"] += 1
+        else:
+            counts["local"] += 1
+    return counts
+
+
+def _group_hits(text: str) -> tuple[list[str], str]:
+    """Groups named in the text, checked in order with each match removed
+    ("online stores" is the online group, not local stores)."""
+    rest, groups = f" {text or ''} ", []
+    for group, rx in _RESULT_GROUP_WORDS.items():
+        if rx.search(rest):
+            groups.append(group)
+            rest = rx.sub(" ", rest)
+    return groups, rest
+
+
+def _trailing_group_strip(text: str) -> tuple[list[str], str]:
+    """Only group words at the END ("TV deals", "biryani videos")."""
+    words, groups = str(text or "").split(), []
+    while len(words) > 1:
+        hit = next((g for g, rx in _RESULT_GROUP_WORDS.items() if rx.fullmatch(words[-1])), None)
+        if hit is None and _SHOW_WORDS.fullmatch(words[-1]):
+            words.pop()
+            continue
+        if hit is None:
+            break
+        groups.append(hit)
+        words.pop()
+    return list(dict.fromkeys(reversed(groups))), " ".join(words)
+
+
+def requested_result_groups(text: str) -> list[str]:
+    """Which result groups the customer named, e.g. ["videos", "local",
+    "online", "deals"]. A list of two or more, or group words closing the
+    request; "offer letter format" names no group."""
+    groups, _ = _group_hits(text)
+    if len(groups) >= 2:
+        return groups
+    return _trailing_group_strip(text)[0]
+
+
+def _without_result_group_words(subject: str) -> str:
+    """The thing searched, without the words that only name result groups."""
+    groups, rest = _group_hits(subject)
+    if len(groups) >= 2:
+        cleaned = _SHOW_WORDS.sub(" ", rest)
+    else:
+        cleaned = _trailing_group_strip(subject)[1]
+    cleaned = _LIST_GLUE.sub(" ", f" {cleaned} ")
+    words = cleaned.replace(",", " ").split()
+    glue = {"and", "or", "with", "plus", "మరియు", "ఇంకా", "और", "या", "&"}
+    while words and words[-1].casefold() in glue:
+        words.pop()
+    while words and words[0].casefold() in glue:
+        words.pop(0)
+    cleaned = " ".join(words).strip(" ,.&/-")
+    return cleaned or subject
+
+
 def _subject_with_brand(subject: str, constraints: dict) -> str:
     """The brand the customer chose is part of WHAT is searched ("Tata car",
     not the earlier "Maruti 800") -- slots never sit unused beside the query."""
@@ -476,6 +568,13 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         constraints.setdefault("radius_km", radius)
     if _VIDEO_ASK.search(str(payload.raw_text or "")) or _VIDEO_ASK_LOCAL.search(str(payload.raw_text or "")):
         constraints["wants_videos"] = True
+    # Every result group the customer named is produced -- one request can
+    # ask for videos AND places AND online links AND offers.
+    groups = requested_result_groups(f"{payload.raw_text or ''} {payload.subject or ''}")
+    if groups:
+        constraints["requested_groups"] = groups
+        if "videos" in groups:
+            constraints["wants_videos"] = True
     # The conversation language (Revenue Center breakdown only).
     language = str((getattr(payload, "trace", None) or {}).get("language") or "").strip()[:8]
     if language:
@@ -494,7 +593,8 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         "user_id": user_id,
         "side": "OFFER" if intent in _SUPPLY_INTENTS else "NEED",
         "domain": _DOMAIN_BY_CATEGORY.get(category, category.upper() or "PRODUCT"),
-        "subject": _subject_with_brand(_without_video_words(str(payload.subject).strip()), constraints),
+        "subject": _subject_with_brand(
+            _without_video_words(_without_result_group_words(str(payload.subject).strip())), constraints),
         "quantity": payload.quantity,
         "unit": payload.unit,
         "price": payload.price,
@@ -694,6 +794,9 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "advice": discovered.get("advice") or [],
         "next_actions": discovered.get("next_actions") or [],
         "matches": matches,
+        # Evidence for mixed requests: what was asked vs what came back.
+        "requested_groups": list((demand.get("constraints") or {}).get("requested_groups") or []),
+        "group_counts": group_counts(matches),
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
     }
@@ -882,6 +985,8 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "advice": discovered.get("advice") or [],
         "next_actions": discovered.get("next_actions") or [],
         "matches": matches,
+        "requested_groups": list((demand.get("constraints") or {}).get("requested_groups") or []),
+        "group_counts": group_counts(matches),
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
             raw_status="MATCHES_AVAILABLE" if primary_count else "WAITING_FOR_INTEREST",
