@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-03T17:28:06Z",
+ "generated_at": "2026-10-03T17:39:07Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:0b412be40e354c0d",
+   "trace_key": "browse:e37f47c9de5b4124",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -36,9 +36,10 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
+     "subject": "Samsung 43 inch TV",
      "size": "43 inch",
+     "category": "TV",
      "location": "Vijayawada"
     }
    },
@@ -208,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:1b022dee3af142ba",
+   "trace_key": "browse:eddfb9e6000847c2",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -240,7 +241,6 @@
      "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "category": "TV",
      "location": "Vijayawada"
     }
    },
@@ -293,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి ఎంత దూరంలో కూర్చుంటారో చూసుకోవాలి.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది. మరింత వివరంగా తెలుసుకోవాలనుకుంటున్నారా?",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_domain": "GENERAL",
+    "follow_action": "general_chat"
    },
    "next": {
     "step": "deals",
@@ -406,7 +406,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:497260df0a7e4798",
+   "trace_key": "browse:d878bedce5944763",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -432,7 +432,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
@@ -608,7 +608,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:f3784f2ed0e54301",
+   "trace_key": "browse:8dd488fcb2e444cb",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -811,7 +811,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:e157f27818fb4507",
+   "trace_key": "browse:b719abe9edb540cf",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -977,7 +977,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:308288cd7d6b4c65",
+   "trace_key": "browse:91ac12edb4fc4387",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -1007,7 +1007,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
-     "category": "plumbing",
      "location": "Vijayawada"
     }
    },
@@ -1143,7 +1142,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:b9f9d89e7d734317",
+   "trace_key": "browse:648e9ebf50af4c4a",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1166,7 +1165,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "FOOD",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1227,7 +1226,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "FOOD",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -1343,7 +1342,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:6a86f257b92848a0",
+   "trace_key": "browse:a7de25146fa84b25",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1372,7 +1371,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1428,7 +1427,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "EVENT",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -1543,7 +1542,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:99cbdbb4802c4dd2",
+   "trace_key": "browse:79d0af0814a840d6",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1575,7 +1574,6 @@
      "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "context": "used",
      "location": "Vijayawada"
     }
    },
@@ -1746,7 +1744,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:048ba0bbdd414c34",
+   "trace_key": "browse:c1738aa09268401a",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1776,8 +1774,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
-     "brand": "Apple",
-     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1950,7 +1946,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:411e9f8eaeb14057",
+   "trace_key": "browse:eaa0d283b8ff41e7",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2030,10 +2026,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గది కోసం ఏసీ సైజు లేదా కెపాసిటీ సమాచారం కోసం రివ్యూ వీడియోలు వెతుకుతున్నాను.",
+    "follow_reply": "చిన్న గదికి 1 టన్ లేదా 1.5 టన్ స్ప్లిట్ ఏసీ సర్వీసింగ్ సరిపోతుంది. మీ గదికి తగ్గ ఏసీ వివరాలు లేదా సర్వీస్ బుకింగ్ కోసం చూడమంటారా?",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_domain": "SERVICE",
+    "follow_action": "search_services"
    },
    "next": {
     "step": "local_service",

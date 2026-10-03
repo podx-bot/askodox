@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-03T17:28:06Z by `.github/workflows/video-real-content-proof.yml` (run 37140362272).
+Generated 2026-10-03T17:39:07Z by `.github/workflows/video-real-content-proof.yml` (run 37141069128).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి ఎంత దూరంలో కూర్చుంటారో చూసుకోవాలి.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది. మరింత వివరంగా తెలుసుకోవాలనుకుంటున్నారా?
 
 **Next step:** "samsung 43 inch tv offers" → Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]; Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice [online]
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గది కోసం ఏసీ సైజు లేదా కెపాసిటీ సమాచారం కోసం రివ్యూ వీడియోలు వెతుకుతున్నాను.
+**ASKODOX AI:** చిన్న గదికి 1 టన్ లేదా 1.5 టన్ స్ప్లిట్ ఏసీ సర్వీసింగ్ సరిపోతుంది. మీ గదికి తగ్గ ఏసీ వివరాలు లేదా సర్వీస్ బుకింగ్ కోసం చూడమంటారా?
 
 **Next step:** "ac service near me" → Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]; Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial [online]
 
