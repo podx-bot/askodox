@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-03T17:39:07Z",
+ "generated_at": "2026-10-03T19:04:40Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:e37f47c9de5b4124",
+   "trace_key": "browse:3e3280f941c94dcd",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -33,11 +33,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "subject": "Samsung 43 inch TV",
+     "subject": "43 inch TV",
      "size": "43 inch",
      "category": "TV",
      "location": "Vijayawada"
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:eddfb9e6000847c2",
+   "trace_key": "browse:b2750abcb2e5474f",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -240,7 +240,7 @@
     "entities": {
      "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
-     "size": "43 inch",
+     "size": "43 inches",
      "location": "Vijayawada"
     }
    },
@@ -293,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు, కానీ 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది. మరింత వివరంగా తెలుసుకోవాలనుకుంటున్నారా?",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి దూరం మరియు గది పరిమాణానికి సంబంధించిన సమాచారం కింద చూపబడే వీడియోలలో చూడవచ్చు.",
     "follow_source": "universal_ai",
-    "follow_domain": "GENERAL",
-    "follow_action": "general_chat"
+    "follow_domain": "PRODUCT",
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "deals",
@@ -406,7 +406,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:d878bedce5944763",
+   "trace_key": "browse:9350ca8b48c84d3d",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -437,6 +437,7 @@
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -608,18 +609,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:8dd488fcb2e444cb",
+   "trace_key": "browse:3d465799d2f647e5",
    "videos": [
     {
-     "video_id": "yt_77aOlpHhpOw",
-     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
-     "source_name": "TheAutoBharat",
-     "duration": "1:00",
+     "video_id": "yt_Cb-YstSd3oU",
+     "title": "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+     "source_name": "CarTalk by Ashu",
+     "duration": "9:34",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Cb-YstSd3oU?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+     "image_url": "https://i.ytimg.com/vi/Cb-YstSd3oU/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Cb-YstSd3oU",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -644,22 +645,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_77aOlpHhpOw",
+    "video_id": "yt_Cb-YstSd3oU",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons",
-     "Thinking of buying the Tata Nexon?",
-     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
+     "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+     "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+     "Related Queries",
+     "tata nexon crative plus s,",
+     "tata nexon creative plus s model,"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TheAutoBharat",
+    "creator": "CarTalk by Ashu",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
-    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
+    "url": "https://www.youtube.com/watch?v=Cb-YstSd3oU",
+    "question": "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
     "next": [
      {
       "action": "find_local",
@@ -689,7 +690,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
+    "question": "Tell me more about \"Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -811,7 +812,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:b719abe9edb540cf",
+   "trace_key": "browse:221ff7d898ca47ad",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -977,7 +978,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:91ac12edb4fc4387",
+   "trace_key": "browse:aa8fb04c892b482a",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -1142,7 +1143,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:648e9ebf50af4c4a",
+   "trace_key": "browse:5e30ecc7c09d4385",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1165,10 +1166,10 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Hyderabadi biryani",
@@ -1293,6 +1294,20 @@
       "location_label": null
      },
      {
+      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.eatsure.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
+      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
+      "location_label": null
+     },
+     {
       "title": "Order Online – HYDERABAD BIRYANI POINT",
       "segment": null,
       "match_source": "online",
@@ -1304,20 +1319,6 @@
       "sponsored": null,
       "destination_url": "https://hyderabadbiryanipoint.com/store/",
       "image_url": null,
-      "location_label": null
-     },
-     {
-      "title": "Order Biryani Near Me Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.behrouzbiryani.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.behrouzbiryani.com/behrouz-biryani/vijayawada",
-      "image_url": "https://imgs.search.brave.com/b5pHUBq0xEnCCACNUs4irJjCjkKoQv9_2hlBHHA-DvA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hc3Nl/dHMuZmFhc29zLmlv/L2VhdHN1cmUvcHJv/ZHVjdGlvbi9vZ19p/bWdfYmIucG5n",
       "location_label": null
      },
      {
@@ -1342,7 +1343,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:a7de25146fa84b25",
+   "trace_key": "browse:fb038906f6bb486c",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1542,7 +1543,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:79d0af0814a840d6",
+   "trace_key": "browse:773ceb835c944c10",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1695,6 +1696,20 @@
       "location_label": null
      },
      {
+      "title": "Royal Enfield Classic 350 On Road Price In Vijayawada - 2026 Price Breakup & Offers",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "thebikejunction.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://thebikejunction.com/royal-enfield-bikes/classic-350/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/DQZW4q8YqGZQd8rDgWwUx6u2dWeN15hRegZLS5Zv7UM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudHJhY3Rvcmp1/bmN0aW9uLmNvbS9S/b3lhbF9FbmZpZWxk/X0NsYXNzaWNfMzUw/X0dvcmtoYV80XzQ1/ZThlYzhkODYud2Vi/cD9mb3JtYXQ9d2Vi/cCZxdWFsaXR5PTQw",
+      "location_label": null
+     },
+     {
       "title": "Royal Enfield Classic 350 On Road Price Vijayawada Aug 2026 - ₹2.22L",
       "segment": null,
       "match_source": "online",
@@ -1721,20 +1736,6 @@
       "destination_url": "https://auto.shriramfinance.in/royal-enfield/classic-350-price-in-vijayawada",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Amazon.in: Royal Enfield: Classic 350",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "Amazon",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.amazon.in/stores/RoyalEnfield/page/5A2B3954-F96B-4B38-947B-308294138A60",
-      "image_url": "https://imgs.search.brave.com/UczKlM2b1x5PCJZG217BSzLTKzczIVTF1CLLpS2jogE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL1Mv/YWwtZXUtNzI2ZjRk/MjYtN2ZkYi8wODFi/ZmVhOS0yNGJjLTRh/ZTItYjBhYy01MTA0/MGY4NTcyNjIucG5n",
-      "location_label": null
      }
     ]
    }
@@ -1744,7 +1745,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:c1738aa09268401a",
+   "trace_key": "browse:9221858cea4547fa",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1774,6 +1775,8 @@
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
+     "brand": "Apple",
+     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1946,7 +1949,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:eaa0d283b8ff41e7",
+   "trace_key": "browse:2ca99dfec4764173",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2026,10 +2029,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 1 టన్ లేదా 1.5 టన్ స్ప్లిట్ ఏసీ సర్వీసింగ్ సరిపోతుంది. మీ గదికి తగ్గ ఏసీ వివరాలు లేదా సర్వీస్ బుకింగ్ కోసం చూడమంటారా?",
+    "follow_reply": "చిన్న గదికి ఇది సరిపోతుందో లేదో చూడటానికి నిపుణుల రివ్యూ మరియు డెమో వీడియోలు చూపిస్తున్నాను.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "search_services"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "local_service",
@@ -2204,6 +2207,6 @@
    "count": 0
   }
  ],
- "event_count": 82,
+ "event_count": 86,
  "youtube_data_api": "needs_configuration (no YOUTUBE_API_KEY in this run)"
 }
