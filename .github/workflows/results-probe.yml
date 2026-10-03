@@ -18,7 +18,8 @@ jobs:
           python3 - <<'PY'
           import json, os, urllib.request
           q = json.load(open('.github/results-probe.json'))['queries']
-          bases = {'production': 'https://podx-ai-connect-production-3279.up.railway.app'}
+          bases = {'production': 'https://podx-ai-connect-production-3279.up.railway.app',
+                   'staging': 'https://staging.askodox.com'}
           coords = {'Vijayawada': (16.5062, 80.6480)}
           for env, base in bases.items():
               for item in q:
@@ -69,6 +70,12 @@ jobs:
                       if h: hosts[h] = hosts.get(h, 0) + 1
                   print('DOMAINS:', json.dumps(hosts))
                   print('MARKETPLACES:', {k: sum(v for h, v in hosts.items() if k in h) for k in ('amazon', 'flipkart', 'meesho')})
+                  print('MARKETPLACE_INFO:', json.dumps(data.get('marketplaces'), ensure_ascii=False))
+                  for x in m:
+                      if x.get('marketplace') or x.get('origin') == 'affiliate_catalog':
+                          print('  * MKT', x.get('marketplace'), '| routing', x.get('routing'), '| affiliate', x.get('affiliate'),
+                                '|', str(x.get('title'))[:70], '|', str(x.get('destination_url'))[:100],
+                                '| price', x.get('price'), x.get('price_source'))
                   print('RAWJSON', json.dumps(data, ensure_ascii=False)[:20000]) if os.environ.get('RAW') else None
                   for x in m[:10]:
                       print('  -', x.get('segment'), '|', (x.get('match_source') or x.get('source')), '|',
