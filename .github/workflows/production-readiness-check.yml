@@ -1,0 +1,40 @@
+name: Production readiness check
+
+# Reads the PUBLIC /readiness endpoint (status words + deployed commit only;
+# it never returns keys, field names or reasons) so integration state can be
+# verified from outside the dev container.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Backend base URL
+        required: false
+        default: https://podx-ai-connect-production-3279.up.railway.app
+      expect_commit:
+        description: Wait until this commit prefix is deployed (optional)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read /readiness
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          EXPECT: ${{ inputs.expect_commit }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            body=$(curl -fsS --max-time 20 "$BASE_URL/readiness" || echo '{}')
+            commit=$(echo "$body" | jq -r '.commit // ""')
+            if [ -z "$EXPECT" ] || [[ "$commit" == "$EXPECT"* ]]; then break; fi
+            echo "deployed commit '$commit', waiting for '$EXPECT'..."; sleep 20
+          done
+          echo "$body" | jq '{environment, commit, youtube_status: .integrations.youtube_data,
+                              youtube_readiness: .integration_readiness.youtube_data,
+                              integrations, integration_readiness}'

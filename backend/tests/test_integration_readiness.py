@@ -516,34 +516,46 @@ FAKE_YT = "AIza" + "T" * 35
 FAKE_YT_2 = "AIza" + "U" * 35
 
 
-@pytest.mark.parametrize("var", ["YOUTUBE_API_KEY", "YOUTUBE_DATA_API_KEY"])
-def test_youtube_key_under_either_name_is_configured_and_live_after_a_real_check(api, monkeypatch, var):
+@pytest.mark.parametrize("names", [("YOUTUBE_API_KEY",), ("YOUTUBE_DATA_API_KEY",),
+                                   ("YOUTUBE_API_KEY", "YOUTUBE_DATA_API_KEY")])
+def test_youtube_key_under_either_name_is_configured_and_live_after_a_real_check(api, monkeypatch, caplog, names):
+    """The exact path the console uses: GET /admin/cc/platform/integrations and
+    POST /admin/cc/platform/integrations/youtube_data/check. No enable step:
+    the runtime uses the key as soon as it exists, so the status must too."""
+    import logging
+
+    caplog.set_level(logging.DEBUG)
     client, container, http = api
-    monkeypatch.setenv(var, FAKE_YT)
+    for var in names:
+        monkeypatch.setenv(var, FAKE_YT)
     container.platform = None
     yt = items(client)["youtube_data"]
     assert yt["missing"] == [] and yt["sources"]["api_key"] == "environment"
-    assert yt["readiness"] == "DISABLED" and yt["status"] == "DISABLED"
-    assert set(["YOUTUBE_DATA_API_KEY"]) <= set(yt["env_aliases"]["api_key"])
-    client.put(f"{BASE}/integrations/youtube_data", headers=OWNER, json={"enabled": True, "mode": "live"})
-    assert items(client)["youtube_data"]["readiness"] == "CONFIGURED", "never LIVE before a real check"
+    assert yt["status"] == "TEST" and yt["readiness"] == "CONFIGURED", "never LIVE before a real check"
+    assert "YOUTUBE_DATA_API_KEY" in yt["env_aliases"]["api_key"]
     http.responses = {"youtube/v3/videos": (200, {"items": [{"id": "dQw4w9WgXcQ"}]})}
-    client.post(f"{BASE}/integrations/youtube_data/check", headers=OWNER)
+    checked = client.post(f"{BASE}/integrations/youtube_data/check", headers=OWNER)
+    assert checked.status_code == 200 and FAKE_YT not in checked.text
     assert http.calls[-1]["params"]["key"] == FAKE_YT
     yt = items(client)["youtube_data"]
     assert yt["status"] == "LIVE" and yt["readiness"] == "LIVE" and yt["missing"] == []
     page = client.get(f"{BASE}/integrations", headers=OWNER).text
-    assert FAKE_YT not in page and "runtime" in page
+    public = client.get("/readiness").text
+    assert FAKE_YT not in page and FAKE_YT not in public and "runtime" in page
+    assert '"youtube_data":"LIVE"' in public.replace(" ", "")
     http.responses = {"youtube/v3/videos": (403, {"error": {"message": "API key not valid."}})}
     client.post(f"{BASE}/integrations/youtube_data/check", headers=OWNER)
     assert items(client)["youtube_data"]["readiness"] == "CHECK_FAILED"
+    assert FAKE_YT not in caplog.text, "the key must never reach the logs"
 
 
 def test_youtube_missing_only_when_neither_name_is_set(api):
     client, container, http = api
     yt = items(client)["youtube_data"]
     assert yt["missing"] == ["api_key"] and yt["readiness"] == "NOT_CONFIGURED"
-    assert not http.calls
+    assert yt["status"] == "NEEDS_CONFIGURATION"
+    checked = client.post(f"{BASE}/integrations/youtube_data/check", headers=OWNER).json()
+    assert checked["last_check_detail"] == "missing: api_key" and not http.calls
 
 
 def test_youtube_prefers_the_well_formed_key_when_both_names_are_set(monkeypatch):
