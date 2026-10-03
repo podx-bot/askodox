@@ -31,13 +31,7 @@
     "intent": "search_videos",
     "domain": "FOOD"
    }
-  },
-  {
-   "raw_text": "Vijayawada chicken biryani YouTube videos చూపించు",
-   "intent": "buy",
-   "subject": "chicken biryani",
-   "category": "food",
-   "place": "Vijayawada"
   }
- ]
+ ],
+ "note": "after PR #136 (c84928a): phone payload must return videos"
 }
