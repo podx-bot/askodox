@@ -35,12 +35,16 @@ jobs:
         run: flutter analyze
       - name: Test
         run: flutter test
-      - name: Build release APK
-        run: flutter build apk --release
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: askodox-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
+      # Compile check only. This job has no release key, so it never produces
+      # or uploads a "release" APK: one signed with the runner's throwaway
+      # debug key (versionCode 1) cannot update an installed ASKODOX and
+      # Android answers "App not installed". Installable builds come only
+      # from Android Live Build (persistent release key, guarded).
+      - name: Build debug APK (compile check, not distributed)
+        run: flutter build apk --debug
+      - name: Release builds refuse to run without the ASKODOX release key
+        run: |
+          if flutter build apk --release > release-attempt.log 2>&1; then
+            echo "FAIL: a release APK was built without the ASKODOX release key" >&2; exit 1
+          fi
+          grep -q "ASKODOX release signing is not configured" release-attempt.log

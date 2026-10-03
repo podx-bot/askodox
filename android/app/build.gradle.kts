@@ -1,7 +1,24 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// ASKODOX release signing: ONLY the persistent ASKODOX release key (CI writes
+// android/key.properties + android/app/askodox-release.jks from the
+// ANDROID_KEYSTORE_* GitHub secrets; neither file is ever committed). Every
+// installed ASKODOX build is signed with it, so an APK signed with anything
+// else -- e.g. a runner's throwaway debug key -- cannot update the app
+// ("App not installed"). Without the key a release build fails instead of
+// silently falling back to the debug key.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
 android {
@@ -29,11 +46,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else null
         }
     }
 }
@@ -46,4 +72,18 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Fail closed: a release APK/bundle without the ASKODOX release key is never built.
+gradle.taskGraph.whenReady {
+    val releasePackaging = allTasks.any { task ->
+        task.project == project && task.name.endsWith("Release") &&
+            (task.name.startsWith("assemble") || task.name.startsWith("package") || task.name.startsWith("bundle"))
+    }
+    if (releasePackaging && !hasReleaseKeystore) {
+        throw GradleException(
+            "ASKODOX release signing is not configured (android/key.properties missing). " +
+                "Release builds must use the persistent ASKODOX release key, never the debug key."
+        )
+    }
 }

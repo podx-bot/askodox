@@ -86,17 +86,8 @@ jobs:
           keyAlias=$KEY_ALIAS
           storeFile=askodox-release.jks
           EOF
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/app/build.gradle.kts')
-          s = p.read_text()
-          if 'java.util.Properties' not in s:
-              s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
-          s = s.replace('android {', 'val keystoreProperties = Properties()\nval keystorePropertiesFile = rootProject.file("key.properties")\nkeystoreProperties.load(FileInputStream(keystorePropertiesFile))\n\nandroid {', 1)
-          s = s.replace('    buildTypes {', '    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String\n            keyPassword = keystoreProperties["keyPassword"] as String\n            storeFile = file(keystoreProperties["storeFile"] as String)\n            storePassword = keystoreProperties["storePassword"] as String\n        }\n    }\n\n    buildTypes {', 1)
-          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
-          p.write_text(s)
-          PY
+          # android/app/build.gradle.kts signs release builds with this key only.
+          ! grep -q 'signingConfigs.getByName("debug")' android/app/build.gradle.kts
 
       - name: Build and verify signed release APK
         shell: bash
@@ -113,6 +104,8 @@ jobs:
           test -s "$APK"
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
           "$APKSIGNER" verify --verbose --print-certs "$APK"
+          python3 tool/apk_guard.py "$APK" --cert "$(cat .github/askodox-release-cert.sha256)" \
+            --package com.askodox.askodox --forbid-host staging.askodox.com
           cp "$APK" askodox-candidate.apk
 
       - name: Upload signed candidate artifact
