@@ -80,6 +80,7 @@ class Platform:
 
     def __init__(self, container: Any) -> None:
         settings = container.settings
+        self._container = container
         from app.services.secret_box import box_from_settings
 
         self.container = container
@@ -115,6 +116,8 @@ class Platform:
             "promo_preview": lambda record, params: {"result": self.promotions.preview(record)},
             "promo_run": lambda record, params: {"result": self.promotions.run(
                 record, enabled=self._flag_on("notifications.promotions"))},
+            "listing_approve": lambda record, params: {"result": self._listing_active(record, True)},
+            "listing_reject": lambda record, params: {"result": self._listing_active(record, False)},
         }, ref_exists=self._ref_exists)
         self._blocked_cache: tuple[float, set[str]] = (0.0, set())
         from app.services.video_content import WebVideoStore
@@ -283,6 +286,17 @@ class Platform:
 
     def invalidate(self) -> None:
         self._blocked_cache = (0.0, set())
+
+    def _listing_active(self, record: Dict[str, Any], active: bool) -> Dict[str, Any]:
+        """Listing review decision: show or keep hiding the held listing."""
+        import sqlite3 as _sqlite
+
+        product_id = int((record.get("data") or {}).get("product_id") or 0)
+        catalog = getattr(self._container, "product_catalog_repository", None)
+        with _sqlite.connect(getattr(catalog, "db_path", self.repo.db_path)) as conn:
+            changed = conn.execute("UPDATE seller_products SET active=? WHERE id=?",
+                                   (1 if active else 0, product_id)).rowcount
+        return {"product_id": product_id, "searchable": active, "updated": bool(changed)}
 
 
 def platform(container: Any) -> Platform:

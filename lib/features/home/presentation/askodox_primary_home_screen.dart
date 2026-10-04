@@ -1171,6 +1171,16 @@ class _AskodoxPrimaryHomeScreenState
     try {
       final result =
           await ref.read(sellerListingRepositoryProvider).createListing(deal);
+      if (result.success && result.heldForReview) {
+        final subject = deal.subject ?? '';
+        final why = result.message ?? '';
+        return (
+          _te
+              ? '“$subject” సేవ్ అయింది -- ASKODOX బృందం చూసిన తర్వాత కనిపిస్తుంది${why.isEmpty ? '' : ' ($why)'}.'
+              : '“$subject” is saved -- it will appear once the ASKODOX team reviews it${why.isEmpty ? '' : ' ($why)'}.',
+          false,
+        );
+      }
       if (result.success) {
         final subject = deal.subject ?? '';
         return (
