@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/flags/askodox_remote_flags.dart';
 import 'core/providers/backend_providers.dart';
 import 'core/update/askodox_update_service.dart';
 import 'features/companion/companion_performance_panel.dart';
@@ -37,6 +38,9 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
             AnalyticsEvent(type: AnalyticsEventType.appOpened, occurredAt: DateTime.now()),
           );
       await _restoreOnboardingIdentity();
+      // Command Center flags for this app: defaults until they arrive; a
+      // failed fetch keeps the cached / default values.
+      ref.read(askodoxRemoteFlagsProvider);
     });
 
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
