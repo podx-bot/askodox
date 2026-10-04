@@ -7,19 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `6f2c3af` -- PR #143 + #144 (2026-10-04): Brave web-search resilience
-  (real failure state at `/health/search`, breaker, per-thread errors,
-  last-good `stale` rows), askodox.com `/chat` proxied to the production
-  backend, app reads `/api/flags` (cached, defaults on failure), listing
-  spam / abuse screening + `listing_reviews`, Social auto-DM (Meta) and
-  marketplace product-API adapters (mock-testable, EXTERNAL SETUP for the
-  real connection), real-phone acceptance checklist in `qa_checks`.
-  #144: Brave 402 CREDIT_EXHAUSTED opens the breaker. Production backend
-  deployed (Railway SUCCESS on 6f2c3af). Signed MAIN APK 1292 (Live Build
-  37166918359 on 3780d3f, sha256 37132416…6dfae, cert 727b4a66…, production
-  backend only), mirrored for phone tests. Before:
-  #141/#142 category-driven advisor, flag targeting, inbox, opportunities,
-  web chat (APK 1291).
+- `main` @ `a9e6194` -- PR #146 + #147 (2026-10-04): public `/health/maps`
+  (per-API Google status; root cause = Geocoding / Places (New) / Routes
+  APIs not enabled on the key's project), Universal Sources (`sources`
+  resource, feed / json_search / site_search connectors, isolated + health),
+  item store review workflow + duplicates + product-health toggles, Staff
+  Workspace `/staff` (phone OTP / app handoff / token sign-in, paste-link
+  entry, review queue, tasks, support, feedback, analytics; 11 role
+  presets), Early Access programme + masked feedback + client errors +
+  dashboard; app: Profile Staff Workspace + feedback to backend + Android
+  Share -> ASKODOX. Signed MAIN APK 1294 (Live Build 37181794931 on a9e6194,
+  sha256 accc5b3c…e464e9, cert 727b4a66…, production backend only).
+  Before: #143-#145 search resilience, askodox.com/chat, app flags (1292).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
