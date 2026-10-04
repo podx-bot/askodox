@@ -96,3 +96,40 @@ def _search_health(container) -> dict:
 @router.get("/health/search")
 def search_health(request: Request) -> dict:
     return _search_health(request.app.state.container)
+
+
+_MAPS_HEALTH: dict = {}
+MAPS_HEALTH_TTL = 900  # one live check per 15 minutes at most (each call is a paid Google request)
+
+
+def _clean_google_message(text: str) -> str:
+    import re
+
+    return re.sub(r"\b\d{6,}\b", "<project>", str(text or ""))[:200]
+
+
+@router.get("/health/maps")
+def maps_health(request: Request) -> dict:
+    """Which Google Maps APIs answer for the deployed key -- per API OK /
+    FAILED with Google's own error text (project numbers masked, never the
+    key). Live-checked at most once per 15 minutes, then served from memory."""
+    import time
+
+    from app.services import rate_limit
+
+    rate_limit.check(request, "maps_health", limit=20)
+    now = time.monotonic()
+    if _MAPS_HEALTH.get("until", 0) > now:
+        return _MAPS_HEALTH["body"]
+    maps = getattr(request.app.state.container, "google_maps_service", None)
+    if maps is None or not getattr(maps, "enabled", False):
+        body = {"configured": False, "apis": {}, "note": "GOOGLE_MAPS_API_KEY is not set on this deployment"}
+    else:
+        from datetime import datetime, timezone
+
+        status = maps.api_status()
+        body = {"configured": True, "checked_at": datetime.now(timezone.utc).isoformat(),
+                "apis": {k: _clean_google_message(v) for k, v in status.items()},
+                "all_ok": all(v == "OK" for v in status.values())}
+    _MAPS_HEALTH.update(until=now + MAPS_HEALTH_TTL, body=body)
+    return body

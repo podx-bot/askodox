@@ -145,7 +145,9 @@ class GoogleMapsService:
             return response.json()
 
         try:
-            payload = external_call_budget.cached_call("google_geocode", (round(lat, 4), round(lon, 4)), fetch)
+            payload = external_call_budget.cached_call(
+                "google_geocode", (round(lat, 4), round(lon, 4)), fetch,
+                cache_if=lambda v: str((v or {}).get("status") or "").upper() in ("OK", "ZERO_RESULTS"))
         except (httpx.HTTPError, ValueError, TypeError):
             self.last_error = True
             return None

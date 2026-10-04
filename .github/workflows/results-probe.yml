@@ -31,6 +31,11 @@ jobs:
                   print(f"WEBSITE {url} -> HTTP {e.code}")
               except Exception as e:
                   print(f"WEBSITE {url} -> {e}")
+          try:
+              with urllib.request.urlopen(urllib.request.Request(bases['production'] + '/health/maps', headers={'User-Agent': 'ASKODOX-probe'}), timeout=90) as r:
+                  print('MAPS_HEALTH:', r.read().decode()[:900])
+          except Exception as e:
+              print('MAPS_HEALTH:', e)
           for path in ('/webhooks/meta-messaging?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1', '/admin/cc/social-dm', '/admin/cc/marketplace-apis'):
               try:
                   urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)

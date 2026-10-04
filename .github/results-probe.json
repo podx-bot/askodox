@@ -13,42 +13,7 @@
    "subject": "running shoes",
    "category": "fashion",
    "place": "Vijayawada"
-  },
-  {
-   "raw_text": "women cotton dress show me",
-   "intent": "buy",
-   "subject": "women cotton dress",
-   "category": "fashion",
-   "place": "Vijayawada"
-  },
-  {
-   "raw_text": "non stick kitchen tawa show me",
-   "intent": "buy",
-   "subject": "non stick kitchen tawa",
-   "category": "home",
-   "place": "Vijayawada"
-  },
-  {
-   "raw_text": "car phone holder show me",
-   "intent": "buy",
-   "subject": "car phone holder",
-   "category": "automotive",
-   "place": "Vijayawada"
-  },
-  {
-   "raw_text": "face sunscreen show me",
-   "intent": "buy",
-   "subject": "face sunscreen",
-   "category": "beauty",
-   "place": "Vijayawada"
-  },
-  {
-   "raw_text": "washing machine show me",
-   "intent": "buy",
-   "subject": "washing machine",
-   "category": "appliances",
-   "place": "Vijayawada"
   }
  ],
- "note": "post-#143 probe 2026-10-04T03:02:38.734795"
+ "note": "maps health probe 2026-10-04T05:35:46.233663"
 }

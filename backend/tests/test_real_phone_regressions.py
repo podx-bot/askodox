@@ -390,3 +390,37 @@ def test_signed_in_phone_payload_keeps_videos_from_the_customers_own_words(api):
         assert set(data["requested_groups"]) >= groups
         # The guest path (same payload) behaves the same.
         assert client.post("/deals/discover", json=body).json()["group_counts"]["videos"] >= 1
+
+
+def test_public_maps_health_names_each_api_masks_project_and_is_cached(monkeypatch):
+    from app.api.routes import health
+    from app.services import rate_limit
+    from app.services.google_maps_service import GoogleMapsService
+    from server import app, container
+
+    rate_limit.reset_for_tests()
+    health._MAPS_HEALTH.clear()
+    maps = GoogleMapsService(api_key="secret-key-value", client=_MixedGoogle())
+    monkeypatch.setattr(container, "google_maps_service", maps, raising=False)
+    calls = []
+    real = maps.api_status
+    monkeypatch.setattr(maps, "api_status", lambda: calls.append(1) or real())
+    client = TestClient(app)
+    body = client.get("/health/maps").json()
+    assert body["configured"] and body["all_ok"] is False
+    assert body["apis"]["places_text_search"] == "OK" and body["apis"]["routes"].startswith("FAILED (HTTP 403)")
+    assert "secret-key-value" not in str(body)
+    client.get("/health/maps")
+    assert len(calls) == 1, "live-checked at most once per 15 minutes"
+    health._MAPS_HEALTH.clear()
+
+
+def test_geocoding_refusal_is_not_cached():
+    from app.services import external_call_budget as b
+
+    b.reset_for_tests()
+    answers = [{"status": "REQUEST_DENIED"}, {"status": "OK", "results": []}]
+    ok = lambda v: v.get("status") == "OK"
+    assert b.cached_call("g", (1,), lambda: answers.pop(0), cache_if=ok)["status"] == "REQUEST_DENIED"
+    assert b.cached_call("g", (1,), lambda: answers.pop(0), cache_if=ok)["status"] == "OK"
+    assert b.cached_call("g", (1,), lambda: {"status": "NEW"}, cache_if=ok)["status"] == "OK"

@@ -207,7 +207,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.askodox.app',
+                      userAgentPackageName: 'com.askodox.askodox',
                     ),
                     MarkerLayer(markers: [
                       if (_pinned)
