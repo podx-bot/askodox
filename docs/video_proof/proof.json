@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T00:27:19Z",
+ "generated_at": "2026-10-04T00:38:20Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:a2472aacf6cf4575",
+   "trace_key": "browse:85a50475eafe414e",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -33,12 +33,13 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "subject": "Samsung 43 inch TV",
+     "category": "television",
      "location": "Vijayawada"
     }
    },
@@ -121,7 +122,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:0945d61c0d9e4242",
+   "trace_key": "browse:e9434d31515a4e1d",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -150,9 +151,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
      "brand": "Samsung",
      "size": "43 అంగుళాలు",
-     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -205,7 +206,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం మరియు చూసే దూరం ఎంత ఉందో చెప్తారా?",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా చూసే దూరం ఎంత ఉందో చెప్పండి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "general_inquiry"
@@ -231,7 +232,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:a853cbfb06944827",
+   "trace_key": "browse:217290e533f245c4",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -345,7 +346,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:172c25034d6f4692",
+   "trace_key": "browse:1de79abc91c54e2f",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -374,8 +375,8 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Tata",
      "subject": "Tata Nexon",
+     "brand": "Tata",
      "location": "Vijayawada"
     }
    },
@@ -459,7 +460,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:800e5ad7975645fe",
+   "trace_key": "browse:464e2c939070414b",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -568,7 +569,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:2481f8326ee0403c",
+   "trace_key": "browse:612ee6b5861748c2",
    "videos": [
     {
      "video_id": "yt_Ac8Arkhzgps",
@@ -680,7 +681,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:e1d67359c3d54ef0",
+   "trace_key": "browse:7a8ce7cf24a64f40",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -764,7 +765,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "FOOD",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -809,7 +810,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:c5e4fd22c1534d0c",
+   "trace_key": "browse:276e9c35004c4724",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -832,7 +833,7 @@
    "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "EVENT",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -894,7 +895,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "EVENT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -979,7 +980,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:2304f4ef7a3345cf",
+   "trace_key": "browse:c06d15ea6fa14632",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1093,7 +1094,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:e9d33d5801184d0b",
+   "trace_key": "browse:fa349eb5913d42fe",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1206,7 +1207,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:a99e5fa0206d431e",
+   "trace_key": "browse:7d857356d3c84b46",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1236,7 +1237,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "ఏసీ సర్వీస్",
-     "category": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -1287,10 +1287,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "అవును, Urban Company AC సర్వీస్ అన్ని పరిమాణాల ACలకు అందుబాటులో ఉంటుంది. మీకు ఈ సర్వీస్ బుకింగ్ చేయడానికి రోజు లేదా సమయం ఏమైనా ఉందా?",
+    "follow_reply": "చిన్న గదికి సరిపోతుందో లేదో తెలుసుకోవడానికి మీ AC టన్ను సామర్థ్యం (Tonnage) ఎంతో చెప్తారా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "ac_service"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "local_service",

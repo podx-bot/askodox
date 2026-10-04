@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T00:27:19Z by `.github/workflows/video-real-content-proof.yml` (run 37164809967).
+Generated 2026-10-04T00:38:20Z by `.github/workflows/video-real-content-proof.yml` (run 37165377577).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం మరియు చూసే దూరం ఎంత ఉందో చెప్తారా?
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా చూసే దూరం ఎంత ఉందో చెప్పండి.
 
 **Next step:** "samsung 43 inch tv offers" → 
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** అవును, Urban Company AC సర్వీస్ అన్ని పరిమాణాల ACలకు అందుబాటులో ఉంటుంది. మీకు ఈ సర్వీస్ బుకింగ్ చేయడానికి రోజు లేదా సమయం ఏమైనా ఉందా?
+**ASKODOX AI:** చిన్న గదికి సరిపోతుందో లేదో తెలుసుకోవడానికి మీ AC టన్ను సామర్థ్యం (Tonnage) ఎంతో చెప్తారా?
 
 **Next step:** "ac service near me" → 
 
