@@ -7,15 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `6cf156b` -- PR #151 (2026-10-04): web search CHAIN (Brave, then
-  Google Programmable Search when `GOOGLE_CSE_*` set -- not set yet), nearest
-  junction in the app's map picker (Places types; production returns a real
-  junction), News group in results, Shorts vs long video ordering by the
-  user's words, staff blocked-page/manual-entry + news flows verified.
-  Production: Maps all OK (Geocoding / Places / Routes), contract v2 live,
-  `ASKODOX_SECRETS_KEY` set. Signed MAIN APK 1296 (Live Build 37198724430 on
-  6cf156b, sha256 78f0c7b6…e526, same release cert, production backend only).
-  Before: #149-#150 Result Contract v2 + APK 1295; #146-#148 Sources/Staff.
+- `main` @ `65e6167` -- PR #153 (2026-10-04): ONE mobility system on
+  `delivery_jobs` + `/api/delivery` (rides, parcels, local/order delivery,
+  carpool, driver join/workspace, fulfilment responsibility, Mobility Command
+  Center), ASKODOX-native video (upload -> staff review -> feed, reports,
+  in-app DM from approved FAQ), typed place -> map point + junction
+  (`/api/discover/resolve`), `/health/integrations` states. Production probe
+  (run 37210777743): Maps all OK, resolve + junction OK, Brave OK (plan
+  funded), guards 401, secrets configured; `delivery.matching` flag is OFF in
+  production (mobility shows DISABLED until the owner switches it on).
+  Signed MAIN APK 1297 (Live Build 37210734389 on 65e6167, sha256 d3d56948…ed0a7, same release cert, production backend only).
+  Before: #151-#152 search chain + junction + APK 1296; #149-#150 contract v2.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -280,6 +282,20 @@ this file, don't trust it blindly.
   first from the user's own words (`demand["said"]` = trace.query); rows are
   ranked by subject relevance; videos still only when asked / relevant.
 - App results: `source == 'content'` rows form the "News" compare group.
+- Mobility = `delivery_jobs.py` + `routes/delivery.py` (ONE system: rides,
+  parcels, local / order delivery, carpool, reports). `REQUESTED/PARTNER_SEARCH`
+  is never "confirmed"; trip steps forward-only (`allowed_step`);
+  `PRIVATE_DETAIL_KEYS` + phones only to the requester / assigned partner after
+  acceptance; fares only from `mobility_services` (ACTIVE row). Partners are
+  `delivery_partners` (apply -> PENDING_REVIEW; staff approve / correction /
+  disable). Order fulfilment responsibility: `fulfillment.py` (delivery state
+  derived, separate from commerce state). Older WhatsApp ride stacks
+  (`ride_repository`, `local_dispatch_*`) are legacy -- don't extend them.
+- Native video: `routes/native_video.py` (upload metadata may come as query
+  params -- the app's `ApiClient.upload` sends only the file). Unpublished
+  media only to owner / staff. Video DMs answer from approved FAQ only.
+- Integration states: `integration_readiness.runtime_rows` + public
+  `/health/integrations` (no secrets). Firebase "configured" is never LIVE.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -353,13 +369,15 @@ this file, don't trust it blindly.
 - Marketplace product APIs: Amazon PA-API 5 / Flipkart adapters are built
   (`marketplace_api.py`, catalog "Refresh from marketplace API") but no
   credentials are configured; Meesho has no product API (feed / staff only).
-- Brave web search ROOT CAUSE (production probe 37172903519, 2026-10-04):
-  Brave answers HTTP 402 `CREDIT_EXHAUSTED` -- the plan's monthly credit is
-  used up (monthly remaining 0, reset ~28 days). Online / marketplace / web
-  video rows are therefore empty until the owner adds credit or upgrades the
-  Brave plan (EXTERNAL). The provider now opens its breaker on 402 (no more
-  paid calls) and serves earlier results marked `stale`; state at
-  `/health/search` and readiness "Web search (Brave)".
+- Brave web search: the plan was out of credit (HTTP 402) until the owner
+  funded it on 2026-10-04; production probes since then answer 200 with real
+  online / marketplace rows. The 402 breaker + stale last-good stay in place.
+- Mobility: production has no approved driver yet and `delivery.matching` is
+  off, so every request honestly ends NEEDS_CONFIGURATION / NEEDS_PARTNER.
+  No payment for rides (fare = configured estimate only); no live tracking
+  map (partner steps only). Carpool is cost-sharing, not commercial.
+- Native video files live on the Railway volume next to the DB
+  (`video_uploads/`); no transcoding or server thumbnails (optional upload).
 
 ## Working efficiently in this repo
 - Delegate broad repo exploration, multi-file call-chain tracing, full

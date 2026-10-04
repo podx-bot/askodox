@@ -49,6 +49,7 @@ MAIN_APKS = {
     "1294": "accc5b3c4bcbb893228da91cc3f1408a4afba4042f8685dba7924bc6a0e464e9",
     "1295": "a938ed69ecc7c6c5769720524bdf1373c68500e7482e4d74d56d1cbea9d144a3",
     "1296": "78f0c7b6f35906ad52b4cee6fce33b9c738bd5b0633b4560e5dcb4b32f83e526",
+    "1297": "d3d56948bd3ea7e610cd54825254626a777a0195de7b80100d3a9071069ed0a7",
 }
 SOURCE = "https://github.com/podx-bot/askodox/releases/download/phone-test-{b}/askodox-phone-test-{b}.apk"
 MAIN_SOURCE = "https://github.com/podx-bot/askodox/releases/download/askodox-latest/askodox-{b}.apk"
