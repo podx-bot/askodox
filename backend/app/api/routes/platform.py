@@ -1309,7 +1309,7 @@ class MarketBody(BaseModel):
 def _study_target(request: Request, video_id: str) -> Dict[str, Any]:
     """A video ASKODOX knows: a web/YouTube result it showed, or an upload it studied."""
     pf = _pf(request)
-    if video_id.startswith("up_"):
+    if video_id.startswith(("up_", "nv_")):  # a chat upload or a studied ASKODOX-native video
         study = pf.video_study.store.get(video_id)
         if not study:
             raise HTTPException(status_code=404, detail="Video not found")

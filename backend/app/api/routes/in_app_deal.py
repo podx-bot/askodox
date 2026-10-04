@@ -400,6 +400,22 @@ def deal_message(payload: DealMessageRequest, request: Request) -> dict:
     }
 
 
+def _deal_triggers(container, request_id: int) -> list:
+    """Auto-response triggers that fit this deal: its kind first, then any_message."""
+    try:
+        demand = container.universal_demand_repository.get(int(request_id)) or {}
+    except Exception:
+        demand = {}
+    domain = str(demand.get("domain") or "").upper()
+    intent = str(demand.get("intent") or demand.get("side") or "").lower()
+    kinds = []
+    if "offer" in intent:
+        kinds.append("offer")
+    if domain in ("PRODUCT", "FOOD", "GROCERY"):
+        kinds += ["product", "catalog", "listing"]
+    return kinds + ["any_message"]
+
+
 def _auto_reply(container, db, request_id: int, party_a: str, party_b: str, body: str):
     """The seller's ACTIVE auto-response rule, if any. Never raises."""
     try:
@@ -409,7 +425,14 @@ def _auto_reply(container, db, request_id: int, party_a: str, party_b: str, body
         if not _flag_on(container, "autoresponse.enabled"):
             return None
         pf = platform(container)
-        rule = auto_response.rule_for(pf.repo.list("auto_response_rules"), party_b, message=body)
+        rules = pf.repo.list("auto_response_rules")
+        # A rule for this kind of deal (product / listing / offer ...) beats a
+        # general one; any_message rules still answer every deal chat.
+        rule = None
+        for trigger in _deal_triggers(container, request_id):
+            rule = auto_response.rule_for(rules, party_b, trigger=trigger, message=body)
+            if rule is not None:
+                break
         if rule is None:
             return None
         blocked = auto_response_limit(pf, rule, party_a)

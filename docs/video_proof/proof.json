@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T14:39:32Z",
+ "generated_at": "2026-10-04T16:46:53Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:c794f0263f95404c",
+   "trace_key": "browse:b1deee10e1d5436e",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -33,12 +33,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "subject": "43 inch TV",
      "size": "43 inch",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:bcf0c943506742bf",
+   "trace_key": "browse:05c12341926346bb",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -238,9 +238,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Samsung",
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
+     "brand": "శామ్‌సంగ్",
      "size": "43 అంగుళాల",
-     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -293,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "గది పరిమాణం ఎంత ఉందో చెబితే, ఇది సరిపోతుందో లేదో సరిగ్గా చెప్పగలను.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా చూడటానికి ఎంత దూరం ఉందో చెప్పండి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "general_inquiry"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "deals",
@@ -407,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:f071634954c341fb",
+   "trace_key": "browse:46a343643253428b",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,12 +433,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
-     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -611,18 +610,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:3d43d6afdad140fe",
+   "trace_key": "browse:32fc8cfd0a374e64",
    "videos": [
     {
-     "video_id": "yt_77aOlpHhpOw",
-     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
-     "source_name": "TheAutoBharat",
-     "duration": "1:00",
+     "video_id": "yt_nBEYkrdak-0",
+     "title": "Tata Nexon 2024 Positives and Negatives Honest Review",
+     "source_name": "Burning Wheels",
+     "duration": "7:58",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/nBEYkrdak-0?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+     "image_url": "https://i.ytimg.com/vi/nBEYkrdak-0/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=nBEYkrdak-0",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -642,26 +641,27 @@
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
+     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_77aOlpHhpOw",
+    "video_id": "yt_nBEYkrdak-0",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons",
-     "Thinking of buying the Tata Nexon?",
-     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
+     "Tata Nexon 2024 Positives and Negatives Honest Review",
+     "Special Thanks to",
+     "Sudarshan Tata Motors, Kalyan, Maharashtra",
+     "Contact : 070452 43316 / 9321931900",
+     "Call and Book your appointment."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TheAutoBharat",
+    "creator": "Burning Wheels",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
-    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
+    "url": "https://www.youtube.com/watch?v=nBEYkrdak-0",
+    "question": "Tata Nexon 2024 Positives and Negatives Honest Review",
     "next": [
      {
       "action": "find_local",
@@ -691,7 +691,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
+    "question": "Tell me more about \"Tata Nexon 2024 Positives and Negatives Honest Review\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -814,7 +814,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:86c19c94ff5e49d9",
+   "trace_key": "browse:56270422bda64aa4",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -837,7 +837,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
+    "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -996,18 +996,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:9f6ee144994449b0",
+   "trace_key": "browse:cb425533a89c427c",
    "videos": [
     {
-     "video_id": "yt_Bvxkrv7t4Dw",
-     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "source_name": "vijay xyz tricks ",
-     "duration": "0:14",
+     "video_id": "yt_Ac8Arkhzgps",
+     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+     "source_name": "My Old Plumber",
+     "duration": "0:17",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -1026,25 +1026,27 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
-     "service_type": "plumbing",
+     "category": "plumbing",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_Bvxkrv7t4Dw",
+    "video_id": "yt_Ac8Arkhzgps",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "thanks for watching video"
+     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+     "Which do you prefer for sealing drains — plumbers putty or silicone?",
+     "Some plumbers swear by putty.",
+     "Others prefer silicone for a stronger long-term seal.",
+     "Both have their place depending on the sink, drain, and installation."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "vijay xyz tricks ",
+    "creator": "My Old Plumber",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
-    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
     "next": [
      {
       "action": "find_local",
@@ -1074,7 +1076,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
+    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -1180,7 +1182,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:7a1d5f1dd3ac42f0",
+   "trace_key": "browse:4a34a667337a4ae6",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1203,7 +1205,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "FOOD",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1289,16 +1291,16 @@
     },
     "options": [
      {
-      "title": "Bismillah Paradise Biryani",
+      "title": "The Kazus Royal Dum Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 0.2,
+      "distance_km": 1.5,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1331,6 +1333,20 @@
       "location_label": null
      },
      {
+      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.eatsure.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
+      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
+      "location_label": null
+     },
+     {
       "title": "Order Online – HYDERABAD BIRYANI POINT",
       "segment": null,
       "match_source": "online",
@@ -1341,20 +1357,6 @@
       "affiliate": false,
       "sponsored": null,
       "destination_url": "https://hyderabadbiryanipoint.com/store/",
-      "image_url": null,
-      "location_label": null
-     },
-     {
-      "title": "Vijayawada Restaurants, Restaurants in Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.zomato.com",
-      "price": 100.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.zomato.com/vijayawada/order-biryani-online",
       "image_url": null,
       "location_label": null
      },
@@ -1380,7 +1382,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:9f12d41e112f412d",
+   "trace_key": "browse:5e5dad27620043f0",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1477,7 +1479,7 @@
     "ask": "araku valley trip reviews",
     "segments": [
      "deals",
-     "nearby_external"
+     "wider_local"
     ],
     "status": {
      "askodox": "no_results",
@@ -1489,20 +1491,6 @@
      "jobs": "not_applicable"
     },
     "options": [
-     {
-      "title": "Akkanna Madanna Caves",
-      "segment": "nearby_external",
-      "match_source": "external",
-      "source_name": null,
-      "price": null,
-      "price_verified": false,
-      "distance_km": 4.5,
-      "affiliate": null,
-      "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=8298250960370824606&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
-      "image_url": null,
-      "location_label": null
-     },
      {
       "title": "Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT",
       "segment": "deals",
@@ -1546,6 +1534,20 @@
       "location_label": null
      },
      {
+      "title": "ARAKU VALLEY",
+      "segment": "wider_local",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 311.2,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=1765131070365378&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     },
+     {
       "title": "Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare",
       "segment": null,
       "match_source": "online",
@@ -1581,18 +1583,18 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:e3096a33c40c498f",
+   "trace_key": "browse:a4faed9200084edf",
    "videos": [
     {
-     "video_id": "yt_dzPSScYH1G4",
-     "title": "Classic 350 BS4: Worth buying a used one in 2025?",
-     "source_name": "RPM Revelations ",
-     "duration": "4:42",
+     "video_id": "yt_RJworx5674I",
+     "title": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
+     "source_name": "The Motographer ",
+     "duration": "13:42",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/dzPSScYH1G4?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/RJworx5674I?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/dzPSScYH1G4/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=dzPSScYH1G4",
+     "image_url": "https://i.ytimg.com/vi/RJworx5674I/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=RJworx5674I",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1617,21 +1619,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_dzPSScYH1G4",
+    "video_id": "yt_RJworx5674I",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Classic 350 BS4: Worth buying a used one in 2025?",
-     "Motorcyclists!!!",
-     "Almost every person was fascinated by the Royal Enfield Classic.",
-     "It's that type of bike that every generation from each family in India is aware of, now with the most recent iteration of the Classic 350 being the BS6 version, we wanted to review the previous gen"
+     "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
+     "Welcome to *TheMotographer* — where every ride becomes a cinematic story.",
+     "I’m a rider, creator, and reviewer who captures the soul of motorcycles.",
+     "📍 Based in Lucknow, India | Motorcycle • Cinematic • Experiences",
+     "🎯 My goal — to build a space for riders who ride not just for spe"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "RPM Revelations ",
+    "creator": "The Motographer ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=dzPSScYH1G4",
-    "question": "Classic 350 BS4: Worth buying a used one in 2025?",
+    "url": "https://www.youtube.com/watch?v=RJworx5674I",
+    "question": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
     "next": [
      {
       "action": "find_local",
@@ -1661,7 +1664,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Classic 350 BS4: Worth buying a used one in 2025?\"",
+    "question": "Tell me more about \"Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -1784,7 +1787,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:cc5c19c696dc47c0",
+   "trace_key": "browse:c461ccd877144e02",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1813,9 +1816,8 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Apple",
-     "model": "iPhone 15",
      "subject": "iPhone 15 offer",
+     "brand": "Apple",
      "location": "Vijayawada"
     }
    },
@@ -1989,7 +1991,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:5237cc8bbd8c4649",
+   "trace_key": "browse:2c6735fc1559469c",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2069,7 +2071,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి Split AC సరిపోతుందో లేదో తెలుసుకోవడానికి గది పరిమాణం (చదరపు అడుగులు) మరియు AC టన్ను సామర్థ్యం వివరాలు తెలియజేయండి.",
+    "follow_reply": "ఈ ఏసీ సర్వీస్ లేదా క్లీనింగ్ మీ గదిలో ఉన్న స్ప్లిట్ ఏసీకి సరిపోతుంది. మీ ఏసీ మోడల్ లేదా టన్నుల వివరాలు తెలియజేస్తారా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"

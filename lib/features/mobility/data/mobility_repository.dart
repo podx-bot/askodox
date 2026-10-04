@@ -33,6 +33,7 @@ class MobilityJob {
     this.partnerPhone = '',
     this.customerPhone = '',
     this.details = const {},
+    this.scheduleAt = '',
   });
 
   factory MobilityJob.fromJson(Map<String, Object?> j) {
@@ -55,6 +56,7 @@ class MobilityJob {
       partnerPhone: '${partner['phone'] ?? ''}',
       customerPhone: '${j['customer_phone'] ?? ''}',
       details: Map<String, Object?>.from((j['details'] as Map?) ?? const {}),
+      scheduleAt: '${j['schedule_at'] ?? ''}' == 'null' ? '' : '${j['schedule_at'] ?? ''}',
     );
   }
 
@@ -63,6 +65,7 @@ class MobilityJob {
   final bool confirmedByPartner;
   final String partnerName, partnerVehicle, partnerPhone, customerPhone;
   final Map<String, Object?> details;
+  final String scheduleAt;
 
   bool get cancellable =>
       const {'REQUESTED', 'NEEDS_PARTNER', 'NEEDS_CONFIGURATION', 'PARTNER_SEARCH', 'PARTNER_ACCEPTED',
@@ -135,7 +138,58 @@ abstract class MobilityRepository {
   Future<Map<String, Object?>> myCarpool();
   Future<MobilityResult<Map<String, Object?>>> decideSeat(String requestId, bool accept);
   Future<bool> report(String subjectType, String subjectId, String reason);
+
+  /// Who moves an order, and where that movement is (separate from the
+  /// order's own status).
+  Future<MobilityResult<OrderFulfilment>> fulfilment(String orderId);
+  Future<MobilityResult<OrderFulfilment>> setFulfilment(String orderId, String mode,
+      {Map<String, Object?>? pickup, Map<String, Object?>? drop});
 }
+
+/// Order delivery responsibility + derived delivery status.
+class OrderFulfilment {
+  const OrderFulfilment({required this.responsibility, required this.deliveryStatus, required this.commerceStatus,
+      this.jobStage = ''});
+
+  factory OrderFulfilment.fromJson(Map<String, Object?> j) => OrderFulfilment(
+        responsibility: '${j['responsibility'] ?? 'TO_BE_DECIDED'}',
+        deliveryStatus: '${j['delivery_status'] ?? 'TO_BE_DECIDED'}',
+        commerceStatus: '${j['commerce_status'] ?? ''}',
+        jobStage: '${((j['delivery_job'] as Map?) ?? const {})['stage'] ?? ''}',
+      );
+
+  final String responsibility, deliveryStatus, commerceStatus, jobStage;
+}
+
+const askodoxFulfilmentModes = ['SELLER_DELIVERY', 'CUSTOMER_PICKUP', 'ASKODOX_NETWORK_DRIVER',
+  'SELLER_ARRANGED_DRIVER', 'CUSTOMER_ARRANGED_DRIVER', 'COURIER_PARCEL_PROVIDER', 'THIRD_PARTY_PROVIDER',
+  'NOT_REQUIRED', 'TO_BE_DECIDED'];
+
+String askodoxFulfilmentLabel(String mode, bool te) => switch (mode) {
+      'SELLER_DELIVERY' => te ? 'విక్రేత డెలివరీ చేస్తారు' : 'Seller delivers',
+      'CUSTOMER_PICKUP' => te ? 'నేనే తీసుకుంటాను' : 'I will pick it up',
+      'ASKODOX_NETWORK_DRIVER' => te ? 'ASKODOX డ్రైవర్' : 'ASKODOX network driver',
+      'SELLER_ARRANGED_DRIVER' => te ? 'విక్రేత డ్రైవర్‌ను ఏర్పాటు చేస్తారు' : 'Seller arranges a driver',
+      'CUSTOMER_ARRANGED_DRIVER' => te ? 'నేను డ్రైవర్‌ను ఏర్పాటు చేస్తాను' : 'I arrange my own driver',
+      'COURIER_PARCEL_PROVIDER' => te ? 'కొరియర్' : 'Courier / parcel company',
+      'THIRD_PARTY_PROVIDER' => te ? 'ఇతర డెలివరీ సంస్థ' : 'Another delivery provider',
+      'NOT_REQUIRED' => te ? 'డెలివరీ అవసరం లేదు' : 'No delivery needed',
+      _ => te ? 'ఇంకా నిర్ణయించలేదు' : 'Not decided yet',
+    };
+
+String askodoxDeliveryStatusLabel(String status, bool te) => switch (status) {
+      'NOT_REQUIRED' => te ? 'డెలివరీ అవసరం లేదు' : 'No delivery',
+      'TO_BE_DECIDED' => te ? 'ఎవరు డెలివరీ చేస్తారో ఇంకా నిర్ణయించలేదు' : 'Who delivers is not decided yet',
+      'NOT_STARTED' => te ? 'డెలివరీ ఇంకా ప్రారంభం కాలేదు' : 'Delivery not started',
+      'NEEDS_DRIVER' => te ? 'డ్రైవర్ దొరకలేదు' : 'No driver yet',
+      'SEARCHING' || 'OFFERED' => te ? 'డ్రైవర్ కోసం వెతుకుతున్నాం -- ఇంకా కన్ఫర్మ్ కాలేదు' : 'Looking for a driver -- not confirmed yet',
+      'DRIVER_ACCEPTED' => te ? 'డ్రైవర్ అంగీకరించారు' : 'Driver accepted',
+      'EN_ROUTE_PICKUP' || 'ARRIVED_PICKUP' => te ? 'డ్రైవర్ పికప్‌కు వస్తున్నారు' : 'Driver heading to pickup',
+      'PICKED_UP' || 'IN_TRANSIT' || 'ARRIVED_DROP' => te ? 'దారిలో ఉంది' : 'On the way',
+      'DELIVERED' => te ? 'డెలివరీ అయింది' : 'Delivered',
+      'CANCELLED' => te ? 'రద్దు' : 'Cancelled',
+      _ => status,
+    };
 
 final mobilityRepositoryProvider = Provider<MobilityRepository>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -282,8 +336,40 @@ class ApiMobilityRepository implements MobilityRepository {
       (d) => d);
 
   @override
+  Future<MobilityResult<OrderFulfilment>> fulfilment(String orderId) async => _map(
+      await _client.get<Map<String, Object?>>('$_base/orders/$orderId/fulfillment', options: _auth),
+      OrderFulfilment.fromJson);
+
+  @override
+  Future<MobilityResult<OrderFulfilment>> setFulfilment(String orderId, String mode,
+          {Map<String, Object?>? pickup, Map<String, Object?>? drop}) async =>
+      _map(
+          await _client.post<Map<String, Object?>>('$_base/orders/$orderId/fulfillment',
+              body: {'mode': mode, if (pickup != null) 'pickup': pickup, if (drop != null) 'drop': drop},
+              options: _auth),
+          OrderFulfilment.fromJson);
+
+  @override
   Future<bool> report(String subjectType, String subjectId, String reason) async =>
       (await _client.post<Map<String, Object?>>('$_base/reports',
           body: {'subject_type': subjectType, 'subject_id': subjectId, 'reason': reason}, options: _auth))
           is ApiSuccess;
+}
+
+/// Which mobility service a chat request asks for, from the user's own
+/// words (en / te / hi). Null when it is not a ride / parcel / carpool.
+String? askodoxMobilityKind(String text) {
+  final t = ' ${text.toLowerCase()} ';
+  bool has(List<String> words) => words.any(t.contains);
+  if (has(['carpool', 'car pool', 'share a ride', 'కార్‌పూల్'])) return 'carpool';
+  if (has(['document', 'డాక్యుమెంట్'])) return 'documents';
+  if (has(['parcel', 'courier', 'పార్సెల్', 'కొరియర్', 'पार्सल'])) return 'parcel';
+  if (has(['bike taxi', 'bike ride', 'rapido', 'బైక్'])) return 'ride_bike';
+  if (has([' auto ', 'auto rickshaw', 'autorickshaw', 'ఆటో', 'ऑटो'])) return 'ride_auto';
+  if (has(['airport', 'ఎయిర్‌పోర్ట్', 'एयरपोर्ट'])) return 'ride_airport';
+  if (has(['outstation', 'ఔట్‌స్టేషన్'])) return 'ride_outstation';
+  if (has(['driver only', 'acting driver', 'need a driver for my car', 'డ్రైవర్ కావాలి'])) return 'driver_only';
+  if (has(['taxi', ' cab', 'ride', 'టాక్సీ', 'క్యాబ్', 'రైడ్', 'टैक्सी'])) return 'ride_taxi';
+  if (has(['pickup and drop', 'pick up and drop', 'local delivery', 'deliver this'])) return 'pickup_drop';
+  return null;
 }

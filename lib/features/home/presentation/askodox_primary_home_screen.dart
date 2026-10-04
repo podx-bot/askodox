@@ -42,6 +42,7 @@ import '../../selling/data/catalogue_repository.dart';
 import '../../selling/domain/seller_catalogue.dart';
 import '../../selling/presentation/catalogue_widgets.dart';
 import '../../growth/data/growth_repository.dart';
+import '../../mobility/data/mobility_repository.dart';
 import '../../growth/data/partner_tracking.dart';
 import '../../growth/presentation/benefits_widgets.dart';
 import '../../../services/chat_attachment_service.dart';
@@ -2593,6 +2594,54 @@ class _AskodoxPrimaryHomeScreenState
     _scrollBottom();
   }
 
+  /// The ride / parcel / carpool this pinned route asks for, once both ends
+  /// are on the map -- the hand-off to the ONE mobility system.
+  String? _mobilityHandoffKind() {
+    final deal = ref.read(universalDealControllerProvider).deal;
+    if (deal == null) return null;
+    final fields = deal.dynamicFields;
+    if (fields['from_lat'] is! num || fields['to_lat'] is! num) return null;
+    return askodoxMobilityKind('${deal.rawText} ${deal.subject ?? ''}');
+  }
+
+  /// Sends the pinned route to nearby approved partners. The reply is the
+  /// backend's own stage: never "confirmed" until a partner accepts.
+  Future<void> _requestMobility(String kind) async {
+    if (kind == 'carpool') {
+      context.push('/mobility?tab=2');
+      return;
+    }
+    if (ref.read(authSessionProvider).user == null) {
+      context.push('/onboarding?signin=1');
+      return;
+    }
+    final fields = ref.read(universalDealControllerProvider).deal?.dynamicFields ?? const <String, Object?>{};
+    Map<String, Object?> point(String end) => {
+          'label': '${fields[end] ?? ''}',
+          'latitude': (fields['${end}_lat'] as num).toDouble(),
+          'longitude': (fields['${end}_lng'] as num).toDouble(),
+        };
+    setState(() => _sending = true);
+    final result = await ref.read(mobilityRepositoryProvider).request(kind: kind, pickup: point('from'), drop: point('to'));
+    if (!mounted) return;
+    final job = result.data;
+    final text = job == null
+        ? (_te ? 'రిక్వెస్ట్ పంపలేకపోయాం: ${result.error ?? ''}' : 'Could not send the request: ${result.error ?? ''}')
+        : [
+            job.stage,
+            if (job.quote != null)
+              _te ? 'అంచనా ₹${job.quote!.round()} (పార్ట్‌నర్ కన్ఫర్మ్ చేస్తారు).' : 'Estimate ₹${job.quote!.round()} (the partner confirms the fare).',
+            _te ? 'ప్రొఫైల్ → రైడ్స్, పార్సెల్స్ లో ట్రాక్ చేయండి.' : 'Track it in Profile → Rides, parcels & carpool.',
+          ].join('\n');
+    setState(() {
+      _sending = false;
+      _turns.add(ConversationTurnRecord(text: text, isUser: false));
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+  }
+
   Future<void> _relayToSeller(String orderId, String text, bool speakResponse) async {
     final amount = askodoxOfferAmount(text);
     String reply;
@@ -3502,6 +3551,21 @@ class _AskodoxPrimaryHomeScreenState
                   ),
                 ]),
               ),
+            if (index == _turns.length - 1 && !turn.isUser && !_routePinsNeeded())
+              if (_mobilityHandoffKind() case final kind?)
+                Padding(
+                  key: const Key('askodoxMobilityHandoff'),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: ActionChip(
+                    avatar: Icon(kind == 'parcel' || kind == 'documents' ? Icons.local_shipping_outlined : Icons.local_taxi_outlined, size: 18),
+                    label: Text(kind == 'carpool'
+                        ? (te ? 'కార్‌పూల్ చూడండి' : 'Find a carpool')
+                        : kind == 'parcel' || kind == 'documents' || kind == 'pickup_drop'
+                            ? (te ? 'డెలివరీ పార్ట్‌నర్‌ను అడగండి' : 'Request a delivery partner')
+                            : (te ? 'డ్రైవర్‌ను అడగండి' : 'Request a driver')),
+                    onPressed: _sending ? null : () => _requestMobility(kind),
+                  ),
+                ),
             if (_supportByTurn[index] case final support?)
               _SupportCard(
                 key: ValueKey('askodoxSupport-$index'),
