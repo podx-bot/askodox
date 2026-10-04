@@ -158,7 +158,7 @@ class UniversalAIAssistantService:
     @staticmethod
     def _local_search_reply(locale: str) -> str:
         if str(locale or "").lower().startswith("te"):
-            return "సరే, మీ దగ్గర నిజంగా ఉన్న షాపులు, విక్రేతలు, ఆన్‌లైన్ ఆప్షన్లు చూస్తాను."
+            return "సరే, మీ దగ్గర నిజంగా ఉన్న షాపులు, విక్రేతలు, ఆన్‌లైన్ ఆప్షన్లు వెతుకుతున్నాను."
         if str(locale or "").lower().startswith("hi"):
             return "ठीक है, आपके पास असली दुकानें, विक्रेता और ऑनलाइन विकल्प देखता हूं।"
         return "Let me check real sellers, shops and online options near you."
@@ -166,7 +166,7 @@ class UniversalAIAssistantService:
     @staticmethod
     def _video_search_reply(locale: str) -> str:
         if str(locale or "").lower().startswith("te"):
-            return "సరే, నిజమైన వీడియోలు, రివ్యూలు చూస్తాను."
+            return "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను."
         if str(locale or "").lower().startswith("hi"):
             return "ठीक है, असली वीडियो और रिव्यू ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
         return "Sure -- looking for real videos and reviews."

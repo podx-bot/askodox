@@ -78,7 +78,8 @@ def test_search_failure_and_non_video_domains_are_safe():
     service = UniversalOnlineFallbackService(_FakeSearch(error=RuntimeError("down")))
 
     assert service.online(category="PRODUCT", subject="rice") == []
-    assert service.status["online"] == "no_results"
+    # A provider that raises is a FAILURE (shown as such), never "no results".
+    assert service.status["online"] == "error"
     assert service.videos(category="RIDE", subject="airport") == []
     assert service.online(category="PRODUCT", subject="   ") == []
 
