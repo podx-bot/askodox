@@ -296,7 +296,10 @@ def test_readiness_is_computed_from_live_state_and_nothing_is_live(api):
     body = client.get(f"{BASE}/readiness", headers=OWNER).json()
     rows = {r["integration"]: r for r in body["items"]}
     assert list(rows) == ["Payment gateway", "WhatsApp", "SMS", "Email", "Firebase push", "YouTube Data API",
-                          "Affiliate partners", "Web search (Brave)"]
+                          "Affiliate partners", "Social auto-DM (Facebook / Instagram)", "Web search (Brave)"]
+    dm = rows.pop("Social auto-DM (Facebook / Instagram)")
+    assert dm["status"] == "NOT_CONFIGURED" and dm["mock_verified"] is False and "App Review" in dm["external_setup"]
+    assert rows["Affiliate partners"]["product_apis"]["meesho"] == "NOT_AVAILABLE"
     # Web search reports the live provider's last answer (never a hand-set flag).
     web = rows.pop("Web search (Brave)")
     assert web["health"] in ("LIVE", "CONFIGURED", "DEGRADED", "NEEDS_CONFIGURATION", "CHECK_FAILED")

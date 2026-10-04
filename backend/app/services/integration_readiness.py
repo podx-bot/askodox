@@ -22,6 +22,7 @@ GROUPS = (
     ("Firebase push", ("fcm_push",), "push"),
     ("YouTube Data API", ("youtube_data",), "youtube"),
     ("Affiliate partners", ("amazon_associates", "flipkart_affiliate", "cuelinks", "admitad"), "affiliate"),
+    ("Social auto-DM (Facebook / Instagram)", ("meta_messaging",), "social_dm"),
 )
 
 
@@ -84,6 +85,18 @@ def readiness(registry: fin.IntegrationRegistry, *, outbox: Any = None, repo: An
             if not active and not programs:
                 row["status"] = "NOT_CONFIGURED"
                 row["real_credential_required"] = True
+        elif kind == "social_dm":
+            sent = [e for e in (repo.events(event="social_dm", limit=500) if repo is not None else [])
+                    if (e.get("detail") or {}).get("sent")]
+            row["mock_verified"] = any((e.get("detail") or {}).get("mode") == "mock" for e in sent)
+            row["external_setup"] = ("Meta App Review (pages_messaging / instagram_manage_messages); each business "
+                                     "connects its Page. WhatsApp auto-DM needs the business's own WhatsApp "
+                                     "Business number; Snapchat has no public messaging API.")
+        if kind == "affiliate":
+            from app.services import marketplace_api
+
+            row["product_apis"] = {p: marketplace_api.status(registry, p)["status"]
+                                   for p in marketplace_api.PLATFORM_PROVIDER}
         row["health"], row["health_reason"] = health(row, statuses)
         rows.append(row)
     return rows

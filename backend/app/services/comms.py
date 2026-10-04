@@ -397,5 +397,14 @@ def default_probes(reg_http: Http, *, push: Any = None, smtp_factory: Callable[.
         "email": lambda reg: probe_email(reg, smtp_factory),
         "fcm_push": lambda reg: probe_push(push),
         "razorpay": lambda reg: probe_razorpay(reg, reg_http),
+        "meta_messaging": lambda reg: _lazy("social_dm", "probe_meta")(reg, reg_http),
+        "amazon_associates": lambda reg: _lazy("marketplace_api", "probe_amazon")(reg, reg_http),
+        "flipkart_affiliate": lambda reg: _lazy("marketplace_api", "probe_flipkart")(reg, reg_http),
     }
+
+
+def _lazy(module: str, name: str):
+    import importlib
+
+    return getattr(importlib.import_module(f"app.services.{module}"), name)
 

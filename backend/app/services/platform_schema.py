@@ -719,6 +719,29 @@ _register(Resource(
 ))
 
 _register(Resource(
+    name="social_dm_accounts", label="Social auto-DM accounts", group="Conversation", prefix="sda",
+    permission="autoresponse", name_field="name", initial_status="PENDING_VERIFICATION",
+    statuses=("PENDING_VERIFICATION", "ACTIVE", "DISABLED"),
+    description="Links a business's Facebook Page / Instagram account to its ASKODOX auto-response rule. Activate "
+                "only after checking the business owns the account. The Page access token is set separately "
+                "(Social auto-DM view, write-only, encrypted). Replies reach Meta only when Integrations -> Meta "
+                "messaging is verified (LIVE); in mock mode they are recorded, never sent. EXTERNAL SETUP "
+                "REQUIRED: Meta App Review + the business connecting its Page.",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("channel", "Channel", "enum", options=("facebook", "instagram"), required=True, list_column=True,
+          filter=True),
+        F("account_id", "Page id / Instagram account id", required=True, list_column=True),
+        F("business_ref", "Business (seller user id)", required=True, list_column=True, filter=True),
+        F("verified_how", "How ownership was checked", "longtext"),
+    ),
+    actions=(
+        _A("activate", "Activate (ownership checked)", "ACTIVE", ("PENDING_VERIFICATION", "DISABLED")),
+        _A("disable", "Disable", "DISABLED", ("PENDING_VERIFICATION", "ACTIVE"), confirm=True),
+    ),
+))
+
+_register(Resource(
     name="flag_rollouts", label="Feature flag targeting", group="Configuration", prefix="flr",
     permission="config", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
     description="Narrow a feature flag to some categories / sub-categories / roles / platforms / locations and a "

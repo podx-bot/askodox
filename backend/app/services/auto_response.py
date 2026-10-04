@@ -7,8 +7,8 @@ handoff word ("call me", "complaint", "refund"...) or an out-of-hours
 message goes to the human owner -- nothing is guessed. Contact details in
 an answer are masked: contact is shared only through the existing
 request -> acceptance consent flow. External channels (Facebook /
-Instagram / WhatsApp) are NOT messaged from here; they need the owner's
-authorised platform API.
+Instagram) are answered by ``social_dm`` with the same rules once the Meta
+messaging integration is verified; WhatsApp / Snapchat stay external.
 """
 from __future__ import annotations
 
@@ -48,10 +48,14 @@ def in_hours(spec: Any, at: Optional[datetime] = None) -> bool:
 LIVE_CHANNELS = ("askodox_chat",)
 
 
-def channel_status(rule: Dict[str, Any]) -> Dict[str, str]:
-    """askodox_chat is live; external social channels are never claimed live."""
+def channel_status(rule: Dict[str, Any], registry: Any = None) -> Dict[str, str]:
+    """askodox_chat is live; a social channel is LIVE only when the Meta
+    messaging integration passed a real check (``social_dm.channel_status``)
+    -- otherwise MOCK / EXTERNAL_SETUP_REQUIRED / NOT_AVAILABLE."""
+    from app.services import social_dm
+
     wanted = list(rule.get("channels") or ["askodox_chat"])
-    return {c: ("LIVE" if c in LIVE_CHANNELS else "EXTERNAL_SETUP_REQUIRED") for c in wanted}
+    return {c: social_dm.channel_status(registry, c)["status"] for c in wanted}
 
 
 def _date(value: Any) -> str:
@@ -59,13 +63,13 @@ def _date(value: Any) -> str:
 
 
 def applies(rule: Dict[str, Any], *, trigger: str = "any_message", target: str = "", message: str = "",
-            at: Optional[datetime] = None) -> Optional[str]:
+            at: Optional[datetime] = None, channel: str = "askodox_chat") -> Optional[str]:
     """None when the rule applies to this event, else why not."""
     kind = str(rule.get("trigger_type") or "any_message")
     if kind != "any_message" and kind != trigger:
         return f"trigger is {kind}"
-    if "askodox_chat" not in (rule.get("channels") or ["askodox_chat"]):
-        return "not enabled for ASKODOX chat"
+    if channel not in (rule.get("channels") or ["askodox_chat"]):
+        return "not enabled for ASKODOX chat" if channel == "askodox_chat" else f"not enabled for {channel}"
     targets = [str(t) for t in (rule.get("targets") or []) if str(t).strip()]
     if targets and str(target) not in targets:
         return "different item"
@@ -117,7 +121,7 @@ def answer(message: str, rule: Dict[str, Any], *, at: Optional[datetime] = None)
 
 
 def rule_for(records, business_ref: str, *, trigger: str = "any_message", target: str = "", message: str = "",
-             at: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+             at: Optional[datetime] = None, channel: str = "askodox_chat") -> Optional[Dict[str, Any]]:
     """The business's ACTIVE rule for this event: a specific trigger beats a
     general any_message rule."""
     found = []
@@ -127,7 +131,7 @@ def rule_for(records, business_ref: str, *, trigger: str = "any_message", target
         data = record.get("data") or {}
         if str(data.get("business_ref") or record.get("owner_ref") or "") != business_ref:
             continue
-        if applies(data, trigger=trigger, target=target, message=message, at=at) is None:
+        if applies(data, trigger=trigger, target=target, message=message, at=at, channel=channel) is None:
             specific = (str(data.get("trigger_type") or "any_message") != "any_message", bool(data.get("targets")))
             found.append((specific, {**data, "_id": record.get("id")}))
     if not found:

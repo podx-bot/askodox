@@ -340,6 +340,9 @@ def create_app() -> FastAPI:
 
     app.include_router(platform_router)
     app.include_router(platform_admin_router)
+    from app.api.routes.social_dm import router as social_dm_router
+
+    app.include_router(social_dm_router)
     from app.api.routes.admin_console import router as admin_console_router
 
     app.include_router(admin_console_router)

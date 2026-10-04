@@ -556,7 +556,7 @@ def my_auto_response(request: Request) -> dict:
     from app.services import auto_response
 
     return {"item": mine[0] if mine else None,
-            "channels": auto_response.channel_status((mine[0]["data"] if mine else {})),
+            "channels": auto_response.channel_status((mine[0]["data"] if mine else {}), pf.registry),
             "note": "Answers only from your approved FAQ; anything else comes to you. Contact details are "
                     "shared only after you accept a request. Instagram / Facebook / WhatsApp / Snapchat need "
                     "your authorised platform connection and are not messaged from here."}
@@ -639,4 +639,4 @@ def ask_about_content(body: ContentAskBody, request: Request) -> dict:
                                                   "source": result["source"], "customer": _cust(customer),
                                                   "trigger": body.trigger_type, "sent": bool(result["text"])})
     return {**result, "handoff_to_owner": result["status"] != "answered",
-            "channels": auto_response.channel_status(rule)}
+            "channels": auto_response.channel_status(rule, pf.registry)}

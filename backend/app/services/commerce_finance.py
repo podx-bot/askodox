@@ -50,6 +50,10 @@ PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = 
     "youtube_data": ("video", "YouTube Data API", ("api_key",), (), False),
     "instagram_graph": ("video", "Instagram Graph API", ("access_token",), ("business_account_id",), False),
     "facebook_graph": ("video", "Facebook Graph API", ("access_token",), ("page_id",), False),
+    # social auto-DM: the ASKODOX Meta app (each business's Page token is
+    # stored separately, encrypted, in social_dm.TokenStore)
+    "meta_messaging": ("social_dm", "Meta messaging (Facebook / Instagram auto-DM)", ("app_secret", "verify_token"),
+                       ("app_id",), False),
     # affiliate networks
     "amazon_associates": ("affiliate", "Amazon Associates", ("secret_key",), ("access_key", "partner_tag"), False),
     "flipkart_affiliate": ("affiliate", "Flipkart Affiliate", ("token",), ("affiliate_id",), False),
@@ -71,6 +75,8 @@ OPTIONAL_CONFIG: Dict[str, tuple[str, ...]] = {
     "sms": ("vendor", "dlt_template_id", "account_sid"),
     "email": ("port", "username"),
     "fcm_push": ("project_id",),
+    "meta_messaging": ("api_version",),
+    "amazon_associates": ("probe_asin",),
 }
 
 # Keys that already exist as deployment variables are reused as-is (never
