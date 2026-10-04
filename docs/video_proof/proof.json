@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T06:01:29Z",
+ "generated_at": "2026-10-04T07:27:39Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:f5a30063b471490b",
+   "trace_key": "browse:201d9bb0550348fa",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -96,7 +96,7 @@
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -121,7 +121,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:68e00fe862894396",
+   "trace_key": "browse:86ee3acb18874703",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -151,9 +151,8 @@
     "source": "universal_ai",
     "entities": {
      "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
-     "brand": "శామ్‌సంగ్",
+     "brand": "Samsung",
      "size": "43 అంగుళాలు",
-     "category": "టీవీ",
      "location": "Vijayawada"
     }
    },
@@ -206,10 +205,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి సాధారణంగా 5 నుండి 7 అడుగుల వీక్షణ దూరం ఉండాలి. మీ గది పరిమాణం ఎంత ఉందో చెప్పగలరా?",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం తెలుసుకోవడం మంచిది. మీ గదిలో చూసే దూరం ఎంత ఉంది?",
     "follow_source": "universal_ai",
-    "follow_domain": "GENERAL",
-    "follow_action": "general_inquiry"
+    "follow_domain": "PRODUCT",
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "deals",
@@ -232,7 +231,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:6ffb97400ea54c77",
+   "trace_key": "browse:905a5849ce1f4e31",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -258,11 +257,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -320,7 +320,7 @@
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -345,7 +345,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:e26e51154ee94e03",
+   "trace_key": "browse:3a92b02487434f78",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -434,7 +434,7 @@
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -459,7 +459,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:a35d0e85ceb148ba",
+   "trace_key": "browse:a55d489a1ba54ac6",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -544,7 +544,7 @@
     "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -568,18 +568,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:7d094ebf7e104ed1",
+   "trace_key": "browse:7ace58a06de94d37",
    "videos": [
     {
-     "video_id": "yt_Bvxkrv7t4Dw",
-     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "source_name": "vijay xyz tricks ",
-     "duration": "0:14",
+     "video_id": "yt_M4qJRoGE8l0",
+     "title": "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber",
+     "source_name": "Punni Plumbing works",
+     "duration": "0:20",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/M4qJRoGE8l0?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+     "image_url": "https://i.ytimg.com/vi/M4qJRoGE8l0/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=M4qJRoGE8l0",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -591,7 +591,7 @@
    "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -602,20 +602,18 @@
     }
    },
    "explain": {
-    "video_id": "yt_Bvxkrv7t4Dw",
+    "video_id": "yt_M4qJRoGE8l0",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "thanks for watching video"
+     "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "vijay xyz tricks ",
+    "creator": "Punni Plumbing works",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
-    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+    "url": "https://www.youtube.com/watch?v=M4qJRoGE8l0",
+    "question": "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber",
     "next": [
      {
       "action": "find_local",
@@ -645,16 +643,16 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
+    "question": "Tell me more about \"Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -678,7 +676,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:e576cf03fada42a6",
+   "trace_key": "browse:d05a1e9f3cb048f3",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -701,7 +699,7 @@
    "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "FOOD",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -765,7 +763,7 @@
     "follow_domain": "FOOD",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -790,7 +788,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:25857991639d4be3",
+   "trace_key": "browse:0171a7a219ed491c",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -878,7 +876,7 @@
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -960,7 +958,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:9f53e6a644064b87",
+   "trace_key": "browse:5477adf96268416c",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -990,6 +988,8 @@
     "source": "universal_ai",
     "entities": {
      "subject": "used Royal Enfield Classic 350",
+     "brand": "Royal Enfield",
+     "model": "Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1047,7 +1047,7 @@
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -1072,7 +1072,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:b9ca232014af4f04",
+   "trace_key": "browse:6831d60e5428435d",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1102,6 +1102,8 @@
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
+     "brand": "Apple",
+     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1160,7 +1162,7 @@
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
-     "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+     "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
     }
    },
@@ -1185,7 +1187,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:bbb1896f0bbe422f",
+   "trace_key": "browse:2cd336b250ad4149",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1265,7 +1267,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను AC సర్వీసింగ్ సరిపోతుంది. మరింత వివరంగా పరిశీలించడానికి వీడియో రివ్యూలు కింద చూడవచ్చు.",
+    "follow_reply": "అవును, ఇది చిన్న గదికి సరిపోతుందో లేదో తెలియజేసే రివ్యూలు, వివరాలు వెతుకుతున్నాను -- ఫలితాలు చూడండి.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
