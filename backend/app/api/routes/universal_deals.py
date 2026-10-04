@@ -1216,6 +1216,19 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
             seen.add(str(item.get("id")))
             seen_urls.update(k for k in (url_key, fallback_key) if k)
             matches.append(item)
+    # Staff-approved (LIVE) news / content relevant to the need: its own
+    # "content" section, added -- never replacing products, local or videos.
+    if flags.get("results.content", True) and not getattr(discovery, "_supply", False):
+        try:
+            from app.api.routes.affiliate_catalog import catalog
+
+            for item in catalog(container).content(q=str(demand.get("subject") or ""), limit=3, subject_match=True):
+                if str(item.get("id")) in seen:
+                    continue
+                seen.add(str(item.get("id")))
+                matches.append(item)
+        except Exception as error:  # content never breaks discovery
+            errors.append(f"content:{type(error).__name__}")
     # Command Center Sources (approved JSON search endpoints) -- any sector,
     # priority order, each isolated: a failing source never breaks results.
     source_info: dict[str, Any] = {}

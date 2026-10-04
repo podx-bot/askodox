@@ -172,6 +172,59 @@ def search_places(request: Request, q: str, latitude: float | None = None, longi
     return {"status": status, "items": items[:7]}
 
 
+_JUNCTION_WORDS = ("junction", "circle", "center", "centre", "chowk", "cross", "x road", "x-road", "crossroads",
+                   "bus stand", "bus stop", "signal", "కూడలి", "సెంటర్", "జంక్షన్", "चौक", "चौराहा")
+
+
+def _metres(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    import math
+
+    r = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+@router.get("/junction")
+def nearest_junction(request: Request, latitude: float, longitude: float, radius_m: int = 1500) -> dict[str, Any]:
+    """The nearest named junction / centre / bus stop to a point -- what
+    people in India give as a pickup or meeting landmark ("Benz Circle").
+    Real Places results only; ``status`` says honestly when Maps is off or
+    nothing named is close enough. Never invents a landmark."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "junction", limit=30)
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return {"status": "invalid_coordinates", "junction": None}
+    radius = max(200, min(int(radius_m or 1500), 5000))
+    maps = getattr(request.app.state.container, "google_maps_service", None)
+    if maps is None or not getattr(maps, "enabled", False):
+        return {"status": "unavailable", "junction": None}
+    best = None
+    for query in ("junction", "centre circle", "bus stop"):
+        try:
+            places = maps.search_places(query, latitude=latitude, longitude=longitude, radius_m=radius, limit=8)
+        except Exception:
+            places = []
+        for p in places or []:
+            if p.get("latitude") is None or p.get("longitude") is None:
+                continue
+            name = str(p.get("name") or "")
+            if not any(word in name.lower() for word in _JUNCTION_WORDS):
+                continue
+            distance = _metres(latitude, longitude, float(p["latitude"]), float(p["longitude"]))
+            if distance <= radius and (best is None or distance < best["distance_m"]):
+                best = {"name": name, "address": p.get("address"), "latitude": p["latitude"],
+                        "longitude": p["longitude"], "place_id": p.get("place_id"),
+                        "distance_m": round(distance)}
+        if best is not None and best["distance_m"] <= 400:
+            break  # close enough: no further paid lookups
+    if best is None:
+        return {"status": "error" if getattr(maps, "last_error", False) else "no_results", "junction": None}
+    return {"status": "ok", "junction": best}
+
+
 class RoutePoint(BaseModel):
     latitude: float
     longitude: float

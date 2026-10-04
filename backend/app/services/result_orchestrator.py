@@ -168,7 +168,8 @@ def build(matches: Iterable[Dict[str, Any]], *, demand: Dict[str, Any], source_s
                    # The client must not claim "showing options" unless this is true.
                    "may_claim_results": total > 0},
         "orchestration": {"order": order, "suppressed": suppressed, "duplicates_dropped": duplicates,
-                          "errors": list(errors)},
+                          # The same failure is reported once, never twice.
+                          "errors": list(dict.fromkeys(str(e) for e in errors))},
     }
 
 

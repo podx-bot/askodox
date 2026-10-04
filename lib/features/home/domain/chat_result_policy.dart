@@ -570,14 +570,11 @@ const _sourceNames = {
   'videos': ('videos', 'వీడియోలు'),
 };
 
-/// Honest empty-results line: what was actually searched, what could not be
-/// reached, and what happens next (a real broadcast count, the open
-/// request, or signing in to save it) -- never a generic "saved".
 const _downStatuses = {'error', 'unavailable', 'disabled', 'quota_exhausted', 'needs_location', 'not_configured'};
 
 final _claimsResults = RegExp(
-    r"\b(here are|here is|i(?:'m| am) (?:now )?(?:showing|finding|searching|checking|looking|fetching)|"
-    r'showing (?:you )?(?:some |the |a few )?(?:options|results|choices)|found (?:some|these|a few|\d+)|'
+    r"\b(here are|here is|showing|finding|searching for|i(?:'m| am) (?:now )?(?:showing|finding|searching|checking|looking|fetching)|"
+    r'found (?:some|these|a few|\d+)|'
     r'results? (?:will )?(?:appear|are|is) (?:below|shown)|let me (?:find|show|check|search|look)|'
     r'finding (?:you )?(?:some |the )?(?:options|results)|options below)\b'
     r'|చూపిస్తున్నాను|వెతుకుతున్నాను|ఇవి ఉన్నాయి|క్రింద ఉన్నాయి|दिखा रहा|दिखा रही|ढूंढ रहा|ढूंढ रही|ये रहे',
@@ -609,6 +606,9 @@ String askodoxNoCardsReply({AskodoxChatResults? results, String? question, requi
       : "I haven't searched yet -- tell me a little more about what you need.";
 }
 
+/// Honest empty-results line: what was actually searched, what could not be
+/// reached, and what happens next (a real broadcast count, the open
+/// request, or signing in to save it) -- never a generic "saved".
 String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) {
   String names(String status) => [
         for (final e in results.sourceStatus.entries)

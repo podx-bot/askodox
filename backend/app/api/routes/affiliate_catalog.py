@@ -400,3 +400,47 @@ def save_source(platform: str, body: SourceBody, request: Request) -> dict[str, 
     except Exception:
         pass
     return {"item": after}
+
+
+# ------------------------------------------------ public news / content --
+public_router = APIRouter(tags=["content"])
+
+
+@public_router.get("/api/content")
+def public_content(request: Request, q: str = "", category: str = "", limit: int = 30) -> dict[str, Any]:
+    """News / content / video items staff APPROVED and set LIVE -- nothing
+    else (drafts, items awaiting review and paused items never appear)."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "content", limit=60)
+    items = catalog(request.app.state.container).content(q=q[:100], category=category[:60], limit=limit)
+    return {"items": items, "count": len(items)}
+
+
+@public_router.get("/content", include_in_schema=False)
+def public_content_page():
+    from fastapi.responses import HTMLResponse
+
+    return HTMLResponse(_CONTENT_PAGE)
+
+
+_CONTENT_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ASKODOX updates</title>
+<style>:root{--bg:#f7f7fb;--card:#fff;--ink:#16161d;--mute:#5d5d6b;--line:#e4e4ee;--acc:#5b3df5}
+@media (prefers-color-scheme:dark){:root{--bg:#111118;--card:#1b1b25;--ink:#ececf4;--mute:#a0a0b2;--line:#2c2c3a;--acc:#9d8bff}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px}h1{font-size:20px;margin:4px 0 12px}
+.card{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;
+color:inherit;text-decoration:none}.card img{width:96px;height:72px;object-fit:cover;border-radius:8px;flex:none}
+.k{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}.t{font-weight:600;margin:2px 0}
+.s{color:var(--mute);font-size:13px}.empty{color:var(--mute);padding:24px 0}a.back{color:var(--acc)}</style></head>
+<body><main><a class="back" href="/chat">&larr; Ask ASKODOX</a><h1>Updates &amp; news</h1><div id="list">Loading…</div></main>
+<script>
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+fetch("/api/content?limit=50").then(r=>r.json()).then(d=>{const el=document.getElementById("list");
+if(!d.items||!d.items.length){el.innerHTML='<div class="empty">No updates published yet.</div>';return}
+el.innerHTML=d.items.map(i=>{const href=i.destination_url&&/^https:\\/\\//.test(i.destination_url)?i.destination_url:"#";
+return '<a class="card" href="'+esc(href)+'" target="_blank" rel="noopener">'+(i.image_url&&/^https:/.test(i.image_url)?'<img src="'+esc(i.image_url)+'" alt="">':'')+
+'<div><div class="k">'+esc(i.item_type)+' · '+esc(i.source_name)+'</div><div class="t">'+esc(i.title)+'</div><div class="s">'+esc(i.subtitle)+'</div></div></a>'}).join("")})
+.catch(()=>{document.getElementById("list").innerHTML='<div class="empty">Could not load updates right now.</div>'});
+</script></body></html>"""

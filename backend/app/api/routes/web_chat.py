@@ -34,7 +34,7 @@ form{max-width:860px;margin:0 auto;display:flex;gap:8px}form input{flex:1;paddin
 form button{padding:0 18px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:700}
 .note{max-width:860px;margin:6px auto 0;color:var(--muted);font-size:12px}
 </style></head><body>
-<header><b>ASKODOX</b><input id="loc" placeholder="Your area (e.g. Vijayawada)" aria-label="Location">
+<header><b>ASKODOX</b><a href="/content" style="font-size:13px">Updates</a><input id="loc" placeholder="Your area (e.g. Vijayawada)" aria-label="Location">
 <select id="lang" aria-label="Language"><option value="en">English</option><option value="te">తెలుగు</option><option value="hi">हिन्दी</option></select></header>
 <main id="log" aria-live="polite"></main>
 <footer><form id="f"><input id="m" autocomplete="off" placeholder="Ask for anything -- products, services, jobs, travel…" aria-label="Message"><button>Send</button></form>

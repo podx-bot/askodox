@@ -36,14 +36,21 @@ jobs:
                   print('MAPS_HEALTH:', r.read().decode()[:900])
           except Exception as e:
               print('MAPS_HEALTH:', e)
-          for path in ('/staff', '/api/early-access?install_id=probe', '/health/maps'):
+          for path in ('/staff', '/api/early-access?install_id=probe', '/health/maps', '/api/content?limit=3', '/content',
+                       '/api/discover/junction?latitude=16.4995&longitude=80.6560'):
               try:
                   with urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=90) as r:
                       body = r.read().decode('utf-8', 'replace')
-                      print(f"NEW {path} -> {r.status}", 'staff page' if 'Staff sign-in' in body else body[:200])
+                      print(f"NEW {path} -> {r.status}", 'staff page' if 'Staff sign-in' in body else ('content page' if 'Updates &amp; news' in body else body[:200]))
               except urllib.error.HTTPError as e:
                   print(f"NEW {path} -> HTTP {e.code}")
-          for path in ('/admin/cc/workspace/me', '/api/staff/me', '/admin/cc/early-access/dashboard', '/admin/cc/workspace/analytics'):
+          try:
+              with urllib.request.urlopen(urllib.request.Request(bases['production'] + '/readiness', headers={'User-Agent': 'ASKODOX-probe'}), timeout=90) as r:
+                  print('SECRETS_ENCRYPTION:', json.dumps(json.loads(r.read().decode()).get('secrets_encryption')))
+          except Exception as e:
+              print('SECRETS_ENCRYPTION:', e)
+          for path in ('/admin/cc/workspace/me', '/api/staff/me', '/admin/cc/early-access/dashboard', '/admin/cc/workspace/analytics',
+                       '/admin/cc/results/diagnostics'):
               try:
                   urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
                   print(f"GUARD {path} -> 200 (unexpected)")
@@ -89,7 +96,7 @@ jobs:
                           'location': {'label': item['place'], 'latitude': lat, 'longitude': lon, 'radius_km': 10},
                           'party_a': {'side': 'demand'}, 'party_b': {'side': 'supply'}}
                   # The app's exact payload: its rewritten raw_text + the user's own words in trace.
-                  for extra in ('trace', 'dynamic_fields'):
+                  for extra in ('trace', 'dynamic_fields', 'size'):
                       if item.get(extra): body[extra] = item[extra]
                   req = urllib.request.Request(base + '/deals/discover', data=json.dumps(body).encode(),
                                                headers={'Content-Type': 'application/json',
@@ -123,6 +130,10 @@ jobs:
                   print('by source:', json.dumps({s: sum(1 for x in m if (x.get('match_source') or x.get('source')) == s)
                                                   for s in sorted({str(x.get('match_source') or x.get('source')) for x in m})}))
                   print('source_status:', json.dumps(data.get('source_status'), ensure_ascii=False)[:900])
+                  print('CONTRACT:', json.dumps({'v': data.get('result_contract_version'),
+                        'sections': [(s.get('kind'), s.get('count'), s.get('requested'), s.get('empty_reason')) for s in data.get('sections') or []],
+                        'answer': data.get('answer'),
+                        'constraints': (data.get('conversation_state') or {}).get('explicit_constraints')}, ensure_ascii=False)[:1200])
                   from urllib.parse import urlparse
                   hosts = {}
                   for x in m:

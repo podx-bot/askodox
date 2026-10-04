@@ -776,6 +776,65 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 }
 
 void main() {
+  group('APK 1292 replay (result contract): Any, Size 9, no false success, one notice', () {
+    testWidgets('walking shoes -> Any -> Size 9 ₹2000: size kept exactly, request id shown once', (tester) async {
+      // The phone's real decisions: the AI reply on the last turn widened
+      // the size and claimed results (APK 1292).
+      Map<String, Object?> decide(String message) => switch (message) {
+            'Any' => {'reply': 'Okay, any size.', 'domain': 'PRODUCT', 'transactional': true,
+                'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'entities': {}},
+            'Size 9 ₹2000' => {'reply': 'Finding walking shoes in Size 8 or 9 under ₹2000 for you.', 'domain': 'PRODUCT',
+                'transactional': true, 'action': 'search_products', 'confidence': 0.95, 'source': 'universal_ai',
+                'entities': {'subject': 'walking shoes', 'size': '8 or 9', 'budget': '2000'}},
+            _ => {'reply': 'What size do you need?', 'domain': 'PRODUCT', 'transactional': true,
+                'action': 'search_products', 'confidence': 0.95, 'source': 'universal_ai',
+                'entities': {'subject': 'walking shoes', 'location': 'Vijayawada'}},
+          };
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '47', matches: [], sourceStatus: {'askodox': 'no_results', 'online': 'error'}),
+          const UniversalMatchResult(dealId: '47', matches: [], sourceStatus: {'askodox': 'no_results', 'online': 'error'}),
+        ]),
+        assistant: _Assistant(decide),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'I want walking shoes in Vijayawada');
+      await h.send(tester, 'Any');
+      await h.send(tester, 'Size 9 ₹2000');
+      await tester.pumpAndSettle();
+      expect(h.matches.deals, isNotEmpty);
+      final last = h.matches.deals.last;
+      expect(last.size, '9', reason: 'Size 9 stays exactly 9');
+      expect(last.dynamicFields['budget_max'], 2000);
+      for (final deal in h.matches.deals) {
+        expect(deal.size?.toLowerCase(), isNot('any'), reason: '"Any" is never written into the size slot');
+      }
+      expect(find.textContaining('8 or 9'), findsNothing, reason: 'the AI reply never restates the size differently');
+      expect(find.textContaining('Finding walking shoes'), findsNothing, reason: 'no cards -> no "finding" claim');
+      expect(find.textContaining('Request saved (ID 47)'), findsOneWidget, reason: 'one notice per request');
+      expect(find.textContaining('could not be reached'), findsWidgets, reason: 'a down source is named');
+    });
+
+    testWidgets('an AI "Showing ..." reply is never shown when no card is', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '', matches: [], sourceStatus: {'online': 'error', 'nearby': 'error'}),
+        ]),
+        assistant: _Assistant((_) => {
+              'reply': 'Showing running shoes size 8 or 9 available near you.',
+              'domain': 'PRODUCT', 'transactional': true, 'action': 'search_products', 'confidence': 0.95,
+              'source': 'universal_ai', 'entities': {'subject': 'running shoes', 'location': 'Vijayawada', 'size': '9'},
+            }),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'running shoes size 9 in Vijayawada show me');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Showing running shoes'), findsNothing);
+      expect(find.textContaining('8 or 9'), findsNothing);
+      if (h.matches.deals.isNotEmpty) expect(h.matches.deals.last.size, '9');
+    });
+  });
+
   _compactRenders();
   group('rich result cards in the conversation', () {
     testWidgets('nearby vs online line, Directions to real coordinates, Save and Share', (tester) async {

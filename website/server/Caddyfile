@@ -36,7 +36,7 @@
 	# Universal Advisor) served on askodox.com -- no second chat engine.
 	# Only these paths are forwarded; the client IP travels in
 	# X-Forwarded-For so the backend's per-client rate limits still apply.
-	@askodox_chat path /chat /api/in-app/assistant /deals/discover /api/advisor/next
+	@askodox_chat path /chat /api/in-app/assistant /deals/discover /api/advisor/next /content /api/content
 	handle @askodox_chat {
 		header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 		header -Cache-Control
