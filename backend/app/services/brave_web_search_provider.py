@@ -179,15 +179,16 @@ class BraveWebSearchProvider:
                         response = client.get(url, headers=headers, params=params)
                 rate = _rate_headers(getattr(response, "headers", {}))
                 self._learn(rate)
-                if response.status_code == 429 and attempt == 1 and not self._monthly_exhausted(rate):
+                status = int(getattr(response, "status_code", 200) or 200)
+                if status == 429 and attempt == 1 and not self._monthly_exhausted(rate):
                     resets = rate.get("reset") if isinstance(rate.get("reset"), list) else []
                     time.sleep(min(max(resets[0] if resets else 1, 1), 2))
                     continue
-                if response.status_code >= 400:
+                if status >= 400:
                     self._failure(response, rate)
-                    response.raise_for_status()
+                response.raise_for_status()
                 payload = response.json()
-                self._record(state="ok", http_status=response.status_code, rate=rate,
+                self._record(state="ok", http_status=status, rate=rate,
                              last_ok_at=datetime.now(timezone.utc).isoformat(), provider_code=None)
                 return payload
             return None
