@@ -7,8 +7,16 @@
    "category": "fashion",
    "place": "Vijayawada",
    "size": "9",
-   "dynamic_fields": {"budget_max": 2000, "advisor_asked": ["budget"]},
-   "trace": {"query": "Size 9 2000", "language": "en"}
+   "dynamic_fields": {
+    "budget_max": 2000,
+    "advisor_asked": [
+     "budget"
+    ]
+   },
+   "trace": {
+    "query": "Size 9 2000",
+    "language": "en"
+   }
   },
   {
    "raw_text": "running shoes shops near me, online links and review videos",
@@ -18,5 +26,5 @@
    "place": "Vijayawada"
   }
  ],
- "note": "result contract + maps + secrets verification after deploy"
+ "note": "post-deploy #149 verification 2026-10-04T08:15:41.809324"
 }
