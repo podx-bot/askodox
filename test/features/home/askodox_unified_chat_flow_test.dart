@@ -2522,7 +2522,7 @@ void main() {
       expect(h.matches.deals.single.intent, DealIntent.seekWork);
       expect(askodoxEffectiveSubject(h.matches.deals.single), isNotNull);
       expect(find.textContaining('Matching is unavailable'), findsNothing);
-      expect(find.textContaining('#905 stays open'), findsOneWidget);
+      expect(find.textContaining('Request saved (ID 905)'), findsOneWidget, reason: 'the request id is shown ONCE');
     });
 
     testWidgets('electric scooter: a buyer search with its own slots; web price stays unverified', (tester) async {

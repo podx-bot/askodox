@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../matching/data/universal_match_repository.dart';
+import '../../matching/domain/result_contract.dart';
 import 'conversation_language.dart';
 
 /// What a result card embedded in the ASKODOX chat lets the user do.
@@ -50,9 +51,13 @@ class AskodoxChatResults {
     this.nextActions = const [],
     this.traceKey,
     this.advisor,
+    this.contract,
   });
 
   final String? dealId;
+
+  /// The canonical sectioned result contract (null on an older backend).
+  final ResultContract? contract;
 
   /// Universal Advisor view of this search (open question, guidance).
   final AskodoxAdvisorView? advisor;
@@ -175,7 +180,7 @@ String askodoxResultsReply(AskodoxChatResults results, {required bool telugu}) {
     final next = sent > 0
         ? (telugu ? ' మీ అభ్యర్థనను $sent నమోదైన ప్రొవైడర్లకు పంపాను.' : ' I sent your request to $sent registered provider(s).')
         : id.isNotEmpty
-            ? (telugu ? ' మీ అభ్యర్థన #$id తెరిచే ఉంది.' : ' Your request #$id stays open.')
+            ? (telugu ? ' అభ్యర్థన సేవ్ అయింది (ID $id).' : ' Request saved (ID $id).')
             : '';
     return telugu
         ? 'ప్రస్తుతం ధృవీకరించిన స్థానిక match దొరకలేదు.$next ఈలోగా ఆన్‌లైన్ ఎంపికలు, వీడియోలు ఇవి.'
@@ -568,6 +573,42 @@ const _sourceNames = {
 /// Honest empty-results line: what was actually searched, what could not be
 /// reached, and what happens next (a real broadcast count, the open
 /// request, or signing in to save it) -- never a generic "saved".
+const _downStatuses = {'error', 'unavailable', 'disabled', 'quota_exhausted', 'needs_location', 'not_configured'};
+
+final _claimsResults = RegExp(
+    r"\b(here are|here is|i(?:'m| am) (?:now )?(?:showing|finding|searching|checking|looking|fetching)|"
+    r'showing (?:you )?(?:some |the |a few )?(?:options|results|choices)|found (?:some|these|a few|\d+)|'
+    r'results? (?:will )?(?:appear|are|is) (?:below|shown)|let me (?:find|show|check|search|look)|'
+    r'finding (?:you )?(?:some |the )?(?:options|results)|options below)\b'
+    r'|చూపిస్తున్నాను|వెతుకుతున్నాను|ఇవి ఉన్నాయి|క్రింద ఉన్నాయి|दिखा रहा|दिखा रही|ढूंढ रहा|ढूंढ रही|ये रहे',
+    caseSensitive: false);
+
+/// The reply says results are shown / being found.
+bool askodoxReplyClaimsResults(String reply) => _claimsResults.hasMatch(reply);
+
+/// The reply names a size other than the one the customer gave ("Size 8
+/// or 9" when they said 9) -- an explicit constraint must never change.
+bool askodoxReplyAltersSize(String reply, String? size) {
+  final kept = (size ?? '').replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  if (kept.isEmpty || kept == 'any') return false;
+  final said = RegExp(r'\bsize\s*([0-9]{1,2}(?:\.5)?(?:\s*(?:or|/|-|to)\s*[0-9]{1,2}(?:\.5)?)?)',
+          caseSensitive: false)
+      .allMatches(reply)
+      .map((m) => m.group(1)!.replaceAll(RegExp(r'\s+'), '').toLowerCase());
+  return said.any((value) => value != kept && kept != 'uk$value' && kept != 'eu$value');
+}
+
+/// What to say when NO cards are shown this turn: the next question when
+/// one is pending, the honest search outcome when a search ran, else a plain
+/// "not searched yet" -- never "showing options".
+String askodoxNoCardsReply({AskodoxChatResults? results, String? question, required bool telugu}) {
+  if (question != null && question.trim().isNotEmpty) return askodoxDetailQuestionReply(question, telugu: telugu);
+  if (results != null) return askodoxResultsReply(results, telugu: telugu);
+  return telugu
+      ? 'ఇంకా వెతకలేదు -- మీకు ఏం కావాలో కొంచెం చెప్పండి.'
+      : "I haven't searched yet -- tell me a little more about what you need.";
+}
+
 String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) {
   String names(String status) => [
         for (final e in results.sourceStatus.entries)
@@ -575,7 +616,13 @@ String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) 
             telugu ? _sourceNames[e.key]!.$2 : _sourceNames[e.key]!.$1,
       ].join(', ');
   final searched = names('no_results');
-  final failed = names('error');
+  // Every way a source can be down is said -- never silently skipped
+  // (Brave out of credit, Places not enabled, a source switched off).
+  final failed = [
+    for (final e in results.sourceStatus.entries)
+      if (_downStatuses.contains(e.value) && _sourceNames.containsKey(e.key))
+        telugu ? _sourceNames[e.key]!.$2 : _sourceNames[e.key]!.$1,
+  ].join(', ');
   final parts = <String>[];
   if (searched.isNotEmpty) {
     parts.add(telugu ? 'వెతికాను: $searched -- సరైన ఫలితం లేదు.' : 'Searched $searched -- nothing suitable yet.');
@@ -593,8 +640,8 @@ String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) 
         : 'I sent your request to $sent registered ASKODOX provider(s) nearby; their replies will appear here.');
   } else if (id.isNotEmpty) {
     parts.add(telugu
-        ? 'మీ అభ్యర్థన #$id తెరిచే ఉంటుంది; ఎవరైనా స్పందించగానే తెలియజేస్తాను. ఇది చేసే వారు తెలుసా? వారిని ASKODOX కి సూచించండి -- వారికి నేరుగా స్థానిక లీడ్స్ వస్తాయి.'
-        : 'Your request #$id stays open and I will tell you when someone responds. Know someone who does this? Refer them to ASKODOX -- they get direct local leads.');
+        ? 'అభ్యర్థన సేవ్ అయింది (ID $id); ఎవరైనా స్పందించగానే తెలియజేస్తాను. ఇది చేసే వారు తెలుసా? వారిని ASKODOX కి సూచించండి -- వారికి నేరుగా స్థానిక లీడ్స్ వస్తాయి.'
+        : 'Request saved (ID $id) -- I will tell you when someone responds. Know someone who does this? Refer them to ASKODOX -- they get direct local leads.');
   } else {
     parts.add(telugu
         ? 'ప్రొవైడర్లు మీకు స్పందించేలా ఈ అవసరాన్ని సేవ్ చేయడానికి సైన్ ఇన్ చేయండి.'
@@ -742,6 +789,21 @@ String? askodoxCheckedLabel(UniversalMatch match, {required bool te}) {
 }
 
 
+/// The size the customer stated, EXACTLY as stated ("size 9" -> "9",
+/// "UK 9.5" -> "UK 9.5", "size 8 or 9" -> "8 or 9", "సైజు 9" -> "9").
+/// Null when no size was named. Never widened or rounded.
+String? askodoxExplicitSize(String text) {
+  final t = text.trim();
+  const number = r'[0-9]{1,2}(?:\.5)?';
+  final range = '$number(?:\\s*(?:or|/|-|to)\\s*$number)?';
+  final sized = RegExp('(?:\\bsize|సైజు|సైజ్|साइज़|साइज)\\s*(?:is\\s*|:\\s*)?($range|xxxl|xxl|xl|xs|s|m|l)\\b',
+      caseSensitive: false).firstMatch(t);
+  if (sized != null) return sized.group(1)!.trim();
+  final system = RegExp('\\b(uk|eu)\\s*($number)\\b', caseSensitive: false).firstMatch(t);
+  if (system != null) return '${system.group(1)!.toUpperCase()} ${system.group(2)}';
+  return null;
+}
+
 /// "any", "no preference", "ఏదైనా", "कोई भी"...: the user does not mind for
 /// THE field just asked -- it settles that one field only.
 bool askodoxIsNoPreference(String text) {
@@ -776,4 +838,29 @@ List<String> askodoxRequestedGroups(String text) {
     if (RegExp(r'\b(deals?|offers?|discounts?|coupons?|cashback|bank offer)\b|ఆఫర్|డీల్|ऑफ़र|डील').hasMatch(t))
       'deals',
   ];
+}
+
+
+/// Which canonical sections the chat draws for [shown] rows, and the reason
+/// for every returned section it does not draw (Result Diagnostics).
+({List<String> rendered, Map<String, String> hidden}) askodoxRenderedSections(
+    ResultContract contract, List<UniversalMatch> shown, {String? heldReason}) {
+  final ids = {for (final m in shown) m.id};
+  final rendered = <String>[];
+  final hidden = <String, String>{};
+  for (final section in contract.sections) {
+    if (section.itemIds.isEmpty) {
+      // An asked-for empty section is drawn as its honest notice.
+      if (section.requested && heldReason == null) rendered.add(section.kind);
+      continue;
+    }
+    if (heldReason != null) {
+      hidden[section.kind] = heldReason;
+    } else if (section.itemIds.any(ids.contains)) {
+      rendered.add(section.kind);
+    } else {
+      hidden[section.kind] = 'rows not passed to the chat view';
+    }
+  }
+  return (rendered: rendered, hidden: hidden);
 }

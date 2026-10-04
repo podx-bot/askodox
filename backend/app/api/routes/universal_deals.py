@@ -808,6 +808,7 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
     discovered = _discover(container, demand, trace_key=trace_key)
     _trace_results(container, trace_key, discovered)
     matches = discovered["matches"]
+    advisor = _advisor_for(container, demand, payload)
     return {
         "deal_id": None,
         "contract_version": 1,
@@ -825,9 +826,12 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "marketplaces": discovered.get("marketplaces") or {},
         # Universal Advisor: decision-relevant questions still open (each
         # field tracked separately), readiness and trade-off guidance.
-        "advisor": _advisor_for(container, demand, payload),
+        "advisor": advisor,
         "trace_key": trace_key,
         "requires_sign_in_for": ["send_request", "contact_seller"],
+        # The ONE canonical result contract (sections, preserved constraints,
+        # honest answer) -- every client renders from this.
+        **_result_contract(container, demand, discovered, advisor, trace_key),
     }
 
 
@@ -1014,6 +1018,9 @@ def get_matches(deal_id: int, request: Request) -> dict:
     fallback = discovered["fallback_rows"]
     _record_discovery(container, discovered["flags"], demand, source_status, local_match_count)
     _trace_results(container, f"deal:{deal_id}", discovered, deal_id=deal_id)
+    # Signed-in requests get the SAME advisor as browsing (APK 1292: "Any"
+    # ended the questions because /matches had no advisor at all).
+    advisor = _advisor_for_demand(container, demand)
 
     return {
         "deal_id": deal_id,
@@ -1043,7 +1050,46 @@ def get_matches(deal_id: int, request: Request) -> dict:
             channel="in_app",
             result={"match_count": primary_count},
         ).to_dict(),
+        "advisor": advisor,
+        **_result_contract(container, demand, discovered, advisor, f"deal:{deal_id}"),
     }
+
+
+def _advisor_for_demand(container, demand: dict) -> dict:
+    """The advisor for a STORED request (no app payload at hand)."""
+    try:
+        from app.api.routes.demand_advisor import advisor_view, wants_results_now
+
+        constraints = demand.get("constraints") or {}
+        said = f"{demand.get('raw_text') or ''}"
+        return advisor_view(container, demand, language=str(constraints.get("language") or "en"),
+                            asked=list(constraints.get("advisor_asked") or []), show_now=wants_results_now(said))
+    except Exception:  # the advisor never blocks results
+        return {"questions": [], "ready": True, "guidance": [], "field_states": {}}
+
+
+def _platform(container):
+    from app.api.routes.platform import platform
+
+    return platform(container)
+
+
+def _result_contract(container, demand: dict, discovered: dict, advisor: dict | None, trace_key: str) -> dict:
+    """``result_orchestrator.build`` + its diagnostics stored for staff."""
+    from app.services import result_orchestrator
+
+    try:
+        settings = result_orchestrator.settings_from(_platform(container))
+    except Exception:
+        settings = {}
+    contract = result_orchestrator.build(
+        discovered["matches"], demand=demand, source_status=discovered.get("source_status"),
+        errors=discovered.get("errors") or (), advisor=advisor, settings=settings)
+    try:
+        result_orchestrator.remember(container, trace_key, demand, discovered, contract)
+    except Exception:
+        pass  # diagnostics never break results
+    return contract
 
 
 def _discover(container, demand: dict, matches: list[dict] | None = None, *, trace_key: str = "") -> dict:
@@ -1111,7 +1157,11 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     except Exception as error:
         registered_and_external = []
         errors.append(f"local:{type(error).__name__}")
-    has_online = any(item.get("match_source") == "online" for item in matches)
+    # Only ORGANIC online rows count: an affiliate registry row must never
+    # stop the organic online search (sources add, they never replace).
+    affiliate_ids = {str(item.get("id")) for item in affiliate_rows}
+    has_online = any(item.get("match_source") == "online" and not item.get("affiliate")
+                     and str(item.get("id")) not in affiliate_ids for item in matches)
     online_on, videos_on = flags.get("results.online", True), flags.get("results.videos", True)
     try:
         fallback = (
@@ -1247,9 +1297,14 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
             from app.api.routes.platform import discovery_video_rows
 
             for item in discovery_video_rows(container, demand):
-                if str(item.get("id")) in seen:
+                # Videos keep their query (?v=...): two different videos on
+                # the same host must never collapse into one.
+                url_key = str(item.get("url") or item.get("destination_url") or "").strip().split("#", 1)[0]
+                if str(item.get("id")) in seen or (url_key and url_key in seen_urls):
                     continue
                 seen.add(str(item.get("id")))
+                if url_key:
+                    seen_urls.add(url_key)
                 (sponsored_videos if item.get("sponsored") else matches).append(item)
         except Exception as error:
             errors.append(f"videos:{type(error).__name__}")

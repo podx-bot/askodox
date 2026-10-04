@@ -108,3 +108,16 @@ def test_production_402_credit_exhausted_opens_the_breaker():
     assert snap["provider_code"] == "CREDIT_EXHAUSTED" and snap["paused_for_seconds"] > 3600
     calls = client.calls
     assert provider("face sunscreen", 5) == [] and client.calls == calls, "no more paid calls while exhausted"
+
+
+def test_secrets_key_accepts_platform_generated_passphrase_and_rejects_templates():
+    from app.services.secret_box import SecretBox
+
+    passphrase = "x" * 20 + "generated-by-the-platform-0123456789abcdef"
+    box = SecretBox(passphrase)
+    assert box.configured and box.decrypt(box.encrypt("page-token")) == "page-token"
+    assert SecretBox(passphrase).decrypt(box.encrypt("t")) == "t", "same passphrase -> same derived key"
+    assert not SecretBox("${{ secret(64) }}").configured, "an unrendered template is never a key"
+    assert not SecretBox("short").configured
+    real = SecretBox.generate_key()
+    assert SecretBox(real).decrypt(SecretBox(real).encrypt("v")) == "v", "real Fernet keys still work"

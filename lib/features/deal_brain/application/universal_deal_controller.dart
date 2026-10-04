@@ -59,6 +59,21 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     unawaited(_restore());
   }
 
+  static const _typedSlots = {'quantity', 'quality', 'variant', 'size', 'weight', 'model', 'availability',
+    'fulfilment', 'subject', 'location', 'timing'};
+
+  /// "any", "no preference", "ఏదైనా", "कोई भी"... (same words as the chat).
+  static bool isNoPreferenceReply(String text) {
+    final t = text.trim().toLowerCase().replaceAll(RegExp(r'[.!?,]+$'), '');
+    const words = {
+      'any', 'anything', 'any one', 'anyone', 'no preference', "doesn't matter", 'does not matter',
+      "don't care", 'dont care', 'whatever', 'skip', 'any size', 'any colour', 'any color',
+      'ఏదైనా', 'ఏదైనా సరే', 'ఏదో ఒకటి', 'పర్వాలేదు', 'ఏదైనా పర్వాలేదు',
+      'कोई भी', 'कुछ भी', 'कोई फर्क नहीं',
+    };
+    return words.contains(t);
+  }
+
   static const _storageKey = 'askodox.active_universal_deal.v1';
   bool _resetSinceCreated = false;
   final UniversalDealBrain _brain = const UniversalDealBrain();
@@ -88,7 +103,9 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     final fields = Map<String, Object?>.from(current.dynamicFields);
     final none = {...((fields['no_preference'] as List?) ?? const []).map((e) => '$e'), field};
     fields['no_preference'] = none.toList();
-    fields.putIfAbsent(field, () => 'any');
+    // Typed slots (size, model...) stay EMPTY: the no_preference list is the
+    // answer. Free-form fields keep the old 'any' marker the backend reads.
+    if (!_typedSlots.contains(field)) fields.putIfAbsent(field, () => 'any');
     _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
   }
 
@@ -136,6 +153,12 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     }
     final missing = current.missingForMatch;
     if (missing.isEmpty) return;
+    // "Any" answers the question just asked (the next missing field) and
+    // settles THAT field only; the slot itself stays empty (never "Any").
+    if (isNoPreferenceReply(value)) {
+      markNoPreference(missing.first);
+      return;
+    }
     // Short answers often arrive out of question order ("curry cut" while
     // ASKODOX asked for quantity) or several at once ("1 kg skinless").
     // Fill every missing detail the answer clearly describes; only when it
@@ -422,6 +445,20 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
   /// Make [deal] the active requirement (a category the customer returns to
   /// keeps its own answers -- nothing from another category leaks in).
   void adopt(UniversalDeal deal) => _setSession(_sessionFor(deal));
+
+  /// The customer's own size ("size 9") is stored EXACTLY as said -- never
+  /// widened ("8 or 9") or replaced by a stale "Any"; it also clears an
+  /// earlier "any size".
+  void applyExplicitSize(String size) {
+    final current = state.deal;
+    final clean = size.trim();
+    if (current == null || clean.isEmpty || current.size == clean) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    final none = ((fields['no_preference'] as List?) ?? const []).map((e) => '$e').where((f) => f != 'size');
+    fields['no_preference'] = none.toList();
+    if ('${fields['size'] ?? ''}'.toLowerCase() == 'any') fields.remove('size');
+    _setSession(_sessionFor(current.copyWith(size: clean, dynamicFields: fields)));
+  }
 
   void refineSubject(String subject) {
     final current = state.deal;

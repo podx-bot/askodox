@@ -366,3 +366,19 @@ def test_feedback_is_masked_diagnostics_need_consent_and_dashboard_needs_permiss
     dash = client.get("/admin/cc/early-access/dashboard", headers=OWNER).json()
     assert dash["feedback"]["total"] == 2 and dash["feedback"]["by_kind"]["wrong_result"] == 1
     assert dash["errors"][0]["count"] == 1 and dash["errors"][0]["screen"] == "home"
+
+
+def test_scheduled_feed_sync_runs_only_due_feeds_on_the_background_runner(api):
+    _, container, fetch = api
+    from app.services.periodic_jobs import PeriodicJobs, default_jobs
+
+    assert "feeds" in [name for name, _, _ in default_jobs()]
+    _source(container, name="Feed A", domains=["a.example"], connector="feed",
+            feed_url="https://a.example/feed.csv", feed_format="csv")
+    fetch.answers["a.example/feed.csv"] = (200, "text/csv", "title,url,price\nKettle,https://a.example/k,500\n")
+    jobs = PeriodicJobs(container, jobs=[j for j in default_jobs() if j[0] == "feeds"])
+    first = jobs.run_once()["feeds"]
+    assert list(first.values())[0]["created"] == 1
+    jobs._last.clear()
+    assert jobs.run_once()["feeds"] == {}, "synced recently -> not due again"
+    assert len([c for c in fetch.calls if "feed.csv" in c]) == 1

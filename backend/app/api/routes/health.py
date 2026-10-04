@@ -79,6 +79,12 @@ def readiness(request: Request) -> dict:
     except Exception:
         payload["integrations"] = {}
     payload["web_search"] = _search_health(container)
+    try:  # whether stored credentials can be encrypted (never the key itself)
+        from app.services.secret_box import box_from_settings
+
+        payload["secrets_encryption"] = {"configured": box_from_settings(container.settings).configured}
+    except Exception:
+        payload["secrets_encryption"] = {"configured": False}
     return payload
 
 
