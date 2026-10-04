@@ -49,9 +49,13 @@ class _Repo implements NativeVideoRepository {
   Future<bool> act(String id, String action) async => true;
   @override
   Future<bool> report(String id, String reason) async => true;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError('$invocation');
 }
 
 void main() {
+  reelTests();
   test('owner actions follow the review lifecycle', () {
     expect(askodoxVideoOwnerActions('DRAFT'), ['submit', 'remove']);
     expect(askodoxVideoOwnerActions('PENDING_REVIEW'), ['remove']);
@@ -84,5 +88,60 @@ void main() {
     expect(find.text('Waiting for review'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('No ASKODOX videos are published yet.'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('No ASKODOX videos are published yet.'), findsOneWidget);
+  });
+}
+
+class _ReelRepo extends _Repo {
+  final asked = <String>[];
+
+  @override
+  Future<VideoMessageResult> message(String id, String text) async {
+    asked.add('$id:$text');
+    return const VideoMessageResult(status: 'WAITING_FOR_OWNER');
+  }
+
+  @override
+  Future<Map<String, Object?>> study(String id, {String language = 'en'}) async =>
+      {'status': 'ready', 'ref': 'nv_$id', 'suggested_questions': ['What is the capacity?']};
+
+  @override
+  Future<Map<String, Object?>> ask(String studyRef, String question, {String language = 'en'}) async =>
+      {'found': false, 'answer': 'Not in this video.'};
+
+  @override
+  Future<({List<Map<String, Object?>> inbox, List<Map<String, Object?>> sent})> messages() async =>
+      (inbox: const <Map<String, Object?>>[], sent: const <Map<String, Object?>>[]);
+
+  @override
+  Future<bool> reply(String messageId, String text) async => true;
+}
+
+void reelTests() {
+  testWidgets('reels: ask the business hands off honestly; questions answer only from the video', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = _ReelRepo();
+    const videos = [NativeVideo(id: 'vid_1', status: 'ACTIVE', title: 'Rice cooker demo', url: 'https://x/v.mp4',
+        label: 'From the business')];
+    await tester.pumpWidget(ProviderScope(overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      nativeVideoRepositoryProvider.overrideWithValue(repo),
+      askodoxVideoSurfaceProvider.overrideWithValue((context, video, active) => Text('playing ${video.id} $active')),
+    ], child: const MaterialApp(home: NativeReelsScreen(videos: videos))));
+    await tester.pumpAndSettle();
+    expect(find.text('playing vid_1 true'), findsOneWidget);
+    expect(find.text('From the business'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('reel-ask-vid_1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('reel-prompt')), 'Do you deliver?');
+    await tester.tap(find.byKey(const ValueKey('reel-prompt-send')));
+    await tester.pumpAndSettle();
+    expect(repo.asked, ['vid_1:Do you deliver?']);
+    expect(find.textContaining('The business will reply'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('reel-study-vid_1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('reel-prompt')), 'Is there a warranty?');
+    await tester.tap(find.byKey(const ValueKey('reel-prompt-send')));
+    await tester.pumpAndSettle();
+    expect(find.text('Not in this video.'), findsOneWidget);
   });
 }

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../application/askodox_notifications.dart';
 import '../data/promotions_repository.dart';
+import 'news_section.dart';
 
 /// "Updates": the ONE notification centre -- requests the user sent,
 /// requests sent to them, customer leads, demand opportunities (sellers /
@@ -38,6 +39,7 @@ class UpdatesScreen extends ConsumerWidget {
           ]),
           const AskodoxNotificationsOffBanner(),
           if (signedIn) const AskodoxPromotionsSection(),
+          const AskodoxNewsSection(),
           if (!signedIn)
             Card(
               key: const Key('askodoxUpdatesSignIn'),

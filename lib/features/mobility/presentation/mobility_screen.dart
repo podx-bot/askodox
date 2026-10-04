@@ -120,6 +120,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
   final _recipientPhone = TextEditingController();
   String _kind = 'ride_auto';
   int _passengers = 1;
+  DateTime? _when; // null = now
   bool _busy = false;
   MobilityJob? _last;
 
@@ -147,7 +148,8 @@ class _BookTabState extends ConsumerState<_BookTab> {
           if (_notes.text.trim().isNotEmpty) (_send ? 'item_description' : 'notes'): _notes.text.trim(),
           if (_send && _recipient.text.trim().isNotEmpty) 'recipient_name': _recipient.text.trim(),
           if (_send && _recipientPhone.text.trim().isNotEmpty) 'recipient_phone': _recipientPhone.text.trim(),
-        });
+        },
+        scheduleAt: _when == null ? '' : askodoxScheduleText(_when!));
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -217,6 +219,27 @@ class _BookTabState extends ConsumerState<_BookTab> {
                 helperText: t('Shared with the partner only after they accept.',
                     'పార్ట్‌నర్ అంగీకరించిన తర్వాతే చూపిస్తాం.'))),
       ],
+      ListTile(
+        key: const ValueKey('mobility-when'),
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.schedule),
+        title: Text(_when == null
+            ? t('Now', 'ఇప్పుడే')
+            : '${t('Scheduled', 'షెడ్యూల్')}: ${askodoxScheduleText(_when!).replaceFirst('T', ' ')}'),
+        subtitle: Text(t('Tap to schedule (airport, outstation, later today)', 'షెడ్యూల్ చేయడానికి నొక్కండి')),
+        trailing: _when == null
+            ? null
+            : IconButton(icon: const Icon(Icons.close), onPressed: () => setState(() => _when = null)),
+        onTap: () async {
+          final now = DateTime.now();
+          final day = await showDatePicker(
+              context: context, firstDate: now, lastDate: now.add(const Duration(days: 30)), initialDate: now);
+          if (day == null || !context.mounted) return;
+          final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))));
+          if (time == null) return;
+          setState(() => _when = DateTime(day.year, day.month, day.day, time.hour, time.minute));
+        },
+      ),
       const SizedBox(height: 16),
       FilledButton.icon(
           key: const ValueKey('mobility-submit'),
@@ -252,6 +275,8 @@ class _JobCard extends ConsumerWidget {
           ]),
           Text('${job.pickup} → ${job.drop}'),
           if (job.distanceKm != null) Text('${job.distanceKm!.toStringAsFixed(1)} km'),
+          if (job.scheduleAt.isNotEmpty)
+            Text('${t('Scheduled for', 'షెడ్యూల్')}: ${job.scheduleAt.replaceFirst('T', ' ')}'),
           const SizedBox(height: 4),
           Text(job.stage, style: const TextStyle(fontWeight: FontWeight.w600)),
           if (job.quote != null)
@@ -704,6 +729,12 @@ class _PartnerTabState extends ConsumerState<_PartnerTab> {
     }
     return RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(16), children: children));
   }
+}
+
+/// Local date-time as the backend stores it (YYYY-MM-DDTHH:MM).
+String askodoxScheduleText(DateTime at) {
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${at.year}-${two(at.month)}-${two(at.day)}T${two(at.hour)}:${two(at.minute)}';
 }
 
 String askodoxTripStepLabel(String step, bool te) => switch (step) {

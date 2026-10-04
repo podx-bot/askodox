@@ -10,6 +10,7 @@ Customer / seller:
   POST /api/videos/{id}/report       (3 distinct reports pause an ACTIVE video for staff review)
   POST /api/videos/{id}/message      native DM to the business: FAQ auto-reply or handoff
   GET  /api/videos/mine/messages, POST /api/videos/messages/{id}/reply
+  POST /api/videos/native/{id}/study  deep study from the real file (then /api/videos/nv_<id>/ask)
   GET  /media/videos/{name}          the file (Range supported); unpublished files only to the owner / staff
 Staff: GET /admin/cc/videos/reports
 
@@ -327,6 +328,69 @@ def reply_video_message(message_id: str, body: MessageBody, request: Request) ->
         conn.execute("UPDATE video_messages SET reply=?, reply_source='owner', status='ANSWERED', updated_at=? "
                      "WHERE id=?", (reply, _now(), message_id))
     return {"id": message_id, "status": "ANSWERED", "reply": reply}
+
+
+class StudyBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    language: str = Field(default="en", max_length=8)
+
+
+@router.post("/api/videos/native/{video_id}/study")
+def study_native_video(video_id: str, body: StudyBody, request: Request) -> dict:
+    """Deep Video Study of an ASKODOX-native video from its REAL stored file
+    (the same video analysis as a chat upload). Facts come only from what
+    the analysis found in the video -- never from the title or caption.
+    The owner may study before publishing; anyone may study a published one.
+    One model call per video (cached under ``nv_<id>``); ask questions with
+    POST /api/videos/nv_<id>/ask."""
+    from app.services import rate_limit
+    from app.services.video_study import eligibility, mp4_duration_seconds, suggested_questions
+
+    record = _video(request, video_id)
+    user = None
+    try:
+        user = _authenticated_app_user(request)
+    except HTTPException:
+        pass
+    if record["status"] != "ACTIVE" and (user is None or user != record.get("owner_ref")):
+        raise HTTPException(status_code=404, detail="Video not found")
+    d = record.get("data") or {}
+    if d.get("platform") != "askodox":
+        raise HTTPException(status_code=409, detail="Only ASKODOX-hosted videos are studied here")
+    ref = "nv_" + video_id
+    pf = _pf(request)
+    cached = pf.video_study.cached(ref)
+    if cached:
+        return {"ref": ref, "status": cached.get("status"), "cached": True, "summary": cached.get("summary") or "",
+                "facts_count": len(cached.get("facts") or []),
+                "suggested_questions": suggested_questions(cached, body.language)}
+    name = str(d.get("url") or "").rsplit("/", 1)[-1]
+    path = os.path.join(_folder(request), name)
+    if not _NAME.fullmatch(name) or not os.path.exists(path):
+        return {"ref": ref, "status": "unavailable", "message": "The video file is not available."}
+    with open(path, "rb") as handle:
+        data = handle.read()
+    duration = mp4_duration_seconds(data)
+    gate = eligibility(duration, body.language)
+    if not gate["eligible"]:
+        return {"ref": ref, "status": "not_eligible", **gate}
+    service = getattr(request.app.state.container, "universal_image_service", None)
+    if service is None or not hasattr(service, "analyze_video"):
+        return {"ref": ref, "status": "unavailable", "message": "Video analysis is not available right now."}
+    rate_limit.check(request, "native_video_study", limit=6)
+    try:
+        analysis = service.analyze_video(video_bytes=data, mime_type="video/webm" if name.endswith(".webm")
+                                         else "video/mp4", caption=None)
+    except Exception:
+        analysis = None
+    if not analysis:
+        return {"ref": ref, "status": "unavailable", "message": "The video could not be analysed right now."}
+    study = pf.video_study.study_from_upload(ref, analysis, duration, body.language)
+    out = {"ref": ref, "status": study["status"], "cached": False, "summary": study.get("summary") or "",
+           "facts_count": len(study.get("facts") or [])}
+    if study["status"] == "ready":
+        out["suggested_questions"] = suggested_questions(study, body.language)
+    return out
 
 
 @router.get("/admin/cc/videos/reports")

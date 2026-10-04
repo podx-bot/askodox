@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../home/presentation/deal_lifecycle_panel.dart';
+import '../../mobility/presentation/order_fulfilment_panel.dart';
 import '../data/order_repository.dart';
 
 // Added 2026-09-15 (round 5) alongside the real order-placement backend --
@@ -361,6 +362,11 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
         // confirmation, problems -- driven by the server's allowed actions.
         if (status != 'REJECTED' && status != 'CANCELLED')
           AskodoxDealPanel(
+            orderId: order.id,
+            te: Localizations.localeOf(context).languageCode == 'te',
+          ),
+        if (status != 'REJECTED' && status != 'CANCELLED')
+          AskodoxFulfilmentPanel(
             orderId: order.id,
             te: Localizations.localeOf(context).languageCode == 'te',
           ),

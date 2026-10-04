@@ -133,3 +133,45 @@ def test_app_style_upload_sends_details_as_query_parameters(env):
                        files={"file": ("v.mp4", MP4 + b"t", "video/mp4")}).status_code == 422
     mine = client.get("/api/merchant/videos", headers=seller).json()["items"]
     assert any(v["data"]["title"] == "Saree collection" for v in mine)
+
+
+def _mp4(seconds=30):
+    import struct
+
+    mvhd = b"mvhd" + bytes([0, 0, 0, 0]) + b"\x00" * 8 + struct.pack(">II", 1000, seconds * 1000) + b"\x00" * 80
+    moov = struct.pack(">I", len(mvhd) + 8 + 4) + b"moov" + struct.pack(">I", len(mvhd) + 4) + mvhd
+    return b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 12 + moov + uuid.uuid4().bytes
+
+
+def test_native_video_deep_study_uses_only_the_analysed_file(env, monkeypatch):
+    client, container = env
+    _, seller = _user(container)
+    _, viewer = _user(container)
+    calls = []
+
+    class _Vision:
+        client = object()
+
+        def analyze_video(self, *, video_bytes, mime_type, caption):
+            calls.append((len(video_bytes), caption))
+            return {"summary": "A 1.8 L rice cooker demo", "subject": "rice cooker", "category": "product",
+                    "facts": [{"key": "capacity", "label": "Capacity", "value": "1.8 L", "basis": "shown",
+                               "timestamp": "0:12", "evidence": "label on the box at 0:12"},
+                              {"key": "price", "label": "Price", "value": "Rs 2,499", "basis": "said",
+                               "evidence": ""}],  # no evidence -> dropped
+                    "missing": ["warranty"]}
+
+    monkeypatch.setattr(container, "universal_image_service", _Vision(), raising=False)
+    video = _upload(client, seller, data=_mp4(), title="Best rice cooker, 5 year warranty").json()
+    assert client.post(f"/api/videos/native/{video['id']}/study", headers=viewer, json={}).status_code == 404, \
+        "an unpublished video is studied only by its owner"
+    own = client.post(f"/api/videos/native/{video['id']}/study", headers=seller, json={}).json()
+    assert own["status"] == "ready" and own["facts_count"] == 1, "a fact without evidence is never kept"
+    assert len(calls) == 1 and calls[0][1] is None, "title / caption are never sent as evidence"
+    client.post(f"/admin/cc/platform/r/videos/{video['id']}/actions/approve", headers=OWNER, json={})
+    again = client.post(f"/api/videos/native/{video['id']}/study", headers=viewer, json={}).json()
+    assert again["cached"] is True and len(calls) == 1, "one model call per video"
+    ans = client.post(f"/api/videos/{own['ref']}/ask", json={"question": "what is the capacity?"}).json()
+    assert ans["found"] is True and "1.8 L" in ans["answer"]
+    warranty = client.post(f"/api/videos/{own['ref']}/ask", json={"question": "what warranty is missing?"}).json()
+    assert "5 year" not in warranty["answer"], "the title's claim is never presented as a video fact"

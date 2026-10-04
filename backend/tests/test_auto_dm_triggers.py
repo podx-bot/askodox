@@ -46,3 +46,30 @@ def test_content_trigger_answers_then_hits_customer_limit():
         assert client.post("/api/auto-response/ask", json=other).json()["status"] == "no_rule"
     finally:
         pf.repo.delete(rec["id"], actor="test")
+
+
+def test_deal_chat_uses_the_product_trigger_before_the_general_rule():
+    from types import SimpleNamespace
+
+    from app.api.routes.in_app_deal import _deal_triggers
+    from app.services import auto_response
+
+    class _Demands:
+        def get(self, demand_id):
+            return {"domain": "PRODUCT", "side": "NEED"} if demand_id == 7 else None
+
+    container = SimpleNamespace(universal_demand_repository=_Demands())
+    assert _deal_triggers(container, 7) == ["product", "catalog", "listing", "any_message"]
+    assert _deal_triggers(container, 8) == ["any_message"]
+    rules = [{"id": "r1", "status": "ACTIVE", "data": {"business_ref": "s1", "trigger_type": "any_message",
+                                                       "faq": {"hours": "9 to 9"}}},
+             {"id": "r2", "status": "ACTIVE", "data": {"business_ref": "s1", "trigger_type": "product",
+                                                       "faq": {"stock": "In stock"}}},
+             {"id": "r3", "status": "ACTIVE", "data": {"business_ref": "s1", "trigger_type": "video",
+                                                       "faq": {"stock": "video only"}}}]
+    picked = next(r for r in (auto_response.rule_for(rules, "s1", trigger=t, message="stock?")
+                              for t in _deal_triggers(container, 7)) if r)
+    assert picked["_id"] == "r2"
+    general = next(r for r in (auto_response.rule_for(rules, "s1", trigger=t, message="hours?")
+                               for t in _deal_triggers(container, 8)) if r)
+    assert general["_id"] == "r1", "a video-only rule never answers a deal chat"
