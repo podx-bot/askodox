@@ -448,3 +448,47 @@ def test_an_ordinary_search_never_gets_videos_forced_in(app_env):
     body = _discover(client, text="walking shoes", located=False)
     assert "videos" not in _kinds(body) and "shorts" not in _kinds(body)
     assert not any(s["kind"] in ("videos", "shorts") and s["requested"] for s in body["sections"])
+
+
+# ------------------------------------------------- typed place -> map point --
+class _GeoMaps(_Maps):
+    def __init__(self, places, points):
+        super().__init__(places)
+        self.points, self.geocoded = points, []
+
+    def geocode(self, place, region="in"):
+        self.geocoded.append(place)
+        return self.points.get(place.lower())
+
+
+def test_typed_location_gets_coordinates_so_nearby_ranking_works(app_env):
+    app, container, client = app_env
+    container.google_maps_service = _GeoMaps(SHOES_PLACES, {"benz circle, vijayawada": {
+        "name": "Benz Circle, Vijayawada", "latitude": 16.4995, "longitude": 80.6560, "place_id": "p"}})
+    body = _body(located=False)
+    body["location"] = {"label": "Benz Circle, Vijayawada"}
+    response = client.post("/deals/discover", json=body).json()
+    assert container.google_maps_service.geocoded == ["Benz Circle, Vijayawada"]
+    local = next(s for s in response["sections"] if s["kind"] == "local")
+    assert local["count"] >= 1, "nearby now searched around the typed place"
+    assert response["source_status"]["nearby"] == "ok"
+
+
+def test_typed_pickup_and_drop_resolve_to_points_with_a_junction(app_env):
+    app, container, client = app_env
+    maps = _GeoMaps([{"name": "Benz Circle Bus Stop", "latitude": 16.4996, "longitude": 80.6561,
+                      "types": ["bus_stop", "transit_station"]}],
+                    {"benz circle": {"name": "Benz Circle", "latitude": 16.4995, "longitude": 80.6560},
+                     "governorpet": {"name": "Governorpet", "latitude": 16.5130, "longitude": 80.6240}})
+    container.google_maps_service = maps
+    from app.api.routes import universal_deals as ud
+
+    demand = {"subject": "parcel", "constraints": {"from": "Benz Circle", "to": "Governorpet"}}
+    ud._resolve_typed_places(container, demand)
+    c = demand["constraints"]
+    assert (c["from_lat"], c["to_lat"]) == (16.4995, 16.5130)
+    assert c["from_landmark"] == "Benz Circle Bus Stop"
+    assert c["places_resolved"] == {"from": "geocoded", "to": "geocoded"}
+    resolved = client.get("/api/discover/resolve", params={"q": "Benz Circle", "junction": True}).json()
+    assert resolved["status"] == "ok" and resolved["junction"]["name"] == "Benz Circle Bus Stop"
+    assert client.get("/api/discover/resolve", params={"q": "Nowhere Land"}).json()["status"] == "not_found"

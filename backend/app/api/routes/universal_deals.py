@@ -626,6 +626,42 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
     }
 
 
+def _resolve_typed_places(container, demand: dict) -> None:
+    """A TYPED place gets a real map point (Geocoding) so nearby ranking,
+    routes and the nearest junction work like a map pin: the request's own
+    location, and a ride / parcel pickup ("from") and drop ("to"). Never
+    overrides coordinates the app already sent; never invents a point."""
+    maps = getattr(container, "google_maps_service", None)
+    if maps is None or not getattr(maps, "enabled", False):
+        return
+    from app.api.routes.discover import find_junction, geocode_text
+
+    constraints = demand.setdefault("constraints", {})
+    resolved = {}
+    text = str(demand.get("location_text") or "").strip()
+    if text and (demand.get("latitude") is None or demand.get("longitude") is None):
+        hit = geocode_text(maps, text)
+        if hit.get("status") == "ok":
+            demand["latitude"], demand["longitude"] = hit["point"]["latitude"], hit["point"]["longitude"]
+            resolved["location"] = "geocoded"
+    for end in ("from", "to"):
+        place = str(constraints.get(end) or constraints.get(f"{end}_location") or "").strip()
+        if not place or constraints.get(f"{end}_lat") is not None:
+            continue
+        hit = geocode_text(maps, place)
+        if hit.get("status") != "ok":
+            resolved[end] = hit.get("status")
+            continue
+        point = hit["point"]
+        constraints[f"{end}_lat"], constraints[f"{end}_lng"] = point["latitude"], point["longitude"]
+        junction = find_junction(maps, point["latitude"], point["longitude"]).get("junction")
+        if junction:
+            constraints[f"{end}_landmark"] = junction["name"]
+        resolved[end] = "geocoded"
+    if resolved:
+        constraints["places_resolved"] = resolved
+
+
 def _web_search(container):
     """The web-search CHAIN (Brave, then fallbacks). A test or caller that
     replaced ``brave_web_search_provider`` alone gets that provider."""
@@ -1118,6 +1154,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
 
     started = _time.perf_counter()
     usage_before = external_call_budget.usage_snapshot()
+    _resolve_typed_places(container, demand)
     matches = list(matches or [])
     existing_ids = {str(item.get("id")) for item in matches}
     flags = _result_flags(container, demand)
