@@ -19,7 +19,8 @@ MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64 + uuid.uuid4().bytes
 def env(monkeypatch, tmp_path):
     from server import app, container
 
-    monkeypatch.setattr(container, "settings", dataclasses.replace(container.settings, admin_seed_key=OWNER_KEY))
+    monkeypatch.setattr(container, "settings", dataclasses.replace(container.settings, admin_seed_key=OWNER_KEY,
+                                                                  database_path=str(tmp_path / "native_video.db")))
     monkeypatch.setattr(container, "command_center_repository", CommandCenterRepository(str(tmp_path / "v.db")),
                         raising=False)
     return TestClient(app), container
