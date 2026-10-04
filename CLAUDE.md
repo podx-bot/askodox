@@ -7,15 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `3780d3f` -- PR #143 (2026-10-04): Brave web-search resilience
+- `main` @ `6f2c3af` -- PR #143 + #144 (2026-10-04): Brave web-search resilience
   (real failure state at `/health/search`, breaker, per-thread errors,
   last-good `stale` rows), askodox.com `/chat` proxied to the production
   backend, app reads `/api/flags` (cached, defaults on failure), listing
   spam / abuse screening + `listing_reviews`, Social auto-DM (Meta) and
   marketplace product-API adapters (mock-testable, EXTERNAL SETUP for the
   real connection), real-phone acceptance checklist in `qa_checks`.
-  Production backend deployed (Railway SUCCESS on 3780d3f); Android Live
-  Build on 3780d3f succeeded (phone-test mirror entry not yet added). Before:
+  #144: Brave 402 CREDIT_EXHAUSTED opens the breaker. Production backend
+  deployed (Railway SUCCESS on 6f2c3af). Signed MAIN APK 1292 (Live Build
+  37166918359 on 3780d3f, sha256 37132416…6dfae, cert 727b4a66…, production
+  backend only), mirrored for phone tests. Before:
   #141/#142 category-driven advisor, flag targeting, inbox, opportunities,
   web chat (APK 1291).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
