@@ -37,11 +37,14 @@ jobs:
           except Exception as e:
               print('MAPS_HEALTH:', e)
           for path in ('/staff', '/api/early-access?install_id=probe', '/health/maps', '/api/content?limit=3', '/content',
-                       '/api/discover/junction?latitude=16.4995&longitude=80.6560'):
+                       '/api/discover/junction?latitude=16.4995&longitude=80.6560',
+                       '/health/integrations', '/api/discover/resolve?q=Benz%20Circle%20Vijayawada&junction=true',
+                       '/api/delivery/services', '/api/videos/feed?limit=3', '/api/delivery/jobs/mine',
+                       '/admin/cc/mobility/overview', '/api/delivery/partners/me'):
               try:
                   with urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=90) as r:
                       body = r.read().decode('utf-8', 'replace')
-                      print(f"NEW {path} -> {r.status}", 'staff page' if 'Staff sign-in' in body else ('content page' if 'Updates &amp; news' in body else body[:200]))
+                      print(f"NEW {path} -> {r.status}", 'staff page' if 'Staff sign-in' in body else ('content page' if 'Updates &amp; news' in body else body[:900]))
               except urllib.error.HTTPError as e:
                   print(f"NEW {path} -> HTTP {e.code}")
           try:
