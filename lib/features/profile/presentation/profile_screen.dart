@@ -555,6 +555,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       'బుక్ చేయండి, ట్రాక్ చేయండి, లేదా డ్రైవ్ / డెలివర్ చేయండి.')),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/mobility'))),
+          Card(
+              elevation: 0,
+              child: ListTile(
+                  key: const ValueKey('profile-native-video'),
+                  leading: const Icon(Icons.video_call_outlined),
+                  title: Text(t('My videos', 'నా వీడియోలు')),
+                  subtitle: Text(t('Publish a video about your products or services (reviewed first).',
+                      'మీ ప్రొడక్ట్స్ / సర్వీసుల గురించి వీడియో పబ్లిష్ చేయండి (ముందు రివ్యూ).')),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/videos/native'))),
           // Staff only: the server decides (the number must be linked to an
           // active staff record); nothing is shown to anyone else.
           if (ref.watch(askodoxIsStaffProvider).valueOrNull == true)

@@ -342,7 +342,7 @@ _register(Resource(
 _register(Resource(
     name="videos", label="Videos", group="Video & Social", prefix="vid",
     permission="content", initial_status="PENDING_REVIEW", flag="results.videos",
-    statuses=("PENDING_REVIEW", "SCHEDULED", "ACTIVE", "PAUSED", "REJECTED", "EXPIRED", "DISABLED"),
+    statuses=("DRAFT", "PENDING_REVIEW", "SCHEDULED", "ACTIVE", "PAUSED", "REJECTED", "EXPIRED", "DISABLED"),
     description="Approved (ACTIVE) videos join search results when their keywords / category / products match. "
                 "Sponsored and affiliate videos are always disclosed.",
     fields=(
@@ -1100,6 +1100,7 @@ _register(Resource(
 SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # key: (minimum, maximum, default)
     "video_study.max_seconds": (10, 600, 180),
+    "video_upload.max_mb": (1, 200, 60),
     "advisor.max_questions_per_turn": (0, 3, 1),
     "advisor.ask_budget": (0, 1, 1),
     "demand.default_window_days": (1, 90, 7),

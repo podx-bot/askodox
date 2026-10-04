@@ -130,3 +130,72 @@ def health(row: Dict[str, Any], statuses: List[Dict[str, Any]]) -> tuple:
         return "LIVE", "a real check passed"
     return "CONFIGURED", "credentials present; run Check to verify"
 
+
+
+# ONE truthful state per integration for the owner, verified at runtime:
+# LIVE / NOT_CONFIGURED / DEGRADED / ERROR / QUOTA_EXHAUSTED / DISABLED
+# (CONFIGURED_NOT_VERIFIED only until the first real check has run).
+INTEGRATION_STATES = ("LIVE", "NOT_CONFIGURED", "DEGRADED", "ERROR", "QUOTA_EXHAUSTED", "DISABLED",
+                      "CONFIGURED_NOT_VERIFIED")
+
+
+def integration_state(row: Dict[str, Any]) -> str:
+    raw = str(row.get("status") or "").upper()
+    if raw in ("QUOTA_EXHAUSTED",):
+        return "QUOTA_EXHAUSTED"
+    return {"LIVE": "LIVE", "CONFIGURED": "CONFIGURED_NOT_VERIFIED", "DEGRADED": "DEGRADED",
+            "DISABLED": "DISABLED", "NEEDS_CONFIGURATION": "NOT_CONFIGURED", "CHECK_FAILED": "ERROR"}.get(
+        str(row.get("health") or ""), "ERROR")
+
+
+def search_state(web: Dict[str, Any]) -> str:
+    state = str(web.get("state") or "unknown")
+    return {"ok": "LIVE", "unknown": "CONFIGURED_NOT_VERIFIED", "not_configured": "NOT_CONFIGURED",
+            "unavailable": "NOT_CONFIGURED", "rate_limited": "DEGRADED", "quota_exhausted": "QUOTA_EXHAUSTED",
+            "auth_failed": "ERROR", "bad_request": "DEGRADED"}.get(state, "ERROR")
+
+
+def runtime_rows(container: Any, *, maps_body: Dict[str, Any] | None, web: Dict[str, Any],
+                 flag: Any, partners: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Search fallback, Maps (per API), delivery matching and native video,
+    each from live state: the last real call / check, flags and approved
+    records -- never a hand-set value."""
+    rows: List[Dict[str, Any]] = []
+    fallbacks = web.get("fallbacks") or {}
+    cse = fallbacks.get("google_cse") if isinstance(fallbacks, dict) else None
+    cse_state = {"not_configured": "NOT_CONFIGURED", None: "CONFIGURED_NOT_VERIFIED", "ok": "LIVE",
+                 "error": "ERROR", "quota_exhausted": "QUOTA_EXHAUSTED"}.get(cse, "ERROR") \
+        if "google_cse" in fallbacks else "NOT_CONFIGURED"
+    rows.append({"integration": "Web search fallback (Google Programmable Search)", "state": cse_state,
+                 "reason": "used only when Brave fails" if cse_state != "NOT_CONFIGURED" else
+                 "GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID not set (backend-only)"})
+    if not maps_body or not maps_body.get("configured"):
+        rows.append({"integration": "Google Maps", "state": "NOT_CONFIGURED",
+                     "reason": "GOOGLE_MAPS_API_KEY is not set on this deployment", "apis": {}})
+    else:
+        apis = maps_body.get("apis") or {}
+        bad = [k for k, v in apis.items() if v != "OK"]
+        quota = [k for k in bad if "quota" in str(apis[k]).lower() or "exceeded" in str(apis[k]).lower()]
+        state = "LIVE" if not bad else ("QUOTA_EXHAUSTED" if quota and len(quota) == len(bad) else
+                                        ("DEGRADED" if len(bad) < len(apis) else "ERROR"))
+        rows.append({"integration": "Google Maps", "state": state, "apis": {k: ("OK" if v == "OK" else "FAILED")
+                                                                             for k, v in apis.items()},
+                     "reason": "every API answered" if not bad else "failing: " + ", ".join(bad),
+                     "checked_at": maps_body.get("checked_at")})
+    approved = [p for p in partners if p.get("status") == "ACTIVE" and not p.get("archived")]
+    online = [p for p in approved if (p.get("data") or {}).get("available")]
+    if not flag("delivery.matching"):
+        d_state, d_reason = "DISABLED", "delivery.matching flag is off"
+    elif not approved:
+        d_state, d_reason = "NOT_CONFIGURED", "no approved driver / delivery partner yet"
+    else:
+        d_state = "LIVE" if online else "DEGRADED"
+        d_reason = f"{len(approved)} approved partner(s), {len(online)} online now"
+    rows.append({"integration": "Mobility (rides / delivery matching)", "state": d_state, "reason": d_reason})
+    rows.append({"integration": "ASKODOX native video upload",
+                 "state": "LIVE" if flag("videos.upload") else "DISABLED",
+                 "reason": "stored on the ASKODOX volume; staff review before publishing"})
+    rows.append({"integration": "Native Auto-DM (inside ASKODOX)",
+                 "state": "LIVE" if flag("autoresponse.enabled") else "DISABLED",
+                 "reason": "approved FAQ answers in ASKODOX chats and video messages; no external platform"})
+    return rows

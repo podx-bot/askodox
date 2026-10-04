@@ -146,3 +146,32 @@ def maps_health(request: Request) -> dict:
                 "all_ok": all(v == "OK" for v in status.values())}
     _MAPS_HEALTH.update(until=now + MAPS_HEALTH_TTL, body=body)
     return body
+
+
+@router.get("/health/integrations")
+def integrations_health(request: Request) -> dict:
+    """Public, secret-free summary: one truthful state per runtime
+    integration (LIVE / NOT_CONFIGURED / DEGRADED / ERROR / QUOTA_EXHAUSTED /
+    DISABLED). Maps reuses the 15-minute cached live check."""
+    from app.api.routes.platform import integration_runtime
+    from app.services import rate_limit
+    from app.services.integration_readiness import search_state
+
+    rate_limit.check(request, "integrations_health", limit=20)
+    container = request.app.state.container
+    maps_health(request)
+    web = _search_health(container)
+    rows = [{"integration": "Web search (Brave)", "state": search_state(web)}]
+    rows += [{k: v for k, v in r.items() if k in ("integration", "state", "reason", "apis")}
+             for r in integration_runtime(container, web)]
+    try:
+        from app.services.push_service import push_service
+
+        push = "CONFIGURED_NOT_VERIFIED" if push_service(container).configured() else "NOT_CONFIGURED"
+    except Exception:
+        push = "NOT_CONFIGURED"
+    rows.append({"integration": "Firebase push", "state": push,
+                 "reason": "FIREBASE_SERVICE_ACCOUNT_JSON not set (backend-only); the app also needs a Firebase "
+                                     "app" if push == "NOT_CONFIGURED" else "service account set; no device "
+                                     "delivery verified yet"})
+    return {"items": rows}
