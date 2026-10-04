@@ -21,3 +21,20 @@ def mask(text: Any) -> str:
 def has_contact(text: Any) -> bool:
     value = str(text or "")
     return bool(PHONE.search(value) or EMAIL.search(value))
+
+
+# Sensitive credentials (feedback / diagnostics): never stored readable.
+CARD = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
+AADHAAR = re.compile(r"(?<!\d)\d{4}[ -]?\d{4}[ -]?\d{4}(?!\d)")
+PAN = re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b", re.IGNORECASE)
+OTP = re.compile(r"(?i)\b(otp|pin|cvv|passcode|password|code)\b\W{0,3}\w*\W{0,3}\d{3,8}")
+
+
+def mask_sensitive(text: Any) -> str:
+    """Contacts plus card / Aadhaar / PAN / OTP-like secrets."""
+    value = str(text or "")
+    value = OTP.sub(lambda m: m.group(1) + " [hidden]", value)
+    value = CARD.sub("[number hidden]", value)
+    value = AADHAAR.sub("[number hidden]", value)
+    value = PAN.sub("[id hidden]", value)
+    return mask(value)

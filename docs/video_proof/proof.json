@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T01:01:02Z",
+ "generated_at": "2026-10-04T06:01:29Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:f13c366b07f741c5",
+   "trace_key": "browse:f5a30063b471490b",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -36,9 +36,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -121,7 +121,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:343c477e022c4714",
+   "trace_key": "browse:68e00fe862894396",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -150,9 +150,10 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Samsung",
-     "size": "43 inches",
-     "subject": "Samsung 43 inch TV review",
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
+     "brand": "శామ్‌సంగ్",
+     "size": "43 అంగుళాలు",
+     "category": "టీవీ",
      "location": "Vijayawada"
     }
    },
@@ -205,10 +206,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం సరిగ్గా సరిపోతుందో లేదో తనిఖీ చేయడం మంచిది.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి సాధారణంగా 5 నుండి 7 అడుగుల వీక్షణ దూరం ఉండాలి. మీ గది పరిమాణం ఎంత ఉందో చెప్పగలరా?",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_domain": "GENERAL",
+    "follow_action": "general_inquiry"
    },
    "next": {
     "step": "deals",
@@ -231,7 +232,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:03030a595aaa4973",
+   "trace_key": "browse:6ffb97400ea54c77",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -262,7 +263,6 @@
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
-     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -345,7 +345,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:60ee0d8cf3c94e14",
+   "trace_key": "browse:e26e51154ee94e03",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -459,7 +459,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:6dea193d4bef487f",
+   "trace_key": "browse:a35d0e85ceb148ba",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -568,18 +568,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:0ed4a972ea414f1b",
+   "trace_key": "browse:7d094ebf7e104ed1",
    "videos": [
     {
-     "video_id": "yt_Ac8Arkhzgps",
-     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "source_name": "My Old Plumber",
-     "duration": "0:17",
+     "video_id": "yt_Bvxkrv7t4Dw",
+     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "source_name": "vijay xyz tricks ",
+     "duration": "0:14",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -591,7 +591,7 @@
    "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "SERVICE",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -602,22 +602,20 @@
     }
    },
    "explain": {
-    "video_id": "yt_Ac8Arkhzgps",
+    "video_id": "yt_Bvxkrv7t4Dw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "Which do you prefer for sealing drains — plumbers putty or silicone?",
-     "Some plumbers swear by putty.",
-     "Others prefer silicone for a stronger long-term seal.",
-     "Both have their place depending on the sink, drain, and installation."
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "thanks for watching video"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "My Old Plumber",
+    "creator": "vijay xyz tricks ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
-    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
     "next": [
      {
       "action": "find_local",
@@ -647,13 +645,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
+    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "SERVICE",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -680,7 +678,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:3ae9b68c373c47a3",
+   "trace_key": "browse:e576cf03fada42a6",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -774,11 +772,9 @@
    "next": {
     "step": "find_local",
     "ask": "hyderabadi biryani near me",
-    "segments": [
-     "registered"
-    ],
+    "segments": [],
     "status": {
-     "askodox": "ok",
+     "askodox": "no_results",
      "nearby": "error",
      "used_deals": "no_results",
      "online": "error",
@@ -786,22 +782,7 @@
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": [
-     {
-      "title": "Vijayawada chicken biryani",
-      "segment": "registered",
-      "match_source": "registered",
-      "source_name": null,
-      "price": null,
-      "price_verified": null,
-      "distance_km": null,
-      "affiliate": null,
-      "sponsored": null,
-      "destination_url": null,
-      "image_url": null,
-      "location_label": "Vuyyuru, Andhra Pradesh"
-     }
-    ]
+    "options": []
    }
   },
   {
@@ -809,7 +790,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:3b9ec587c44b4d5b",
+   "trace_key": "browse:25857991639d4be3",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -838,7 +819,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku Valley trip",
+     "subject": "Araku valley trip",
      "location": "Vijayawada"
     }
    },
@@ -958,17 +939,17 @@
       "location_label": null
      },
      {
-      "title": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku",
+      "title": "1 Day Araku Valley Trip from Vizag | Borra Caves, Waterfalls & Coffee 🌿☕",
       "segment": null,
       "match_source": "video",
-      "source_name": "My Travel Support",
+      "source_name": "Beyond Mountain Thrills",
       "price": null,
       "price_verified": null,
       "distance_km": null,
       "affiliate": false,
       "sponsored": false,
-      "destination_url": "https://www.youtube.com/watch?v=YefkkpVsneY",
-      "image_url": "https://i.ytimg.com/vi/YefkkpVsneY/hqdefault.jpg",
+      "destination_url": "https://www.youtube.com/watch?v=Jc1Ql8aXngI",
+      "image_url": "https://i.ytimg.com/vi/Jc1Ql8aXngI/hqdefault.jpg",
       "location_label": null
      }
     ]
@@ -979,7 +960,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:d4662a6a04954aca",
+   "trace_key": "browse:9f53e6a644064b87",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1009,8 +990,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "used Royal Enfield Classic 350",
-     "brand": "Royal Enfield",
-     "model": "Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1093,7 +1072,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:1c123479dda24518",
+   "trace_key": "browse:b9ca232014af4f04",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1123,7 +1102,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
-     "brand": "Apple",
      "location": "Vijayawada"
     }
    },
@@ -1207,7 +1185,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:f8f5bca40d7445bf",
+   "trace_key": "browse:bbb1896f0bbe422f",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1287,7 +1265,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఈ ఏసీ సర్వీస్ సరిపోతుందా లేదా అనేది వీడియో ఆధారంగా చూపిస్తున్నాను, కింద రిజల్ట్స్ చూడండి.",
+    "follow_reply": "చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను AC సర్వీసింగ్ సరిపోతుంది. మరింత వివరంగా పరిశీలించడానికి వీడియో రివ్యూలు కింద చూడవచ్చు.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
@@ -1377,7 +1355,7 @@
   },
   {
    "step": "click",
-   "count": 2
+   "count": 1
   },
   {
    "step": "claim",
@@ -1408,6 +1386,6 @@
    "count": 0
   }
  ],
- "event_count": 77,
+ "event_count": 76,
  "youtube_data_api": "needs_configuration (no YOUTUBE_API_KEY in this run)"
 }

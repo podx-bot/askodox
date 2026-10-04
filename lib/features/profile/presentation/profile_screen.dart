@@ -15,6 +15,7 @@ import '../../home/application/conversation_archive.dart';
 import '../../home/application/saved_options.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
+import '../../staff/askodox_staff_access.dart';
 import '../data/user_profile_repository.dart';
 import 'profile_header.dart';
 
@@ -527,6 +528,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   title: Text(t('Privacy', 'ప్రైవసీ')),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/privacy'))),
+          // Early Access label + feedback (Command Center decides who sees it).
+          Builder(builder: (context) {
+            final early = ref.watch(askodoxEarlyAccessProvider).valueOrNull ?? EarlyAccessInfo.inactive;
+            return Card(
+                elevation: 0,
+                child: ListTile(
+                    key: const ValueKey('profile-feedback'),
+                    leading: const Icon(Icons.bug_report_outlined),
+                    title: Text(t('Report a problem / Send feedback', 'సమస్య చెప్పండి / ఫీడ్‌బ్యాక్ పంపండి')),
+                    subtitle: early.active
+                        ? Text(early.freeTrial
+                            ? '${early.label} · ${t('free while in testing', 'టెస్టింగ్ సమయంలో ఉచితం')}'
+                            : early.label)
+                        : null,
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/beta-feedback')));
+          }),
+          // Staff only: the server decides (the number must be linked to an
+          // active staff record); nothing is shown to anyone else.
+          if (ref.watch(askodoxIsStaffProvider).valueOrNull == true)
+            Card(
+                elevation: 0,
+                child: ListTile(
+                    key: const ValueKey('profile-staff-workspace'),
+                    leading: const Icon(Icons.badge_outlined),
+                    title: Text(t('Staff Workspace', 'స్టాఫ్ వర్క్‌స్పేస్')),
+                    subtitle: Text(t('Add products, links, offers; tasks and support.',
+                        'ప్రొడక్ట్స్, లింకులు, ఆఫర్లు; టాస్కులు, సపోర్ట్.')),
+                    trailing: const Icon(Icons.open_in_new_rounded),
+                    onTap: () async {
+                      if (!await openStaffWorkspace(context, ref) && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(t('Could not open the Staff Workspace. Check the connection.',
+                                'స్టాఫ్ వర్క్‌స్పేస్ తెరవలేకపోయాం. కనెక్షన్ చూడండి.'))));
+                      }
+                    })),
         ],
       ),
     );

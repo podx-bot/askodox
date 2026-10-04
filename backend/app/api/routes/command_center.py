@@ -85,6 +85,16 @@ def _principal(request: Request) -> dict[str, Any]:
     if owner_key and sent_key and hmac.compare_digest(sent_key, owner_key):
         return {"id": "owner", "name": "Owner", "role": "super_admin", "permissions": set(PERMISSIONS)}
     staff = command_center(container).staff_by_token(sent_token)
+    sent_session = (request.headers.get("x-askodox-staff-session") or "").strip()
+    if staff is None and sent_session:
+        # Short-lived session from a phone / app sign-in (OTP-verified number).
+        from app.services import staff_sessions
+
+        staff_id = staff_sessions.verify(sent_session, container.settings.session_token_secret)
+        candidate = command_center(container).get_staff(staff_id) if staff_id else None
+        staff = candidate if candidate and candidate["active"] else None
+        if staff is None:
+            raise HTTPException(status_code=401, detail="Staff session expired -- sign in again")
     if staff:
         return {"id": f"staff-{staff['id']}", "name": staff["name"], "role": staff["role"],
                 "permissions": set(staff["permissions"])}
@@ -1196,6 +1206,7 @@ class StaffCreate(BaseModel):
 
 
 class StaffUpdate(BaseModel):
+    phone: str | None = Field(default=None, max_length=20)  # link the staff member's own number ("" unlinks)
     role: str | None = None
     grant: list[str] = Field(default_factory=list)
     revoke: list[str] = Field(default_factory=list)
@@ -1316,6 +1327,22 @@ def update_staff(staff_id: int, payload: StaffUpdate, request: Request) -> Any:
     held_back = _split_red(principal, added)
     advice = gov.advise(current["permissions"], permissions, role=payload.role or current["role"])
     updated = cc.update_staff(staff_id, role=payload.role, permissions=permissions - held_back, active=payload.active)
+    if payload.phone is not None:
+        from app.api.routes.onboarding_auth import _is_test_mobile, _mobile
+
+        digits = "".join(ch for ch in payload.phone if ch.isdigit())
+        try:
+            mobile = _mobile(digits) if digits else ""
+        except HTTPException:
+            raise
+        if mobile and _is_test_mobile(mobile):
+            raise HTTPException(status_code=422, detail="Demo / test numbers cannot sign in as staff")
+        try:
+            updated = cc.link_staff_app_user(staff_id, f"app-phone-{mobile}" if mobile else None)
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error))
+        cc.audit(principal["id"], "staff_phone_linked" if mobile else "staff_phone_unlinked", "staff", staff_id,
+                 None, {"linked": bool(mobile)}, role=principal["role"])
     cc.audit(principal["id"], "staff_updated", "staff", staff_id,
              {"role": current["role"], "permissions": current["permissions"], "active": current["active"]},
              {"role": updated["role"], "permissions": updated["permissions"], "active": updated["active"]},

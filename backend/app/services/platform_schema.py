@@ -741,6 +741,147 @@ _register(Resource(
     ),
 ))
 
+# --- Universal Sources / Staff Workspace / Early Access ------------------
+from app.services.universal_sources import (  # noqa: E402
+    CARD_FIELDS as _SRC_CARD_FIELDS,
+    CONNECTORS as _SRC_CONNECTORS,
+    FEED_FORMATS as _SRC_FEED_FORMATS,
+    MONETIZATION as _SRC_MONETIZATION,
+    SOURCE_TYPES as _SRC_TYPES,
+)
+
+_register(Resource(
+    name="sources", label="Sources", group="Catalog", prefix="src",
+    permission="sources", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="Any web / marketplace / feed / API source -- no app update per source. Connector: manual "
+                "(staff paste links), feed (approved JSON/CSV feed synced into the item store -- works without "
+                "web search), json_search (approved JSON search endpoint called live), site_search (organic rows "
+                "from this domain via web search), api (official API adapter). Only official APIs, feeds, approved "
+                "endpoints or a page's own metadata are used -- never scraping. A failing source is skipped and "
+                "shown in its health; it never breaks results. Amazon / Flipkart / Meesho / Wishlink organic and "
+                "monetization switches stay in Affiliate sources.",
+    fields=(
+        F("name", "Source name", required=True, list_column=True),
+        F("domains", "Domains (e.g. example.com)", "list", list_column=True),
+        F("logo_url", "Logo URL", "url"),
+        F("source_type", "Source type", "enum", options=_SRC_TYPES, required=True, list_column=True, filter=True),
+        F("sectors", "Categories / sectors (blank = all)", "list"),
+        F("countries", "Countries (ISO, blank = all)", "list"),
+        F("states", "States (blank = all)", "list"),
+        F("cities", "Cities (blank = all)", "list"),
+        F("pincodes", "Pincodes (blank = all)", "list"),
+        F("priority", "Priority (higher first)", "int", min=0, max=1000, list_column=True),
+        F("monetization", "Monetization", "enum", options=_SRC_MONETIZATION, list_column=True),
+        F("connector", "Connector mode", "enum", options=_SRC_CONNECTORS, required=True, list_column=True,
+          filter=True),
+        F("search_url_template", "JSON search URL template ({q} {city} {category})", "text",
+          help="json_search only; must be an approved https endpoint."),
+        F("feed_url", "Feed URL (https)", "url"),
+        F("feed_format", "Feed format", "enum", options=_SRC_FEED_FORMATS),
+        F("field_map", "Field mapping", "json",
+          help='{"items": "data.products", "title": "name", "url": "link", "price": "price.value", '
+               '"image": "img", "stock": "availability"} -- blank uses common names.'),
+        F("affiliate_link_template", "Affiliate deep-link template ({url})", "text",
+          help="Used only when monetization = affiliate AND commission = ACTIVE."),
+        F("commission_status", "Commission status", "enum", options=("unknown", "active", "inactive")),
+        F("stock_behaviour", "Out-of-stock behaviour", "enum", options=("hide", "show_labelled")),
+        F("card_fields", "Card fields to show", "list", options=_SRC_CARD_FIELDS),
+        F("auto_publish", "Feed items go live without review", "bool"),
+        F("max_results", "Max results per search", "int", min=1, max=10),
+        F("notes", "Notes (terms, contact, approval reference)", "longtext"),
+    ),
+    actions=(
+        _A("enable", "Enable", "ACTIVE", ("DISABLED",)),
+        _A("disable", "Disable", "DISABLED", ("ACTIVE",), confirm=True),
+    ),
+))
+
+TASK_KINDS = ("demand_opportunity", "add_products", "review_items", "support", "content", "qa", "other")
+STAFF_ROLES = ("affiliate_staff", "source_staff", "offers_staff", "content_staff", "video_staff",
+               "seller_support", "customer_support", "demand_staff", "qa_staff", "supervisor", "admin", "any")
+
+_register(Resource(
+    name="staff_tasks", label="Staff tasks", group="Staff", prefix="tsk",
+    permission="tasks", name_field="title", initial_status="OPEN",
+    statuses=("OPEN", "IN_PROGRESS", "WAITING", "DONE", "CANCELLED"),
+    description="Work for staff -- from demand opportunities (with the reason it was generated), support or "
+                "admins. Assign to a staff member or a role; it appears in that person's Staff Workspace inbox.",
+    fields=(
+        F("title", "Task", required=True, list_column=True),
+        F("kind", "Kind", "enum", options=TASK_KINDS, list_column=True, filter=True),
+        F("why", "Why this task exists", "longtext"),
+        F("expected_action", "What to do", "longtext"),
+        F("priority", "Priority", "enum", options=("low", "normal", "high", "urgent"), list_column=True,
+          filter=True),
+        F("assignee_staff", "Assigned staff id", list_column=True, filter=True),
+        F("assignee_role", "Assigned role", "enum", options=STAFF_ROLES, filter=True),
+        F("region", "Region / city", filter=True),
+        F("due_at", "Due / follow-up", "date", list_column=True),
+        F("dedupe_key", "Dedupe key (one open task per key)"),
+        F("evidence", "Demand evidence", "json"),
+        F("result_note", "Outcome", "longtext"),
+    ),
+    actions=(
+        _A("start", "Start", "IN_PROGRESS", ("OPEN", "WAITING")),
+        _A("wait", "Waiting on someone", "WAITING", ("OPEN", "IN_PROGRESS")),
+        _A("done", "Done", "DONE", ("OPEN", "IN_PROGRESS", "WAITING")),
+        _A("cancel", "Cancel", "CANCELLED", ("OPEN", "IN_PROGRESS", "WAITING"), confirm=True),
+        _A("reopen", "Reopen", "OPEN", ("DONE", "CANCELLED")),
+    ),
+))
+
+FEEDBACK_KINDS = ("bug", "wrong_result", "idea", "praise", "other")
+
+_register(Resource(
+    name="feedback_reports", label="Feedback & problem reports", group="Customers", prefix="fbk",
+    permission="feedback", name_field="summary", initial_status="NEW",
+    statuses=("NEW", "TRIAGED", "IN_PROGRESS", "RESOLVED", "WONT_FIX"),
+    description="Reports from the app / web (Early Access). Text is masked (phone, email, OTP, card, Aadhaar, "
+                "PAN) before it is stored; diagnostics are only kept when the user agreed.",
+    fields=(
+        F("summary", "Summary", required=True, list_column=True),
+        F("kind", "Kind", "enum", options=FEEDBACK_KINDS, list_column=True, filter=True),
+        F("feature", "Feature / screen", list_column=True, filter=True),
+        F("message", "Message (masked)", "longtext"),
+        F("app_version", "App version", list_column=True, filter=True),
+        F("platform", "Platform", filter=True),
+        F("user_ref", "User (hashed)"),
+        F("early_access", "Early Access user", "bool", filter=True),
+        F("diagnostics", "Diagnostics (with consent)", "json"),
+        F("staff_note", "Staff note", "longtext"),
+    ),
+    actions=(
+        _A("triage", "Triage", "TRIAGED", ("NEW",), perm="edit"),
+        _A("start", "Working on it", "IN_PROGRESS", ("NEW", "TRIAGED"), perm="edit"),
+        _A("resolve", "Resolved", "RESOLVED", ("NEW", "TRIAGED", "IN_PROGRESS"), perm="edit"),
+        _A("wont_fix", "Won't fix", "WONT_FIX", ("NEW", "TRIAGED", "IN_PROGRESS"), confirm=True),
+        _A("reopen", "Reopen", "NEW", ("RESOLVED", "WONT_FIX"), perm="edit"),
+    ),
+))
+
+_register(Resource(
+    name="early_access", label="Early Access programme", group="Configuration", prefix="eap",
+    permission="early_access", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="Early Access / public testing. The ACTIVE programme decides who sees the Early Access label, "
+                "free trial rules and the feedback prompt -- no app update needed. Blank lists = everyone.",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("label", "Label shown in the app", list_column=True),
+        F("start_at", "Start", "date", list_column=True),
+        F("end_at", "End", "date", list_column=True),
+        F("eligible_percent", "Eligible people (%)", "int", min=0, max=100, list_column=True),
+        F("regions", "Regions / cities (blank = all)", "list"),
+        F("roles", "Roles (blank = all)", "list", options=("guest", "buyer", "seller", "staff")),
+        F("include_users", "Always include (app user ids)", "list"),
+        F("free_trial", "Free trial (no payment collected)", "bool"),
+        F("trial_days", "Trial length (days, 0 = whole programme)", "int", min=0, max=3650),
+        F("feedback_prompt", "Show 'Report a problem' prompt", "bool"),
+        F("features", "Early Access features (flag keys)", "list"),
+        F("consent_text", "Diagnostics consent text", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
 _register(Resource(
     name="flag_rollouts", label="Feature flag targeting", group="Configuration", prefix="flr",
     permission="config", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
@@ -916,6 +1057,15 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "demand.opportunity_expiry_hours": (1, 720, 72),
     "listings.max_per_hour": (1, 1000, 20),
     "listings.cross_seller_limit": (2, 100, 3),
+    # Automatic product health (1 = on): hide out-of-stock items; keep an
+    # item through its organic link when commission goes inactive; pause
+    # items when they go out of stock and resume them when stock returns.
+    "catalog.hide_out_of_stock": (0, 1, 1),
+    "catalog.organic_when_commission_inactive": (0, 1, 1),
+    "catalog.pause_on_out_of_stock": (0, 1, 0),
+    # Universal sources: live connector timeout (s) and feed refresh (h).
+    "sources.timeout_seconds": (1, 15, 4),
+    "sources.feed_refresh_hours": (1, 168, 24),
 }
 
 _register(Resource(

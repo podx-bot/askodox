@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T01:01:02Z by `.github/workflows/video-real-content-proof.yml` (run 37166530143).
+Generated 2026-10-04T06:01:29Z by `.github/workflows/video-real-content-proof.yml` (run 37181393496).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -15,8 +15,8 @@ Generated 2026-10-04T01:01:02Z by `.github/workflows/video-real-content-proof.ym
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 0 () |
 | vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 0 () |
 | service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 0 () |
-| home-service | en | 1 | [Which do you prefer. Plumbers putty or silicone for sealing…](https://www.youtube.com/watch?v=Ac8Arkhzgps) | My Old Plumber | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 0 () |
-| food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 1 (registered) |
+| home-service | en | 1 | [Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #sho…](https://www.youtube.com/watch?v=Bvxkrv7t4Dw) | vijay xyz tricks | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 0 () |
+| food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 0 () |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 4 () |
 | used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 0 () |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 0 () |
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం సరిగ్గా సరిపోతుందో లేదో తనిఖీ చేయడం మంచిది.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి సాధారణంగా 5 నుండి 7 అడుగుల వీక్షణ దూరం ఉండాలి. మీ గది పరిమాణం ఎంత ఉందో చెప్పగలరా?
 
 **Next step:** "samsung 43 inch tv offers" → 
 
@@ -120,13 +120,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### home-service (en) -- "kitchen sink plumbing repair video"
 
-**Video:** Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy -- My Old Plumber (https://www.youtube.com/watch?v=Ac8Arkhzgps)
+**Video:** Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed -- vijay xyz tricks  (https://www.youtube.com/watch?v=Bvxkrv7t4Dw)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy / Which do you prefer for sealing drains — plumbers putty or silicone? / Some plumbers swear by putty. / Others prefer silicone for a stronger long-term seal. / Both have their place depending on the sink, dr…  
+Quoted from source: Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / thanks for watching video  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy"
+**User:** Tell me more about "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
@@ -154,7 +154,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → Vijayawada chicken biryani [registered]
+**Next step:** "hyderabadi biryani near me" → 
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -173,7 +173,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
 **This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "araku valley trip reviews" → Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku [video]; Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise [video]; Araku Valley Complete Travel Guide | Places to Visit | Things to Do  [video]; আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku [video]
+**Next step:** "araku valley trip reviews" → Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku [video]; Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise [video]; Araku Valley Complete Travel Guide | Places to Visit | Things to Do  [video]; 1 Day Araku Valley Trip from Vizag | Borra Caves, Waterfalls & Coffee 🌿☕ [video]
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఈ ఏసీ సర్వీస్ సరిపోతుందా లేదా అనేది వీడియో ఆధారంగా చూపిస్తున్నాను, కింద రిజల్ట్స్ చూడండి.
+**ASKODOX AI:** చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను AC సర్వీసింగ్ సరిపోతుంది. మరింత వివరంగా పరిశీలించడానికి వీడియో రివ్యూలు కింద చూడవచ్చు.
 
 **Next step:** "ac service near me" → 
 
@@ -235,7 +235,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 Video funnel: video_impression 11, video_open 11, video_watch_start 11, video_watch_complete 0, video_ask 11, video_product_click 4, video_service_click 3, video_local_search 4, video_affiliate_click 0, video_contact 0, lead 0, order 0, conversion 0
 
-Commerce funnel: search 11, impression 0, result_view 0, click 2, claim 0, lead 0, order 0, payment 0, redemption 0, conversion 0, commission 0
+Commerce funnel: search 11, impression 0, result_view 0, click 1, claim 0, lead 0, order 0, payment 0, redemption 0, conversion 0, commission 0
 
 ## App renders (real rows, thumbnails and AI answers)
 

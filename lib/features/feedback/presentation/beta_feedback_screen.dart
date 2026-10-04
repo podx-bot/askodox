@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/flags/askodox_remote_flags.dart';
+import '../../../core/providers/backend_providers.dart';
+import '../../../core/update/askodox_update_service.dart';
+import '../../staff/askodox_staff_access.dart';
 import '../application/beta_feedback_provider.dart';
 import '../domain/beta_feedback.dart';
 
@@ -20,6 +24,8 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
   FeedbackCategory _category = FeedbackCategory.bug;
   FeedbackSeverity _severity = FeedbackSeverity.medium;
   bool _contactAllowed = false;
+  bool _shareDiagnostics = false;
+  bool _sending = false;
 
   bool get _te => Localizations.localeOf(context).languageCode == 'te';
   String _t(String en, String te) => _te ? te : en;
@@ -52,7 +58,7 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(_t('Beta feedback', 'బీటా ఫీడ్‌బ్యాక్'))),
+        appBar: AppBar(title: Text(_t('Report a problem / Send feedback', 'సమస్య చెప్పండి / ఫీడ్‌బ్యాక్'))),
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
@@ -62,8 +68,8 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   Text(_t(
-                    'Stored on this device only. Do not include passwords, OTPs, or personal information.',
-                    'ఇది ఈ డివైస్‌లో మాత్రమే సేవ్ అవుతుంది. పాస్‌వర్డ్‌లు, OTPలు లేదా వ్యక్తిగత సమాచారాన్ని నమోదు చేయవద్దు.',
+                    'Sent to the ASKODOX team. Do not include passwords, OTPs, card or Aadhaar numbers -- they are hidden automatically.',
+                    'ASKODOX టీమ్‌కి పంపబడుతుంది. పాస్‌వర్డ్‌లు, OTPలు, కార్డ్ లేదా ఆధార్ నంబర్లు వద్దు -- అవి ఆటోమేటిక్‌గా దాచబడతాయి.',
                   )),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<FeedbackCategory>(
@@ -112,9 +118,18 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
                     value: _contactAllowed,
                     onChanged: (value) => setState(() => _contactAllowed = value),
                   ),
+                  SwitchListTile(
+                    key: const ValueKey('feedback-diagnostics'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_t('Include app version and screen name', 'యాప్ వెర్షన్, స్క్రీన్ పేరు జత చేయండి')),
+                    subtitle: Text(_t('No messages, contacts, location or payment details.',
+                        'మెసేజ్‌లు, కాంటాక్ట్స్, లొకేషన్, పేమెంట్ వివరాలు ఉండవు.')),
+                    value: _shareDiagnostics,
+                    onChanged: (value) => setState(() => _shareDiagnostics = value),
+                  ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: _submit,
+                    onPressed: _sending ? null : _submit,
                     icon: const Icon(Icons.send),
                     label: Text(_t('Submit feedback', 'ఫీడ్‌బ్యాక్ పంపండి')),
                   ),
@@ -125,9 +140,35 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
         ),
       );
 
-  void _submit() {
+  static String _kind(FeedbackCategory category) => switch (category) {
+        FeedbackCategory.bug || FeedbackCategory.performance || FeedbackCategory.ui => 'bug',
+        FeedbackCategory.search || FeedbackCategory.price || FeedbackCategory.seller => 'wrong_result',
+        FeedbackCategory.feature => 'idea',
+        FeedbackCategory.other => 'other',
+      };
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final now = DateTime.now();
+    setState(() => _sending = true);
+    String? reference;
+    try {
+      final version = '${await const AskodoxUpdateService().installedBuildNumber()}';
+      reference = await ref.read(askodoxStaffRepositoryProvider).sendFeedback(
+            kind: _kind(_category),
+            message: '[${_severity.name}] ${_description.text.trim()}',
+            feature: _screen.text.trim().isEmpty ? _category.name : _screen.text.trim(),
+            appVersion: version,
+            installId: await ref.read(askodoxFlagsRepositoryProvider).installId(),
+            consentDiagnostics: _shareDiagnostics,
+            diagnostics: {'screen': _screen.text.trim(), 'build': version},
+            token: ref.read(authSessionProvider).tokenPlaceholder,
+          );
+    } catch (_) {
+      reference = null;
+    }
+    if (!mounted) return;
+    setState(() => _sending = false);
     ref.read(betaFeedbackProvider.notifier).submit(BetaFeedback(
           id: now.microsecondsSinceEpoch.toString(),
           category: _category,
@@ -142,7 +183,11 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
     _screen.clear();
     _screenshot.clear();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('Feedback saved locally. Thank you.', 'ఫీడ్‌బ్యాక్ లోకల్‌గా సేవ్ అయింది. ధన్యవాదాలు.'))),
+      SnackBar(
+          content: Text(reference != null
+              ? _t('Sent to the ASKODOX team. Thank you!', 'ASKODOX టీమ్‌కి పంపాం. ధన్యవాదాలు!')
+              : _t('Could not send right now -- please try again when you are online.',
+                  'ఇప్పుడు పంపలేకపోయాం -- ఆన్‌లైన్‌లో ఉన్నప్పుడు మళ్లీ ప్రయత్నించండి.'))),
     );
   }
 }

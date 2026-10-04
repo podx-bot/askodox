@@ -35,6 +35,12 @@ from urllib.parse import urlparse
 STOCK_STATES = ("IN_STOCK", "OUT_OF_STOCK", "UNKNOWN")
 COMMISSION_STATES = ("ACTIVE", "INACTIVE", "UNKNOWN")
 CHECK_SOURCES = ("manual", "feed", "api", "page_metadata", "postback")
+# One reusable item store for everything staff curate (Staff Workspace):
+# shopping items appear in chat results; news / video / content items are
+# listed through /api/content. Rows created before items existed are LIVE.
+ITEM_TYPES = ("product", "offer", "coupon", "service", "link", "news", "video", "content")
+RESULT_ITEM_TYPES = ("product", "offer", "coupon", "service", "link")
+REVIEW_STATES = ("DRAFT", "NEEDS_REVIEW", "APPROVED", "LIVE", "PAUSED", "EXPIRED")
 
 # Platform id -> display name, hosts its URLs live on (incl. short links),
 # and the host a site-restricted organic web search uses (None = no search).
@@ -62,7 +68,8 @@ _SECRET_FIELD = re.compile(r"secret|token|password|api_key|apikey|private|signat
 EDITABLE_FIELDS = ("title", "platform", "original_product_url", "affiliate_url", "image_url", "images",
                    "price", "mrp", "currency", "category", "subcategory", "description", "variants",
                    "seller", "merchant", "sponsored", "location", "availability", "verified_commission_rate",
-                   "brand", "product_id", "canonical_url")
+                   "brand", "product_id", "canonical_url", "item_type", "offer_text", "rating", "review_count",
+                   "coverage", "expires_at", "source_ref")
 LINK_FIELDS = {"affiliate_url"}
 
 _NEW_COLUMNS = {
@@ -89,7 +96,53 @@ _NEW_COLUMNS = {
     "updated_by": "TEXT NOT NULL DEFAULT ''",
     "created_at": "TEXT",
     "updated_at": "TEXT",
+    # Staff Workspace: item kind, review workflow, duplicate key, source link.
+    "item_type": "TEXT NOT NULL DEFAULT 'product'",
+    "review_status": "TEXT NOT NULL DEFAULT 'LIVE'",
+    "source_ref": "TEXT NOT NULL DEFAULT ''",
+    "canonical_key": "TEXT NOT NULL DEFAULT ''",
+    "submitted_by": "TEXT NOT NULL DEFAULT ''",
+    "reviewed_by": "TEXT NOT NULL DEFAULT ''",
+    "reviewed_at": "TEXT",
+    "review_note": "TEXT NOT NULL DEFAULT ''",
+    "expires_at": "TEXT",
+    "offer_text": "TEXT NOT NULL DEFAULT ''",
+    "rating": "REAL",
+    "review_count": "INTEGER",
+    "coverage": "TEXT NOT NULL DEFAULT ''",
 }
+
+
+def canonical_key(url: Any) -> str:
+    """Duplicate key for a URL: host without www, path without trailing
+    slash, tracking parameters dropped (two staff pasting the same product
+    from different share links collide here)."""
+    try:
+        clean = _strip_tracking(https_url(url) or str(url or ""))
+    except ValueError:
+        clean = str(url or "").strip()
+    parsed = urlparse(clean if "://" in clean else "https://" + clean)
+    host = (parsed.hostname or "").lower()
+    host = host[4:] if host.startswith("www.") else host
+    path = re.sub(r"/+$", "", parsed.path or "")
+    platform = detect_platform(f"https://{host}/")
+    pid = product_id_from_url(clean) if platform != "other" else ""
+    if pid:
+        return f"{platform}:{pid}"
+    return f"{host}{path}" + (f"?{parsed.query}" if parsed.query else "")
+
+
+def policy() -> dict[str, bool]:
+    """Admin toggles (Platform settings) for automatic product health."""
+    try:
+        from app.services import platform_settings as ps
+
+        get = ps.get
+    except Exception:  # pragma: no cover
+        get = lambda key, default=None: default  # noqa: E731
+    return {"hide_out_of_stock": bool(get("catalog.hide_out_of_stock", None)),
+            "organic_when_commission_inactive": bool(get("catalog.organic_when_commission_inactive", None)),
+            "pause_on_out_of_stock": bool(get("catalog.pause_on_out_of_stock", None))}
 
 
 def now_iso() -> str:
@@ -233,8 +286,18 @@ def evaluate(row: dict[str, Any], sources: dict[str, dict[str, Any]] | None = No
         reasons.append("deleted")
     if not row.get("active"):
         reasons.append("disabled_by_staff")
-    if row.get("stock_status") == "OUT_OF_STOCK":
+    rules = policy()
+    if row.get("stock_status") == "OUT_OF_STOCK" and rules["hide_out_of_stock"]:
         reasons.append("out_of_stock")
+    review = str(row.get("review_status") or "LIVE")
+    if review != "LIVE":
+        reasons.append("review_" + review.lower())
+    expires = str(row.get("expires_at") or "")
+    if expires and expires[:19] < now_iso()[:19]:
+        reasons.append("expired")
+    if row.get("commission_status") == "INACTIVE" and not rules["organic_when_commission_inactive"] \
+            and str(row.get("affiliate_url") or "").strip():
+        reasons.append("commission_inactive_hidden")
     if not source.get("organic_enabled", True):
         reasons.append("source_off")
     affiliate_reasons: list[str] = []
@@ -297,6 +360,10 @@ class AffiliateCatalog:
                 conn.execute("UPDATE affiliate_products SET platform=?, stock_status=? WHERE id=?",
                              (row["platform"] or detect_platform(row["original_product_url"]),
                               normalize_stock(row["stock_status"]), row["id"]))
+            for row in conn.execute("SELECT id, original_product_url FROM affiliate_products WHERE canonical_key=''"
+                                    ).fetchall():
+                conn.execute("UPDATE affiliate_products SET canonical_key=? WHERE id=?",
+                             (canonical_key(row["original_product_url"]), row["id"]))
             conn.executescript("""
             CREATE TABLE IF NOT EXISTS affiliate_product_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -386,8 +453,18 @@ class AffiliateCatalog:
                 continue
             if key in {"original_product_url", "affiliate_url", "image_url", "canonical_url"}:
                 out[key] = https_url(value)
-            elif key in {"price", "mrp", "verified_commission_rate"}:
+            elif key in {"price", "mrp", "verified_commission_rate", "rating"}:
                 out[key] = _money(value)
+            elif key == "review_count":
+                out[key] = int(_money(value) or 0) if value not in (None, "") else None
+            elif key == "item_type":
+                if value and value not in ITEM_TYPES:
+                    raise ValueError("item type must be one of " + ", ".join(ITEM_TYPES))
+                out[key] = value or "product"
+            elif key == "expires_at":
+                out[key] = str(value or "").strip()[:25] or None
+            elif key in {"offer_text", "coverage"}:
+                out[key] = str(value or "").strip()[:500]
             elif key == "images":
                 out["images_json"] = json.dumps([https_url(v) for v in _list(value)])
             elif key == "variants":
@@ -414,8 +491,19 @@ class AffiliateCatalog:
             VALUES(?,?,?,?,?,?,?)""", (int(product_id), now_iso(), actor, action, check_source,
                                        json.dumps(changes, ensure_ascii=False, default=str), note[:500]))
 
+    def duplicates(self, url: Any) -> list[dict[str, Any]]:
+        """Existing (not deleted) items for the same canonical URL / product id."""
+        key = canonical_key(url)
+        if not key:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute("SELECT id, title, review_status, item_type, submitted_by, created_by FROM "
+                                "affiliate_products WHERE canonical_key=? AND deleted_at IS NULL", (key,)).fetchall()
+        return [dict(r) for r in rows]
+
     def create(self, values: dict[str, Any], *, actor: str, check_source: str = "manual",
-               stock_status: Any = None, commission_status: Any = None) -> dict[str, Any]:
+               stock_status: Any = None, commission_status: Any = None,
+               review_status: str = "LIVE") -> dict[str, Any]:
         clean = self._clean(values)
         url = clean.get("original_product_url")
         if not url:
@@ -440,6 +528,8 @@ class AffiliateCatalog:
             "commission_check_source": check_source if commission != "UNKNOWN" else "",
             "price_checked_at": at if clean.get("price") is not None else None,
             "created_by": actor, "updated_by": actor, "created_at": at, "updated_at": at, "metadata_json": "{}",
+            "review_status": review_status if review_status in REVIEW_STATES else "NEEDS_REVIEW",
+            "submitted_by": actor, "canonical_key": canonical_key(url), "item_type": clean.get("item_type") or "product",
             **{k: v for k, v in clean.items() if k not in {"merchant", "currency", "category"}},
         }
         with self._connect() as conn:
@@ -447,6 +537,10 @@ class AffiliateCatalog:
                                     (platform, url)).fetchone()
             if existing and not existing["deleted_at"]:
                 raise ValueError(f"This {PLATFORMS[platform]['name']} product is already in the catalog (#{existing['id']})")
+            same = conn.execute("SELECT id FROM affiliate_products WHERE canonical_key=? AND deleted_at IS NULL",
+                                (columns["canonical_key"],)).fetchone()
+            if same and not existing:
+                raise ValueError(f"Already in the catalog as #{same['id']} (same product / link)")
             if existing:  # re-adding a deleted product restores its row and history
                 conn.execute("UPDATE affiliate_products SET deleted_at=NULL WHERE id=?", (existing["id"],))
                 sets = ", ".join(f"{k}=?" for k in columns if k != "created_at")
@@ -481,6 +575,8 @@ class AffiliateCatalog:
                 return _public(before)
             at = now_iso()
             sets = {k: v for k, v in clean.items()}
+            if clean.get("original_product_url"):
+                sets["canonical_key"] = canonical_key(clean["original_product_url"])
             if "price" in clean:
                 sets["price_checked_at"] = at
             sets.update({"updated_by": actor, "updated_at": at})
@@ -515,7 +611,31 @@ class AffiliateCatalog:
         value = str(status or "").upper()
         if value not in STOCK_STATES:
             value = normalize_stock(status)
-        return self._set_state(product_id, "stock_status", value, actor=actor, check_source=check_source, note=note)
+        item = self._set_state(product_id, "stock_status", value, actor=actor, check_source=check_source, note=note)
+        # Automatic product health (admin toggle): pause while out of stock,
+        # back to LIVE when stock returns -- only for items the rule paused.
+        if value == "OUT_OF_STOCK" and policy()["pause_on_out_of_stock"] and item.get("review_status") == "LIVE":
+            item = self.set_review(product_id, "PAUSED", actor="system", note="auto:out_of_stock")
+        elif value == "IN_STOCK" and item.get("review_status") == "PAUSED" \
+                and item.get("review_note") == "auto:out_of_stock":
+            item = self.set_review(product_id, "LIVE", actor="system", note="auto:back_in_stock")
+        return item
+
+    def set_review(self, product_id: int, status: str, *, actor: str, note: str = "") -> dict[str, Any]:
+        if status not in REVIEW_STATES:
+            raise ValueError("review status must be one of " + ", ".join(REVIEW_STATES))
+        with self._connect() as conn:
+            before = self._row(conn, product_id)
+            if not before or before.get("deleted_at"):
+                raise LookupError("Product not found")
+            at = now_iso()
+            conn.execute("UPDATE affiliate_products SET review_status=?, reviewed_by=?, reviewed_at=?, review_note=?, "
+                         "updated_by=?, updated_at=? WHERE id=?",
+                         (status, actor, at, note[:500], actor, at, int(product_id)))
+            self._record(conn, product_id, actor, "review",
+                         {"review_status": {"from": before.get("review_status"), "to": status}}, "manual", note)
+            row = self._row(conn, product_id)
+        return _public(row)
 
     def set_commission(self, product_id: int, status: Any, *, actor: str, check_source: str = "manual",
                        rate: Any = None, note: str = "") -> dict[str, Any]:
@@ -671,7 +791,10 @@ class AffiliateCatalog:
         tokens = [t for t in re.findall(r"[a-z0-9]+", str(subject or "").lower()) if len(t) > 1][:6]
         if not tokens:
             return []
-        sql = "SELECT * FROM affiliate_products WHERE deleted_at IS NULL AND active=1 AND stock_status!='OUT_OF_STOCK'"
+        sql = ("SELECT * FROM affiliate_products WHERE deleted_at IS NULL AND active=1 AND review_status='LIVE'"
+               " AND item_type IN (" + ",".join("'" + t + "'" for t in RESULT_ITEM_TYPES) + ")")
+        if policy()["hide_out_of_stock"]:
+            sql += " AND stock_status!='OUT_OF_STOCK'"
         sql += " AND (" + " OR ".join(["LOWER(title) LIKE ? OR LOWER(subcategory) LIKE ? OR LOWER(category) LIKE ?"]
                                        * len(tokens)) + ")"
         args = [f"%{t}%" for t in tokens for _ in range(3)]
@@ -724,6 +847,11 @@ def result_row(item: dict[str, Any]) -> dict[str, Any]:
         "stock_status": item.get("stock_status"),
         "last_checked": ev["last_checked"],
         "location": item.get("location") or item.get("availability") or None,
+        "item_type": item.get("item_type") or "product",
+        "offer": item.get("offer_text") or None,
+        "rating": item.get("rating"),
+        "review_count": item.get("review_count"),
+        "brand": item.get("brand") or None,
         "demo": False,
     }
 

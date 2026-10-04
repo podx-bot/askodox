@@ -103,6 +103,11 @@ MODULES = tuple(dict.fromkeys([p.split(":", 1)[0] for p in _LEGACY_PERMISSIONS] 
     "roles",       # custom role definitions (Owner)
     "delivery",    # delivery partners / drivers
     "qa",          # phone-test / QA center
+    "sources",     # Universal Sources (web / marketplace / feed / API)
+    "workspace",   # Staff Workspace (paste-link entry, review queue)
+    "tasks",       # staff tasks / demand-opportunity inbox
+    "feedback",    # feedback & problem reports
+    "early_access",  # Early Access programme
 ]))
 PERMISSIONS = all_permissions(_LEGACY_PERMISSIONS, MODULES)
 
@@ -158,7 +163,36 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "merchant_manager": ("overview:view", "users:view", "users:manage", "offers:view", "offers:manage",
                          "catalog:view", "catalog:manage", "support:view"),
     "analytics_viewer": ("overview:view", "analytics:view", "insights:view", "health:view", "companion:view"),
+    # Staff Workspace roles (phone / tablet / web). Each sees only its work;
+    # publishing directly (workspace:approve) is a separate grant.
+    "affiliate_product_staff": ("workspace:view", "workspace:create", "affiliate_products:view",
+                                "affiliate_products:create", "affiliate_products:edit", "affiliate_products:stock",
+                                "affiliate_products:bulk_import", "tasks:view"),
+    "source_staff": ("workspace:view", "sources:view", "sources:create", "sources:edit", "tasks:view"),
+    "offers_staff": ("workspace:view", "workspace:create", "offers:view", "offers:create", "offers:edit",
+                     "tasks:view"),
+    "content_staff": ("workspace:view", "workspace:create", "content:view", "content:create", "content:edit",
+                      "tasks:view"),
+    "video_staff": ("workspace:view", "workspace:create", "content:view", "content:create", "content:edit",
+                    "tasks:view"),
+    "seller_support": ("workspace:view", "support:view", "support:manage", "users:view", "catalog:view",
+                       "tasks:view"),
+    "customer_support": ("workspace:view", "support:view", "support:manage", "feedback:view", "feedback:edit",
+                         "requests:view", "tasks:view"),
+    "demand_staff": ("workspace:view", "demand:view", "demand:notify", "nomatch:view", "tasks:view",
+                     "tasks:manage"),
+    "qa_staff": ("workspace:view", "qa:view", "qa:manage", "feedback:view", "feedback:edit", "tasks:view"),
+    "supervisor": ("overview:view", "workspace:view", "workspace:create", "workspace:approve",
+                   "affiliate_products:view", "affiliate_products:create", "affiliate_products:edit",
+                   "affiliate_products:stock", "affiliate_products:commission", "affiliate_products:links",
+                   "affiliate_products:bulk_import", "offers:view", "offers:manage", "content:view",
+                   "content:manage", "sources:view", "tasks:view", "tasks:manage", "support:view",
+                   "feedback:view", "demand:view", "analytics:view", "audit:view"),
 }
+# Admin: everything except role definitions / security posture / staff
+# administration, which stay with the Owner / Super Admin.
+ROLE_PRESETS["admin"] = tuple(p for p in PERMISSIONS
+                              if p.split(":", 1)[0] not in ("roles", "security") and p != "staff:manage")
 
 # ----------------------------------------------------------- feature flags --
 
@@ -172,6 +206,7 @@ FEATURE_FLAGS: Dict[str, str] = {
     "results.surplus": "Surplus / clearance / open-box results",
     "results.deals": "Deals & offers results",
     "advisor.enabled": "Universal Advisor questions + guidance (off = results without advisor holds)",
+    "results.sources": "Command Center Sources (approved JSON search endpoints / site search) in results",
     "demand.alerts": "Demand opportunity alerts to registered sellers (rules still need to be ACTIVE)",
     "autoresponse.enabled": "Business auto-responses in deal chats (owner-approved FAQ only)",
     "results.videos": "Related videos / reviews",
@@ -350,6 +385,12 @@ class CommandCenterRepository:
                     conn.execute(f"ALTER TABLE admin_audit_log ADD COLUMN {column}")
                 except sqlite3.OperationalError:
                     pass  # already present
+            # 2026-10-04: a staff member can sign in from the ASKODOX app /
+            # a phone browser with their own OTP-verified number.
+            try:
+                conn.execute("ALTER TABLE admin_staff ADD COLUMN app_user_id TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -385,6 +426,34 @@ class CommandCenterRepository:
                 "SELECT * FROM admin_staff WHERE token_hash=? AND active=1", (hash_token(token),)
             ).fetchone()
         return self._staff(row) if row else None
+
+    def staff_by_app_user(self, app_user_id: str) -> Optional[Dict[str, Any]]:
+        if not app_user_id:
+            return None
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM admin_staff WHERE app_user_id=? AND active=1",
+                               (app_user_id,)).fetchone()
+            if row is None and app_user_id.startswith("app-phone-"):
+                # "+91 98..." and "98..." are the same person: match the last 10 digits.
+                tail = "".join(ch for ch in app_user_id if ch.isdigit())[-10:]
+                for candidate in conn.execute("SELECT * FROM admin_staff WHERE app_user_id LIKE ? AND active=1",
+                                              (f"%{tail}",)).fetchall():
+                    if len(tail) == 10 and "".join(ch for ch in candidate["app_user_id"] if ch.isdigit())[-10:] == tail:
+                        row = candidate
+                        break
+        return self._staff(row) if row else None
+
+    def link_staff_app_user(self, staff_id: int, app_user_id: Optional[str]) -> Optional[Dict[str, Any]]:
+        """One verified app identity per staff member (None unlinks)."""
+        with self._connect() as conn:
+            if app_user_id:
+                other = conn.execute("SELECT id FROM admin_staff WHERE app_user_id=? AND id!=?",
+                                     (app_user_id, int(staff_id))).fetchone()
+                if other:
+                    raise ValueError(f"That number is already linked to staff #{other['id']}")
+            conn.execute("UPDATE admin_staff SET app_user_id=?, updated_at=? WHERE id=?",
+                         (app_user_id or None, _now(), int(staff_id)))
+        return self.get_staff(staff_id)
 
     def list_staff(self) -> List[Dict[str, Any]]:
         with self._connect() as conn:

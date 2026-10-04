@@ -8,6 +8,7 @@ import '../../features/home/application/conversation_archive.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../features/companion/askodox_companion.dart';
@@ -74,7 +75,22 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (mounted && route != null && route.startsWith('/')) {
       route == '/' ? context.go('/') : context.push(route);
     }
+    await _handleSharedText();
     await _checkUpdates();
+  }
+
+  /// "Share -> ASKODOX" from another app: staff add the link in the Staff
+  /// Workspace; everyone else asks ASKODOX about it in Main Chat.
+  Future<void> _handleSharedText() async {
+    final text = await askodoxTakeSharedText();
+    if (text == null || !mounted) return;
+    final link = askodoxSharedLink(text);
+    if (link != null && await ref.read(askodoxIsStaffProvider.future).catchError((_) => false)) {
+      if (mounted && await openStaffWorkspace(context, ref, sharedUrl: link)) return;
+    }
+    if (!mounted) return;
+    widget.shell.goBranch(0, initialLocation: true);
+    ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(text);
   }
 
   Future<void> _checkUpdates() async {
