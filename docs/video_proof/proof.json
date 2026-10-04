@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T11:23:29Z",
+ "generated_at": "2026-10-04T14:39:32Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:c6be940f36ec4e51",
+   "trace_key": "browse:c794f0263f95404c",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -27,19 +27,18 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
+     "subject": "43 inch TV",
      "size": "43 inch",
-     "subject": "Samsung 43 inch TV",
-     "category": "television",
      "location": "Vijayawada"
     }
    },
@@ -105,15 +104,16 @@
     "step": "find_local",
     "ask": "samsung 43 inch tv near me",
     "segments": [
+     "deals",
      "nearby_external"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -130,6 +130,76 @@
       "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Samsung 43-inch TVs Price List in India (September 2026)",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.bajajfinserv.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bajajfinserv.in/insights/samsung-43-inch-tv-price-list-in-india",
+      "image_url": "https://imgs.search.brave.com/SATfjvXJvZ1sxb26oKkDd7b8ycp9KxfuGLBJh9mV_oA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jbXMt/YXNzZXRzLmJhamFq/Zmluc2Vydi5pbi9p/cy9pbWFnZS9iYWph/amZpbmFuY2Uvc2Ft/c3VuZy00My1pbmNo/LXR2LXByaWNlLWxp/c3QtaW4taW5kaWE_/c2NsPTE",
+      "location_label": null
+     },
+     {
+      "title": "Shop Samsung 43 Inch TVs Online Best Deals & Prices in India",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.reliancedigital.in",
+      "price": 37990.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.reliancedigital.in/collection/samsung-43-inch-tv",
+      "image_url": "https://imgs.search.brave.com/jPtkDZidZXhNmh-Ve3oZZ8Z83AOiRYsxic8bsGI92Tw/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9yZXMu/Y2xvdWRpbmFyeS5j/b20vZHd6bTlieXNx/L2ltYWdlL3VwbG9h/ZC92MTU4ODg1Nzg1/NC9wcm9kdWN0aW9u/L2FwcGxpY2F0aW9u/cy9hcHBfMDAwMDAw/MDAwMDAwMDAwMDAw/MDAwMDAxL21lZGlh/L2NvbGxlY3Rpb24v/bG9nby93OW5zN25m/Z3Y3Zms0NXhxcnBv/aC5wbmc",
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.flipkart.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.flipkart.com/q/samsung-43-inch-smart-tv",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.mysmartprice.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
+      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
+      "location_label": null
      }
     ]
    }
@@ -139,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:8c904e272c884ede",
+   "trace_key": "browse:bcf0c943506742bf",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -159,7 +229,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "domain": "PRODUCT",
@@ -168,9 +238,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
      "brand": "Samsung",
      "size": "43 అంగుళాల",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -223,24 +293,25 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా అని చూస్తున్నారా? గది పరిమాణాన్ని బట్టి ఏ సైజ్ సరిపోతుందో చెప్తాను.",
+    "follow_reply": "గది పరిమాణం ఎంత ఉందో చెబితే, ఇది సరిపోతుందో లేదో సరిగ్గా చెప్పగలను.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "get_product_advice"
+    "follow_action": "general_inquiry"
    },
    "next": {
     "step": "deals",
     "ask": "samsung 43 inch tv offers",
     "segments": [
+     "deals",
      "nearby_external"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -257,6 +328,76 @@
       "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Samsung 43-inch TVs Price List in India (September 2026)",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.bajajfinserv.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bajajfinserv.in/insights/samsung-43-inch-tv-price-list-in-india",
+      "image_url": "https://imgs.search.brave.com/SATfjvXJvZ1sxb26oKkDd7b8ycp9KxfuGLBJh9mV_oA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jbXMt/YXNzZXRzLmJhamFq/Zmluc2Vydi5pbi9p/cy9pbWFnZS9iYWph/amZpbmFuY2Uvc2Ft/c3VuZy00My1pbmNo/LXR2LXByaWNlLWxp/c3QtaW4taW5kaWE_/c2NsPTE",
+      "location_label": null
+     },
+     {
+      "title": "Shop Samsung 43 Inch TVs Online Best Deals & Prices in India",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.reliancedigital.in",
+      "price": 37990.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.reliancedigital.in/collection/samsung-43-inch-tv",
+      "image_url": "https://imgs.search.brave.com/jPtkDZidZXhNmh-Ve3oZZ8Z83AOiRYsxic8bsGI92Tw/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9yZXMu/Y2xvdWRpbmFyeS5j/b20vZHd6bTlieXNx/L2ltYWdlL3VwbG9h/ZC92MTU4ODg1Nzg1/NC9wcm9kdWN0aW9u/L2FwcGxpY2F0aW9u/cy9hcHBfMDAwMDAw/MDAwMDAwMDAwMDAw/MDAwMDAxL21lZGlh/L2NvbGxlY3Rpb24v/bG9nby93OW5zN25m/Z3Y3Zms0NXhxcnBv/aC5wbmc",
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.flipkart.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.flipkart.com/q/samsung-43-inch-smart-tv",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.mysmartprice.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
+      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
+      "location_label": null
      }
     ]
    }
@@ -266,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:44709503066b4b54",
+   "trace_key": "browse:f071634954c341fb",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -286,17 +427,18 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
-     "brand": "Redmi",
      "subject": "Redmi Note 13 Pro",
+     "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -362,15 +504,18 @@
     "step": "deals",
     "ask": "redmi note 13 pro offers",
     "segments": [
-     "nearby_external"
+     "deals",
+     "nearby_external",
+     "surplus",
+     "used"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -387,6 +532,76 @@
       "destination_url": "https://maps.google.com/?cid=12777118859690542021&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Buy Old Used Xiaomi Redmi Note 13 Pro 4G Phones Under ...",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.oruphones.com",
+      "price": 10000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.oruphones.com/buy-old-used-phones/Xiaomi/Xiaomi-Redmi-Note-13-Pro-4G/location/Andhra-Pradesh/Vijayawada/phones-under/10000",
+      "image_url": "https://imgs.search.brave.com/fEaBhlKYTmTzKN2_6d0eSfzPBdUZrfjwErPn55gZvAQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9vcnVw/aG9uZXMuY29tL2lj/b25zL2FwcGxlLXRv/dWNoLWljb24ucG5n",
+      "location_label": null
+     },
+     {
+      "title": "Open Box Store",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijaysales.com/event-pages/open-box-store",
+      "image_url": "https://imgs.search.brave.com/G-5poGlVvEZL-PY1bHnsG9MGX0CtsG4pGLrX39iNvKg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlzYWxlcy5j/b20vY29udGVudC9k/YW0vdmlqYXlzYWxl/c3dlYnNpdGUvaW4v/ZW4vY29tbW9uL2hl/YWRlci9pbWFnZXMv/dnMtbG9nby5zdmc",
+      "location_label": null
+     },
+     {
+      "title": "Redmi Note 13 5G, Note 13 Pro 5G, Note 13 Pro+ 5G goes on sale on Vijay Sales - Times of India",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "timesofindia.indiatimes.com",
+      "price": 2000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://timesofindia.indiatimes.com/gadgets-news/redmi-note-13-5g-note-13-pro-5g-note-13-pro-5g-goes-on-sale-on-vijay-sales/articleshow/106862076.cms",
+      "image_url": "https://imgs.search.brave.com/0cTEksO_25FzPTK8SUsh2rOeet8wa1yAQoXxIEbVm0M/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdGF0/aWMudG9paW1nLmNv/bS90aHVtYi9yZXNp/emVtb2RlLTQsd2lk/dGgtMTI4MCxoZWln/aHQtNzIwLG1zaWQt/MTA2ODYyMDMwLzEw/Njg2MjAzMC5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Buy Second Hand Xiaomi Redmi Note 13 Pro Mobile Online in Delhi | Best Prices – ORUphones",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.oruphones.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.oruphones.com/buy-old-used-phones/Xiaomi/Xiaomi-Redmi-Note-13-Pro",
+      "image_url": "https://imgs.search.brave.com/fEaBhlKYTmTzKN2_6d0eSfzPBdUZrfjwErPn55gZvAQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9vcnVw/aG9uZXMuY29tL2lj/b25zL2FwcGxlLXRv/dWNoLWljb24ucG5n",
+      "location_label": null
+     },
+     {
+      "title": "Redmi Note 13 Pro+ 5G Dual Sim Smartphone (12GB RAM, 512GB Storage) 6.67 inch 3D Curved AMOLED Display | MediaTek Dimensity 7200-Ultra (Fusion Black) | Vijay sa",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "stores.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://stores.vijaysales.com/vijay-sales-vijayawada-electronics-retail-and-repair-shop-m-g-road-vijayawada-281014/ProductDetails/224959",
+      "image_url": "https://imgs.search.brave.com/Kqmaiof6aZb1BfYvqmy2VdCdOrkjUG3o_eMQyb6ukq0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zdG9y/ZXMudmlqYXlzYWxl/cy5jb20vZmlsZXMv/b3V0bGV0L291dGxl/dF9mYWNlYm9va19p/bWFnZXMvb3V0bGV0/X2NvdmVyX3Bob3Rv/LzI4MDUwNi9CYW5u/ZXJfNF9qcGcuanBn",
+      "location_label": null
      }
     ]
    }
@@ -396,7 +611,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:e740affb291f4aa6",
+   "trace_key": "browse:3d43d6afdad140fe",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -416,7 +631,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
@@ -425,9 +640,8 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Tata",
-     "model": "Nexon",
      "subject": "Tata Nexon",
+     "brand": "Tata",
      "location": "Vijayawada"
     }
    },
@@ -494,15 +708,17 @@
     "step": "find_local",
     "ask": "tata nexon near me",
     "segments": [
-     "nearby_external"
+     "deals",
+     "nearby_external",
+     "surplus"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -519,6 +735,76 @@
       "destination_url": "https://maps.google.com/?cid=8369707636161862098&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.autocarindia.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.autocarindia.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/KTPUpSv2ilSXFkEdYn5J5Ux4aIabM07c3dXKy_uDMxc/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZG4t/czMuYXV0b2Nhcmlu/ZGlhLmNvbS9UYXRh/L25leG9uL19CRTA3/Mzg0LkpQRw",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.timesdrive.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.timesdrive.in/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/FVWYGDORd8ySvuF5xN9H5QezFOvLAAizAmOpotmleH8/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudGltZXNkcml2/ZS5pbi9waG90by9t/c2lkLTE1MTEzNTg0/NCx0aHVtYnNpemUt/MTAwLHdpZHRoLTkz/MCxoZWlnaHQtNjIw/LGZhbHNlLzE1MTEz/NTg0NC5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.autox.com",
+      "price": 859007.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.autox.com/new-cars/tata/nexon/price-in-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/mwheX3lo8OGlr4oct7WThr6o3-ED1y5lVEV7rJTMAw0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuYXV0b3guY29t/L3VwbG9hZHMvY2Fy/cy8yMDI0LzAyL3Rh/dGEtbmV4b24ud2Vi/cA",
+      "location_label": null
+     },
+     {
+      "title": "Tata Nexon (2020-2023) Price in Vijayawada - Tata Nexon (2020-2023) On Road Price in Vijayawada in July-2026",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "ackodrive.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
+      "location_label": null
      }
     ]
    }
@@ -528,7 +814,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:896c2dfb47724e51",
+   "trace_key": "browse:86c19c94ff5e49d9",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -548,10 +834,10 @@
      ]
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "SERVICE",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -627,7 +913,7 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "not_applicable",
-     "online": "error",
+     "online": "ok",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
@@ -645,6 +931,62 @@
       "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Professional AC service & repair experts in Vijayawada, India",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.urbancompany.com",
+      "price": 3000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.urbancompany.com/vijayawada-ac-service-repair",
+      "image_url": "https://imgs.search.brave.com/M07R7jeyX6AxGy0ptFRrnJr8vCqaBPXKYpJrYN4Ncto/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvY2F0ZWdv/cnlfdjIvY2F0ZWdv/cnlfZWYyYjc5ZDAu/cG5n",
+      "location_label": null
+     },
+     {
+      "title": "Split AC Services in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.vijayhomeservices.com",
+      "price": 299.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijayhomeservices.com/services/split-ac-service-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/Q_TWfwqy2_3v_c90lXCD2GIaa2KWx6T9a591lfBqGUo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlob21lc2Vy/dmljZXMuY29tL2Zh/dmljb24uaWNv",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.sulekha.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.sulekha.com/ac-repair-services/vijayawada",
+      "image_url": "https://imgs.search.brave.com/wEGWohsWisuNnTKb9-vzrKFA43i8dAN5ulIzcAotyS4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2xraW1ncy5jb20v/Y29udGVudC9pbWFn/ZXMvc3VsZWtoYS1s/b2dvLWZiLnBuZw",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.justdial.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.justdial.com/Vijayawada/AC-Repair-Services/nct-10890481",
+      "image_url": "https://imgs.search.brave.com/Y37zrttGhiwWIy6aD0EU7jX2KevWg2UXQJy9fTdDASk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jb250/ZW50LmpkbWFnaWNi/b3guY29tL2NvbXAv/dmlqYXlhd2FkYS96/OS8wODY2cHg4NjYu/eDg2Ni4xOTA3MzEx/OTE4NTMubDd6OS9j/YXRhbG9ndWUvYTEt/ZWxlY3Ryb25pYy1z/ZXJ2aWNlcy12aWph/eWF3YWRhLWV4Yzk0/OXV2d2EuanBn",
+      "location_label": null
      }
     ]
    }
@@ -654,18 +996,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:55ba0d83fa3742c0",
+   "trace_key": "browse:9f6ee144994449b0",
    "videos": [
     {
-     "video_id": "yt_Ac8Arkhzgps",
-     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "source_name": "My Old Plumber",
-     "duration": "0:17",
+     "video_id": "yt_Bvxkrv7t4Dw",
+     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "source_name": "vijay xyz tricks ",
+     "duration": "0:14",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -674,7 +1016,7 @@
      ]
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "SERVICE",
@@ -684,26 +1026,25 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
+     "service_type": "plumbing",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_Ac8Arkhzgps",
+    "video_id": "yt_Bvxkrv7t4Dw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "Which do you prefer for sealing drains — plumbers putty or silicone?",
-     "Some plumbers swear by putty.",
-     "Others prefer silicone for a stronger long-term seal.",
-     "Both have their place depending on the sink, drain, and installation."
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "thanks for watching video"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "My Old Plumber",
+    "creator": "vijay xyz tricks ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
-    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
     "next": [
      {
       "action": "find_local",
@@ -733,7 +1074,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
+    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -756,7 +1097,7 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "not_applicable",
-     "online": "error",
+     "online": "ok",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
@@ -774,6 +1115,62 @@
       "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Book Plumber Repair Service Vijayawada Service On Wheel:Ph-8237611222 / 8087911222",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.serviceonwheel.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.serviceonwheel.com/vijayawada/service/plumber.html",
+      "image_url": "https://imgs.search.brave.com/OBibdOVF-tymAWAW4JoX6s9WEDvummeRiOg1grvLIsI/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2VydmljZW9ud2hl/ZWwuY29tL3VwbG9h/ZHMvc2VydmljZS84/OTAxMTU4NDA3OTAz/OC5wbmc",
+      "location_label": null
+     },
+     {
+      "title": "Plumbing services near me in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "atozservice.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://atozservice.in/near-me/vijayawada/plumbing-services.html",
+      "image_url": "https://imgs.search.brave.com/hufhYSzsbo7S5dfvW2i2cokTZZb3C6zBxOqOAyuCXwU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hdG96/c2VydmljZS5pbi9p/bWFnZXMvbmVhcm1l/L3BsdW0uanBn",
+      "location_label": null
+     },
+     {
+      "title": "Plumber in India | Book Trusted Plumbing Services at Home | Urban Company",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.urbancompany.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.urbancompany.com/vijayawada-plumbers",
+      "image_url": "https://imgs.search.brave.com/9jVup9LyZ4JQg6_qpYHAeLw3jnGUTtVyI8FKPS6Kwh8/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvaG9tZV9z/Y3JlZW4vcGx1bWJl/ci5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Plumbers @7065012902 Vijayawada - Mannubhai.com",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.mannubhai.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.mannubhai.com/vijayawada/plumber",
+      "image_url": "https://imgs.search.brave.com/tH9Fgh9eERcrb6XdN8eYgLdRX6SKZno7X0M53FFYXzA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/bWFubnViaGFpLmNv/bS9hc3NldHMvaW1h/Z2VzL2xvZ28ucG5n",
+      "location_label": null
      }
     ]
    }
@@ -783,7 +1180,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:4dff2a61716f42f5",
+   "trace_key": "browse:7a1d5f1dd3ac42f0",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -803,10 +1200,10 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
+    "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -878,15 +1275,16 @@
     "step": "find_local",
     "ask": "hyderabadi biryani near me",
     "segments": [
+     "deals",
      "nearby_external"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -903,6 +1301,76 @@
       "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Best Hyderabadi Biryani Restaurants In Vijayawada 2025 | Order Online",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.swiggy.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.swiggy.com/city/vijayawada/hyderabadi-biryani-dish-restaurants",
+      "image_url": "https://imgs.search.brave.com/vi7cy56WmM2w6thiz2Rvw1xDQLfhA6bIesx0t5mSfiU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS1hc3NldHMuc3dp/Z2d5LmNvbS9jX3Nj/YWxlLHdfNzE1L3Bv/cnRhbC9tL2JyYW5k/X2xvZ29zL1N3aWdn/eV9PRy5wbmc",
+      "location_label": null
+     },
+     {
+      "title": "Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.bigbasket.com",
+      "price": 100.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bigbasket.com/pd/40165502/haldirams-hyderabadi-biryani-200-g/",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Order Online – HYDERABAD BIRYANI POINT",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "hyderabadbiryanipoint.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://hyderabadbiryanipoint.com/store/",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Vijayawada Restaurants, Restaurants in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.zomato.com",
+      "price": 100.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.zomato.com/vijayawada/order-biryani-online",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Daawat Biryani Kit Hyderabadi | Authentic Recipe | Ready in 30 min | Ready to Cook 334 gm/410gm (Weight may vary) : Amazon.in: Grocery & Gourmet Foods",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Daawat-Biryani-Hyderabadi-Authentic-Recipe/dp/B09WN98NG8",
+      "image_url": null,
+      "location_label": null
      }
     ]
    }
@@ -912,7 +1380,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:1a1120b4761a481e",
+   "trace_key": "browse:9f12d41e112f412d",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -932,7 +1400,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
@@ -1008,15 +1476,16 @@
     "step": "reviews",
     "ask": "araku valley trip reviews",
     "segments": [
+     "deals",
      "nearby_external"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
-     "videos": "no_results",
-     "marketplaces": "error",
+     "used_deals": "ok",
+     "online": "ok",
+     "videos": "ok",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -1035,59 +1504,73 @@
       "location_label": null
      },
      {
-      "title": "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku",
-      "segment": null,
-      "match_source": "video",
-      "source_name": "Travel Matcha",
+      "title": "Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "traveltriangle.com",
       "price": null,
-      "price_verified": null,
+      "price_verified": false,
       "distance_km": null,
       "affiliate": false,
-      "sponsored": false,
-      "destination_url": "https://www.youtube.com/watch?v=rMd5DUP04RE",
-      "image_url": "https://i.ytimg.com/vi/rMd5DUP04RE/hqdefault.jpg",
+      "sponsored": null,
+      "destination_url": "https://traveltriangle.com/packages/araku-valley-tour-from-vijayawada",
+      "image_url": "https://imgs.search.brave.com/NIha5rk1MoDegrKoiNrQIFvkRjOF1i658TdGKfMNGaw/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWcu/dHJhdmVsdHJpYW5n/bGUuY29tL2FwYWMv/YXR0YWNobWVudHMv/cGljdHVyZXMvODk5/NTg2L29yaWdpbmFs/L3ZpemFnLWFyYWt1/LSgyKS5qcGc",
       "location_label": null
      },
      {
-      "title": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku",
-      "segment": null,
-      "match_source": "video",
-      "source_name": "My Travel Support",
-      "price": null,
-      "price_verified": null,
+      "title": "5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.trawell.in",
+      "price": 6785.0,
+      "price_verified": false,
       "distance_km": null,
       "affiliate": false,
-      "sponsored": false,
-      "destination_url": "https://www.youtube.com/watch?v=YefkkpVsneY",
-      "image_url": "https://i.ytimg.com/vi/YefkkpVsneY/hqdefault.jpg",
+      "sponsored": null,
+      "destination_url": "https://www.trawell.in/tour-packages/araku-valley",
+      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
       "location_label": null
      },
      {
-      "title": "Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise",
-      "segment": null,
-      "match_source": "video",
-      "source_name": "Nomad Saikat",
+      "title": "Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.ritualholidays.com",
       "price": null,
-      "price_verified": null,
+      "price_verified": false,
       "distance_km": null,
       "affiliate": false,
-      "sponsored": false,
-      "destination_url": "https://www.youtube.com/watch?v=vo4N9OHhE0c",
-      "image_url": "https://i.ytimg.com/vi/vo4N9OHhE0c/hqdefault.jpg",
+      "sponsored": null,
+      "destination_url": "https://www.ritualholidays.com/tour-packages/araku-valley-tour-packages/araku-valley-tour-packages-from-vijayawada.php",
+      "image_url": "https://imgs.search.brave.com/1xj_WpvN48lQf_stT6kQqaaXYHZ3B25RpGlOh3juAf0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/cml0dWFsaG9saWRh/eXMuY29tL2ltYWdl/cy9yaXR1YWwtaG9s/aWRheXMtbG9nby5n/aWY.jpeg",
       "location_label": null
      },
      {
-      "title": "1 Day Araku Valley Trip from Vizag | Borra Caves, Waterfalls & Coffee 🌿☕",
+      "title": "Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare",
       "segment": null,
-      "match_source": "video",
-      "source_name": "Beyond Mountain Thrills",
+      "match_source": "online",
+      "source_name": "www.makemytrip.com",
       "price": null,
-      "price_verified": null,
+      "price_verified": false,
       "distance_km": null,
       "affiliate": false,
-      "sponsored": false,
-      "destination_url": "https://www.youtube.com/watch?v=Jc1Ql8aXngI",
-      "image_url": "https://i.ytimg.com/vi/Jc1Ql8aXngI/hqdefault.jpg",
+      "sponsored": null,
+      "destination_url": "https://www.makemytrip.com/railways/vijayawada-araku-valley-train-tickets.html",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Araku Valley Packages From Vijaywada - Vijaywada to Araku Valley Packages @ ₹10379",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.makemytrip.com",
+      "price": 10379.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.makemytrip.com/holidays-india/araku_valley-packages-from-vijaywada.html",
+      "image_url": null,
       "location_label": null
      }
     ]
@@ -1098,7 +1581,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:e8556af5649a4703",
+   "trace_key": "browse:e3096a33c40c498f",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1118,7 +1601,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
@@ -1130,7 +1613,6 @@
      "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "context": "used",
      "location": "Vijayawada"
     }
    },
@@ -1196,15 +1678,17 @@
     "step": "find_local",
     "ask": "used royal enfield classic 350 near me",
     "segments": [
-     "nearby_external"
+     "deals",
+     "nearby_external",
+     "used"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -1221,6 +1705,76 @@
       "destination_url": "https://maps.google.com/?cid=11566291382939550987&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "13 Used Royal Enfield Classic in Vijayawada. Buy from Owners and Dealers - Bikes4Sale",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.bikes4sale.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bikes4sale.in/used/buy/royalenfield-classic-in-vijayawada/",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 Price in Vijayawada-March 2026 Classic 350 On Road Price",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/bikes/royalenfield/classic-350/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/E7sC-T0D8aFLHXdtMHYA0t0DnbTBuW95PUxxC2ckALI/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2ltYWdlcy85/MXdoZWVsc19vZy5w/bmc",
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 price in Vijayawada | Royal Enfield Classic 350 on road Price 2026 | Times Drive",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.timesdrive.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.timesdrive.in/royal-enfield/classic-350/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/d9CHTa7METRJwgPTbY35qBSSIVAbRu1xnTQF_FvUkCM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudGltZXNkcml2/ZS5pbi9waG90by9t/c2lkLTE1MTA2MDEw/OCx0aHVtYnNpemUt/MTAwLHdpZHRoLTkz/MCxoZWlnaHQtNjIw/LGZhbHNlLzE1MTA2/MDEwOC5qcGc",
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 Offers & Discount in Vijayawada",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.zigwheels.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.zigwheels.com/bikes/offers-events/Vijayawada/royal-enfield/classic-350",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 On Road Price Vijayawada Aug 2026 - ₹2.22L",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.zigwheels.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
+      "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
+      "location_label": null
      }
     ]
    }
@@ -1230,7 +1784,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:ab8d411581064818",
+   "trace_key": "browse:cc5c19c696dc47c0",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1250,7 +1804,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
@@ -1259,9 +1813,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "iPhone 15 offer",
      "brand": "Apple",
      "model": "iPhone 15",
+     "subject": "iPhone 15 offer",
      "location": "Vijayawada"
     }
    },
@@ -1328,15 +1882,18 @@
     "step": "deals",
     "ask": "iphone 15 offers",
     "segments": [
-     "nearby_external"
+     "deals",
+     "nearby_external",
+     "surplus",
+     "used"
     ],
     "status": {
      "askodox": "no_results",
      "nearby": "ok",
-     "used_deals": "no_results",
-     "online": "error",
+     "used_deals": "ok",
+     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "error",
+     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -1353,6 +1910,76 @@
       "destination_url": "https://maps.google.com/?cid=1686034212541866538&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Buy Second Hand Apple iPhone 15 Phone Under ₹23000 in Vijayawada | Best Prices – ORUphones",
+      "segment": "used",
+      "match_source": "online",
+      "source_name": "www.oruphones.com",
+      "price": 23000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.oruphones.com/buy-old-used-phones/Apple/Apple-iPhone-15/location/Andhra%20Pradesh/Vijayawada/phones-under/23000",
+      "image_url": "https://imgs.search.brave.com/fEaBhlKYTmTzKN2_6d0eSfzPBdUZrfjwErPn55gZvAQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9vcnVw/aG9uZXMuY29tL2lj/b25zL2FwcGxlLXRv/dWNoLWljb24ucG5n",
+      "location_label": null
+     },
+     {
+      "title": "Apple Open Box",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijaysales.com/sale/apple-open-box",
+      "image_url": "https://imgs.search.brave.com/G-5poGlVvEZL-PY1bHnsG9MGX0CtsG4pGLrX39iNvKg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlzYWxlcy5j/b20vY29udGVudC9k/YW0vdmlqYXlzYWxl/c3dlYnNpdGUvaW4v/ZW4vY29tbW9uL2hl/YWRlci9pbWFnZXMv/dnMtbG9nby5zdmc",
+      "location_label": null
+     },
+     {
+      "title": "iPhone 15 is available for less than Rs 35,000 on Vijay Sales, here is how the deal works - India Today",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.indiatoday.in",
+      "price": 35000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.indiatoday.in/technology/news/story/iphone-15-is-available-for-less-than-rs-35000-on-vijay-sales-here-is-how-the-deal-works-2895155-2026-04-12",
+      "image_url": "https://imgs.search.brave.com/dQSQKn0y29oByvZABrqfRTYMgX4FdcGdi1OzQY9oVxU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9ha20t/aW1nLWEtaW4udG9z/c2h1Yi5jb20vaW5k/aWF0b2RheS9pbWFn/ZXMvc3RvcnkvMjAy/NjA0L2lwaG9uZS0x/NS1wcmljZS1kcm9w/LTEzNTQwMTMwLTE2/eDkuanBnP1ZlcnNp/b25JZD1ERW8zMkcu/WllPa255U2t5RDNl/UUV5V3hnV0VSazhj/NCZzaXplPTEyODA6/NzIw",
+      "location_label": null
+     },
+     {
+      "title": "Open Box iPhones",
+      "segment": "surplus",
+      "match_source": "online",
+      "source_name": "www.vijaysales.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijaysales.com/sale/open-box-iphones",
+      "image_url": "https://imgs.search.brave.com/G-5poGlVvEZL-PY1bHnsG9MGX0CtsG4pGLrX39iNvKg/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlzYWxlcy5j/b20vY29udGVudC9k/YW0vdmlqYXlzYWxl/c3dlYnNpdGUvaW4v/ZW4vY29tbW9uL2hl/YWRlci9pbWFnZXMv/dnMtbG9nby5zdmc",
+      "location_label": null
+     },
+     {
+      "title": "iPhone 15 gets massive discount on Vijay Sales Apple Days sale",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.indiatoday.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.indiatoday.in/visualstories/technology/iphone-15-gets-massive-discount-on-vijay-sales-apple-days-sale-278350-11-04-2026",
+      "image_url": "https://imgs.search.brave.com/fQo4Edoap6ECRprReO52Ok6wxiWgpJTTGoexG_66mIU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jZi1p/bWctYS1pbi50b3Nz/aHViLmNvbS9zaXRl/cy92aXN1YWxzdG9y/eS93cC8yMDI2LzAz/L2Nyb3BwZWQtaW1h/Z2VJVEctMTc3Mzk4/OTQ5NDk4OS5wbmc_/c2l6ZT05MDA6MTIw/MA",
+      "location_label": null
      }
     ]
    }
@@ -1362,7 +1989,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:c9f0a3fe0dd64aee",
+   "trace_key": "browse:5237cc8bbd8c4649",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1382,7 +2009,7 @@
      ]
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "domain": "SERVICE",
@@ -1442,7 +2069,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి Split AC Foamjet సర్వీస్ లేదా తగిన టన్నుల ఏసీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం ఎంత?",
+    "follow_reply": "చిన్న గదికి Split AC సరిపోతుందో లేదో తెలుసుకోవడానికి గది పరిమాణం (చదరపు అడుగులు) మరియు AC టన్ను సామర్థ్యం వివరాలు తెలియజేయండి.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
@@ -1457,7 +2084,7 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "not_applicable",
-     "online": "error",
+     "online": "ok",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
@@ -1474,6 +2101,62 @@
       "sponsored": null,
       "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Professional AC service & repair experts in Vijayawada, India",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.urbancompany.com",
+      "price": 3000.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.urbancompany.com/vijayawada-ac-service-repair",
+      "image_url": "https://imgs.search.brave.com/M07R7jeyX6AxGy0ptFRrnJr8vCqaBPXKYpJrYN4Ncto/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvY2F0ZWdv/cnlfdjIvY2F0ZWdv/cnlfZWYyYjc5ZDAu/cG5n",
+      "location_label": null
+     },
+     {
+      "title": "Split AC Services in Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.vijayhomeservices.com",
+      "price": 299.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.vijayhomeservices.com/services/split-ac-service-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/Q_TWfwqy2_3v_c90lXCD2GIaa2KWx6T9a591lfBqGUo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlob21lc2Vy/dmljZXMuY29tL2Zh/dmljb24uaWNv",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.sulekha.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.sulekha.com/ac-repair-services/vijayawada",
+      "image_url": "https://imgs.search.brave.com/wEGWohsWisuNnTKb9-vzrKFA43i8dAN5ulIzcAotyS4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2xraW1ncy5jb20v/Y29udGVudC9pbWFn/ZXMvc3VsZWtoYS1s/b2dvLWZiLnBuZw",
+      "location_label": null
+     },
+     {
+      "title": "Top AC Repair Services in Vijayawada - AC Installation - Servicing - Justdial",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.justdial.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.justdial.com/Vijayawada/AC-Repair-Services/nct-10890481",
+      "image_url": "https://imgs.search.brave.com/Y37zrttGhiwWIy6aD0EU7jX2KevWg2UXQJy9fTdDASk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9jb250/ZW50LmpkbWFnaWNi/b3guY29tL2NvbXAv/dmlqYXlhd2FkYS96/OS8wODY2cHg4NjYu/eDg2Ni4xOTA3MzEx/OTE4NTMubDd6OS9j/YXRhbG9ndWUvYTEt/ZWxlY3Ryb25pYy1z/ZXJ2aWNlcy12aWph/eWF3YWRhLWV4Yzk0/OXV2d2EuanBn",
       "location_label": null
      }
     ]

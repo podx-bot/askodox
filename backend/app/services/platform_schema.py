@@ -342,7 +342,7 @@ _register(Resource(
 _register(Resource(
     name="videos", label="Videos", group="Video & Social", prefix="vid",
     permission="content", initial_status="PENDING_REVIEW", flag="results.videos",
-    statuses=("PENDING_REVIEW", "SCHEDULED", "ACTIVE", "PAUSED", "REJECTED", "EXPIRED", "DISABLED"),
+    statuses=("DRAFT", "PENDING_REVIEW", "SCHEDULED", "ACTIVE", "PAUSED", "REJECTED", "EXPIRED", "DISABLED"),
     description="Approved (ACTIVE) videos join search results when their keywords / category / products match. "
                 "Sponsored and affiliate videos are always disclosed.",
     fields=(
@@ -628,9 +628,14 @@ _register(Resource(
         F("user_ref", "ASKODOX user (u_...) for independents"),
         F("integration_key", "Integration key (external partners)"),
         F("services", "Services", "list", required=True, list_column=True,
-          options=("food", "grocery", "parcel", "product", "pickup_drop", "documents", "other")),
+          options=("food", "grocery", "parcel", "product", "pickup_drop", "documents", "other", "ride_taxi",
+                   "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only")),
         F("vehicle", "Vehicle", "enum", options=("walk", "bicycle", "two_wheeler", "three_wheeler", "car",
                                                   "van", "truck", "any")),
+        F("vehicle_number", "Vehicle number"),
+        F("licence_last4", "Licence number (last 4 digits only)", help="Documents are checked in person and never uploaded or stored."),
+        F("phone_masked", "Phone (masked)"),
+        F("review_note", "Correction asked by reviewer"),
         F("town", "Town / city", filter=True, list_column=True),
         F("country", "Country"),
         F("latitude", "Base latitude", "number", min=-90, max=90),
@@ -645,7 +650,28 @@ _register(Resource(
         _A("reject", "Reject", "REJECTED", ("PENDING_REVIEW",), confirm=True, perm="approve"),
         _A("pause", "Suspend", "PAUSED", ("ACTIVE",), confirm=True),
         _A("resume", "Reinstate", "ACTIVE", ("PAUSED",)),
+        _A("request_correction", "Request correction", "DRAFT", ("PENDING_REVIEW",), perm="approve"),
+        _A("disable", "Disable", "DISABLED", ("ACTIVE", "PAUSED", "PENDING_REVIEW"), confirm=True, perm="approve"),
     ),
+))
+
+_register(Resource(
+    name="mobility_services", label="Mobility services & fares", group="Delivery", prefix="mob",
+    permission="delivery", name_field="name", initial_status="ACTIVE", statuses=LIFECYCLE,
+    description="Which ride / delivery services ASKODOX offers and their configured rate. A fare estimate is "
+                "shown ONLY from an ACTIVE row here; a DISABLED row switches the service off. No row = the "
+                "service is offered without an estimate (the partner states the fare).",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("kind", "Service", "enum", required=True, list_column=True, filter=True,
+          options=("parcel", "food", "grocery", "product", "pickup_drop", "documents", "local_delivery", "other",
+                   "ride_taxi", "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only")),
+        F("town", "Town / city (blank = everywhere)", filter=True, list_column=True),
+        F("base_fare", "Base fare (INR)", "number", min=0, max=100000),
+        F("per_km", "Per km (INR)", "number", min=0, max=10000),
+        F("minimum_fare", "Minimum fare (INR)", "number", min=0, max=100000),
+    ),
+    actions=COMMON_ACTIONS,
 ))
 
 QA_STATUSES = ("OPEN", "NOT TESTED", "CODE READY", "STAGING VERIFIED", "PHONE VERIFIED", "LIVE VERIFIED")
@@ -1074,6 +1100,7 @@ _register(Resource(
 SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # key: (minimum, maximum, default)
     "video_study.max_seconds": (10, 600, 180),
+    "video_upload.max_mb": (1, 200, 60),
     "advisor.max_questions_per_turn": (0, 3, 1),
     "advisor.ask_budget": (0, 1, 1),
     "demand.default_window_days": (1, 90, 7),

@@ -962,7 +962,37 @@ def integration_readiness(request: Request) -> dict:
                   "health_reason": reason, "live": web, "backend_ready": True, "admin_control_ready": True,
                   "mock_verified": None, "real_credential_required": state in ("not_configured", "auth_failed"),
                   "providers": []})
-    return {"items": items, "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
+    from app.services.integration_readiness import integration_state, search_state
+
+    for item in items:
+        item["state"] = search_state(web) if item["integration"] == "Web search (Brave)" else integration_state(item)
+    return {"items": items, "runtime": integration_runtime(request.app.state.container, web),
+            "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
+
+
+def integration_runtime(container: Any, web: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Maps / search fallback / mobility / native video states from live
+    state (Maps uses the same 15-minute cached live check as /health/maps)."""
+    from app.api.routes.command_center import feature_enabled
+    from app.api.routes.health import _MAPS_HEALTH
+    from app.services.integration_readiness import runtime_rows
+
+    maps_body = _MAPS_HEALTH.get("body")
+    if maps_body is None:
+        maps = getattr(container, "google_maps_service", None)
+        maps_body = {"configured": False} if maps is None or not getattr(maps, "enabled", False) else None
+    try:
+        partners = platform(container).resources.repo.list("delivery_partners")
+    except Exception:
+        partners = []
+    rows = runtime_rows(container, maps_body=maps_body, web=web, flag=lambda k: feature_enabled(container, k),
+                        partners=partners)
+    if maps_body is None:
+        for row in rows:
+            if row["integration"] == "Google Maps":
+                row.update(state="CONFIGURED_NOT_VERIFIED", reason="no live check since the last deploy -- open "
+                                                                   "/health/maps to run one")
+    return rows
 
 
 # discovered web videos -> moderation queue

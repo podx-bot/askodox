@@ -221,8 +221,13 @@ def nearest_junction(request: Request, latitude: float, longitude: float, radius
     rate_limit.check(request, "junction", limit=30)
     if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
         return {"status": "invalid_coordinates", "junction": None}
+    return find_junction(getattr(request.app.state.container, "google_maps_service", None), latitude, longitude,
+                         radius_m)
+
+
+def find_junction(maps, latitude: float, longitude: float, radius_m: int = 1500) -> dict[str, Any]:
+    """Shared by the map picker endpoint and typed pickup / drop points."""
     radius = max(200, min(int(radius_m or 1500), 5000))
-    maps = getattr(request.app.state.container, "google_maps_service", None)
     if maps is None or not getattr(maps, "enabled", False):
         return {"status": "unavailable", "junction": None}
     best = None
@@ -247,6 +252,37 @@ def nearest_junction(request: Request, latitude: float, longitude: float, radius
     if best is None:
         return {"status": "error" if getattr(maps, "last_error", False) else "no_results", "junction": None}
     return {"status": "ok", "junction": best}
+
+
+@router.get("/resolve")
+def resolve_typed_place(request: Request, q: str, junction: bool = False) -> dict[str, Any]:
+    """A TYPED place ("Benz Circle", "from Governorpet") -> one real map
+    point (Geocoding), optionally with its nearest junction -- so typed
+    places get the same route / nearby / junction support as map pins."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "resolve", limit=30)
+    return geocode_text(getattr(request.app.state.container, "google_maps_service", None), q, junction=junction)
+
+
+def geocode_text(maps, text: str, *, junction: bool = False) -> dict[str, Any]:
+    query = " ".join(str(text or "").split())[:160]
+    if len(query) < 2:
+        return {"status": "query_too_short", "point": None}
+    if maps is None or not getattr(maps, "enabled", False):
+        return {"status": "unavailable", "point": None}
+    try:
+        point = maps.geocode(query)
+    except Exception:
+        point = None
+    if not point or point.get("latitude") is None:
+        return {"status": "not_found", "point": None}
+    out: dict[str, Any] = {"status": "ok", "point": {"label": point.get("name") or query,
+                                                     "latitude": point["latitude"], "longitude": point["longitude"],
+                                                     "place_id": point.get("place_id")}}
+    if junction:
+        out["junction"] = find_junction(maps, point["latitude"], point["longitude"]).get("junction")
+    return out
 
 
 class RoutePoint(BaseModel):
