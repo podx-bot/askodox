@@ -51,6 +51,8 @@ class MainActivity : FlutterActivity() {
     private val importantChannelId = "askodox_important"
     // A tapped notification opens this in-app route (read once by Dart).
     private var launchRoute: String? = null
+    // Text / link another app shared to ASKODOX (Android "Share"), read once.
+    private var sharedText: String? = null
     private val acknowledgementUtteranceId = "askodox_voice_acknowledgement"
     private val replyUtteranceId = "askodox_voice_reply"
     private var pendingVoiceResult: MethodChannel.Result? = null
@@ -119,6 +121,10 @@ class MainActivity : FlutterActivity() {
         device
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "takeSharedText" -> {
+                        result.success(sharedText)
+                        sharedText = null
+                    }
                     "startVoiceSearch" -> startVoiceSearch(call.argument("languageCode"), result)
                     "startVoiceRecording" -> startVoiceRecording(result)
                     "voiceRecordingLevel" -> result.success(currentRecordingLevel())
@@ -773,13 +779,21 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         launchRoute = intent?.getStringExtra("askodox_route")
+        captureShared(intent)
         handleInstallStatus(intent)
+    }
+
+    private fun captureShared(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)?.take(4000)?.let { sharedText = it }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.getStringExtra("askodox_route")?.let { launchRoute = it }
+        captureShared(intent)
         handleInstallStatus(intent)
     }
 

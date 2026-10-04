@@ -1166,6 +1166,29 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
             seen.add(str(item.get("id")))
             seen_urls.update(k for k in (url_key, fallback_key) if k)
             matches.append(item)
+    # Command Center Sources (approved JSON search endpoints) -- any sector,
+    # priority order, each isolated: a failing source never breaks results.
+    source_info: dict[str, Any] = {}
+    if flags.get("results.sources", True) and str(demand.get("side") or "").upper() != "OFFER" \
+            and not getattr(discovery, "_supply", False):
+        try:
+            source_rows, source_info = _universal_sources(container).search_rows(demand)
+        except Exception as error:
+            source_rows = []
+            errors.append(f"sources:{type(error).__name__}")
+        for item in source_rows:
+            url_key = _url_key(item.get("destination_url"))
+            fallback_key = _url_key(item.get("web_fallback_url"))
+            if str(item.get("id")) in seen or (url_key and url_key in seen_urls) or (
+                    fallback_key and fallback_key in seen_urls):
+                filtered["duplicate"] = filtered.get("duplicate", 0) + 1
+                continue
+            if item.get("stock_status") == "OUT_OF_STOCK":
+                filtered["out_of_stock"] = filtered.get("out_of_stock", 0) + 1
+                continue
+            seen.add(str(item.get("id")))
+            seen_urls.update(k for k in (url_key, fallback_key) if k)
+            matches.append(item)
     # Affiliate / partner results (Partner Hub) come AFTER ASKODOX
     # registered + nearby/local + normal online: ASKODOX stays local-first.
     partner_rows: list[dict] = []
@@ -1313,6 +1336,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         "filtered": filtered,
         "fallback_decision": fallback_decision,
         "marketplaces": marketplace_info,
+        "sources": source_info,
         "errors": errors,
         "latency_ms": round((_time.perf_counter() - started) * 1000),
         "need_kind": discovery._kind,
@@ -1337,6 +1361,19 @@ _FRESH_FOOD_WORDS = {
     "liter", "dozen", "whole", "leg", "legs", "breast", "wings", "pieces", "piece", "country", "natu", "kodi",
     "half", "one", "two", "and", "with", "skin", "small", "medium", "large", "of", "chicken65", "tiffin", "meals",
 }
+
+
+def _universal_sources(container):
+    from app.api.routes.affiliate_catalog import catalog
+    from app.api.routes.platform import platform
+    from app.services.universal_sources import UniversalSources
+
+    pf = platform(container)
+    engine = getattr(container, "universal_sources", None)
+    if engine is None or engine.pf is not pf:
+        engine = UniversalSources(pf, catalog(container), fetch=getattr(container, "sources_fetch", None))
+        container.universal_sources = engine
+    return engine
 
 
 def _marketplace_and_catalog(container, demand: dict, discovery, matches: list[dict],
@@ -1381,6 +1418,12 @@ def _marketplace_and_catalog(container, demand: dict, discovery, matches: list[d
     sites = {pid: (ac.PLATFORMS[pid]["search_host"], ac.PLATFORMS[pid]["name"])
              for pid, row in settings.items()
              if ac.PLATFORMS[pid]["search_host"] and row.get("organic_enabled") and pid not in present}
+    try:  # Command Center Sources with a site_search connector join the same query
+        for key, site in _universal_sources(container).site_hosts(demand).items():
+            if key not in present:
+                sites[key] = site
+    except Exception:
+        pass
     info["searched"] = sorted(sites)
     rows = discovery.fallback.marketplaces(
         category=str(demand.get("domain") or ""), subject=subject, sites=sites,
@@ -1390,7 +1433,12 @@ def _marketplace_and_catalog(container, demand: dict, discovery, matches: list[d
         found = sum(1 for r in rows if r.get("marketplace") == pid)
         info["found"][pid] = found
         try:
-            store.record_health(pid, status=str(info["status"] or ""), results=found, method="web_search")
+            if pid.startswith("src-"):
+                _universal_sources(container).health.record(
+                    pid[4:], ok=info["status"] not in ("error", "unavailable"), results=found,
+                    error=str(info["status"] or ""))
+            else:
+                store.record_health(pid, status=str(info["status"] or ""), results=found, method="web_search")
         except Exception:
             pass
     return organic + rows, sponsored, info

@@ -228,6 +228,26 @@ this file, don't trust it blindly.
 - The real-phone acceptance checklist is seeded into `qa_checks` as CODE
   READY (`owner_os.ACCEPTANCE_CHECKS`); only a real phone test with evidence
   moves an item to PHONE VERIFIED.
+- Universal Sources (`universal_sources.py`, schema resource `sources`):
+  connectors manual / feed (synced INTO `affiliate_products`, searchable
+  without web search) / json_search (live, isolated, `source_health`) /
+  site_search (joins the marketplace Brave query) / api. Add sources in the
+  Command Center -- never per-source code. `results.sources` flag.
+- `affiliate_products` is the ONE item store for staff-curated things:
+  `item_type` (product/offer/coupon/service/link/news/video/content),
+  `review_status` (DRAFT/NEEDS_REVIEW/APPROVED/LIVE/PAUSED/EXPIRED; rows from
+  before = LIVE), `canonical_key` (duplicate detection). Only LIVE shopping
+  types reach results. Health toggles: `catalog.*` platform settings.
+- Staff Workspace: page `/staff` + API `routes/staff_workspace.py`, same
+  permissions as the Command Center. Staff sign in with their OWN linked
+  number (staff PATCH `phone`; OTP -> `/api/staff/session` -> 12 h
+  `x-askodox-staff-session`, re-checked every request) or an `stf_` token.
+  App: Profile "Staff Workspace" + Android Share -> one-time handoff code.
+  `workspace:approve` = may publish directly; others submit for review.
+- Early Access (`early_access` resource) + `/api/feedback` (masked by
+  `pii_mask.mask_sensitive`; diagnostics only with consent) + client errors;
+  dashboard `/admin/cc/early-access/dashboard`. Enum options in schema
+  resources must be lowercase (values are lower-cased on save).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -249,10 +269,14 @@ this file, don't trust it blindly.
   is added only once a Firebase app / google-services.json exists. Until
   then notifications are local + silent while the app is open/resumed.
   Exact steps: `docs/EXTERNAL_SETUP.md`.
-- Maps: Places/Geocoding/Routes are enabled per API on the key's Cloud
-  project -- check live status in Admin -> Integrations -> Google Maps ->
-  Check (per-API OK / Google error). Naming the current place also works
-  without Geocoding (Android Geocoder, then nearest Places locality).
+- Maps ROOT CAUSE (public `/health/maps`, probe 37180866676, 2026-10-04):
+  GOOGLE_MAPS_API_KEY is valid but its Cloud project has Geocoding API,
+  Places API (New) and Routes API NOT enabled (403 / "not activated"). Owner
+  must enable the three APIs (billing on) on that key's project -- EXTERNAL.
+  Until then nearby/place search/route distance are empty; naming the
+  current place still works through the Android Geocoder on the phone.
+- Production has no `ASKODOX_SECRETS_KEY`: Command Center-stored secrets
+  (social-DM page tokens, marketplace API keys) cannot be saved there yet.
 - Brands: no fixed list -- AI `brand` entity, phrasing, brands on real
   listings (`/api/products/brands`), or a short reply that filled nothing.
   A brand the AI misses in the FIRST message and that no listing carries
