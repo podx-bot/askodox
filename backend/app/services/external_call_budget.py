@@ -71,8 +71,11 @@ def cost_table() -> dict[str, float]:
     return table
 
 
-def cached_call(provider: str, key: tuple, fetch: Callable[[], Any], *, ttl: int = DEFAULT_TTL_SECONDS) -> Any:
-    """Return a cached result for (provider, key) or call ``fetch`` once."""
+def cached_call(provider: str, key: tuple, fetch: Callable[[], Any], *, ttl: int = DEFAULT_TTL_SECONDS,
+                cache_if: Callable[[Any], bool] | None = None) -> Any:
+    """Return a cached result for (provider, key) or call ``fetch`` once.
+    ``cache_if`` keeps provider refusals (e.g. Geocoding REQUEST_DENIED,
+    which arrives as HTTP 200) out of the cache, so a fixed key works at once."""
     full_key = (provider, *key)
     now = time.monotonic()
     with _lock:
@@ -92,7 +95,7 @@ def cached_call(provider: str, key: tuple, fetch: Callable[[], Any], *, ttl: int
         _bump(provider, "errors")
         raise
     _bump(provider, "calls")
-    if value:
+    if value and (cache_if is None or cache_if(value)):
         with _lock:
             _cache[full_key] = (now + ttl, value)
             while len(_cache) > MAX_ENTRIES:
