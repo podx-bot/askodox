@@ -82,10 +82,18 @@ function card(x){const url=x.destination_url||x.url||x.link||"";const safe=/^htt
 $("#f").onsubmit=e=>{e.preventDefault();const t=$("#m").value.trim();if(!t)return;$("#m").value="";send(t)};
 if(!S.history.length)add("Hi! Tell me what you need -- I'll ask only what matters, then show local sellers, nearby places and online options.");
 else S.history.slice(-10).forEach(t=>add(esc(t.text),t.role==="user"));
+// Asked from the askodox.com home page ask box (?q=): ask it once.
+try{const q=(new URLSearchParams(location.search).get("q")||"").trim().slice(0,500);
+  if(q){history.replaceState(null,"",location.pathname);S={history:[],deal:null};save();log.innerHTML="";send(q)}}catch(e){}
 </script></body></html>'''
 
 
 @router.get("/chat", response_class=HTMLResponse)
 def web_chat() -> HTMLResponse:
-    return HTMLResponse(PAGE, headers={"Cache-Control": "no-cache", "X-Frame-Options": "SAMEORIGIN",
-                                       "Referrer-Policy": "strict-origin-when-cross-origin"})
+    return HTMLResponse(PAGE, headers={
+        "Cache-Control": "no-cache", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
+        "X-Content-Type-Options": "nosniff",
+        # Same-origin APIs only (works on the backend host and on askodox.com/chat).
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' "
+                                   "'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; "
+                                   "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"})
