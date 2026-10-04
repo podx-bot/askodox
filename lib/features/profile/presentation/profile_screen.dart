@@ -545,6 +545,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/beta-feedback')));
           }),
+          Card(
+              elevation: 0,
+              child: ListTile(
+                  key: const ValueKey('profile-mobility'),
+                  leading: const Icon(Icons.local_taxi_outlined),
+                  title: Text(t('Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్')),
+                  subtitle: Text(t('Book, track, or drive / deliver with ASKODOX.',
+                      'బుక్ చేయండి, ట్రాక్ చేయండి, లేదా డ్రైవ్ / డెలివర్ చేయండి.')),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/mobility'))),
           // Staff only: the server decides (the number must be linked to an
           // active staff record); nothing is shown to anyone else.
           if (ref.watch(askodoxIsStaffProvider).valueOrNull == true)

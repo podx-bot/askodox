@@ -33,6 +33,7 @@ import '../../features/orders/presentation/order_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
+import '../../features/mobility/presentation/mobility_screen.dart';
 import '../../features/companion/companion_performance_panel.dart';
 import '../../features/companion/companion_vrm_engine.dart';
 import '../../features/companion/screen_guide.dart';
@@ -198,6 +199,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/beta-feedback',
           builder: (context, state) => const BetaFeedbackScreen()),
+      GoRoute(
+          path: '/mobility',
+          builder: (context, state) =>
+              MobilityScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0)),
       if (kDebugMode)
         GoRoute(
             path: '/developer/feedback',
