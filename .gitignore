@@ -27,3 +27,4 @@ ios/Flutter/ephemeral/
 
 # Local SQLite databases created by the server/tests
 *.db
+website/caddy.pid

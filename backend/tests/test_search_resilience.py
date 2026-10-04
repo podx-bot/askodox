@@ -94,3 +94,17 @@ def test_public_search_health_never_leaks_the_key():
     data = TestClient(app).get("/health/search").json()
     assert "state" in data and "k" not in str(data.get("provider_code") or "")
     assert "web_search" in TestClient(app).get("/readiness").json()
+
+
+def test_production_402_credit_exhausted_opens_the_breaker():
+    """The exact answer production got on 2026-10-04 (probe run 37172903519)."""
+    body = {"type": "ErrorResponse", "error": {"code": "CREDIT_EXHAUSTED", "detail": "credits used up"}}
+    client = _Client([_resp(402, body, {"X-RateLimit-Limit": "50, 0", "X-RateLimit-Remaining": "45, 0",
+                                        "X-RateLimit-Reset": "1, 2408219"})])
+    provider = BraveWebSearchProvider("k", client=client)
+    assert provider("washing machine", 5) == [] and provider.last_error is True
+    snap = provider.health_snapshot()
+    assert snap["state"] == "quota_exhausted" and snap["http_status"] == 402
+    assert snap["provider_code"] == "CREDIT_EXHAUSTED" and snap["paused_for_seconds"] > 3600
+    calls = client.calls
+    assert provider("face sunscreen", 5) == [] and client.calls == calls, "no more paid calls while exhausted"

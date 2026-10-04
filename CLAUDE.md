@@ -7,24 +7,22 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `8625a92` -- PR #141 (2026-10-03): category-driven Universal
-  Advisor (`advisor_categories`: AI category -> head noun -> alias; "car
-  phone holder" = accessories, budget optional), flag targeting
-  (`flag_rollouts`) + config import/export with snapshot rollback, unified
-  inbox (`/api/me/inbox`, `/admin/cc/inbox`) + Seller Opportunities
-  (expiry, accept/decline/fulfil; app `/opportunities`), customer web chat
-  `/chat`, support handoff summary, affiliate URL product id / canonical /
-  per-field manual entry, Auto-DM triggers (internal; external channels
-  EXTERNAL_SETUP_REQUIRED), one integration health vocabulary, outcome
-  analytics, video page chat bar. Production probe 37147224406 proves the
-  advisor categories, `/chat`, `/api/flags`, inbox auth (401). Signed MAIN
-  APK 1291 (Live Build 37147115883, sha256 4bc78abe…a5b13a). Before: #140
-  Universal Advisor v1 + Demand Intelligence (APK 1290).
+- `main` @ `3780d3f` -- PR #143 (2026-10-04): Brave web-search resilience
+  (real failure state at `/health/search`, breaker, per-thread errors,
+  last-good `stale` rows), askodox.com `/chat` proxied to the production
+  backend, app reads `/api/flags` (cached, defaults on failure), listing
+  spam / abuse screening + `listing_reviews`, Social auto-DM (Meta) and
+  marketplace product-API adapters (mock-testable, EXTERNAL SETUP for the
+  real connection), real-phone acceptance checklist in `qa_checks`.
+  Production backend deployed (Railway SUCCESS on 3780d3f); Android Live
+  Build on 3780d3f succeeded (phone-test mirror entry not yet added). Before:
+  #141/#142 category-driven advisor, flag targeting, inbox, opportunities,
+  web chat (APK 1291).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
-  variables + volume; askodox.com → askodox-website (root `/website`), still on
-  branch `claude/askodox-website` until switched to `main`.
+  variables + volume; askodox.com → askodox-website (root `/website`), deploying from `main`
+  since 2026-10-04 (the old `claude/askodox-website` branch is retired).
 - Android Live Build #253 on `c2ae7d4`: PASS, in-app update published.
   Real phone: current place named "Uyyuru" (location naming verified).
 - Sprint status: NOT complete. NOT yet verified: real Brave/Maps/Routes/
@@ -302,10 +300,13 @@ this file, don't trust it blindly.
 - Marketplace product APIs: Amazon PA-API 5 / Flipkart adapters are built
   (`marketplace_api.py`, catalog "Refresh from marketplace API") but no
   credentials are configured; Meesho has no product API (feed / staff only).
-- Brave web search: the provider reports its real state (`/health/search`,
-  readiness row "Web search (Brave)"); quota / auth failures open a breaker
-  and serve earlier results marked `stale` -- check the state there before
-  assuming the key works.
+- Brave web search ROOT CAUSE (production probe 37172903519, 2026-10-04):
+  Brave answers HTTP 402 `CREDIT_EXHAUSTED` -- the plan's monthly credit is
+  used up (monthly remaining 0, reset ~28 days). Online / marketplace / web
+  video rows are therefore empty until the owner adds credit or upgrades the
+  Brave plan (EXTERNAL). The provider now opens its breaker on 402 (no more
+  paid calls) and serves earlier results marked `stale`; state at
+  `/health/search` and readiness "Web search (Brave)".
 
 ## Working efficiently in this repo
 - Delegate broad repo exploration, multi-file call-chain tracing, full
