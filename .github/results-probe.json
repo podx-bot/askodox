@@ -1,13 +1,6 @@
 {
  "queries": [
   {
-   "raw_text": "AC repair near me",
-   "intent": "need_service",
-   "subject": "AC repair",
-   "category": "services",
-   "place": "Vijayawada"
-  },
-  {
    "raw_text": "walking shoes size 9 under 2000",
    "intent": "buy",
    "subject": "walking shoes",
@@ -20,7 +13,18 @@
      "budget"
     ]
    }
+  },
+  {
+   "raw_text": "running shoes shorts and review videos",
+   "intent": "buy",
+   "subject": "running shoes",
+   "category": "fashion",
+   "place": "Vijayawada",
+   "trace": {
+    "query": "running shoes shorts",
+    "language": "en"
+   }
   }
  ],
- "note": "maps recheck after owner enabled APIs on the key project 2026-10-04T11:08:52.965266"
+ "note": "post-deploy #151 verification 2026-10-04T11:36:23.829453"
 }
