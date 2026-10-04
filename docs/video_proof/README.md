@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T07:32:48Z by `.github/workflows/video-real-content-proof.yml` (run 37185929733).
+Generated 2026-10-04T11:23:29Z by `.github/workflows/video-real-content-proof.yml` (run 37198365431).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -10,17 +10,17 @@ Generated 2026-10-04T07:32:48Z by `.github/workflows/video-real-content-proof.ym
 
 | Case | Lang | Videos | Top video | Channel | Plays in app | Disclosure | AI answer | Follow-up | Next step → options |
 |---|---|---|---|---|---|---|---|---|---|
-| electronics | en | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 0 () |
-| electronics-te | te | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 0 () |
-| phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 0 () |
-| vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 0 () |
-| service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 0 () |
-| home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 0 () |
-| food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 0 () |
-| travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 4 () |
-| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 0 () |
-| deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 0 () |
-| service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 0 () |
+| electronics | en | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 1 (nearby_external) |
+| electronics-te | te | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 1 (nearby_external) |
+| phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 1 (nearby_external) |
+| vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 1 (nearby_external) |
+| service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 1 (nearby_external) |
+| home-service | en | 1 | [Which do you prefer. Plumbers putty or silicone for sealing…](https://www.youtube.com/watch?v=Ac8Arkhzgps) | My Old Plumber | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 1 (nearby_external) |
+| food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 1 (nearby_external) |
+| travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 5 (nearby_external) |
+| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 1 (nearby_external) |
+| deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 1 (nearby_external) |
+| service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 1 (nearby_external) |
 
 ## Conversations (real AI answers)
 
@@ -34,14 +34,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "samsung 43 inch tv near me" → 
+**Next step:** "samsung 43 inch tv near me" → Croma - Benz Circle [nearby_external]
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
@@ -53,13 +53,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
+**ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అని చూడటానికి వీక్షణ దూరం సరి చూసుకోవాలి. సాధారణంగా 43 ఇంచుల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా అని చూస్తున్నారా? గది పరిమాణాన్ని బట్టి ఏ సైజ్ సరిపోతుందో చెప్తాను.
 
-**Next step:** "samsung 43 inch tv offers" → 
+**Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]
 
 ### phone (en) -- "Redmi Note 13 Pro review video"
 
@@ -71,14 +71,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Redmi Note 13 Pro is here - Let's Check!"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "redmi note 13 pro offers" → 
+**Next step:** "redmi note 13 pro offers" → Happi Mobiles Vijayawada Bandar Road [nearby_external]
 
 ### vehicle (en) -- "Tata Nexon review video"
 
@@ -90,14 +90,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Tata Nexon Cons: What You Need to Know Before Buying"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "tata nexon near me" → 
+**Next step:** "tata nexon near me" → Tata Motors Commercial Vehicle Dealer - Sahni Auto Private Limited [nearby_external]
 
 ### service (en) -- "AC service video"
 
@@ -109,33 +109,33 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "ac service near me" → 
+**Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]
 
 ### home-service (en) -- "kitchen sink plumbing repair video"
 
-**Video:** Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber -- Punni Plumbing works (https://www.youtube.com/watch?v=M4qJRoGE8l0)
+**Video:** Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy -- My Old Plumber (https://www.youtube.com/watch?v=Ac8Arkhzgps)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber  
+Quoted from source: Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy / Which do you prefer for sealing drains — plumbers putty or silicone? / Some plumbers swear by putty. / Others prefer silicone for a stronger long-term seal. / Both have their place depending on the sink, dr…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber"
+**User:** Tell me more about "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "plumbing repair service near me" → 
+**Next step:** "plumbing repair service near me" → Amulya Plumbing & Sanitary Services [nearby_external]
 
 ### food (en) -- "Hyderabadi biryani review video"
 
@@ -147,14 +147,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → 
+**Next step:** "hyderabadi biryani near me" → Bismillah Paradise Biryani [nearby_external]
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -166,14 +166,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "araku valley trip reviews" → Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku [video]; Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise [video]; Araku Valley Complete Travel Guide | Places to Visit | Things to Do  [video]; 1 Day Araku Valley Trip from Vizag | Borra Caves, Waterfalls & Coffee 🌿☕ [video]
+**Next step:** "araku valley trip reviews" → Akkanna Madanna Caves [nearby_external]; Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku [video]; আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku [video]; Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise [video]
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
@@ -185,14 +185,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Classic 350 BS4: Worth buying a used one in 2025?"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "used royal enfield classic 350 near me" → 
+**Next step:** "used royal enfield classic 350 near me" → TARAK BULLET HOUSE [nearby_external]
 
 ### deal (en) -- "iPhone 15 offer review video"
 
@@ -204,14 +204,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub"
 
-**ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
+**ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "iphone 15 offers" → 
+**Next step:** "iphone 15 offers" → MasterPhone [nearby_external]
 
 ### service-te (te) -- "ఏసీ సర్వీస్ వీడియో"
 
@@ -223,19 +223,19 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.
+**ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 1 టన్ను లేదా 1.5 టన్నుల ఏసీ సర్వీస్ సరిపోతుంది, మీ ఏసీ కెపాసిటీ ఎంత?
+**ASKODOX AI:** చిన్న గదికి Split AC Foamjet సర్వీస్ లేదా తగిన టన్నుల ఏసీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం ఎంత?
 
-**Next step:** "ac service near me" → 
+**Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]
 
 ## Attribution (branch Command Center)
 
 Video funnel: video_impression 11, video_open 11, video_watch_start 11, video_watch_complete 0, video_ask 11, video_product_click 4, video_service_click 3, video_local_search 4, video_affiliate_click 0, video_contact 0, lead 0, order 0, conversion 0
 
-Commerce funnel: search 11, impression 0, result_view 0, click 1, claim 0, lead 0, order 0, payment 0, redemption 0, conversion 0, commission 0
+Commerce funnel: search 11, impression 0, result_view 0, click 11, claim 0, lead 0, order 0, payment 0, redemption 0, conversion 0, commission 0
 
 ## App renders (real rows, thumbnails and AI answers)
 

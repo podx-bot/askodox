@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T07:32:48Z",
+ "generated_at": "2026-10-04T11:23:29Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:3ac7cc0cb076463d",
+   "trace_key": "browse:c6be940f36ec4e51",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -29,7 +29,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
@@ -39,6 +39,7 @@
      "brand": "Samsung",
      "size": "43 inch",
      "subject": "Samsung 43 inch TV",
+     "category": "television",
      "location": "Vijayawada"
     }
    },
@@ -88,10 +89,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
@@ -103,17 +104,34 @@
    "next": {
     "step": "find_local",
     "ask": "samsung 43 inch tv near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "Croma - Benz Circle",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 1.3,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -121,7 +139,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:c7d505292fed4a17",
+   "trace_key": "browse:8c904e272c884ede",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -143,7 +161,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
+    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
@@ -152,7 +170,7 @@
     "entities": {
      "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
      "brand": "Samsung",
-     "size": "43 inches",
+     "size": "43 అంగుళాల",
      "location": "Vijayawada"
     }
    },
@@ -202,28 +220,45 @@
    },
    "ai": {
     "question": "\"Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
+    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అని చూడటానికి వీక్షణ దూరం సరి చూసుకోవాలి. సాధారణంగా 43 ఇంచుల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా అని చూస్తున్నారా? గది పరిమాణాన్ని బట్టి ఏ సైజ్ సరిపోతుందో చెప్తాను.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "general_advice"
+    "follow_action": "get_product_advice"
    },
    "next": {
     "step": "deals",
     "ask": "samsung 43 inch tv offers",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "Croma - Benz Circle",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 1.3,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -231,7 +266,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:a46988ee50d94463",
+   "trace_key": "browse:44709503066b4b54",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -253,15 +288,15 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "subject": "Redmi Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -311,10 +346,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
@@ -326,17 +361,34 @@
    "next": {
     "step": "deals",
     "ask": "redmi note 13 pro offers",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "Happi Mobiles Vijayawada Bandar Road",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 0.9,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=12777118859690542021&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -344,7 +396,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:868d3d12fc5f4a86",
+   "trace_key": "browse:e740affb291f4aa6",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -366,15 +418,16 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Tata Nexon",
      "brand": "Tata",
+     "model": "Nexon",
+     "subject": "Tata Nexon",
      "location": "Vijayawada"
     }
    },
@@ -425,10 +478,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
@@ -440,17 +493,34 @@
    "next": {
     "step": "find_local",
     "ask": "tata nexon near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "Tata Motors Commercial Vehicle Dealer - Sahni Auto Private Limited",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 2.7,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=8369707636161862098&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -458,7 +528,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:2e3514784429400e",
+   "trace_key": "browse:896c2dfb47724e51",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -480,7 +550,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
@@ -535,10 +605,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "find_local",
@@ -550,16 +620,33 @@
    "next": {
     "step": "local_service",
     "ask": "ac service near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "not_applicable",
      "online": "error",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "SML AC SERVICES / ELECTRICAL WORKS",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 1.4,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -567,18 +654,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:c3790200925946f2",
+   "trace_key": "browse:55ba0d83fa3742c0",
    "videos": [
     {
-     "video_id": "yt_M4qJRoGE8l0",
-     "title": "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber",
-     "source_name": "Punni Plumbing works",
-     "duration": "0:20",
+     "video_id": "yt_Ac8Arkhzgps",
+     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+     "source_name": "My Old Plumber",
+     "duration": "0:17",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/M4qJRoGE8l0?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/M4qJRoGE8l0/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=M4qJRoGE8l0",
+     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -589,7 +676,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
@@ -601,18 +688,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_M4qJRoGE8l0",
+    "video_id": "yt_Ac8Arkhzgps",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber"
+     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+     "Which do you prefer for sealing drains — plumbers putty or silicone?",
+     "Some plumbers swear by putty.",
+     "Others prefer silicone for a stronger long-term seal.",
+     "Both have their place depending on the sink, drain, and installation."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Punni Plumbing works",
+    "creator": "My Old Plumber",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=M4qJRoGE8l0",
-    "question": "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber",
+    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
     "next": [
      {
       "action": "find_local",
@@ -642,13 +733,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "SERVICE",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -658,16 +749,33 @@
    "next": {
     "step": "local_service",
     "ask": "plumbing repair service near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "not_applicable",
      "online": "error",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "Amulya Plumbing & Sanitary Services",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 0.2,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -675,7 +783,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:7dd05924abd24979",
+   "trace_key": "browse:4dff2a61716f42f5",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -697,8 +805,8 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "FOOD",
+    "reply": "Sure -- looking for real videos and reviews.",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -754,10 +862,10 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "FOOD",
     "follow_action": "find_local",
@@ -769,17 +877,34 @@
    "next": {
     "step": "find_local",
     "ask": "hyderabadi biryani near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "Bismillah Paradise Biryani",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 0.2,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -787,7 +912,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:6de304afb8504bbf",
+   "trace_key": "browse:1a1120b4761a481e",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -809,7 +934,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
@@ -867,10 +992,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
@@ -882,10 +1007,12 @@
    "next": {
     "step": "reviews",
     "ask": "araku valley trip reviews",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "no_results",
@@ -893,6 +1020,20 @@
      "jobs": "not_applicable"
     },
     "options": [
+     {
+      "title": "Akkanna Madanna Caves",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 4.5,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=8298250960370824606&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     },
      {
       "title": "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku",
       "segment": null,
@@ -908,6 +1049,20 @@
       "location_label": null
      },
      {
+      "title": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku",
+      "segment": null,
+      "match_source": "video",
+      "source_name": "My Travel Support",
+      "price": null,
+      "price_verified": null,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": false,
+      "destination_url": "https://www.youtube.com/watch?v=YefkkpVsneY",
+      "image_url": "https://i.ytimg.com/vi/YefkkpVsneY/hqdefault.jpg",
+      "location_label": null
+     },
+     {
       "title": "Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise",
       "segment": null,
       "match_source": "video",
@@ -919,20 +1074,6 @@
       "sponsored": false,
       "destination_url": "https://www.youtube.com/watch?v=vo4N9OHhE0c",
       "image_url": "https://i.ytimg.com/vi/vo4N9OHhE0c/hqdefault.jpg",
-      "location_label": null
-     },
-     {
-      "title": "Araku Valley Complete Travel Guide | Places to Visit | Things to Do ",
-      "segment": null,
-      "match_source": "video",
-      "source_name": "Apoorva Rao",
-      "price": null,
-      "price_verified": null,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": false,
-      "destination_url": "https://www.youtube.com/watch?v=cftcge-Xijk",
-      "image_url": "https://i.ytimg.com/vi/cftcge-Xijk/hqdefault.jpg",
       "location_label": null
      },
      {
@@ -957,7 +1098,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:d470bc9e6ea24d30",
+   "trace_key": "browse:e8556af5649a4703",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -979,16 +1120,17 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "subject": "used Royal Enfield Classic 350",
+     "context": "used",
      "location": "Vijayawada"
     }
    },
@@ -1038,10 +1180,10 @@
    },
    "ai": {
     "question": "Tell me more about \"Classic 350 BS4: Worth buying a used one in 2025?\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
@@ -1053,17 +1195,34 @@
    "next": {
     "step": "find_local",
     "ask": "used royal enfield classic 350 near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "TARAK BULLET HOUSE",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 2.3,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=11566291382939550987&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -1071,7 +1230,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:15f428d661fc4e54",
+   "trace_key": "browse:ab8d411581064818",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1093,7 +1252,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
@@ -1153,10 +1312,10 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
-    "reply": "Sure -- looking for real videos and reviews; the results appear below.",
+    "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "find_local",
@@ -1168,17 +1327,34 @@
    "next": {
     "step": "deals",
     "ask": "iphone 15 offers",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "no_results",
      "online": "error",
      "videos": "not_applicable",
      "marketplaces": "error",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "MasterPhone",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 0.8,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=1686034212541866538&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   },
   {
@@ -1186,7 +1362,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:8f929b0d821142ab",
+   "trace_key": "browse:c9f0a3fe0dd64aee",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1208,7 +1384,7 @@
    ],
    "production_video_rows": 4,
    "search_decision": {
-    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
+    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
@@ -1263,27 +1439,44 @@
    },
    "ai": {
     "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
+    "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 1 టన్ను లేదా 1.5 టన్నుల ఏసీ సర్వీస్ సరిపోతుంది, మీ ఏసీ కెపాసిటీ ఎంత?",
+    "follow_reply": "చిన్న గదికి Split AC Foamjet సర్వీస్ లేదా తగిన టన్నుల ఏసీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం ఎంత?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "get_details"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "local_service",
     "ask": "ac service near me",
-    "segments": [],
+    "segments": [
+     "nearby_external"
+    ],
     "status": {
      "askodox": "no_results",
-     "nearby": "error",
+     "nearby": "ok",
      "used_deals": "not_applicable",
      "online": "error",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
-    "options": []
+    "options": [
+     {
+      "title": "SML AC SERVICES / ELECTRICAL WORKS",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 1.4,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     }
+    ]
    }
   }
  ],
@@ -1356,7 +1549,7 @@
   },
   {
    "step": "click",
-   "count": 1
+   "count": 11
   },
   {
    "step": "claim",
@@ -1387,6 +1580,6 @@
    "count": 0
   }
  ],
- "event_count": 76,
+ "event_count": 86,
  "youtube_data_api": "needs_configuration (no YOUTUBE_API_KEY in this run)"
 }
