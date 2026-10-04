@@ -7,18 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `a9e6194` -- PR #146 + #147 (2026-10-04): public `/health/maps`
-  (per-API Google status; root cause = Geocoding / Places (New) / Routes
-  APIs not enabled on the key's project), Universal Sources (`sources`
-  resource, feed / json_search / site_search connectors, isolated + health),
-  item store review workflow + duplicates + product-health toggles, Staff
-  Workspace `/staff` (phone OTP / app handoff / token sign-in, paste-link
-  entry, review queue, tasks, support, feedback, analytics; 11 role
-  presets), Early Access programme + masked feedback + client errors +
-  dashboard; app: Profile Staff Workspace + feedback to backend + Android
-  Share -> ASKODOX. Signed MAIN APK 1294 (Live Build 37181794931 on a9e6194,
-  sha256 accc5b3c…e464e9, cert 727b4a66…, production backend only).
-  Before: #143-#145 search resilience, askodox.com/chat, app flags (1292).
+- `main` @ `0a869cb` -- PR #149 (2026-10-04): Result Contract v2 (sections,
+  exact constraints, honest answer; `/matches` carries the advisor), APK 1292
+  chat fixes ("Any" per field, Size 9 exact, no false "showing options", one
+  notice per request id), affiliate rows no longer suppress organic online,
+  raised web search = `error`, `/content` + `/api/content`, nearest junction,
+  Result diagnostics + Result order (Command Center), feed sync on the
+  background runner, 20-combination gate. Production: contract v2 live,
+  `ASKODOX_SECRETS_KEY` set (Railway-generated, `secrets_encryption.configured`
+  true). Signed MAIN APK 1295 (Live Build 37186310158 on 0a869cb, sha256
+  a938ed69…44a3, same release cert as production, production backend only).
+  Before: #146-#148 Universal Sources, Staff Workspace, Early Access (1294).
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -296,8 +295,6 @@ this file, don't trust it blindly.
   must enable the three APIs (billing on) on that key's project -- EXTERNAL.
   Until then nearby/place search/route distance are empty; naming the
   current place still works through the Android Geocoder on the phone.
-- Production has no `ASKODOX_SECRETS_KEY`: Command Center-stored secrets
-  (social-DM page tokens, marketplace API keys) cannot be saved there yet.
 - Brands: no fixed list -- AI `brand` entity, phrasing, brands on real
   listings (`/api/products/brands`), or a short reply that filled nothing.
   A brand the AI misses in the FIRST message and that no listing carries
