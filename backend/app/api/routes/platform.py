@@ -310,6 +310,12 @@ def platform(container: Any) -> Platform:
             seed_defaults(existing.resources)
         except Exception:
             pass
+        try:  # the real-phone acceptance checklist (CODE READY until a phone test)
+            from app.services.owner_os import seed_acceptance_checks
+
+            seed_acceptance_checks(existing.resources)
+        except Exception:
+            pass
     from app.services import platform_settings
 
     repo = existing.repo

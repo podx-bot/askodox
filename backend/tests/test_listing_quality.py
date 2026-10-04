@@ -96,3 +96,18 @@ def test_editable_prohibited_terms(api):
         from app.api.routes.platform import platform
 
         platform(container).repo.delete(rid, actor="test")
+
+
+def test_acceptance_checklist_is_seeded_code_ready_and_never_overwritten(tmp_path):
+    from app.services.owner_os import ACCEPTANCE_CHECKS, seed_acceptance_checks
+    from app.services.platform_service import ResourceService
+    from app.repositories.platform_repository import PlatformRepository
+
+    resources = ResourceService(PlatformRepository(str(tmp_path / "qa.db")))
+    assert seed_acceptance_checks(resources) == len(ACCEPTANCE_CHECKS)
+    rows = resources.repo.list("qa_checks")
+    assert {r["status"] for r in rows} == {"CODE READY"}, "never PHONE VERIFIED without a real test"
+    first = rows[0]
+    resources.action("qa_checks", first["id"], "phone_verified", actor="owner")
+    assert seed_acceptance_checks(resources) == 0
+    assert resources.repo.get(first["id"])["status"] == "PHONE VERIFIED"

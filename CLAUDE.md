@@ -213,6 +213,21 @@ this file, don't trust it blindly.
   `pii_mask.py`. Deep Video Study only for uploads and REGISTERED sellers'
   videos (`_registered_video`); external videos are playback only.
 - A local server uses `PODX_DATABASE_PATH` (not DATABASE_PATH).
+- Web search (`brave_web_search_provider.py`): per-thread `last_error`
+  (discovery runs sources in a thread pool), pacing learned from the
+  X-RateLimit headers, a breaker for quota/auth errors, and `LastGoodStore`
+  (`search_last_good`) serving the last good answer (rows carry `stale`,
+  `cached_at`, `price_verified=false`). Never fabricate rows on failure.
+- App flags: `lib/core/flags/askodox_remote_flags.dart` reads `/api/flags`
+  (role / category / stable install id for %), caches 10 min + on disk, and
+  keeps defaults (all on) when the fetch fails. Read a flag with
+  `askodoxFlagProvider('key')`; never block UI on the fetch.
+- New seller listings go through `listing_quality.check`: prohibited terms /
+  flooding -> 422; contact details / links / one number across accounts ->
+  held (inactive) + a `listing_reviews` record that staff approve / reject.
+- The real-phone acceptance checklist is seeded into `qa_checks` as CODE
+  READY (`owner_os.ACCEPTANCE_CHECKS`); only a real phone test with evidence
+  moves an item to PHONE VERIFIED.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -271,22 +286,26 @@ this file, don't trust it blindly.
   (`ASKODOX_CLICK_TTL_HOURS`); raw events roll up per day after
   `ASKODOX_EVENT_RETENTION_DAYS` (run lazily at most daily -- no cron). No real
   partner is configured.
-- Affiliate catalog: no marketplace product API (Amazon PA-API / Flipkart /
-  Meesho) is connected -- stock / commission change only by staff edits or a
-  feed import; page-metadata extraction often gets blocked by marketplaces.
+- Affiliate catalog: stock / commission change by staff edits, a feed
+  import, or (once credentials exist) the marketplace API refresh;
+  page-metadata extraction often gets blocked by marketplaces.
   #127's partner registry / staff assignments / BFSI flows and
   `partner_revenue_events` remain unwired (superseded by Partner Hub).
 - Customer web chat is the backend-served `/chat` page (same APIs as the
-  app); it is not linked from askodox.com yet and cannot send requests
-  (identity stays in the app).
-- Auto-DM on Facebook / Instagram / WhatsApp / Snapchat is NOT built (needs
-  the owner's authorised platform API); triggers work inside ASKODOX only
-  (deal chats + `/api/auto-response/ask`).
-- Flag targeting (`flag_rollouts`) is applied to discovery results and the
-  advisor server-side; the app does not read `/api/flags` yet.
-- Phase 2 gaps: `service_provider` seller tier not computed, no
-  duplicate/spam listing detection, no tier backfill for sellers who
-  listed before round 12.
+  app); askodox.com proxies `/chat` + its 3 APIs to the backend (website
+  Caddyfile). It cannot send requests (identity stays in the app).
+- Social auto-DM: Facebook / Instagram adapters are built (`social_dm.py`,
+  `/webhooks/meta-messaging`, `social_dm_accounts`, mock simulate) but need
+  Meta App Review + the Meta app credentials + each business's Page token
+  (EXTERNAL SETUP). WhatsApp auto-DM needs the business's own WABA number;
+  Snapchat has no public messaging API.
+- Marketplace product APIs: Amazon PA-API 5 / Flipkart adapters are built
+  (`marketplace_api.py`, catalog "Refresh from marketplace API") but no
+  credentials are configured; Meesho has no product API (feed / staff only).
+- Brave web search: the provider reports its real state (`/health/search`,
+  readiness row "Web search (Brave)"); quota / auth failures open a breaker
+  and serve earlier results marked `stale` -- check the state there before
+  assuming the key works.
 
 ## Working efficiently in this repo
 - Delegate broad repo exploration, multi-file call-chain tracing, full
