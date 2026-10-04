@@ -223,8 +223,11 @@ class BraveWebSearchProvider:
         except Exception:
             detail = None
         status = response.status_code
-        if status == 429 and (self._monthly_exhausted(rate) or str(code or "").upper().find("USAGE") >= 0
-                              or str(code or "").upper().find("QUOTA") >= 0):
+        upper = str(code or "").upper()
+        # Brave answers a used-up monthly plan with 402 CREDIT_EXHAUSTED (seen in
+        # production 2026-10-04), older plans with 429 + a USAGE/QUOTA code.
+        if status == 402 or (status == 429 and (self._monthly_exhausted(rate) or "USAGE" in upper
+                                                or "QUOTA" in upper or "CREDIT" in upper)):
             state = "quota_exhausted"
             resets = rate.get("reset") if isinstance(rate.get("reset"), list) else []
             pause = resets[1] if len(resets) > 1 else 3600

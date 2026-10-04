@@ -300,10 +300,13 @@ this file, don't trust it blindly.
 - Marketplace product APIs: Amazon PA-API 5 / Flipkart adapters are built
   (`marketplace_api.py`, catalog "Refresh from marketplace API") but no
   credentials are configured; Meesho has no product API (feed / staff only).
-- Brave web search: the provider reports its real state (`/health/search`,
-  readiness row "Web search (Brave)"); quota / auth failures open a breaker
-  and serve earlier results marked `stale` -- check the state there before
-  assuming the key works.
+- Brave web search ROOT CAUSE (production probe 37172903519, 2026-10-04):
+  Brave answers HTTP 402 `CREDIT_EXHAUSTED` -- the plan's monthly credit is
+  used up (monthly remaining 0, reset ~28 days). Online / marketplace / web
+  video rows are therefore empty until the owner adds credit or upgrades the
+  Brave plan (EXTERNAL). The provider now opens its breaker on 402 (no more
+  paid calls) and serves earlier results marked `stale`; state at
+  `/health/search` and readiness "Web search (Brave)".
 
 ## Working efficiently in this repo
 - Delegate broad repo exploration, multi-file call-chain tracing, full
