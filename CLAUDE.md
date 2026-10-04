@@ -7,17 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `65e6167` -- PR #153 (2026-10-04): ONE mobility system on
-  `delivery_jobs` + `/api/delivery` (rides, parcels, local/order delivery,
-  carpool, driver join/workspace, fulfilment responsibility, Mobility Command
-  Center), ASKODOX-native video (upload -> staff review -> feed, reports,
-  in-app DM from approved FAQ), typed place -> map point + junction
-  (`/api/discover/resolve`), `/health/integrations` states. Production probe
-  (run 37210777743): Maps all OK, resolve + junction OK, Brave OK (plan
-  funded), guards 401, secrets configured; `delivery.matching` flag is OFF in
-  production (mobility shows DISABLED until the owner switches it on).
-  Signed MAIN APK 1297 (Live Build 37210734389 on 65e6167, sha256 d3d56948…ed0a7, same release cert, production backend only).
-  Before: #151-#152 search chain + junction + APK 1296; #149-#150 contract v2.
+- `main` @ `09a0f4d` -- PR #155 (2026-10-04): audit of the Combined Master
+  Command (`docs/MASTER_COMMAND_AUDIT_2026-10-04.md`) and its 11 PARTIAL items
+  closed: chat ride/parcel -> mobility hand-off, scheduled trips, order
+  delivery responsibility UI, in-app reels (`video_player`) + Ask the
+  business + owner inbox, native-video deep study from the stored file,
+  deal-chat product/catalog/offer auto-reply triggers, News in Updates,
+  Video reports console. Production probe (run 37219861777): Maps all OK,
+  resolve + junction OK, Brave 200 with 0 stale rows, size 9 / budget 2000
+  kept, guards 401, secrets configured; `delivery.matching` still OFF.
+  Signed MAIN APK 1298 (Live Build 37219122573 on 09a0f4d, sha256
+  2779f729…daa18, same release cert, production backend only).
+  Before: #153-#154 mobility + native video + APK 1297.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
