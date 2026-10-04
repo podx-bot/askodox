@@ -1,6 +1,13 @@
 {
  "queries": [
   {
+   "raw_text": "mobile phone under 15000 show me",
+   "intent": "buy",
+   "subject": "mobile phone under 15000",
+   "category": "electronics",
+   "place": "Vijayawada"
+  },
+  {
    "raw_text": "walking shoes size 9 under 2000",
    "intent": "buy",
    "subject": "walking shoes",
@@ -13,18 +20,7 @@
      "budget"
     ]
    }
-  },
-  {
-   "raw_text": "running shoes shorts and review videos",
-   "intent": "buy",
-   "subject": "running shoes",
-   "category": "fashion",
-   "place": "Vijayawada",
-   "trace": {
-    "query": "running shoes shorts",
-    "language": "en"
-   }
   }
  ],
- "note": "post-deploy #151 verification 2026-10-04T11:36:23.829453"
+ "note": "Brave recheck after owner funded the plan 2026-10-04T14:02:54.126620"
 }
