@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T00:47:03Z",
+ "generated_at": "2026-10-04T01:01:02Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:f4abf384d03548a8",
+   "trace_key": "browse:f13c366b07f741c5",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -39,7 +39,6 @@
      "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "category": "TV",
      "location": "Vijayawada"
     }
    },
@@ -122,7 +121,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:dcc4bf47701d483a",
+   "trace_key": "browse:343c477e022c4714",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -152,8 +151,8 @@
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 inch",
-     "subject": "Samsung 43 inch TV",
+     "size": "43 inches",
+     "subject": "Samsung 43 inch TV review",
      "location": "Vijayawada"
     }
    },
@@ -206,10 +205,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా టీవీ చూసే దూరం ఎంత ఉందో చెప్పగలరా?",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం సరిగ్గా సరిపోతుందో లేదో తనిఖీ చేయడం మంచిది.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "assess_suitability"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "deals",
@@ -232,7 +231,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:f52936d5306e4b48",
+   "trace_key": "browse:03030a595aaa4973",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -258,10 +257,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
+     "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -344,7 +345,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:a5958dcada0e4de6",
+   "trace_key": "browse:60ee0d8cf3c94e14",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -370,7 +371,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Tata Nexon",
@@ -458,7 +459,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:708837f85b994e6c",
+   "trace_key": "browse:6dea193d4bef487f",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -567,7 +568,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:4c9e1e4a247c425b",
+   "trace_key": "browse:0ed4a972ea414f1b",
    "videos": [
     {
      "video_id": "yt_Ac8Arkhzgps",
@@ -652,7 +653,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you -- the results appear below.",
@@ -679,7 +680,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:4a90fef7e45c4d40",
+   "trace_key": "browse:3ae9b68c373c47a3",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -702,7 +703,7 @@
    "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -808,7 +809,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:b703daeca8ea4169",
+   "trace_key": "browse:3b9ec587c44b4d5b",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -837,7 +838,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -978,7 +979,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:75e0c3751de54c82",
+   "trace_key": "browse:d4662a6a04954aca",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -1092,7 +1093,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:11346feb3a6c4be0",
+   "trace_key": "browse:1c123479dda24518",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1123,7 +1124,6 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
-     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1207,7 +1207,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:f9af4fdb9d324216",
+   "trace_key": "browse:f8f5bca40d7445bf",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1287,7 +1287,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి సరిపోతుందో లేదో తెలుసుకోవడానికి ఏసీ కెపాసిటీ (టన్నులు) వివరాలు చూడాలి. అసలైన వివరాలు కింద కనిపిస్తాయి.",
+    "follow_reply": "చిన్న గదికి ఈ ఏసీ సర్వీస్ సరిపోతుందా లేదా అనేది వీడియో ఆధారంగా చూపిస్తున్నాను, కింద రిజల్ట్స్ చూడండి.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
