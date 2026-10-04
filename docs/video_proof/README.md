@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T14:39:32Z by `.github/workflows/video-real-content-proof.yml` (run 37209825613).
+Generated 2026-10-04T16:46:53Z by `.github/workflows/video-real-content-proof.yml` (run 37217781422).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -13,12 +13,12 @@ Generated 2026-10-04T14:39:32Z by `.github/workflows/video-real-content-proof.ym
 | electronics | en | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 6 (deals, nearby_external) |
 | electronics-te | te | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 6 (deals, nearby_external) |
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 6 (deals, nearby_external, surplus, used) |
-| vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 6 (deals, nearby_external, surplus) |
+| vehicle | en | 1 | [Tata Nexon 2024 Positives and Negatives Honest Review](https://www.youtube.com/watch?v=nBEYkrdak-0) | Burning Wheels | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 6 (deals, nearby_external, surplus) |
 | service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 5 (nearby_external) |
-| home-service | en | 1 | [Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #sho…](https://www.youtube.com/watch?v=Bvxkrv7t4Dw) | vijay xyz tricks | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 5 (nearby_external) |
+| home-service | en | 1 | [Which do you prefer. Plumbers putty or silicone for sealing…](https://www.youtube.com/watch?v=Ac8Arkhzgps) | My Old Plumber | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 5 (nearby_external) |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 6 (deals, nearby_external) |
-| travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals, nearby_external) |
-| used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, nearby_external, used) |
+| travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals, wider_local) |
+| used-item | en | 1 | [Royal Enfield Classic 350 (2015) / 10-Year Ownership Review…](https://www.youtube.com/watch?v=RJworx5674I) | The Motographer | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, nearby_external, used) |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, nearby_external, surplus, used) |
 | service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 5 (nearby_external) |
 
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** గది పరిమాణం ఎంత ఉందో చెబితే, ఇది సరిపోతుందో లేదో సరిగ్గా చెప్పగలను.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా చూడటానికి ఎంత దూరం ఉందో చెప్పండి.
 
 **Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]
 
@@ -82,13 +82,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### vehicle (en) -- "Tata Nexon review video"
 
-**Video:** Tata Nexon Cons: What You Need to Know Before Buying -- TheAutoBharat (https://www.youtube.com/watch?v=77aOlpHhpOw)
+**Video:** Tata Nexon 2024 Positives and Negatives Honest Review -- Burning Wheels (https://www.youtube.com/watch?v=nBEYkrdak-0)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Tata Nexon Cons: What You Need to Know Before Buying / Tata Nexon Cons: What You Need to Know Before Buying / Tata Nexon Cons / Thinking of buying the Tata Nexon? / Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV.  
+Quoted from source: Tata Nexon 2024 Positives and Negatives Honest Review / Special Thanks to / Sudarshan Tata Motors, Kalyan, Maharashtra / Contact : 070452 43316 / 9321931900 / Call and Book your appointment.  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Tata Nexon Cons: What You Need to Know Before Buying"
+**User:** Tell me more about "Tata Nexon 2024 Positives and Negatives Honest Review"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
@@ -120,13 +120,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### home-service (en) -- "kitchen sink plumbing repair video"
 
-**Video:** Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed -- vijay xyz tricks  (https://www.youtube.com/watch?v=Bvxkrv7t4Dw)
+**Video:** Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy -- My Old Plumber (https://www.youtube.com/watch?v=Ac8Arkhzgps)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / thanks for watching video  
+Quoted from source: Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy / Which do you prefer for sealing drains — plumbers putty or silicone? / Some plumbers swear by putty. / Others prefer silicone for a stronger long-term seal. / Both have their place depending on the sink, dr…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed"
+**User:** Tell me more about "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
@@ -154,7 +154,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → Bismillah Paradise Biryani [nearby_external]; Best Hyderabadi Biryani Restaurants In Vijayawada 2025 | Order Online [deals]; Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket [online]; Order Online – HYDERABAD BIRYANI POINT [online]
+**Next step:** "hyderabadi biryani near me" → The Kazus Royal Dum Biryani [nearby_external]; Best Hyderabadi Biryani Restaurants In Vijayawada 2025 | Order Online [deals]; Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket [online]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -173,17 +173,17 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "araku valley trip reviews" → Akkanna Madanna Caves [nearby_external]; Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]
+**Next step:** "araku valley trip reviews" → Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]; ARAKU VALLEY [wider_local]
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
-**Video:** Classic 350 BS4: Worth buying a used one in 2025? -- RPM Revelations  (https://www.youtube.com/watch?v=dzPSScYH1G4)
+**Video:** Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350 -- The Motographer  (https://www.youtube.com/watch?v=RJworx5674I)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Classic 350 BS4: Worth buying a used one in 2025? / Motorcyclists!!! / Almost every person was fascinated by the Royal Enfield Classic. / It's that type of bike that every generation from each family in India is aware of, now with the most recent iteration of the Classic 350 being the BS6 version, …  
+Quoted from source: Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350 / Welcome to *TheMotographer* — where every ride becomes a cinematic story. / I’m a rider, creator, and reviewer who captures the soul of motorcycles. / 📍 Based in Lucknow, India | Motorcycle • Cinematic • E…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Classic 350 BS4: Worth buying a used one in 2025?"
+**User:** Tell me more about "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి Split AC సరిపోతుందో లేదో తెలుసుకోవడానికి గది పరిమాణం (చదరపు అడుగులు) మరియు AC టన్ను సామర్థ్యం వివరాలు తెలియజేయండి.
+**ASKODOX AI:** ఈ ఏసీ సర్వీస్ లేదా క్లీనింగ్ మీ గదిలో ఉన్న స్ప్లిట్ ఏసీకి సరిపోతుంది. మీ ఏసీ మోడల్ లేదా టన్నుల వివరాలు తెలియజేస్తారా?
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]; Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]
 
