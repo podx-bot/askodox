@@ -80,6 +80,7 @@ class Platform:
 
     def __init__(self, container: Any) -> None:
         settings = container.settings
+        self._container = container
         from app.services.secret_box import box_from_settings
 
         self.container = container
@@ -115,6 +116,8 @@ class Platform:
             "promo_preview": lambda record, params: {"result": self.promotions.preview(record)},
             "promo_run": lambda record, params: {"result": self.promotions.run(
                 record, enabled=self._flag_on("notifications.promotions"))},
+            "listing_approve": lambda record, params: {"result": self._listing_active(record, True)},
+            "listing_reject": lambda record, params: {"result": self._listing_active(record, False)},
         }, ref_exists=self._ref_exists)
         self._blocked_cache: tuple[float, set[str]] = (0.0, set())
         from app.services.video_content import WebVideoStore
@@ -284,6 +287,17 @@ class Platform:
     def invalidate(self) -> None:
         self._blocked_cache = (0.0, set())
 
+    def _listing_active(self, record: Dict[str, Any], active: bool) -> Dict[str, Any]:
+        """Listing review decision: show or keep hiding the held listing."""
+        import sqlite3 as _sqlite
+
+        product_id = int((record.get("data") or {}).get("product_id") or 0)
+        catalog = getattr(self._container, "product_catalog_repository", None)
+        with _sqlite.connect(getattr(catalog, "db_path", self.repo.db_path)) as conn:
+            changed = conn.execute("UPDATE seller_products SET active=? WHERE id=?",
+                                   (1 if active else 0, product_id)).rowcount
+        return {"product_id": product_id, "searchable": active, "updated": bool(changed)}
+
 
 def platform(container: Any) -> Platform:
     existing = getattr(container, "platform", None)
@@ -294,6 +308,12 @@ def platform(container: Any) -> Platform:
             from app.services.advisor_engine import seed_defaults
 
             seed_defaults(existing.resources)
+        except Exception:
+            pass
+        try:  # the real-phone acceptance checklist (CODE READY until a phone test)
+            from app.services.owner_os import seed_acceptance_checks
+
+            seed_acceptance_checks(existing.resources)
         except Exception:
             pass
     from app.services import platform_settings
@@ -924,8 +944,25 @@ def integration_readiness(request: Request) -> dict:
         partners = partner_repo(request.app.state.container).partners()
     except Exception:
         partners = []
-    return {"items": readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=partners),
-            "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
+    items = readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=partners)
+    from app.api.routes.health import _search_health
+
+    web = _search_health(request.app.state.container)
+    state = web.get("state")
+    health = {"ok": "LIVE", "unknown": "CONFIGURED", "not_configured": "NEEDS_CONFIGURATION",
+              "unavailable": "NEEDS_CONFIGURATION", "rate_limited": "DEGRADED", "quota_exhausted": "DEGRADED",
+              "auth_failed": "CHECK_FAILED", "bad_request": "DEGRADED"}.get(state, "CHECK_FAILED")
+    reason = {"quota_exhausted": "Brave plan quota used up -- paused until Brave's reset; last real answers are "
+                                 "served marked stale. Raise the plan or wait for the reset.",
+              "rate_limited": "Brave per-second limit hit -- calls are paced and retried once.",
+              "auth_failed": "Brave rejected the API key (check BRAVE_SEARCH_API_KEY).",
+              "ok": "last live call succeeded", "unknown": "no live call yet since the last deploy"}.get(
+        state, f"last call failed (HTTP {web.get('http_status')}, {web.get('provider_code') or 'no code'})")
+    items.append({"integration": "Web search (Brave)", "status": (state or "unknown").upper(), "health": health,
+                  "health_reason": reason, "live": web, "backend_ready": True, "admin_control_ready": True,
+                  "mock_verified": None, "real_credential_required": state in ("not_configured", "auth_failed"),
+                  "providers": []})
+    return {"items": items, "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
 
 
 # discovered web videos -> moderation queue

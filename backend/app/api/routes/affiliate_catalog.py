@@ -12,6 +12,8 @@
   POST   /admin/cc/affiliate-products/extract            page metadata suggestions    (affiliate_products:create|edit)
   GET    /admin/cc/affiliate-sources                     per-source settings + health (affiliate_products:view)
   PUT    /admin/cc/affiliate-sources/{platform}          organic / monetization / mode / commission (affiliate:manage)
+  GET    /admin/cc/marketplace-apis                      Amazon / Flipkart / Meesho product-API status (affiliate_products:view)
+  POST   /admin/cc/affiliate-products/{id}/api-refresh   price / MRP / stock from the marketplace API (affiliate_products:stock)
 
 Affiliate links additionally need ``affiliate_products:links``; stock and
 commission values set while adding or editing need their own permissions.
@@ -244,6 +246,43 @@ def product_commission(product_id: int, body: StateBody, request: Request) -> di
     return {"item": get_product(product_id, request)["item"]}
 
 
+def _api_status(container: Any) -> dict[str, Any]:
+    from app.api.routes.platform import platform
+    from app.services import marketplace_api
+
+    registry = platform(container).registry
+    return {p: marketplace_api.status(registry, p) for p in marketplace_api.PLATFORM_PROVIDER}
+
+
+@router.get("/marketplace-apis")
+def marketplace_apis(request: Request) -> dict[str, Any]:
+    _need(request, "view")
+    return {"items": _api_status(request.app.state.container)}
+
+
+@router.post("/affiliate-products/{product_id}/api-refresh")
+def api_refresh(product_id: int, request: Request) -> dict[str, Any]:
+    """Real API answers update price / MRP / stock (history: check_source=api);
+    a MOCK answer is returned as a preview and never written."""
+    from app.api.routes.platform import platform
+    from app.services import comms, marketplace_api
+
+    principal = _need(request, "stock")
+    container = request.app.state.container
+    store = catalog(container)
+    before = store.get(product_id)
+    try:
+        result = marketplace_api.refresh(store, platform(container).registry,
+                                         getattr(container, "comms_http", None) or comms.default_http,
+                                         product_id, actor=principal["id"])
+    except (ValueError, LookupError) as error:
+        raise _bad(error)
+    if result.get("applied"):
+        _audit(request, principal, "api_refresh", product_id, _brief(before), _brief(result.get("product")))
+    result.pop("product", None)
+    return result
+
+
 @router.post("/affiliate-products/{product_id}/{action}")
 def product_toggle(product_id: int, action: str, request: Request) -> dict[str, Any]:
     if action not in {"enable", "disable"}:
@@ -330,10 +369,11 @@ def list_sources(request: Request) -> dict[str, Any]:
     for pid, row in rows.items():
         row["catalog"] = per.get(pid, {"products": 0, "eligible": 0, "out_of_stock": 0, "affiliate_routed": 0})
     return {"items": list(rows.values()), "summary": listing["summary"],
-            "notes": {"organic": "Organic marketplace results come from a site-restricted web search "
-                                 "(no marketplace API key is configured).",
-                      "api": "No Amazon PA-API / Flipkart / Meesho product API is connected: stock and commission "
-                             "change only through staff edits or a feed import."}}
+            "apis": _api_status(container),
+            "notes": {"organic": "Organic marketplace results come from a site-restricted web search.",
+                      "api": "Amazon PA-API / Flipkart product API refresh price and stock only when their "
+                             "integration is configured and checked (see apis); Meesho has no product API. "
+                             "Otherwise stock and commission change through staff edits or a feed import."}}
 
 
 @router.put("/affiliate-sources/{platform}")

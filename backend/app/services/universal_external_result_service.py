@@ -552,6 +552,10 @@ class UniversalOnlineFallbackService:
         item["source_name"] = row.get("host") or item["provider_id"]
         item.update(_price_fields(title, snippet))
         item["page_type"] = page_type
+        if row.get("cached_at"):
+            item["cached_at"] = row["cached_at"]
+            item["stale"] = True
+            item["price_verified"] = False
         return item
 
     def marketplaces(self, *, category: str, subject: str, sites: dict[str, tuple[str, str]],
@@ -639,7 +643,11 @@ class UniversalOnlineFallbackService:
             rows = self.web_search(query, limit)
         except Exception:  # provider failures must never break matching
             return []
-        return [row for row in rows or [] if isinstance(row, dict)]
+        rows = [row for row in rows or [] if isinstance(row, dict)]
+        stale_at = getattr(self.web_search, "last_stale_at", None)
+        if stale_at:  # the provider is down: its last REAL answer, labelled
+            rows = [dict(row, cached_at=stale_at) for row in rows]
+        return rows
 
     @staticmethod
     def _row(kind: str, index: int, title: Any, subtitle: Any, url: str) -> dict[str, Any]:

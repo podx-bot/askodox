@@ -22,6 +22,11 @@ jobs:
                    'staging': 'https://staging.askodox.com'}
           coords = {'Vijayawada': (16.5062, 80.6480)}
           for env, base in bases.items():
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=60) as r:
+                      print(f"SEARCH_HEALTH[{env}] before:", r.read().decode()[:400])
+              except Exception as e:
+                  print(f"SEARCH_HEALTH[{env}] before: {e}")
               for path in ('/chat', '/api/flags?category=footwear&platform=android'):
                   try:
                       with urllib.request.urlopen(urllib.request.Request(base + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60) as r:
@@ -90,6 +95,12 @@ jobs:
                       h = urlparse(x.get('destination_url') or '').netloc.replace('www.', '')
                       if h: hosts[h] = hosts.get(h, 0) + 1
                   print('DOMAINS:', json.dumps(hosts))
+                  try:
+                      with urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=60) as r:
+                          print('SEARCH_HEALTH:', r.read().decode()[:400])
+                  except Exception as e:
+                      print('SEARCH_HEALTH:', e)
+                  print('STALE_ROWS:', sum(1 for x in m if x.get('stale')))
                   print('MARKETPLACES:', {k: sum(v for h, v in hosts.items() if k in h) for k in ('amazon', 'flipkart', 'meesho')})
                   adv = data.get('advisor') or {}
                   print('ADVISOR:', json.dumps({'category': (adv.get('category') or {}).get('key'), 'ready': adv.get('ready'), 'questions': [(q.get('field'), q.get('required'), q.get('question')) for q in adv.get('questions') or []], 'guidance': [g.get('title') for g in adv.get('guidance') or []]}, ensure_ascii=False))

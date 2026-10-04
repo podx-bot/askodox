@@ -686,6 +686,62 @@ def _flag_keys() -> tuple:
 ROLLOUT_PLATFORMS = ("android", "ios", "web", "admin")
 
 _register(Resource(
+    name="prohibited_terms", label="Prohibited listing terms", group="Moderation", prefix="prt",
+    permission="catalog", name_field="term", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Listings mentioning an ACTIVE term are refused with the reason (weapons, drugs, counterfeit, "
+                "wildlife, identity documents...). Whole-word match, case-insensitive.",
+    fields=(
+        F("term", "Term", required=True, list_column=True),
+        F("why", "Why it is prohibited", list_column=True),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="listing_reviews", label="Listing reviews", group="Moderation", prefix="lrv",
+    permission="catalog", name_field="subject", initial_status="PENDING_REVIEW",
+    statuses=("PENDING_REVIEW", "APPROVED", "REJECTED"),
+    description="Listings held back by the spam / abuse check (contact details or links in the text, one contact "
+                "number listing from several accounts). Approve makes the listing searchable; reject keeps it hidden.",
+    fields=(
+        F("product_id", "Listing id", "int", required=True, list_column=True),
+        F("seller_ref", "Seller", list_column=True),
+        F("subject", "Listing", required=True, list_column=True),
+        F("reasons", "Why it was held", "list"),
+        F("note", "Reviewer note", "longtext"),
+    ),
+    actions=(
+        _A("approve", "Approve (make searchable)", "APPROVED", ("PENDING_REVIEW", "REJECTED"),
+           effect="listing_approve"),
+        _A("reject", "Reject (keep hidden)", "REJECTED", ("PENDING_REVIEW", "APPROVED"), confirm=True,
+           effect="listing_reject"),
+    ),
+))
+
+_register(Resource(
+    name="social_dm_accounts", label="Social auto-DM accounts", group="Conversation", prefix="sda",
+    permission="autoresponse", name_field="name", initial_status="PENDING_VERIFICATION",
+    statuses=("PENDING_VERIFICATION", "ACTIVE", "DISABLED"),
+    description="Links a business's Facebook Page / Instagram account to its ASKODOX auto-response rule. Activate "
+                "only after checking the business owns the account. The Page access token is set separately "
+                "(Social auto-DM view, write-only, encrypted). Replies reach Meta only when Integrations -> Meta "
+                "messaging is verified (LIVE); in mock mode they are recorded, never sent. EXTERNAL SETUP "
+                "REQUIRED: Meta App Review + the business connecting its Page.",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("channel", "Channel", "enum", options=("facebook", "instagram"), required=True, list_column=True,
+          filter=True),
+        F("account_id", "Page id / Instagram account id", required=True, list_column=True),
+        F("business_ref", "Business (seller user id)", required=True, list_column=True, filter=True),
+        F("verified_how", "How ownership was checked", "longtext"),
+    ),
+    actions=(
+        _A("activate", "Activate (ownership checked)", "ACTIVE", ("PENDING_VERIFICATION", "DISABLED")),
+        _A("disable", "Disable", "DISABLED", ("PENDING_VERIFICATION", "ACTIVE"), confirm=True),
+    ),
+))
+
+_register(Resource(
     name="flag_rollouts", label="Feature flag targeting", group="Configuration", prefix="flr",
     permission="config", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
     description="Narrow a feature flag to some categories / sub-categories / roles / platforms / locations and a "
@@ -858,6 +914,8 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "advisor.ask_budget": (0, 1, 1),
     "demand.default_window_days": (1, 90, 7),
     "demand.opportunity_expiry_hours": (1, 720, 72),
+    "listings.max_per_hour": (1, 1000, 20),
+    "listings.cross_seller_limit": (2, 100, 3),
 }
 
 _register(Resource(

@@ -352,6 +352,87 @@ PHONE_EVIDENCE = (
      "\"Anything else? Just ask\" appeared after every reply.", "OPEN"),
 )
 
+# The real-phone acceptance checklist: one QA check per flow that still needs
+# a person with a phone. Seeded as CODE READY (never PHONE VERIFIED -- only a
+# real test with evidence moves it). (title, area, steps -> expected)
+ACCEPTANCE_BUILD = "1292"
+ACCEPTANCE_CHECKS = (
+    ("TV: advisor asks size / budget / brand, then real results", "advisor",
+     "Say 'I want a TV'. Expected: one question at a time (size, budget, brand), 'any' skips only that question, "
+     "then local + online results; nothing invented."),
+    ("Chicken: typing 'yes' sends the order request", "actions",
+     "Ask for 1 kg chicken near you, open a seller card, type 'yes'. Expected: the same order request as the "
+     "card button (sign-in asked if needed), shown in Updates."),
+    ("Car: Maruti then Tata replaces the brand", "conversation",
+     "Ask for a Maruti car, then say 'Tata instead'. Expected: results switch to Tata; Maruti is not kept."),
+    ("AC repair nearby uses the real place", "nearby",
+     "Allow location, ask 'AC repair near me'. Expected: Places results near the current place with distance; "
+     "with location denied, ASKODOX asks for a place instead of searching all of India."),
+    ("Job openings show job results, not products", "jobs",
+     "Ask 'driver job openings in Vijayawada'. Expected: job / employer results only."),
+    ("Multi-category request keeps each item separate", "advisor",
+     "Ask 'I need a fridge and a gas stove'. Expected: both are understood; questions and results per item."),
+    ("Location: allow, deny, change place", "location",
+     "Allow -> header shows the named place; deny -> 'Current location' / pick a place; hand-pick a place -> it "
+     "is kept even when the phone moves."),
+    ("Silent notification + tap opens the right screen", "notifications",
+     "Receive a request update with the app in the background. Expected: silent notification; tapping it opens "
+     "Updates on that item."),
+    ("Privacy: export and delete my data", "privacy",
+     "Profile -> Privacy -> Export (file arrives) and Delete account (signed out; old token rejected)."),
+    ("Telugu voice in and Telugu reply out", "voice",
+     "Tap the mic, speak Telugu. Expected: correct Telugu transcript, Telugu answer, Telugu audio reply."),
+    ("Seller Opportunities: accept / decline / expiry", "seller",
+     "As a seller open Opportunities. Expected: matching buyer demand listed; Accept opens the request, Decline "
+     "removes it, expired ones show as expired."),
+    ("Video page chat bar answers from the video", "video",
+     "Open a studied seller video, ask about it in the chat bar. Expected: answer cites the video (time / fact) "
+     "or says 'not in this video'."),
+    ("Updates + unified inbox", "updates",
+     "Open Updates. Expected: requests, opportunities and messages in one list with unread counts; tapping each "
+     "opens it."),
+    ("Advisor: 'car phone holder' = accessories, budget optional", "advisor",
+     "Ask 'car phone holder'. Expected: no car questions; budget is optional; 'show me' shows results at once."),
+    ("Affiliate catalog product shows with its labels", "affiliate",
+     "Staff adds an in-stock product with commission ACTIVE. Expected: it appears in matching results labelled "
+     "Affiliate link; out-of-stock products never appear."),
+    ("Marketplace rows: Amazon / Flipkart / Meesho with unverified price", "affiliate",
+     "Ask for a product sold online. Expected: marketplace rows after local + online, price marked unverified."),
+    ("Demand alert reaches a matching seller", "demand",
+     "With demand alerts on, search for something a test seller sells. Expected: that seller sees an "
+     "Opportunity (within 10 min), with the reason."),
+    ("Command Center flags reach the app", "flags",
+     "Turn advisor.enabled OFF in Command Center, reopen the app after 10 min. Expected: no advisor hold; turn "
+     "it back ON and the questions return. No flag change breaks the app offline."),
+    ("Listing with contact details is held for review", "selling",
+     "Add a listing whose description contains a phone number. Expected: 'saved -- will appear once the team "
+     "reviews it'; staff Approve in Listing reviews makes it searchable."),
+    ("Search keeps working when web search is paused", "discovery",
+     "When Health -> web search is paused/quota, search again. Expected: local + earlier (cached) rows with "
+     "'cached' marking, never invented rows."),
+    ("In-app update keeps data and sign-in", "update",
+     "Update from the previous build through the in-app prompt. Expected: no uninstall, same chats, still signed "
+     "in."),
+    ("askodox.com/chat answers like the app", "web",
+     "Open askodox.com, tap Ask ASKODOX, ask 'TV under 30000'. Expected: the same advisor questions / results "
+     "as the app."),
+)
+
+
+def seed_acceptance_checks(resources: Any, *, actor: str = "system") -> int:
+    """Adds each acceptance check once (by title). Existing checks -- and any
+    status the Owner set -- are never touched."""
+    titles = {r["name"] for r in resources.repo.list("qa_checks", include_archived=True)}
+    added = 0
+    for title, area, steps in ACCEPTANCE_CHECKS:
+        if title in titles:
+            continue
+        resources.create("qa_checks", {"title": title, "area": area, "build": ACCEPTANCE_BUILD, "result": steps},
+                         actor=actor, status="CODE READY")
+        added += 1
+    return added
+
+
 STAGING_GREETINGS = (
     ("morning", "en", "Good morning{name_sep}! What can I find for you today?"),
     ("afternoon", "en", "Good afternoon{name_sep}! What do you need?"),
@@ -399,7 +480,8 @@ def seed_staging_defaults(resources: Any, *, actor: str, domain: str = "askodox.
         resources.create(name, data, actor=actor, status=status)
         created[name] = created.get(name, 0) + 1
 
-    if empty("qa_checks"):
+    accept = {t for t, _, _ in ACCEPTANCE_CHECKS}  # seeded everywhere; don't count as "already seeded"
+    if not [r for r in resources.repo.list("qa_checks", include_archived=True) if r["name"] not in accept]:
         for title, area in OPEN_FINDINGS:
             add("qa_checks", {"title": title, "area": area, "build": "1273",
                               "result": "Open finding from the owner's phone test."})

@@ -147,6 +147,13 @@ class RestApiClient implements ApiClient {
       final decoded = jsonDecode(body);
       if (decoded is Map) {
         final detail = decoded['detail'] ?? decoded['message'] ?? decoded['error'];
+        // {"message": "...", "reasons": [...]} -> "message: reason; reason"
+        if (detail is Map && detail['message'] != null) {
+          final reasons = detail['reasons'];
+          return reasons is List && reasons.isNotEmpty
+              ? '${detail['message']}: ${reasons.join('; ')}'
+              : '${detail['message']}';
+        }
         if (detail != null) return '$detail';
       }
     } catch (_) {}

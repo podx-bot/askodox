@@ -147,7 +147,9 @@ def test_seed_setup_greeting_and_referral_credit_flow(env, monkeypatch):
     verified = {r["name"] for r in qa if r["status"] == "PHONE VERIFIED"}
     assert verified == {t for t, _, _, _, st in owner_os.PHONE_EVIDENCE if st == "PHONE VERIFIED"}, \
         "only owner-reported phone results are PHONE VERIFIED"
-    assert all(r["status"] == "OPEN" for r in qa if r["name"] not in verified)
+    accept = {t for t, _, _ in owner_os.ACCEPTANCE_CHECKS}
+    assert all(r["status"] == "OPEN" for r in qa if r["name"] not in verified | accept)
+    assert all(r["status"] == "CODE READY" for r in qa if r["name"] in accept)
 
     setup = client.get("/admin/cc/owner/setup", headers=OWNER).json()
     assert setup["qa"]["OPEN"] == len(owner_os.OPEN_FINDINGS) + 2 and setup["qa"]["PHONE VERIFIED"] == 4

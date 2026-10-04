@@ -78,4 +78,21 @@ def readiness(request: Request) -> dict:
         payload["environment"] = os.getenv("RAILWAY_ENVIRONMENT_NAME", "") or "local"
     except Exception:
         payload["integrations"] = {}
+    payload["web_search"] = _search_health(container)
     return payload
+
+
+def _search_health(container) -> dict:
+    """What the web-search provider last answered: state, HTTP status, its
+    error code and rate-limit counters (no key, no query text)."""
+    provider = getattr(container, "brave_web_search_provider", None)
+    if provider is None or not hasattr(provider, "health_snapshot"):
+        return {"state": "unavailable"}
+    snap = provider.health_snapshot()
+    return {k: snap.get(k) for k in ("state", "http_status", "provider_code", "rate", "at", "last_ok_at",
+                                     "paused_for_seconds") if snap.get(k) is not None}
+
+
+@router.get("/health/search")
+def search_health(request: Request) -> dict:
+    return _search_health(request.app.state.container)

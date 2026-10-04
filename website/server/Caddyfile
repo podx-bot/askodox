@@ -32,6 +32,19 @@
 	# CSP header and /go/<slug> partner redirects (generated from config)
 	import /srv/generated.caddy
 
+	# Customer web chat: the SAME ASKODOX backend (assistant, discovery,
+	# Universal Advisor) served on askodox.com -- no second chat engine.
+	# Only these paths are forwarded; the client IP travels in
+	# X-Forwarded-For so the backend's per-client rate limits still apply.
+	@askodox_chat path /chat /api/in-app/assistant /deals/discover /api/advisor/next
+	handle @askodox_chat {
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		header -Cache-Control
+		reverse_proxy {$ASKODOX_BACKEND_URL:https://podx-ai-connect-production-3279.up.railway.app} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
 	@hashed path /static/css/* /static/js/*
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
 	@assets path /static/fonts/* /static/img/* /favicon.svg /favicon-32.png /apple-touch-icon.png /icon-*.png

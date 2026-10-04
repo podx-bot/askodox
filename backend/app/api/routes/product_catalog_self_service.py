@@ -117,6 +117,8 @@ class CreateMyListingRequest(BaseModel):
 class MyListingResponse(BaseModel):
     id: int
     seller_tier: str
+    held_for_review: bool = False
+    review_reasons: list[str] = []
 
 
 class MyListingsResponse(BaseModel):
@@ -134,6 +136,25 @@ def create_my_listing(payload: CreateMyListingRequest, request: Request) -> MyLi
         raise HTTPException(status_code=422, detail="subject required")
 
     gstin = (payload.gstin or "").strip() or None
+
+    # Spam / abuse screening (listing_quality.py): block refuses with the
+    # reason; review saves the listing hidden and queues it for staff.
+    from app.api.routes.platform import platform, user_ref
+    from app.services import listing_quality, platform_settings
+
+    pf = platform(container)
+    screening = listing_quality.check(
+        container.product_catalog_repository.db_path, seller_user_id,
+        {"subject": subject, "variant": payload.variant, "seller_name": payload.seller_name,
+         "contact_phone": payload.contact_phone},
+        prohibited=listing_quality.prohibited_terms(pf.repo),
+        max_per_hour=int(platform_settings.get("listings.max_per_hour")),
+        cross_seller_limit=int(platform_settings.get("listings.cross_seller_limit")))
+    if screening["decision"] == "block":
+        pf.repo.record_event("listing_blocked", category=(payload.category_tag or "")[:60],
+                             detail={"reasons": screening["reasons"]})
+        raise HTTPException(status_code=422, detail={"message": "This listing can't be published",
+                                                     "reasons": screening["reasons"]})
 
     duplicate = container.product_catalog_repository.find_near_duplicate_for_seller(
         seller_user_id, subject
@@ -165,12 +186,19 @@ def create_my_listing(payload: CreateMyListingRequest, request: Request) -> MyLi
         payout_reference=(payload.payout_reference or "").strip() or None,
         gstin=gstin,
     )
+    held = screening["decision"] == "review"
+    if held:
+        container.product_catalog_repository.deactivate_for_seller(product_id, seller_user_id)
+        pf.resources.create("listing_reviews", {"product_id": int(product_id), "seller_ref": user_ref(seller_user_id),
+                                                "subject": subject[:300], "reasons": screening["reasons"]},
+                            actor="listing_quality")
     # Recompute from the real catalog rather than incrementing a counter.
     # This keeps exact-subject updates from inflating listing volume and also
     # upgrades pre-round-12 sellers/service providers on the same code path.
     container.seller_profile_repository.backfill_from_catalog()
     profile = container.seller_profile_repository.get(seller_user_id)
-    return MyListingResponse(id=product_id, seller_tier=profile["tier"])
+    return MyListingResponse(id=product_id, seller_tier=profile["tier"], held_for_review=held,
+                             review_reasons=screening["reasons"] if held else [])
 
 
 @router.get("/mine", response_model=MyListingsResponse)

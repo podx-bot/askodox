@@ -186,6 +186,12 @@ def create_app() -> FastAPI:
         deep_research_service=deep_research,
     )
     container.brave_web_search_provider = web_provider
+    try:  # last REAL answer per query, used (labelled stale) while Brave is down
+        from app.services.brave_web_search_provider import LastGoodStore
+
+        web_provider.attach_store(LastGoodStore(container.settings.database_path))
+    except Exception:
+        pass
     # Nearby offline shops for chat results and Explore (Places text search).
     container.google_maps_service = GoogleMapsService(api_key=container.settings.google_maps_api_key)
     container.oasat_live_research_service = live_research
@@ -334,6 +340,9 @@ def create_app() -> FastAPI:
 
     app.include_router(platform_router)
     app.include_router(platform_admin_router)
+    from app.api.routes.social_dm import router as social_dm_router
+
+    app.include_router(social_dm_router)
     from app.api.routes.admin_console import router as admin_console_router
 
     app.include_router(admin_console_router)

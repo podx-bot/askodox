@@ -191,7 +191,12 @@ FAVICON_SVG = (
 # Layout
 # ---------------------------------------------------------------------------
 
+# Served by the ASKODOX backend through the website server (Caddyfile), not
+# built here: the customer web chat on the same backend as the app.
+PROXIED_PATHS = ("/chat",)
+
 NAV = [
+    ("/chat", "nav.chat"),
     ("/discover/", "nav.discover"),
     ("/how-it-works/", "nav.how"),
     ("/sellers/", "nav.sellers"),

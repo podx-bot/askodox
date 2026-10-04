@@ -66,7 +66,7 @@ class SiteBuild(unittest.TestCase):
         for r in ROUTES:
             p = _Links(); p.feed(self.page(r))
             for h in p.hrefs:
-                if not h.startswith("/") or h.startswith("/go/"):
+                if not h.startswith("/") or h.startswith("/go/") or h.split("?")[0] in build.PROXIED_PATHS:
                     continue
                 path = h.split("#")[0].split("?")[0]
                 target = self.out / path.strip("/") / "index.html" if not Path(path).suffix else self.out / path.lstrip("/")
@@ -149,3 +149,19 @@ class Configured(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WebChatProxyTest(unittest.TestCase):
+    """askodox.com/chat is the backend's web chat, proxied (one engine)."""
+
+    def test_caddy_proxies_only_the_chat_paths_to_the_backend(self):
+        caddy = (ROOT / "server" / "Caddyfile").read_text()
+        self.assertIn("@askodox_chat path /chat /api/in-app/assistant /deals/discover /api/advisor/next", caddy)
+        self.assertIn("reverse_proxy {$ASKODOX_BACKEND_URL:https://podx-ai-connect-production-3279.up.railway.app}",
+                      caddy)
+        self.assertNotIn("/admin", caddy.split("@askodox_chat")[1].split("}")[0])
+
+    def test_ask_box_and_nav_point_to_chat(self):
+        cfg = json.loads((ROOT / "config" / "site.json").read_text())
+        self.assertEqual(cfg["app"]["web_app_url"], "/chat")
+        self.assertIn(("/chat", "nav.chat"), build.NAV)

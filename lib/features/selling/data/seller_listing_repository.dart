@@ -14,10 +14,13 @@ final String _guestSellerUserId =
 /// Result of turning a completed "sell" deal into a real, searchable listing.
 class SellerListingResult {
   const SellerListingResult(
-      {required this.success, this.productId, this.message});
+      {required this.success, this.productId, this.message, this.heldForReview = false});
   final bool success;
   final String? productId;
   final String? message;
+
+  /// Saved but hidden until ASKODOX staff review it (spam / abuse check).
+  final bool heldForReview;
 }
 
 /// Added 2026-09-15 (round 5). Before this, "I want to sell mango pickle" in
@@ -110,6 +113,12 @@ class ApiSellerListingRepository implements SellerListingRepository {
       // instead of reporting a false failure.
       return const SellerListingResult(success: true);
     }
-    return SellerListingResult(success: true, productId: '$id');
+    final reasons = (data['review_reasons'] as List? ?? const []).map((r) => '$r').toList();
+    return SellerListingResult(
+      success: true,
+      productId: '$id',
+      heldForReview: data['held_for_review'] == true,
+      message: reasons.isEmpty ? null : reasons.join('; '),
+    );
   }
 }

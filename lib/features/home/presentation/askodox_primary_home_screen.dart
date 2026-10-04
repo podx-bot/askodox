@@ -1,3 +1,4 @@
+import '../../../core/flags/askodox_remote_flags.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
@@ -1170,6 +1171,16 @@ class _AskodoxPrimaryHomeScreenState
     try {
       final result =
           await ref.read(sellerListingRepositoryProvider).createListing(deal);
+      if (result.success && result.heldForReview) {
+        final subject = deal.subject ?? '';
+        final why = result.message ?? '';
+        return (
+          _te
+              ? '“$subject” సేవ్ అయింది -- ASKODOX బృందం చూసిన తర్వాత కనిపిస్తుంది${why.isEmpty ? '' : ' ($why)'}.'
+              : '“$subject” is saved -- it will appear once the ASKODOX team reviews it${why.isEmpty ? '' : ' ($why)'}.',
+          false,
+        );
+      }
       if (result.success) {
         final subject = deal.subject ?? '';
         return (
@@ -1846,7 +1857,10 @@ class _AskodoxPrimaryHomeScreenState
           // budget for a TV) is asked BEFORE final recommendations, unless
           // the user asked to see options now.
           final advisor = results.advisor;
-          if (askodoxAdvisorHolds(advisor, showNow: showNow, videoAsk: videoAsk)) {
+          // Command Center can switch the advisor off (globally or targeted);
+          // the server then sends no hold, and the app also never holds.
+          if (ref.read(askodoxFlagProvider('advisor.enabled')) &&
+              askodoxAdvisorHolds(advisor, showNow: showNow, videoAsk: videoAsk)) {
             advisorHeld = advisor;
             notifier.markAdvisorAsked(advisor!.field ?? '');
             results = null;
@@ -2657,10 +2671,13 @@ class _AskodoxPrimaryHomeScreenState
     if (mounted) setState(() => _voicePhase = _VoicePhase.speaking);
     final lips = ref.read(askodoxCompanionVoiceProvider)..speechBegin(reply);
     try {
-      final audio = await ref
-          .read(askodoxReplySpeechServiceProvider)
-          .sarvamAudio(reply,
-              locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
+      // Flag voice.sarvam_tts off -> device TTS only (no Sarvam call).
+      final audio = !ref.read(askodoxFlagProvider('voice.sarvam_tts'))
+          ? null
+          : await ref
+              .read(askodoxReplySpeechServiceProvider)
+              .sarvamAudio(reply,
+                  locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
       if (!mounted || _voicePhase != _VoicePhase.speaking) return;
       if (audio != null) {
         lips.speechBegin(reply);

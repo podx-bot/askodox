@@ -131,6 +131,8 @@ class ResourceService:
             if result.get("data") is not None:
                 data = result["data"]
                 self.repo.update(record_id, actor=actor, action=action_name, data=data)
+            if action.to_status:  # an effect that is also a status transition
+                self.repo.update(record_id, actor=actor, action=action_name, status=action.to_status)
             return {**(self.repo.get(record_id) or {}), "result": result.get("result")}
         return self.repo.update(record_id, actor=actor, action=action_name, status=action.to_status, data=data)
 
