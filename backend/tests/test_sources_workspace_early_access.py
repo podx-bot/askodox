@@ -382,3 +382,62 @@ def test_scheduled_feed_sync_runs_only_due_feeds_on_the_background_runner(api):
     jobs._last.clear()
     assert jobs.run_once()["feeds"] == {}, "synced recently -> not due again"
     assert len([c for c in fetch.calls if "feed.csv" in c]) == 1
+
+
+def test_blocked_marketplace_page_falls_back_to_manual_entry_then_review_then_live(api, monkeypatch):
+    """paste -> detect -> metadata BLOCKED -> staff fill the fields by hand
+    -> review -> approve -> live in results. Nothing is scraped or invented."""
+    client, container, _ = api
+
+    def blocked(url):
+        raise PermissionError("403 robot check")
+
+    monkeypatch.setattr(container, "affiliate_page_fetch", blocked, raising=False)
+    _staff(client, "affiliate_product_staff", phone="919833333333")
+    junior = {"X-ASKODOX-Staff-Session": client.post("/api/staff/session",
+                                                     headers=_app_bearer(container, "919833333333")).json()["session"]}
+    url = "https://www.flipkart.com/stride-walking-shoes/p/itmWALK9?pid=SHOWALK9"
+    got = client.post("/admin/cc/workspace/import", headers=junior, json={"url": url}).json()
+    assert got["ok"] is True and got["status"] == "unavailable"
+    assert got["source"]["name"] == "Flipkart"
+    assert "by hand" in got["note"]
+    assert "title" not in got["fields"] and "price" not in got["fields"], "nothing invented when the page is blocked"
+    assert got["fields"]["platform"] == "flipkart"
+    manual = {**got["fields"], "title": "Stride Walking Shoes (size 6-11)", "price": 1299, "original_product_url": url}
+    saved = client.post("/admin/cc/workspace/items", headers=junior,
+                        json={"item_type": "product", "fields": manual, "stock_status": "in_stock"}).json()
+    assert saved["review_status"] == "NEEDS_REVIEW"
+    _staff(client, "supervisor", phone="919844444444")
+    sup = {"X-ASKODOX-Staff-Session": client.post("/api/staff/session",
+                                                  headers=_app_bearer(container, "919844444444")).json()["session"]}
+    live = client.post(f"/admin/cc/workspace/items/{saved['item']['id']}/review", headers=sup,
+                       json={"action": "approve"}).json()
+    assert live["item"]["review_status"] == "LIVE"
+    rows = [m for m in _discover(client)["matches"] if m.get("origin") == "affiliate_catalog"]
+    assert rows and rows[0]["title"].startswith("Stride Walking Shoes")
+    assert rows[0]["price_verified"] is False
+
+
+def test_news_link_from_content_staff_goes_live_in_content_and_in_results(api):
+    client, container, _ = api
+    _staff(client, "content_staff", phone="919855555555")
+    writer = {"X-ASKODOX-Staff-Session": client.post("/api/staff/session",
+                                                     headers=_app_bearer(container, "919855555555")).json()["session"]}
+    url = "https://news.example.in/walking-shoes-buying-guide-2026"
+    got = client.post("/admin/cc/workspace/import", headers=writer, json={"url": url, "item_type": "news"}).json()
+    assert got["ok"] is True
+    fields = {**got["fields"], "title": "Walking shoes buying guide 2026", "original_product_url": url,
+              "description": "How to pick walking shoes for standing all day"}
+    saved = client.post("/admin/cc/workspace/items", headers=writer, json={"item_type": "news", "fields": fields}).json()
+    item_id = saved["item"]["id"]
+    if saved["review_status"] != "LIVE":
+        assert client.get("/api/content").json()["count"] == 0, "not public before approval"
+        _staff(client, "supervisor", phone="919866666666")
+        sup = {"X-ASKODOX-Staff-Session": client.post(
+            "/api/staff/session", headers=_app_bearer(container, "919866666666")).json()["session"]}
+        client.post(f"/admin/cc/workspace/items/{item_id}/review", headers=sup, json={"action": "approve"})
+    public = client.get("/api/content").json()["items"]
+    assert [i["title"] for i in public] == ["Walking shoes buying guide 2026"]
+    found = _discover(client)
+    content = [s for s in found["sections"] if s["kind"] == "content"]
+    assert content and content[0]["item_ids"] == [f"content-{item_id}"]

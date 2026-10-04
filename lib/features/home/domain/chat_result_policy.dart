@@ -654,9 +654,14 @@ String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) 
 /// LOCAL | SPONSORED | ONLINE, extended only when a type is present).
 /// Paid placements keep their own column and label; they never change the
 /// order of the organic rows inside the other columns.
-enum AskodoxCompareKind { local, jobs, deals, sponsored, online, affiliate, used, surplus, videos, shorts }
+enum AskodoxCompareKind { local, jobs, deals, sponsored, online, affiliate, news, used, surplus, videos, shorts }
 
-AskodoxCompareKind askodoxCompareKindOf(UniversalMatch match) => switch (askodoxSegmentOf(match)) {
+AskodoxCompareKind askodoxCompareKindOf(UniversalMatch match) =>
+    // Staff-approved news / guides get their own group inside the same
+    // conversation results (no separate screen to hunt for).
+    match.source == 'content' && !match.sponsored ? AskodoxCompareKind.news : _compareKindBySegment(match);
+
+AskodoxCompareKind _compareKindBySegment(UniversalMatch match) => switch (askodoxSegmentOf(match)) {
       AskodoxResultSegment.askodoxMatches ||
       AskodoxResultSegment.registered ||
       AskodoxResultSegment.individual ||
@@ -704,6 +709,7 @@ String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang
           AskodoxCompareKind.sponsored => 'స్పాన్సర్డ్',
           AskodoxCompareKind.online => 'ఆన్‌లైన్',
           AskodoxCompareKind.affiliate => 'అఫిలియేట్',
+          AskodoxCompareKind.news => 'వార్తలు',
           AskodoxCompareKind.used => 'వాడినవి',
           AskodoxCompareKind.surplus => 'సర్ప్లస్',
           AskodoxCompareKind.videos => 'వీడియోలు',
@@ -716,6 +722,7 @@ String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang
           AskodoxCompareKind.sponsored => 'प्रायोजित',
           AskodoxCompareKind.online => 'ऑनलाइन',
           AskodoxCompareKind.affiliate => 'एफ़िलिएट',
+          AskodoxCompareKind.news => 'ख़बरें',
           AskodoxCompareKind.used => 'पुराना',
           AskodoxCompareKind.surplus => 'सरप्लस',
           AskodoxCompareKind.videos => 'वीडियो',
@@ -728,6 +735,7 @@ String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang
           AskodoxCompareKind.sponsored => 'Sponsored',
           AskodoxCompareKind.online => 'Online',
           AskodoxCompareKind.affiliate => 'Affiliate',
+          AskodoxCompareKind.news => 'News',
           AskodoxCompareKind.used => 'Used',
           AskodoxCompareKind.surplus => 'Surplus',
           AskodoxCompareKind.videos => 'Videos',

@@ -95,8 +95,15 @@ def _search_health(container) -> dict:
     if provider is None or not hasattr(provider, "health_snapshot"):
         return {"state": "unavailable"}
     snap = provider.health_snapshot()
-    return {k: snap.get(k) for k in ("state", "http_status", "provider_code", "rate", "at", "last_ok_at",
-                                     "paused_for_seconds") if snap.get(k) is not None}
+    out = {k: snap.get(k) for k in ("state", "http_status", "provider_code", "rate", "at", "last_ok_at",
+                                    "paused_for_seconds") if snap.get(k) is not None}
+    chain = getattr(container, "web_search_chain", None)
+    if chain is not None:  # fallback providers: configured / ok / error (never keys)
+        out["fallbacks"] = {getattr(p, "name", type(p).__name__):
+                            ((getattr(p, "health", {}) or {}).get("state") if getattr(p, "configured", False)
+                             else "not_configured")
+                            for p in getattr(chain, "providers", [])[1:]}
+    return out
 
 
 @router.get("/health/search")

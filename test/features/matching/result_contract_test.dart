@@ -115,4 +115,16 @@ void main() {
       }
     });
   });
+
+  test('staff-approved news gets its own News group next to products, never replacing them', () {
+    const news = UniversalMatch(id: 'content-7', title: 'Walking shoes buying guide', source: 'content',
+        destinationUrl: 'https://news.example/guide');
+    const product = UniversalMatch(id: 'web-1', title: 'Walking shoes', source: 'online',
+        destinationUrl: 'https://shop.example/w');
+    expect(askodoxCompareKindOf(news), AskodoxCompareKind.news);
+    expect(askodoxCompareKindOf(product), AskodoxCompareKind.online);
+    final groups = askodoxCompareGroups([news, product]).map((g) => g.$1).toList();
+    expect(groups, [AskodoxCompareKind.online, AskodoxCompareKind.news]);
+    expect(askodoxCompareLabel(AskodoxCompareKind.news, 'te'), 'వార్తలు');
+  });
 }

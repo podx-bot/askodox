@@ -176,6 +176,30 @@ _JUNCTION_WORDS = ("junction", "circle", "center", "centre", "chowk", "cross", "
                    "bus stand", "bus stop", "signal", "కూడలి", "సెంటర్", "జంక్షన్", "चौक", "चौराहा")
 
 
+_PLACE_TYPES = {"intersection", "route", "bus_station", "bus_stop", "transit_station", "train_station",
+                "light_rail_station", "subway_station", "taxi_stand"}
+# Types that are only ever "a place / landmark", never a business.
+_NEUTRAL_TYPES = {"point_of_interest", "establishment", "landmark", "tourist_attraction", "locality",
+                  "sublocality", "neighborhood", "geocode", "premise", "political", "plus_code"}
+
+
+def is_junction(name: str, types=None) -> bool:
+    """A real junction / circle / bus stop -- never a business that merely
+    has 'Centre' or 'Circle' in its name ("Unacademy Centre" is a school)."""
+    kinds = {str(t).lower() for t in (types or [])}
+    if kinds & _PLACE_TYPES:
+        return True
+    head = str(name or "").split(",")[0].strip().lower()
+    named = any(head.endswith(" " + w) or head == w or f" {w} " in f" {head} " and w in ("junction", "chowk", "x road",
+                "x-road", "crossroads", "జంక్షన్", "కూడలి", "चौराहा")
+                for w in _JUNCTION_WORDS)
+    if not named:
+        return False
+    # With types known, any business type rules it out; without types the
+    # name alone decides (older payloads).
+    return not kinds or kinds <= _NEUTRAL_TYPES
+
+
 def _metres(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     import math
 
@@ -211,7 +235,7 @@ def nearest_junction(request: Request, latitude: float, longitude: float, radius
             if p.get("latitude") is None or p.get("longitude") is None:
                 continue
             name = str(p.get("name") or "")
-            if not any(word in name.lower() for word in _JUNCTION_WORDS):
+            if not is_junction(name, p.get("types")):
                 continue
             distance = _metres(latitude, longitude, float(p["latitude"]), float(p["longitude"]))
             if distance <= radius and (best is None or distance < best["distance_m"]):

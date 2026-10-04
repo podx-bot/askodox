@@ -128,6 +128,89 @@ void main() {
     });
   });
 
+  testWidgets('pickup pin shows the nearest junction; "Pin here" moves to it; the label carries the landmark',
+      (tester) async {
+    AskodoxPlace? picked;
+    var calls = 0;
+    await tester.pumpWidget(ProviderScope(
+      overrides: [growthRepositoryProvider.overrideWithValue(_Growth())],
+      child: MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              picked = await Navigator.of(context).push<AskodoxPlace>(MaterialPageRoute(
+                builder: (_) => AskodoxMapPinPicker(
+                  title: 'Pickup point',
+                  showTiles: false,
+                  namer: (lat, lon) async => 'MG Road, Labbipet, Vijayawada',
+                  junctionLookup: (lat, lon) async {
+                    calls++;
+                    return const AskodoxJunction(name: 'Benz Circle', latitude: 16.4995, longitude: 80.6560, distanceM: 140);
+                  },
+                ),
+              ));
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxNearestJunction')), findsNothing, reason: 'no pin yet, nothing looked up');
+    await tester.tap(find.byKey(const Key('askodoxMapSurface')));
+    await tester.pumpAndSettle();
+    expect(find.text('Near Benz Circle · 140 m'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxUsePin')));
+    await tester.pumpAndSettle();
+    expect(picked!.label, 'MG Road, Labbipet, Vijayawada, near Benz Circle');
+    expect(calls, 1);
+  });
+
+  testWidgets('"Pin here" moves the pin onto the junction; no junction = nothing shown', (tester) async {
+    AskodoxPlace? picked;
+    Future<void> open(AskodoxJunction? junction) async {
+      await tester.pumpWidget(ProviderScope(
+        overrides: [growthRepositoryProvider.overrideWithValue(_Growth())],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                picked = await Navigator.of(context).push<AskodoxPlace>(MaterialPageRoute(
+                  builder: (_) => AskodoxMapPinPicker(
+                    title: 'Drop point',
+                    showTiles: false,
+                    namer: (lat, lon) async => 'Some lane',
+                    junctionLookup: (lat, lon) async => junction,
+                  ),
+                ));
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMapSurface')));
+      await tester.pumpAndSettle();
+    }
+
+    await open(const AskodoxJunction(name: 'Benz Circle', latitude: 16.4995, longitude: 80.6560));
+    await tester.tap(find.byKey(const Key('askodoxUseJunction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxUsePin')));
+    await tester.pumpAndSettle();
+    expect(picked!.label, 'Benz Circle');
+    expect([picked!.latitude, picked!.longitude], [16.4995, 80.6560]);
+
+    await open(null);
+    expect(find.byKey(const Key('askodoxNearestJunction')), findsNothing, reason: 'Maps off: no landmark invented');
+    await tester.tap(find.byKey(const Key('askodoxUsePin')));
+    await tester.pumpAndSettle();
+    expect(picked!.label, 'Some lane');
+  });
+
   testWidgets('map pin: tap names the point, search jumps to a place, "Use" returns real coordinates',
       (tester) async {
     AskodoxPlace? picked;

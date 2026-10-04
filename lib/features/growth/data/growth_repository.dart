@@ -16,6 +16,48 @@ class AskodoxPlace {
   final String kind;
 }
 
+/// The nearest NAMED junction / circle / bus stop to a point (Places only;
+/// null when Maps is off or nothing named is close) -- a landmark drivers
+/// and couriers recognise. Never invented.
+class AskodoxJunction {
+  const AskodoxJunction({required this.name, required this.latitude, required this.longitude, this.distanceM});
+  final String name;
+  final double latitude;
+  final double longitude;
+  final int? distanceM;
+}
+
+typedef AskodoxJunctionLookup = Future<AskodoxJunction?> Function(double latitude, double longitude);
+
+final askodoxJunctionLookupProvider = Provider<AskodoxJunctionLookup>((ref) {
+  final client = ref.watch(apiClientProvider);
+  return (latitude, longitude) async {
+    try {
+      final result = await client.get<Map<String, Object?>>(
+          '/api/discover/junction?latitude=$latitude&longitude=$longitude',
+          options: const ApiRequestOptions(timeout: Duration(seconds: 8)));
+      if (result is! ApiSuccess<Map<String, Object?>>) return null;
+      final j = result.data['junction'];
+      if (result.data['status'] != 'ok' || j is! Map) return null;
+      final lat = j['latitude'], lng = j['longitude'];
+      if (lat is! num || lng is! num || '${j['name'] ?? ''}'.trim().isEmpty) return null;
+      return AskodoxJunction(name: '${j['name']}'.split(',').first.trim(), latitude: lat.toDouble(),
+          longitude: lng.toDouble(), distanceM: (j['distance_m'] as num?)?.round());
+    } catch (_) {
+      return null; // a landmark is a convenience -- never blocks choosing a place
+    }
+  };
+});
+
+/// "Benz Circle, Vijayawada" + junction "Benz Circle" -> unchanged;
+/// otherwise "label, near junction".
+String askodoxLabelNearJunction(String label, AskodoxJunction? junction) {
+  if (junction == null) return label;
+  final name = junction.name.trim();
+  if (name.isEmpty || label.toLowerCase().contains(name.toLowerCase())) return label;
+  return label.trim().isEmpty ? 'Near $name' : '$label, near $name';
+}
+
 /// Pickup -> drop: real road distance/time and quotes that registered
 /// delivery partners listed themselves (never an ASKODOX estimate).
 class AskodoxRouteQuote {

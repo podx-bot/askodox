@@ -33,7 +33,8 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-1-AbOfkKKk3H4",
@@ -67,7 +68,8 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-2-nMMmLxoa_Vg",
@@ -101,7 +103,8 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-3-wpkGeg5lVR4",
@@ -135,17 +138,44 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "find_local",
   "next_ask": "samsung 43 inch tv near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJK_JQqDX7NToRWYg30i7vkp8",
+    "match_id": "external-ChIJK_JQqDX7NToRWYg30i7vkp8",
+    "provider_id": "",
+    "title": "Croma - Benz Circle",
+    "subtitle": "Vajra Commercial Complex, MG Rd, opposite Eenadu Press, K P Nagar, Benz Circle, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 1.3,
+    "rating_average": 4.9,
+    "review_count": 13056,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.4973648,
+    "longitude": 80.6559453,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.540000000000006,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -187,7 +217,8 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-1-AbOfkKKk3H4",
@@ -221,7 +252,8 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-2-nMMmLxoa_Vg",
@@ -255,7 +287,8 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-3-wpkGeg5lVR4",
@@ -289,17 +322,44 @@
      "samsung 43 inch tv"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "deals",
   "next_ask": "samsung 43 inch tv offers",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJK_JQqDX7NToRWYg30i7vkp8",
+    "match_id": "external-ChIJK_JQqDX7NToRWYg30i7vkp8",
+    "provider_id": "",
+    "title": "Croma - Benz Circle",
+    "subtitle": "Vajra Commercial Complex, MG Rd, opposite Eenadu Press, K P Nagar, Benz Circle, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 1.3,
+    "rating_average": 4.9,
+    "review_count": 13056,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.4973648,
+    "longitude": 80.6559453,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.540000000000006,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -341,7 +401,8 @@
      "redmi note 13 pro"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-1-rPezJWMjKww",
@@ -375,7 +436,8 @@
      "redmi note 13 pro"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-2-KicjFvMUYDk",
@@ -409,7 +471,8 @@
      "redmi note 13 pro"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-3-S0jt6gWc33c",
@@ -443,17 +506,44 @@
      "redmi note 13 pro"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "deals",
   "next_ask": "redmi note 13 pro offers",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJG7kZwGb7NToRxYPMJOhxUbE",
+    "match_id": "external-ChIJG7kZwGb7NToRxYPMJOhxUbE",
+    "provider_id": "",
+    "title": "Happi Mobiles Vijayawada Bandar Road",
+    "subtitle": "Plot No: 40-1-51, Israeloet, MG Rd, opp. P&T Colony, Acharya Ranga Nagar, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 0.9,
+    "rating_average": 4.9,
+    "review_count": 2991,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=12777118859690542021&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.4989798,
+    "longitude": 80.6509141,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.620000000000005,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -495,33 +585,34 @@
      "tata nexon"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-3-jJxpiouM3Ss",
-    "match_id": "video-yt-3",
+    "id": "video-yt-1-KHEW8UF0nBI",
+    "match_id": "video-yt-1",
     "provider_id": "youtube.com",
-    "title": "Tata NEXON - ₹7.32 Lakh*, 24 Kmpl , 382 Boot space #tatanexon #nexon #nexoncng #nexonev",
-    "subtitle": "Tata NEXON ₹7.32 Lakh*, 24 Kmpl , 382 Boot space #tatanexon #nexon #nexoncng #nexonev\n\nTata NEXON v/s VENUE #tatanexon #nexon #tatanexonev #nexon2024\n\nNEXON v/s BREZZA #nexon #tatanexon #tatanexonev #brezza #brezza2024\n\n2025 Tata Nexon CNG #nexoncng #tatanexon #nexon #nexonevmax\n",
+    "title": "TATA NEXON New GEN 2027 First Look 🔥 / इस बार Creta खत्म 🤯",
+    "subtitle": "2027 Tata Nexon New Gen is expected to bring the biggest change to the popular compact SUV since its launch. Codenamed “Project Garud”, the next-generation Nexon is expected to arrive in India in 2027, with reports pointing towards major structural, exterior and interior updates.",
     "score": null,
     "match_source": "video",
     "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=jJxpiouM3Ss",
+    "destination_url": "https://www.youtube.com/watch?v=KHEW8UF0nBI",
     "affiliate": false,
     "disclosure": "Creator's opinion -- not verified by ASKODOX",
     "fallback": true,
     "demo": false,
     "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/jJxpiouM3Ss/hqdefault.jpg",
-    "source_name": "Cars and Finance information",
-    "duration": "0:11",
+    "image_url": "https://i.ytimg.com/vi/KHEW8UF0nBI/hqdefault.jpg",
+    "source_name": "Nick Audience 🖤",
+    "duration": "8:58",
     "embeddable": true,
     "paid_promotion": false,
     "video_source": "youtube_data",
     "video_format": "video",
-    "video_id": "yt_jJxpiouM3Ss",
+    "video_id": "yt_KHEW8UF0nBI",
     "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/jJxpiouM3Ss?playsinline=1&rel=0",
+    "embed_url": "https://www.youtube-nocookie.com/embed/KHEW8UF0nBI?playsinline=1&rel=0",
     "relationship": "creator",
     "sponsored": false,
     "sponsored_label": null,
@@ -529,45 +620,47 @@
      "tata nexon"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-1-EP9YAXFSWU8",
-    "match_id": "video-yt-1",
+    "id": "video-yt-2-Pl9LhmnBxsY",
+    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
-    "title": "Tata Nexon Dark - Feature Loaded But Inconsistent Quality - Pros & Cons | Faisal Khan",
-    "subtitle": "Buy Now Link: Involve ONE Snowfall Car Perfume: https://bit.ly/3FAir6g\n\nSpecial Discount: Flat 10% OFF across website, Coupon Code: FasBeam\n\nHere is the most detailed review of the Tata Nexon Dark I tell you everything about the design, interior, features, performance, ride, hand",
+    "title": "New 2026 Tata Nexon Cng Review ✅On Road Price Mileage Features | Tata Nexon 2026 | Nexon Car",
+    "subtitle": "Tata Nexon 2026 ka नया मॉडल, शानदार डिजाइन और दमदार फीचर्स के साथ।\n\nइस वीडियो में Tata Nexon के Exterior, Interior, Features और Performance के बारे में पूरी जानकारी दी गई है।\n\nTata Nexon की कीमत, Variant, Mileage और नए Features के बारे में जानिए।\n\nअगर आप New Tata Nexon खरीदने का ",
     "score": null,
     "match_source": "video",
     "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=EP9YAXFSWU8",
+    "destination_url": "https://www.youtube.com/watch?v=Pl9LhmnBxsY",
     "affiliate": false,
-    "disclosure": "Includes paid promotion (declared on YouTube)",
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
     "fallback": true,
     "demo": false,
     "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/EP9YAXFSWU8/hqdefault.jpg",
-    "source_name": "Faisal Khan",
-    "duration": "12:37",
+    "image_url": "https://i.ytimg.com/vi/Pl9LhmnBxsY/hqdefault.jpg",
+    "source_name": "Mjk Cars",
+    "duration": "13:18",
     "embeddable": true,
-    "paid_promotion": true,
+    "paid_promotion": false,
     "video_source": "youtube_data",
     "video_format": "video",
-    "video_id": "yt_EP9YAXFSWU8",
+    "video_id": "yt_Pl9LhmnBxsY",
     "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/EP9YAXFSWU8?playsinline=1&rel=0",
+    "embed_url": "https://www.youtube-nocookie.com/embed/Pl9LhmnBxsY?playsinline=1&rel=0",
     "relationship": "creator",
-    "sponsored": true,
-    "sponsored_label": "Paid promotion",
+    "sponsored": false,
+    "sponsored_label": null,
     "products": [
      "tata nexon"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-2-rFR2gc1nLAo",
-    "match_id": "video-yt-2",
+    "id": "video-yt-3-rFR2gc1nLAo",
+    "match_id": "video-yt-3",
     "provider_id": "youtube.com",
     "title": "New Tata Nexon review - Fresh look, new interior, DCT gearbox | First Drive | Autocar India",
     "subtitle": "The Nexon gets a full makeover with a radical-looking exterior, a modern and feature-rich interior, a new DCT gearbox for the petrol engine, and more power for the diesel. Jay Patil tells you more. \n\nCameraperson: Pradeep Bhondave\nEditor: Rohan Salaskar\n\n0:00 - Intro\n0:50 - Exter",
@@ -597,17 +690,44 @@
      "tata nexon"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "sponsored"
    }
   ],
   "video_status": "no_results",
   "next_step": "find_local",
   "next_ask": "tata nexon near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJOUpHExL7NToR0llNH8AsJ3Q",
+    "match_id": "external-ChIJOUpHExL7NToR0llNH8AsJ3Q",
+    "provider_id": "",
+    "title": "Tata Motors Commercial Vehicle Dealer - Sahni Auto Private Limited",
+    "subtitle": "Sahni Complex, No 55/7/49 32 & 35, 2nd Cross J, Nagarjuna Nagar, Auto Nagar, Vijayawada, Kanuru, Andhra Pradesh 520007",
+    "distance_km": 2.7,
+    "rating_average": 4.9,
+    "review_count": 418,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=8369707636161862098&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.5128037,
+    "longitude": 80.67254659999999,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.260000000000005,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -649,45 +769,12 @@
     "services": [
      "ac service"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "shorts"
    },
    {
-    "id": "video-yt-1-mXePHoT9s0o",
+    "id": "video-yt-1-7mK4-impjiE",
     "match_id": "video-yt-1",
-    "provider_id": "youtube.com",
-    "title": "AC Cleaning Service 2025 | Urban Company AC Service| Spilit AC Cleaning Advance Foamjet Technology|",
-    "subtitle": "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=mXePHoT9s0o",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/mXePHoT9s0o/hqdefault.jpg",
-    "source_name": "KP Vlogs & Review",
-    "duration": "0:14",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "short",
-    "video_id": "yt_mXePHoT9s0o",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/mXePHoT9s0o?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [],
-    "services": [
-     "ac service"
-    ],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-2-7mK4-impjiE",
-    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
     "title": "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
     "subtitle": "How to Service the DAIKIN AC Outdoor Unit of Split AC\nHow to Service the Outdoor Unit of a Split AC\n\nQueries - \nAC outdoor unit cleaning\nac cleaning at home\nSplit AC service at home\nDAIKIN AC outdoor unit cleaning\nac outdoor water service\nac outdoor unit cleaning\nhow to clean spl",
@@ -717,33 +804,34 @@
     "services": [
      "ac service"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "shorts"
    },
    {
-    "id": "video-yt-3-Srxja6Eq8jE",
-    "match_id": "video-yt-3",
+    "id": "video-yt-2-GXHjwuxJrIU",
+    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
-    "title": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
-    "subtitle": "Welcome to Hello Mistri 443!\nIn this video, we take you through the complete Samsung Outdoor Split AC Service process. From deep cleaning to essential repairs, watch how we restore peak performance to this unit. Whether you're a DIY enthusiast or looking for reliable AC service i",
+    "title": "AC Service ❌ End Of AC✅",
+    "subtitle": "How to service your LG Dual Inverter AC at home step-by-step and save money on costly technician visits! In this video, I show you a complete DIY AC servicing guide including cleaning filters, checking cooling performance, and basic maintenance tips to keep your air conditioner r",
     "score": null,
     "match_source": "video",
     "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
+    "destination_url": "https://www.youtube.com/watch?v=GXHjwuxJrIU",
     "affiliate": false,
     "disclosure": "Creator's opinion -- not verified by ASKODOX",
     "fallback": true,
     "demo": false,
     "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/Srxja6Eq8jE/hqdefault.jpg",
-    "source_name": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
-    "duration": "0:15",
+    "image_url": "https://i.ytimg.com/vi/GXHjwuxJrIU/hqdefault.jpg",
+    "source_name": "V4 VIDEOS",
+    "duration": "1:07",
     "embeddable": true,
     "paid_promotion": false,
     "video_source": "youtube_data",
     "video_format": "video",
-    "video_id": "yt_Srxja6Eq8jE",
+    "video_id": "yt_GXHjwuxJrIU",
     "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/Srxja6Eq8jE?playsinline=1&rel=0",
+    "embed_url": "https://www.youtube-nocookie.com/embed/GXHjwuxJrIU?playsinline=1&rel=0",
     "relationship": "creator",
     "sponsored": false,
     "sponsored_label": null,
@@ -751,17 +839,79 @@
     "services": [
      "ac service"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-3-8T652HFr7aE",
+    "match_id": "video-yt-3",
+    "provider_id": "youtube.com",
+    "title": "MarQ Split AC First Service After 1 Year, Copper Quality & Cooling Review #airconditioner",
+    "subtitle": "",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=8T652HFr7aE",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/8T652HFr7aE/hqdefault.jpg",
+    "source_name": "Shubz Gadget Reviews",
+    "duration": "0:16",
+    "embeddable": true,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_8T652HFr7aE",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/8T652HFr7aE?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [],
+    "services": [
+     "ac service"
+    ],
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "local_service",
   "next_ask": "ac service near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJjTMTIm7lNToRtUpGs57qx1k",
+    "match_id": "external-ChIJjTMTIm7lNToRtUpGs57qx1k",
+    "provider_id": "",
+    "title": "SML AC SERVICES / ELECTRICAL WORKS",
+    "subtitle": "No.40, 25-24, Masjid St, Patamatalanka, Benz Circle, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 1.4,
+    "rating_average": 5.0,
+    "review_count": 35,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.4942129,
+    "longitude": 80.651076,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.72,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "not_applicable",
    "online": "error",
    "videos": "not_applicable",
@@ -771,76 +921,8 @@
  "home-service": {
   "videos": [
    {
-    "id": "video-yt-0-M4qJRoGE8l0",
+    "id": "video-yt-0-Ac8Arkhzgps",
     "match_id": "video-yt-0",
-    "provider_id": "youtube.com",
-    "title": "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber",
-    "subtitle": "",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=M4qJRoGE8l0",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/M4qJRoGE8l0/hqdefault.jpg",
-    "source_name": "Punni Plumbing works",
-    "duration": "0:20",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_M4qJRoGE8l0",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/M4qJRoGE8l0?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [],
-    "services": [
-     "plumbing repair"
-    ],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-1-QAhRq8_e2Ro",
-    "match_id": "video-yt-1",
-    "provider_id": "youtube.com",
-    "title": "ये 3 Tools देखकर आप भी खरीदोगे! 😱 | 3 Useful Tools Review & Testing",
-    "subtitle": "#UsefulTools #ToolsReview #ToolTesting #BestTools #DIYTools #HandTools #ElectricalTools #PlumbingTools #HomeTools #INGCO #AmazonFinds #UsefulGadgets #ToolReview #HindiTech #TanuSuperstar\n\nAmazon Links👇\nIngco Wire Cutter & Stripper\nhttps://link.amazon/B08jiuO3n\n\nआज के इस वीडियो मे",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=QAhRq8_e2Ro",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/QAhRq8_e2Ro/hqdefault.jpg",
-    "source_name": "Tanu Superstar",
-    "duration": "6:45",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_QAhRq8_e2Ro",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/QAhRq8_e2Ro?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [],
-    "services": [
-     "plumbing repair"
-    ],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-2-Ac8Arkhzgps",
-    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
     "subtitle": "Which do you prefer for sealing drains — plumbers putty or silicone?\n\nSome plumbers swear by putty. Others prefer silicone for a stronger long-term seal. Both have their place depending on the sink, drain, and installation.\n\n🛠 Products mentioned in this video:\n\n► Oatey Plumbers P",
@@ -870,11 +952,12 @@
     "services": [
      "plumbing repair"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "shorts"
    },
    {
-    "id": "video-yt-3-Bvxkrv7t4Dw",
-    "match_id": "video-yt-3",
+    "id": "video-yt-1-Bvxkrv7t4Dw",
+    "match_id": "video-yt-1",
     "provider_id": "youtube.com",
     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
     "subtitle": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\n\nthanks for watching video",
@@ -904,17 +987,114 @@
     "services": [
      "plumbing repair"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "shorts"
+   },
+   {
+    "id": "video-yt-2-M4qJRoGE8l0",
+    "match_id": "video-yt-2",
+    "provider_id": "youtube.com",
+    "title": "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber",
+    "subtitle": "",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=M4qJRoGE8l0",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/M4qJRoGE8l0/hqdefault.jpg",
+    "source_name": "Punni Plumbing works",
+    "duration": "0:20",
+    "embeddable": true,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_M4qJRoGE8l0",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/M4qJRoGE8l0?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [],
+    "services": [
+     "plumbing repair"
+    ],
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-3-Hczgu5JTbvY",
+    "match_id": "video-yt-3",
+    "provider_id": "youtube.com",
+    "title": "Maintenance your water heater at least once a year #water #plumbing #repair",
+    "subtitle": "",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=Hczgu5JTbvY",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/Hczgu5JTbvY/hqdefault.jpg",
+    "source_name": "CapitolMech ",
+    "duration": "0:18",
+    "embeddable": true,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_Hczgu5JTbvY",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/Hczgu5JTbvY?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [],
+    "services": [
+     "plumbing repair"
+    ],
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "local_service",
   "next_ask": "plumbing repair service near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJXTWGTIX7NToRNgJQmGZQEOw",
+    "match_id": "external-ChIJXTWGTIX7NToRNgJQmGZQEOw",
+    "provider_id": "",
+    "title": "Amulya Plumbing & Sanitary Services",
+    "subtitle": "32-15-74, Sivarampriya Apartments, G1, Sivalayam St, Moghalrajpuram, Christurajupuram, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 0.2,
+    "rating_average": 4.8,
+    "review_count": 94,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.507684299999998,
+    "longitude": 80.6475566,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.56,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "not_applicable",
    "online": "error",
    "videos": "not_applicable",
@@ -955,67 +1135,34 @@
      "hyderabadi biryani"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-1-ERx4yyuEyoY",
-    "match_id": "video-yt-1",
-    "provider_id": "youtube.com",
-    "title": "Ulli Karam Egg Biryani | Spicy, Flavorful & Irresistible | SattiBabu Biryani",
-    "subtitle": "Ulli Karam Egg Biryani – A Spicy Twist on Your Favourite Biryani! \n\nLove your biryani with an extra kick? Our Ulli Karam Egg Biryani is packed with the bold flavour of spicy ulli karam, perfectly cooked eggs and aromatic biryani rice. 🤤\n\nEvery bite is a delicious combination of s",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=ERx4yyuEyoY",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/ERx4yyuEyoY/hqdefault.jpg",
-    "source_name": "Sattibabu Biryani",
-    "duration": "1:27",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_ERx4yyuEyoY",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/ERx4yyuEyoY?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [
-     "hyderabadi biryani"
-    ],
-    "services": [],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-2--TMIUR2kHt8",
+    "id": "video-yt-2-3_O6RsGQPa4",
     "match_id": "video-yt-2",
     "provider_id": "youtube.com",
-    "title": "₹500 vs ₹1000 vs ₹2500 Lucknowi Biryani in Mumbai 🍛🔥",
-    "subtitle": "We tried Lucknowi biryani in Mumbai at three completely different price points to find out which one is actually worth ordering again. From a budget friendly plate to a premium Awadhi experience at Dum Pukht, this turned into a much closer comparison than expected.\n\nAlong with Sa",
+    "title": "Mutton biryani at Nawaabs restaurant gachibowli Hyderabad #biryani #food #trending #youtubeshorts",
+    "subtitle": "",
     "score": null,
     "match_source": "video",
     "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=-TMIUR2kHt8",
+    "destination_url": "https://www.youtube.com/watch?v=3_O6RsGQPa4",
     "affiliate": false,
     "disclosure": "Creator's opinion -- not verified by ASKODOX",
     "fallback": true,
     "demo": false,
     "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/-TMIUR2kHt8/hqdefault.jpg",
-    "source_name": "DCT EATS",
-    "duration": "1:18",
+    "image_url": "https://i.ytimg.com/vi/3_O6RsGQPa4/hqdefault.jpg",
+    "source_name": "Krish_Thehungrytraveller",
+    "duration": "0:12",
     "embeddable": true,
     "paid_promotion": false,
     "video_source": "youtube_data",
     "video_format": "video",
-    "video_id": "yt_-TMIUR2kHt8",
+    "video_id": "yt_3_O6RsGQPa4",
     "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/-TMIUR2kHt8?playsinline=1&rel=0",
+    "embed_url": "https://www.youtube-nocookie.com/embed/3_O6RsGQPa4?playsinline=1&rel=0",
     "relationship": "creator",
     "sponsored": false,
     "sponsored_label": null,
@@ -1023,33 +1170,34 @@
      "hyderabadi biryani"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-3-BX2cJoUWhZQ",
+    "id": "video-yt-3-FImyzD3ba4k",
     "match_id": "video-yt-3",
     "provider_id": "youtube.com",
-    "title": "Hyderabad Top 10 Legendary Biryanis Spots || The Ultimate Hyderabadi Biryani Hunt 🤤🍗",
-    "subtitle": "🍗🔥 TOP 10 HYDERABADI BIRYANIS – THE ULTIMATE BIRYANI HUNT!\n\nWelcome to the ultimate Hyderabad Biryani Food Tour! 🤤 In this video, we explore 10 famous biryanis in Hyderabad and discover the taste, aroma, quantity, chicken/mutton quality, price and what makes each place special.\n\n",
+    "title": "Is This Hyderabadi Biryani Overrated?? 🤔🍗🍛",
+    "subtitle": "In this video, I dive into a spicy debate: has Hyderabad’s legendary Paradise Biryani lost its charm? \n\nTo find out, I first stop by Bawarchi, a beloved icon for over three decades, and savor their flavorful mutton biryani. With a crowd-pleasing reputation and delectable dishes, ",
     "score": null,
     "match_source": "video",
     "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=BX2cJoUWhZQ",
+    "destination_url": "https://www.youtube.com/watch?v=FImyzD3ba4k",
     "affiliate": false,
     "disclosure": "Creator's opinion -- not verified by ASKODOX",
     "fallback": true,
     "demo": false,
     "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/BX2cJoUWhZQ/hqdefault.jpg",
-    "source_name": "Taste Of Flavours",
-    "duration": "18:31",
+    "image_url": "https://i.ytimg.com/vi/FImyzD3ba4k/hqdefault.jpg",
+    "source_name": "DCT EATS",
+    "duration": "1:00",
     "embeddable": true,
     "paid_promotion": false,
     "video_source": "youtube_data",
     "video_format": "video",
-    "video_id": "yt_BX2cJoUWhZQ",
+    "video_id": "yt_FImyzD3ba4k",
     "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/BX2cJoUWhZQ?playsinline=1&rel=0",
+    "embed_url": "https://www.youtube-nocookie.com/embed/FImyzD3ba4k?playsinline=1&rel=0",
     "relationship": "creator",
     "sponsored": false,
     "sponsored_label": null,
@@ -1057,17 +1205,79 @@
      "hyderabadi biryani"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-1-WwAAQp1nxlk",
+    "match_id": "video-yt-1",
+    "provider_id": "youtube.com",
+    "title": "Trying Every HYDERABAD BEST RATED Restaurant BIRYANI",
+    "subtitle": "Shop The Man Company Sunscreen Gel - \nThe Man Company Website - https://tinyurl.com/TMCIMS20 \nAmazon -  https://tinyurl.com/TMCIMS21 \nFlipkart - https://tinyurl.com/TMCIMS22 \nNykaa - https://tinyurl.com/TMCIMS23\n\n\nAbout the Video -\nBiryani ek shabd nhi ehsaas hai, aur Hyderabadi ",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=WwAAQp1nxlk",
+    "affiliate": false,
+    "disclosure": "Includes paid promotion (declared on YouTube)",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/WwAAQp1nxlk/hqdefault.jpg",
+    "source_name": "Aayush Sapra",
+    "duration": "23:47",
+    "embeddable": true,
+    "paid_promotion": true,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_WwAAQp1nxlk",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/WwAAQp1nxlk?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": true,
+    "sponsored_label": "Paid promotion",
+    "products": [
+     "hyderabadi biryani"
+    ],
+    "services": [],
+    "analyzed": false,
+    "section": "sponsored"
    }
   ],
   "video_status": "no_results",
   "next_step": "find_local",
   "next_ask": "hyderabadi biryani near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJUQTQYQD7NToR-vmiIe3uyN4",
+    "match_id": "external-ChIJUQTQYQD7NToR-vmiIe3uyN4",
+    "provider_id": "",
+    "title": "Bismillah Paradise Biryani",
+    "subtitle": "D.N, 32-2-12, Siddhartha College Rd, opp. CANRA BANK ATM, Mogalrajapuram, Christurajupuram, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 0.2,
+    "rating_average": 5.0,
+    "review_count": 12,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.506570699999997,
+    "longitude": 80.64587019999999,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.96,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -1109,11 +1319,47 @@
      "araku valley trip"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-1-vo4N9OHhE0c",
+    "id": "video-yt-1-YefkkpVsneY",
     "match_id": "video-yt-1",
+    "provider_id": "youtube.com",
+    "title": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku",
+    "subtitle": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku\naraku valley tour from vizag : araku tour guide in bengali\nhow to reach araku valley from vizag : there are 3 ways to go araku valley\naraku by road 👉 AP tourism bus service, reser",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=YefkkpVsneY",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/YefkkpVsneY/hqdefault.jpg",
+    "source_name": "My Travel Support",
+    "duration": "18:37",
+    "embeddable": false,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_YefkkpVsneY",
+    "platform": "youtube",
+    "embed_url": null,
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [
+     "araku valley trip"
+    ],
+    "services": [],
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-2-vo4N9OHhE0c",
+    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
     "title": "Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise",
     "subtitle": "Araku Valley, Andhra Pradesh is a journey through the Eastern Ghats, from the famous Vizag to Araku train journey and scenic Araku sightseeing to Borra Caves, Katiki Waterfalls and Araku coffee plantations.\n\nAraku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise\n\n",
@@ -1143,41 +1389,8 @@
      "araku valley trip"
     ],
     "services": [],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-2-cftcge-Xijk",
-    "match_id": "video-yt-2",
-    "provider_id": "youtube.com",
-    "title": "Araku Valley Complete Travel Guide | Places to Visit | Things to Do ",
-    "subtitle": "🌿 ARAKU VALLEY COMPLETE TRAVEL GUIDE | 15 Best Places to Visit + 2-Day Itinerary\n\nPlanning a trip to Araku Valley? This complete Araku Valley travel guide covers the best places to visit, things to do, where to stay, what to eat, how to reach and how to plan your trip.\n\nFrom brea",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=cftcge-Xijk",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/cftcge-Xijk/hqdefault.jpg",
-    "source_name": "Apoorva Rao",
-    "duration": "8:35",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_cftcge-Xijk",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/cftcge-Xijk?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [
-     "araku valley trip"
-    ],
-    "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-3-Jc1Ql8aXngI",
@@ -1211,13 +1424,37 @@
      "araku valley trip"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "reviews",
   "next_ask": "araku valley trip reviews",
   "next_matches": [
+   {
+    "id": "external-ChIJQXnuGd_vNToRnnXyTUhPKXM",
+    "match_id": "external-ChIJQXnuGd_vNToRnnXyTUhPKXM",
+    "provider_id": "",
+    "title": "Akkanna Madanna Caves",
+    "subtitle": "#10-2-66, Arjuna St, Durga Agraharam, Mallikarjunapeta, Vijayawada, Andhra Pradesh 520001",
+    "distance_km": 4.5,
+    "rating_average": 4.4,
+    "review_count": 2229,
+    "availability": null,
+    "destination_url": "https://maps.google.com/?cid=8298250960370824606&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.5135851,
+    "longitude": 80.60655299999999,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 47.900000000000006,
+    "demo": false,
+    "section": "local"
+   },
    {
     "id": "video-yt-0-rMd5DUP04RE",
     "match_id": "video-yt-0",
@@ -1250,11 +1487,47 @@
      "araku valley trip"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-1-vo4N9OHhE0c",
+    "id": "video-yt-1-YefkkpVsneY",
     "match_id": "video-yt-1",
+    "provider_id": "youtube.com",
+    "title": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku",
+    "subtitle": "আরাকু ভ্যালি ভ্রমণ গাইড | Vizag To Araku Tour | Araku Tour Plan | Araku Valley | Borra Caves | Araku\naraku valley tour from vizag : araku tour guide in bengali\nhow to reach araku valley from vizag : there are 3 ways to go araku valley\naraku by road 👉 AP tourism bus service, reser",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=YefkkpVsneY",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/YefkkpVsneY/hqdefault.jpg",
+    "source_name": "My Travel Support",
+    "duration": "18:37",
+    "embeddable": false,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_YefkkpVsneY",
+    "platform": "youtube",
+    "embed_url": null,
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [
+     "araku valley trip"
+    ],
+    "services": [],
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-2-vo4N9OHhE0c",
+    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
     "title": "Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise",
     "subtitle": "Araku Valley, Andhra Pradesh is a journey through the Eastern Ghats, from the famous Vizag to Araku train journey and scenic Araku sightseeing to Borra Caves, Katiki Waterfalls and Araku coffee plantations.\n\nAraku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise\n\n",
@@ -1284,41 +1557,8 @@
      "araku valley trip"
     ],
     "services": [],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-2-cftcge-Xijk",
-    "match_id": "video-yt-2",
-    "provider_id": "youtube.com",
-    "title": "Araku Valley Complete Travel Guide | Places to Visit | Things to Do ",
-    "subtitle": "🌿 ARAKU VALLEY COMPLETE TRAVEL GUIDE | 15 Best Places to Visit + 2-Day Itinerary\n\nPlanning a trip to Araku Valley? This complete Araku Valley travel guide covers the best places to visit, things to do, where to stay, what to eat, how to reach and how to plan your trip.\n\nFrom brea",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=cftcge-Xijk",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/cftcge-Xijk/hqdefault.jpg",
-    "source_name": "Apoorva Rao",
-    "duration": "8:35",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_cftcge-Xijk",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/cftcge-Xijk?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [
-     "araku valley trip"
-    ],
-    "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-3-Jc1Ql8aXngI",
@@ -1352,13 +1592,16 @@
      "araku valley trip"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    }
   ],
-  "next_segments": [],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "no_results",
@@ -1369,8 +1612,8 @@
  "used-item": {
   "videos": [
    {
-    "id": "video-yt-0-dzPSScYH1G4",
-    "match_id": "video-yt-0",
+    "id": "video-yt-2-dzPSScYH1G4",
+    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
     "title": "Classic 350 BS4: Worth buying a used one in 2025?",
     "subtitle": "Motorcyclists!!! Almost every person was fascinated by the Royal Enfield Classic.\n\nIt's that type of bike that every generation from each family in India is aware of, now with the most recent iteration of the Classic 350 being the BS6 version, we wanted to review the previous gen",
@@ -1400,79 +1643,12 @@
      "used royal enfield classic 350"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
-    "id": "video-yt-2-RJworx5674I",
-    "match_id": "video-yt-2",
-    "provider_id": "youtube.com",
-    "title": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
-    "subtitle": "Welcome to *TheMotographer* — where every ride becomes a cinematic story.  \n\nI’m a rider, creator, and reviewer who captures the soul of motorcycles.\n📍 Based in Lucknow, India | Motorcycle • Cinematic • Experiences\n🎯 My goal — to build a space for riders who ride not just for spe",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=RJworx5674I",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/RJworx5674I/hqdefault.jpg",
-    "source_name": "The Motographer ",
-    "duration": "13:42",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_RJworx5674I",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/RJworx5674I?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [
-     "used royal enfield classic 350"
-    ],
-    "services": [],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-4-0GbhGQm9jis",
-    "match_id": "video-yt-4",
-    "provider_id": "youtube.com",
-    "title": "Used Royale enfield bikes only|Biggest Second hand Bike market|#Xploring",
-    "subtitle": "Subscribe for more❤️\n\nk7 Racing\nLOCATION: \nBEHIND KHADIMS FOOTWEAR SHOP \nCHENNAI OMR METUKUPPAM BUS STOP..\n9841695774\n9842388777\n9042685059\n**************************************************************\nIf you want to put any video done by you in our channel, kindly email us \n\"ex",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=0GbhGQm9jis",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/0GbhGQm9jis/hqdefault.jpg",
-    "source_name": "Exploring with subramani",
-    "duration": "13:15",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "video",
-    "video_id": "yt_0GbhGQm9jis",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/0GbhGQm9jis?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [
-     "used royal enfield classic 350"
-    ],
-    "services": [],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-5-GW-rCk-eAoU",
-    "match_id": "video-yt-5",
+    "id": "video-yt-3-GW-rCk-eAoU",
+    "match_id": "video-yt-3",
     "provider_id": "youtube.com",
     "title": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
     "subtitle": "How To Check And Buy Old Royal Enfield Classic 350.How To Buy Used Royal Enfield.How To Buy Second Hand Bullet.How To Buy 2nd Hand Royal Enfield Bullet or Classic.Purani Royal Enfield Classic 350cc Kaise Kya Kya Check Karen.\n\n#RoyalEnfield #UsedBullet #UsedClassic #BindassSingh",
@@ -1502,17 +1678,114 @@
      "used royal enfield classic 350"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-4-A326h8kq_20",
+    "match_id": "video-yt-4",
+    "provider_id": "youtube.com",
+    "title": "Used bikes | bullet for sale | royal Enfield | hunter | classic 350 |",
+    "subtitle": "#kollam #usedbike #royalenfield #hunter350 #classic350 #bullet #bulletlover #himayalan",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=A326h8kq_20",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/A326h8kq_20/hqdefault.jpg",
+    "source_name": "Coastal Diaries",
+    "duration": "0:13",
+    "embeddable": true,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_A326h8kq_20",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/A326h8kq_20?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [
+     "used royal enfield classic 350"
+    ],
+    "services": [],
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-5-ilhNFpIoY70",
+    "match_id": "video-yt-5",
+    "provider_id": "youtube.com",
+    "title": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
+    "subtitle": "Royal Enfield Classic 350 – FOR SALE!\n\nSingle-owner / well-maintained condition. Classic Royal Enfield design with smooth BS6 engine—perfect for city rides and highway cruising.\n\n📍 Location: /126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu – 6385",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/ilhNFpIoY70/hqdefault.jpg",
+    "source_name": "Engine Thagaval ",
+    "duration": "0:19",
+    "embeddable": true,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_ilhNFpIoY70",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/ilhNFpIoY70?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [
+     "used royal enfield classic 350"
+    ],
+    "services": [],
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "find_local",
   "next_ask": "used royal enfield classic 350 near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJj7oJIwPxNToRCwXGYLu4g6A",
+    "match_id": "external-ChIJj7oJIwPxNToRCwXGYLu4g6A",
+    "provider_id": "",
+    "title": "TARAK BULLET HOUSE",
+    "subtitle": "D.NO:27-29-2/1, Help hospital road, opp. NTR Sahakar bhavan, near Besant Road, Governor Peta, Vijayawada, Andhra Pradesh 520002",
+    "distance_km": 2.3,
+    "rating_average": 5.0,
+    "review_count": 192,
+    "availability": null,
+    "destination_url": "https://maps.google.com/?cid=11566291382939550987&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.5088629,
+    "longitude": 80.6268304,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.54,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -1554,7 +1827,8 @@
      "iphone 15"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-1-9i8sgN6jxNs",
@@ -1588,7 +1862,8 @@
      "iphone 15"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-2-Lsbo0lHRC9Q",
@@ -1622,7 +1897,8 @@
      "iphone 15"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    },
    {
     "id": "video-yt-3-iUB1k88uzjY",
@@ -1656,17 +1932,44 @@
      "iphone 15"
     ],
     "services": [],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "deals",
   "next_ask": "iphone 15 offers",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJdQCL2bb7NToRKqK27S7_ZRc",
+    "match_id": "external-ChIJdQCL2bb7NToRKqK27S7_ZRc",
+    "provider_id": "",
+    "title": "MasterPhone",
+    "subtitle": "39-2-10, MG Rd, opp. Chennupati Petrol bunk, Mogalrajapuram, Labbipet, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 0.8,
+    "rating_average": 4.9,
+    "review_count": 686,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=1686034212541866538&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.5016882,
+    "longitude": 80.64263290000001,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.64,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "no_results",
    "online": "error",
    "videos": "not_applicable",
@@ -1708,45 +2011,12 @@
     "services": [
      "ac service"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "shorts"
    },
    {
-    "id": "video-yt-1-mXePHoT9s0o",
+    "id": "video-yt-1-7mK4-impjiE",
     "match_id": "video-yt-1",
-    "provider_id": "youtube.com",
-    "title": "AC Cleaning Service 2025 | Urban Company AC Service| Spilit AC Cleaning Advance Foamjet Technology|",
-    "subtitle": "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator",
-    "score": null,
-    "match_source": "video",
-    "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=mXePHoT9s0o",
-    "affiliate": false,
-    "disclosure": "Creator's opinion -- not verified by ASKODOX",
-    "fallback": true,
-    "demo": false,
-    "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/mXePHoT9s0o/hqdefault.jpg",
-    "source_name": "KP Vlogs & Review",
-    "duration": "0:14",
-    "embeddable": true,
-    "paid_promotion": false,
-    "video_source": "youtube_data",
-    "video_format": "short",
-    "video_id": "yt_mXePHoT9s0o",
-    "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/mXePHoT9s0o?playsinline=1&rel=0",
-    "relationship": "creator",
-    "sponsored": false,
-    "sponsored_label": null,
-    "products": [],
-    "services": [
-     "ac service"
-    ],
-    "analyzed": false
-   },
-   {
-    "id": "video-yt-2-7mK4-impjiE",
-    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
     "title": "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
     "subtitle": "How to Service the DAIKIN AC Outdoor Unit of Split AC\nHow to Service the Outdoor Unit of a Split AC\n\nQueries - \nAC outdoor unit cleaning\nac cleaning at home\nSplit AC service at home\nDAIKIN AC outdoor unit cleaning\nac outdoor water service\nac outdoor unit cleaning\nhow to clean spl",
@@ -1776,33 +2046,34 @@
     "services": [
      "ac service"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "shorts"
    },
    {
-    "id": "video-yt-3-Srxja6Eq8jE",
-    "match_id": "video-yt-3",
+    "id": "video-yt-2-GXHjwuxJrIU",
+    "match_id": "video-yt-2",
     "provider_id": "youtube.com",
-    "title": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
-    "subtitle": "Welcome to Hello Mistri 443!\nIn this video, we take you through the complete Samsung Outdoor Split AC Service process. From deep cleaning to essential repairs, watch how we restore peak performance to this unit. Whether you're a DIY enthusiast or looking for reliable AC service i",
+    "title": "AC Service ❌ End Of AC✅",
+    "subtitle": "How to service your LG Dual Inverter AC at home step-by-step and save money on costly technician visits! In this video, I show you a complete DIY AC servicing guide including cleaning filters, checking cooling performance, and basic maintenance tips to keep your air conditioner r",
     "score": null,
     "match_source": "video",
     "source": "video",
-    "destination_url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
+    "destination_url": "https://www.youtube.com/watch?v=GXHjwuxJrIU",
     "affiliate": false,
     "disclosure": "Creator's opinion -- not verified by ASKODOX",
     "fallback": true,
     "demo": false,
     "page_type": "video",
-    "image_url": "https://i.ytimg.com/vi/Srxja6Eq8jE/hqdefault.jpg",
-    "source_name": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
-    "duration": "0:15",
+    "image_url": "https://i.ytimg.com/vi/GXHjwuxJrIU/hqdefault.jpg",
+    "source_name": "V4 VIDEOS",
+    "duration": "1:07",
     "embeddable": true,
     "paid_promotion": false,
     "video_source": "youtube_data",
     "video_format": "video",
-    "video_id": "yt_Srxja6Eq8jE",
+    "video_id": "yt_GXHjwuxJrIU",
     "platform": "youtube",
-    "embed_url": "https://www.youtube-nocookie.com/embed/Srxja6Eq8jE?playsinline=1&rel=0",
+    "embed_url": "https://www.youtube-nocookie.com/embed/GXHjwuxJrIU?playsinline=1&rel=0",
     "relationship": "creator",
     "sponsored": false,
     "sponsored_label": null,
@@ -1810,17 +2081,79 @@
     "services": [
      "ac service"
     ],
-    "analyzed": false
+    "analyzed": false,
+    "section": "videos"
+   },
+   {
+    "id": "video-yt-3-8T652HFr7aE",
+    "match_id": "video-yt-3",
+    "provider_id": "youtube.com",
+    "title": "MarQ Split AC First Service After 1 Year, Copper Quality & Cooling Review #airconditioner",
+    "subtitle": "",
+    "score": null,
+    "match_source": "video",
+    "source": "video",
+    "destination_url": "https://www.youtube.com/watch?v=8T652HFr7aE",
+    "affiliate": false,
+    "disclosure": "Creator's opinion -- not verified by ASKODOX",
+    "fallback": true,
+    "demo": false,
+    "page_type": "video",
+    "image_url": "https://i.ytimg.com/vi/8T652HFr7aE/hqdefault.jpg",
+    "source_name": "Shubz Gadget Reviews",
+    "duration": "0:16",
+    "embeddable": true,
+    "paid_promotion": false,
+    "video_source": "youtube_data",
+    "video_format": "video",
+    "video_id": "yt_8T652HFr7aE",
+    "platform": "youtube",
+    "embed_url": "https://www.youtube-nocookie.com/embed/8T652HFr7aE?playsinline=1&rel=0",
+    "relationship": "creator",
+    "sponsored": false,
+    "sponsored_label": null,
+    "products": [],
+    "services": [
+     "ac service"
+    ],
+    "analyzed": false,
+    "section": "videos"
    }
   ],
   "video_status": "no_results",
   "next_step": "local_service",
   "next_ask": "ac service near me",
-  "next_matches": [],
-  "next_segments": [],
+  "next_matches": [
+   {
+    "id": "external-ChIJjTMTIm7lNToRtUpGs57qx1k",
+    "match_id": "external-ChIJjTMTIm7lNToRtUpGs57qx1k",
+    "provider_id": "",
+    "title": "SML AC SERVICES / ELECTRICAL WORKS",
+    "subtitle": "No.40, 25-24, Masjid St, Patamatalanka, Benz Circle, Vijayawada, Andhra Pradesh 520010",
+    "distance_km": 1.4,
+    "rating_average": 5.0,
+    "review_count": 35,
+    "availability": "Open now",
+    "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.4942129,
+    "longitude": 80.651076,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 49.72,
+    "demo": false,
+    "section": "local"
+   }
+  ],
+  "next_segments": [
+   "nearby_external"
+  ],
   "next_status": {
    "askodox": "no_results",
-   "nearby": "error",
+   "nearby": "ok",
    "used_deals": "not_applicable",
    "online": "error",
    "videos": "not_applicable",

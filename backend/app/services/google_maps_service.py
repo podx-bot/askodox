@@ -18,7 +18,7 @@ class GoogleMapsService:
     PLACES_FIELDS = (
         "places.id,places.displayName,places.formattedAddress,places.location,"
         "places.rating,places.userRatingCount,places.googleMapsUri,"
-        "places.businessStatus,places.currentOpeningHours.openNow"
+        "places.businessStatus,places.currentOpeningHours.openNow,places.types"
     )
 
     def __init__(self, api_key: str | None = None, timeout_seconds: float | None = None, client=None) -> None:
@@ -290,6 +290,7 @@ class GoogleMapsService:
                 "rating_count": place.get("userRatingCount"),
                 "maps_url": str(place.get("googleMapsUri") or ""),
                 "open_now": (place.get("currentOpeningHours") or {}).get("openNow"),
+                "types": [str(t) for t in (place.get("types") or [])][:12],
             })
         return places
 

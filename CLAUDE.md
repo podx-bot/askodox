@@ -268,6 +268,20 @@ this file, don't trust it blindly.
   (`/api/content`, page `/content`, section `content`). Nearest junction:
   `/api/discover/junction` (Places, honest `unavailable`). Feeds sync on
   the background runner (`periodic_jobs` "feeds"), never in a search.
+- Web search = `web_search_chain.py` (`container.web_search_chain`): Brave,
+  then Google Programmable Search (`GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID`,
+  backend-only) ONLY when Brave fails (never on an honest empty answer); a
+  stale Brave copy yields to a live fallback answer. `_web_search(container)`
+  picks the chain; tests that replace `brave_web_search_provider` alone get
+  that provider. `/health/search` shows `fallbacks`.
+- Nearest junction: `is_junction` needs a transit/route type or a junction
+  word in the place's own name with no business type ("Unacademy Centre" is
+  a school). The app's map picker shows "Near X · N m", "Pin here", and adds
+  ", near X" to the confirmed label (pickup / drop / location).
+- Videos: `result_orchestrator.video_preference` puts Shorts or long videos
+  first from the user's own words (`demand["said"]` = trace.query); rows are
+  ranked by subject relevance; videos still only when asked / relevant.
+- App results: `source == 'content'` rows form the "News" compare group.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
@@ -289,12 +303,9 @@ this file, don't trust it blindly.
   is added only once a Firebase app / google-services.json exists. Until
   then notifications are local + silent while the app is open/resumed.
   Exact steps: `docs/EXTERNAL_SETUP.md`.
-- Maps ROOT CAUSE (public `/health/maps`, probe 37180866676, 2026-10-04):
-  GOOGLE_MAPS_API_KEY is valid but its Cloud project has Geocoding API,
-  Places API (New) and Routes API NOT enabled (403 / "not activated"). Owner
-  must enable the three APIs (billing on) on that key's project -- EXTERNAL.
-  Until then nearby/place search/route distance are empty; naming the
-  current place still works through the Android Geocoder on the phone.
+- Maps (2026-10-04 11:09 probe): Geocoding, Places (New), Places nearby and
+  Routes are all OK in production (`/health/maps` all_ok). Real nearby rows
+  and the nearest junction now come back; real-phone check still pending.
 - Brands: no fixed list -- AI `brand` entity, phrasing, brands on real
   listings (`/api/products/brands`), or a short reply that filled nothing.
   A brand the AI misses in the FIRST message and that no listing carries
