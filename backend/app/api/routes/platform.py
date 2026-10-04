@@ -924,8 +924,25 @@ def integration_readiness(request: Request) -> dict:
         partners = partner_repo(request.app.state.container).partners()
     except Exception:
         partners = []
-    return {"items": readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=partners),
-            "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
+    items = readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=partners)
+    from app.api.routes.health import _search_health
+
+    web = _search_health(request.app.state.container)
+    state = web.get("state")
+    health = {"ok": "LIVE", "unknown": "CONFIGURED", "not_configured": "NEEDS_CONFIGURATION",
+              "unavailable": "NEEDS_CONFIGURATION", "rate_limited": "DEGRADED", "quota_exhausted": "DEGRADED",
+              "auth_failed": "CHECK_FAILED", "bad_request": "DEGRADED"}.get(state, "CHECK_FAILED")
+    reason = {"quota_exhausted": "Brave plan quota used up -- paused until Brave's reset; last real answers are "
+                                 "served marked stale. Raise the plan or wait for the reset.",
+              "rate_limited": "Brave per-second limit hit -- calls are paced and retried once.",
+              "auth_failed": "Brave rejected the API key (check BRAVE_SEARCH_API_KEY).",
+              "ok": "last live call succeeded", "unknown": "no live call yet since the last deploy"}.get(
+        state, f"last call failed (HTTP {web.get('http_status')}, {web.get('provider_code') or 'no code'})")
+    items.append({"integration": "Web search (Brave)", "status": (state or "unknown").upper(), "health": health,
+                  "health_reason": reason, "live": web, "backend_ready": True, "admin_control_ready": True,
+                  "mock_verified": None, "real_credential_required": state in ("not_configured", "auth_failed"),
+                  "providers": []})
+    return {"items": items, "environment": pf.registry.env.get("RAILWAY_ENVIRONMENT_NAME") or "local"}
 
 
 # discovered web videos -> moderation queue
