@@ -21,6 +21,22 @@ jobs:
           bases = {'production': 'https://podx-ai-connect-production-3279.up.railway.app',
                    'staging': 'https://staging.askodox.com'}
           coords = {'Vijayawada': (16.5062, 80.6480)}
+          # askodox.com/chat is proxied to the production backend (same engine).
+          for url in ('https://askodox.com/chat', 'https://askodox.com/'):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60) as r:
+                      body = r.read().decode('utf-8', 'replace')
+                      print(f"WEBSITE {url} -> {r.status}", 'chat page (uses /deals/discover)' if '/deals/discover' in body else ('links /chat' if 'href="/chat"' in body else 'no chat'))
+              except urllib.error.HTTPError as e:
+                  print(f"WEBSITE {url} -> HTTP {e.code}")
+              except Exception as e:
+                  print(f"WEBSITE {url} -> {e}")
+          for path in ('/webhooks/meta-messaging?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1', '/admin/cc/social-dm', '/admin/cc/marketplace-apis'):
+              try:
+                  urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
+                  print(f"GUARD {path.split('?')[0]} -> 200 (unexpected)")
+              except urllib.error.HTTPError as e:
+                  print(f"GUARD {path.split('?')[0]} -> HTTP {e.code}")
           for env, base in bases.items():
               try:
                   with urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=60) as r:
