@@ -796,6 +796,29 @@ _register(Resource(
     ),
 ))
 
+_RESULT_SECTIONS = ("local", "deals", "online", "affiliate", "partner", "content", "videos", "shorts", "jobs",
+                    "sponsored")
+
+_register(Resource(
+    name="result_orchestration", label="Result order", group="Catalog", prefix="ro",
+    permission="sources", name_field="name", initial_status="DISABLED", statuses=("ACTIVE", "DISABLED"),
+    description="The ONE result contract's section order and per-section limits for every client (app, web "
+                "chat). Sections are additive: changing the order never removes a section, a failing source "
+                "only empties its own section, and sections not listed keep the built-in order after the "
+                "listed ones. Only the first ACTIVE record is used. Diagnostics: Result diagnostics view.",
+    fields=(
+        F("name", "Name", required=True, list_column=True),
+        F("section_order", "Section order (first = top)", "list", options=_RESULT_SECTIONS, list_column=True),
+        F("section_limits", "Max rows per section", "json",
+          help='{"online": 8, "videos": 6} -- blank / 0 = no limit. Hidden rows are counted in diagnostics.'),
+        F("notes", "Notes", "longtext"),
+    ),
+    actions=(
+        _A("enable", "Enable", "ACTIVE", ("DISABLED",)),
+        _A("disable", "Disable", "DISABLED", ("ACTIVE",), confirm=True),
+    ),
+))
+
 TASK_KINDS = ("demand_opportunity", "add_products", "review_items", "support", "content", "qa", "other")
 STAFF_ROLES = ("affiliate_staff", "source_staff", "offers_staff", "content_staff", "video_staff",
                "seller_support", "customer_support", "demand_staff", "qa_staff", "supervisor", "admin", "any")

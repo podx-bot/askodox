@@ -5,6 +5,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../deal_brain/domain/universal_deal.dart';
+import '../domain/result_contract.dart';
 import '../domain/sandbox_party_gate.dart';
 import 'demo_natural_match_catalog.dart';
 
@@ -430,8 +431,12 @@ class UniversalMatchResult {
     this.advice = const [],
     this.nextActions = const [],
     this.traceKey,
+    this.contract,
   });
   final String dealId;
+
+  /// The canonical sectioned contract (null on an older backend).
+  final ResultContract? contract;
 
   /// Universal Advisor: open question / readiness / guidance (null on older backends).
   final AskodoxAdvisorView? advisor;
@@ -616,13 +621,15 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         .where((item) => item.id.isNotEmpty)
         .toList();
 
-    rows.sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+    final contract = ResultContract.fromJson(data);
+    final ordered = _ordered(rows, contract);
     final status = data['source_status'];
     final broadcast = created['broadcast'];
     return UniversalMatchResult(
+      contract: contract,
       dealId: dealId,
       traceKey: 'deal:$dealId',
-      matches: rows,
+      matches: ordered,
       broadcastSent: broadcast is Map ? (broadcast['sent'] as num?)?.toInt() : null,
       scopeMessage: _scopeMessage(data['scope']),
       advice: _advice(data['advice']),
@@ -696,6 +703,13 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
             (text: '${a['text']}', textTe: '${a['text_te'] ?? a['text']}'),
       ];
 
+  /// The backend's section order when it sent the canonical contract;
+  /// otherwise the old value-score order (older backends).
+  static List<UniversalMatch> _ordered(List<UniversalMatch> rows, ResultContract? contract) {
+    if (contract != null) return contract.order(rows, (m) => m.id);
+    return rows..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+  }
+
   static List<String> _nextActions(Object? raw) => [for (final a in (raw is List ? raw : const [])) '$a'];
 
   static String? _scopeMessage(Object? scope) {
@@ -726,13 +740,14 @@ class ApiUniversalMatchRepository implements UniversalMatchRepository {
         .whereType<Map>()
         .map((item) => UniversalMatch.fromJson(Map<String, Object?>.from(item)))
         .where((item) => item.id.isNotEmpty)
-        .toList()
-      ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+        .toList();
+    final contract = ResultContract.fromJson(data);
     final status = data['source_status'];
     return UniversalMatchResult(
+      contract: contract,
       dealId: '',
       traceKey: data['trace_key']?.toString(),
-      matches: rows,
+      matches: _ordered(rows, contract),
       scopeMessage: _scopeMessage(data['scope']),
       advice: _advice(data['advice']),
       advisor: AskodoxAdvisorView.fromJson(data['advisor']),

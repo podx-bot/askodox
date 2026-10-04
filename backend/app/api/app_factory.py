@@ -266,9 +266,15 @@ def create_app() -> FastAPI:
     from app.api.routes.affiliate_catalog import router as affiliate_catalog_router
 
     app.include_router(affiliate_catalog_router)
+    from app.api.routes.affiliate_catalog import public_router as content_router
+
+    app.include_router(content_router)
     from app.api.routes.demand_advisor import router as demand_advisor_router
 
     app.include_router(demand_advisor_router)
+    from app.api.routes.result_contract import router as result_contract_router
+
+    app.include_router(result_contract_router)
     from app.api.routes.config_tools import router as config_tools_router
 
     app.include_router(config_tools_router)

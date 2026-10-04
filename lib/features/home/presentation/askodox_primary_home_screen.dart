@@ -999,6 +999,19 @@ class _AskodoxPrimaryHomeScreenState
     ).then((_) {}, onError: (_) {}));
   }
 
+  /// Result Diagnostics: tell the backend which contract sections this
+  /// turn actually drew, and why any returned section was not drawn.
+  void _reportRendered(AskodoxChatResults? results, {String? heldReason}) {
+    final contract = results?.contract;
+    final key = results?.traceKey;
+    if (contract == null || key == null || key.isEmpty) return;
+    final report = askodoxRenderedSections(contract, results!.matches, heldReason: heldReason);
+    unawaited(ref.read(apiClientProvider).post<Map<String, Object?>>(
+      '/api/results/rendered',
+      body: {'trace_key': key, 'sections': report.rendered, 'hidden': report.hidden},
+    ).then((_) {}, onError: (_) {}));
+  }
+
   AskodoxChatResults? _resultsContaining(UniversalMatch match) {
     for (final results in _resultsByTurn.values) {
       if (results.matches.any((m) => identical(m, match) || m.id == match.id)) return results;
@@ -1228,8 +1241,11 @@ class _AskodoxPrimaryHomeScreenState
       final result = await ref
           .read(universalMatchRepositoryProvider)
           .createAndMatch(deal, trace: _traceFor(deal, categories: categories));
-      final matches = [...result.matches]
-        ..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore));
+      // The canonical contract already ordered the rows (section by
+      // section); only an older backend's rows are sorted here.
+      final matches = result.contract != null
+          ? [...result.matches]
+          : ([...result.matches]..sort((a, b) => b.totalValueScore.compareTo(a.totalValueScore)));
       // Only real rows. With none, the chat says so (searched: true) --
       // never placeholder "Search online for …" cards.
       return AskodoxChatResults(
@@ -1243,6 +1259,7 @@ class _AskodoxPrimaryHomeScreenState
         nextActions: result.nextActions,
         traceKey: result.traceKey,
         advisor: result.advisor,
+        contract: result.contract,
       );
     } on DealNeedsDetailsException catch (error) {
       if (error.missingFields.isNotEmpty) {
@@ -1725,6 +1742,15 @@ class _AskodoxPrimaryHomeScreenState
         _lastGoodProductQuery = null;
         notifier.reset();
         notifier.start(routedText);
+      } else if (session.deal != null &&
+          session.completed &&
+          AskodoxHomeRequestRouting.isShortDetailAnswer(text) &&
+          (aiSubject == null || askodoxSameNeed(session.deal!.subject, aiSubject))) {
+        // "Size 9, ₹2000" right after results: it REFINES that request
+        // (every earlier answer kept) -- never a fresh start that drops
+        // the size (APK 1292: Size 9 was lost and a stale "Any" sent).
+        dealBeforeAnswer = session.deal;
+        notifier.adopt(session.deal!);
       } else if (session.deal == null || session.completed) {
         _lastGoodProductQuery = null;
         notifier.start(routedText);
@@ -1753,6 +1779,14 @@ class _AskodoxPrimaryHomeScreenState
       }
       final budget = askodoxBudgetRange(text);
       if (!budget.isEmpty) notifier.applyBudget(min: budget.min, max: budget.max);
+      // The size the customer SAID (typed or voice), exactly as said; the
+      // AI's size entity only when the words name none.
+      final aiSize = aiUsable ? decision!.entityText('size') : null;
+      final saidSize = askodoxExplicitSize(text) ??
+          (aiSize != null && aiSize.trim().isNotEmpty && aiSize.length <= 20 && !askodoxIsNoPreference(aiSize)
+              ? aiSize.trim()
+              : null);
+      if (saidSize != null) notifier.applyExplicitSize(saidSize);
       // "Tata" / "show Samsung instead": the named brand replaces the old
       // one in the active search (constraints persist, brand updates).
       // No fixed brand list: phrasing ("only Tata"), brands real listings
@@ -1863,6 +1897,7 @@ class _AskodoxPrimaryHomeScreenState
               askodoxAdvisorHolds(advisor, showNow: showNow, videoAsk: videoAsk)) {
             advisorHeld = advisor;
             notifier.markAdvisorAsked(advisor!.field ?? '');
+            _reportRendered(results, heldReason: 'held: advisor asked a required question first');
             results = null;
             matchedDeal = null;
           }
@@ -1930,6 +1965,18 @@ class _AskodoxPrimaryHomeScreenState
           : results != null
             ? askodoxResultsReply(results, telugu: _te)
             : _fallbackAssistantReply(text, _te);
+
+    // No false success: without cards on screen this turn the reply never
+    // claims "showing / finding options" (APK 1292), and it never restates
+    // the customer's size differently ("Size 8 or 9" for "size 9").
+    final cardsThisTurn =
+        results != null && results.matches.isNotEmpty && (results.contract?.mayClaimResults ?? true);
+    final keptSize = ref.read(universalDealControllerProvider).deal?.size;
+    if (transactional &&
+        needClarification == null &&
+        ((!cardsThisTurn && askodoxReplyClaimsResults(reply)) || askodoxReplyAltersSize(reply, keptSize))) {
+      reply = askodoxNoCardsReply(results: results, question: detailQuestion, telugu: _te);
+    }
 
     // Dynamic questions: an unfinished requirement always ends with the NEXT
     // question it needs (e.g. area for local results), even when the AI's
@@ -2011,8 +2058,16 @@ class _AskodoxPrimaryHomeScreenState
       _turns.add(ConversationTurnRecord(text: reply, isUser: false));
       final assistantIndex = _turns.length - 1;
       if (results != null && !results.isEmpty) {
+        // One no-results notice per request: an earlier empty notice for the
+        // SAME request id is folded into this one (APK 1292 showed "#47"
+        // twice after the request was refined and searched again).
+        final id = results.dealId ?? '';
+        if (id.isNotEmpty) {
+          _resultsByTurn.removeWhere((_, earlier) => earlier.dealId == id && earlier.matches.isEmpty);
+        }
         _resultsByTurn[assistantIndex] = results;
         if (matchedDeal != null) _dealByTurn[assistantIndex] = matchedDeal;
+        _reportRendered(results);
       }
       if (support.need != AskodoxSupportNeed.none) {
         _supportByTurn[assistantIndex] = support;

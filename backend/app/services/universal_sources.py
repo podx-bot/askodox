@@ -28,7 +28,6 @@ import io
 import json
 import re
 import sqlite3
-import threading
 import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -339,8 +338,6 @@ class UniversalSources:
         live = []
         for source in self.records():
             reason = applies(source, demand)
-            if source.get("connector") == "feed":
-                self.maybe_sync(source)
             if source.get("connector") != "json_search":
                 continue
             if reason:
@@ -373,31 +370,24 @@ class UniversalSources:
         return rows, info
 
     # feeds --------------------------------------------------------------
-    _syncing: set = set()
-    _sync_lock = threading.Lock()
-
-    def maybe_sync(self, source: Dict[str, Any]) -> None:
-        """Start a background feed sync when the feed is older than its
-        refresh interval (never blocks a user's search)."""
+    def due(self, source: Dict[str, Any]) -> bool:
         last = (self.health.all().get(source["id"]) or {}).get("last_sync_at")
         hours = float(self.setting("sources.feed_refresh_hours"))
-        if last and datetime.fromisoformat(last) > datetime.now(timezone.utc) - timedelta(hours=hours):
-            return
-        with self._sync_lock:
-            if source["id"] in self._syncing:
-                return
-            self._syncing.add(source["id"])
+        return not last or datetime.fromisoformat(last) <= datetime.now(timezone.utc) - timedelta(hours=hours)
 
-        def run():
+    def sync_due_feeds(self, *, actor: str, limit: int = 3) -> Dict[str, Any]:
+        """Scheduled (background runner) -- never on a user's search."""
+        done: Dict[str, Any] = {}
+        for source in self.records():
+            if len(done) >= limit:
+                break
+            if source.get("connector") != "feed" or not source.get("feed_url") or not self.due(source):
+                continue
             try:
-                self.sync_feed(source, actor="system:feed")
-            except Exception:
-                pass
-            finally:
-                with self._sync_lock:
-                    self._syncing.discard(source["id"])
-
-        threading.Thread(target=run, daemon=True).start()
+                done[source["id"]] = self.sync_feed(source, actor=actor)
+            except Exception as error:  # recorded in source_health; the next feed still runs
+                done[source["id"]] = {"error": type(error).__name__}
+        return done
 
     def sync_feed(self, source: Dict[str, Any], *, actor: str) -> Dict[str, Any]:
         """Approved feed -> item store (create new, update price / stock of

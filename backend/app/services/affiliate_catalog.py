@@ -782,6 +782,34 @@ class AffiliateCatalog:
 
     # ------------------------------------------------------- discovery --
 
+    def content(self, *, q: str = "", category: str = "", limit: int = 30,
+                subject_match: bool = False) -> list[dict[str, Any]]:
+        """LIVE news / content / video items staff approved, newest first.
+        ``subject_match`` keeps only items relevant to ``q`` (discovery)."""
+        tokens = [t for t in re.findall(r"[a-z0-9\u0c00-\u0c7f\u0900-\u097f]+", str(q or "").lower())
+                  if len(t) > 1][:6]
+        if subject_match and not tokens:
+            return []
+        sql = ("SELECT * FROM affiliate_products WHERE deleted_at IS NULL AND active=1 AND review_status='LIVE'"
+               " AND item_type IN (" + ",".join("'" + t + "'" for t in CONTENT_ITEM_TYPES) + ")")
+        args: list[Any] = []
+        if category:
+            sql += " AND LOWER(category)=?"
+            args.append(category.strip().lower())
+        if tokens:
+            sql += " AND (" + " OR ".join(["LOWER(title) LIKE ? OR LOWER(category) LIKE ? OR LOWER(description) LIKE ?"]
+                                           * len(tokens)) + ")"
+            args += [f"%{t}%" for t in tokens for _ in range(3)]
+        with self._connect() as conn:
+            rows = [dict(r) for r in conn.execute(sql + " ORDER BY updated_at DESC, id DESC LIMIT ?",
+                                                  [*args, max(1, min(int(limit), 100))]).fetchall()]
+        if subject_match:
+            from app.services.universal_external_result_service import relevant_to
+
+            rows = [r for r in rows if relevant_to(q, " ".join(str(r.get(k) or "") for k in
+                                                                 ("title", "category", "description")))]
+        return [content_card(r) for r in rows]
+
     def search(self, subject: str, *, sources: dict | None = None, limit: int = 6,
                category: str = "") -> list[dict[str, Any]]:
         """Eligible products relevant to the need (relevance first; whether a
@@ -811,6 +839,37 @@ class AffiliateCatalog:
             if len(out) >= limit:
                 break
         return out
+
+
+CONTENT_ITEM_TYPES = ("news", "content", "video")
+
+
+def content_card(row: dict[str, Any]) -> dict[str, Any]:
+    """A public news / content card -- only what staff approved (LIVE)."""
+    images = _list(row.get("images_json", "[]"))
+    url = https_url(row.get("canonical_url") or row.get("original_product_url") or "")
+    return {
+        "id": f"content-{row['id']}",
+        "match_id": f"content-{row['id']}",
+        "title": row.get("title") or "Update",
+        "subtitle": row.get("description") or row.get("offer_text") or "",
+        "item_type": row.get("item_type") or "content",
+        "origin": "content",
+        "match_source": "content",
+        "source": "content",
+        "source_name": row.get("platform") or _host(url) or "ASKODOX",
+        "destination_url": url or None,
+        "open_strategy": "web",
+        "image_url": row.get("image_url") or (images[0] if images else None),
+        "images": images,
+        "category": row.get("category") or None,
+        "published_at": row.get("updated_at") or row.get("created_at"),
+        "price": None,
+        "price_verified": False,
+        "affiliate": False,
+        "sponsored": False,
+        "demo": False,
+    }
 
 
 def result_row(item: dict[str, Any]) -> dict[str, Any]:

@@ -187,6 +187,10 @@ class UniversalDeal {
   bool get productNeedsQuantity => productSchema.requiresQuantity;
 
   bool _fieldMissing(String field) {
+    // "Any" for THIS field settles it (and only it) -- never by writing the
+    // word "Any" into the slot (APK 1292: size "Any" ended the questions).
+    final none = dynamicFields['no_preference'];
+    if (none is List && none.map((e) => '$e').contains(field)) return false;
     switch (field) {
       case 'quantity':
         return quantity == null;

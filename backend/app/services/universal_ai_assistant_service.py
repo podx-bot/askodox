@@ -158,18 +158,18 @@ class UniversalAIAssistantService:
     @staticmethod
     def _local_search_reply(locale: str) -> str:
         if str(locale or "").lower().startswith("te"):
-            return "సరే, మీ దగ్గర నిజంగా ఉన్న షాపులు, విక్రేతలు, ఆన్‌లైన్ ఆప్షన్లు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి."
+            return "సరే, మీ దగ్గర నిజంగా ఉన్న షాపులు, విక్రేతలు, ఆన్‌లైన్ ఆప్షన్లు వెతుకుతున్నాను."
         if str(locale or "").lower().startswith("hi"):
-            return "ठीक है, आपके पास असली दुकानें, विक्रेता और ऑनलाइन विकल्प ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
-        return "Let me check real sellers, shops and online options near you -- the results appear below."
+            return "ठीक है, आपके पास असली दुकानें, विक्रेता और ऑनलाइन विकल्प देखता हूं।"
+        return "Let me check real sellers, shops and online options near you."
 
     @staticmethod
     def _video_search_reply(locale: str) -> str:
         if str(locale or "").lower().startswith("te"):
-            return "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి."
+            return "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను."
         if str(locale or "").lower().startswith("hi"):
             return "ठीक है, असली वीडियो और रिव्यू ढूंढ रहा हूं -- नतीजे नीचे दिखेंगे।"
-        return "Sure -- looking for real videos and reviews; the results appear below."
+        return "Sure -- looking for real videos and reviews."
 
     @classmethod
     def _strip_location_question(cls, reply: str, locale: str) -> str:
@@ -306,7 +306,10 @@ class UniversalAIAssistantService:
             "(each usable as a search subject, in the user's language) in entities.clarify_options, and make reply ONE short question. "
             "Never use clarify_need for brand, budget, size, quantity or anything a normal follow-up can ask. "
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
-            "Do not claim a booking, payment, message, search or match happened. "
+            "Do not claim a booking, payment, message, search or match happened, and never say you are showing, finding "
+            "or have found options -- the app says that only when real results exist. "
+            "Explicit constraints are sacred: repeat a size, budget, quantity, brand, colour or date EXACTLY as the user "
+            "gave it (size 9 stays 'size 9' -- never 'size 8 or 9', never rounded or widened). "
             "If the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
             "set transactional true, action search_videos, entities.subject = the thing itself (without the words "
             "video/review), and never say 'here are' results or describe specs -- the app shows the real results. "

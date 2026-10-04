@@ -508,7 +508,7 @@ class UniversalOnlineFallbackService:
         where = location_text.strip() or "India"
         results: list[dict[str, Any]] = []
         rows = self._search(query or f"{subject} price buy online {where}", limit * 3)
-        if getattr(self.web_search, "last_error", False):
+        if getattr(self.web_search, "last_error", False) or getattr(self, "_search_failed", False):
             self.status["online"] = STATUS_ERROR
             return []
         for row in rows:
@@ -573,7 +573,7 @@ class UniversalOnlineFallbackService:
             return []
         query = f"{subject} " + " OR ".join(f"site:{host}" for host, _ in sites.values())
         rows = self._search(query, 20)
-        if getattr(self.web_search, "last_error", False):
+        if getattr(self.web_search, "last_error", False) or getattr(self, "_search_failed", False):
             self.status["marketplaces"] = STATUS_ERROR
             return []
         taken: dict[str, int] = {}
@@ -639,9 +639,12 @@ class UniversalOnlineFallbackService:
         return results
 
     def _search(self, query: str, limit: int) -> list[dict[str, Any]]:
+        self._search_failed = False
         try:
             rows = self.web_search(query, limit)
         except Exception:  # provider failures must never break matching
+            # ...but a failure is reported as a failure, never "no results".
+            self._search_failed = True
             return []
         rows = [row for row in rows or [] if isinstance(row, dict)]
         stale_at = getattr(self.web_search, "last_stale_at", None)

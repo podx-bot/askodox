@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T06:01:29Z by `.github/workflows/video-real-content-proof.yml` (run 37181393496).
+Generated 2026-10-04T07:32:48Z by `.github/workflows/video-real-content-proof.yml` (run 37185929733).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -15,7 +15,7 @@ Generated 2026-10-04T06:01:29Z by `.github/workflows/video-real-content-proof.ym
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 0 () |
 | vehicle | en | 1 | [Tata Nexon Cons: What You Need to Know Before Buying](https://www.youtube.com/watch?v=77aOlpHhpOw) | TheAutoBharat | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 0 () |
 | service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 0 () |
-| home-service | en | 1 | [Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #sho…](https://www.youtube.com/watch?v=Bvxkrv7t4Dw) | vijay xyz tricks | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 0 () |
+| home-service | en | 1 | [Wc best #plumbingservices #plumbing #plumbingtime #plumber …](https://www.youtube.com/watch?v=M4qJRoGE8l0) | Punni Plumbing works | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 0 () |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 0 () |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 4 () |
 | used-item | en | 1 | [Classic 350 BS4: Worth buying a used one in 2025?](https://www.youtube.com/watch?v=dzPSScYH1G4) | RPM Revelations | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 0 () |
@@ -39,7 +39,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "samsung 43 inch tv near me" → 
 
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి సాధారణంగా 5 నుండి 7 అడుగుల వీక్షణ దూరం ఉండాలి. మీ గది పరిమాణం ఎంత ఉందో చెప్పగలరా?
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అని చూడటానికి వీక్షణ దూరం సరి చూసుకోవాలి. సాధారణంగా 43 ఇంచుల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది.
 
 **Next step:** "samsung 43 inch tv offers" → 
 
@@ -76,7 +76,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "redmi note 13 pro offers" → 
 
@@ -95,7 +95,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "tata nexon near me" → 
 
@@ -114,26 +114,26 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "ac service near me" → 
 
 ### home-service (en) -- "kitchen sink plumbing repair video"
 
-**Video:** Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed -- vijay xyz tricks  (https://www.youtube.com/watch?v=Bvxkrv7t4Dw)
+**Video:** Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber -- Punni Plumbing works (https://www.youtube.com/watch?v=M4qJRoGE8l0)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / thanks for watching video  
+Quoted from source: Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed"
+**User:** Tell me more about "Wc best #plumbingservices #plumbing #plumbingtime #plumber #plumbingtools #youtuber #youtuber"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews; the results appear below.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "plumbing repair service near me" → 
 
@@ -152,7 +152,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "hyderabadi biryani near me" → 
 
@@ -171,7 +171,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "araku valley trip reviews" → Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku [video]; Araku Valley Is NOT What You Think! | Andhra Pradesh's Hidden Paradise [video]; Araku Valley Complete Travel Guide | Places to Visit | Things to Do  [video]; 1 Day Araku Valley Trip from Vizag | Borra Caves, Waterfalls & Coffee 🌿☕ [video]
 
@@ -190,7 +190,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "used royal enfield classic 350 near me" → 
 
@@ -209,7 +209,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you -- the results appear below.  
-**This branch:** Let me check real sellers, shops and online options near you -- the results appear below. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
+**This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "iphone 15 offers" → 
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) 1 టన్ను AC సర్వీసింగ్ సరిపోతుంది. మరింత వివరంగా పరిశీలించడానికి వీడియో రివ్యూలు కింద చూడవచ్చు.
+**ASKODOX AI:** చిన్న గదికి 1 టన్ను లేదా 1.5 టన్నుల ఏసీ సర్వీస్ సరిపోతుంది, మీ ఏసీ కెపాసిటీ ఎంత?
 
 **Next step:** "ac service near me" → 
 

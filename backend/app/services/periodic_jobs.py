@@ -39,5 +39,12 @@ def _selfheal(container: Any) -> Any:
     return engine(container).scan()
 
 
+def _feeds(container: Any) -> Any:
+    """Universal Sources feeds that are due (older than sources.feed_refresh_hours)."""
+    from app.api.routes.universal_deals import _universal_sources
+
+    return _universal_sources(container).sync_due_feeds(actor="system:scheduler", limit=3)
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
-    return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal)]
+    return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds)]

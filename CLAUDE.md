@@ -247,6 +247,28 @@ this file, don't trust it blindly.
   `pii_mask.mask_sensitive`; diagnostics only with consent) + client errors;
   dashboard `/admin/cc/early-access/dashboard`. Enum options in schema
   resources must be lowercase (values are lower-cased on save).
+- Result Contract v2 (`result_orchestrator.py`): `/deals/discover` AND
+  `/deals/{id}/matches` return `sections` (local, deals, online, affiliate,
+  partner, content, videos, shorts, jobs, sponsored), `conversation_state`
+  (explicit constraints EXACTLY as given), `answer.may_claim_results`, plus
+  `matches` (kept for old APKs). Sources ADD sections, never replace; a
+  failing source empties only its own (asked-for empty sections carry
+  `empty_reason`). Order/limits = Command Center `result_orchestration`.
+  The app orders rows by sections (no client re-sort) and reports drawn
+  sections to `POST /api/results/rendered`; staff read
+  `/admin/cc/results/diagnostics` (console "Result diagnostics").
+  20 combinations: `tests/test_result_contract_combinations.py`
+  (`result-contract-gate.yml`). `/matches` now carries the advisor too.
+- Chat honesty (APK 1292): no reply claims "showing / finding / here are"
+  unless cards render (`askodoxReplyClaimsResults`); a reply restating a
+  different size is replaced (`askodoxReplyAltersSize`); "Any" settles only
+  the asked field via `no_preference` (typed slots stay empty); the user's
+  size is applied exactly (`askodoxExplicitSize`); a short reply to a
+  finished request refines it; one no-results notice per request id.
+- Public news/content = LIVE item-store rows of type news/content/video
+  (`/api/content`, page `/content`, section `content`). Nearest junction:
+  `/api/discover/junction` (Places, honest `unavailable`). Feeds sync on
+  the background runner (`periodic_jobs` "feeds"), never in a search.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
