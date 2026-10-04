@@ -421,3 +421,30 @@ def test_commission_unavailable_keeps_the_organic_link_and_never_invents_price(a
     assert row["eligibility"]["routing"] != "affiliate"
     assert row["eligibility"]["destination_url"].startswith("https://www.amazon.in/")
     assert row.get("price") is None
+
+
+# ---------------------------------------------------------- video ranking --
+def test_shorts_first_when_asked_long_videos_first_for_reviews_both_kept():
+    rows = [_video(1), _video(2, short=True), _video(3)]
+    asked_shorts = ro.build(rows, demand={**DEMAND, "said": "walking shoes shorts"})
+    kinds = [s["kind"] for s in asked_shorts["sections"]]
+    assert kinds.index("shorts") < kinds.index("videos") and set(kinds) == {"videos", "shorts"}
+    asked_review = ro.build(rows, demand={**DEMAND, "said": "walking shoes review videos"})
+    kinds = [s["kind"] for s in asked_review["sections"]]
+    assert kinds.index("videos") < kinds.index("shorts")
+
+
+def test_videos_are_ranked_by_relevance_to_the_subject_never_dropped():
+    rows = [dict(_video(1), title="Funny cats compilation"), dict(_video(2), title="Best walking shoes 2026 review"),
+            dict(_video(3), title="Walking tips")]
+    out = ro.build(rows, demand=DEMAND)
+    ids = next(s for s in out["sections"] if s["kind"] == "videos")["item_ids"]
+    assert ids == ["vid-2", "vid-3", "vid-1"]
+
+
+def test_an_ordinary_search_never_gets_videos_forced_in(app_env):
+    app, container, client = app_env
+    container.brave_web_search_provider = _Brave(rows=SHOES_ONLINE, videos=SHOES_VIDEOS)
+    body = _discover(client, text="walking shoes", located=False)
+    assert "videos" not in _kinds(body) and "shorts" not in _kinds(body)
+    assert not any(s["kind"] in ("videos", "shorts") and s["requested"] for s in body["sections"])

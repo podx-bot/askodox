@@ -620,8 +620,20 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         "location_text": location.get("label"),
         "constraints": constraints,
         "raw_text": str(payload.raw_text or "")[:500],
+        # The customer's own words (orchestration ranks videos by them).
+        "said": str((getattr(payload, "trace", None) or {}).get("query") or "")[:300],
         "source": "app",
     }
+
+
+def _web_search(container):
+    """The web-search CHAIN (Brave, then fallbacks). A test or caller that
+    replaced ``brave_web_search_provider`` alone gets that provider."""
+    brave = getattr(container, "brave_web_search_provider", None)
+    chain = getattr(container, "web_search_chain", None)
+    if chain is None or brave is None or getattr(chain, "primary", None) is not brave:
+        return brave
+    return chain
 
 
 def _multi_source_service(container) -> UniversalMultiSourceResultService:
@@ -638,7 +650,7 @@ def _multi_source_service(container) -> UniversalMultiSourceResultService:
         ranking=getattr(container, "product_match_ranking_service", None),
         seller_profiles=getattr(container, "seller_profile_repository", None),
         maps=maps,
-        web_search=getattr(container, "brave_web_search_provider", None),
+        web_search=_web_search(container),
     )
     try:
         from app.services.self_healing import engine

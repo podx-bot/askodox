@@ -63,6 +63,39 @@ def section_of(row: Dict[str, Any]) -> str:
     return "online"
 
 
+_SHORT_ASK = ("short", "shorts", "reel", "reels", "quick", "30 sec", "1 min", "షార్ట్", "రీల్")
+_LONG_ASK = ("review", "reviews", "comparison", "compare", " vs ", "unboxing", "how to", "tutorial", "explained",
+             "detailed", "full", "guide", "install", "repair", "రివ్యూ", "पूरा", "रिव्यू")
+
+
+def video_preference(demand: Dict[str, Any]) -> str:
+    """'shorts' / 'videos' / '' -- which video kind the customer's own words
+    favour. Shorts are never the only kind: both sections stay."""
+    words = f" {demand.get('said') or ''} {demand.get('raw_text') or ''} ".lower()
+    short = any(w in words for w in _SHORT_ASK)
+    long = any(w in words for w in _LONG_ASK)
+    if short and not long:
+        return "shorts"
+    if long and not short:
+        return "videos"
+    return ""
+
+
+def _tokens(text: Any) -> set:
+    import re
+
+    return {t for t in re.findall(r"[a-z0-9\u0c00-\u0c7f\u0900-\u097f]+", str(text or "").lower()) if len(t) > 1}
+
+
+def _video_rank(row: Dict[str, Any], subject_tokens: set, index: int) -> tuple:
+    """Relevance first (share of the subject's words in the title / channel),
+    then the source's own order. Never drops a row."""
+    title = _tokens(f"{row.get('title') or ''} {row.get('source_name') or ''}")
+    overlap = len(subject_tokens & title) / len(subject_tokens) if subject_tokens else 0.0
+    reviewed = 1 if row.get("origin") in ("reviewed", "command_center") or row.get("reviewed") else 0
+    return (-round(overlap, 2), -reviewed, index)
+
+
 def _distance(row: Dict[str, Any]) -> float:
     for key in ("distance_km", "distanceKm", "distance"):
         try:
@@ -141,6 +174,18 @@ def build(matches: Iterable[Dict[str, Any]], *, demand: Dict[str, Any], source_s
         row["section"] = section
         by_section[section].append(row)
     by_section["local"].sort(key=_distance)  # nearest first; stable for equal / unknown distance
+    subject_tokens = _tokens(demand.get("subject"))
+    for kind in ("videos", "shorts"):
+        ranked = sorted(enumerate(by_section[kind]), key=lambda pair: _video_rank(pair[1], subject_tokens, pair[0]))
+        by_section[kind] = [row for _, row in ranked]
+    # The video kind the customer asked for comes first (unless staff fixed
+    # an explicit order in the Command Center).
+    preferred = video_preference(demand)
+    if preferred and not settings.get("section_order"):
+        other = "videos" if preferred == "shorts" else "shorts"
+        if order.index(preferred) > order.index(other):
+            order.remove(preferred)
+            order.insert(order.index(other), preferred)
 
     sections, suppressed = [], {}
     for kind in order:

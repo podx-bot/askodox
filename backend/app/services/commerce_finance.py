@@ -100,6 +100,9 @@ ENV_SOURCES: Dict[str, Dict[str, str]] = {
 # YOUTUBE_DATA_API_KEY; either one alone must make YouTube configured.
 ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
     "youtube_data": {"api_key": ("YOUTUBE_DATA_API_KEY",)},
+    # Web-search fallback when Brave is out of credit / failing.
+    "google_cse": {"api_key": ("GOOGLE_CSE_API_KEY", "GOOGLE_SEARCH_API_KEY"),
+                   "cx": ("GOOGLE_CSE_ID", "GOOGLE_SEARCH_ENGINE_ID")},
 }
 
 

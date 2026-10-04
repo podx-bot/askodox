@@ -26,7 +26,11 @@ class AskodoxMapPinPicker extends ConsumerStatefulWidget {
     this.namer,
     this.showTiles = true,
     this.deviceSearch,
+    this.junctionLookup,
   });
+
+  /// Nearest named junction for the pin (injectable for tests).
+  final AskodoxJunctionLookup? junctionLookup;
 
   /// The phone's geocoder (injectable for tests).
   final Future<List<({double latitude, double longitude, String label})>> Function(String query)? deviceSearch;
@@ -62,6 +66,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
   bool _searching = false;
   String? _searchMessage;
   List<AskodoxPlace> _results = const [];
+  AskodoxJunction? _junction;
 
   @override
   void initState() {
@@ -85,7 +90,9 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
       _label = label;
       _naming = label == null;
       _results = const [];
+      _junction = null;
     });
+    unawaited(_findJunction(point));
     if (label != null) return;
     final namer = widget.namer ?? const PlaceNameService().resolve;
     String? name;
@@ -99,6 +106,26 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
       _label = name;
       _naming = false;
     });
+  }
+
+  Future<void> _findJunction(LatLng point) async {
+    final AskodoxJunctionLookup lookup = widget.junctionLookup ?? ref.read(askodoxJunctionLookupProvider);
+    final AskodoxJunction? junction = await lookup(point.latitude, point.longitude);
+    if (!mounted || _pin != point) return;
+    setState(() => _junction = junction);
+  }
+
+  /// Moves the pin onto the junction itself (a clear meeting point).
+  void _useJunction() {
+    final j = _junction;
+    if (j == null) return;
+    final point = LatLng(j.latitude, j.longitude);
+    setState(() {
+      _pin = point;
+      _label = j.name;
+      _naming = false;
+    });
+    if (widget.showTiles) _map.move(point, 17);
   }
 
   /// Search text -> geocode (backend: the typed town first, then nearby
@@ -228,6 +255,28 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
                   child: const SizedBox.expand(child: ColoredBox(color: Color(0xFFE8EEF5))),
                 ),
         ),
+        if (_pinned && _junction != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+            child: Row(children: [
+              const Icon(Icons.signpost_outlined, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Near ${_junction!.name}${_junction!.distanceM == null ? '' : ' · ${_junction!.distanceM} m'}',
+                  key: const Key('askodoxNearestJunction'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_pinText != _junction!.name)
+                TextButton(
+                  key: const Key('askodoxUseJunction'),
+                  onPressed: _useJunction,
+                  child: const Text('Pin here'),
+                ),
+            ]),
+          ),
         SafeArea(
           top: false,
           child: Padding(
@@ -249,7 +298,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
                     : () => Navigator.of(context).pop(AskodoxPlace(
                           latitude: _pin.latitude,
                           longitude: _pin.longitude,
-                          label: _pinText,
+                          label: askodoxLabelNearJunction(_pinText, _junction),
                         )),
                 child: const Text('Use this location'),
               ),

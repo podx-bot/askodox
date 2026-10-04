@@ -4602,6 +4602,7 @@ Color _kindColor(AskodoxCompareKind kind) => switch (kind) {
       AskodoxCompareKind.surplus => const Color(0xFF00897B),
       AskodoxCompareKind.videos => const Color(0xFFD9344F),
       AskodoxCompareKind.shorts => const Color(0xFFB0306A),
+      AskodoxCompareKind.news => const Color(0xFF3B6EA8),
     };
 
 /// The compact comparison after a request: a row of kind tabs (only the

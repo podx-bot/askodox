@@ -192,6 +192,12 @@ def create_app() -> FastAPI:
         web_provider.attach_store(LastGoodStore(container.settings.database_path))
     except Exception:
         pass
+    # Discovery searches the web through a CHAIN: Brave first, then Google
+    # Programmable Search when configured -- one provider out of credit
+    # never empties online results on its own.
+    from app.services.web_search_chain import build_chain
+
+    container.web_search_chain = build_chain(web_provider, country=getattr(container.settings, "search_country", "IN"))
     # Nearby offline shops for chat results and Explore (Places text search).
     container.google_maps_service = GoogleMapsService(api_key=container.settings.google_maps_api_key)
     container.oasat_live_research_service = live_research
