@@ -7,17 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `0a869cb` -- PR #149 (2026-10-04): Result Contract v2 (sections,
-  exact constraints, honest answer; `/matches` carries the advisor), APK 1292
-  chat fixes ("Any" per field, Size 9 exact, no false "showing options", one
-  notice per request id), affiliate rows no longer suppress organic online,
-  raised web search = `error`, `/content` + `/api/content`, nearest junction,
-  Result diagnostics + Result order (Command Center), feed sync on the
-  background runner, 20-combination gate. Production: contract v2 live,
-  `ASKODOX_SECRETS_KEY` set (Railway-generated, `secrets_encryption.configured`
-  true). Signed MAIN APK 1295 (Live Build 37186310158 on 0a869cb, sha256
-  a938ed69…44a3, same release cert as production, production backend only).
-  Before: #146-#148 Universal Sources, Staff Workspace, Early Access (1294).
+- `main` @ `6cf156b` -- PR #151 (2026-10-04): web search CHAIN (Brave, then
+  Google Programmable Search when `GOOGLE_CSE_*` set -- not set yet), nearest
+  junction in the app's map picker (Places types; production returns a real
+  junction), News group in results, Shorts vs long video ordering by the
+  user's words, staff blocked-page/manual-entry + news flows verified.
+  Production: Maps all OK (Geocoding / Places / Routes), contract v2 live,
+  `ASKODOX_SECRETS_KEY` set. Signed MAIN APK 1296 (Live Build 37198724430 on
+  6cf156b, sha256 78f0c7b6…e526, same release cert, production backend only).
+  Before: #149-#150 Result Contract v2 + APK 1295; #146-#148 Sources/Staff.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
