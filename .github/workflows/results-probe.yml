@@ -36,6 +36,19 @@ jobs:
                   print('MAPS_HEALTH:', r.read().decode()[:900])
           except Exception as e:
               print('MAPS_HEALTH:', e)
+          for path in ('/staff', '/api/early-access?install_id=probe', '/health/maps'):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=90) as r:
+                      body = r.read().decode('utf-8', 'replace')
+                      print(f"NEW {path} -> {r.status}", 'staff page' if 'Staff sign-in' in body else body[:200])
+              except urllib.error.HTTPError as e:
+                  print(f"NEW {path} -> HTTP {e.code}")
+          for path in ('/admin/cc/workspace/me', '/api/staff/me', '/admin/cc/early-access/dashboard', '/admin/cc/workspace/analytics'):
+              try:
+                  urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
+                  print(f"GUARD {path} -> 200 (unexpected)")
+              except urllib.error.HTTPError as e:
+                  print(f"GUARD {path} -> HTTP {e.code}")
           for path in ('/webhooks/meta-messaging?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1', '/admin/cc/social-dm', '/admin/cc/marketplace-apis'):
               try:
                   urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
