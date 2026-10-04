@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T07:27:39Z",
+ "generated_at": "2026-10-04T07:32:48Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:201d9bb0550348fa",
+   "trace_key": "browse:3ac7cc0cb076463d",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -121,7 +121,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:86ee3acb18874703",
+   "trace_key": "browse:c7d505292fed4a17",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -152,7 +152,7 @@
     "entities": {
      "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
      "brand": "Samsung",
-     "size": "43 అంగుళాలు",
+     "size": "43 inches",
      "location": "Vijayawada"
     }
    },
@@ -205,10 +205,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం తెలుసుకోవడం మంచిది. మీ గదిలో చూసే దూరం ఎంత ఉంది?",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అని చూడటానికి వీక్షణ దూరం సరి చూసుకోవాలి. సాధారణంగా 43 ఇంచుల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_action": "general_advice"
    },
    "next": {
     "step": "deals",
@@ -231,7 +231,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:905a5849ce1f4e31",
+   "trace_key": "browse:a46988ee50d94463",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -262,7 +262,6 @@
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
-     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -345,7 +344,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:3a92b02487434f78",
+   "trace_key": "browse:868d3d12fc5f4a86",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -459,7 +458,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:a55d489a1ba54ac6",
+   "trace_key": "browse:2e3514784429400e",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -568,7 +567,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:7ace58a06de94d37",
+   "trace_key": "browse:c3790200925946f2",
    "videos": [
     {
      "video_id": "yt_M4qJRoGE8l0",
@@ -676,7 +675,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:d05a1e9f3cb048f3",
+   "trace_key": "browse:7dd05924abd24979",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -699,7 +698,7 @@
    "production_video_rows": 4,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews; the results appear below.",
-    "domain": "PRODUCT",
+    "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -788,7 +787,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:0171a7a219ed491c",
+   "trace_key": "browse:6de304afb8504bbf",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -958,7 +957,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:5477adf96268416c",
+   "trace_key": "browse:d470bc9e6ea24d30",
    "videos": [
     {
      "video_id": "yt_dzPSScYH1G4",
@@ -987,9 +986,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
+     "subject": "used Royal Enfield Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1072,7 +1071,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:6831d60e5428435d",
+   "trace_key": "browse:15f428d661fc4e54",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1187,7 +1186,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:2cd336b250ad4149",
+   "trace_key": "browse:8f929b0d821142ab",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -1267,10 +1266,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను -- ఫలితాలు కింద కనిపిస్తాయి.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "అవును, ఇది చిన్న గదికి సరిపోతుందో లేదో తెలియజేసే రివ్యూలు, వివరాలు వెతుకుతున్నాను -- ఫలితాలు చూడండి.",
+    "follow_reply": "చిన్న గదికి 1 టన్ను లేదా 1.5 టన్నుల ఏసీ సర్వీస్ సరిపోతుంది, మీ ఏసీ కెపాసిటీ ఎంత?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "search_videos"
+    "follow_action": "get_details"
    },
    "next": {
     "step": "local_service",

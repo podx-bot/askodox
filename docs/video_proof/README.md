@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T07:27:39Z by `.github/workflows/video-real-content-proof.yml` (run 37185664225).
+Generated 2026-10-04T07:32:48Z by `.github/workflows/video-real-content-proof.yml` (run 37185929733).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం తెలుసుకోవడం మంచిది. మీ గదిలో చూసే దూరం ఎంత ఉంది?
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అని చూడటానికి వీక్షణ దూరం సరి చూసుకోవాలి. సాధారణంగా 43 ఇంచుల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉంటే సరిపోతుంది.
 
 **Next step:** "samsung 43 inch tv offers" → 
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** అవును, ఇది చిన్న గదికి సరిపోతుందో లేదో తెలియజేసే రివ్యూలు, వివరాలు వెతుకుతున్నాను -- ఫలితాలు చూడండి.
+**ASKODOX AI:** చిన్న గదికి 1 టన్ను లేదా 1.5 టన్నుల ఏసీ సర్వీస్ సరిపోతుంది, మీ ఏసీ కెపాసిటీ ఎంత?
 
 **Next step:** "ac service near me" → 
 
