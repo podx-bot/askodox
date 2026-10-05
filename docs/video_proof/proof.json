@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-05T09:11:15Z",
+ "generated_at": "2026-10-05T18:17:39Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,18 +7,18 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:075e4a515c7040a3",
+   "trace_key": "browse:65db38953a4e4be1",
    "videos": [
     {
-     "video_id": "yt_fAaGDKl2xrA",
-     "title": "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio",
-     "source_name": "The Grapevine",
-     "duration": "15:41",
+     "video_id": "yt_ddTpAyeDQ4I",
+     "title": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
+     "source_name": "Udrawat",
+     "duration": "7:33",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/fAaGDKl2xrA?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/ddTpAyeDQ4I?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/fAaGDKl2xrA/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=fAaGDKl2xrA",
+     "image_url": "https://i.ytimg.com/vi/ddTpAyeDQ4I/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -39,25 +39,26 @@
      "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "category": "TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_fAaGDKl2xrA",
+    "video_id": "yt_ddTpAyeDQ4I",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio",
-     "Looking for the best 43 inch TV in India in 2026?",
-     "I compared over 90 43 inch TVs across budgets to help you find the right one for your room.",
-     "This video covers mini-LED (now available at 43 inch for the first time), Full HD vs 4K, AI upscaling processors, refresh rate, HDMI eARC,"
+     "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
+     "🔥 Best 43-Inch TVs to Buy in 2026!",
+     "Flipkart Big Billion Days Sale aur Amazon Great Indian Festival Sale ke time agar aap ek best 43-inch TV buy karne ka plan kar rahe hain, to ye video aapke liye hai.",
+     "Is video mein maine different budgets ke best 43-inch TVs suggest kiye hain a"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "The Grapevine",
+    "creator": "Udrawat",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=fAaGDKl2xrA",
-    "question": "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio",
+    "url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
+    "question": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
     "next": [
      {
       "action": "find_local",
@@ -87,7 +88,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio\"",
+    "question": "Tell me more about \"I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -160,6 +161,20 @@
       "location_label": null
      },
      {
+      "title": "Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.sathya.store",
+      "price": 37989.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.sathya.store/store/vijayawada-2",
+      "image_url": null,
+      "location_label": null
+     },
+     {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
       "segment": null,
       "match_source": "online",
@@ -186,20 +201,6 @@
       "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "Amazon",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
-      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
-      "location_label": null
      }
     ]
    }
@@ -209,18 +210,18 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:6694bafaac76460b",
+   "trace_key": "browse:9067d0d992fc4fe6",
    "videos": [
     {
-     "video_id": "yt_fAaGDKl2xrA",
-     "title": "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio",
-     "source_name": "The Grapevine",
-     "duration": "15:41",
+     "video_id": "yt_ddTpAyeDQ4I",
+     "title": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
+     "source_name": "Udrawat",
+     "duration": "7:33",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/fAaGDKl2xrA?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/ddTpAyeDQ4I?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/fAaGDKl2xrA/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=fAaGDKl2xrA",
+     "image_url": "https://i.ytimg.com/vi/ddTpAyeDQ4I/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -235,31 +236,31 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
      "size": "43 అంగుళాల",
-     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_fAaGDKl2xrA",
+    "video_id": "yt_ddTpAyeDQ4I",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio",
-     "Looking for the best 43 inch TV in India in 2026?",
-     "I compared over 90 43 inch TVs across budgets to help you find the right one for your room.",
-     "This video covers mini-LED (now available at 43 inch for the first time), Full HD vs 4K, AI upscaling processors, refresh rate, HDMI eARC,"
+     "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
+     "🔥 Best 43-Inch TVs to Buy in 2026!",
+     "Flipkart Big Billion Days Sale aur Amazon Great Indian Festival Sale ke time agar aap ek best 43-inch TV buy karne ka plan kar rahe hain, to ye video aapke liye hai.",
+     "Is video mein maine different budgets ke best 43-inch TVs suggest kiye hain a"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "The Grapevine",
+    "creator": "Udrawat",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=fAaGDKl2xrA",
-    "question": "Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio",
+    "url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
+    "question": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
     "next": [
      {
       "action": "find_local",
@@ -289,14 +290,14 @@
     ]
    },
    "ai": {
-    "question": "\"Best TV 2026 | 43 inch | Sony vs Samsung vs LG | Hisense vs VU vs TCL vs Lumio\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "question": "\"I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం సరిగ్గా సరిపోతుందో లేదో తెలుసుకోవాలి.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అనేది గది పరిమాణం మరియు చూసే దూరంపై ఆధారపడి ఉంటుంది. సాధారణంగా 43 అంగుళాల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉండటం మంచిది.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_action": "answer_question"
    },
    "next": {
     "step": "deals",
@@ -358,6 +359,20 @@
       "location_label": null
      },
      {
+      "title": "Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.sathya.store",
+      "price": 37989.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.sathya.store/store/vijayawada-2",
+      "image_url": null,
+      "location_label": null
+     },
+     {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
       "segment": null,
       "match_source": "online",
@@ -384,20 +399,6 @@
       "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "Amazon",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
-      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
-      "location_label": null
      }
     ]
    }
@@ -407,7 +408,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:c6dce5caae9140cb",
+   "trace_key": "browse:26d1ef94252e4fc2",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,12 +434,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
-     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -611,7 +611,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:e065828beb0b4701",
+   "trace_key": "browse:a5106c4b42d14459",
    "videos": [
     {
      "video_id": "yt_E8eMNvr5GtM",
@@ -637,11 +637,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
+     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
@@ -764,6 +765,20 @@
       "location_label": null
      },
      {
+      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
+      "location_label": null
+     },
+     {
       "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
       "segment": null,
       "match_source": "online",
@@ -790,20 +805,6 @@
       "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
       "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
       "location_label": null
-     },
-     {
-      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.91wheels.com",
-      "price": 38323.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
-      "location_label": null
      }
     ]
    }
@@ -813,18 +814,18 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:418d886d93ad4b3d",
+   "trace_key": "browse:be49f13ffc53428c",
    "videos": [
     {
-     "video_id": "yt_Srxja6Eq8jE",
-     "title": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
-     "source_name": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
-     "duration": "0:15",
+     "video_id": "yt_qPF6hbFHCUc",
+     "title": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "source_name": "KP Vlogs & Review",
+     "duration": "0:19",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Srxja6Eq8jE?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/qPF6hbFHCUc?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Srxja6Eq8jE/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
+     "image_url": "https://i.ytimg.com/vi/qPF6hbFHCUc/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -847,22 +848,19 @@
     }
    },
    "explain": {
-    "video_id": "yt_Srxja6Eq8jE",
+    "video_id": "yt_qPF6hbFHCUc",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
-     "Welcome to Hello Mistri 443!",
-     "In this video, we take you through the complete Samsung Outdoor Split AC Service process.",
-     "From deep cleaning to essential repairs, watch how we restore peak performance to this unit.",
-     "Whether you're a DIY enthusiast or looking for reliable AC service i"
+     "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
+    "creator": "KP Vlogs & Review",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
-    "question": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
+    "url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
+    "question": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
     "next": [
      {
       "action": "find_local",
@@ -892,13 +890,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung\"",
+    "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -998,18 +996,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:accbe345179b4ea5",
+   "trace_key": "browse:f1db3d5db608435b",
    "videos": [
     {
-     "video_id": "yt_Bvxkrv7t4Dw",
-     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "source_name": "vijay xyz tricks ",
-     "duration": "0:14",
+     "video_id": "yt_Ac8Arkhzgps",
+     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+     "source_name": "My Old Plumber",
+     "duration": "0:17",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -1032,20 +1030,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_Bvxkrv7t4Dw",
+    "video_id": "yt_Ac8Arkhzgps",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
-     "thanks for watching video"
+     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+     "Which do you prefer for sealing drains — plumbers putty or silicone?",
+     "Some plumbers swear by putty.",
+     "Others prefer silicone for a stronger long-term seal.",
+     "Both have their place depending on the sink, drain, and installation."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "vijay xyz tricks ",
+    "creator": "My Old Plumber",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
-    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
     "next": [
      {
       "action": "find_local",
@@ -1075,7 +1075,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
+    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -1181,7 +1181,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:4d185e3d6e7e4b81",
+   "trace_key": "browse:e6e05b579d0a4b17",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1204,7 +1204,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
+    "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1290,16 +1290,16 @@
     },
     "options": [
      {
-      "title": "Bismillah Paradise Biryani",
+      "title": "The Kazus Royal Dum Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 0.2,
+      "distance_km": 1.5,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1346,17 +1346,17 @@
       "location_label": null
      },
      {
-      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
+      "title": "Order Biryani Near Me Vijayawada",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.eatsure.com",
+      "source_name": "www.behrouzbiryani.com",
       "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
-      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
+      "destination_url": "https://www.behrouzbiryani.com/behrouz-biryani/vijayawada",
+      "image_url": "https://imgs.search.brave.com/b5pHUBq0xEnCCACNUs4irJjCjkKoQv9_2hlBHHA-DvA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hc3Nl/dHMuZmFhc29zLmlv/L2VhdHN1cmUvcHJv/ZHVjdGlvbi9vZ19p/bWdfYmIucG5n",
       "location_label": null
      },
      {
@@ -1381,7 +1381,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:73674708aad94894",
+   "trace_key": "browse:b5685272d6c54ac7",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1410,7 +1410,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku Valley trip",
+     "subject": "Araku valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1582,7 +1582,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:cd600d42a4974d3b",
+   "trace_key": "browse:64dc03e851a1416e",
    "videos": [
     {
      "video_id": "yt_RJworx5674I",
@@ -1611,9 +1611,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
+     "subject": "used Royal Enfield Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1737,6 +1737,20 @@
       "location_label": null
      },
      {
+      "title": "Royal Enfield Classic 350 On Road Price In Vijayawada - 2026 Price Breakup & Offers",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "thebikejunction.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://thebikejunction.com/royal-enfield-bikes/classic-350/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/DQZW4q8YqGZQd8rDgWwUx6u2dWeN15hRegZLS5Zv7UM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudHJhY3Rvcmp1/bmN0aW9uLmNvbS9S/b3lhbF9FbmZpZWxk/X0NsYXNzaWNfMzUw/X0dvcmtoYV80XzQ1/ZThlYzhkODYud2Vi/cD9mb3JtYXQ9d2Vi/cCZxdWFsaXR5PTQw",
+      "location_label": null
+     },
+     {
       "title": "Royal Enfield Classic 350 price in Vijayawada | Royal Enfield Classic 350 on road Price 2026 | Times Drive",
       "segment": "deals",
       "match_source": "online",
@@ -1763,20 +1777,6 @@
       "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
       "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
       "location_label": null
-     },
-     {
-      "title": "Royal Enfield Classic 350 Price in Vijayawada – Ex-Showroom, Top Model & On-Road Cost",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "auto.shriramfinance.in",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://auto.shriramfinance.in/royal-enfield/classic-350-price-in-vijayawada",
-      "image_url": null,
-      "location_label": null
      }
     ]
    }
@@ -1786,7 +1786,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:658273d0fed34519",
+   "trace_key": "browse:6e790bed50364744",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1812,7 +1812,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
@@ -1991,18 +1991,18 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:1b524ed8dd5f43dd",
+   "trace_key": "browse:acdfe83feeb94388",
    "videos": [
     {
-     "video_id": "yt_Srxja6Eq8jE",
-     "title": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
-     "source_name": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
-     "duration": "0:15",
+     "video_id": "yt_qPF6hbFHCUc",
+     "title": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "source_name": "KP Vlogs & Review",
+     "duration": "0:19",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Srxja6Eq8jE?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/qPF6hbFHCUc?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Srxja6Eq8jE/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
+     "image_url": "https://i.ytimg.com/vi/qPF6hbFHCUc/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -2025,22 +2025,19 @@
     }
    },
    "explain": {
-    "video_id": "yt_Srxja6Eq8jE",
+    "video_id": "yt_qPF6hbFHCUc",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
-     "Welcome to Hello Mistri 443!",
-     "In this video, we take you through the complete Samsung Outdoor Split AC Service process.",
-     "From deep cleaning to essential repairs, watch how we restore peak performance to this unit.",
-     "Whether you're a DIY enthusiast or looking for reliable AC service i"
+     "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
+    "creator": "KP Vlogs & Review",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
-    "question": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
+    "url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
+    "question": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
     "next": [
      {
       "action": "find_local",
@@ -2070,11 +2067,11 @@
     ]
    },
    "ai": {
-    "question": "\"Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఇది సరిపోతుందో లేదో చూడటానికి మీ రూమ్ పరిమాణం ఎంత ఉందో తెలుపగలరా?",
+    "follow_reply": "చిన్న గదికి ఇది సరిపోతుందో లేదో చూడటానికి మీ AC సామర్థ్యం (టన్నుల కొలత) ఎంతో చెప్తారా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
