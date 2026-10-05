@@ -151,6 +151,22 @@ class MainActivity : FlutterActivity() {
                         replyUtteranceId,
                         result,
                     )
+                    // The Android share sheet only: the user picks where it goes;
+                    // ASKODOX never posts anywhere by itself.
+                    "shareText" -> {
+                        val text = call.argument<String>("text").orEmpty()
+                        if (text.isBlank()) {
+                            result.success(false)
+                        } else {
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                call.argument<String>("subject")?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
+                            }
+                            startActivity(Intent.createChooser(send, call.argument<String>("title") ?: "Share"))
+                            result.success(true)
+                        }
+                    }
                     "getCurrentLocation" -> getCurrentLocation(result)
                     "notificationsEnabled" -> result.success(NotificationManagerCompat.from(this).areNotificationsEnabled())
                     "requestNotificationPermission" -> requestNotificationPermission(result)

@@ -72,3 +72,29 @@ def test_push_token_endpoint_needs_sign_in():
     headers = {"Authorization": f"Bearer {issue_token(user, container.settings.session_token_secret)}"}
     reply = client.post("/api/me/push-token", json=body, headers=headers).json()
     assert reply["registered"] is True and reply["push_configured"] is False
+
+
+def test_app_notification_switches_stop_background_pushes(tmp_path):
+    fcm = _FCM()
+    service = PushService(str(tmp_path / "p.db"), service_account_json=_account(), client=fcm)
+    service.register("u1", "live-token-000000000000")
+    service.set_prefs("u1", enabled=True, muted=["leads", "bogus"])
+    assert service.prefs("u1") == {"enabled": True, "muted": ["leads"]}, "unknown kinds are dropped"
+    assert service.notify("u1", title="New", body="b", route="/orders/incoming", event_key="order:9:request") == 0
+    assert service.notify("u1", title="Update", body="b", route="/orders/mine", event_key="order:9:seller_accepted") == 1
+    service.set_prefs("u1", enabled=False, muted=[])
+    assert service.notify("u1", title="x", body="y", route="/notifications", event_key="demand:4") == 0
+    assert PushService.kind_of("demand:4") == "opportunities"
+
+
+def test_notification_settings_endpoint_signed_in_only():
+    from server import app, container
+
+    client = TestClient(app)
+    user = "app-phone-91" + str(uuid.uuid4().int)[:10]
+    assert client.put("/api/me/notification-settings", json={"enabled": False}).status_code == 401
+    headers = {"Authorization": f"Bearer {issue_token(user, container.settings.session_token_secret)}"}
+    saved = client.put("/api/me/notification-settings", json={"enabled": True, "muted": ["notices"]},
+                       headers=headers).json()
+    assert saved == {"enabled": True, "muted": ["notices"]}
+    assert client.get("/api/me/notification-settings", headers=headers).json() == saved

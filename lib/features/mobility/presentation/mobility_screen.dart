@@ -5,15 +5,25 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../growth/data/growth_repository.dart';
 import '../../location/application/location_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../application/mobility_draft.dart';
 import '../data/mobility_repository.dart';
+import 'place_field.dart';
 
 /// Rides, parcels, carpool and the partner (driver / delivery) workspace --
 /// one screen on top of ONE backend (`/api/delivery`). Every status shown is
 /// the backend's own: a request is never shown as confirmed until a partner
 /// accepts, and phones appear only after acceptance.
 class MobilityScreen extends ConsumerStatefulWidget {
-  const MobilityScreen({super.key, this.initialTab = 0});
+  const MobilityScreen({super.key, this.initialTab = 0, this.initialKind, this.initialFrom, this.initialTo});
   final int initialTab;
+
+  /// Pre-fill from the chat (`/mobility?kind=&from=&to=`); the shared
+  /// [askodoxMobilityDraftProvider] carries the coordinates.
+  final String? initialKind;
+  final String? initialFrom;
+  final String? initialTo;
 
   @override
   ConsumerState<MobilityScreen> createState() => _MobilityScreenState();
@@ -75,7 +85,7 @@ class _MobilityScreenState extends ConsumerState<MobilityScreen> {
                 ]),
               ))
             : TabBarView(children: [
-                _BookTab(te: _te),
+                _BookTab(te: _te, kind: widget.initialKind, from: widget.initialFrom, to: widget.initialTo),
                 _MyTripsTab(te: _te),
                 _CarpoolTab(te: _te),
                 _PartnerTab(te: _te),
@@ -104,8 +114,11 @@ Map<String, Object?>? _point(WidgetRef ref, String text) {
 }
 
 class _BookTab extends ConsumerStatefulWidget {
-  const _BookTab({required this.te});
+  const _BookTab({required this.te, this.kind, this.from, this.to});
   final bool te;
+  final String? kind;
+  final String? from;
+  final String? to;
 
   @override
   ConsumerState<_BookTab> createState() => _BookTabState();
@@ -113,8 +126,10 @@ class _BookTab extends ConsumerStatefulWidget {
 
 class _BookTabState extends ConsumerState<_BookTab> {
   String t(String en, String te) => widget.te ? te : en;
-  final _from = TextEditingController();
-  final _to = TextEditingController();
+  AskodoxPlace? _from;
+  AskodoxPlace? _to;
+  AskodoxRouteQuote? _route;
+  int _routeQuery = 0;
   final _notes = TextEditingController();
   final _recipient = TextEditingController();
   final _recipientPhone = TextEditingController();
@@ -126,17 +141,83 @@ class _BookTabState extends ConsumerState<_BookTab> {
 
   bool get _send => askodoxSendKinds.contains(_kind);
 
+  static bool _located(AskodoxPlace? p) => p != null && (p.latitude != 0 || p.longitude != 0);
+
+  @override
+  void initState() {
+    super.initState();
+    // ONE draft with the chat: what the chat understood opens here, and
+    // edits here are what the chat's "Request a driver" sends.
+    final draft = ref.read(askodoxMobilityDraftProvider);
+    AskodoxPlace? labelled(String? label) =>
+        label == null || label.trim().isEmpty ? null : AskodoxPlace(latitude: 0, longitude: 0, label: label.trim());
+    final kind = widget.kind ?? draft?.kind;
+    if (kind != null && (askodoxRideKinds.contains(kind) || askodoxSendKinds.contains(kind))) _kind = kind;
+    _from = (draft?.from != null && (widget.from == null || draft!.from!.label == widget.from))
+        ? draft!.from
+        : labelled(widget.from);
+    _to = (draft?.to != null && (widget.to == null || draft!.to!.label == widget.to)) ? draft!.to : labelled(widget.to);
+    if (_from == null) {
+      final loc = ref.read(locationControllerProvider);
+      if (loc.hasPlace) {
+        _from = AskodoxPlace(
+            latitude: loc.centre.latitude,
+            longitude: loc.centre.longitude,
+            label: loc.displayLocation ?? 'Current location');
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _publish();
+      _quoteRoute();
+    });
+  }
+
+  void _publish() => ref.read(askodoxMobilityDraftProvider.notifier).state =
+      MobilityDraft(kind: _kind, from: _from, to: _to);
+
+  /// Distance / time for the chosen ends (Routes API through the backend);
+  /// silent when Maps cannot answer.
+  Future<void> _quoteRoute() async {
+    final from = _from, to = _to;
+    final id = ++_routeQuery;
+    if (!_located(from) || !_located(to)) {
+      if (_route != null) setState(() => _route = null);
+      return;
+    }
+    AskodoxRouteQuote? quote;
+    try {
+      quote = await ref.read(growthRepositoryProvider).routeQuote(from!, to!);
+    } catch (_) {
+      quote = null;
+    }
+    if (mounted && id == _routeQuery) setState(() => _route = quote);
+  }
+
+  void _setEnd({AskodoxPlace? from, AskodoxPlace? to, bool isFrom = true}) {
+    setState(() {
+      if (isFrom) {
+        _from = from;
+      } else {
+        _to = to;
+      }
+      _route = null;
+    });
+    _publish();
+    _quoteRoute();
+  }
+
   @override
   void dispose() {
-    for (final c in [_from, _to, _notes, _recipient, _recipientPhone]) {
+    for (final c in [_notes, _recipient, _recipientPhone]) {
       c.dispose();
     }
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final pickup = _point(ref, _from.text);
-    final drop = _to.text.trim().isEmpty ? null : {'label': _to.text.trim()};
+    final pickup = _from != null ? askodoxMobilityPoint(_from!) : _point(ref, '');
+    final drop = _to == null ? null : askodoxMobilityPoint(_to!);
     if (pickup == null || drop == null) {
       _say(context, t('Enter where from (or allow location) and where to.', 'ఎక్కడి నుంచి, ఎక్కడికి ఇవ్వండి.'));
       return;
@@ -169,7 +250,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
               key: ValueKey('mobility-kind-$k'),
               label: Text(askodoxKindLabel(k, te)),
               selected: _kind == k,
-              onSelected: (_) => setState(() => _kind = k)),
+              onSelected: (_) {
+                setState(() => _kind = k);
+                _publish();
+              }),
       ]),
       const SizedBox(height: 8),
       Text(t('Send', 'పంపండి'), style: Theme.of(context).textTheme.titleSmall),
@@ -179,20 +263,52 @@ class _BookTabState extends ConsumerState<_BookTab> {
               key: ValueKey('mobility-kind-$k'),
               label: Text(askodoxKindLabel(k, te)),
               selected: _kind == k,
-              onSelected: (_) => setState(() => _kind = k)),
+              onSelected: (_) {
+                setState(() => _kind = k);
+                _publish();
+              }),
       ]),
       const SizedBox(height: 12),
-      TextField(
-          key: const ValueKey('mobility-from'),
-          controller: _from,
-          decoration: InputDecoration(
-              labelText: t('From (empty = my location)', 'ఎక్కడి నుంచి (ఖాళీ = నా లొకేషన్)'),
-              prefixIcon: const Icon(Icons.trip_origin))),
+      AskodoxPlaceField(
+          fieldKey: 'mobility-from',
+          te: te,
+          allowCurrent: true,
+          label: t('From', 'ఎక్కడి నుంచి'),
+          icon: Icons.trip_origin,
+          value: _from,
+          onChanged: (p) => _setEnd(from: p)),
       const SizedBox(height: 8),
-      TextField(
-          key: const ValueKey('mobility-to'),
-          controller: _to,
-          decoration: InputDecoration(labelText: t('To', 'ఎక్కడికి'), prefixIcon: const Icon(Icons.place_outlined))),
+      AskodoxPlaceField(
+          fieldKey: 'mobility-to',
+          te: te,
+          label: t('To', 'ఎక్కడికి'),
+          icon: Icons.place_outlined,
+          value: _to,
+          onChanged: (p) => _setEnd(to: p, isFrom: false)),
+      if (_from != null && _to != null)
+        Padding(
+          key: const ValueKey('mobility-route'),
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(children: [
+            const Icon(Icons.route_outlined, size: 18),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                  _route?.distanceKm != null
+                      ? '${_route!.distanceKm!.toStringAsFixed(1)} km'
+                          '${_route!.durationMinutes != null ? ' · ~${_route!.durationMinutes} min' : ''} '
+                          '${t('by road', 'రోడ్డు మార్గం')}'
+                      : t('Route distance appears once both places are on the map.',
+                          'రెండు ప్రాంతాలు మ్యాప్‌లో ఉన్నప్పుడు దూరం కనిపిస్తుంది.'),
+                  style: Theme.of(context).textTheme.bodySmall),
+            ),
+            TextButton.icon(
+                key: const ValueKey('mobility-directions'),
+                onPressed: () => launchUrl(askodoxRouteDirectionsUri(_from!, _to!), mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.directions_outlined, size: 18),
+                label: Text(t('Map', 'మ్యాప్'))),
+          ]),
+        ),
       const SizedBox(height: 8),
       if (!_send)
         Row(children: [

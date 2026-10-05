@@ -7,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_models.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../services/media_picker.dart';
+import 'video_commerce.dart';
 
 /// ASKODOX-native videos: record or pick a video, add a title / caption /
 /// category / product, upload, and staff review it before anyone sees it.
@@ -248,8 +249,17 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
     _say(error ??
         (submit
             ? t('Uploaded. ASKODOX staff review it before it is published.', 'అప్‌లోడ్ అయింది. స్టాఫ్ రివ్యూ తర్వాత పబ్లిష్ అవుతుంది.')
-            : t('Saved as a draft.', 'డ్రాఫ్ట్‌గా సేవ్ చేశాం.')));
-    _load();
+            : t('Saved as a draft. Open it to get details suggested from the video.',
+                'డ్రాఫ్ట్‌గా సేవ్ చేశాం. వీడియో నుంచి వివరాల సూచనలకు తెరవండి.')));
+    final before = {for (final v in _mine) v.id};
+    await _load();
+    if (error != null || submit || !mounted) return;
+    // A new draft opens straight into its details (Suggest from the video).
+    final fresh = _mine.where((v) => !before.contains(v.id)).toList();
+    if (fresh.isNotEmpty) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyVideoDetailScreen(video: fresh.first)));
+      _load();
+    }
   }
 
   void _say(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -310,6 +320,12 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
             Row(children: [
               Expanded(child: Text(t('My videos', 'నా వీడియోలు'), style: Theme.of(context).textTheme.titleMedium)),
               TextButton.icon(
+                  key: const ValueKey('video-inbox'),
+                  onPressed: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const VideoSellerInboxScreen())),
+                  icon: const Icon(Icons.inbox_outlined),
+                  label: Text(t('Questions', 'ప్రశ్నలు'))),
+              TextButton.icon(
                   key: const ValueKey('video-messages'),
                   onPressed: () => showModalBottomSheet<void>(
                       context: context, isScrollControlled: true, builder: (_) => _VideoInbox(te: _te)),
@@ -322,7 +338,11 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
                 key: ValueKey('my-video-${v.id}'),
                 child: ListTile(
                   title: Text(v.title),
-                  subtitle: Text(askodoxVideoStatusText(v.status, _te)),
+                  subtitle: Text(askodoxVideoLifecycleLabel(v.status, _te)),
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyVideoDetailScreen(video: v)));
+                    _load();
+                  },
                   trailing: PopupMenuButton<String>(
                     onSelected: (a) async {
                       await ref.read(nativeVideoRepositoryProvider).act(v.id, a);
@@ -451,9 +471,31 @@ class _NativeReelsScreenState extends ConsumerState<NativeReelsScreen> {
   String t(String en, String te) => _te ? te : en;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.videos.isNotEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _viewed(widget.videos[_current]));
+  }
+
+  @override
   void dispose() {
     _pages.dispose();
     super.dispose();
+  }
+
+  /// Demand analytics only (no identity): a published video was watched.
+  void _viewed(NativeVideo v) {
+    if (v.status.isNotEmpty && v.status != 'ACTIVE') return;
+    ref.read(videoCommerceRepositoryProvider).event(v.id, 'view').catchError((_) {});
+  }
+
+  Future<void> _share(NativeVideo v) async {
+    final repo = ref.read(videoCommerceRepositoryProvider);
+    final s = await repo.share(v.id);
+    final text = '${s['text'] ?? ''}';
+    if (text.isEmpty) return;
+    await repo.event(v.id, 'share');
+    final shared = await ref.read(askodoxShareTextProvider)(text, subject: v.title);
+    if (!shared && mounted) _say(t('Link copied.', 'లింక్ కాపీ అయింది.'));
   }
 
   void _say(String text) => ScaffoldMessenger.of(context)
@@ -530,7 +572,10 @@ class _NativeReelsScreenState extends ConsumerState<NativeReelsScreen> {
         controller: _pages,
         scrollDirection: Axis.vertical,
         itemCount: widget.videos.length,
-        onPageChanged: (i) => setState(() => _current = i),
+        onPageChanged: (i) {
+          setState(() => _current = i);
+          _viewed(widget.videos[i]);
+        },
         itemBuilder: (context, i) {
           final v = widget.videos[i];
           return Stack(fit: StackFit.expand, children: [
@@ -558,6 +603,27 @@ class _NativeReelsScreenState extends ConsumerState<NativeReelsScreen> {
                     color: Colors.white,
                     icon: const Icon(Icons.chat_bubble_outline),
                     onPressed: () => _ask(v)),
+                IconButton(
+                    key: ValueKey('reel-questions-${v.id}'),
+                    tooltip: t('Questions & pre-order', 'ప్రశ్నలు & ప్రీ-ఆర్డర్'),
+                    color: Colors.white,
+                    icon: const Icon(Icons.question_answer_outlined),
+                    onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => VideoQuestionsSheet(video: v, te: _te))),
+                IconButton(
+                    key: ValueKey('reel-chat-${v.id}'),
+                    tooltip: t('Ask about this video in chat', 'చాట్‌లో ఈ వీడియో గురించి అడగండి'),
+                    color: Colors.white,
+                    icon: const Icon(Icons.forum_outlined),
+                    onPressed: () => askodoxAskAboutVideoInChat(ref, context, v)),
+                IconButton(
+                    key: ValueKey('reel-share-${v.id}'),
+                    tooltip: t('Share', 'షేర్'),
+                    color: Colors.white,
+                    icon: const Icon(Icons.share_outlined),
+                    onPressed: () => _share(v)),
                 IconButton(
                     key: ValueKey('reel-study-${v.id}'),
                     tooltip: t("What's in this video?", 'ఈ వీడియోలో ఏముంది?'),

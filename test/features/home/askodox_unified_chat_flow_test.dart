@@ -24,6 +24,9 @@ import 'package:podx/features/growth/data/benefits.dart';
 import 'package:podx/features/home/presentation/askodox_primary_home_screen.dart';
 import 'package:podx/features/location/application/location_controller.dart';
 import 'package:podx/features/location/domain/geo_models.dart';
+import 'package:podx/features/home/data/askodox_video_service.dart';
+import 'package:podx/features/home/data/taxonomy_repository.dart';
+import 'package:podx/features/location/presentation/location_setup_screen.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/selling/data/seller_listing_repository.dart';
@@ -213,7 +216,10 @@ class _FakeGrowth implements GrowthRepository {
   bool signedIn = true;
 
   @override
-  Future<List<AskodoxPlace>> searchPlaces(String query, {double? latitude, double? longitude}) async => const [];
+  Future<List<AskodoxPlace>> searchPlaces(String query, {double? latitude, double? longitude}) async =>
+      query.toLowerCase().contains('benz')
+          ? const [AskodoxPlace(latitude: 16.4991, longitude: 80.6563, label: 'Benz Circle, Vijayawada')]
+          : const [];
 
   @override
   Future<AskodoxRouteQuote?> routeQuote(AskodoxPlace pickup, AskodoxPlace drop) async =>
@@ -500,6 +506,12 @@ class _Harness {
   /// proof render replays the branch backend's real answers through it.
   ApiClient? api;
 
+  /// Grounded video Q&A stand-in (POST /api/videos/{ref}/ask).
+  _FakeVideoAsk? videoAsk;
+
+  /// Category tree stand-in (GET /api/taxonomy/resolve); unmatched by default.
+  final taxonomy = _FakeTaxonomy();
+
   /// Optional theme (the proof render adds a Telugu fallback font).
   ThemeData? theme;
 
@@ -577,6 +589,8 @@ class _Harness {
         askodoxSupportEscalationServiceProvider.overrideWithValue(support),
         askodoxReplySpeechServiceProvider.overrideWithValue(replySpeech),
         if (api != null) apiClientProvider.overrideWithValue(api!),
+        if (videoAsk != null) askodoxVideoServiceProvider.overrideWithValue(videoAsk!),
+        askodoxTaxonomyRepositoryProvider.overrideWithValue(taxonomy),
         greetingRepositoryProvider.overrideWithValue(GreetingRepository(_GreetingApi(signoffs))),
         askodoxVideoEmbedBuilderProvider.overrideWithValue((uri) {
           embeddedVideos.add(uri);
@@ -604,6 +618,7 @@ class _Harness {
               routerConfig: GoRouter(routes: [
                 GoRoute(path: '/', builder: (_, __) => home),
                 GoRoute(path: '/onboarding', builder: (_, __) => _FakeSignInScreen(onSignIn: () => growth.signedIn = true)),
+                GoRoute(path: '/location', builder: (_, __) => const LocationSetupScreen()),
               ]),
             )
           : MaterialApp(home: home, theme: theme, debugShowCheckedModeBanner: theme == null),
@@ -699,6 +714,9 @@ class _FakeAttachments implements ChatAttachmentService {
   final failures = <ChatAttachmentException>[];
   Completer<void>? hold;
 
+  /// A short uploaded video ASKODOX studied (ready study ref).
+  String? studyRef;
+
   @override
   Future<ChatAttachmentResult> analyze(ChatAttachment attachment,
       {required String userText, required String language, String conversationId = ''}) async {
@@ -712,7 +730,37 @@ class _FakeAttachments implements ChatAttachmentService {
           ? 'Video shows: a scooter with a flat tyre'
           : 'Shows: pressure cooker\nBrand: Prestige\nVisible text: Prestige 5L',
       analysis: const {'subject': 'pressure cooker', 'brand': 'Prestige'},
+      videoStudy: attachment.isVideo && studyRef != null ? {'status': 'ready', 'ref': studyRef} : null,
     );
+  }
+}
+
+class _FakeTaxonomy extends AskodoxTaxonomyRepository {
+  _FakeTaxonomy() : super(MockApiClient());
+  final asked = <String>[];
+  final answers = <String, AskodoxTaxonomyMatch>{};
+
+  @override
+  Future<AskodoxTaxonomyMatch?> resolve(String text) async {
+    asked.add(text);
+    for (final e in answers.entries) {
+      if (text.toLowerCase().contains(e.key)) return e.value;
+    }
+    return null;
+  }
+}
+
+class _FakeVideoAsk extends AskodoxVideoService {
+  _FakeVideoAsk() : super(MockApiClient());
+  final asked = <(String, String)>[];
+
+  @override
+  Future<AskodoxVideoAnswer?> ask(String videoId, String question, {String language = 'en'}) async {
+    asked.add((videoId, question));
+    return question.contains('tyre')
+        ? const AskodoxVideoAnswer(found: true, answer: 'Inflates bike tyres: yes (shown in the video)',
+            timestamps: ['0:12'])
+        : const AskodoxVideoAnswer(found: false, answer: 'That is not in this video.');
   }
 }
 
@@ -811,7 +859,7 @@ void main() {
       }
       expect(find.textContaining('8 or 9'), findsNothing, reason: 'the AI reply never restates the size differently');
       expect(find.textContaining('Finding walking shoes'), findsNothing, reason: 'no cards -> no "finding" claim');
-      expect(find.textContaining('Request saved (ID 47)'), findsOneWidget, reason: 'one notice per request');
+      expect(find.textContaining('Request saved (in Updates)'), findsOneWidget, reason: 'one notice per request');
       expect(find.textContaining('could not be reached'), findsWidgets, reason: 'a down source is named');
     });
 
@@ -971,6 +1019,90 @@ void main() {
     expect(find.textContaining('How much chicken'), findsNothing, reason: 'no English question in a Telugu chat');
     expect(find.byKey(const Key('askodoxCompanionLine')), findsNothing,
         reason: 'the reply is on screen; no second bubble restating it');
+  });
+
+  testWidgets('a question about the attached video is answered from its study, never a deal search (no ID 47)',
+      (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([
+      const UniversalMatchResult(dealId: '47', matches: [_localMatch]),
+    ]))..videoAsk = _FakeVideoAsk();
+    h.attachments.studyRef = 'up_jpt1';
+    await h.pump(tester);
+    h.picker.next = [ChatAttachment(name: 'jpt.mp4', bytes: _photoBytes, mimeType: 'video/mp4')];
+    await _openCompanionHub(tester);
+    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-video')));
+    await _Harness.settle(tester);
+    await h.send(tester, 'Does this inflate bike tyres?');
+    expect(h.videoAsk!.asked.single, ('up_jpt1', 'Does this inflate bike tyres?'));
+    expect(find.textContaining('Inflates bike tyres: yes'), findsOneWidget);
+    expect(find.textContaining('0:12'), findsOneWidget, reason: 'where in the video');
+    expect(h.matches.deals, isEmpty, reason: 'no deal / product search for a video question');
+    expect(find.textContaining('ID 47'), findsNothing);
+    // A follow-up about the same video stays grounded; "not in this video" is honest.
+    await h.send(tester, 'What did he say about the warranty?');
+    expect(h.videoAsk!.asked, hasLength(2));
+    expect(find.textContaining('not in this video'), findsOneWidget);
+    expect(h.matches.deals, isEmpty);
+    // Asking to buy it nearby leaves the video and acts.
+    await h.send(tester, 'where can I buy this nearby? show me');
+    expect(h.videoAsk!.asked, hasLength(2));
+  });
+
+  testWidgets('"Can you deliver food?" and "I can work as a delivery partner" get capability answers + real actions',
+      (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([
+      const UniversalMatchResult(dealId: '47', matches: [_localMatch]),
+    ]))..withRouter = true;
+    h.taxonomy.answers['deliver food'] = const AskodoxTaxonomyMatch(
+        key: 'food_delivery', label: 'Food delivery', role: 'customer',
+        actions: ['request_delivery', 'contact_after_accept', 'order'], mobilityKind: 'food');
+    h.taxonomy.answers['delivery partner'] = const AskodoxTaxonomyMatch(
+        key: 'delivery', label: 'Delivery', role: 'provider', actions: ['join_as_partner'],
+        mobilityKind: 'local_delivery');
+    await h.pump(tester);
+    await h.send(tester, 'Can you deliver food?');
+    expect(find.textContaining('order from a nearby place and choose delivery'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxTaxonomyOrderNearby')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxTaxonomySendPickup')), findsOneWidget);
+    expect(h.matches.deals, isEmpty, reason: 'a capability question is not a product search');
+    await h.send(tester, 'I can work as a delivery partner');
+    expect(find.textContaining('join ASKODOX as a delivery / ride partner'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxJoinAsPartner')), findsOneWidget);
+    expect(h.matches.deals, isEmpty);
+    expect(h.taxonomy.asked, hasLength(2));
+    // Ordinary requests never pay for a taxonomy round-trip.
+    await h.send(tester, 'I need a mixer grinder');
+    expect(h.taxonomy.asked, hasLength(2));
+  });
+
+  testWidgets('"Ask about this video" opens chat with the video as context; questions stay grounded', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository(const []))..videoAsk = _FakeVideoAsk();
+    await h.pump(tester);
+    final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+    container.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.aboutVideo('nv_vid5', 'JPT demo');
+    await _Harness.settle(tester);
+    expect(find.textContaining('Ask me anything about "JPT demo"'), findsOneWidget);
+    await h.send(tester, 'How many bike tyres can it fill?');
+    expect(h.videoAsk!.asked.single.$1, 'nv_vid5');
+    expect(h.matches.deals, isEmpty);
+  });
+
+  testWidgets('companion Location opens the location screen; a searched place is used by the chat', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository(const []))..withRouter = true;
+    await h.pump(tester);
+    await _openCompanionHub(tester);
+    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-location')));
+    await _Harness.settle(tester);
+    expect(find.byType(LocationSetupScreen), findsOneWidget, reason: 'Location in the + ring opens the picker');
+    await tester.enterText(find.byKey(const Key('askodoxLocationSearch')), 'Benz Circle');
+    await tester.tap(find.byKey(const Key('askodoxLocationSearchGo')));
+    await _Harness.settle(tester);
+    await tester.tap(find.text('Benz Circle, Vijayawada'));
+    await _Harness.settle(tester);
+    expect(find.byType(LocationSetupScreen), findsNothing, reason: 'choosing returns to the same chat');
+    final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+    expect(container.read(locationControllerProvider).defaultLocation?.name, 'Benz Circle, Vijayawada',
+        reason: 'Profile, header and chat read the ONE location state');
   });
 
   testWidgets('APK 1276: every companion button does its job (camera, photos, video, files, type)', (tester) async {
@@ -2581,7 +2713,7 @@ void main() {
       expect(h.matches.deals.single.intent, DealIntent.seekWork);
       expect(askodoxEffectiveSubject(h.matches.deals.single), isNotNull);
       expect(find.textContaining('Matching is unavailable'), findsNothing);
-      expect(find.textContaining('Request saved (ID 905)'), findsOneWidget, reason: 'the request id is shown ONCE');
+      expect(find.textContaining('Request saved (in Updates)'), findsOneWidget, reason: 'the saved-request notice is shown ONCE (no internal id)');
     });
 
     testWidgets('electric scooter: a buyer search with its own slots; web price stays unverified', (tester) async {

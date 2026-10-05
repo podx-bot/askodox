@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/application/conversation_archive.dart';
+import '../../features/home/presentation/question_mic.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
@@ -262,6 +263,13 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           // companion's actions on Main Chat.
           if (ref.read(askodoxCompanionLiveProvider).listening) {
             companionAction(AskodoxHubAction.voice);
+            return;
+          }
+          // A screen with its own question mic (video Q&A): record into
+          // it -- never close the page the user is asking about.
+          if (shell.currentIndex == 0 && ref.read(askodoxDetailPagesOpenProvider) > 0 &&
+              ref.read(askodoxQuestionMicTargetsProvider) > 0) {
+            ref.read(askodoxQuestionMicTriggerProvider.notifier).state++;
             return;
           }
           final hub = ref.read(askodoxCompanionHubOpenProvider.notifier);

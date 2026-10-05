@@ -42,6 +42,7 @@ import '../../selling/data/catalogue_repository.dart';
 import '../../selling/domain/seller_catalogue.dart';
 import '../../selling/presentation/catalogue_widgets.dart';
 import '../../growth/data/growth_repository.dart';
+import '../../mobility/application/mobility_draft.dart' show MobilityDraft, askodoxMobilityDraftProvider, askodoxMobilityPoint;
 import '../../mobility/data/mobility_repository.dart';
 import '../../growth/data/partner_tracking.dart';
 import '../../growth/presentation/benefits_widgets.dart';
@@ -60,6 +61,7 @@ import '../../companion/askodox_companion.dart';
 import '../../companion/companion_voice.dart';
 import 'deal_lifecycle_panel.dart';
 import '../data/askodox_video_service.dart';
+import '../data/taxonomy_repository.dart';
 import 'video_viewer_screen.dart';
 import 'video_study_panel.dart';
 
@@ -330,6 +332,7 @@ class _AskodoxPrimaryHomeScreenState
 
   /// Which engine spoke the last reply: 'sarvam_bulbul_v3' or 'device'.
   String? lastReplyVoiceEngine;
+  bool _voiceFallbackNoticeShown = false;
   bool _voiceFinishing = false;
 
   /// Main Chat voice: record in-app, transcribe through the backend's
@@ -658,6 +661,27 @@ class _AskodoxPrimaryHomeScreenState
       await _companionAction(action);
       return;
     }
+    if (request.videoRef case final videoRef?) {
+      // "Ask about this video": the SAME chat, now about this video; every
+      // question is answered from its study / listing until the customer
+      // moves on.
+      final te = _te;
+      final title = (request.prompt ?? '').trim();
+      setState(() {
+        _videoStudyRef = videoRef;
+        _videoFocus = true;
+        _active = true;
+        _turns.add(ConversationTurnRecord(
+            text: te
+                ? '"$title" గురించి ఏమైనా అడగండి -- వీడియోలో కనిపించినది / సెల్లర్ చెప్పినది / లిస్టింగ్ నుంచి మాత్రమే జవాబిస్తాను.'
+                : 'Ask me anything about "$title" -- I answer only from what the video shows, what the seller says, or their listing.',
+            isUser: false));
+      });
+      await _store.save(_turns);
+      await _saveSnapshot();
+      _scrollBottom();
+      return;
+    }
     final id = request.conversationId;
     if (id != null) {
       final archive = ref.read(askodoxConversationArchiveProvider.notifier);
@@ -836,7 +860,22 @@ class _AskodoxPrimaryHomeScreenState
         );
   }
 
+  /// The studied video attached in THIS conversation: follow-up questions
+  /// about it go to its grounded Q&A, not to a deal search.
+  String? _videoStudyRef;
+
+  /// Opened from "Ask about this video": every question is about it until
+  /// the customer moves on.
+  bool _videoFocus = false;
+
+  /// Category-tree actions offered under an assistant turn ("Join as a
+  /// partner", "Send a pickup").
+  final Map<int, AskodoxTaxonomyMatch> _taxonomyByTurn = {};
+
   void _clearConversationState() {
+    _videoStudyRef = null;
+    _videoFocus = false;
+    _taxonomyByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
     _dealByTurn.clear();
@@ -899,6 +938,12 @@ class _AskodoxPrimaryHomeScreenState
       _turns.addAll((data['turns'] as List? ?? const [])
           .map(ConversationTurnRecord.fromJson)
           .whereType<ConversationTurnRecord>());
+      // A video studied in this conversation keeps answering after restore.
+      for (final turn in _turns) {
+        for (final a in turn.attachments) {
+          if (a['study_ref'] case final r? when r.isNotEmpty) _videoStudyRef = r;
+        }
+      }
       map(data['results']).forEach((key, raw) {
         final json = map(raw);
         _resultsByTurn[int.parse(key)] = AskodoxChatResults(
@@ -1496,6 +1541,42 @@ class _AskodoxPrimaryHomeScreenState
       }
       _pendingAiContext = askodoxSignOffGuidance;
       _pendingDiscussOnly = true;
+    }
+
+    // A question about the video attached here -> its grounded study
+    // (seen / said in the video, with timestamps), never ID-47 deal text.
+    final attachedStudy = sentAttachments
+        .map((a) => a['study_ref'])
+        .firstWhere((r) => r != null && r.isNotEmpty, orElse: () => null);
+    if (attachedStudy != null) _videoStudyRef = attachedStudy;
+    final videoRef = _videoStudyRef;
+    if (videoRef != null && askodoxAsksAboutVideo(typed, justAttached: attachedStudy != null || _videoFocus)) {
+      await _answerFromVideo(videoRef, typed, speakResponse);
+      return;
+    }
+    if (attachedStudy == null && typed.isNotEmpty && videoRef != null &&
+        !askodoxAsksAboutVideo(typed, justAttached: _videoFocus)) {
+      // The customer moved on (a new need / buy it nearby): normal flow.
+      _videoStudyRef = null;
+      _videoFocus = false;
+    }
+
+    // "Can you deliver food?" / "I can work as a delivery partner": answered
+    // from the universal category tree (what ASKODOX can do here), with the
+    // real next step -- never a product search.
+    if (attachments.isEmpty && askodoxAsksDeliveryCapability(typed)) {
+      AskodoxTaxonomyMatch? match;
+      try {
+        match = await ref.read(askodoxTaxonomyRepositoryProvider).resolve(typed);
+      } catch (_) {
+        match = null;
+      }
+      if (!mounted) return;
+      if (match != null && (match.provider ? match.actions.contains('join_as_partner')
+          : match.actions.any((a) => a == 'request_delivery' || a == 'request_ride'))) {
+        await _answerCapability(match, typed, speakResponse);
+        return;
+      }
     }
 
     // AI-first: questions about options already shown ("which is better?",
@@ -2604,6 +2685,38 @@ class _AskodoxPrimaryHomeScreenState
     return askodoxMobilityKind('${deal.rawText} ${deal.subject ?? ''}');
   }
 
+  /// The ride / parcel the conversation describes, as the ONE shared draft
+  /// the Rides & deliveries screen opens with (labels + any map pins).
+  MobilityDraft? _mobilityDraftFromChat() {
+    final deal = ref.read(universalDealControllerProvider).deal;
+    if (deal == null) return null;
+    final kind = askodoxMobilityKind('${deal.rawText} ${deal.subject ?? ''}');
+    if (kind == null || kind == 'carpool') return null;
+    final fields = deal.dynamicFields;
+    AskodoxPlace? end(String key) {
+      final label = '${fields[key] ?? ''}'.trim();
+      if (label.isEmpty) return null;
+      final lat = fields['${key}_lat'], lng = fields['${key}_lng'];
+      return AskodoxPlace(
+          latitude: lat is num ? lat.toDouble() : 0, longitude: lng is num ? lng.toDouble() : 0, label: label);
+    }
+
+    final current = ref.read(askodoxMobilityDraftProvider);
+    final draft = MobilityDraft(kind: kind, from: end('from'), to: end('to'));
+    // Edits made on the Rides screen for this same trip win.
+    if (current != null && current.kind == kind) {
+      return MobilityDraft(kind: kind, from: current.from ?? draft.from, to: current.to ?? draft.to);
+    }
+    return draft;
+  }
+
+  void _openMobilityForm() {
+    final draft = _mobilityDraftFromChat();
+    if (draft == null) return;
+    ref.read(askodoxMobilityDraftProvider.notifier).state = draft;
+    context.push(draft.location);
+  }
+
   /// Sends the pinned route to nearby approved partners. The reply is the
   /// backend's own stage: never "confirmed" until a partner accepts.
   Future<void> _requestMobility(String kind) async {
@@ -2621,8 +2734,12 @@ class _AskodoxPrimaryHomeScreenState
           'latitude': (fields['${end}_lat'] as num).toDouble(),
           'longitude': (fields['${end}_lng'] as num).toDouble(),
         };
+    // The shared draft (edited on the Rides screen) wins over the chat pins.
+    final draft = _mobilityDraftFromChat();
+    final pickup = draft?.from != null && draft!.from!.latitude != 0 ? askodoxMobilityPoint(draft.from!) : point('from');
+    final drop = draft?.to != null && draft!.to!.latitude != 0 ? askodoxMobilityPoint(draft.to!) : point('to');
     setState(() => _sending = true);
-    final result = await ref.read(mobilityRepositoryProvider).request(kind: kind, pickup: point('from'), drop: point('to'));
+    final result = await ref.read(mobilityRepositoryProvider).request(kind: kind, pickup: pickup, drop: drop);
     if (!mounted) return;
     final job = result.data;
     final text = job == null
@@ -2798,6 +2915,19 @@ class _AskodoxPrimaryHomeScreenState
       _lipSyncTimer?.cancel();
       if (!mounted || _voicePhase != _VoicePhase.speaking) return;
       lastReplyVoiceEngine = 'device';
+      final preference = ref.read(appSettingsProvider).voicePreference;
+      if (preference != VoicePreference.automatic && !_voiceFallbackNoticeShown && mounted) {
+        // Android does not say which device voices are male / female: say
+        // once, briefly, that this reply may not match the choice.
+        _voiceFallbackNoticeShown = true;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          key: const ValueKey('askodoxVoiceFallbackNotice'),
+          duration: const Duration(seconds: 3),
+          content: Text(_te
+              ? 'ఇప్పుడు ఫోన్ వాయిస్ వాడుతున్నాం -- మీరు ఎంచుకున్న వాయిస్‌కి సరిపోకపోవచ్చు.'
+              : 'Using the phone\'s voice right now -- it may not match your voice choice.'),
+        ));
+      }
       lips.speechBegin(reply);
       await _device.invokeMethod<bool>(
         'speakReply',
@@ -3330,6 +3460,94 @@ class _AskodoxPrimaryHomeScreenState
             : askodoxChatLabel('found_pick', _lang, count: _latestResults()?.matches.length ?? 0),
       );
 
+  Future<void> _answerCapability(AskodoxTaxonomyMatch match, String question, bool speakResponse) async {
+    final te = _te;
+    final label = match.label;
+    final text = match.provider
+        ? (te
+            ? 'తప్పకుండా! ASKODOX లో డెలివరీ / రైడ్ పార్ట్‌నర్‌గా చేరవచ్చు: ఒకసారి అప్లై చేయండి, స్టాఫ్ రివ్యూ తర్వాత ఆన్‌లైన్‌కి వెళ్లి దగ్గరి రిక్వెస్ట్‌లు అంగీకరించవచ్చు. మీరు అంగీకరించిన తర్వాతే కస్టమర్ వివరాలు కనిపిస్తాయి.'
+            : 'Yes! You can join ASKODOX as a delivery / ride partner: apply once, and after a quick staff review go online and accept nearby requests. Customer details are shared only after you accept.')
+        : (te
+            ? 'అవును -- $label: దగ్గరి షాప్ నుంచి ఆర్డర్ చేసి డెలివరీ ఎంచుకోవచ్చు, లేదా డెలివరీ పార్ట్‌నర్‌తో పికప్ పంపవచ్చు. ఏది కావాలి?'
+            : 'Yes -- $label: order from a nearby place and choose delivery, or send a pickup with an ASKODOX delivery partner. Which would you like?');
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: text, isUser: false));
+      _taxonomyByTurn[_turns.length - 1] = match;
+      _sending = false;
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) unawaited(_speakReply(text, userText: question));
+  }
+
+  Widget _taxonomyActions(bool te, AskodoxTaxonomyMatch match) {
+    final kind = match.mobilityKind;
+    final sendKind = const ['parcel', 'documents', 'local_delivery', 'pickup_drop'].contains(kind)
+        ? kind!
+        : (match.actions.contains('request_ride') ? (kind ?? 'ride_taxi') : 'local_delivery');
+    final subject = match.label.toLowerCase().replaceAll(' delivery', '');
+    return Padding(
+      key: ValueKey('askodoxTaxonomyActions-${match.key}'),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Wrap(spacing: 8, runSpacing: 6, children: [
+        if (match.provider)
+          ActionChip(
+            key: const Key('askodoxJoinAsPartner'),
+            avatar: const Icon(Icons.delivery_dining_rounded, size: 18),
+            label: Text(te ? 'పార్ట్‌నర్‌గా చేరండి' : 'Join as a partner'),
+            onPressed: () => context.push('/mobility?tab=3'),
+          )
+        else ...[
+          if (match.actions.contains('order') && subject.isNotEmpty && subject != 'delivery')
+            ActionChip(
+              key: const Key('askodoxTaxonomyOrderNearby'),
+              avatar: const Icon(Icons.storefront_outlined, size: 18),
+              label: Text(te ? 'దగ్గరలో $subject' : '$subject near me'),
+              onPressed: _sending ? null : () => _send(te ? 'దగ్గరలో $subject' : '$subject near me'),
+            ),
+          ActionChip(
+            key: const Key('askodoxTaxonomySendPickup'),
+            avatar: const Icon(Icons.local_shipping_outlined, size: 18),
+            label: Text(match.actions.contains('request_ride')
+                ? (te ? 'రైడ్ బుక్ చేయండి' : 'Book a ride')
+                : (te ? 'పికప్ / పార్సెల్ పంపండి' : 'Send a pickup / parcel')),
+            onPressed: () {
+              final draft = MobilityDraft(kind: sendKind);
+              ref.read(askodoxMobilityDraftProvider.notifier).state = draft;
+              context.push(draft.location);
+            },
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Future<void> _answerFromVideo(String videoRef, String question, bool speakResponse) async {
+    AskodoxVideoAnswer? answer;
+    try {
+      answer = await ref.read(askodoxVideoServiceProvider).ask(videoRef, question, language: _lang);
+    } catch (_) {
+      answer = null;
+    }
+    if (!mounted) return;
+    final te = _lang == 'te';
+    final text = answer == null
+        ? (te
+            ? 'ఇప్పుడు ఈ వీడియో అధ్యయనాన్ని చేరుకోలేకపోయాను. "వీడియో ప్రశ్నలు" తెరిచి మళ్లీ అడగండి.'
+            : 'I could not reach this video\'s study right now. Open "Ask about this video" and try again.')
+        : askodoxVideoAnswerText(answer.answer, answer.timestamps,
+            found: answer.found, lang: _lang, basis: answer.basis);
+    setState(() {
+      _turns.add(ConversationTurnRecord(text: text, isUser: false));
+      _sending = false;
+    });
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+    if (speakResponse) unawaited(_speakReply(text, userText: question));
+  }
+
   /// An uploaded video's grounded study (fact sheet + Q&A + market +
   /// next steps); a next step continues in THIS conversation.
   Future<void> _openUploadStudy(String studyRef) async {
@@ -3550,6 +3768,17 @@ class _AskodoxPrimaryHomeScreenState
                     onPressed: _sending ? null : () => _pickRoutePoint(pickup: false),
                   ),
                 ]),
+              ),
+            if (_taxonomyByTurn[index] case final match?) _taxonomyActions(te, match),
+            if (index == _turns.length - 1 && !turn.isUser && _mobilityDraftFromChat() != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: ActionChip(
+                  key: const Key('askodoxMobilityForm'),
+                  avatar: const Icon(Icons.edit_location_alt_outlined, size: 18),
+                  label: Text(te ? 'రైడ్స్‌లో వివరాలు మార్చండి' : 'Edit in Rides & deliveries'),
+                  onPressed: _sending ? null : _openMobilityForm,
+                ),
               ),
             if (index == _turns.length - 1 && !turn.isUser && !_routePinsNeeded())
               if (_mobilityHandoffKind() case final kind?)

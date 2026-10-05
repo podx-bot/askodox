@@ -42,7 +42,9 @@ class PodxApp extends ConsumerWidget {
       onGenerateTitle: (_) => BrandConfig.displayName,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
+      // The shell is light; every pushed screen (Location, Privacy, Feedback,
+      // Mobility, Videos) must match it -- dark here rendered them black.
+      themeMode: ThemeMode.light,
       locale: settings.locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localeResolutionCallback: (locale, supportedLocales) =>

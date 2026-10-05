@@ -167,7 +167,7 @@ def integrations_health(request: Request) -> dict:
     try:
         from app.services.push_service import push_service
 
-        push = "CONFIGURED_NOT_VERIFIED" if push_service(container).configured() else "NOT_CONFIGURED"
+        push = "CONFIGURED_NOT_VERIFIED" if push_service(container).configured else "NOT_CONFIGURED"
     except Exception:
         push = "NOT_CONFIGURED"
     rows.append({"integration": "Firebase push", "state": push,

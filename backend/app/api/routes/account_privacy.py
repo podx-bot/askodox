@@ -84,6 +84,27 @@ def remove_push_tokens(request: Request) -> dict:
     return {"removed": True}
 
 
+class NotificationSettingsRequest(BaseModel):
+    enabled: bool = True
+    muted: list[str] = Field(default_factory=list, max_length=10)
+
+
+@router.get("/notification-settings")
+def get_notification_settings(request: Request) -> dict:
+    from app.services.push_service import push_service
+
+    return push_service(request.app.state.container).prefs(_authenticated_app_user(request))
+
+
+@router.put("/notification-settings")
+def put_notification_settings(payload: NotificationSettingsRequest, request: Request) -> dict:
+    """The app's Notifications switches; background pushes obey them."""
+    from app.services.push_service import push_service
+
+    return push_service(request.app.state.container).set_prefs(
+        _authenticated_app_user(request), enabled=payload.enabled, muted=payload.muted)
+
+
 @router.get("/export")
 def export_my_data(request: Request) -> dict:
     user_id = _authenticated_app_user(request)
@@ -122,6 +143,8 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
             conn.execute("DELETE FROM catalog_item_photos WHERE seller_user_id=?", (user_id,))
         if "push_tokens" in tables:
             conn.execute("DELETE FROM push_tokens WHERE user_id=?", (user_id,))  # no more notifications
+        if "push_prefs" in tables:
+            conn.execute("DELETE FROM push_prefs WHERE user_id=?", (user_id,))
         conn.execute("INSERT OR REPLACE INTO account_deletions(user_id, deleted_at) VALUES(?,?)", (user_id, now))
         conn.commit()
     return {"deleted": True, **done,

@@ -105,7 +105,7 @@ void main() {
     expect(text, contains('sent your request to 3 registered'));
     expect(text, isNot(contains('online')), reason: 'not-applicable sources are not claimed as searched');
     const open = AskodoxChatResults(dealId: '78', searched: true);
-    expect(askodoxNoResultsText(open, telugu: false), contains('Request saved (ID 78)'));
+    expect(askodoxNoResultsText(open, telugu: false), allOf(contains('Request saved (in Updates)'), isNot(contains('78'))));
     const guest = AskodoxChatResults(dealId: '', searched: true);
     expect(askodoxNoResultsText(guest, telugu: false), contains('Sign in to save'));
   });

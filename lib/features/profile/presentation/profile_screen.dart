@@ -310,14 +310,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Card(
                 elevation: 0,
                 child: ListTile(
+                    key: const Key('askodoxProfileDeliveryOpportunities'),
                     leading: const Icon(Icons.delivery_dining_rounded),
                     title:
                         Text(t('Delivery opportunities', 'డెలివరీ అవకాశాలు')),
                     subtitle: Text(t(
-                        'See nearby delivery requests you can choose to accept.',
-                        'మీ దగ్గరలో ఉన్న delivery requests చూసి accept చేయవచ్చు.')),
+                        'Join as a delivery / ride partner, go online and accept nearby requests.',
+                        'డెలివరీ / రైడ్ పార్ట్‌నర్‌గా చేరండి, ఆన్‌లైన్‌కి వెళ్లి దగ్గరి రిక్వెస్ట్‌లు అంగీకరించండి.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.go('/updates'))),
+                    // The partner workspace (apply -> review -> online ->
+                    // offers -> trip steps), not the generic Updates list.
+                    onTap: () => context.push('/mobility?tab=3'))),
           const SizedBox(height: 12),
           Card(
               elevation: 0,
