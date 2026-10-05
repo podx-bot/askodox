@@ -102,3 +102,15 @@ def test_enrich_uses_real_counts_only():
     assert items[0]["explain"]["en"]["what"] == "2 support cases are open."
     assert items[0]["explain"]["te"]["what"].startswith("2 ")
     assert items[2]["explain"]["en"]["action"] == "No action needed."
+
+
+def test_staff_see_missing_listing_details_with_sellers_masked(api):
+    client, container, owner = api
+    seller = "app-phone-919812345678"
+    gap = {"listing_id": 41, "seller_user_id": seller, "missing": ["size 9", "colour black"], "subject": "shoes"}
+    supply_fit.record_gaps(container.settings.database_path, [gap])
+    supply_fit.record_gaps(container.settings.database_path, [dict(gap, missing=["size 9"])])
+    rows = client.get("/admin/cc/demand/supply-gaps", headers=owner).json()["items"]
+    assert [(r["field"], r["hits"]) for r in rows] == [("size 9", 2), ("colour black", 1)]
+    assert all("9812345678" not in r["seller"] for r in rows), "seller id is masked"
+    assert client.get("/admin/cc/demand/supply-gaps").status_code == 401

@@ -10,6 +10,7 @@ Customer / seller (same API for app and web):
 Command Center:
   GET  /admin/cc/demand/insights               demand facts (demand:view)
   GET  /admin/cc/demand/opportunities          unmet demand per rule (demand:view)
+  GET  /admin/cc/demand/supply-gaps            listing details customers asked for that sellers did not state (demand:view)
   POST /admin/cc/demand/opportunities/preview  who would be alerted and why, who is excluded and why (demand:view)
   POST /admin/cc/demand/opportunities/notify   alert matching sellers (demand:notify, confirm)
   POST /admin/cc/demand/run                    evaluate every ACTIVE rule now (demand:notify, confirm)
@@ -176,6 +177,20 @@ def demand_insights(request: Request, days: int = 7, category: str = "", area: s
     _require(request, "demand:view")
     days = max(1, min(int(days or 7), 90))
     return di.insights(_pf(request.app.state.container).repo, days=days, category=category, area=area)
+
+
+@router.get("/admin/cc/demand/supply-gaps")
+def demand_supply_gaps(request: Request) -> dict:
+    """Seller listings that could not answer a customer's constraint (size,
+    price, colour ...), counted per listing + field. Sellers are masked."""
+    _require(request, "demand:view")
+    from app.repositories.command_center_repository import mask_user_id
+    from app.services import supply_fit
+
+    rows = supply_fit.top_gaps(request.app.state.container.settings.database_path)
+    for row in rows:
+        row["seller"] = mask_user_id(row.pop("seller_user_id"))
+    return {"items": rows, "note": "Sellers see these in My business with an Edit listing button."}
 
 
 def _rules(container, rule_id: str = "", *, active_only: bool = True) -> List[Dict[str, Any]]:

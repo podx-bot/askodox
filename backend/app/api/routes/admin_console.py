@@ -498,7 +498,7 @@ async function affSrc(p,k,v){try{await call("affiliate-sources/"+p,"PUT",{[k]:v}
 
 /* ------------------------------------------- demand intelligence / ops -- */
 async function demand(){const s=STATE.dm||(STATE.dm={days:7,category:"",area:""});
-  const [d,o]=await Promise.all([call("demand/insights?"+new URLSearchParams(s)),call("demand/opportunities")]);STATE.dmo=o.items;
+  const [d,o,g]=await Promise.all([call("demand/insights?"+new URLSearchParams(s)),call("demand/opportunities"),call("demand/supply-gaps").catch(()=>({items:[]}))]);STATE.dmo=o.items;
   const k=(l,v,x)=>'<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+(x||"")+'</div></div>';
   const list=(rows,f)=>rows.length?'<table>'+rows.map(f).join("")+'</table>':'<div class="muted">Nothing recorded in this period.</div>';
   const notify=can("demand:notify");
@@ -510,7 +510,8 @@ async function demand(){const s=STATE.dm||(STATE.dm={days:7,category:"",area:""}
    '<div class="card"><h3>Unmet demand</h3>'+list(d.unmet,t=>'<tr><td>'+esc(t.subject)+'</td><td><b>'+t.count+'</b></td><td class="muted">'+Math.round(t.share_no_local*100)+'% no local</td></tr>')+'</div>'+
    '<div class="card"><h3>Rising</h3>'+list(d.rising,t=>'<tr><td>'+esc(t.subject)+'</td><td><b>'+t.now+'</b></td><td class="muted">'+(t.change_pct==null?"new":"+"+t.change_pct+"%")+'</td></tr>')+'</div>'+
    '<div class="card"><h3>By area</h3>'+list(d.by_area,t=>'<tr><td>'+esc(t.area)+'</td><td><b>'+t.count+'</b></td></tr>')+'</div>'+
-   '<div class="card"><h3>Funnel</h3>'+list(Object.entries(d.funnel),([e,n])=>'<tr><td>'+esc(e.replace(/_/g," "))+'</td><td><b>'+n+'</b></td></tr>')+'</div></div>'+
+   '<div class="card"><h3>Funnel</h3>'+list(Object.entries(d.funnel),([e,n])=>'<tr><td>'+esc(e.replace(/_/g," "))+'</td><td><b>'+n+'</b></td></tr>')+'</div>'+
+   '<div class="card" id="dm_gaps"><h3>Missing listing details</h3><div class="muted" style="font-size:12px">Customers asked; the seller\'s listing does not say.</div>'+list(g.items,t=>'<tr><td>'+esc(t.subject)+'</td><td>'+esc(t.field)+'</td><td><b>'+t.hits+'</b></td><td class="muted">'+esc(t.seller)+'</td></tr>')+'</div></div>'+
    '<h3 style="margin:18px 0 8px">Opportunities (from ACTIVE demand alert rules)</h3>'+(o.note?'<div class="card muted">'+esc(o.note)+' <a onclick="go(\'r:demand_alert_rules\')">Demand alert rules</a></div>':'')+
    '<div class="tbl">'+(o.items.length?'<table><thead><tr><th>Need</th><th>Area</th><th>Searches</th><th>Budget</th><th>Local results</th><th>Rule</th><th></th></tr></thead><tbody>'+
    o.items.map((x,i)=>'<tr><td><b>'+esc(x.subject)+'</b></td><td>'+esc(x.area||"—")+'</td><td>'+x.searches+'</td><td>'+esc(x.budget_band||"—")+'</td><td>'+x.local_results_median+'</td><td class="muted">'+esc(x.rule)+'</td><td><button onclick="demandPreview('+i+')">Who &amp; why</button></td></tr>').join("")+'</tbody></table>':'<div class="empty">No demand passes the rule thresholds right now.</div>')+'</div>'}

@@ -50,4 +50,8 @@ jobs:
             tests/test_integration_states.py \
             tests/test_taxonomy.py \
             tests/test_video_commerce.py \
-            tests/test_push_service.py
+            tests/test_push_service.py \
+            tests/test_supply_fit.py \
+            tests/test_smart_entry.py \
+            tests/test_business_command_center.py \
+            tests/test_admin_functional_audit.py
