@@ -48,6 +48,8 @@ class PushService:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id)")
             conn.execute("CREATE TABLE IF NOT EXISTS push_sent (user_id TEXT NOT NULL, event_key TEXT NOT NULL, "
                          "sent_at INTEGER NOT NULL, PRIMARY KEY(user_id, event_key))")
+            conn.execute("CREATE TABLE IF NOT EXISTS push_prefs (user_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, "
+                         "muted TEXT NOT NULL DEFAULT '[]', updated_at INTEGER NOT NULL)")
             conn.commit()
 
     @property
@@ -74,6 +76,49 @@ class PushService:
     def tokens(self, user_id: str) -> list[str]:
         with closing(sqlite3.connect(self.database_path)) as conn:
             return [r[0] for r in conn.execute("SELECT token FROM push_tokens WHERE user_id=?", (user_id,))]
+
+    # ----------------------------------------------------- preferences --
+
+    KINDS = ("requests", "replies", "leads", "opportunities", "notices")
+
+    def set_prefs(self, user_id: str, *, enabled: bool, muted: list[str]) -> dict[str, Any]:
+        """The app's Notifications switches (same keys as the app), so the
+        server never pushes what the user turned off."""
+        clean = sorted({m for m in muted if m in self.KINDS})
+        with closing(sqlite3.connect(self.database_path)) as conn:
+            conn.execute("INSERT OR REPLACE INTO push_prefs(user_id, enabled, muted, updated_at) VALUES(?,?,?,?)",
+                         (user_id, 1 if enabled else 0, json.dumps(clean), int(time.time())))
+            conn.commit()
+        return {"enabled": bool(enabled), "muted": clean}
+
+    def prefs(self, user_id: str) -> dict[str, Any]:
+        with closing(sqlite3.connect(self.database_path)) as conn:
+            row = conn.execute("SELECT enabled, muted FROM push_prefs WHERE user_id=?", (user_id,)).fetchone()
+        if not row:
+            return {"enabled": True, "muted": []}
+        try:
+            muted = [m for m in json.loads(row[1] or "[]") if m in self.KINDS]
+        except ValueError:
+            muted = []
+        return {"enabled": bool(row[0]), "muted": muted}
+
+    @staticmethod
+    def kind_of(event_key: str, route: str = "") -> str:
+        """Which app switch an event belongs to."""
+        key = event_key or ""
+        if key.startswith("order:") and key.endswith(":request"):
+            return "leads"  # a new request for me as a seller / provider
+        if key.startswith("order:"):
+            return "requests"  # my own request's progress
+        if key.startswith("demand:"):
+            return "opportunities"
+        if key.startswith(("reply:", "message:")) or "/deals" in route:
+            return "replies"
+        return "notices"
+
+    def allows(self, user_id: str, event_key: str, route: str = "") -> bool:
+        prefs = self.prefs(user_id)
+        return prefs["enabled"] and self.kind_of(event_key, route) not in prefs["muted"]
 
     # ------------------------------------------------------------ send --
 
@@ -108,6 +153,8 @@ class PushService:
         configured, no device, already sent, or FCM refused)."""
         if not self.configured or not user_id:
             return 0
+        if not self.allows(user_id, event_key, route):
+            return 0  # the user switched this kind (or all) off in the app
         with closing(sqlite3.connect(self.database_path)) as conn:
             fresh = conn.execute("INSERT OR IGNORE INTO push_sent(user_id, event_key, sent_at) VALUES(?,?,?)",
                                  (user_id, event_key[:120], int(time.time()))).rowcount

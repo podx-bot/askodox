@@ -174,12 +174,16 @@ class AskodoxVideoStudy {
 /// A grounded answer: only from the stored study.
 class AskodoxVideoAnswer {
   const AskodoxVideoAnswer({required this.found, required this.answer, this.facts = const [],
-      this.timestamps = const []});
+      this.timestamps = const [], this.basis});
 
   final bool found;
   final String answer;
   final List<AskodoxVideoFact> facts;
   final List<String> timestamps;
+
+  /// Registered videos: seen_in_video / said_by_seller / listing / askodox /
+  /// unknown (where the answer comes from).
+  final String? basis;
 
   factory AskodoxVideoAnswer.fromJson(Map<String, Object?> j) => AskodoxVideoAnswer(
         found: j['found'] == true,
@@ -189,6 +193,7 @@ class AskodoxVideoAnswer {
             if (f is Map) AskodoxVideoFact.fromJson(Map<String, Object?>.from(f)),
         ],
         timestamps: [for (final t in (j['timestamps'] as List? ?? const [])) '$t'],
+        basis: j['basis'] == null ? null : '${j['basis']}',
       );
 }
 
@@ -236,8 +241,13 @@ class AskodoxVideoService {
   }
 
   Future<AskodoxVideoAnswer?> ask(String videoId, String question, {String language = 'en'}) async {
-    final result = await _client.post<Map<String, Object?>>('/api/videos/${Uri.encodeComponent(videoId)}/ask',
-        body: {'question': question, 'language': language});
+    // A registered ASKODOX video (`nv_<id>`) is answered by the commerce
+    // endpoint: study + the seller's listing / FAQ, sensitive topics to the
+    // seller, every answer labelled with its basis.
+    final path = videoId.startsWith('nv_')
+        ? '/api/videos/native/${Uri.encodeComponent(videoId.substring(3))}/ask'
+        : '/api/videos/${Uri.encodeComponent(videoId)}/ask';
+    final result = await _client.post<Map<String, Object?>>(path, body: {'question': question, 'language': language});
     return switch (result) {
       ApiSuccess(:final data) => AskodoxVideoAnswer.fromJson(data),
       ApiError() => null,

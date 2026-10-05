@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
+import 'package:podx/features/growth/data/growth_repository.dart';
+import 'package:podx/features/mobility/application/mobility_draft.dart';
 import 'package:podx/features/mobility/data/mobility_repository.dart';
 import 'package:podx/features/mobility/presentation/mobility_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,6 +65,38 @@ class _Repo implements MobilityRepository {
     calls.add('step:$status');
     active = [_job(status, accepted: true)];
     return MobilityResult.ok(active.first);
+  }
+
+  Map<String, Object?>? lastPickup;
+  Map<String, Object?>? lastDrop;
+  String? lastKind;
+
+  @override
+  Future<MobilityResult<MobilityJob>> request({required String kind, required Map<String, Object?> pickup,
+      required Map<String, Object?> drop, Map<String, Object?> details = const {}, String scheduleAt = ''}) async {
+    lastKind = kind;
+    lastPickup = pickup;
+    lastDrop = drop;
+    return MobilityResult.ok(_job('PARTNER_SEARCH'));
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError('$invocation');
+}
+
+class _Places implements GrowthRepository {
+  final routes = <(String, String)>[];
+
+  @override
+  Future<List<AskodoxPlace>> searchPlaces(String query, {double? latitude, double? longitude}) async =>
+      query.toLowerCase().startsWith('air')
+          ? const [AskodoxPlace(latitude: 16.53, longitude: 80.80, label: 'Vijayawada Airport, Gannavaram')]
+          : const [];
+
+  @override
+  Future<AskodoxRouteQuote?> routeQuote(AskodoxPlace pickup, AskodoxPlace drop) async {
+    routes.add((pickup.label, drop.label));
+    return const AskodoxRouteQuote(distanceKm: 18.4, durationMinutes: 32);
   }
 
   @override
@@ -125,5 +159,44 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('partner-step-dj_1')));
     await tester.pumpAndSettle();
     expect(repo.calls.last, 'step:EN_ROUTE_PICKUP');
+  });
+
+  testWidgets('chat draft pre-fills From; To autocompletes; route distance by road; request carries coordinates',
+      (tester) async {
+    final repo = _Repo();
+    final places = _Places();
+    final container = ProviderContainer(overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      mobilityRepositoryProvider.overrideWithValue(repo),
+      growthRepositoryProvider.overrideWithValue(places),
+    ]);
+    addTearDown(container.dispose);
+    // What Main Chat understood ("auto from Benz Circle"), with its map pin.
+    container.read(askodoxMobilityDraftProvider.notifier).state = const MobilityDraft(
+        kind: 'ride_airport', from: AskodoxPlace(latitude: 16.4991, longitude: 80.6563, label: 'Benz Circle'));
+    await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MobilityScreen(initialKind: 'ride_airport', initialFrom: 'Benz Circle'))));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Benz Circle'), findsOneWidget, reason: 'prefilled from the chat');
+    await tester.enterText(find.byKey(const ValueKey('mobility-to')), 'Airport');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobility-to-suggest-Vijayawada Airport, Gannavaram')));
+    await tester.pumpAndSettle();
+    expect(places.routes.last, ('Benz Circle', 'Vijayawada Airport, Gannavaram'));
+    expect(find.textContaining('18.4 km'), findsOneWidget);
+    expect(find.byKey(const ValueKey('mobility-directions')), findsOneWidget);
+    final draft = container.read(askodoxMobilityDraftProvider)!;
+    expect(draft.to?.label, 'Vijayawada Airport, Gannavaram', reason: 'the chat sees the edit (one shared draft)');
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('mobility-submit')), 200,
+        scrollable: find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
+    await tester.tap(find.byKey(const ValueKey('mobility-submit')));
+    await tester.pumpAndSettle();
+    expect(repo.lastKind, 'ride_airport');
+    expect(repo.lastPickup, {'label': 'Benz Circle', 'latitude': 16.4991, 'longitude': 80.6563});
+    expect(repo.lastDrop?['latitude'], 16.53);
+    expect(draft.location, contains('kind=ride_airport'));
+    expect(askodoxRouteDirectionsUri(draft.from!, draft.to!).toString(), contains('origin=16.4991%2C80.6563'));
   });
 }

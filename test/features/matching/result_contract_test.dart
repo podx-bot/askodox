@@ -103,7 +103,7 @@ void main() {
       expect(askodoxNoCardsReply(telugu: false), contains("haven't searched"));
       expect(askodoxNoResultsText(empty, telugu: false), contains('could not be reached'),
           reason: 'quota / disabled / unavailable sources are named, not hidden');
-      expect(askodoxNoResultsText(empty, telugu: false), contains('Request saved (ID 47)'));
+      expect(askodoxNoResultsText(empty, telugu: false), allOf(contains('Request saved (in Updates)'), isNot(contains('ID 47'))));
     });
 
     test('"Any" is a no-preference reply in en / te / hi, other short answers are not', () {

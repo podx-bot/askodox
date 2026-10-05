@@ -59,13 +59,20 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: Text(_t('Report a problem / Send feedback', 'సమస్య చెప్పండి / ఫీడ్‌బ్యాక్'))),
-        body: Center(
+        // Keyboard-aware and inside the safe area: the Submit button is never
+        // hidden behind the gesture bar or the keyboard (phone finding).
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          top: false,
+          child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(24),
+                key: const Key('askodoxFeedbackForm'),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                 children: [
                   Text(_t(
                     'Sent to the ASKODOX team. Do not include passwords, OTPs, card or Aadhaar numbers -- they are hidden automatically.',
@@ -82,6 +89,7 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
+                    key: const Key('askodoxFeedbackDescription'),
                     controller: _description,
                     decoration: InputDecoration(labelText: _t('Description', 'వివరణ')),
                     maxLength: 2000,
@@ -129,6 +137,8 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
                   ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
+                    key: const Key('askodoxFeedbackSubmit'),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: _sending ? null : _submit,
                     icon: const Icon(Icons.send),
                     label: Text(_t('Submit feedback', 'ఫీడ్‌బ్యాక్ పంపండి')),
@@ -137,6 +147,7 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
               ),
             ),
           ),
+        ),
         ),
       );
 

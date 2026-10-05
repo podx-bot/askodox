@@ -204,7 +204,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/mobility',
           builder: (context, state) =>
-              MobilityScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0)),
+              MobilityScreen(
+                  initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+                  initialKind: state.uri.queryParameters['kind'],
+                  initialFrom: state.uri.queryParameters['from'],
+                  initialTo: state.uri.queryParameters['to'])),
       if (kDebugMode)
         GoRoute(
             path: '/developer/feedback',

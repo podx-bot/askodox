@@ -180,7 +180,9 @@ String askodoxResultsReply(AskodoxChatResults results, {required bool telugu}) {
     final next = sent > 0
         ? (telugu ? ' మీ అభ్యర్థనను $sent నమోదైన ప్రొవైడర్లకు పంపాను.' : ' I sent your request to $sent registered provider(s).')
         : id.isNotEmpty
-            ? (telugu ? ' అభ్యర్థన సేవ్ అయింది (ID $id).' : ' Request saved (ID $id).')
+            // Internal ids never reach the customer's text (phone finding
+            // "ID 47"); the request lives in Updates.
+            ? (telugu ? ' మీ అభ్యర్థన సేవ్ అయింది (అప్‌డేట్స్‌లో చూడండి).' : ' Your request is saved (see Updates).')
             : '';
     return telugu
         ? 'ప్రస్తుతం ధృవీకరించిన స్థానిక match దొరకలేదు.$next ఈలోగా ఆన్‌లైన్ ఎంపికలు, వీడియోలు ఇవి.'
@@ -640,8 +642,8 @@ String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) 
         : 'I sent your request to $sent registered ASKODOX provider(s) nearby; their replies will appear here.');
   } else if (id.isNotEmpty) {
     parts.add(telugu
-        ? 'అభ్యర్థన సేవ్ అయింది (ID $id); ఎవరైనా స్పందించగానే తెలియజేస్తాను. ఇది చేసే వారు తెలుసా? వారిని ASKODOX కి సూచించండి -- వారికి నేరుగా స్థానిక లీడ్స్ వస్తాయి.'
-        : 'Request saved (ID $id) -- I will tell you when someone responds. Know someone who does this? Refer them to ASKODOX -- they get direct local leads.');
+        ? 'అభ్యర్థన సేవ్ అయింది (అప్‌డేట్స్‌లో); ఎవరైనా స్పందించగానే తెలియజేస్తాను. ఇది చేసే వారు తెలుసా? వారిని ASKODOX కి సూచించండి -- వారికి నేరుగా స్థానిక లీడ్స్ వస్తాయి.'
+        : 'Request saved (in Updates) -- I will tell you when someone responds. Know someone who does this? Refer them to ASKODOX -- they get direct local leads.');
   } else {
     parts.add(telugu
         ? 'ప్రొవైడర్లు మీకు స్పందించేలా ఈ అవసరాన్ని సేవ్ చేయడానికి సైన్ ఇన్ చేయండి.'

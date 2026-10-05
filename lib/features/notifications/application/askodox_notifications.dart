@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/api/api_client.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../growth/data/growth_repository.dart';
 import '../../opportunities/data/opportunities_repository.dart';
@@ -40,9 +41,13 @@ class AskodoxNotificationSettings {
 }
 
 class AskodoxNotificationSettingsController extends StateNotifier<AskodoxNotificationSettings> {
-  AskodoxNotificationSettingsController() : super(const AskodoxNotificationSettings()) {
+  AskodoxNotificationSettingsController({this.sync}) : super(const AskodoxNotificationSettings()) {
     _ready = _load();
   }
+
+  /// Sends the switches to the backend so background pushes obey them too
+  /// (best effort; signed-in users only).
+  final Future<void> Function(AskodoxNotificationSettings settings)? sync;
 
   static const _key = 'askodox.notifications.v1';
   late final Future<void> _ready;
@@ -69,12 +74,22 @@ class AskodoxNotificationSettingsController extends StateNotifier<AskodoxNotific
     state = next;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(next.toJson()));
+    try {
+      await sync?.call(next);
+    } catch (_) {
+      // Offline: the device copy still applies; the next change syncs.
+    }
   }
 }
 
 final askodoxNotificationSettingsProvider =
     StateNotifierProvider<AskodoxNotificationSettingsController, AskodoxNotificationSettings>(
-  (ref) => AskodoxNotificationSettingsController(),
+  (ref) => AskodoxNotificationSettingsController(sync: (settings) async {
+    final session = ref.read(authSessionProvider);
+    if (session.user == null) return;
+    await ref.read(apiClientProvider).put<Map<String, Object?>>('/api/me/notification-settings',
+        body: settings.toJson(), options: ApiRequestOptions(authToken: session.tokenPlaceholder));
+  }),
 );
 
 /// The Android side (MainActivity): OS permission, settings deep link, the

@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-04T16:46:53Z",
+ "generated_at": "2026-10-05T09:11:15Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:b1deee10e1d5436e",
+   "trace_key": "browse:075e4a515c7040a3",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -36,9 +36,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:05c12341926346bb",
+   "trace_key": "browse:6694bafaac76460b",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -238,9 +238,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
-     "brand": "శామ్‌సంగ్",
+     "brand": "Samsung",
      "size": "43 అంగుళాల",
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
      "location": "Vijayawada"
     }
    },
@@ -293,7 +293,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా చూడటానికి ఎంత దూరం ఉందో చెప్పండి.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం సరిగ్గా సరిపోతుందో లేదో తెలుసుకోవాలి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "search_videos"
@@ -407,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:46a343643253428b",
+   "trace_key": "browse:c6dce5caae9140cb",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -438,6 +438,7 @@
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -610,18 +611,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:32fc8cfd0a374e64",
+   "trace_key": "browse:e065828beb0b4701",
    "videos": [
     {
-     "video_id": "yt_nBEYkrdak-0",
-     "title": "Tata Nexon 2024 Positives and Negatives Honest Review",
-     "source_name": "Burning Wheels",
-     "duration": "7:58",
+     "video_id": "yt_E8eMNvr5GtM",
+     "title": "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price",
+     "source_name": "Mjk Cars",
+     "duration": "11:14",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/nBEYkrdak-0?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/E8eMNvr5GtM?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/nBEYkrdak-0/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=nBEYkrdak-0",
+     "image_url": "https://i.ytimg.com/vi/E8eMNvr5GtM/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=E8eMNvr5GtM",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -641,27 +642,25 @@
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
-     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_nBEYkrdak-0",
+    "video_id": "yt_E8eMNvr5GtM",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon 2024 Positives and Negatives Honest Review",
-     "Special Thanks to",
-     "Sudarshan Tata Motors, Kalyan, Maharashtra",
-     "Contact : 070452 43316 / 9321931900",
-     "Call and Book your appointment."
+     "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price",
+     "🚗 New Tata Nexon – Complete Details & Review",
+     "Is video mein hum dekhenge New Tata Nexon ke design, exterior, interior, features, safety, comfort, performance aur overall look ke baare mein complete details.",
+     "Tata Nexon apne premium design, दमदार build quality, शानदार features aur"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Burning Wheels",
+    "creator": "Mjk Cars",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=nBEYkrdak-0",
-    "question": "Tata Nexon 2024 Positives and Negatives Honest Review",
+    "url": "https://www.youtube.com/watch?v=E8eMNvr5GtM",
+    "question": "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price",
     "next": [
      {
       "action": "find_local",
@@ -691,7 +690,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon 2024 Positives and Negatives Honest Review\"",
+    "question": "Tell me more about \"New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -765,20 +764,6 @@
       "location_label": null
      },
      {
-      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.91wheels.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
-      "location_label": null
-     },
-     {
       "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
       "segment": null,
       "match_source": "online",
@@ -805,6 +790,20 @@
       "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
       "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
       "location_label": null
+     },
+     {
+      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": 38323.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
+      "location_label": null
      }
     ]
    }
@@ -814,18 +813,18 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:56270422bda64aa4",
+   "trace_key": "browse:418d886d93ad4b3d",
    "videos": [
     {
-     "video_id": "yt_qPF6hbFHCUc",
-     "title": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
-     "source_name": "KP Vlogs & Review",
-     "duration": "0:19",
+     "video_id": "yt_Srxja6Eq8jE",
+     "title": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
+     "source_name": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
+     "duration": "0:15",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/qPF6hbFHCUc?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Srxja6Eq8jE?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/qPF6hbFHCUc/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
+     "image_url": "https://i.ytimg.com/vi/Srxja6Eq8jE/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -848,19 +847,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_qPF6hbFHCUc",
+    "video_id": "yt_Srxja6Eq8jE",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
-     "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator"
+     "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
+     "Welcome to Hello Mistri 443!",
+     "In this video, we take you through the complete Samsung Outdoor Split AC Service process.",
+     "From deep cleaning to essential repairs, watch how we restore peak performance to this unit.",
+     "Whether you're a DIY enthusiast or looking for reliable AC service i"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "KP Vlogs & Review",
+    "creator": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
-    "question": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+    "url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
+    "question": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
     "next": [
      {
       "action": "find_local",
@@ -890,13 +892,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
+    "question": "Tell me more about \"Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "SERVICE",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -996,18 +998,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:cb425533a89c427c",
+   "trace_key": "browse:accbe345179b4ea5",
    "videos": [
     {
-     "video_id": "yt_Ac8Arkhzgps",
-     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "source_name": "My Old Plumber",
-     "duration": "0:17",
+     "video_id": "yt_Bvxkrv7t4Dw",
+     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "source_name": "vijay xyz tricks ",
+     "duration": "0:14",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -1026,27 +1028,24 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
-     "category": "plumbing",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_Ac8Arkhzgps",
+    "video_id": "yt_Bvxkrv7t4Dw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "Which do you prefer for sealing drains — plumbers putty or silicone?",
-     "Some plumbers swear by putty.",
-     "Others prefer silicone for a stronger long-term seal.",
-     "Both have their place depending on the sink, drain, and installation."
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "thanks for watching video"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "My Old Plumber",
+    "creator": "vijay xyz tricks ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
-    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
     "next": [
      {
       "action": "find_local",
@@ -1076,13 +1075,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
+    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1182,7 +1181,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:4a34a667337a4ae6",
+   "trace_key": "browse:4d185e3d6e7e4b81",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1291,16 +1290,16 @@
     },
     "options": [
      {
-      "title": "The Kazus Royal Dum Biryani",
+      "title": "Bismillah Paradise Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 1.5,
+      "distance_km": 0.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1333,20 +1332,6 @@
       "location_label": null
      },
      {
-      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.eatsure.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
-      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
-      "location_label": null
-     },
-     {
       "title": "Order Online – HYDERABAD BIRYANI POINT",
       "segment": null,
       "match_source": "online",
@@ -1358,6 +1343,20 @@
       "sponsored": null,
       "destination_url": "https://hyderabadbiryanipoint.com/store/",
       "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.eatsure.com",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
+      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
       "location_label": null
      },
      {
@@ -1382,7 +1381,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:5e5dad27620043f0",
+   "trace_key": "browse:73674708aad94894",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1411,7 +1410,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1479,7 +1478,7 @@
     "ask": "araku valley trip reviews",
     "segments": [
      "deals",
-     "wider_local"
+     "nearby_external"
     ],
     "status": {
      "askodox": "no_results",
@@ -1491,6 +1490,20 @@
      "jobs": "not_applicable"
     },
     "options": [
+     {
+      "title": "Akkanna Madanna Caves",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 4.5,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=8298250960370824606&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     },
      {
       "title": "Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT",
       "segment": "deals",
@@ -1534,20 +1547,6 @@
       "location_label": null
      },
      {
-      "title": "ARAKU VALLEY",
-      "segment": "wider_local",
-      "match_source": "external",
-      "source_name": null,
-      "price": null,
-      "price_verified": false,
-      "distance_km": 311.2,
-      "affiliate": null,
-      "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=1765131070365378&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare",
       "segment": null,
       "match_source": "online",
@@ -1583,7 +1582,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:a4faed9200084edf",
+   "trace_key": "browse:cd600d42a4974d3b",
    "videos": [
     {
      "video_id": "yt_RJworx5674I",
@@ -1752,20 +1751,6 @@
       "location_label": null
      },
      {
-      "title": "Royal Enfield Classic 350 Offers & Discount in Vijayawada",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.zigwheels.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.zigwheels.com/bikes/offers-events/Vijayawada/royal-enfield/classic-350",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Royal Enfield Classic 350 On Road Price Vijayawada Aug 2026 - ₹2.22L",
       "segment": null,
       "match_source": "online",
@@ -1778,6 +1763,20 @@
       "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
       "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
       "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 Price in Vijayawada – Ex-Showroom, Top Model & On-Road Cost",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "auto.shriramfinance.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://auto.shriramfinance.in/royal-enfield/classic-350-price-in-vijayawada",
+      "image_url": null,
+      "location_label": null
      }
     ]
    }
@@ -1787,7 +1786,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:c461ccd877144e02",
+   "trace_key": "browse:658273d0fed34519",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1818,6 +1817,7 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
+     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1991,18 +1991,18 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:2c6735fc1559469c",
+   "trace_key": "browse:1b524ed8dd5f43dd",
    "videos": [
     {
-     "video_id": "yt_qPF6hbFHCUc",
-     "title": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
-     "source_name": "KP Vlogs & Review",
-     "duration": "0:19",
+     "video_id": "yt_Srxja6Eq8jE",
+     "title": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
+     "source_name": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
+     "duration": "0:15",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/qPF6hbFHCUc?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Srxja6Eq8jE?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/qPF6hbFHCUc/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
+     "image_url": "https://i.ytimg.com/vi/Srxja6Eq8jE/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -2025,19 +2025,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_qPF6hbFHCUc",
+    "video_id": "yt_Srxja6Eq8jE",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
-     "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator"
+     "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
+     "Welcome to Hello Mistri 443!",
+     "In this video, we take you through the complete Samsung Outdoor Split AC Service process.",
+     "From deep cleaning to essential repairs, watch how we restore peak performance to this unit.",
+     "Whether you're a DIY enthusiast or looking for reliable AC service i"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "KP Vlogs & Review",
+    "creator": "PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
-    "question": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+    "url": "https://www.youtube.com/watch?v=Srxja6Eq8jE",
+    "question": "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung",
     "next": [
      {
       "action": "find_local",
@@ -2067,11 +2070,11 @@
     ]
    },
    "ai": {
-    "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "question": "\"Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "ఈ ఏసీ సర్వీస్ లేదా క్లీనింగ్ మీ గదిలో ఉన్న స్ప్లిట్ ఏసీకి సరిపోతుంది. మీ ఏసీ మోడల్ లేదా టన్నుల వివరాలు తెలియజేస్తారా?",
+    "follow_reply": "చిన్న గదికి ఇది సరిపోతుందో లేదో చూడటానికి మీ రూమ్ పరిమాణం ఎంత ఉందో తెలుపగలరా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"

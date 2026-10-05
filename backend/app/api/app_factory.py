@@ -335,6 +335,12 @@ def create_app() -> FastAPI:
     from app.api.routes.native_video import router as native_video_router
 
     app.include_router(native_video_router)
+    from app.api.routes.taxonomy import router as taxonomy_router
+
+    app.include_router(taxonomy_router)
+    from app.api.routes.video_commerce import router as video_commerce_router
+
+    app.include_router(video_commerce_router)
     app.include_router(owner_os_admin_router)
     from app.api.routes.catalogue import router as catalogue_router
     from app.api.routes.profile import router as profile_router

@@ -394,6 +394,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
             const SizedBox(width: 10),
             Expanded(
               child: FilledButton(
+                key: const ValueKey('askodoxOrderAccept'),
                 onPressed: _responding ? null : () => _respond('ACCEPTED'),
                 child: _responding
                     ? const SizedBox(

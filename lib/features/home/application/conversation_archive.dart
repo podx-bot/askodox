@@ -143,19 +143,22 @@ class AskodoxChatRequest {
         newConversation = false,
         voice = false,
         hubAction = null,
-        search = false;
+        search = false,
+        videoRef = null;
   AskodoxChatRequest.newConversation()
       : conversationId = null,
         prompt = null,
         newConversation = true,
         voice = false,
         hubAction = null,
-        search = false;
+        search = false,
+        videoRef = null;
   AskodoxChatRequest.ask(this.prompt, {this.search = false})
       : conversationId = null,
         newConversation = false,
         voice = false,
-        hubAction = null;
+        hubAction = null,
+        videoRef = null;
 
   /// The centre ASKODOX button: open Main Chat and start listening at once.
   AskodoxChatRequest.voice()
@@ -164,7 +167,8 @@ class AskodoxChatRequest {
         newConversation = false,
         voice = true,
         hubAction = null,
-        search = false;
+        search = false,
+        videoRef = null;
 
   /// A companion action (Voice, Chat, Camera, Photos, Video, Files,
   /// Location) chosen outside Main Chat -- nav avatar or floating companion
@@ -174,7 +178,20 @@ class AskodoxChatRequest {
         prompt = null,
         newConversation = false,
         voice = false,
+        search = false,
+        videoRef = null;
+
+  /// "Ask about this video": Main Chat continues with THIS video as the
+  /// context ([videoRef] `nv_<id>`, [prompt] = its title).
+  AskodoxChatRequest.aboutVideo(String this.videoRef, String title)
+      : conversationId = null,
+        prompt = title,
+        newConversation = false,
+        voice = false,
+        hubAction = null,
         search = false;
+
+  final String? videoRef;
 
   final AskodoxHubAction? hubAction;
   final String? conversationId;

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/askodox_video_service.dart';
+import 'question_mic.dart';
 
 String _pick(String lang, String en, String te, String hi) => switch (lang) { 'te' => te, 'hi' => hi, _ => en };
 
@@ -265,6 +268,14 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
               hintText: _pick(lang, 'Ask about this video…', 'ఈ వీడియో గురించి అడగండి…', 'इस वीडियो के बारे में पूछें…'),
             ),
           ),
+        ),
+        // Speak the question here: the mic records INTO this video's Q&A.
+        AskodoxQuestionMic(
+          lang: lang,
+          onText: (words) {
+            _question.text = words;
+            if (!_asking) unawaited(_ask(words));
+          },
         ),
         IconButton(
           key: const Key('askodoxVideoAskSend'),
