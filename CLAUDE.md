@@ -7,18 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `09a0f4d` -- PR #155 (2026-10-04): audit of the Combined Master
-  Command (`docs/MASTER_COMMAND_AUDIT_2026-10-04.md`) and its 11 PARTIAL items
-  closed: chat ride/parcel -> mobility hand-off, scheduled trips, order
-  delivery responsibility UI, in-app reels (`video_player`) + Ask the
-  business + owner inbox, native-video deep study from the stored file,
-  deal-chat product/catalog/offer auto-reply triggers, News in Updates,
-  Video reports console. Production probe (run 37219861777): Maps all OK,
-  resolve + junction OK, Brave 200 with 0 stale rows, size 9 / budget 2000
-  kept, guards 401, secrets configured; `delivery.matching` still OFF.
-  Signed MAIN APK 1298 (Live Build 37219122573 on 09a0f4d, sha256
-  2779f729…daa18, same release cert, production backend only).
-  Before: #153-#154 mobility + native video + APK 1297.
+- `main` @ `5d00fae` -- PR #157 (2026-10-05): Profile + universal integration
+  pass, registered-video commerce, in-app Screen Guide. Pushed screens used the
+  app's DARK theme (black Location/Privacy/Feedback screens) -> app is light.
+  Production probe (run 37290186588 on the deployed 5d00fae): Maps all OK,
+  Brave 200 / 0 stale, size 9 + budget 2000 kept, taxonomy resolve live
+  (customer food_delivery / provider delivery), new owner/staff endpoints 401
+  signed-out; `delivery.matching` still OFF. Signed MAIN APK 1300 (Live Build
+  37288783163 on 5d00fae, sha256 8907242b…d417a; pinned in MAIN_APKS).
+  Before: #155-#156 audit gaps + APK 1298.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -297,6 +294,24 @@ this file, don't trust it blindly.
   media only to owner / staff. Video DMs answer from approved FAQ only.
 - Integration states: `integration_readiness.runtime_rows` + public
   `/health/integrations` (no secrets). Firebase "configured" is never LIVE.
+- Theme: `PodxApp` uses `ThemeMode.light` (the shell is light). A dark app
+  theme turned every pushed route black -- don't reintroduce it.
+- Category tree = `taxonomy.py` + resource `taxonomy_nodes` (staff-editable,
+  seeded once) + `/api/taxonomy/resolve`; capabilities inherit down the path.
+  The app calls it only for delivery capability / partner phrases.
+- Video commerce = `video_commerce.py` (grounding basis, sensitive topics never
+  AI-answered, reply plan off/draft/auto) + `routes/video_commerce.py`; the
+  detail route `/api/videos/native/{id}` is registered LAST. App:
+  `native_video/video_commerce.dart`; chat questions about a video go to its
+  study (`_videoStudyRef`, `nv_` -> native ask endpoint), never the deal search.
+- In-app Screen Guide = `features/guide/in_app_guide.dart`, mounted in the app
+  builder. Steps target existing widget KEYS (`x*` = prefix); visible = a hit
+  test reaches it. Renaming a targeted key breaks a walkthrough -- grep
+  `askodoxGuideFlows`. Private routes pause it (`askodoxGuidePrivateRoutes`).
+- Mobility draft (`askodoxMobilityDraftProvider`) is the ONE ride / parcel being
+  set up, shared by chat and the Rides screen.
+- Push preferences: `push_prefs` (app Notifications switches via
+  `PUT /api/me/notification-settings`); `PushService.notify` obeys them.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
