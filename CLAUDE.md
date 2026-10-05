@@ -7,15 +7,19 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `5d00fae` -- PR #157 (2026-10-05): Profile + universal integration
-  pass, registered-video commerce, in-app Screen Guide. Pushed screens used the
-  app's DARK theme (black Location/Privacy/Feedback screens) -> app is light.
-  Production probe (run 37290186588 on the deployed 5d00fae): Maps all OK,
-  Brave 200 / 0 stale, size 9 + budget 2000 kept, taxonomy resolve live
-  (customer food_delivery / provider delivery), new owner/staff endpoints 401
-  signed-out; `delivery.matching` still OFF. Signed MAIN APK 1300 (Live Build
-  37288783163 on 5d00fae, sha256 8907242b…d417a; pinned in MAIN_APKS).
-  Before: #155-#156 audit gaps + APK 1298.
+- `main` @ `8c227af` -- PR #159 (2026-10-05): held phone fixes (stale cards on
+  place change, results expanded/compact/hidden, image thumbnails, "straight
+  line" distances, seller request copy; "near me" no longer parsed as a place),
+  own-supply fit (`supply_fit.py`), Smart Entry, seller Business Command Center
+  (`/api/business/command-center`, app Profile -> My business), explained
+  en/te staff work queue, 34-module functional audit test, Screen Guide on the
+  Sarvam voice. Production probe (run 37358859201 on the deployed 8c227af):
+  Maps all OK, Brave 200 / 0 stale, size 9 + budget 2000 kept, new seller /
+  staff endpoints 401 signed-out; no registered listings in production yet, so
+  `why` is test-verified only. Signed MAIN APK 1302 (Live Build 37358788686
+  attempt 2 on 8c227af, sha256 7091c483…6771; pinned in MAIN_APKS; 1301 was a
+  cancelled run -- Live Build has cancel-in-progress, never dispatch a second
+  run while the push run is going). Before: #157 + APK 1300.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -312,6 +316,20 @@ this file, don't trust it blindly.
   set up, shared by chat and the Rides screen.
 - Push preferences: `push_prefs` (app Notifications switches via
   `PUT /api/me/notification-settings`); `PushService.notify` obeys them.
+- Own-supply fit: `supply_fit.evaluate` judges a registered listing against the
+  customer's explicit constraints (matched / unmatched / unknown -- unknown is
+  never assumed); registered rows carry `fit` + `why` and rank by fit; gaps are
+  aggregated in `supply_gaps` (no customer identity) for sellers and staff.
+- Smart Entry = `smart_entry.py` + `POST /admin/cc/smart-entry` (prepares forms
+  only; value + confidence + provenance; only high confidence pre-fills); the
+  console view maps results onto the real create forms. Reuses
+  `affiliate_catalog.extract_metadata` -- don't add another page fetcher.
+- Staff work queue items are explained by `admin_actions.enrich` (fixed en/te
+  WHAT / WHY / IMPACT / ACTION per key, severity from real counts). A new queue
+  key needs a TEXT entry. Integration failures come from
+  `_failing_integrations` (same live state as the readiness page).
+- `tests/test_admin_functional_audit.py` audits every platform resource from
+  its schema; a new resource with a cross-field rule needs an OVERRIDES entry.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
