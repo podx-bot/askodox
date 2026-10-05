@@ -8,6 +8,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/flags/askodox_remote_flags.dart';
+import '../../core/providers/app_settings_provider.dart';
+import '../../services/reply_speech_service.dart';
+
 /// ASKODOX Screen Guide INSIDE the app: it points at the real button on the
 /// real screen (dim + spotlight + pulse + arrow), says what to do in Telugu
 /// or English (text + voice), waits for the user's own tap, notices when a
@@ -175,14 +179,25 @@ class AskodoxGuideController extends StateNotifier<AskodoxGuideState?> {
 final askodoxGuideProvider =
     StateNotifierProvider<AskodoxGuideController, AskodoxGuideState?>((ref) => AskodoxGuideController());
 
-/// Speaks a guide line (device TTS through the ONE native bridge). Off in
-/// tests / when unavailable.
+/// Speaks a guide line with the same voice as Main Chat: Sarvam Bulbul
+/// (backend `/api/in-app/voice/speak`, flag `voice.sarvam_tts`, the Profile
+/// voice choice) and device TTS only when that audio is unavailable. Guide
+/// lines are fixed text and private screens pause the guide, so nothing the
+/// user typed is ever sent. Off in tests / when unavailable.
 typedef AskodoxGuideSpeaker = Future<void> Function(String text, String language);
 
 final askodoxGuideSpeakerProvider = Provider<AskodoxGuideSpeaker>((ref) => (text, language) async {
+      const device = MethodChannel('com.askodox.app/device');
+      final voice = ref.read(appSettingsProvider).voicePreference.storageValue;
       try {
-        await const MethodChannel('com.askodox.app/device')
-            .invokeMethod<bool>('speakReply', {'text': text, 'languageCode': language, 'voicePreference': 'automatic'});
+        if (ref.read(askodoxFlagProvider('voice.sarvam_tts'))) {
+          final audio = await const ReplySpeechService().sarvamAudio(text, locale: language, voice: voice);
+          if (audio != null &&
+              await device.invokeMethod<bool>('playReplyAudio', {'bytes': audio, 'languageCode': language}) == true) {
+            return;
+          }
+        }
+        await device.invokeMethod<bool>('speakReply', {'text': text, 'languageCode': language, 'voicePreference': voice});
       } catch (_) {}
     });
 
