@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-05T08:35:41Z",
+ "generated_at": "2026-10-05T08:57:59Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:c85ea7729bb94e31",
+   "trace_key": "browse:627e6ac4acc84b5c",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -37,8 +37,8 @@
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 inch",
      "subject": "Samsung 43 inch TV",
+     "size": "43 inch",
      "location": "Vijayawada"
     }
    },
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:f6dd426b413b49d1",
+   "trace_key": "browse:96c26d19d29b4c95",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -239,8 +239,8 @@
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 అంగుళాలు",
-     "subject": "Samsung 43 inch TV review",
+     "size": "43 అంగుళాల",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -293,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా చూడటానికి వీక్షించే దూరం మరియు గది పరిమాణం వివరాలు చెక్ చేస్తున్నాను.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా చూడటానికి వీక్షించే దూరం మరియు గది పరిమాణం వివరాలు తెలుసుకోవాలి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_action": "check_product_fit"
    },
    "next": {
     "step": "deals",
@@ -407,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:3f0489fe8a344cc8",
+   "trace_key": "browse:187ef3d8b94d453f",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,7 +433,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
@@ -610,7 +610,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:7fe71c4aa0f84758",
+   "trace_key": "browse:d613bdef0b0e4afb",
    "videos": [
     {
      "video_id": "yt_E8eMNvr5GtM",
@@ -639,9 +639,8 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Tata",
-     "model": "Nexon",
      "subject": "Tata Nexon",
+     "brand": "Tata",
      "location": "Vijayawada"
     }
    },
@@ -764,20 +763,6 @@
       "location_label": null
      },
      {
-      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.91wheels.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
-      "location_label": null
-     },
-     {
       "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
       "segment": null,
       "match_source": "online",
@@ -804,6 +789,20 @@
       "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
       "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
       "location_label": null
+     },
+     {
+      "title": "Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.91wheels.com",
+      "price": 38323.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
+      "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
+      "location_label": null
      }
     ]
    }
@@ -813,7 +812,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:ab9d962d87944a00",
+   "trace_key": "browse:cd56ed2ec6224a87",
    "videos": [
     {
      "video_id": "yt_Srxja6Eq8jE",
@@ -998,7 +997,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:7012d24650754d12",
+   "trace_key": "browse:c4a55f12810d453a",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1024,7 +1023,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
@@ -1181,7 +1180,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:f9a76804a60545d5",
+   "trace_key": "browse:755730f36b4c425d",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1381,7 +1380,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:ce850418f50d4330",
+   "trace_key": "browse:720b9fa66611407d",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1410,7 +1409,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku Valley trip",
+     "subject": "Araku valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1533,16 +1532,16 @@
       "location_label": null
      },
      {
-      "title": "ARAKU VALLEY",
+      "title": "Araku Eco Stays & Travels - Paderu",
       "segment": "wider_local",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 311.2,
+      "distance_km": 277.5,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=1765131070365378&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=5365547606490591995&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1582,7 +1581,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:cdfde071d5a74e0a",
+   "trace_key": "browse:e1fb7ee89aef4cb7",
    "videos": [
     {
      "video_id": "yt_RJworx5674I",
@@ -1611,9 +1610,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "subject": "used Royal Enfield Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1786,7 +1785,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:4d0bce09400d4146",
+   "trace_key": "browse:c689e38976ee4ee2",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1990,7 +1989,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:83b9b9c2f8c14fa8",
+   "trace_key": "browse:f1eefbce2d334832",
    "videos": [
     {
      "video_id": "yt_Srxja6Eq8jE",
@@ -2073,7 +2072,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 1 టన్ను లేదా 1.5 టన్ను ఏసీ ఏది కావాలో చెప్పగలరా?",
+    "follow_reply": "అవును, ఈ వీడియో చూసి మీ గదికి ఇది సరిపోతుందో లేదో తెలుసుకోవచ్చు.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"
