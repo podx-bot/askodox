@@ -204,3 +204,14 @@ def gaps_for_seller(database_path: str, seller_user_id: str) -> List[Dict[str, A
         rows = conn.execute("SELECT listing_id, field, subject, hits, last_seen FROM supply_gaps "
                             "WHERE seller_user_id=? ORDER BY hits DESC LIMIT 50", (seller_user_id,)).fetchall()
     return [{"listing_id": r[0], "field": r[1], "subject": r[2], "hits": r[3], "last_seen": r[4]} for r in rows]
+
+
+def listings_with_gaps(database_path: str) -> int:
+    """How many listings could not answer at least one customer constraint."""
+    import sqlite3
+    from contextlib import closing
+
+    with closing(sqlite3.connect(database_path)) as conn:
+        if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='supply_gaps'").fetchone():
+            return 0
+        return int(conn.execute("SELECT COUNT(DISTINCT listing_id) FROM supply_gaps").fetchone()[0])
