@@ -250,7 +250,10 @@ class UniversalDealBrain {
       caseSensitive: false,
     ).firstMatch(text);
     final value = match?.group(1)?.trim();
-    return value == null || value.isEmpty ? null : value;
+    // "near me" / "around here" is the customer's active place, never a place
+    // named "me" (it froze the search to the old place on the phone).
+    if (value == null || value.isEmpty || askodoxIsNearMePhrase(value)) return null;
+    return value;
   }
 
   double? _price(String text) {
@@ -372,3 +375,10 @@ class UniversalDealBrain {
     return fields;
   }
 }
+
+
+/// Words that mean "where I am" rather than a named place.
+bool askodoxIsNearMePhrase(String value) => RegExp(
+      r'^(me|my place|my location|here|nearby|near by|around me|around here|current location|this area|my area)\b',
+      caseSensitive: false,
+    ).hasMatch(value.trim());

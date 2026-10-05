@@ -21,7 +21,12 @@ class AskodoxDealPanel extends ConsumerStatefulWidget {
     this.onAlternatives,
     this.onSupport,
     this.showAcceptDecline = false,
+    this.sellerView = false,
   });
+
+  /// The viewer is the seller / provider of this deal: status lines speak to
+  /// them ("New request -- accept or decline"), not the buyer.
+  final bool sellerView;
 
   final String orderId;
   /// The seller order card already has its own Accept/Decline buttons.
@@ -234,6 +239,20 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
 
   String _statusLabel(OrderDetail d) {
     final te = _te;
+    if (widget.sellerView) {
+      switch (d.order.status) {
+        case 'PLACED':
+          return te ? 'కొత్త అభ్యర్థన — అంగీకరించండి లేదా తిరస్కరించండి' : 'New request — accept or decline';
+        case 'REJECTED':
+          return te ? 'మీరు తిరస్కరించారు' : 'You declined this request';
+        case 'DELIVERED':
+        case 'SERVICE_COMPLETED':
+        case 'FULFILLED':
+          return te ? 'పూర్తయిందని మీరు తెలిపారు — కస్టమర్ నిర్ధారణ కోసం వేచి ఉంది' : 'You marked it done — waiting for the customer to confirm';
+        case 'RESOLVED':
+          return te ? 'సపోర్ట్ పరిష్కరించింది — కస్టమర్ నిర్ధారణ కోసం వేచి ఉంది' : 'Support resolved it — waiting for the customer to confirm';
+      }
+    }
     return switch (d.order.status) {
       'PLACED' => te ? 'అభ్యర్థన పంపబడింది — విక్రేత/ప్రొవైడర్ స్పందన కోసం వేచి ఉంది' : 'Request sent — waiting for the seller/provider',
       'ACCEPTED' => te ? 'అంగీకరించారు' : 'Accepted',
@@ -386,7 +405,9 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              te ? 'విక్రేత ఇంకా స్పందించలేదు.' : 'The seller has not responded yet.',
+              widget.sellerView
+                  ? (te ? 'కస్టమర్ మీ సమాధానం కోసం వేచి ఉన్నారు.' : 'The customer is waiting for your reply.')
+                  : (te ? 'విక్రేత ఇంకా స్పందించలేదు.' : 'The seller has not responded yet.'),
               style: const TextStyle(fontSize: 12, color: Color(0xFFB3261E)),
             ),
           ),

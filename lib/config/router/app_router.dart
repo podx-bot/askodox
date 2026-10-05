@@ -12,6 +12,7 @@ import '../../shared/widgets/app_shell.dart';
 import '../../features/selling/presentation/my_listings_screen.dart';
 import '../../features/notifications/presentation/notification_settings_screen.dart';
 import '../../features/notifications/presentation/updates_screen.dart';
+import '../../features/business/presentation/business_center_screen.dart';
 import '../../features/opportunities/presentation/seller_opportunities_screen.dart';
 import '../../features/watchlist/presentation/alert_simulator_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
@@ -177,6 +178,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/opportunities',
           builder: (context, state) => const SellerOpportunitiesScreen()),
+      GoRoute(
+          path: '/business',
+          builder: (context, state) => const BusinessCenterScreen()),
       GoRoute(
           path: '/deal/:requestId',
           builder: (context, state) => DealThreadScreen(

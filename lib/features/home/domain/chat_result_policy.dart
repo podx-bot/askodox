@@ -874,3 +874,37 @@ List<String> askodoxRequestedGroups(String text) {
   }
   return (rendered: rendered, hidden: hidden);
 }
+
+/// Results workspace size: full cards, one compact strip, or only a summary
+/// line. Changing it never drops results, filters or the selection.
+enum AskodoxResultsMode { expanded, compact, hidden }
+
+/// The one-line summary shown when the results are folded: counts per kind
+/// and the nearest local option (its distance is straight-line unless the
+/// row says it was measured by road).
+String askodoxResultsSummary(AskodoxChatResults results, {required bool telugu}) {
+  final parts = <String>[];
+  void add(int n, String en, String te) {
+    if (n > 0) parts.add(telugu ? '$te $n' : '$en $n');
+  }
+
+  add(results.local.length, 'Local', 'దగ్గర');
+  add(results.online.length, 'Online', 'ఆన్‌లైన్');
+  add(results.videos.length, 'Videos', 'వీడియోలు');
+  final near = [for (final m in results.local) if (m.distanceKm != null) m]
+    ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
+  if (near.isNotEmpty) {
+    final m = near.first;
+    final km = m.distanceKm! < 1 ? '${(m.distanceKm! * 1000).round()} m' : '${m.distanceKm!.toStringAsFixed(1)} km';
+    parts.add(telugu ? 'దగ్గరగా: ${m.title} ($km)' : 'Nearest: ${m.title} ($km)');
+  }
+  return parts.join(' · ');
+}
+
+/// "2.4 km away (straight line)" -- result distances are measured point to
+/// point; road distance is longer and comes from Maps directions.
+String askodoxDistanceLabel(double km, {required bool telugu, bool byRoad = false}) {
+  final value = km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
+  if (byRoad) return telugu ? '$value (రోడ్డు మార్గం)' : '$value by road';
+  return telugu ? '$value (నేరుగా)' : '$value (straight line)';
+}

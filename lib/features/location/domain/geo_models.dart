@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 enum SavedLocationType { home, work, currentLocation, custom }
 enum LocationPermissionStatus { notRequested, granted, denied, deniedPermanently, servicesDisabled }
 enum MapDisplayMode { map, list }
@@ -34,3 +36,17 @@ class GeoSearchQuery { const GeoSearchQuery({required this.centre, required this
 class GeoSearchResult { const GeoSearchResult({required this.query, required this.shops}); final GeoSearchQuery query; final List<NearbyShop> shops; }
 class SellerLocationSettings { const SellerLocationSettings({this.point, this.landmark = '', this.serviceRadiusMetres = 5000, this.isConfirmed = false, this.publicLocation = true, this.hideExactLocation = false}); final GeoPoint? point; final String landmark; final double serviceRadiusMetres; final bool isConfirmed, publicLocation, hideExactLocation; }
 class BuyerLocationPrivacySettings { const BuyerLocationPrivacySettings({this.allowLocationAccess = false, this.usePreciseLocation = false, this.saveSearchHistory = true, this.saveRecentLocations = true}); final bool allowLocationAccess, usePreciseLocation, saveSearchHistory, saveRecentLocations; }
+
+/// Straight-line ("as the crow flies") distance in km between two points.
+double askodoxStraightLineKm(double lat1, double lng1, double lat2, double lng2) {
+  const r = 6371.0;
+  double rad(double d) => d * 3.141592653589793 / 180;
+  final dLat = rad(lat2 - lat1), dLng = rad(lng2 - lng1);
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) + math.cos(rad(lat1)) * math.cos(rad(lat2)) * math.sin(dLng / 2) * math.sin(dLng / 2);
+  return 2 * r * math.asin(math.sqrt(a));
+}
+
+/// The active place really changed (more than [km], default 300 m) --
+/// small GPS jitter never refreshes results.
+bool askodoxPlaceMoved(double lat1, double lng1, double lat2, double lng2, {double km = 0.3}) =>
+    askodoxStraightLineKm(lat1, lng1, lat2, lng2) > km;

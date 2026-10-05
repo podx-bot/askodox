@@ -25,6 +25,7 @@ import '../../deal_brain/application/universal_deal_brain.dart';
 import '../../deal_brain/application/universal_deal_controller.dart';
 import '../../deal_brain/domain/universal_deal.dart';
 import '../../location/application/location_controller.dart';
+import '../../location/domain/geo_models.dart';
 import '../../matching/data/universal_match_repository.dart';
 import '../../orders/data/order_repository.dart';
 import '../../selling/data/seller_listing_repository.dart';
@@ -596,6 +597,17 @@ class _AskodoxPrimaryHomeScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // A new active place (header / Profile / chat Location) refreshes the
+    // latest results for it: cards and distances never stay from the old
+    // place (phone finding A1).
+    ref.listenManual<LocationState>(locationControllerProvider, (previous, next) {
+      final before = previous?.defaultLocation, after = next.defaultLocation;
+      if (after == null || before == null) return;
+      if (askodoxPlaceMoved(before.point.latitude, before.point.longitude, after.point.latitude,
+          after.point.longitude)) {
+        unawaited(_refreshResultsForPlace(before, after));
+      }
+    });
     ref.listenManual<AskodoxChatRequest?>(askodoxChatRequestProvider,
         (previous, next) {
       if (next != null) unawaited(_handleChatRequest(next));
@@ -864,6 +876,10 @@ class _AskodoxPrimaryHomeScreenState
   /// The studied video attached in THIS conversation: follow-up questions
   /// about it go to its grounded Q&A, not to a deal search.
   String? _videoStudyRef;
+
+  /// Images the customer sent in this session, by attachment id: the chat
+  /// shows the picture, not just its file name (history keeps the name).
+  final Map<String, Uint8List> _sentImages = {};
 
   /// Opened from "Ask about this video": every question is about it until
   /// the customer moves on.
@@ -1339,6 +1355,46 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
+  /// Re-runs the latest results for the new place -- only when that search
+  /// was "near me" (it used the previous active place or none); a place the
+  /// customer named in the request ("in Guntur") is kept.
+  Future<void> _refreshResultsForPlace(BuyerSavedLocation before, BuyerSavedLocation after) async {
+    final turn = _pinnedResultsTurn;
+    final deal = turn == null ? null : _dealByTurn[turn];
+    if (turn == null || deal == null || !mounted) return;
+    final loc = deal.location;
+    final usedActivePlace = (loc.latitude == null || loc.longitude == null)
+        ? ((loc.label ?? '').trim().isEmpty || askodoxIsNearMePhrase(loc.label!)) // a typed place is the customer's own
+        : !askodoxPlaceMoved(loc.latitude!, loc.longitude!, before.point.latitude, before.point.longitude);
+    if (!usedActivePlace) return;
+    final label = after.address.trim().isNotEmpty ? after.address.trim() : after.name.trim();
+    final moved = deal.copyWith(
+        location: DealLocation(
+            label: label, latitude: after.point.latitude, longitude: after.point.longitude, radiusKm: loc.radiusKm));
+    setState(() {
+      _dealByTurn[turn] = moved;
+      _resultsStaleFor = label;
+    });
+    if (_sending) return;
+    setState(() => _sending = true);
+    final results = await _findUniversalMatches(moved);
+    if (!mounted) return;
+    setState(() {
+      _resultsByTurn[turn] = results;
+      _resultsStaleFor = null;
+      _sending = false;
+      _turns.add(ConversationTurnRecord(
+          text: _te ? 'ఫలితాలను $label కోసం నవీకరించాను.' : 'Updated the results for $label.', isUser: false));
+    });
+    await _store.save(_turns);
+    unawaited(_saveSnapshot());
+    _scrollBottom();
+  }
+
+  /// Set while results are being refreshed for a new place (old cards are
+  /// marked, never shown as current).
+  String? _resultsStaleFor;
+
   Future<void> _retryMatching(int turnIndex) async {
     final deal = _dealByTurn[turnIndex];
     if (deal == null || _sending) return;
@@ -1404,6 +1460,7 @@ class _AskodoxPrimaryHomeScreenState
           if (job != _attachmentJob || !mounted) return; // cancelled
           facts.add(attachments.length > 1 ? '${attachment.name}: ${result.facts}' : result.facts);
           final study = result.videoStudy;
+          if (attachment.isImage) _sentImages[result.id] = attachment.bytes;
           sentAttachments.add({
             'name': attachment.name, 'kind': result.kind, 'id': result.id,
             // A short upload ASKODOX studied: open its grounded Q&A.
@@ -3391,7 +3448,12 @@ class _AskodoxPrimaryHomeScreenState
     return keys.reduce((a, b) => a > b ? a : b);
   }
 
-  bool _resultContextCollapsed = false;
+  /// The results workspace size (phone finding F): expanded cards, a
+  /// compact strip, or a summary line. Typing / the keyboard folds it to
+  /// compact automatically; the customer's own choice is kept.
+  AskodoxResultsMode _resultsMode = AskodoxResultsMode.expanded;
+  bool _resultsModeChosen = false;
+
 
   /// The active result context above the conversation: bounded height
   /// (smaller while the keyboard is open) so the latest messages and the
@@ -3400,9 +3462,28 @@ class _AskodoxPrimaryHomeScreenState
   Widget _resultContext(bool te, int index) {
     final media = MediaQuery.of(context);
     final keyboard = media.viewInsets.bottom > 0;
-    final maxHeight = (media.size.height - media.viewInsets.bottom) * (keyboard ? .32 : .42);
     final results = _resultsByTurn[index]!;
     final count = results.matches.length;
+    // The keyboard is open and the customer did not choose a size: compact,
+    // so the conversation and the input stay visible (never half-hidden).
+    final mode = keyboard && !_resultsModeChosen && _resultsMode == AskodoxResultsMode.expanded
+        ? AskodoxResultsMode.compact
+        : _resultsMode;
+    final maxHeight = (media.size.height - media.viewInsets.bottom) *
+        (mode == AskodoxResultsMode.compact ? (keyboard ? .2 : .24) : (keyboard ? .32 : .42));
+    final summary = askodoxResultsSummary(results, telugu: te);
+    void choose(AskodoxResultsMode m) => setState(() {
+          _resultsMode = m;
+          _resultsModeChosen = true;
+        });
+    Widget sizeButton(AskodoxResultsMode m, IconData icon, String tip) => IconButton(
+          key: ValueKey('askodoxResultsMode-${m.name}'),
+          tooltip: tip,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          icon: Icon(icon, size: 19, color: mode == m ? _blue : _muted),
+          onPressed: () => choose(m),
+        );
     return Container(
       key: const Key('askodoxResultContext'),
       decoration: const BoxDecoration(
@@ -3412,34 +3493,60 @@ class _AskodoxPrimaryHomeScreenState
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         InkWell(
           key: const Key('askodoxResultContextToggle'),
-          onTap: () => setState(() => _resultContextCollapsed = !_resultContextCollapsed),
+          // Tapping the header folds / unfolds (hidden <-> expanded).
+          onTap: () => choose(mode == AskodoxResultsMode.hidden ? AskodoxResultsMode.expanded : AskodoxResultsMode.hidden),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 10, 2),
+            padding: const EdgeInsets.fromLTRB(14, 2, 4, 0),
             child: Row(children: [
               const Icon(Icons.manage_search_rounded, size: 16, color: _blue),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  count == 0
-                      ? (te ? 'ఫలితాలు' : 'Results')
-                      : (te ? 'ఫలితాలు · $count' : 'Results · $count'),
-                  style: const TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 12.5),
-                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(
+                    count == 0 ? (te ? 'ఫలితాలు' : 'Results') : (te ? 'ఫలితాలు · $count' : 'Results · $count'),
+                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 12.5),
+                  ),
+                  if (mode != AskodoxResultsMode.expanded && summary.isNotEmpty)
+                    Text(summary,
+                        key: const Key('askodoxResultsSummary'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _muted, fontSize: 11.5)),
+                ]),
               ),
-              Icon(_resultContextCollapsed ? Icons.expand_more_rounded : Icons.expand_less_rounded,
-                  size: 20, color: _muted),
+              sizeButton(AskodoxResultsMode.expanded, Icons.unfold_more_rounded, te ? 'పూర్తిగా' : 'Expand'),
+              sizeButton(AskodoxResultsMode.compact, Icons.view_carousel_outlined, te ? 'చిన్నగా' : 'Compact'),
+              sizeButton(AskodoxResultsMode.hidden, Icons.unfold_less_rounded, te ? 'దాచు' : 'Hide'),
             ]),
           ),
         ),
-        if (!_resultContextCollapsed)
+        if (_resultsStaleFor != null)
+          Padding(
+            key: const Key('askodoxResultsRefreshing'),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+            child: Row(children: [
+              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    te ? '$_resultsStaleFor కోసం ఫలితాలు నవీకరిస్తున్నాను…' : 'Updating results for $_resultsStaleFor…',
+                    style: const TextStyle(fontSize: 11.5, color: _muted)),
+              ),
+            ]),
+          ),
+        if (mode != AskodoxResultsMode.hidden)
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
-            child: SingleChildScrollView(
-              key: const Key('askodoxResultContextScroll'),
-              padding: const EdgeInsets.fromLTRB(14, 4, 6, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: _turnResults(index, _turns[index], te),
+            child: Opacity(
+              // Cards from the old place are dimmed while they refresh.
+              opacity: _resultsStaleFor == null ? 1 : .45,
+              child: SingleChildScrollView(
+                key: const Key('askodoxResultContextScroll'),
+                padding: const EdgeInsets.fromLTRB(14, 4, 6, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _turnResults(index, _turns[index], te),
+                ),
               ),
             ),
           ),
@@ -3622,6 +3729,23 @@ class _AskodoxPrimaryHomeScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     for (final attachment in turn.attachments)
+                      if (_sentImages[attachment['id']] case final bytes?)
+                        Padding(
+                          key: ValueKey('askodoxSentImage-${attachment['id']}'),
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(bytes,
+                                width: 180,
+                                height: 140,
+                                fit: BoxFit.cover,
+                                cacheWidth: 360,
+                                semanticLabel: attachment['name'],
+                                errorBuilder: (_, __, ___) => Text(attachment['name'] ?? '',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12))),
+                          ),
+                        )
+                      else
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -5289,9 +5413,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
     final match = _match;
     final te = _te;
     final action = _action;
-    final distance = match.distanceKm == null
-        ? null
-        : '${match.distanceKm!.toStringAsFixed(1)} km';
+    // Point-to-point distance (B13): labelled "straight line"; the road
+    // distance is longer and comes from Maps directions.
+    final distance = match.distanceKm == null ? null : askodoxDistanceLabel(match.distanceKm!, telugu: te);
     // A price only found in page text is labelled as such, never shown as
     // a confirmed price.
     // (Staff-catalog prices carry their MRP / discount and a checked date.)
@@ -5439,6 +5563,21 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                           fontSize: compact ? 12 : null,
                           height: 1.3,
                           fontWeight: FontWeight.w500))
+                ],
+                if (match.why case final why?) ...[
+                  const SizedBox(height: 4),
+                  // Why this ASKODOX listing fits (or what it does not say)
+                  // against the customer's own size / budget / distance.
+                  Text(why,
+                      key: ValueKey('askodoxFitWhy-${match.id}'),
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: match.fitStatus == 'fits'
+                              ? const Color(0xFF1B7F3B)
+                              : (match.fitStatus == 'mismatch' ? const Color(0xFFB3261E) : const Color(0xFF8A5A00)))),
                 ],
                 SizedBox(height: compact ? 5 : 8),
                 Wrap(spacing: compact ? 5 : 8, runSpacing: compact ? 4 : 6, children: [
@@ -5697,7 +5836,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       if (askodoxStockLabel(m, te: te) != null) (te ? 'స్టాక్' : 'Stock', askodoxStockLabel(m, te: te)!),
       if (askodoxCheckedLabel(m, te: te) != null) (te ? 'చివరి తనిఖీ' : 'Last checked', askodoxCheckedLabel(m, te: te)!),
       if (m.salaryText?.trim().isNotEmpty == true) (te ? 'జీతం' : 'Salary', m.salaryText!.trim()),
-      if (m.distanceKm != null) (te ? 'దూరం' : 'Distance', '${m.distanceKm!.toStringAsFixed(1)} km'),
+      if (m.distanceKm != null) (te ? 'దూరం' : 'Distance', askodoxDistanceLabel(m.distanceKm!, telugu: te)),
       if (m.locationLabel?.trim().isNotEmpty == true) (te ? 'ప్రదేశం' : 'Location', m.locationLabel!.trim()),
       if (m.stockStatus == null && m.availability?.trim().isNotEmpty == true)
         (te ? 'అందుబాటు' : 'Availability', m.availability!.trim()),

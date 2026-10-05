@@ -56,7 +56,8 @@ jobs:
           except Exception as e:
               print('SECRETS_ENCRYPTION:', e)
           for path in ('/admin/cc/workspace/me', '/api/staff/me', '/admin/cc/early-access/dashboard', '/admin/cc/workspace/analytics',
-                       '/admin/cc/results/diagnostics', '/admin/cc/videos/comments', '/admin/cc/videos/analytics'):
+                       '/admin/cc/results/diagnostics', '/admin/cc/videos/comments', '/admin/cc/videos/analytics',
+                       '/api/business/command-center', '/admin/cc/demand/supply-gaps', '/admin/cc/staff/work-queue'):
               try:
                   urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
                   print(f"GUARD {path} -> 200 (unexpected)")

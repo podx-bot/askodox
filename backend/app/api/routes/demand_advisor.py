@@ -4,11 +4,13 @@ settings, Admin Assistant and Staff work queue.
 Customer / seller (same API for app and web):
   POST /api/advisor/next                       next decision-relevant question(s) + guidance (public, rate-limited)
   GET  /api/opportunities                      the signed-in seller's demand opportunities (no buyer identity)
+  GET  /api/business/command-center            the seller's facts + labelled insights + actions (en / te)
   POST /api/opportunities/{id}/open|respond    open / interested / not_relevant
 
 Command Center:
   GET  /admin/cc/demand/insights               demand facts (demand:view)
   GET  /admin/cc/demand/opportunities          unmet demand per rule (demand:view)
+  GET  /admin/cc/demand/supply-gaps            listing details customers asked for that sellers did not state (demand:view)
   POST /admin/cc/demand/opportunities/preview  who would be alerted and why, who is excluded and why (demand:view)
   POST /admin/cc/demand/opportunities/notify   alert matching sellers (demand:notify, confirm)
   POST /admin/cc/demand/run                    evaluate every ACTIVE rule now (demand:notify, confirm)
@@ -53,6 +55,28 @@ def _log(container) -> di.DemandAlertLog:
         log = di.DemandAlertLog(container.settings.database_path)
         container.demand_alert_log = log
     return log
+
+
+_FAILING = {"ERROR", "CHECK_FAILED", "DEGRADED", "QUOTA_EXHAUSTED"}
+
+
+def _failing_integrations(container) -> tuple:
+    """(["name: STATE", ...], error) from the same live state the readiness
+    page shows; error is set only when the check itself could not run."""
+    try:
+        from app.api.routes.health import _search_health
+        from app.api.routes.platform import integration_runtime
+        from app.services.integration_readiness import integration_state, readiness, search_state
+
+        pf = _pf(container)
+        web = _search_health(container)
+        rows = [(i.get("integration"), integration_state(i))
+                for i in readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=[])]
+        rows += [("Web search (Brave)", search_state(web))]
+        rows += [(r.get("integration"), r.get("state")) for r in integration_runtime(container, web)]
+        return [f"{n}: {st}" for n, st in rows if str(st or "").upper() in _FAILING], None
+    except Exception as error:
+        return [], type(error).__name__
 
 
 # ------------------------------------------------------------- advisor --
@@ -153,6 +177,20 @@ def demand_insights(request: Request, days: int = 7, category: str = "", area: s
     _require(request, "demand:view")
     days = max(1, min(int(days or 7), 90))
     return di.insights(_pf(request.app.state.container).repo, days=days, category=category, area=area)
+
+
+@router.get("/admin/cc/demand/supply-gaps")
+def demand_supply_gaps(request: Request) -> dict:
+    """Seller listings that could not answer a customer's constraint (size,
+    price, colour ...), counted per listing + field. Sellers are masked."""
+    _require(request, "demand:view")
+    from app.repositories.command_center_repository import mask_user_id
+    from app.services import supply_fit
+
+    rows = supply_fit.top_gaps(request.app.state.container.settings.database_path)
+    for row in rows:
+        row["seller"] = mask_user_id(row.pop("seller_user_id"))
+    return {"items": rows, "note": "Sellers see these in My business with an Edit listing button."}
 
 
 def _rules(container, rule_id: str = "", *, active_only: bool = True) -> List[Dict[str, Any]]:
@@ -447,15 +485,9 @@ def admin_assistant(body: AskBody, request: Request) -> dict:
                 + ([f"Sources with commission INACTIVE: {', '.join(src)}"] if src else []),
                 "likely": [], "actions": ["Confirm with the affiliate network, then set the state."]})
         elif topic == "integrations" and _can(principal, "integrations:view"):
-            try:
-                from app.services.integration_readiness import readiness
-
-                rows = readiness(container)
-                items = rows.get("items", rows) if isinstance(rows, dict) else rows
-                bad = [f"{i.get('name') or i.get('provider')}: {i.get('status')}" for i in items
-                       if str(i.get("status")) in {"ERROR", "FAILED", "DEGRADED"}]
-            except Exception as error:
-                bad = [f"readiness check unavailable ({type(error).__name__})"]
+            bad, error = _failing_integrations(container)
+            if error:
+                bad = [f"readiness check unavailable ({error})"]
             answers.append({"topic": "integrations", "observed": bad or ["No integration reports an error."],
                             "likely": [], "actions": ["Open System -> Integration readiness for the reason."]
                             if bad else []})
@@ -533,8 +565,30 @@ def staff_work_queue(request: Request) -> dict:
         items.append({"key": "content", "title": "Videos waiting for review", "count": pending,
                       "where": "/admin/console#r:videos", "what_to_do": "Approve or reject with a reason.",
                       "why": "Only reviewed videos are shown.", "done_when": "No PENDING_REVIEW videos."})
-    items.sort(key=lambda i: -i["count"])
-    return {"role": principal.get("role"), "items": items}
+    if _can(principal, "catalog:view"):
+        held = len([r for r in _pf(container).repo.list("listing_reviews") if r["status"] == "PENDING_REVIEW"])
+        items.append({"key": "listing_reviews", "title": "Seller listings held for review", "count": held,
+                      "where": "/admin/console#r:listing_reviews", "what_to_do": "Approve or reject with a reason.",
+                      "why": "Held listings are hidden from customers.", "done_when": "No PENDING_REVIEW listings."})
+    if _can(principal, "demand:view"):
+        from app.services import supply_fit
+
+        gaps = supply_fit.listings_with_gaps(container.settings.database_path)
+        items.append({"key": "supply_gaps", "title": "Seller listings missing details customers asked for",
+                      "count": gaps, "where": "/admin/console#demand",
+                      "what_to_do": "Ask the sellers to add the missing detail.",
+                      "why": "Listings that state it rank higher.", "done_when": "Sellers updated their listings."})
+    if _can(principal, "integrations:view"):
+        failing, check_error = _failing_integrations(container)
+        items.append({"key": "integrations", "title": "Integrations reporting an error", "count": len(failing),
+                      "where": "/admin/console#readiness", "what_to_do": "Open Integration readiness for the reason.",
+                      "why": "Features depending on them fail or fall back.", "done_when": "No integration in ERROR.",
+                      **({"check_error": check_error} if check_error else {})})
+    from app.services import admin_actions
+
+    items = admin_actions.enrich(items)
+    return {"role": principal.get("role"), "items": items, "status": admin_actions.counts(items),
+            "basis": "Counted from ASKODOX records now; explanations are fixed rules, not guesses."}
 
 
 # ------------------------------------------- business auto-response (owner) --
@@ -546,6 +600,25 @@ class AutoResponseBody(BaseModel):
     faq: Dict[str, str] = Field(default_factory=dict)
     handoff_words: List[str] = Field(default_factory=list)
     out_of_hours_reply: str = Field(default="", max_length=500)
+
+
+@router.get("/api/business/command-center")
+def my_business_command_center(request: Request, language: str = "en") -> dict:
+    """The signed-in seller's own facts + what to do next (same records the
+    Command Center reads; aggregates only, never a customer's identity)."""
+    from app.services import business_command_center as bcc, supply_fit
+
+    seller = _seller(request)
+    container = request.app.state.container
+    listings = container.product_catalog_repository.list_active_for_seller(seller, limit=200)
+    gaps = supply_fit.gaps_for_seller(container.settings.database_path, seller)
+    opportunities = [_opportunity_view(a, language) for a in _log(container).for_recipient(seller)]
+    orders = container.order_repository.list_for_seller(seller, limit=200)
+    return {"summary": bcc.summary(listings, gaps, opportunities, orders),
+            "insights": bcc.insights(listings, gaps, opportunities, orders, language),
+            "missing_data": gaps[:20],
+            "basis": "Your own orders, listings and demand alerts on ASKODOX. Views, sales elsewhere and "
+                     "ranks are not recorded, so they are not shown."}
 
 
 @router.get("/api/business/auto-response")

@@ -258,6 +258,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         'కొనుగోలుదారులకు కనిపించేవి. తీసివేయండి లేదా కొత్తవి జోడించండి.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/listings/mine'))),
+          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))
+            Card(
+                elevation: 0,
+                child: ListTile(
+                    key: const ValueKey('profile-business-center'),
+                    leading: const Icon(Icons.insights_rounded),
+                    title: Text(t('My business', 'నా వ్యాపారం')),
+                    subtitle: Text(t(
+                        'Waiting requests, missing details customers asked for, and new demand.',
+                        'ఎదురుచూస్తున్న అభ్యర్థనలు, కస్టమర్లు అడిగిన లోపించిన వివరాలు, కొత్త డిమాండ్.')),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/business'))),
           if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty)
             Card(
                 key: const Key('askodoxSavedOptionsTile'),

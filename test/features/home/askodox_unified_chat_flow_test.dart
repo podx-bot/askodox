@@ -765,6 +765,13 @@ class _FakeVideoAsk extends AskodoxVideoService {
   }
 }
 
+// A real 1x1 PNG (Image.memory must decode it).
+final _pngBytes = Uint8List.fromList(const [
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196,
+  137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 15, 4, 0, 9, 251, 3, 253, 227, 85, 242, 156, 0, 0, 0, 0, 73,
+  69, 78, 68, 174, 66, 96, 130,
+]);
+
 final _photoBytes = Uint8List.fromList(List<int>.generate(64, (i) => i));
 
 class _FakePartnerTracker extends AskodoxPartnerTracker {
@@ -1101,6 +1108,65 @@ void main() {
     await tester.pump();
     expect(container.read(askodoxGuideProvider)?.flow.id, 'upload_video');
     container.read(askodoxGuideProvider.notifier).stop();
+  });
+
+  group('held phone findings (START FIXES)', () {
+    BuyerSavedLocation place(String name, double lat, double lng) => BuyerSavedLocation(
+        id: name, name: name, address: name, point: GeoPoint(lat, lng), type: SavedLocationType.custom);
+
+    testWidgets('A1: a new active place refreshes the latest near-me results (no stale cards)', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '901', matches: [_localMatch]),
+        const UniversalMatchResult(dealId: '902', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+      await container.read(locationControllerProvider.notifier).selectManualLocation(place('Vijayawada', 16.5062, 80.6480));
+      await _Harness.settle(tester);
+      await h.send(tester, 'I want to buy toor dal 1 kg near me');
+      if (h.matches.deals.isEmpty) await h.send(tester, 'show me');
+      final searches = h.matches.deals.length;
+      expect(searches, greaterThan(0));
+      expect(h.matches.deals.last.location.label, isNot('me'), reason: '"near me" is not a place named "me"');
+      await container.read(locationControllerProvider.notifier).selectManualLocation(place('Davuluru', 16.2890, 80.7400));
+      await _Harness.settle(tester);
+      expect(h.matches.deals.length, searches + 1, reason: 'results re-run for the new place');
+      expect(h.matches.deals.last.location.label, 'Davuluru');
+      expect(find.textContaining('Updated the results for Davuluru'), findsOneWidget);
+      // GPS jitter (a few metres) never refreshes.
+      await container.read(locationControllerProvider.notifier).selectManualLocation(place('Davuluru', 16.2891, 80.7401));
+      await _Harness.settle(tester);
+      expect(h.matches.deals.length, searches + 1);
+    });
+
+    testWidgets('F + B13: results workspace folds to a summary and back; distances say straight line', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository([
+        const UniversalMatchResult(dealId: '903', matches: [_localMatch]),
+      ]));
+      await h.pump(tester);
+      await h.send(tester, 'I want to buy toor dal 1 kg near me');
+      if (h.matches.deals.isEmpty) await h.send(tester, 'show me');
+      expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget);
+      expect(find.textContaining('straight line'), findsWidgets, reason: 'B13: point-to-point distance is labelled');
+      await tester.tap(find.byKey(const ValueKey('askodoxResultsMode-hidden')));
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxResultContextScroll')), findsNothing);
+      expect(find.byKey(const Key('askodoxResultsSummary')), findsOneWidget, reason: 'folded = a summary, never lost');
+      await tester.tap(find.byKey(const ValueKey('askodoxResultsMode-expanded')));
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxResultContextScroll')), findsOneWidget);
+    });
+
+    testWidgets('C18: a sent photo shows as a picture, not just its file name', (tester) async {
+      final h = _Harness(matches: _FakeMatchRepository(const []));
+      await h.pump(tester);
+      h.picker.next = [ChatAttachment(name: 'shoe.png', bytes: _pngBytes, mimeType: 'image/png')];
+      await _openCompanionHub(tester);
+      await tester.tap(find.byKey(const ValueKey('askodoxHubAction-photos')));
+      await _Harness.settle(tester);
+      await h.send(tester, 'what is this?');
+      expect(find.byKey(const ValueKey('askodoxSentImage-att_1')), findsOneWidget);
+    });
   });
 
   testWidgets('companion Location opens the location screen; a searched place is used by the chat', (tester) async {
