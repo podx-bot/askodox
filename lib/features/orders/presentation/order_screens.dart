@@ -364,6 +364,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
           AskodoxDealPanel(
             orderId: order.id,
             te: Localizations.localeOf(context).languageCode == 'te',
+            // Seller / provider sees seller copy (never "waiting for the
+            // seller" next to their own Accept / Decline).
+            sellerView: isSeller,
           ),
         if (status != 'REJECTED' && status != 'CANCELLED')
           AskodoxFulfilmentPanel(
