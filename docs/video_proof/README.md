@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-05T08:35:41Z by `.github/workflows/video-real-content-proof.yml` (run 37284187026).
+Generated 2026-10-05T08:57:59Z by `.github/workflows/video-real-content-proof.yml` (run 37286528729).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా చూడటానికి వీక్షించే దూరం మరియు గది పరిమాణం వివరాలు చెక్ చేస్తున్నాను.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా చూడటానికి వీక్షించే దూరం మరియు గది పరిమాణం వివరాలు తెలుసుకోవాలి.
 
 **Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]
 
@@ -97,7 +97,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "tata nexon near me" → Tata Motors Commercial Vehicle Dealer - Sahni Auto Private Limited [nearby_external]; Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive [deals]; Tata Nexon Price in Vijayawada-August 2026 Nexon On Road Price [deals]
+**Next step:** "tata nexon near me" → Tata Motors Commercial Vehicle Dealer - Sahni Auto Private Limited [nearby_external]; Tata Nexon On Road Price in Vijayawada (2026) – ₹8.63 lakh Onwards | Autocar India [surplus]; Tata Nexon price in Vijayawada | Tata Nexon on road Price 2026 | Times Drive [deals]; Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX [online]
 
 ### service (en) -- "AC service video"
 
@@ -173,7 +173,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "araku valley trip reviews" → Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]; ARAKU VALLEY [wider_local]
+**Next step:** "araku valley trip reviews" → Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]; Araku Eco Stays & Travels - Paderu [wider_local]
 
 ### used-item (en) -- "used Royal Enfield Classic 350 review video"
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 1 టన్ను లేదా 1.5 టన్ను ఏసీ ఏది కావాలో చెప్పగలరా?
+**ASKODOX AI:** అవును, ఈ వీడియో చూసి మీ గదికి ఇది సరిపోతుందో లేదో తెలుసుకోవచ్చు.
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]; Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]
 
