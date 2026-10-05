@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-05T08:57:59Z",
+ "generated_at": "2026-10-05T09:11:15Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:627e6ac4acc84b5c",
+   "trace_key": "browse:075e4a515c7040a3",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -36,8 +36,8 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Samsung",
      "subject": "Samsung 43 inch TV",
+     "brand": "Samsung",
      "size": "43 inch",
      "location": "Vijayawada"
     }
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:96c26d19d29b4c95",
+   "trace_key": "browse:6694bafaac76460b",
    "videos": [
     {
      "video_id": "yt_fAaGDKl2xrA",
@@ -240,7 +240,7 @@
     "entities": {
      "brand": "Samsung",
      "size": "43 అంగుళాల",
-     "subject": "Samsung 43 inch TV",
+     "subject": "శామ్‌సంగ్ 43 అంగుళాల టీవీ",
      "location": "Vijayawada"
     }
    },
@@ -293,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా చూడటానికి వీక్షించే దూరం మరియు గది పరిమాణం వివరాలు తెలుసుకోవాలి.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి వీక్షణ దూరం సరిగ్గా సరిపోతుందో లేదో తెలుసుకోవాలి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "check_product_fit"
+    "follow_action": "search_videos"
    },
    "next": {
     "step": "deals",
@@ -407,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:187ef3d8b94d453f",
+   "trace_key": "browse:c6dce5caae9140cb",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,11 +433,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
+     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -610,7 +611,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:d613bdef0b0e4afb",
+   "trace_key": "browse:e065828beb0b4701",
    "videos": [
     {
      "video_id": "yt_E8eMNvr5GtM",
@@ -812,7 +813,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:cd56ed2ec6224a87",
+   "trace_key": "browse:418d886d93ad4b3d",
    "videos": [
     {
      "video_id": "yt_Srxja6Eq8jE",
@@ -997,7 +998,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:c4a55f12810d453a",
+   "trace_key": "browse:accbe345179b4ea5",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1020,7 +1021,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
+    "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1080,7 +1081,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1180,7 +1181,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:755730f36b4c425d",
+   "trace_key": "browse:4d185e3d6e7e4b81",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1380,7 +1381,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:720b9fa66611407d",
+   "trace_key": "browse:73674708aad94894",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1409,7 +1410,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1477,7 +1478,7 @@
     "ask": "araku valley trip reviews",
     "segments": [
      "deals",
-     "wider_local"
+     "nearby_external"
     ],
     "status": {
      "askodox": "no_results",
@@ -1489,6 +1490,20 @@
      "jobs": "not_applicable"
     },
     "options": [
+     {
+      "title": "Akkanna Madanna Caves",
+      "segment": "nearby_external",
+      "match_source": "external",
+      "source_name": null,
+      "price": null,
+      "price_verified": false,
+      "distance_km": 4.5,
+      "affiliate": null,
+      "sponsored": null,
+      "destination_url": "https://maps.google.com/?cid=8298250960370824606&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "image_url": null,
+      "location_label": null
+     },
      {
       "title": "Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT",
       "segment": "deals",
@@ -1532,20 +1547,6 @@
       "location_label": null
      },
      {
-      "title": "Araku Eco Stays & Travels - Paderu",
-      "segment": "wider_local",
-      "match_source": "external",
-      "source_name": null,
-      "price": null,
-      "price_verified": false,
-      "distance_km": 277.5,
-      "affiliate": null,
-      "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=5365547606490591995&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Vijayawada To Araku Valley Trains | Book From 6 Trains, Timetable, Fare",
       "segment": null,
       "match_source": "online",
@@ -1581,7 +1582,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:e1fb7ee89aef4cb7",
+   "trace_key": "browse:cd600d42a4974d3b",
    "videos": [
     {
      "video_id": "yt_RJworx5674I",
@@ -1785,7 +1786,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:c689e38976ee4ee2",
+   "trace_key": "browse:658273d0fed34519",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1816,6 +1817,7 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
+     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
@@ -1989,7 +1991,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:f1eefbce2d334832",
+   "trace_key": "browse:1b524ed8dd5f43dd",
    "videos": [
     {
      "video_id": "yt_Srxja6Eq8jE",
@@ -2072,7 +2074,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "అవును, ఈ వీడియో చూసి మీ గదికి ఇది సరిపోతుందో లేదో తెలుసుకోవచ్చు.",
+    "follow_reply": "చిన్న గదికి ఇది సరిపోతుందో లేదో చూడటానికి మీ రూమ్ పరిమాణం ఎంత ఉందో తెలుపగలరా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"

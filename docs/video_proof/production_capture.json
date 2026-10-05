@@ -2809,6 +2809,29 @@
   "next_ask": "araku valley trip reviews",
   "next_matches": [
    {
+    "id": "external-ChIJQXnuGd_vNToRnnXyTUhPKXM",
+    "match_id": "external-ChIJQXnuGd_vNToRnnXyTUhPKXM",
+    "provider_id": "",
+    "title": "Akkanna Madanna Caves",
+    "subtitle": "#10-2-66, Arjuna St, Durga Agraharam, Mallikarjunapeta, Vijayawada, Andhra Pradesh 520001",
+    "distance_km": 4.5,
+    "rating_average": 4.4,
+    "review_count": 2230,
+    "availability": null,
+    "destination_url": "https://maps.google.com/?cid=8298250960370824606&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+    "latitude": 16.5135851,
+    "longitude": 80.60655299999999,
+    "source": "external",
+    "match_source": "external",
+    "segment": "nearby_external",
+    "page_type": "business",
+    "price": null,
+    "price_verified": false,
+    "rank_score": 47.900000000000006,
+    "demo": false,
+    "section": "local"
+   },
+   {
     "id": "deals-0-traveltriangle.com",
     "match_id": "deals-0-traveltriangle.com",
     "provider_id": "traveltriangle.com",
@@ -2873,29 +2896,6 @@
     "disclosure": "",
     "demo": false,
     "section": "deals"
-   },
-   {
-    "id": "external-ChIJV2yYBSwlOjoR-7JRxh5Bdko",
-    "match_id": "external-ChIJV2yYBSwlOjoR-7JRxh5Bdko",
-    "provider_id": "",
-    "title": "Araku Eco Stays & Travels - Paderu",
-    "subtitle": "Shop no: 6, opposite Forest Dept, near by RTC Comlex, Paderu, Gudivada, Andhra Pradesh 531024",
-    "distance_km": 277.5,
-    "rating_average": 4.9,
-    "review_count": 53,
-    "availability": "Open now",
-    "destination_url": "https://maps.google.com/?cid=5365547606490591995&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
-    "latitude": 18.088572799999998,
-    "longitude": 82.6687468,
-    "source": "external",
-    "match_source": "external",
-    "segment": "wider_local",
-    "page_type": "business",
-    "price": null,
-    "price_verified": false,
-    "rank_score": 9.8,
-    "demo": false,
-    "section": "local"
    },
    {
     "id": "online-1-makemytrip.com",
@@ -3139,7 +3139,7 @@
   ],
   "next_segments": [
    "deals",
-   "wider_local"
+   "nearby_external"
   ],
   "next_status": {
    "askodox": "no_results",
