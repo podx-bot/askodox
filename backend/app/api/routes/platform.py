@@ -310,6 +310,12 @@ def platform(container: Any) -> Platform:
             seed_defaults(existing.resources)
         except Exception:
             pass
+        try:  # the universal category hierarchy (only into an empty store)
+            from app.services.taxonomy import seed_defaults as seed_taxonomy
+
+            seed_taxonomy(existing.resources)
+        except Exception:
+            pass
         try:  # the real-phone acceptance checklist (CODE READY until a phone test)
             from app.services.owner_os import seed_acceptance_checks
 

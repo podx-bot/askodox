@@ -674,6 +674,10 @@ _register(Resource(
     actions=COMMON_ACTIONS,
 ))
 
+CAPABILITY_OPTIONS = ("search", "compare", "request", "order", "book", "quote", "pre_order", "request_delivery",
+                      "request_ride", "carpool", "join_as_partner", "list_item", "apply_job", "post_job",
+                      "upload_video", "ask_video", "advice", "contact_after_accept")
+
 QA_STATUSES = ("OPEN", "NOT TESTED", "CODE READY", "STAGING VERIFIED", "PHONE VERIFIED", "LIVE VERIFIED")
 
 _register(Resource(
@@ -978,6 +982,28 @@ _register(Resource(
         F("optional_fields", "Optional, asked once (in order)", "list", options=ADVISOR_FIELDS),
         F("high_stakes", "High-stakes (no guarantees; suggest a professional)", "bool", list_column=True),
         F("priority", "Priority when two categories match equally", "int", min=0, max=1000),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
+    name="taxonomy_nodes", label="Category hierarchy", group="Advisor", prefix="txn",
+    permission="advisor", name_field="label", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Universal domain -> category -> subcategory tree. A child inherits its parent's capabilities "
+                "(actions ASKODOX may offer: request delivery, request ride, join as partner, order, book, "
+                "compare ...) and attributes, and may add or remove some. Chat, voice, Profile and search all "
+                "resolve requests through this one tree.",
+    fields=(
+        F("key", "Key (stable id)", required=True, list_column=True, filter=True),
+        F("label", "Label", required=True, list_column=True),
+        F("parent", "Parent key (blank = top-level domain)", list_column=True, filter=True),
+        F("aliases", "Matches (any language)", "list", required=True),
+        F("capabilities", "Adds capabilities", "list", options=CAPABILITY_OPTIONS),
+        F("removes", "Removes inherited capabilities", "list", options=CAPABILITY_OPTIONS),
+        F("attributes", "Decision attributes", "list"),
+        F("mobility_kind", "Mobility service (for delivery / ride nodes)"),
+        F("advisor_category", "Advisor category key"),
+        F("high_stakes", "High-stakes", "bool"),
     ),
     actions=ENABLE_DISABLE,
 ))
