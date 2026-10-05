@@ -26,6 +26,7 @@ import 'package:podx/features/location/application/location_controller.dart';
 import 'package:podx/features/location/domain/geo_models.dart';
 import 'package:podx/features/home/data/askodox_video_service.dart';
 import 'package:podx/features/home/data/taxonomy_repository.dart';
+import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:podx/features/location/presentation/location_setup_screen.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
@@ -1085,6 +1086,21 @@ void main() {
     await h.send(tester, 'How many bike tyres can it fill?');
     expect(h.videoAsk!.asked.single.$1, 'nv_vid5');
     expect(h.matches.deals, isEmpty);
+  });
+
+  testWidgets('"How do I upload a video?" offers the on-screen guide and Customer Care, no search', (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository(const []));
+    await h.pump(tester);
+    await h.send(tester, 'How do I upload a video?');
+    expect(find.textContaining('on the real screen, step by step'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxGuideOffer-upload_video')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxGuideSupport')), findsOneWidget);
+    expect(h.matches.deals, isEmpty);
+    final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+    await tester.tap(find.byKey(const ValueKey('askodoxGuideOffer-upload_video')));
+    await tester.pump();
+    expect(container.read(askodoxGuideProvider)?.flow.id, 'upload_video');
+    container.read(askodoxGuideProvider.notifier).stop();
   });
 
   testWidgets('companion Location opens the location screen; a searched place is used by the chat', (tester) async {

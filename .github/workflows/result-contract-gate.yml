@@ -3,8 +3,8 @@ name: Result contract gate
 # The ONE canonical result contract: 20 combination regressions (sources add,
 # never replace; failures stay in their own section; explicit constraints
 # survive turns; no false "showing options"). Mobility (rides / parcels /
-# carpool / fulfilment), native video and integration-state regressions run
-# here too. Runs on every backend change.
+# carpool / fulfilment), native video, video commerce, category tree, push
+# preference and integration-state regressions run here too. Runs on every backend change.
 on:
   push:
     paths:
@@ -47,4 +47,7 @@ jobs:
             tests/test_mobility.py \
             tests/test_delivery_jobs.py \
             tests/test_native_video.py \
-            tests/test_integration_states.py
+            tests/test_integration_states.py \
+            tests/test_taxonomy.py \
+            tests/test_video_commerce.py \
+            tests/test_push_service.py

@@ -89,6 +89,7 @@ class _BetaFeedbackScreenState extends ConsumerState<BetaFeedbackScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
+                    key: const Key('askodoxFeedbackDescription'),
                     controller: _description,
                     decoration: InputDecoration(labelText: _t('Description', 'వివరణ')),
                     maxLength: 2000,

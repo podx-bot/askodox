@@ -11,6 +11,7 @@ import 'core/offline/offline_models.dart';
 import 'core/providers/offline_providers.dart';
 import 'l10n_generated/app_localizations.dart';
 import 'shared/widgets/connectivity_banner.dart';
+import 'features/guide/in_app_guide.dart';
 
 Locale askodoxUiLocale(Locale? requested, Iterable<Locale> supportedLocales) {
   final supported = supportedLocales.toList(growable: false);
@@ -59,7 +60,10 @@ class PodxApp extends ConsumerWidget {
       builder: (context, child) => _AppReadyCallback(
         onReady: onReady,
         child: _StartupGate(
-          child: ConnectivityBanner(child: child ?? const SizedBox.shrink()),
+          // The in-app Screen Guide points at real buttons on every screen.
+          child: ConnectivityBanner(
+              child: AskodoxGuideOverlay(
+                  router: ref.watch(appRouterProvider), child: child ?? const SizedBox.shrink())),
         ),
       ),
     );

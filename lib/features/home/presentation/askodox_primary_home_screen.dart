@@ -64,6 +64,7 @@ import '../data/askodox_video_service.dart';
 import '../data/taxonomy_repository.dart';
 import 'video_viewer_screen.dart';
 import 'video_study_panel.dart';
+import '../../guide/in_app_guide.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -872,10 +873,14 @@ class _AskodoxPrimaryHomeScreenState
   /// partner", "Send a pickup").
   final Map<int, AskodoxTaxonomyMatch> _taxonomyByTurn = {};
 
+  /// "Show me on screen" offered under an assistant turn.
+  final Map<int, AskodoxGuideFlow> _guideByTurn = {};
+
   void _clearConversationState() {
     _videoStudyRef = null;
     _videoFocus = false;
     _taxonomyByTurn.clear();
+    _guideByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
     _dealByTurn.clear();
@@ -1559,6 +1564,26 @@ class _AskodoxPrimaryHomeScreenState
       // The customer moved on (a new need / buy it nearby): normal flow.
       _videoStudyRef = null;
       _videoFocus = false;
+    }
+
+    // "How do I upload a video?": ASKODOX shows it on the real screen.
+    final guide = attachments.isEmpty ? askodoxGuideFor(typed) : null;
+    if (guide != null) {
+      final flow = guide;
+      final te = _te;
+      final text = te
+          ? '${flow.title(true)} -- అసలు స్క్రీన్‌పై దశలవారీగా చూపిస్తాను. ప్రతి బటన్ మీరే నొక్కుతారు.'
+          : 'I can show you "${flow.titleEn}" on the real screen, step by step. You press every button yourself.';
+      setState(() {
+        _turns.add(ConversationTurnRecord(text: text, isUser: false));
+        _guideByTurn[_turns.length - 1] = flow;
+        _sending = false;
+      });
+      await _store.save(_turns);
+      await _saveSnapshot();
+      _scrollBottom();
+      if (speakResponse) unawaited(_speakReply(text, userText: typed));
+      return;
     }
 
     // "Can you deliver food?" / "I can work as a delivery partner": answered
@@ -3770,6 +3795,26 @@ class _AskodoxPrimaryHomeScreenState
                 ]),
               ),
             if (_taxonomyByTurn[index] case final match?) _taxonomyActions(te, match),
+            if (_guideByTurn[index] case final flow?)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Wrap(spacing: 8, children: [
+                  ActionChip(
+                    key: ValueKey('askodoxGuideOffer-${flow.id}'),
+                    avatar: const Icon(Icons.assistant_navigation, size: 18),
+                    label: Text(te ? 'స్క్రీన్‌పై చూపించు' : 'Show me on screen'),
+                    onPressed: () => ref.read(askodoxGuideProvider.notifier).start(flow),
+                  ),
+                  ActionChip(
+                    key: const Key('askodoxGuideSupport'),
+                    avatar: const Icon(Icons.support_agent_rounded, size: 18),
+                    label: Text(te ? 'కస్టమర్ కేర్' : 'Customer Care'),
+                    onPressed: _sending
+                        ? null
+                        : () => _send(te ? 'నేను కస్టమర్ కేర్‌తో మాట్లాడాలి' : 'I want to talk to Customer Care'),
+                  ),
+                ]),
+              ),
             if (index == _turns.length - 1 && !turn.isUser && _mobilityDraftFromChat() != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),

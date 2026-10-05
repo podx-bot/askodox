@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/backend_providers.dart';
+import '../guide/in_app_guide.dart';
 
 /// ASKODOX Screen Guide (Android): step-by-step guidance in OTHER apps.
 ///
@@ -432,6 +433,11 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
     return Scaffold(
       appBar: AppBar(title: Text(t('Screen Guide', 'స్క్రీన్ గైడ్'))),
       body: ListView(padding: const EdgeInsets.all(16), children: [
+        // Inside ASKODOX itself: points at the real buttons, waits for your tap.
+        Text(t('Guides inside ASKODOX', 'ASKODOX లోపల గైడ్‌లు'),
+            key: const Key('inAppGuidesTitle'), style: const TextStyle(fontWeight: FontWeight.w800)),
+        AskodoxGuideList(te: te, onStarted: () => Navigator.of(context).maybePop()),
+        const Divider(height: 24),
         Text(
           t('ASKODOX guides you step by step in other apps. You press every button yourself. It pauses on '
               'password, OTP, PIN, UPI PIN, card, bank and Aadhaar screens and in payment apps, and never takes '

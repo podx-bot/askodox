@@ -18,6 +18,7 @@ import '../../location/application/location_controller.dart';
 import '../../staff/askodox_staff_access.dart';
 import '../data/user_profile_repository.dart';
 import 'profile_header.dart';
+import '../../guide/in_app_guide.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -249,6 +250,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Card(
                 elevation: 0,
                 child: ListTile(
+                    key: const ValueKey('profile-my-listings'),
                     leading: const Icon(Icons.storefront_rounded),
                     title: Text(t('My listings', 'నా లిస్టింగ్‌లు')),
                     subtitle: Text(t(
@@ -499,6 +501,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Card(
               elevation: 0,
               child: ListTile(
+                  key: const ValueKey('profile-location'),
                   leading: const Icon(Icons.location_on_outlined),
                   title: Text(t('Location', 'లొకేషన్')),
                   subtitle: Text(locationLabel),
@@ -514,16 +517,55 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Card(
               elevation: 0,
               child: ListTile(
+                  key: const ValueKey('profile-help'),
                   leading: const Icon(Icons.support_agent_rounded),
                   title: Text(t('Help', 'సహాయం')),
                   subtitle: Text(t('Ask ASKODOX; it connects you to Customer Care if needed.',
                       'ASKODOX ని అడగండి; అవసరమైతే కస్టమర్ కేర్‌కు కలుపుతుంది.')),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    ref.read(askodoxChatRequestProvider.notifier).state =
-                        AskodoxChatRequest.ask(t('I need help with ASKODOX', 'నాకు ASKODOX తో సహాయం కావాలి'));
-                    context.go('/');
-                  })),
+                  // Conversation first -> a guide on the real screen -> a
+                  // human (Customer Care) when needed.
+                  onTap: () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: true,
+                        builder: (sheet) => SafeArea(
+                          child: SingleChildScrollView(
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              ListTile(
+                                key: const ValueKey('help-ask'),
+                                leading: const Icon(Icons.chat_bubble_outline_rounded),
+                                title: Text(t('Ask ASKODOX', 'ASKODOX ని అడగండి')),
+                                onTap: () {
+                                  Navigator.pop(sheet);
+                                  ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(
+                                      t('I need help with ASKODOX', 'నాకు ASKODOX తో సహాయం కావాలి'));
+                                  context.go('/');
+                                },
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                                child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(t('Show me how (on the real screen)', 'ఎలాగో చూపించు (అసలు స్క్రీన్‌పై)'),
+                                        style: const TextStyle(fontWeight: FontWeight.w800))),
+                              ),
+                              AskodoxGuideList(te: te, onStarted: () => Navigator.pop(sheet)),
+                              ListTile(
+                                key: const ValueKey('help-support'),
+                                leading: const Icon(Icons.support_agent_rounded),
+                                title: Text(t('Talk to Customer Care', 'కస్టమర్ కేర్‌తో మాట్లాడండి')),
+                                onTap: () {
+                                  Navigator.pop(sheet);
+                                  ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(
+                                      t('I want to talk to Customer Care', 'నేను కస్టమర్ కేర్‌తో మాట్లాడాలి'));
+                                  context.go('/');
+                                },
+                              ),
+                            ]),
+                          ),
+                        ),
+                      ))),
           Card(
               elevation: 0,
               child: ListTile(
