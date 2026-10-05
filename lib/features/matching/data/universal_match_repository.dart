@@ -113,6 +113,8 @@ class UniversalMatch {
     this.videoAnalyzed = false,
     this.relatedProducts = const [],
     this.relatedServices = const [],
+    this.why,
+    this.fitStatus,
     this.merchantOffer,
     this.originalPrice,
     this.discountPercent,
@@ -225,6 +227,12 @@ class UniversalMatch {
   final List<String> relatedProducts;
   final List<String> relatedServices;
 
+  /// Registered listings: how this one fits the customer's own constraints
+  /// ("Matches size 9, price ₹1,799 (under ₹2,000)") and its status
+  /// (fits / missing_data / mismatch). Never assumed by the app.
+  final String? why;
+  final String? fitStatus;
+
   /// A registered seller's live, reviewed merchant offer ({id, title,
   /// summary, min_bill, valid_to, claim_path}).
   final Map<String, Object?>? merchantOffer;
@@ -307,6 +315,8 @@ class UniversalMatch {
           videoAnalyzed: json['analyzed'] == true,
           relatedProducts: _strings(json['products']),
           relatedServices: _strings(json['services']),
+          why: (json['why']?.toString().trim().isEmpty ?? true) ? null : json['why'].toString(),
+          fitStatus: json['fit'] is Map ? (json['fit'] as Map)['status']?.toString() : null,
           merchantOffer: json['merchant_offer'] is Map
               ? Map<String, Object?>.from(json['merchant_offer'] as Map)
               : null,
@@ -372,6 +382,8 @@ class UniversalMatch {
         if (videoAnalyzed) 'analyzed': true,
         if (relatedProducts.isNotEmpty) 'products': relatedProducts,
         if (relatedServices.isNotEmpty) 'services': relatedServices,
+        if (why != null) 'why': why,
+        if (fitStatus != null) 'fit': {'status': fitStatus},
         if (merchantOffer != null) 'merchant_offer': merchantOffer,
       };
 }

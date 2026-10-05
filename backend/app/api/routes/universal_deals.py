@@ -1408,6 +1408,18 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     except Exception:
         pass
     _annotate_offers(container, matches)
+    try:
+        # Own supply is judged against the customer's explicit constraints
+        # (size / budget / brand / distance), with "why it matched".
+        from app.services import supply_fit
+
+        catalog = getattr(container, "product_catalog_repository", None)
+        if catalog is not None:
+            gaps = supply_fit.annotate(matches, demand, catalog.get)
+            matches = supply_fit.rank_registered(matches)
+            supply_fit.record_gaps(container.settings.database_path, gaps)
+    except Exception as error:  # fit annotation never breaks discovery
+        errors.append(f"supply_fit:{type(error).__name__}")
     _annotate_benefits(container, matches, demand, trace_key)
     try:
         from app.api.routes.platform import annotate_merchant_offers, record_search

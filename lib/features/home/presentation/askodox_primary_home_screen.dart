@@ -5564,6 +5564,21 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                           height: 1.3,
                           fontWeight: FontWeight.w500))
                 ],
+                if (match.why case final why?) ...[
+                  const SizedBox(height: 4),
+                  // Why this ASKODOX listing fits (or what it does not say)
+                  // against the customer's own size / budget / distance.
+                  Text(why,
+                      key: ValueKey('askodoxFitWhy-${match.id}'),
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: match.fitStatus == 'fits'
+                              ? const Color(0xFF1B7F3B)
+                              : (match.fitStatus == 'mismatch' ? const Color(0xFFB3261E) : const Color(0xFF8A5A00)))),
+                ],
                 SizedBox(height: compact ? 5 : 8),
                 Wrap(spacing: compact ? 5 : 8, runSpacing: compact ? 4 : 6, children: [
                   ...() {
