@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-04T16:46:53Z by `.github/workflows/video-real-content-proof.yml` (run 37217781422).
+Generated 2026-10-05T08:35:41Z by `.github/workflows/video-real-content-proof.yml` (run 37284187026).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -13,14 +13,14 @@ Generated 2026-10-04T16:46:53Z by `.github/workflows/video-real-content-proof.ym
 | electronics | en | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv near me → 6 (deals, nearby_external) |
 | electronics-te | te | 1 | [Best TV 2026 / 43 inch / Sony vs Samsung vs LG / Hisense vs…](https://www.youtube.com/watch?v=fAaGDKl2xrA) | The Grapevine | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | samsung 43 inch tv offers → 6 (deals, nearby_external) |
 | phone | en | 1 | [Redmi Note 13 Pro is here - Let's Check!](https://www.youtube.com/watch?v=kGG04jkdjxY) | Gyan Therapy | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | redmi note 13 pro offers → 6 (deals, nearby_external, surplus, used) |
-| vehicle | en | 1 | [Tata Nexon 2024 Positives and Negatives Honest Review](https://www.youtube.com/watch?v=nBEYkrdak-0) | Burning Wheels | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 6 (deals, nearby_external, surplus) |
-| service | en | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 5 (nearby_external) |
-| home-service | en | 1 | [Which do you prefer. Plumbers putty or silicone for sealing…](https://www.youtube.com/watch?v=Ac8Arkhzgps) | My Old Plumber | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 5 (nearby_external) |
+| vehicle | en | 1 | [New Tata Nexon Pure Plus Diesel Review // Price Mileage Fea…](https://www.youtube.com/watch?v=E8eMNvr5GtM) | Mjk Cars | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | tata nexon near me → 6 (deals, nearby_external, surplus) |
+| service | en | 1 | [Samsung Outdoor Split AC Service / Full Repair & Cleaning /…](https://www.youtube.com/watch?v=Srxja6Eq8jE) | PANDIT JI REFRIGERATOR AND AC… | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 5 (nearby_external) |
+| home-service | en | 1 | [Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #sho…](https://www.youtube.com/watch?v=Bvxkrv7t4Dw) | vijay xyz tricks | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 5 (nearby_external) |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 6 (deals, nearby_external) |
 | travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals, wider_local) |
 | used-item | en | 1 | [Royal Enfield Classic 350 (2015) / 10-Year Ownership Review…](https://www.youtube.com/watch?v=RJworx5674I) | The Motographer | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 6 (deals, nearby_external, used) |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, nearby_external, surplus, used) |
-| service-te | te | 1 | [Urban Company AC Service / Spilit AC Cleaning Advance Foamj…](https://www.youtube.com/watch?v=qPF6hbFHCUc) | KP Vlogs & Review | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 5 (nearby_external) |
+| service-te | te | 1 | [Samsung Outdoor Split AC Service / Full Repair & Cleaning /…](https://www.youtube.com/watch?v=Srxja6Eq8jE) | PANDIT JI REFRIGERATOR AND AC… | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 5 (nearby_external) |
 
 ## Conversations (real AI answers)
 
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి మీ గది పరిమాణం లేదా చూడటానికి ఎంత దూరం ఉందో చెప్పండి.
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా చూడటానికి వీక్షించే దూరం మరియు గది పరిమాణం వివరాలు చెక్ చేస్తున్నాను.
 
 **Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]
 
@@ -82,13 +82,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### vehicle (en) -- "Tata Nexon review video"
 
-**Video:** Tata Nexon 2024 Positives and Negatives Honest Review -- Burning Wheels (https://www.youtube.com/watch?v=nBEYkrdak-0)
+**Video:** New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price -- Mjk Cars (https://www.youtube.com/watch?v=E8eMNvr5GtM)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Tata Nexon 2024 Positives and Negatives Honest Review / Special Thanks to / Sudarshan Tata Motors, Kalyan, Maharashtra / Contact : 070452 43316 / 9321931900 / Call and Book your appointment.  
+Quoted from source: New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price / 🚗 New Tata Nexon – Complete Details & Review / Is video mein hum dekhenge New Tata Nexon ke design, exterior, interior, features, safety, comfort, performance aur overall look ke baare mein complete de…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Tata Nexon 2024 Positives and Negatives Honest Review"
+**User:** Tell me more about "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
@@ -101,13 +101,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### service (en) -- "AC service video"
 
-**Video:** Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | -- KP Vlogs & Review (https://www.youtube.com/watch?v=qPF6hbFHCUc)
+**Video:** Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung -- PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE  (https://www.youtube.com/watch?v=Srxja6Eq8jE)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | / #urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #y…  
+Quoted from source: Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung / Welcome to Hello Mistri 443! / In this video, we take you through the complete Samsung Outdoor Split AC Service process. / From deep cleaning to essential repairs, watch how we restore peak performance…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |"
+**User:** Tell me more about "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
@@ -120,13 +120,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### home-service (en) -- "kitchen sink plumbing repair video"
 
-**Video:** Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy -- My Old Plumber (https://www.youtube.com/watch?v=Ac8Arkhzgps)
+**Video:** Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed -- vijay xyz tricks  (https://www.youtube.com/watch?v=Bvxkrv7t4Dw)
 
 **ASKODOX explain (branch):** I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.  
-Quoted from source: Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy / Which do you prefer for sealing drains — plumbers putty or silicone? / Some plumbers swear by putty. / Others prefer silicone for a stronger long-term seal. / Both have their place depending on the sink, dr…  
+Quoted from source: Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed / thanks for watching video  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** Tell me more about "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy"
+**User:** Tell me more about "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed"
 
 **ASKODOX AI (production):** Sure -- looking for real videos and reviews.
 
@@ -154,7 +154,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "hyderabadi biryani near me" → The Kazus Royal Dum Biryani [nearby_external]; Best Hyderabadi Biryani Restaurants In Vijayawada 2025 | Order Online [deals]; Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket [online]; Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure [online]
+**Next step:** "hyderabadi biryani near me" → Bismillah Paradise Biryani [nearby_external]; Best Hyderabadi Biryani Restaurants In Vijayawada 2025 | Order Online [deals]; Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket [online]; Order Online – HYDERABAD BIRYANI POINT [online]
 
 ### travel (en) -- "Araku valley trip review video"
 
@@ -215,19 +215,19 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 ### service-te (te) -- "ఏసీ సర్వీస్ వీడియో"
 
-**Video:** Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | -- KP Vlogs & Review (https://www.youtube.com/watch?v=qPF6hbFHCUc)
+**Video:** Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung -- PANDIT JI REFRIGERATOR AND AC SERVICE CENTRE  (https://www.youtube.com/watch?v=Srxja6Eq8jE)
 
 **ASKODOX explain (branch):** ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.  
-Quoted from source: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service | / #urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #y…  
+Quoted from source: Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung / Welcome to Hello Mistri 443! / In this video, we take you through the complete Samsung Outdoor Split AC Service process. / From deep cleaning to essential repairs, watch how we restore peak performance…  
 Label: Creator's opinion -- not verified by ASKODOX
 
-**User:** "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
+**User:** "Samsung Outdoor Split AC Service | Full Repair & Cleaning | #ACService #HelloMistri443 #Samsung" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
 **ASKODOX AI (production):** సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** ఈ ఏసీ సర్వీస్ లేదా క్లీనింగ్ మీ గదిలో ఉన్న స్ప్లిట్ ఏసీకి సరిపోతుంది. మీ ఏసీ మోడల్ లేదా టన్నుల వివరాలు తెలియజేస్తారా?
+**ASKODOX AI:** చిన్న గదికి 1 టన్ను లేదా 1.5 టన్ను ఏసీ ఏది కావాలో చెప్పగలరా?
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]; Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]
 
