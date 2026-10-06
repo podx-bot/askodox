@@ -330,6 +330,30 @@ this file, don't trust it blindly.
   `_failing_integrations` (same live state as the readiness page).
 - `tests/test_admin_functional_audit.py` audits every platform resource from
   its schema; a new resource with a cross-field rule needs an OVERRIDES entry.
+- Decision brain: `decide()` returns `mode` advice / follow_up / commerce / chat.
+  Advice (`wants_advice` on the USER's words only -- `split_app_context` strips
+  the app's "Options already shown" context) gets a separate reasoning call
+  (`_advise`) and NO search; the app's `adviceOnly` keeps it out of the deal flow.
+- Follow-ups over shown results (compare / cheapest / nearest / reviews / deals /
+  under budget / directions ...) are answered by `follow_up_router.dart` from the
+  pinned results, never a new search; unknown facts say "Not verified".
+- Price truth = `price_truth.py` (list / selling / offer / starting_from /
+  page_level; conditional bank / coupon prices go in `offer_price` +
+  `offer_condition`, never the price). Strict budgets ("only", "max") drop over-
+  budget rows into `rejected`; the app labels "with eligible offer".
+- Requested place (`_requestedPlace` in the home screen) survives follow-ups
+  until "near me" or a hand-picked place change; it is separate from the device
+  location.
+- Smart Entry everywhere: `qaStrip`/`qaSetup` in the console add Quick Add,
+  templates (built-in `smart_entry.TEMPLATES` + resource `entry_templates`,
+  structure only -- `TEMPLATE_FACT_FIELDS` refused), field states, Required /
+  Recommended / Advanced and Duplicate previous to every create form. Bulk =
+  `/admin/cc/smart-entry` (CSV too) with NEW / UPDATE / DUPLICATE / INVALID /
+  NEEDS_REVIEW + `/smart-entry/import` (confirm, drafts only, per-item perms).
+- Admin assistant commands = `admin_ops.py` (en/te); the assistant never writes,
+  it returns an `operation` the console opens behind a confirm.
+- Result Diagnostics payload also carries mode, requested location, raw vs kept,
+  rejected, price provenance, ranking and card actions (`_decision_trace`).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
