@@ -354,6 +354,18 @@ this file, don't trust it blindly.
   it returns an `operation` the console opens behind a confirm.
 - Result Diagnostics payload also carries mode, requested location, raw vs kept,
   rejected, price provenance, ranking and card actions (`_decision_trace`).
+- Search readiness belongs to the Conversation Decision Brain: `decide()` returns
+  `state` (facts / flexible / unknown_critical), `search_ready`, ONE
+  `next_question`, a consolidated `search_subject`, `new_need`; the app sends
+  `searched_for` (what is on screen). EVERY retrieval passes
+  `askodoxSearchGate` (`lib/features/home/domain/search_readiness.dart`):
+  user "show me" > brain readiness > the offline schema rule (only when the
+  brain gave none). Brain facts go into the deal via `applyBrainState`; the
+  restore path needs `dynamicFields['searched']`. Never add category scripts,
+  keyword -> question rules or "search after N answers". Changed details mark
+  pinned cards outdated (`askodoxResultsOutdated`); a different need hides them.
+  Real-LLM proof: `conversation-trace.yml` + `.github/conversation-traces.json`
+  (branch push -> waits for staging `/health` commit -> per-turn TRACE lines).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

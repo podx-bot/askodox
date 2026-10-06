@@ -76,12 +76,15 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     # app keeps working through its deterministic flow (same as model-down).
     decision = None
     if _feature_enabled(container, "ai.assistant"):
+        # searched_for only when the app sent it: other decide() implementations
+        # (fallbacks, fakes) keep their older signature.
+        extra = {"searched_for": payload.searched_for} if payload.searched_for else {}
         decision = service.decide(
             payload.message,
             history=history,
             locale=payload.locale,
             location=payload.location,
-            searched_for=payload.searched_for,
+            **extra,
         )
 
     if decision is None:
