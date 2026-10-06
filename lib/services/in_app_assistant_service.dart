@@ -53,7 +53,15 @@ class InAppAssistantDecision {
     required this.source,
     this.entities = const <String, Object?>{},
     this.buyingGuide,
+    this.mode = 'chat',
   });
+
+  /// Decision-brain mode from the backend: `advice` (reasoning, never result
+  /// cards), `commerce` (search / act), `follow_up` (about options already
+  /// shown) or `chat`. Older backends omit it (= chat).
+  final String mode;
+
+  bool get isAdvice => mode == 'advice';
 
   final String reply;
   final String domain;
@@ -97,6 +105,7 @@ class InAppAssistantDecision {
       entities: Map.unmodifiable(entities),
       buyingGuide:
           rawGuide is Map ? BuyingGuide.fromJson(Map<String, dynamic>.from(rawGuide)) : null,
+      mode: (json['mode'] ?? 'chat').toString().toLowerCase(),
     );
   }
 

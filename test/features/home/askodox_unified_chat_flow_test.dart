@@ -1110,6 +1110,32 @@ void main() {
     container.read(askodoxGuideProvider.notifier).stop();
   });
 
+  group('decision brain (advice vs commerce)', () {
+    testWidgets('an advice question gets the reasoning and no result cards; "show me" then searches', (tester) async {
+      const advice = 'Your goal: pick an AC for a 150 sq ft room.\nAnalysis: 150 sq ft -> about 1.2-1.5 ton.\n'
+          'Recommendation: a 1.5 ton 3-star inverter AC, because you run it 8 hours a day.';
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '81', matches: [_registeredTv]),
+        ]),
+        assistant: _Assistant((message) => message.toLowerCase().contains('show me')
+            ? {'reply': 'Checking real sellers.', 'domain': 'PRODUCT', 'transactional': true,
+               'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+               'entities': {'subject': 'AC', 'budget': '40000'}}
+            : {'reply': advice, 'domain': 'PRODUCT', 'transactional': true, 'action': 'advise',
+               'confidence': 0.9, 'source': 'universal_ai', 'mode': 'advice',
+               'entities': {'subject': 'AC', 'budget': '40000'}}),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'What AC capacity do I need for 150 sq ft, 8 hours a day, budget 40000?');
+      expect(find.textContaining('1.5 ton 3-star inverter'), findsOneWidget);
+      expect(h.matches.deals, isEmpty, reason: 'advice never starts a search or shows cards');
+      expect(find.byKey(const ValueKey('askodoxResultsMode-compact')), findsNothing);
+      await h.send(tester, 'ok show me AC options');
+      expect(h.matches.deals, isNotEmpty, reason: 'advice -> commerce transition searches');
+    });
+  });
+
   group('held phone findings (START FIXES)', () {
     BuyerSavedLocation place(String name, double lat, double lng) => BuyerSavedLocation(
         id: name, name: name, address: name, point: GeoPoint(lat, lng), type: SavedLocationType.custom);

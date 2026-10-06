@@ -1798,7 +1798,13 @@ class _AskodoxPrimaryHomeScreenState
         text.trim().split(RegExp(r'\s+')).length <= 4 &&
         askodoxDetectRole(text) == null &&
         (askodoxQualifierReply(text) != null || askodoxDetectBrand(text, known: listedBrands) != null);
+    // Decision brain: an advice / decision question ("should I start a
+    // car-finance business?", "what AC capacity do I need?") is answered
+    // with reasoning -- never result cards -- unless the user also asked to
+    // see options now or is answering a pending detail question.
+    final adviceOnly = aiUsable && decision!.isAdvice && !showNow && !videoAsk && !detailAnswer && clarified == null;
     final transactional = !discussOnly &&
+        !adviceOnly &&
         (clarified != null ||
             videoAsk ||
             detailAnswer ||

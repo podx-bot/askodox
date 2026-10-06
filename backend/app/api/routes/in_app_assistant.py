@@ -39,6 +39,9 @@ class AssistantDecision(BaseModel):
     confidence: float = 0.0
     source: str = "universal_ai"
     entities: dict[str, Any] = Field(default_factory=dict)
+    # Decision brain mode: advice (reasoning, no result cards), commerce
+    # (search / act), follow_up (about options already shown) or chat.
+    mode: str = "chat"
     # Added 2026-09-16 (round 9, roadmap Phase 1: "Reconnect what already
     # works"). BuyerIntelligenceService.build_buying_guide() is a real,
     # tested service that already existed but was only ever wired into the
