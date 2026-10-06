@@ -3528,47 +3528,30 @@ class _AskodoxPrimaryHomeScreenState
     return keys.reduce((a, b) => a > b ? a : b);
   }
 
-  /// The results workspace size (phone finding F): expanded cards, a
-  /// compact strip, or a summary line. Typing / the keyboard folds it to
-  /// compact automatically; the customer's own choice is kept.
-  // Default compact: the summary line + a short card strip, so the
-  // conversation keeps most of the screen; Expand shows the full cards.
-  AskodoxResultsMode _resultsMode = AskodoxResultsMode.compact;
-  bool _resultsModeChosen = false;
+  /// The results workspace size: compact by default (the conversation keeps
+  /// most of the screen); a request in progress with a seller opens it fully.
+  /// The size toggles, the "Results N" header, its summary line, the price
+  /// strip and the category chips are hidden (APK 1303 phone finding): the
+  /// cards themselves sit directly under the app header.
+  final AskodoxResultsMode _resultsMode = AskodoxResultsMode.compact;
+  final bool _resultsModeChosen = false;
 
 
-  /// The active result context above the conversation: bounded height
-  /// (smaller while the keyboard is open) so the latest messages and the
-  /// input stay on the same screen; it scrolls inside itself and can be
-  /// folded to one line.
+  /// The ONE result workspace above the conversation: the latest search's
+  /// cards only (never a copy in the chat), bounded height (smaller while the
+  /// keyboard is open) so the latest messages and the input stay on screen.
   Widget _resultContext(bool te, int index) {
     final media = MediaQuery.of(context);
     final keyboard = media.viewInsets.bottom > 0;
-    final results = _resultsByTurn[index]!;
-    final count = results.matches.length;
-    // The keyboard is open and the customer did not choose a size: compact,
-    // so the conversation and the input stay visible (never half-hidden).
-    // A request in progress with a seller (status, accept, confirm...) opens
-    // the workspace fully unless the customer chose a size themselves.
+    // The keyboard is open: compact, so the conversation and the input stay
+    // visible. A request in progress with a seller (status, accept,
+    // confirm...) opens the workspace fully.
     final activeRequest = !_resultsModeChosen && _orderByMatchKey.isNotEmpty;
     final mode = keyboard && !_resultsModeChosen && (_resultsMode == AskodoxResultsMode.expanded || activeRequest)
         ? AskodoxResultsMode.compact
         : (activeRequest ? AskodoxResultsMode.expanded : _resultsMode);
     final maxHeight = (media.size.height - media.viewInsets.bottom) *
         (mode == AskodoxResultsMode.compact ? (keyboard ? .2 : .24) : (keyboard ? .32 : .42));
-    final summary = askodoxResultsSummary(results, telugu: te);
-    void choose(AskodoxResultsMode m) => setState(() {
-          _resultsMode = m;
-          _resultsModeChosen = true;
-        });
-    Widget sizeButton(AskodoxResultsMode m, IconData icon, String tip) => IconButton(
-          key: ValueKey('askodoxResultsMode-${m.name}'),
-          tooltip: tip,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          icon: Icon(icon, size: 19, color: mode == m ? _blue : _muted),
-          onPressed: () => choose(m),
-        );
     return Container(
       key: const Key('askodoxResultContext'),
       decoration: const BoxDecoration(
@@ -3576,39 +3559,10 @@ class _AskodoxPrimaryHomeScreenState
         border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        InkWell(
-          key: const Key('askodoxResultContextToggle'),
-          // Tapping the header folds / unfolds (hidden <-> expanded).
-          onTap: () => choose(mode == AskodoxResultsMode.hidden ? AskodoxResultsMode.expanded : AskodoxResultsMode.hidden),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 2, 4, 0),
-            child: Row(children: [
-              const Icon(Icons.manage_search_rounded, size: 16, color: _blue),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(
-                    count == 0 ? (te ? 'ఫలితాలు' : 'Results') : (te ? 'ఫలితాలు · $count' : 'Results · $count'),
-                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 12.5),
-                  ),
-                  if (mode != AskodoxResultsMode.expanded && summary.isNotEmpty)
-                    Text(summary,
-                        key: const Key('askodoxResultsSummary'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _muted, fontSize: 11.5)),
-                ]),
-              ),
-              sizeButton(AskodoxResultsMode.expanded, Icons.unfold_more_rounded, te ? 'పూర్తిగా' : 'Expand'),
-              sizeButton(AskodoxResultsMode.compact, Icons.view_carousel_outlined, te ? 'చిన్నగా' : 'Compact'),
-              sizeButton(AskodoxResultsMode.hidden, Icons.unfold_less_rounded, te ? 'దాచు' : 'Hide'),
-            ]),
-          ),
-        ),
         if (_resultsStaleFor != null)
           Padding(
             key: const Key('askodoxResultsRefreshing'),
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
             child: Row(children: [
               const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
               const SizedBox(width: 8),
@@ -3619,22 +3573,21 @@ class _AskodoxPrimaryHomeScreenState
               ),
             ]),
           ),
-        if (mode != AskodoxResultsMode.hidden)
-          ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: Opacity(
-              // Cards from the old place are dimmed while they refresh.
-              opacity: _resultsStaleFor == null ? 1 : .45,
-              child: SingleChildScrollView(
-                key: const Key('askodoxResultContextScroll'),
-                padding: const EdgeInsets.fromLTRB(14, 4, 6, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _turnResults(index, _turns[index], te),
-                ),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Opacity(
+            // Cards from the old place are dimmed while they refresh.
+            opacity: _resultsStaleFor == null ? 1 : .45,
+            child: SingleChildScrollView(
+              key: const Key('askodoxResultContextScroll'),
+              padding: const EdgeInsets.fromLTRB(14, 6, 6, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _turnResults(index, _turns[index], te, workspace: true),
               ),
             ),
           ),
+        ),
       ]),
     );
   }
@@ -3911,7 +3864,11 @@ class _AskodoxPrimaryHomeScreenState
       ];
 
   /// What a turn found: catalogue / result cards.
-  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te) => [
+  /// A turn's catalogue card (seller flow) and -- in the top workspace only --
+  /// its result cards. The chat never shows result cards: the latest search
+  /// lives ONCE in the workspace, and earlier searches are replaced, never
+  /// left in the conversation as stale copies.
+  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te, {bool workspace = false}) => [
             if (_catalogueTurn == index && _catalogue != null)
               AskodoxCatalogueCard(
                 template: _catalogue!,
@@ -3924,9 +3881,11 @@ class _AskodoxPrimaryHomeScreenState
                   ..addAll(_catalogue!.categories.map((c) => c.key))),
                 onOpenEditor: _openCatalogueEditor,
               ),
-            if (_resultsByTurn[index] case final results?)
+            if (workspace && index == _pinnedResultsTurn)
+              if (_resultsByTurn[index] case final results?)
               _ChatResultsView(
                 key: ValueKey('askodoxChatResults-$index'),
+                workspace: true,
                 results: results,
                 te: te,
                 lang: _lang,
@@ -4809,9 +4768,15 @@ class _ChatResultsView extends StatelessWidget {
     this.refreshTick = 0,
     this.onAlternatives,
     this.onSupport,
+    this.workspace = false,
   });
 
   final AskodoxChatResults results;
+
+  /// Drawn in the top result workspace: the cards only -- no price summary
+  /// strip, no "Online" heading over the comparison, no All / Local / Deals /
+  /// Online chips (hidden UI; the data behind them is unchanged).
+  final bool workspace;
   final bool te;
 
   /// The conversation language (labels in hi/or/... come from the table).
@@ -4917,13 +4882,15 @@ class _ChatResultsView extends StatelessWidget {
                 ? 'మీ అభ్యర్థనను ${results.broadcastSent} నమోదైన ASKODOX ప్రొవైడర్లకు కూడా పంపాను.'
                 : 'Also sent to ${results.broadcastSent} registered ASKODOX provider(s) nearby.',
           ),
-        if (AskodoxLocalOnlineSummary.of(results.matches) case final summary?) _compareStrip(summary),
+        if (!workspace)
+          if (AskodoxLocalOnlineSummary.of(results.matches) case final summary?) _compareStrip(summary),
         // Several kinds of results (local, sponsored, online, ...): ONE
         // compact horizontal comparison, like the approved reference. A
         // single kind, or an option with a live request/order, keeps the
         // sectioned layout below.
         if (_comparison case final groups?
-            when !groups.any((g) => g.$1 == AskodoxCompareKind.local) &&
+            when !workspace &&
+                !groups.any((g) => g.$1 == AskodoxCompareKind.local) &&
                 groups.any((g) => g.$1 == AskodoxCompareKind.online))
           _heading(askodoxSegmentTitle(AskodoxResultSegment.online, telugu: te, hasLocal: false, lang: lang),
               Icons.public_rounded),
@@ -4931,6 +4898,7 @@ class _ChatResultsView extends StatelessWidget {
           _ComparisonBoard(
             key: const Key('askodoxComparison'),
             groups: groups,
+            showTabs: !workspace,
             lang: te ? 'te' : lang,
             card: (match, kind) => _card(match, compact: true, kind: kind),
           )
@@ -5156,9 +5124,15 @@ Color _kindColor(AskodoxCompareKind kind) => switch (kind) {
 /// kinds this request returned, with counts) above ONE horizontal rail of
 /// labelled cards. "All" keeps every kind in column order.
 class _ComparisonBoard extends StatefulWidget {
-  const _ComparisonBoard({super.key, required this.groups, required this.card, required this.lang});
+  const _ComparisonBoard(
+      {super.key, required this.groups, required this.card, required this.lang, this.showTabs = true});
 
   final List<(AskodoxCompareKind, List<UniversalMatch>)> groups;
+
+  /// The All / Local / Deals / Online chips. Hidden in the top workspace:
+  /// then every card shows in ONE rail (no preview limit, no "View all"
+  /// tiles that would need a chip to go back).
+  final bool showTabs;
   final Widget Function(UniversalMatch match, AskodoxCompareKind kind) card;
   final String lang;
 
@@ -5194,7 +5168,7 @@ class _ComparisonBoardState extends State<_ComparisonBoard> {
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // One kind only: its label is on every card; no tab row needed.
-      if (widget.groups.length >= 2)
+      if (widget.showTabs && widget.groups.length >= 2)
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(bottom: 6),
@@ -5214,11 +5188,11 @@ class _ComparisonBoardState extends State<_ComparisonBoard> {
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (final (kind, rows) in widget.groups)
             if (_only == null || _only == kind) ...[
-              for (final match in (_only == null && widget.groups.length >= 2
+              for (final match in (widget.showTabs && _only == null && widget.groups.length >= 2
                   ? rows.take(askodoxAllPreviewPerGroup)
                   : rows))
-                widget.card(match, kind),
-              if (_only == null && widget.groups.length >= 2 && rows.length > askodoxAllPreviewPerGroup)
+                KeyedSubtree(key: ValueKey('askodoxKind-${kind.name}-${match.id}'), child: widget.card(match, kind)),
+              if (widget.showTabs && _only == null && widget.groups.length >= 2 && rows.length > askodoxAllPreviewPerGroup)
                 _viewAll(kind, rows.length),
             ],
         ]),

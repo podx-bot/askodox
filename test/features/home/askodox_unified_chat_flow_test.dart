@@ -806,11 +806,12 @@ class _FakeSignInScreen extends ConsumerWidget {
 
 /// "Ask ASKODOX about this" (full card) / "Chat" (comparison card): the
 /// same action, found by its key.
-/// A result kind is shown as its comparison tab (LOCAL / ONLINE / ...), or
-/// -- when it is the only kind -- as the label on its cards.
+/// A result kind is present: a card of that kind in the comparison rail
+/// (the kind chips are hidden in the top workspace after 1303), or -- when it
+/// is the only kind -- the label on its cards.
 void _expectKind(String kind) => expect(
     find.byWidgetPredicate((w) =>
-        w.key == ValueKey('askodoxCompareTab-$kind') ||
+        (w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxKind-$kind-')) ||
         (w is Text && w.data == kind.toUpperCase())),
     findsWidgets,
     reason: kind);
@@ -914,12 +915,13 @@ void main() {
       });
       await h.pump(tester);
       await h.send(tester, 'I want to buy toor dal 1 kg in Vuyyuru');
-      if (find.byKey(const Key('askodoxLocalOnlineCompare')).evaluate().isEmpty) await h.send(tester, 'show me');
+      if (find.byKey(const ValueKey('askodoxSave-77')).evaluate().isEmpty) await h.send(tester, 'show me');
 
-      expect(find.byKey(const Key('askodoxLocalOnlineCompare')), findsOneWidget);
-      expect(tester.widget<Text>(find.byKey(const Key('askodoxCompareLocal'))).data, contains('₹160'));
-      expect(tester.widget<Text>(find.byKey(const Key('askodoxCompareOnline'))).data,
-          allOf(contains('₹175'), contains('page price'), contains('jiomart.com')));
+      // The "Nearby from / Online from" summary strip is hidden in the top
+      // workspace (phone finding after 1303); the cards carry the prices.
+      expect(find.byKey(const Key('askodoxLocalOnlineCompare')), findsNothing);
+      expect(find.textContaining('160'), findsWidgets);
+      expect(find.textContaining('175'), findsWidgets);
       expect(find.byKey(const ValueKey('askodoxDirections-external-p1')), findsOneWidget);
       expect(find.byKey(const ValueKey('askodoxDirections-online-1')), findsNothing, reason: 'no directions to a website');
       expect(askodoxDirectionsUri(shop).toString(), contains('destination=16.365,80.845'));
@@ -1169,6 +1171,141 @@ void main() {
     });
   });
 
+  group('top result workspace (locked layout after 1303)', () {
+    const acA = UniversalMatch(id: 'online-0-ac-a', title: 'Voltas 1.5 ton split AC at Store A', source: 'online',
+        destinationUrl: 'https://a.example/ac', price: 38990);
+    const acB = UniversalMatch(id: 'online-1-ac-b', title: 'Lloyd 1.5 ton split AC at Store B', source: 'online',
+        destinationUrl: 'https://b.example/ac', price: 36490);
+    const acLocal = UniversalMatch(id: 'external-ac-1', title: 'Sri Sai AC Point', source: 'external',
+        segment: 'nearby_external', distanceKm: 1.4, destinationUrl: 'https://maps.google.com/?cid=7');
+    const acCheap = UniversalMatch(id: 'online-2-ac-c', title: 'Blue Star 1 ton split AC at Store C', source: 'online',
+        destinationUrl: 'https://c.example/ac', price: 29990);
+    const acLg = UniversalMatch(id: 'online-3-ac-d', title: 'LG 1 ton split AC at Store D', source: 'online',
+        destinationUrl: 'https://d.example/ac', price: 29490);
+
+    Finder cards() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxResultCard-'));
+    Finder workspaceCards() =>
+        find.descendant(of: find.byKey(const Key('askodoxResultContext')), matching: cards());
+    Finder resultBlocks() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxChatResults-'));
+
+    /// "I want an AC" -> questions (no search) -> enough details -> ONE
+    /// search; later requirement changes refresh the SAME workspace.
+    _Harness acHarness() => _Harness(
+          matches: _FakeMatchRepository([
+            const UniversalMatchResult(dealId: 'ac1', matches: [acLocal, acA, acB]),
+            const UniversalMatchResult(dealId: 'ac2', matches: [acCheap]),
+            const UniversalMatchResult(dealId: 'ac3', matches: [acLg]),
+          ]),
+          assistant: _Assistant((message) {
+            final m = message.toLowerCase();
+            Map<String, Object?> ask(String q) => {
+                  'reply': q, 'domain': 'PRODUCT', 'transactional': false, 'action': 'ask_details',
+                  'confidence': 0.9, 'source': 'universal_ai', 'mode': 'chat', 'entities': {'subject': 'AC'}};
+            Map<String, Object?> search(Map<String, Object?> entities) => {
+                  'reply': 'Checking split ACs for you.', 'domain': 'PRODUCT', 'transactional': true,
+                  'action': 'search_products', 'confidence': 0.95, 'source': 'universal_ai', 'mode': 'commerce',
+                  'entities': {'subject': 'split AC', 'location': 'Vijayawada', ...entities}};
+            if (m.contains('lg')) return search({'budget': '30000', 'brand': 'LG'});
+            if (m.contains('30000')) return search({'budget': '30000'});
+            if (m.contains('150 sq ft')) return search({'budget': '40000', 'size': '150 sq ft'});
+            if (m.contains('budget')) return ask('Got it. How big is the room (sq ft)? Any brand preference?');
+            return ask('Sure. What is your budget, and split or window AC?');
+          }),
+        );
+
+    Future<_Harness> acReady(WidgetTester tester) async {
+      final h = acHarness();
+      await h.pump(tester);
+      await h.send(tester, 'I want an AC');
+      expect(h.matches.deals, isEmpty, reason: 'a question, not a paid search');
+      expect(find.byKey(const Key('askodoxResultContext')), findsNothing, reason: 'no cards before enough details');
+      await h.send(tester, 'Split AC, budget ₹40,000, room 150 sq ft, any brand');
+      expect(h.matches.deals, hasLength(1), reason: 'ONE search once enough is known');
+      return h;
+    }
+
+    testWidgets('top cards remain above the chat; the conversation and the input stay below', (tester) async {
+      final h = await acReady(tester);
+      final workspace = find.byKey(const Key('askodoxResultContext'));
+      expect(workspace, findsOneWidget);
+      final question = find.textContaining('What is your budget').last;
+      final latest = find.text('Split AC, budget ₹40,000, room 150 sq ft, any brand').last;
+      final input = find.byType(TextField).last;
+      expect(tester.getRect(workspace).bottom, lessThanOrEqualTo(tester.getRect(question).top),
+          reason: 'cards above the conversation');
+      expect(tester.getRect(latest).bottom, lessThan(tester.getRect(input).top), reason: 'conversation above the input');
+      expect(tester.getRect(workspace).top, lessThan(tester.getRect(question).top));
+      expect(h.matches.deals, hasLength(1));
+    });
+
+    testWidgets('removed summary / filter UI is not rendered', (tester) async {
+      await acReady(tester);
+      expect(workspaceCards(), findsNWidgets(3));
+      expect(find.textContaining(RegExp(r'^Results( · \d+)?$')), findsNothing, reason: '"Results 3" heading');
+      expect(find.byKey(const Key('askodoxResultsSummary')), findsNothing, reason: '"Results 3 | Local 1 | Online 2"');
+      expect(find.byKey(const Key('askodoxResultContextToggle')), findsNothing);
+      for (final m in ['hidden', 'compact', 'expanded']) {
+        expect(find.byKey(ValueKey('askodoxResultsMode-$m')), findsNothing, reason: 'expand / collapse icon $m');
+      }
+      expect(find.byKey(const Key('askodoxLocalOnlineCompare')), findsNothing, reason: 'Nearby price / Online strip');
+      expect(find.textContaining('Online from'), findsNothing);
+      expect(find.textContaining('Nearby from'), findsNothing);
+      for (final chip in ['all', 'local', 'deals', 'online', 'videos']) {
+        expect(find.byKey(ValueKey('askodoxCompareTab-$chip')), findsNothing, reason: 'filter chip $chip');
+      }
+      expect(find.text('View all'), findsNothing);
+    });
+
+    testWidgets('cards move up into the freed top space and stay horizontally scrollable', (tester) async {
+      await acReady(tester);
+      final workspace = tester.getRect(find.byKey(const Key('askodoxResultContext')));
+      final firstCard = tester.getRect(workspaceCards().first);
+      expect(firstCard.top - workspace.top, lessThanOrEqualTo(16),
+          reason: 'no header row between the top of the workspace and the cards');
+      final rail = find.byKey(const Key('askodoxComparisonRail'));
+      expect(tester.widget<SingleChildScrollView>(rail).scrollDirection, Axis.horizontal);
+      final before = tester.getTopLeft(workspaceCards().last).dx;
+      await tester.drag(rail, const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(workspaceCards().last).dx, lessThan(before), reason: 'the rail scrolls sideways');
+    });
+
+    testWidgets('no duplicate result workspace: cards live only in the top workspace, never in the chat',
+        (tester) async {
+      final h = await acReady(tester);
+      expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget);
+      expect(resultBlocks(), findsOneWidget);
+      expect(workspaceCards(), findsNWidgets(tester.widgetList(cards()).length),
+          reason: 'every rendered card is inside the top workspace');
+      // A follow-up about the shown cards is answered in the chat, no copy.
+      await h.send(tester, 'which one is cheapest?');
+      expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget);
+      expect(resultBlocks(), findsOneWidget);
+      expect(h.matches.deals, hasLength(1), reason: 'follow-ups reuse the current results (no paid search)');
+    });
+
+    testWidgets('requirement changes update the SAME workspace; no stale cards remain', (tester) async {
+      final h = await acReady(tester);
+      expect(find.text('Voltas 1.5 ton split AC at Store A'), findsOneWidget);
+      await h.send(tester, 'Change the budget to 30000');
+      expect(h.matches.deals, hasLength(2));
+      expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget, reason: 'the same single workspace');
+      expect(resultBlocks(), findsOneWidget, reason: 'replaced, not added');
+      expect(find.text('Blue Star 1 ton split AC at Store C'), findsOneWidget);
+      for (final stale in ['Voltas 1.5 ton split AC at Store A', 'Lloyd 1.5 ton split AC at Store B', 'Sri Sai AC Point']) {
+        expect(find.text(stale), findsNothing, reason: 'stale card from the previous requirement: $stale');
+      }
+      await h.send(tester, 'Make it LG brand, same budget 30000');
+      expect(h.matches.deals, hasLength(3));
+      expect(resultBlocks(), findsOneWidget);
+      expect(find.text('LG 1 ton split AC at Store D'), findsOneWidget);
+      expect(find.text('Blue Star 1 ton split AC at Store C'), findsNothing);
+      expect(workspaceCards(), findsNWidgets(tester.widgetList(cards()).length));
+    });
+  });
+
   group('location truth', () {
     testWidgets('a place asked for in chat persists to follow-ups until "near me"', (tester) async {
       final h = _Harness(
@@ -1225,7 +1362,7 @@ void main() {
       expect(h.matches.deals.length, searches + 1);
     });
 
-    testWidgets('F + B13: results workspace folds to a summary and back; distances say straight line', (tester) async {
+    testWidgets('F + B13: the results workspace shows cards only (no fold / summary controls); distances say straight line', (tester) async {
       final h = _Harness(matches: _FakeMatchRepository([
         const UniversalMatchResult(dealId: '903', matches: [_localMatch]),
       ]));
@@ -1234,12 +1371,12 @@ void main() {
       if (h.matches.deals.isEmpty) await h.send(tester, 'show me');
       expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget);
       expect(find.textContaining('straight line'), findsWidgets, reason: 'B13: point-to-point distance is labelled');
-      await tester.tap(find.byKey(const ValueKey('askodoxResultsMode-hidden')));
-      await _Harness.settle(tester);
-      expect(find.byKey(const Key('askodoxResultContextScroll')), findsNothing);
-      expect(find.byKey(const Key('askodoxResultsSummary')), findsOneWidget, reason: 'folded = a summary, never lost');
-      await tester.tap(find.byKey(const ValueKey('askodoxResultsMode-expanded')));
-      await _Harness.settle(tester);
+      // The fold / compact / expand toggles and the summary line are hidden
+      // (after 1303): the cards are always shown in the workspace.
+      for (final m in ['hidden', 'compact', 'expanded']) {
+        expect(find.byKey(ValueKey('askodoxResultsMode-$m')), findsNothing);
+      }
+      expect(find.byKey(const Key('askodoxResultsSummary')), findsNothing);
       expect(find.byKey(const Key('askodoxResultContextScroll')), findsOneWidget);
     });
 
@@ -1583,7 +1720,9 @@ void main() {
     await h.pump(tester);
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
 
-    expect(find.text('No local match yet -- online options'), findsOneWidget);
+    // The "No local match yet -- online options" heading above the cards is
+    // hidden in the top workspace; the reply still says it honestly.
+    expect(find.text('No local match yet -- online options'), findsNothing);
     expect(find.textContaining('No verified local match yet'), findsOneWidget);
     expect(find.text('Open'), findsOneWidget);
     expect(find.text('Affiliate link'), findsOneWidget);
@@ -1697,7 +1836,7 @@ void main() {
     });
   });
 
-  testWidgets('follow-up refinement keeps earlier results and sends conversation history',
+  testWidgets('follow-up refinement replaces the earlier results (one workspace) and sends conversation history',
       (tester) async {
     final h = _Harness(
       matches: _FakeMatchRepository([
@@ -1709,7 +1848,8 @@ void main() {
     await h.send(tester, 'I want to buy a mixer grinder in Vijayawada');
     await h.send(tester, 'I want to buy a 750 watt mixer grinder in Vijayawada');
 
-    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsNothing,
+        reason: 'the earlier search is replaced, never left as a stale copy');
     expect(find.byKey(const ValueKey('askodoxChatResults-3')), findsOneWidget);
     final history = h.assistant.requests.last['history'] as List;
     expect(history, hasLength(2));
@@ -2115,8 +2255,8 @@ void main() {
     expect(h.matches.deals.last.subject, contains('43 inch'));
     expect((h.assistant.requests.last['history'] as List).first['text'],
         contains('43 inch TV'));
-    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget,
-        reason: 'first results stay in the conversation');
+    expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsNothing,
+        reason: 'the refined search replaces the first results in the ONE workspace');
     expect(find.byKey(const ValueKey('askodoxChatResults-3')), findsOneWidget);
   });
 
@@ -2204,18 +2344,14 @@ void main() {
     expect(find.text('Affiliate link'), findsOneWidget);
     // AI-first: no request buttons on first results.
     expect(find.text('Send request'), findsNothing);
-    // "All" previews at most 2 per group (3 local -> 2 + View all).
-    expect(_askButtons(), findsNWidgets(7));
-    expect(find.byKey(const ValueKey('askodoxViewAll-local')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const ValueKey('askodoxViewAll-local')));
-    await tester.tap(find.byKey(const ValueKey('askodoxViewAll-local')));
-    await tester.pumpAndSettle();
+    // No category chips / "View all" tiles in the top workspace: every card
+    // is in the ONE horizontal rail.
+    expect(find.byKey(const ValueKey('askodoxCompareTab-all')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxViewAll-local')), findsNothing);
+    expect(_askButtons(), findsNWidgets(8));
     // Nearby shop not on ASKODOX: open its real map page / ask ASKODOX,
     // never a request to a seller who is not on ASKODOX.
     expect(find.byKey(const ValueKey('askodoxOpen-external-p1')), findsOneWidget);
-    expect(_askButtons(), findsNWidgets(3), reason: 'Local tab: only local rows');
-    await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-all')));
-    await tester.pumpAndSettle();
 
     // A comparison question stays in the conversation (no new search) ...
     await h.send(tester, 'Which one is better, new or used?');
@@ -3327,15 +3463,14 @@ void main() {
         await h.send(tester, text);
         await tester.pumpAndSettle();
         expect(h.matches.deals, hasLength(1), reason: 'ONE discovery returns every group');
-        for (final kind in ['all', 'local', 'deals', 'online', 'videos']) {
-          expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsOneWidget, reason: kind);
+        // Every kind is present as cards (the All / Local / Deals / Online
+        // chips and "View all" tiles are hidden in the top workspace).
+        for (final kind in ['local', 'deals', 'online', 'videos']) {
+          _expectKind(kind);
         }
-        // "All": at most 2 previews per group, "View all" for the rest.
-        expect(cards(), findsNWidgets(1 + 1 + 2 + 2));
-        expect(find.byKey(const ValueKey('askodoxViewAll-online')), findsOneWidget);
-        expect(find.byKey(const ValueKey('askodoxViewAll-videos')), findsOneWidget);
-        expect(find.byKey(const ValueKey('askodoxViewAll-local')), findsNothing, reason: 'only 1 local row');
-        expect(find.text(lang == 'te' ? 'అన్ని చూడండి' : 'View all'), findsNWidgets(2));
+        expect(find.byKey(const ValueKey('askodoxCompareTab-all')), findsNothing);
+        expect(cards(), findsNWidgets(1 + 1 + 3 + 5), reason: 'every card in ONE horizontal rail');
+        expect(find.text(lang == 'te' ? 'అన్ని చూడండి' : 'View all'), findsNothing);
         // Real YouTube card: thumbnail, title, channel, duration.
         expect(find.byKey(const ValueKey('askodoxVideoThumb-video-yt-0-P8NlIQPsXNY')), findsOneWidget);
         expect(find.textContaining('Full Bucket Biryani Unboxing'), findsOneWidget);
@@ -3344,37 +3479,23 @@ void main() {
       });
     }
 
-    testWidgets('category switching: a selected category shows only its compact results; All restores previews',
-        (tester) async {
+    testWidgets('no category chips: every category\'s cards stay in the one horizontal rail', (tester) async {
       final h = mixed();
       await h.pump(tester, locale: 'te');
       await h.send(tester, mixedTe);
       await tester.pumpAndSettle();
-      Future<void> tab(String key) async {
-        await tester.ensureVisible(find.byKey(ValueKey('askodoxCompareTab-$key')));
-        await tester.tap(find.byKey(ValueKey('askodoxCompareTab-$key')));
-        await tester.pumpAndSettle();
+      for (final key in ['all', 'videos', 'online', 'deals', 'local']) {
+        expect(find.byKey(ValueKey('askodoxCompareTab-$key')), findsNothing, reason: key);
       }
-
-      await tab('videos');
-      expect(cards(), findsNWidgets(5));
+      expect(cards(), findsNWidgets(10));
       expect(thumbs(), findsNWidgets(5), reason: 'every video row has its thumbnail');
-      expect(find.textContaining('KG BIRYANI'), findsNothing);
-      await tab('online');
-      expect(cards(), findsNWidgets(3));
-      expect(thumbs(), findsNothing);
-      await tab('deals');
-      expect(cards(), findsOneWidget);
       expect(find.textContaining('EazyDiner'), findsOneWidget);
-      await tab('local');
-      expect(cards(), findsOneWidget);
-      await tab('all');
-      expect(cards(), findsNWidgets(6));
-      // "View all" opens that category.
-      await tester.ensureVisible(find.byKey(const ValueKey('askodoxViewAll-videos')));
-      await tester.tap(find.byKey(const ValueKey('askodoxViewAll-videos')));
+      final rail = find.byKey(const Key('askodoxComparisonRail'));
+      expect(tester.widget<SingleChildScrollView>(rail).scrollDirection, Axis.horizontal);
+      // The rail scrolls sideways to the last card.
+      await tester.drag(rail, const Offset(-3000, 0));
       await tester.pumpAndSettle();
-      expect(cards(), findsNWidgets(5));
+      expect(cards(), findsNWidgets(10));
     });
 
     testWidgets('layout: results above the latest conversation, then the input; compact card size', (tester) async {
@@ -3396,13 +3517,9 @@ void main() {
       expect(tester.getSize(card).height, lessThan(300), reason: 'compact row, not a tall card (test font is wider)');
       final thumb = tester.getSize(find.byKey(const ValueKey('askodoxVideoThumb-video-yt-0-P8NlIQPsXNY')));
       expect(thumb.width, lessThanOrEqualTo(96));
-      // Folding the context keeps one line and gives the conversation room.
-      await tester.tap(find.byKey(const Key('askodoxResultContextToggle')));
-      await tester.pumpAndSettle();
-      expect(cards(), findsNothing);
-      await tester.tap(find.byKey(const Key('askodoxResultContextToggle')));
-      await tester.pumpAndSettle();
-      expect(cards(), findsNWidgets(6));
+      // No fold toggle / header row: the cards are always in the workspace.
+      expect(find.byKey(const Key('askodoxResultContextToggle')), findsNothing);
+      expect(cards(), findsNWidgets(10));
     });
 
     testWidgets('small phone (360x640): results, the latest message and a usable input on one screen',
@@ -3435,7 +3552,7 @@ void main() {
         await tester.pumpAndSettle();
       }
       expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget);
-      expect(find.byKey(const ValueKey('askodoxCompareTab-videos')), findsOneWidget);
+      _expectKind('videos');
       final latest = find.textContaining('(5)').last;
       expect(tester.getBottomLeft(find.byKey(const Key('askodoxResultContext'))).dy,
           lessThanOrEqualTo(tester.getTopLeft(latest).dy));
@@ -3538,7 +3655,7 @@ void main() {
       });
     }
 
-    testWidgets('Local + Online only: two tabs plus All, no empty groups invented', (tester) async {
+    testWidgets('Local + Online only: both kinds as cards, no chips, no empty groups invented', (tester) async {
       final h = _Harness(matches: _FakeMatchRepository([
         const UniversalMatchResult(dealId: 'k2', matches: [
           UniversalMatch(id: 'l1', title: 'Sri Biryani Point', source: 'external', segment: 'nearby_external',
@@ -3549,11 +3666,13 @@ void main() {
       await h.pump(tester);
       await h.send(tester, 'chicken biryani in Vijayawada show me');
       await tester.pumpAndSettle();
-      for (final kind in ['all', 'local', 'online']) {
-        expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsOneWidget, reason: kind);
+      _expectKind('local');
+      _expectKind('online');
+      expect(find.byKey(const ValueKey('askodoxCompareTab-all')), findsNothing);
+      for (final kind in ['videos', 'deals']) {
+        expect(find.byWidgetPredicate((w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxKind-$kind-')),
+            findsNothing, reason: kind);
       }
-      expect(find.byKey(const ValueKey('askodoxCompareTab-videos')), findsNothing);
-      expect(find.byKey(const ValueKey('askodoxCompareTab-deals')), findsNothing);
     });
   });
 
@@ -4283,11 +4402,14 @@ void main() {
     await h.send(tester, 'I want to buy a 1.5 ton AC in Vijayawada');
 
     // Only the kinds this request returned, in column order.
-    for (final kind in ['all', 'local', 'sponsored', 'online']) {
-      expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsOneWidget, reason: kind);
+    // Kinds are shown by the cards themselves (chips hidden in the workspace).
+    expect(find.byKey(const ValueKey('askodoxCompareTab-all')), findsNothing);
+    for (final kind in ['local', 'sponsored', 'online']) {
+      _expectKind(kind);
     }
     for (final kind in ['deals', 'affiliate', 'used', 'surplus', 'videos', 'jobs']) {
-      expect(find.byKey(ValueKey('askodoxCompareTab-$kind')), findsNothing, reason: kind);
+      expect(find.byWidgetPredicate((w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxKind-$kind-')),
+          findsNothing, reason: kind);
     }
     final x = [local, paid, online]
         .map((m) => tester.getTopLeft(find.byKey(ValueKey('askodoxResultCard-${m.source}-${m.id}'))).dx)
@@ -4299,13 +4421,8 @@ void main() {
     expect(find.byKey(const ValueKey('askodoxKindLabel-401')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPaidBadge-401')), findsNothing, reason: 'organic stays unlabelled as paid');
 
-    // A tab shows only that kind; tapping it again (or All) shows every kind.
-    await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-sponsored')));
-    await tester.pump();
+    // Every kind stays in the one rail (no filter chips to narrow it).
     expect(find.byKey(const ValueKey('askodoxResultCard-sponsored-sponsored-7')), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxResultCard-local-401')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-all')));
-    await tester.pump();
     expect(find.byKey(const ValueKey('askodoxResultCard-local-401')), findsOneWidget);
 
     // Paid links open through ASKODOX's tracked redirect; organic links open directly.
@@ -4504,16 +4621,6 @@ void _compactRenders() {
       final tag = '${lang}_${size.height.toInt() ~/ 3}';
       await h.send(tester, text);
       await shot('${tag}_1_all');
-      if (size.height > 2000) {
-        await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompareTab-videos')));
-        await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-videos')));
-        await shot('${tag}_2_videos');
-        await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompareTab-local')));
-        await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-local')));
-        await shot('${tag}_3_local');
-        await tester.ensureVisible(find.byKey(const ValueKey('askodoxCompareTab-all')));
-        await tester.tap(find.byKey(const ValueKey('askodoxCompareTab-all')));
-      }
       await h.send(tester, lang == 'te' ? 'వీటిలో ఏది మంచిది? ఆఫర్ ఉందా?' : 'Which of these is best? Any offer?');
       await shot('${tag}_4_followup');
     }
