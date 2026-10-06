@@ -7,19 +7,19 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `8c227af` -- PR #159 (2026-10-05): held phone fixes (stale cards on
-  place change, results expanded/compact/hidden, image thumbnails, "straight
-  line" distances, seller request copy; "near me" no longer parsed as a place),
-  own-supply fit (`supply_fit.py`), Smart Entry, seller Business Command Center
-  (`/api/business/command-center`, app Profile -> My business), explained
-  en/te staff work queue, 34-module functional audit test, Screen Guide on the
-  Sarvam voice. Production probe (run 37358859201 on the deployed 8c227af):
-  Maps all OK, Brave 200 / 0 stale, size 9 + budget 2000 kept, new seller /
-  staff endpoints 401 signed-out; no registered listings in production yet, so
-  `why` is test-verified only. Signed MAIN APK 1302 (Live Build 37358788686
-  attempt 2 on 8c227af, sha256 7091c483…6771; pinned in MAIN_APKS; 1301 was a
-  cancelled run -- Live Build has cancel-in-progress, never dispatch a second
-  run while the push run is going). Before: #157 + APK 1300.
+- `main` @ `70efccb` -- PR #161 (2026-10-06): decision brain (advice vs
+  commerce `mode`), follow-up router over shown results, price truth + strict
+  budgets, requested-place persistence, compact results workspace, My Business
+  tiles + seller listing edit, Admin Smart Entry everywhere (Quick Add,
+  templates, field states, progressive forms, CSV / bulk preview + draft
+  import), admin assistant commands (en/te), Result Diagnostics decision trace.
+  Production probe (run 37451777690 on the deployed 70efccb): advice questions
+  -> mode=advice (en + te), shopping -> commerce, new admin endpoints 401
+  signed-out, Maps all OK, price kinds labelled; strict-budget rejection and
+  conditional offers are test-verified only (no priced rows in that probe).
+  Signed MAIN APK 1303 (Live Build 37451688264 on 70efccb, sha256
+  22fbc31c…1c93, cert 727b4a66…57cf = production; pinned in MAIN_APKS).
+  Before: #159 + APK 1302.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
