@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-06T16:44:47Z by `.github/workflows/video-real-content-proof.yml` (run 37497591715).
+Generated 2026-10-06T16:51:37Z by `.github/workflows/video-real-content-proof.yml` (run 37498522040).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -34,7 +34,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "I Bought All 43" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days"
 
-**ASKODOX AI (production):** This video by creator Udrawat covers recommendations for various 43-inch TVs across different budget ranges during the Amazon Great Indian Festival and Flipkart Big Billion Days sales. Please note that these are the creator's opinions and are not verified by ASKODOX. Specific details such as price, customer ratings, stock availability, and full specs are not provided in the listing.
+**ASKODOX AI (production):** This video by creator Udrawat covers recommendations for the best 43-inch TVs across different budget ranges during the Amazon Great Indian Festival and Flipkart Big Billion Days sales. Please note, these are creator opinions and are Not verified by ASKODOX. Specific details like pricing, ratings, or exact TV specs are not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -53,11 +53,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "I Bought All 43" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** ఈ వీడియోలో వివరాల ప్రకారం: • ధర: Not verified (మూలంలో వివరాలు ఇవ్వబడలేదు) • దూరం: Not verified (మూలంలో వివరాలు ఇవ్వబడలేదు) • నాణ్యత / రివ్యూలు: ఇందులో వేర్వేరు బడ్జెట్‌లలో ఉత్తమ 43 ఇంచుల టీవీల గురించిన క్రియేటర్ అభిప్రాయాలు (Udrawat) ఉన్నాయి, కానీ ఇవి ASKODOX ద్వారా సరిచూడబడలేదు (Not verified). • అందుబాటు: Not verified (మూలంలో వివరాలు ఇవ్వబడలేదు)
+**ASKODOX AI (production):** ఈ వీడియో 'I Bought All 43" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days' గురించి వివరాలు: దీని క్రియేటర్ Udrawat. అందులో ఉన్న విషయాలు వారి సొంత అభిప్రాయాలు మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. లభ్యమైన సమాచారం: • ధర: అందించబడలేదు (Not verified) • దూరం: అందించబడలేదు (Not verified) • నాణ్యత / క్వాలిటీ: అందించబడలేదు (Not verified) • అందుబాటు (Stock): అందించబడలేదు (Not verified) • రివ్యూలు / రేటింగ్: అందించబడలేదు (Not verified)
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అనేది మీరు టీవీ చూసే దూరం పై ఆధారపడి ఉంటుంది. సాధారణంగా చిన్న గదిలో 4 నుండి 6 అడుగుల దూరం ఉంటే 32 నుండి 43 ఇంచుల టీవీ సరిపోతుంది. మరింత వివరమైన సమాచారం మూలంలో సరిచూడబడలేదు (Not verified).
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సాధారణంగా కాస్త పెద్దదిగా అనిపించవచ్చు. సాధారణంగా చిన్న గదులకు 32 అంగుళాల టీవీ సరిపోతుంది, కానీ చూడటానికి కనీసం 5 నుండి 6 అడుగుల దూరం ఉంటే ఇది కూడా అనుకూలంగా ఉంటుంది.
 
 **Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [online]
 
@@ -71,7 +71,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Redmi Note 13 Pro is here - Let's Check!"
 
-**ASKODOX AI (production):** This video titled 'Redmi Note 13 Pro is here - Let's Check!' is an unboxing and initial impression video by creator Gyan Therapy. According to the creator, the phone features a Snapdragon 7s Gen 2 Processor, a 200MP triple camera, and a 5100mAh battery with 67W charging. Please note that these are the creator's statements and opinion, not verified by ASKODOX. Details like price, ratings, and availability are not provided by the source.
+**ASKODOX AI (production):** According to the video details from Gyan Therapy, 'Redmi Note 13 Pro is here - Let's Check!' is an unboxing and initial impression video. It highlights that the phone features a Snapdragon 7s Gen 2 processor, a 200MP triple camera, and a 5100mAh battery with 67W fast charging. Please note, these details reflect the creator's opinion and are not verified by ASKODOX. Information regarding price, ratings, distance, and stock availability was not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -90,7 +90,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|"
 
-**ASKODOX AI (production):** Based on the details provided by Sunil Autocar, this video presents a detailed review of the interior and exterior features of the Tata Nexon Fearless Plus PS 2026 top model. Please note that these are the creator's opinions and are not verified by ASKODOX. Specific details such as price, rating, and availability were not provided in the listing.
+**ASKODOX AI (production):** This video by Sunil Autocar features a detailed review of the Tata Nexon Top Model Fearless Plus PS (2026), highlighting its interior, exterior, and segment-loaded features. Please note that these are the creator's opinions and are not verified by ASKODOX. Specific details like price, stock availability, and ratings are not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -109,7 +109,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |"
 
-**ASKODOX AI (production):** This video is by creator KP Vlogs & Review, representing their personal opinion and not verified by ASKODOX. It covers Urban Company's Split AC cleaning service using Advance Foamjet Technology. Specific details such as price, ratings, and availability are not provided in the source.
+**ASKODOX AI (production):** This video is by KP Vlogs & Review, representing the creator's personal opinion which is not verified by ASKODOX. Details such as price, ratings, distance, and availability were not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -128,7 +128,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed"
 
-**ASKODOX AI (production):** This video is titled 'Great Plumbing Trick To Fix Pvc Pipe Joint' by creator vijay xyz tricks. Details such as price, rating, reviews, stock, distance, and specific specifications are not provided by the source. Please note that the content reflects the creator's opinion and is not verified by ASKODOX.
+**ASKODOX AI (production):** This video is by 'vijay xyz tricks' with the title 'Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed'. Please note that the contents or opinions in the video are the creator's opinion and not verified by ASKODOX. Details like price, rating, reviews, stock, and distance are not provided.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -147,7 +147,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔"
 
-**ASKODOX AI (production):** This video by creator DCT EATS compares authentic Hyderabadi mutton biryani in Mumbai across three price points: ₹450, ₹800, and ₹1200. Featuring Sahil from Headbanger Eats, they test orders from Bikkgane Biryani, Biryani By Kilo, and Lit. Please note that this reflects the creator's opinion and is Not verified by ASKODOX. Specific details like ratings, reviews, or exact item prices were not provided by the source.
+**ASKODOX AI (production):** This video by DCT EATS features a comparison of authentic Hyderabadi mutton biryani in Mumbai across three price points (₹450, ₹800, and ₹1200) from Bikkgane Biryani, Biryani By Kilo, and Lit, alongside Sahil from Headbanger Eats. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as ratings, exact prices per item, distance, and availability are not provided in the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -166,7 +166,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Top 10 Places in Araku Valley 🌴🌊❤✨ #araku"
 
-**ASKODOX AI (production):** According to the creator Ramya Random Tales, Rana Jilleda waterfalls is highly recommended, while Galikonda View point is considered overrated. They also suggest skipping Karika waterfalls if traveling with kids or elderly people. Please note, these are creator opinions and not verified by ASKODOX. Details like ratings, reviews, and prices are not provided by the source.
+**ASKODOX AI (production):** According to the details provided by creator Ramya Random Tales (creator's opinion, not verified by ASKODOX), the video highlights Rana Jilleda Waterfalls as a favorite spot, mentions Galikonda Viewpoint is overrated, and recommends skipping Katika Waterfalls if traveling with kids or elderly people. Specific details such as full lists, prices, distances, and ratings are not provided in the source description.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -185,7 +185,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350"
 
-**ASKODOX AI (production):** This video by Bindass Singh covers how to check and buy a used Royal Enfield Classic 350, including tips on evaluating a second-hand Bullet. Specific details like price, rating, reviews, stock, and distance are not provided by the source, and creator opinions are not verified by ASKODOX.
+**ASKODOX AI (production):** This video, titled "How To Check & Buy Used Classic 350," is by creator Bindass Singh. Specific details like price, rating, reviews, distance, and stock availability are not provided in the listing. Please note that the content reflects the creator's opinion and is not verified by ASKODOX.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -204,7 +204,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub"
 
-**ASKODOX AI (production):** This video by CallMeShazzam TECH is a long-term review discussing if the iPhone 15 is the best choice and the next sale king, featuring Malayalam audio with English subtitles. Please note that the creator's opinions are not verified by ASKODOX. Specific details like price, rating, and stock are not provided by the source.
+**ASKODOX AI (production):** This video is a long-term review of the iPhone 15 by CallMeShazzam TECH, presenting the creator's opinion, which is not verified by ASKODOX. It features Malayalam audio with English subtitles. Specific details like price, rating, reviews, stock, and specifications are not provided in the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -223,11 +223,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** పైన ఇచ్చిన వివరాల ప్రకారం ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూల వివరాలు అందుబాటులో లేవు (Not verified). ఈ వీడియో KP Vlogs & Review వారి సొంత అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు.
+**ASKODOX AI (production):** KP Vlogs & Review ఛానెల్ అందించిన వివరాలలో ఈ Urban Company AC సర్వీస్ యొక్క ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూలకు సంబంధించిన స్పష్టమైన వివరాలు అందుబాటులో లేవు (Not verified). ఇవి ఆ క్రియేటర్ అభిప్రాయం మాత్రమే.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి సంబంధించిన స్పష్టమైన కొలతలు లేదా AC సామర్థ్యం (Ton) వివరాలు ఈ వీడియో శీర్షికలో లేవు (Not verified).
+**ASKODOX AI:** చిన్న గదికి Split AC సరిపోతుందో లేదో తెలియాలంటే టన్నుల సామర్థ్యం (Tonnage) అవసరం, కానీ ఇక్కడ ఇచ్చే వివరాలలో ఆ సమాచారం లేదు (Not verified).
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]; Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; ️ AC Repair Services in Vijayawada [online]
 
