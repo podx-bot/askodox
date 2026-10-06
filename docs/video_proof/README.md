@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-06T09:55:56Z by `.github/workflows/video-real-content-proof.yml` (run 37445890793).
+Generated 2026-10-06T10:05:16Z by `.github/workflows/video-real-content-proof.yml` (run 37446794561).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -57,7 +57,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు. మీ గది సైజు లేదా వీక్షణ దూరం ఎంత ఉందో చెప్పగలరా?
+**ASKODOX AI:** చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి గది పరిమాణం లేదా చూడవలసిన దూరం ఎంత ఉందో చెబుతారా?
 
 **Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (September 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store [deals]
 
@@ -227,7 +227,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** చిన్న గదికి ఇది సరిపోతుందో లేదో తెలుసుకోవడానికి అర్బన్ కంపెనీ ఏసీ సర్వీస్ వివరాలు పరిశీలిస్తున్నాను.
+**ASKODOX AI:** చిన్న గదికి ఈ ఏసీ సర్వీస్ లేదా కూలింగ్ సరిపోతుందో లేదో వీడియోలు మరియు రివ్యూలలో చూసి తెలుసుకోవచ్చు.
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]; Professional AC service & repair experts in Vijayawada, India [online]; Split AC Services in Vijayawada [online]; Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada [online]
 
