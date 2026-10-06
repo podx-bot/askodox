@@ -168,3 +168,18 @@ def test_api_returns_the_brain_fields(monkeypatch):
         {"role": "user", "text": "నాకు ఒక ఐరన్ బీరువా కావాలి"}, {"role": "assistant", "text": "బడ్జెట్ ఎంత?"}]}).json()
     assert body["search_ready"] is False and body["next_question"] == "ఏ సైజు కావాలి?"
     assert body["state"]["facts"]["budget"] == "30000-40000"
+
+
+def test_already_searched_state_reaches_the_brain(monkeypatch):
+    from fastapi.testclient import TestClient
+    from server import app, container
+
+    svc, client = _svc(_brain("These options already fit; delivery is available from most sellers.", False))
+    monkeypatch.setattr(container, "universal_ai_assistant_service", svc, raising=False)
+    body = TestClient(app).post("/api/in-app/assistant", json={
+        "message": "I need home delivery", "locale": "en",
+        "searched_for": {"subject": "large 2 door steel almirah", "facts": {"budget": "30000-40000"}}}).json()
+    prompt = client.models.calls[0]
+    assert "Already searched for" in prompt and "large 2 door steel almirah" in prompt
+    assert "Taste preferences" in prompt and "NEVER block a search" in prompt
+    assert body["search_ready"] is False

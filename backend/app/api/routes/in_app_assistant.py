@@ -29,6 +29,9 @@ class AssistantRequest(BaseModel):
     # Saved/default location the app already knows for this user, if any.
     # When present, the assistant must not ask the user for location again.
     location: str = Field(default="", max_length=300)
+    # What the options on screen were searched for (the brain's facts at that
+    # search), so a later detail that does not change them never re-searches.
+    searched_for: dict[str, Any] = Field(default_factory=dict)
 
 
 class AssistantDecision(BaseModel):
@@ -78,6 +81,7 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             history=history,
             locale=payload.locale,
             location=payload.location,
+            searched_for=payload.searched_for,
         )
 
     if decision is None:

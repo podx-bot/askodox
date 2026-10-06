@@ -75,6 +75,14 @@ CONVERSATION_STATE_RULES = (
     "Genuinely ambiguous intent (for example 'delivery cheyali' = a delivery job vs sending a parcel): ask which, "
     "search_ready false. Advice / decision questions, general chat and questions about options already shown: "
     "search_ready false, next_question null unless a question is genuinely needed. "
+    "Only real decision criteria block a search: what the thing or service is (its kind/type), its size or capacity "
+    "when that changes which options fit, the budget when prices span widely, and for a service the job itself (and the "
+    "date when it must be booked). Taste preferences -- brand, colour, finish, style, design, extras -- NEVER block a "
+    "search when the user did not state them: leave them open (flexible) and refine after the user sees options. "
+    "If 'Already searched for' is given and the message continues the SAME need: search_ready = true only when the new "
+    "facts change which options fit (a different kind/type, size/capacity, budget range, a firm brand, another place); "
+    "a detail that does not change them (delivery wish, relaxed or open preference, usage note, timing for a service "
+    "already found) keeps search_ready false with next_question null, and the reply relates it to the current options. "
     "ready_reason = one short phrase explaining the readiness decision. "
     "new_need = true only when the current message starts a DIFFERENT need from the one being discussed (a new item "
     "or service, not an answer, correction or refinement of the current one); then state describes the new need only. "
@@ -471,6 +479,7 @@ class UniversalAIAssistantService:
         history: list[dict[str, str]] | None = None,
         locale: str = "",
         location: str = "",
+        searched_for: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
@@ -537,6 +546,8 @@ class UniversalAIAssistantService:
             + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
+            + (f"Already searched for (the options now on screen): "
+               f"{json.dumps(searched_for, ensure_ascii=False)[:1500]}\n" if searched_for else "")
             + (
                 f"FINAL REMINDER (highest priority, overrides anything above if in conflict): the "
                 f"user's location is already known as '{clean_location}'. Your reply text must NOT "

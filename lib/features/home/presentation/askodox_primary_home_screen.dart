@@ -1418,6 +1418,25 @@ class _AskodoxPrimaryHomeScreenState
   /// labelled, never presented as matches for the new details.
   int? _resultsOutdatedFor;
 
+  /// What the options on screen were searched for (the brain decides from
+  /// it whether a new detail needs a new search or the current options do).
+  Map<String, Object?>? _searchedFor() {
+    final pinned = _pinnedResultsTurn;
+    if (pinned == null || _resultsHiddenFor == pinned) return null;
+    final deal = _dealByTurn[pinned];
+    if (deal == null) return null;
+    final fields = deal.dynamicFields;
+    return {
+      'subject': deal.subject,
+      if (fields['brain_facts'] is Map) 'facts': fields['brain_facts'],
+      if (fields['budget_max'] != null) 'budget_max': fields['budget_max'],
+      if (fields['brand'] != null) 'brand': fields['brand'],
+      if (deal.size != null) 'size': deal.size,
+      if (deal.location.label?.trim().isNotEmpty ?? false) 'location': deal.location.label,
+      'options_shown': _resultsByTurn[pinned]?.matches.length ?? 0,
+    };
+  }
+
   /// What a search was for: the request's details, without bookkeeping.
   static String _requirementSignature(UniversalDeal deal) {
     const volatile = {'searched', 'said_subject', 'advisor_asked', 'requested_groups', 'aiCategory'};
@@ -1821,6 +1840,7 @@ class _AskodoxPrimaryHomeScreenState
       locale: _lang,
       history: history,
       location: _saysNearMe(text) ? knownLocationLabel : (_requestedPlace?.label ?? knownLocationLabel),
+      searchedFor: _searchedFor(),
     );
     final aiUsable = decision?.usable == true;
     // The brain owns readiness this turn (a question about options already

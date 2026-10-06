@@ -60,7 +60,7 @@ jobs:
           lat, lon = coords.get(location, (None, None))
           totals = {}
           for conv in cfg['conversations']:
-              history, shown, calls = [], None, 0
+              history, shown, calls, searched_for = [], None, 0, None
               print(f"\n================ {conv['id']}: {conv['title']} ================")
               for i, turn in enumerate(conv['turns'], 1):
                   text = turn if isinstance(turn, str) else turn['text']
@@ -68,13 +68,16 @@ jobs:
                   msg = text + ('\nOptions already shown to the user:\n' + '\n'.join(f'{n}. {t}' for n, t in enumerate(shown, 1))
                                 + '\nAnswer ONLY from the facts listed for each option.' if about else '')
                   code, d = post('/api/in-app/assistant', {'message': msg, 'locale': conv.get('locale', 'en'),
-                                                          'history': history[-12:], 'location': location})
+                                                          'history': history[-12:], 'location': location,
+                                                          **({'searched_for': searched_for} if searched_for else {})})
                   ready = d.get('search_ready')
                   mode = d.get('mode')
                   # The app's gate: the brain decides; follow-ups / advice never search.
                   search = bool(ready) and mode not in ('advice', 'follow_up') and d.get('source') == 'universal_ai'
                   reason = d.get('ready_reason') or ''
                   result_count = None
+                  if d.get('new_need'):
+                      searched_for, shown = None, None  # the app hides the old cards
                   if search:
                       facts = (d.get('state') or {}).get('facts') or {}
                       bmin, bmax = budget(facts)
@@ -88,6 +91,8 @@ jobs:
                       rows = data.get('matches') or []
                       result_count = len(rows)
                       shown = [str(r.get('title'))[:70] for r in rows[:5]]
+                      # As the app: what the options on screen were searched for.
+                      searched_for = {'subject': subject, 'facts': facts, 'options_shown': len(rows)}
                   record = {
                       'turn': i, 'user': text, 'http': code, 'mode': mode, 'transactional': d.get('transactional'),
                       'search_ready': ready, 'new_need': d.get('new_need'), 'ready_reason': reason,

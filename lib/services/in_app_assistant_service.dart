@@ -187,6 +187,7 @@ class InAppAssistantService {
     required String locale,
     required List<InAppAssistantTurn> history,
     String? location,
+    Map<String, Object?>? searchedFor,
   }) async {
     final clean = message.trim();
     if (clean.isEmpty) return null;
@@ -207,6 +208,7 @@ class InAppAssistantService {
               'locale': locale,
               'history': history.takeLast(12).map((turn) => turn.toJson()).toList(),
               if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
+              if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
             }),
           )
           .timeout(const Duration(seconds: 15));
