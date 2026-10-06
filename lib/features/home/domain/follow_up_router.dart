@@ -117,9 +117,25 @@ String? askodoxAnswerFollowUp(AskodoxFollowUp intent, List<UniversalMatch> shown
       return '${te ? 'రేటింగ్ ప్రకారం:' : 'By rating (as stated by the source):'}\n\n${list(rated.take(top).toList())}';
     case AskodoxFollowUp.underBudget:
       if (budget == null) return null;
-      final within = [for (final m in rows) if (m.price != null && m.price! <= budget) m];
-      final unknown = [for (final m in rows) if (m.price == null) m].length;
+      final within = [
+        for (final m in rows)
+          if (m.price != null && m.price! <= budget && m.priceKind != 'starting_from') m,
+      ];
+      final conditional = [
+        for (final m in rows)
+          if (!within.contains(m) && m.offerPrice != null && m.offerPrice! <= budget) m,
+      ];
+      final unknown = [
+        for (final m in rows)
+          if (!within.contains(m) && !conditional.contains(m) && (m.price == null || m.priceKind == 'starting_from')) m,
+      ].length;
       final amount = '₹${budget.toStringAsFixed(0)}';
+      if (within.isEmpty && conditional.isNotEmpty) {
+        return [
+          te ? '$amount లోపు సాధారణ ధర ఉన్నది లేదు. ఆఫర్‌తో మాత్రమే:' : 'None is within $amount at its normal price. Only with an eligible offer:',
+          list(conditional.take(top + 2).toList()),
+        ].join('\n\n');
+      }
       if (within.isEmpty) {
         return te
             ? 'చూపిన వాటిలో $amount లోపు ధర ఉన్నది లేదు${unknown > 0 ? ' ($unknown ఆప్షన్లకు ధర ధృవీకరించలేదు)' : ''}.'
@@ -129,6 +145,8 @@ String? askodoxAnswerFollowUp(AskodoxFollowUp intent, List<UniversalMatch> shown
       return [
         te ? '$amount లోపు (మూలం చెప్పిన ధర):' : 'Within $amount (price as stated by the source):',
         list(within.take(top + 2).toList()),
+        if (conditional.isNotEmpty) te ? 'ఆఫర్‌తో మాత్రమే బడ్జెట్‌లో:' : 'Within budget only with an eligible offer:',
+        if (conditional.isNotEmpty) list(conditional.take(top).toList()),
         if (unknown > 0) te ? '$unknown ఆప్షన్లకు ధర ధృవీకరించలేదు -- చేర్చలేదు.' : '$unknown option(s) have no verified price and are not included.',
       ].join('\n\n');
     case AskodoxFollowUp.onlyLocal:

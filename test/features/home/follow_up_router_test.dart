@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/home/domain/chat_result_policy.dart';
 import 'package:podx/features/home/domain/follow_up_router.dart';
 import 'package:podx/features/matching/data/universal_match_repository.dart';
 
@@ -49,5 +50,17 @@ void main() {
     expect(askodoxAnswerFollowUp(AskodoxFollowUp.reviews, [_rows[0], _rows[1]], te: false), isNull,
         reason: 'no rating on screen -> search real reviews instead');
     expect(askodoxAnswerFollowUp(AskodoxFollowUp.compare, [_rows[3]], te: false), isNull);
+  });
+
+  test('price truth: conditional offer and starting-from are never the normal price', () {
+    const reliance = UniversalMatch(id: 'r', title: 'Voltas 1.5T', source: 'online', price: 41490, priceVerified: false,
+        priceKind: 'page_level', offerPrice: 36433, offerCondition: 'sbi credit card', budgetFit: 'within_with_offer');
+    const from = UniversalMatch(id: 'f', title: 'LG ACs', source: 'online', price: 31990, priceKind: 'starting_from');
+    expect(askodoxPriceLabel(reliance, te: false),
+        'Page mentions ₹41490 · ₹36433 with eligible offer (sbi credit card) · In budget only with the offer');
+    expect(askodoxPriceLabel(from, te: false), 'From ₹31990 (cheapest variant)');
+    final out = askodoxAnswerFollowUp(AskodoxFollowUp.underBudget, [reliance, from], te: false, budget: 40000)!;
+    expect(out, contains('Only with an eligible offer'));
+    expect(out, isNot(contains('Within ₹40000 (price')));
   });
 }

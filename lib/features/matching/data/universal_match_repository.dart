@@ -119,6 +119,11 @@ class UniversalMatch {
     this.originalPrice,
     this.discountPercent,
     this.priceSource,
+    this.priceKind,
+    this.listPrice,
+    this.offerPrice,
+    this.offerCondition,
+    this.budgetFit,
     this.stockStatus,
     this.lastChecked,
     this.routing,
@@ -132,6 +137,17 @@ class UniversalMatch {
   /// Where [price] came from: 'page_text' (web snippet) or 'catalog'
   /// (staff-entered from the product page, see [lastChecked]).
   final String? priceSource;
+
+  /// Price provenance (backend price_truth): offer | starting_from |
+  /// page_level | list | selling. A conditional price (bank card / coupon /
+  /// exchange) is [offerPrice] + [offerCondition], never [price].
+  final String? priceKind;
+  final double? listPrice;
+  final double? offerPrice;
+  final String? offerCondition;
+
+  /// within | within_with_offer | over | unknown against the asked budget.
+  final String? budgetFit;
 
   /// IN_STOCK / OUT_OF_STOCK / UNKNOWN when the source tracks stock.
   final String? stockStatus;
@@ -323,6 +339,11 @@ class UniversalMatch {
           originalPrice: (json['original_price'] as num?)?.toDouble(),
           discountPercent: (json['discount_percent'] as num?)?.toInt(),
           priceSource: json['price_source']?.toString(),
+          priceKind: json['price_kind']?.toString(),
+          listPrice: (json['list_price'] as num?)?.toDouble(),
+          offerPrice: (json['offer_price'] as num?)?.toDouble(),
+          offerCondition: json['offer_condition']?.toString(),
+          budgetFit: json['budget_fit']?.toString(),
           stockStatus: json['stock_status']?.toString(),
           lastChecked: (json['last_checked'] ?? json['price_checked_at'])?.toString(),
           routing: json['routing']?.toString(),
@@ -363,6 +384,11 @@ class UniversalMatch {
         if (originalPrice != null) 'original_price': originalPrice,
         if (discountPercent != null) 'discount_percent': discountPercent,
         if (priceSource != null) 'price_source': priceSource,
+        if (priceKind != null) 'price_kind': priceKind,
+        if (listPrice != null) 'list_price': listPrice,
+        if (offerPrice != null) 'offer_price': offerPrice,
+        if (offerCondition != null) 'offer_condition': offerCondition,
+        if (budgetFit != null) 'budget_fit': budgetFit,
         if (stockStatus != null) 'stock_status': stockStatus,
         if (lastChecked != null) 'last_checked': lastChecked,
         if (routing != null) 'routing': routing,

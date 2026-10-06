@@ -759,9 +759,26 @@ bool askodoxAsksForVideos(String text) => _videoAsk.hasMatch(text);
 /// listed price with its MRP / discount when the source states them; a price
 /// found only in web-page text stays "Page mentions ₹X".
 String? askodoxPriceLabel(UniversalMatch match, {required bool te}) {
+  final base = _basePriceLabel(match, te: te);
+  final offer = match.offerPrice;
+  final parts = <String>[
+    if (base != null) base,
+    // A conditional price is never shown as THE price.
+    if (offer != null)
+      te
+          ? '₹${offer.toStringAsFixed(0)} అర్హత ఉన్న ఆఫర్‌తో${match.offerCondition == null ? '' : ' (${match.offerCondition})'}'
+          : '₹${offer.toStringAsFixed(0)} with eligible offer${match.offerCondition == null ? '' : ' (${match.offerCondition})'}',
+    if (match.budgetFit == 'over') te ? 'మీ బడ్జెట్ కంటే ఎక్కువ' : 'Over your budget',
+    if (match.budgetFit == 'within_with_offer') te ? 'ఆఫర్‌తో మాత్రమే బడ్జెట్‌లో' : 'In budget only with the offer',
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+String? _basePriceLabel(UniversalMatch match, {required bool te}) {
   final price = match.price;
   if (price == null) return null;
   final amount = '₹${price.toStringAsFixed(0)}';
+  if (match.priceKind == 'starting_from') return te ? '$amount నుంచి (చౌకైన వేరియంట్)' : 'From $amount (cheapest variant)';
   if (match.priceVerified) return amount;
   if (match.priceSource == 'catalog') {
     final mrp = match.originalPrice;
