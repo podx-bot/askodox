@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T16:51:37Z",
+ "generated_at": "2026-10-06T16:58:01Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:16aee8dd7c2b416d",
+   "trace_key": "browse:77039611537c44c0",
    "videos": [
     {
      "video_id": "yt_ddTpAyeDQ4I",
@@ -36,9 +36,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -88,7 +88,7 @@
    },
    "ai": {
     "question": "Tell me more about \"I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days\"",
-    "reply": "This video by creator Udrawat covers recommendations for the best 43-inch TVs across different budget ranges during the Amazon Great Indian Festival and Flipkart Big Billion Days sales. Please note, these are creator opinions and are Not verified by ASKODOX. Specific details like pricing, ratings, or exact TV specs are not provided by the source.",
+    "reply": "This video by Udrawat covers various 43-inch TVs across different budget ranges for the Amazon Great Indian Festival and Flipkart Big Billion Days sales. Please note that specific prices, ratings, stock, and detailed specifications are Not verified by ASKODOX as they are not provided in the listing facts.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -118,7 +118,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -127,7 +127,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:b45bf04643b34d17",
+   "trace_key": "browse:a4441d33cb7b45e9",
    "videos": [
     {
      "video_id": "yt_ddTpAyeDQ4I",
@@ -238,9 +238,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
-     "size": "43 inch",
+     "size": "43 అంగుళాల",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -290,10 +290,10 @@
    },
    "ai": {
     "question": "\"I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియో 'I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days' గురించి వివరాలు: దీని క్రియేటర్ Udrawat. అందులో ఉన్న విషయాలు వారి సొంత అభిప్రాయాలు మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. లభ్యమైన సమాచారం:\n• ధర: అందించబడలేదు (Not verified)\n• దూరం: అందించబడలేదు (Not verified)\n• నాణ్యత / క్వాలిటీ: అందించబడలేదు (Not verified)\n• అందుబాటు (Stock): అందించబడలేదు (Not verified)\n• రివ్యూలు / రేటింగ్: అందించబడలేదు (Not verified)",
+    "reply": "ఈ వీడియోలో అందించిన సమాచారం ప్రకారం:\n- ధర: Not verified\n- దూరం: Not verified\n- నాణ్యత: Not verified\n- అందుబాటు: Not verified\n- రివ్యూలు: Not verified\n\nఇవి క్రియేటర్ Udrawat యొక్క అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. ఇచ్చిన వివరాల్లో ధర, దూరం మరియు నాణ్యత వంటి స్పష్టమైన సమాచారం అందుబాటులో లేదు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సాధారణంగా కాస్త పెద్దదిగా అనిపించవచ్చు. సాధారణంగా చిన్న గదులకు 32 అంగుళాల టీవీ సరిపోతుంది, కానీ చూడటానికి కనీసం 5 నుండి 6 అడుగుల దూరం ఉంటే ఇది కూడా అనుకూలంగా ఉంటుంది.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి గది పరిమాణం మరియు చూసే దూరం ముఖ్యం. సాధారణంగా 43 అంగుళాల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉండాలి. మీ గదిలో అంత దూరం ఉంటే ఇది బాగా సరిపోతుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "GENERAL",
     "follow_action": "advise"
@@ -316,7 +316,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -325,7 +325,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -407,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:e260f228913e4cc9",
+   "trace_key": "browse:651fdf9780584f43",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,12 +433,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
      "brand": "Redmi",
-     "model": "Note 13 Pro",
      "location": "Vijayawada"
     }
    },
@@ -488,7 +487,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "According to the video details from Gyan Therapy, 'Redmi Note 13 Pro is here - Let's Check!' is an unboxing and initial impression video. It highlights that the phone features a Snapdragon 7s Gen 2 processor, a 200MP triple camera, and a 5100mAh battery with 67W fast charging. Please note, these details reflect the creator's opinion and are not verified by ASKODOX. Information regarding price, ratings, distance, and stock availability was not provided by the source.",
+    "reply": "This unboxing and initial impression video is by Gyan Therapy (creator's opinion, not verified by ASKODOX). According to the video details, the Redmi Note 13 Pro features a Snapdragon 7s Gen 2 processor, a 200MP triple camera, a 5100mAh battery, and 67W charging. Price, rating, and stock availability were not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -611,7 +610,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:91a8b9ec91ef456c",
+   "trace_key": "browse:3ddff7f647bc4e0d",
    "videos": [
     {
      "video_id": "yt_KjJanS7xNAI",
@@ -642,6 +641,7 @@
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
+     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
@@ -690,7 +690,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|\"",
-    "reply": "This video by Sunil Autocar features a detailed review of the Tata Nexon Top Model Fearless Plus PS (2026), highlighting its interior, exterior, and segment-loaded features. Please note that these are the creator's opinions and are not verified by ASKODOX. Specific details like price, stock availability, and ratings are not provided by the source.",
+    "reply": "Based on the details provided from Sunil Autocar, this video covers a detailed review of the Tata Nexon Top Model Fearless Plus PS, including its interior, exterior, and features. Please note that this is the creator's opinion and not verified by ASKODOX. Specific details such as price, ratings, and stock availability are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -812,7 +812,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:c67a437503b5433c",
+   "trace_key": "browse:8ee70d6d80564b86",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -838,7 +838,7 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "AC service",
@@ -889,7 +889,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
-    "reply": "This video is by KP Vlogs & Review, representing the creator's personal opinion which is not verified by ASKODOX. Details such as price, ratings, distance, and availability were not provided by the source.",
+    "reply": "This video by KP Vlogs & Review covers the Urban Company Split AC Cleaning using Advance Foamjet Technology. Please note that this reflects the creator's personal opinion and is not verified by ASKODOX. Key details like price, rating, reviews, and availability are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -994,7 +994,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:34c86df6b6cf4227",
+   "trace_key": "browse:a4d8d65018084002",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1072,7 +1072,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
-    "reply": "This video is by 'vijay xyz tricks' with the title 'Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed'. Please note that the contents or opinions in the video are the creator's opinion and not verified by ASKODOX. Details like price, rating, reviews, stock, and distance are not provided.",
+    "reply": "This short video is by creator 'vijay xyz tricks'. The video content has not been analyzed, and facts like price, rating, reviews, and distance are not provided by the source. Note that creator claims reflect their opinion and are not verified by ASKODOX.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1100,16 +1100,16 @@
     },
     "options": [
      {
-      "title": "Amulya Plumbing & Sanitary Services",
+      "title": "SS Rapid Electrical and plumbing works",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 0.2,
+      "distance_km": 1.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=10883317646997129769&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1177,7 +1177,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:15b99912c1374e4e",
+   "trace_key": "browse:1ffcec3fb5e84bef",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1256,12 +1256,12 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "This video by DCT EATS features a comparison of authentic Hyderabadi mutton biryani in Mumbai across three price points (₹450, ₹800, and ₹1200) from Bikkgane Biryani, Biryani By Kilo, and Lit, alongside Sahil from Headbanger Eats. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as ratings, exact prices per item, distance, and availability are not provided in the source.",
+    "reply": "This video by DCT EATS features the creator and Sahil from Headbanger Eats testing authentic Hyderabadi mutton biryani in Mumbai across three price tiers: Bikkgane Biryani (₹450), Biryani By Kilo (₹800), and Lit (₹1200). Please note that these are the creator's opinions and not verified by ASKODOX. Specific ratings, reviews, stock availability, distance, and exact item pricing details are not provided in the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "FOOD",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1377,7 +1377,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:e922086506ea4a9a",
+   "trace_key": "browse:9f9250bd76be41dd",
    "videos": [
     {
      "video_id": "yt_IaaAlzSxqwA",
@@ -1400,13 +1400,13 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
+    "domain": "EVENT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1457,12 +1457,12 @@
    },
    "ai": {
     "question": "Tell me more about \"Top 10 Places in Araku Valley 🌴🌊❤✨ #araku\"",
-    "reply": "According to the details provided by creator Ramya Random Tales (creator's opinion, not verified by ASKODOX), the video highlights Rana Jilleda Waterfalls as a favorite spot, mentions Galikonda Viewpoint is overrated, and recommends skipping Katika Waterfalls if traveling with kids or elderly people. Specific details such as full lists, prices, distances, and ratings are not provided in the source description.",
+    "reply": "Based on the details provided by Ramya Random Tales, the video highlights Rana Jilleda Waterfalls as a favorite, considers Galikonda View Point overrated, and recommends skipping Karika Waterfalls if traveling with kids or elderly people. Please note that these are the creator's personal opinions and are not verified by ASKODOX. Specific details like exact prices, ratings, or distance are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "EVENT",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1578,7 +1578,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:a7d9d25f0f354a05",
+   "trace_key": "browse:f3da815cec06446e",
    "videos": [
     {
      "video_id": "yt_GW-rCk-eAoU",
@@ -1658,7 +1658,7 @@
    },
    "ai": {
     "question": "Tell me more about \"How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350\"",
-    "reply": "This video, titled \"How To Check & Buy Used Classic 350,\" is by creator Bindass Singh. Specific details like price, rating, reviews, distance, and stock availability are not provided in the listing. Please note that the content reflects the creator's opinion and is not verified by ASKODOX.",
+    "reply": "This video titled 'How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350' is by content creator Bindass Singh (creator's opinion, not verified by ASKODOX). Specific details like price, rating, reviews, stock availability, and distance are not provided in the listing facts.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1780,7 +1780,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:d15e97085c514d84",
+   "trace_key": "browse:e42b0264b4454323",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1809,9 +1809,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "iPhone 15 offer",
      "brand": "Apple",
      "model": "iPhone 15",
-     "subject": "iPhone 15 offer",
      "location": "Vijayawada"
     }
    },
@@ -1862,7 +1862,7 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
-    "reply": "This video is a long-term review of the iPhone 15 by CallMeShazzam TECH, presenting the creator's opinion, which is not verified by ASKODOX. It features Malayalam audio with English subtitles. Specific details like price, rating, reviews, stock, and specifications are not provided in the source.",
+    "reply": "This video is a long-term review of the iPhone 15 by CallMeShazzam TECH, featuring Malayalam audio with English subtitles. It covers long-term usage impressions, whether it's the best iPhone, and its sale potential. Please note that these details reflect the creator's opinion and are Not verified by ASKODOX. Details like price, rating, and stock are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1985,7 +1985,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:daf529fb5cd048ca",
+   "trace_key": "browse:892e0717664f4798",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2015,6 +2015,7 @@
     "source": "universal_ai",
     "entities": {
      "subject": "ఏసీ సర్వీస్",
+     "service_type": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -2062,10 +2063,10 @@
    },
    "ai": {
     "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "KP Vlogs & Review ఛానెల్ అందించిన వివరాలలో ఈ Urban Company AC సర్వీస్ యొక్క ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూలకు సంబంధించిన స్పష్టమైన వివరాలు అందుబాటులో లేవు (Not verified). ఇవి ఆ క్రియేటర్ అభిప్రాయం మాత్రమే.",
+    "reply": "ఈ వీడియోలో Urban Company AC Foamjet Cleaning గురించి చెప్పబడింది. ఇది Creator (KP Vlogs & Review) గారి అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. ధర, దూరం, అందుబాటు మరియు రేటింగ్ వివరాలు ఈ సమాచారంలో అందించబడలేదు (Not verified).",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి Split AC సరిపోతుందో లేదో తెలియాలంటే టన్నుల సామర్థ్యం (Tonnage) అవసరం, కానీ ఇక్కడ ఇచ్చే వివరాలలో ఆ సమాచారం లేదు (Not verified).",
+    "follow_reply": "చిన్న గదికి Split AC Foamjet Cleaning సరిపోతుంది, కానీ దీని వివరాలు మరియు పూర్తి సమాచారం వీడియో ఆధారంగా సరిగ్గా నిర్ధారించబడలేదు (Not verified).",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "answer_about_options"
