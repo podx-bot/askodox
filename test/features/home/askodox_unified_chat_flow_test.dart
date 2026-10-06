@@ -1162,6 +1162,37 @@ void main() {
       expect(h.assistant.requests.length, asked, reason: 'answered from the shown results');
       await h.send(tester, 'which is the cheapest?');
       expect(find.textContaining('By stated price (lowest first)'), findsOneWidget);
+      // Directions for a shown shop: Maps (or an honest fallback), never a search.
+      await h.send(tester, 'give me directions to that shop');
+      expect(find.textContaining(RegExp(r'directions to|Could not open Google Maps')), findsWidgets);
+      expect(h.matches.deals.length, searches);
+    });
+  });
+
+  group('location truth', () {
+    testWidgets('a place asked for in chat persists to follow-ups until "near me"', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '91', matches: [_registeredTv]),
+          const UniversalMatchResult(dealId: '92', matches: [_registeredTv2]),
+          const UniversalMatchResult(dealId: '93', matches: [_registeredTv2]),
+        ]),
+        assistant: _Assistant((message) {
+          final m = message.toLowerCase();
+          final subject = m.contains('fridge') ? 'fridge' : (m.contains('chair') ? 'office chair' : 'AC');
+          return {'reply': 'Checking real sellers.', 'domain': 'PRODUCT', 'transactional': true,
+                  'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+                  'entities': {'subject': subject, 'budget': '40000', if (m.contains('guntur')) 'location': 'Guntur'}};
+        }),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'show me AC shops in Guntur under 40000');
+      expect(h.matches.deals.last.location.label, 'Guntur');
+      await h.send(tester, 'show me fridge options under 40000');
+      expect(h.matches.deals.last.location.label, 'Guntur', reason: 'requested place persists to a new follow-up');
+      expect(h.assistant.requests.last['location'], 'Guntur', reason: 'the AI is told the requested place');
+      await h.send(tester, 'show me office chair options near me under 40000');
+      expect(h.matches.deals.last.location.label, isNot('Guntur'), reason: '"near me" releases the requested place');
     });
   });
 

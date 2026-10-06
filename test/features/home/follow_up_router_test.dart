@@ -24,6 +24,11 @@ void main() {
     expect(askodoxFollowUpIntent('directions to the nearest one'), AskodoxFollowUp.nearest);
     expect(askodoxFollowUpIntent('give me directions to that shop'), AskodoxFollowUp.directions);
     expect(askodoxFollowUpIntent('I want to buy an AC'), isNull);
+    expect(askodoxFollowUpIntent('show me fridge options under 40000'), isNull, reason: 'a new request');
+    expect(askodoxFollowUpIntent('find AC shops in Guntur'), isNull);
+    expect(askodoxFollowUpIntent('show me the ones under 40000'), AskodoxFollowUp.underBudget);
+    expect(askodoxFollowUpIntent('please show me the cheapest mixer grinder options now'), isNull);
+    expect(askodoxFollowUpIntent('show me the cheapest of these'), AskodoxFollowUp.cheapest);
     expect(askodoxFollowUpIntent('Samsung TV review videos'), isNull, reason: 'a new request, not about shown results');
     expect(askodoxFollowUpBudget('under 40k'), 40000);
     expect(askodoxFollowUpBudget('below ₹38,000'), 38000);

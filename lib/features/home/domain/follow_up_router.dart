@@ -15,9 +15,16 @@ AskodoxFollowUp? askodoxFollowUpIntent(String text) {
   bool has(String pattern) => RegExp(pattern, caseSensitive: false).hasMatch(t);
   // A brand-new request ("compare iphone 15 and pixel 8 prices") names its
   // own products; the shown-results reading needs a pointer to them.
-  final aboutShown = has(r'\b(these|them|those|this|that|ones?|above|shown|results?|options?|best|top|first|both|all|these \d)\b') ||
-      has(r'\b(compare|cheapest|nearest|closest)\b') ||
-      has(r'ఇవి|వీటి|వాటి|ఈ ');
+  final pointer = has(r'\b(these|them|those|(this|that|the) (one|shop|store|place|seller|option|product|item)|ones?|above|shown|results?|both|all of them)\b') ||
+      has(r'\b(best|top|first)\s*(\d|two|three|four|five)\b') ||
+      has(r'ఇవి|వీటి|వాటి');
+  // "show me fridge options under 40000" / "find AC shops in Guntur" is a NEW
+  // request -- only a pointer to what is shown makes it a follow-up.
+  final newRequest = has(r'^\s*(show|find|search|need|buy|book)\b') ||
+      has(r'\b(show me|find me|search for|i want|i need|looking for|get me|want to buy)\b') ||
+      has(r'\b(near me|nearby|in [a-z]{3,})\b');
+  if (newRequest && !pointer) return null;
+  final aboutShown = pointer || has(r'\b(compare|cheapest|nearest|closest|which one|which is)\b') || has(r'పోల్చ|ఏది');
   if (!aboutShown) return null;
   if (has(r'\bcompare\b|\bcomparison\b|పోల్చ|पोलिक|तुलना')) return AskodoxFollowUp.compare;
   if (has(r'\b(cheapest|lowest price|least expensive|sort by price)\b|తక్కువ ధర|सबसे सस्ता')) return AskodoxFollowUp.cheapest;
