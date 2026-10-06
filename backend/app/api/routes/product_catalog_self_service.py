@@ -218,3 +218,37 @@ def remove_my_listing(product_id: int, request: Request) -> dict:
     if not container.product_catalog_repository.deactivate_for_seller(product_id, user_id):
         raise HTTPException(status_code=404, detail="Listing not found")
     return {"removed": True, "id": product_id}
+
+
+class UpdateMyListingRequest(BaseModel):
+    price: float | None = Field(default=None, ge=0)
+    stock_status: str | None = Field(default=None, pattern="^(IN_STOCK|OUT_OF_STOCK|UNKNOWN|in_stock|out_of_stock|unknown)$")
+    variant: str | None = Field(default=None, max_length=300)
+    quantity: float | None = Field(default=None, ge=0)
+    unit: str | None = Field(default=None, max_length=40)
+    location_label: str | None = Field(default=None, max_length=200)
+    delivery_available: bool | None = None
+
+
+@router.patch("/mine/{product_id}")
+def update_my_listing(product_id: int, payload: UpdateMyListingRequest, request: Request) -> dict:
+    """The seller edits their own listing: price, stock, size / variant,
+    quantity, place, delivery. Text goes through the same listing-quality
+    screen as a new listing (contact details / links / blocked words)."""
+    container: Any = request.app.state.container
+    user_id = _authenticated_app_user(request)
+    fields = payload.model_dump(exclude_none=True)
+    if not fields:
+        raise HTTPException(status_code=422, detail="Nothing to update")
+    text = " ".join(str(fields.get(k) or "") for k in ("variant", "location_label")).strip()
+    if text:
+        from app.api.routes.platform import platform
+        from app.services import listing_quality
+
+        reasons = listing_quality.content_reasons(text, listing_quality.prohibited_terms(platform(container).repo))
+        if reasons:
+            raise HTTPException(status_code=422, detail={"message": "This change can't be saved", "reasons": reasons})
+    row = container.product_catalog_repository.update_for_seller(product_id, user_id, fields)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return {"item": row}

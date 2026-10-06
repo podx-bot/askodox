@@ -22,7 +22,7 @@ final _myListingsProvider = FutureProvider.autoDispose<List<Map<String, Object?>
 });
 
 /// The seller's REAL listings (the ones buyers find in search), with
-/// Remove. New listings are made by telling ASKODOX ("I want to sell ...").
+/// Edit (tap: price / size / stock) and Remove. New listings are made by telling ASKODOX ("I want to sell ...").
 class MyListingsScreen extends ConsumerWidget {
   const MyListingsScreen({super.key});
 
@@ -43,6 +43,75 @@ class MyListingsScreen extends ConsumerWidget {
         content: Text(result is ApiSuccess
             ? t('Removed. Buyers will no longer see it.', 'తీసివేశాం. కొనుగోలుదారులకు ఇక కనిపించదు.')
             : t('Could not remove it right now.', 'ఇప్పుడు తీసివేయలేకపోయాం.')),
+      ));
+      ref.invalidate(_myListingsProvider);
+    }
+
+    Future<void> edit(Map<String, Object?> item) async {
+      final price = TextEditingController(text: item['price'] == null ? '' : '${item['price']}');
+      final variant = TextEditingController(text: '${item['variant'] ?? ''}');
+      var stock = '${item['stock_status'] ?? 'UNKNOWN'}'.toUpperCase();
+      final saved = await showModalBottomSheet<Map<String, Object?>>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheet) => StatefulBuilder(
+          builder: (sheet, setSheet) => Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(sheet).bottom),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('${item['subject'] ?? ''}', style: Theme.of(sheet).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('askodoxEditListingPrice'),
+                controller: price,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: t('Price (₹)', 'ధర (₹)')),
+              ),
+              TextField(
+                key: const Key('askodoxEditListingVariant'),
+                controller: variant,
+                decoration: InputDecoration(
+                    labelText: t('Sizes / variant (e.g. Size: 8, 9, 10)', 'సైజులు / వేరియంట్ (ఉదా. Size: 8, 9, 10)')),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                key: const Key('askodoxEditListingStock'),
+                segments: [
+                  ButtonSegment(value: 'IN_STOCK', label: Text(t('In stock', 'స్టాక్ ఉంది'))),
+                  ButtonSegment(value: 'OUT_OF_STOCK', label: Text(t('Out of stock', 'స్టాక్ లేదు'))),
+                ],
+                emptySelectionAllowed: true,
+                selected: {if (stock != 'UNKNOWN') stock},
+                onSelectionChanged: (v) => setSheet(() => stock = v.isEmpty ? 'UNKNOWN' : v.first),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                key: const Key('askodoxEditListingSave'),
+                onPressed: () => Navigator.pop(sheet, <String, Object?>{
+                  if (double.tryParse(price.text.trim()) != null) 'price': double.parse(price.text.trim()),
+                  if (variant.text.trim().isNotEmpty) 'variant': variant.text.trim(),
+                  'stock_status': stock,
+                }),
+                child: Text(t('Save', 'సేవ్ చేయండి')),
+              ),
+            ]),
+          ),
+        ),
+      );
+      if (saved == null || !context.mounted) return;
+      final session = ref.read(authSessionProvider);
+      final result = await ref.read(apiClientProvider).patch<Map<String, Object?>>(
+            '/api/products/mine/${item['id']}',
+            body: saved,
+            options: ApiRequestOptions(authToken: session.tokenPlaceholder),
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        key: const Key('askodoxEditListingResult'),
+        content: Text(result is ApiSuccess
+            ? t('Saved. Buyers see the new details now.', 'సేవ్ అయింది. కొనుగోలుదారులకు కొత్త వివరాలు కనిపిస్తాయి.')
+            : t('Could not save -- contact details and links are not allowed in a listing.',
+                'సేవ్ కాలేదు -- లిస్టింగ్‌లో ఫోన్ నంబర్లు, లింకులు అనుమతించబడవు.')),
       ));
       ref.invalidate(_myListingsProvider);
     }
@@ -102,9 +171,15 @@ class MyListingsScreen extends ConsumerWidget {
                   Card(
                     key: ValueKey('askodoxMyListing-${item['id']}'),
                     child: ListTile(
+                      key: ValueKey('askodoxEditListing-${item['id']}'),
+                      onTap: () => edit(item),
+                      leading: const Icon(Icons.edit_outlined),
                       title: Text('${item['subject'] ?? ''}'),
                       subtitle: Text([
                         if (item['price'] != null) '₹${item['price']}',
+                        if ('${item['variant'] ?? ''}'.isNotEmpty) '${item['variant']}',
+                        if ('${item['stock_status'] ?? ''}' == 'IN_STOCK') t('In stock', 'స్టాక్ ఉంది'),
+                        if ('${item['stock_status'] ?? ''}' == 'OUT_OF_STOCK') t('Out of stock', 'స్టాక్ లేదు'),
                         if ('${item['location_label'] ?? ''}'.isNotEmpty) '${item['location_label']}',
                       ].join(' • ')),
                       trailing: TextButton(

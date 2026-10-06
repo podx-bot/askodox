@@ -142,6 +142,27 @@ class ProductCatalogRepository:
             )
             return int(cur.lastrowid)
 
+    EDITABLE = ("price", "stock_status", "variant", "quantity", "unit", "location_label", "delivery_available")
+
+    def update_for_seller(self, product_id: int, seller_user_id: str, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """The seller edits their OWN active listing (only the fields in
+        EDITABLE). Returns the updated row, or None when it is not theirs."""
+        clean = {k: v for k, v in fields.items() if k in self.EDITABLE}
+        if "stock_status" in clean and clean["stock_status"] is not None:
+            clean["stock_status"] = str(clean["stock_status"]).upper()
+        if "delivery_available" in clean:
+            clean["delivery_available"] = 1 if clean["delivery_available"] else 0
+        with self._connect() as conn:
+            row = conn.execute("SELECT id FROM seller_products WHERE id=? AND seller_user_id=? AND active=1",
+                               (int(product_id), str(seller_user_id))).fetchone()
+            if not row:
+                return None
+            if clean:
+                sets = ",".join(f"{k}=?" for k in clean)
+                conn.execute(f"UPDATE seller_products SET {sets},updated_at=? WHERE id=?",
+                             (*clean.values(), self._now(), int(product_id)))
+        return self.get(int(product_id))
+
     def get(self, product_id: int) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM seller_products WHERE id=?", (int(product_id),)).fetchone()

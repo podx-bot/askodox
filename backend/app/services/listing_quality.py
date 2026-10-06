@@ -44,6 +44,18 @@ def _contains_term(text: str, term: str) -> bool:
     return bool(term) and re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text) is not None
 
 
+def content_reasons(text: str, prohibited: Iterable[str] = DEFAULT_PROHIBITED) -> List[str]:
+    """Why a piece of listing text cannot be saved (edits): a prohibited
+    item, contact details or a link. Empty list = fine."""
+    norm = _norm(text)
+    reasons = [f"prohibited item: '{t}'" for t in prohibited if _contains_term(norm, t)][:1]
+    if PHONE.search(text or "") or EMAIL.search(text or ""):
+        reasons.append("contact details in the listing text (shared only after a request is accepted)")
+    if URL.search(text or ""):
+        reasons.append("a link in the listing text")
+    return reasons
+
+
 def check(db_path: str, seller: str, fields: Dict[str, Any], *, prohibited: Iterable[str] = DEFAULT_PROHIBITED,
           max_per_hour: int = 20, cross_seller_limit: int = 3) -> Dict[str, Any]:
     """Decision for one new listing: allow / review / block, with reasons."""
