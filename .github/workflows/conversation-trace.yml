@@ -1,0 +1,104 @@
+name: Conversation trace
+
+# Real-runtime traces of the Conversation Decision Brain: plays multi-turn
+# conversations against the staging backend (deployed from this branch),
+# applies the app's search-readiness gate and counts the real discovery
+# calls. Nothing is mocked: real AI decisions, real /deals/discover.
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/conversation-traces.json', '.github/workflows/conversation-trace.yml']
+  workflow_dispatch:
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trace
+        env:
+          WANT: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, time, urllib.request
+          BASE = 'https://staging.askodox.com'
+          cfg = json.load(open('.github/conversation-traces.json'))
+          coords = {'Vijayawada': (16.5062, 80.6480)}
+          def post(path, body, timeout=120):
+              req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(),
+                                           headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-trace'}, method='POST')
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      return r.status, json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, {'error': e.read()[:300].decode('utf8', 'replace')}
+          want = os.environ.get('WANT', '')[:7]
+          for _ in range(40):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(BASE + '/health', headers={'User-Agent': 'ASKODOX-trace'}), timeout=30) as r:
+                      live = json.loads(r.read()).get('commit', '')
+              except Exception as e:
+                  live = repr(e)
+              print('DEPLOYED_COMMIT:', live, '(want', want + ')')
+              if str(live).startswith(want):
+                  break
+              time.sleep(30)
+          def budget(facts):
+              for k, v in (facts or {}).items():
+                  if not re.search('budget|price', k):
+                      continue
+                  text = str(v).lower().replace(',', '')
+                  nums = [float(n) for n in re.findall(r'\d+(?:\.\d+)?', text)]
+                  if not nums:
+                      continue
+                  scale = 1000 if re.search(r'k\b|thousand|వేల', text) and max(nums) < 1000 else 1
+                  nums = [n * scale for n in nums]
+                  return (min(nums) if len(nums) > 1 else None), max(nums)
+              return None, None
+          location = cfg.get('location', 'Vijayawada')
+          lat, lon = coords.get(location, (None, None))
+          totals = {}
+          for conv in cfg['conversations']:
+              history, shown, calls = [], None, 0
+              print(f"\n================ {conv['id']}: {conv['title']} ================")
+              for i, turn in enumerate(conv['turns'], 1):
+                  text = turn if isinstance(turn, str) else turn['text']
+                  about = (not isinstance(turn, str)) and turn.get('about_shown') and shown
+                  msg = text + ('\nOptions already shown to the user:\n' + '\n'.join(f'{n}. {t}' for n, t in enumerate(shown, 1))
+                                + '\nAnswer ONLY from the facts listed for each option.' if about else '')
+                  code, d = post('/api/in-app/assistant', {'message': msg, 'locale': conv.get('locale', 'en'),
+                                                          'history': history[-12:], 'location': location})
+                  ready = d.get('search_ready')
+                  mode = d.get('mode')
+                  # The app's gate: the brain decides; follow-ups / advice never search.
+                  search = bool(ready) and mode not in ('advice', 'follow_up') and d.get('source') == 'universal_ai'
+                  reason = d.get('ready_reason') or ''
+                  result_count = None
+                  if search:
+                      facts = (d.get('state') or {}).get('facts') or {}
+                      bmin, bmax = budget(facts)
+                      subject = d.get('search_subject') or (d.get('entities') or {}).get('subject') or text
+                      body = {'user_id': 'guest', 'raw_text': text, 'intent': 'buy', 'subject': subject,
+                              'category': 'general', 'location': {'label': location, 'latitude': lat, 'longitude': lon, 'radius_km': 10},
+                              'party_a': {'side': 'demand'}, 'party_b': {'side': 'supply'}, 'trace': {'query': text},
+                              'dynamic_fields': {k: v for k, v in {'budget_min': bmin, 'budget_max': bmax, 'brain_facts': facts}.items() if v}}
+                      rc, data = post('/deals/discover', body)
+                      calls += 1
+                      rows = data.get('matches') or []
+                      result_count = len(rows)
+                      shown = [str(r.get('title'))[:70] for r in rows[:5]]
+                  record = {
+                      'turn': i, 'user': text, 'http': code, 'mode': mode, 'transactional': d.get('transactional'),
+                      'search_ready': ready, 'new_need': d.get('new_need'), 'ready_reason': reason,
+                      'next_question': d.get('next_question'), 'state': d.get('state'),
+                      'search_subject': d.get('search_subject'), 'retrieval_called': search,
+                      'retrieval_calls_so_far': calls, 'results': result_count,
+                      'assistant': (d.get('reply') or d.get('error') or '')[:400],
+                  }
+                  print('TRACE ' + json.dumps({'conv': conv['id'], **record}, ensure_ascii=False))
+                  history += [{'role': 'user', 'text': text}, {'role': 'assistant', 'text': d.get('reply') or ''}]
+              totals[conv['id']] = calls
+              print(f"SUMMARY {conv['id']}: retrieval calls = {calls}")
+          print('TOTALS ' + json.dumps(totals))
+          PY

@@ -96,3 +96,75 @@ def test_advice_falls_back_to_the_routing_reply_when_the_advisor_call_fails():
     svc = UniversalAIAssistantService(delegate=None, api_key="k", model="m", client=client)
     out = svc.decide("Is it a good idea to start a cloud kitchen?", locale="en")
     assert out["mode"] == "advice" and out["reply"] == "Here is a quick view of the risks."
+
+
+# ---------------------------------------------- conversation state + readiness --
+
+def _brain(reply, ready, question=None, subject=None, facts=None, flexible=None, unknown=None, **extra):
+    data = json.loads(_decision(reply, **extra))
+    data.update({"state": {"goal": "buy a steel wardrobe", "facts": facts or {}, "flexible": flexible or [],
+                           "unknown_critical": unknown or []},
+                 "search_ready": ready, "next_question": question, "search_subject": subject,
+                 "ready_reason": "core need known" if ready else "size and budget unknown"})
+    return json.dumps(data, ensure_ascii=False)
+
+
+def test_prompt_carries_generic_state_rules_not_category_scripts():
+    svc, client = _svc(_brain("ok", False, "Budget?"))
+    svc.decide("నాకు ఒక ఐరన్ బీరువా కావాలి", locale="te")
+    prompt = client.models.calls[0]
+    assert "search is a TOOL" in prompt and "search_ready" in prompt and "unknown_critical" in prompt
+    for script in ("AC", "wardrobe", "beeruva", "almirah"):
+        assert f"if {script}" not in prompt.lower()
+
+
+def test_broad_request_is_not_ready_and_the_turn_ends_with_one_question():
+    svc, _ = _svc(_brain("సరే, మంచి బీరువా ఎంచుకుందాం.", False, "మీ బడ్జెట్ ఎంత?",
+                         facts={"item": "iron beeruva"}, unknown=["budget", "size"],
+                         entities={"subject": "iron beeruva"}))
+    out = svc.decide("నాకు ఒక ఐరన్ బీరువా కావాలి", locale="te")
+    assert out["search_ready"] is False and out["mode"] == "commerce"
+    assert out["reply"].endswith("మీ బడ్జెట్ ఎంత?"), "the ONE next question ends the turn"
+    assert out["search_subject"] is None
+    assert out["state"]["facts"] == {"item": "iron beeruva"}
+    assert out["state"]["unknown_critical"] == ["budget", "size"]
+
+
+def test_ready_turn_carries_the_consolidated_subject_and_no_question():
+    svc, _ = _svc(_brain("Got it.", True, "Anything else?", subject="large two-door steel wardrobe with locker",
+                         facts={"budget": "30000-40000", "doors": "2", "brand": "Godrej"}, flexible=["brand"]))
+    out = svc.decide("I need delivery to my place", locale="en",
+                     history=[{"role": "user", "text": "I need an iron wardrobe"}])
+    assert out["search_ready"] is True and out["next_question"] is None
+    assert out["search_subject"] == "large two-door steel wardrobe with locker"
+    assert out["state"]["flexible"] == ["brand"]
+
+
+def test_advice_follow_up_and_chat_are_never_search_ready():
+    svc, _ = _svc(_brain("Voltas is cheaper; rating Not verified.", True, subject="AC", transactional=False,
+                         domain="GENERAL", action="chat"))
+    out = svc.decide(SHOWN, locale="en")
+    assert out["mode"] == "follow_up" and out["search_ready"] is False and out["search_subject"] is None
+    svc, _ = _svc(_brain("general chat", True, transactional=False, domain="GENERAL", action="chat"))
+    assert svc.decide("how are you", locale="en")["search_ready"] is False
+
+
+def test_user_asking_for_videos_is_ready_and_missing_readiness_stays_unknown():
+    svc, _ = _svc(_brain("ok", False, "Budget?"))
+    out = svc.decide("Godrej almirah review videos", locale="en")
+    assert out["action"] == "search_videos" and out["search_ready"] is True
+    svc, _ = _svc(_decision("Sure."))  # an older model reply without readiness
+    out = svc.decide("I want a steel almirah", locale="en")
+    assert out["search_ready"] is None, "the app keeps its offline rule"
+
+
+def test_api_returns_the_brain_fields(monkeypatch):
+    from fastapi.testclient import TestClient
+    from server import app, container
+
+    svc, _ = _svc(_brain("ఏ సైజు కావాలి?", False, "ఏ సైజు కావాలి?", facts={"item": "beeruva", "budget": "30000-40000"}))
+    monkeypatch.setattr(container, "universal_ai_assistant_service", svc, raising=False)
+    body = TestClient(app).post("/api/in-app/assistant", json={"message": "30-40 వేలు", "locale": "te", "history": [
+        {"role": "user", "text": "నాకు ఒక ఐరన్ బీరువా కావాలి"}, {"role": "assistant", "text": "బడ్జెట్ ఎంత?"}]}).json()
+    assert body["search_ready"] is False and body["next_question"] == "ఏ సైజు కావాలి?"
+    assert body["state"]["facts"]["budget"] == "30000-40000"

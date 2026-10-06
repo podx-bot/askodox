@@ -1171,6 +1171,232 @@ void main() {
     });
   });
 
+  group('Conversation Decision Brain gates retrieval (after 1304)', () {
+    const almirah = UniversalMatch(id: 'online-0-alm', title: 'Godrej Slimline 2-door steel almirah at Store A',
+        source: 'online', destinationUrl: 'https://a.example/almirah', price: 34990);
+    const almirah2 = UniversalMatch(id: 'online-1-alm', title: 'Steel almirah with locker at Store B',
+        source: 'online', destinationUrl: 'https://b.example/almirah', price: 31500);
+    const climber = UniversalMatch(id: 'external-climb-1', title: 'Ramu coconut tree climbing service',
+        source: 'external', segment: 'nearby_external', distanceKm: 3.1, destinationUrl: 'https://maps.google.com/?cid=9');
+
+    /// One brain decision per turn, as the backend sends it (state + readiness).
+    Map<String, Object?> brain(String reply, {required bool ready, String? question, String? subject,
+            Map<String, Object?> facts = const {}, List<String> flexible = const [], List<String> unknown = const [],
+            bool transactional = true, String mode = 'commerce', Map<String, Object?> entities = const {},
+            bool newNeed = false}) =>
+        {
+          'reply': reply, 'domain': 'PRODUCT', 'transactional': transactional,
+          'action': transactional ? 'search_products' : 'chat', 'confidence': 0.9, 'source': 'universal_ai',
+          'mode': mode, 'entities': entities,
+          'state': {'goal': 'buy', 'facts': facts, 'flexible': flexible, 'unknown_critical': unknown},
+          'search_ready': ready, 'next_question': question, 'search_subject': subject,
+          'ready_reason': ready ? 'enough is known' : 'still unknown: ${unknown.join(', ')}',
+          'new_need': newNeed,
+        };
+
+    Finder workspace() => find.byKey(const Key('askodoxResultContext'));
+    Finder cards() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxResultCard-'));
+
+    /// The benchmark progression (not a script: the fake backend replays one
+    /// brain decision per turn, the app must obey it).
+    _Harness wardrobe({List<Object>? results}) {
+      var turn = 0;
+      final turns = <Map<String, Object?>>[
+        brain('సరే, మంచి బీరువా ఎంచుకుందాం. మీ బడ్జెట్ ఎంత?', ready: false, question: 'మీ బడ్జెట్ ఎంత?',
+            facts: {'item': 'iron beeruva'}, unknown: ['budget', 'size'], entities: {'subject': 'ఐరన్ బీరువా'}),
+        brain('సరే. ఏ సైజు, ఎన్ని డోర్లు కావాలి?', ready: false, question: 'ఏ సైజు, ఎన్ని డోర్లు కావాలి?',
+            facts: {'item': 'iron beeruva', 'budget': '30000-40000'}, unknown: ['size']),
+        brain('బాగుంది. దేనికి వాడతారు -- బట్టలు మాత్రమేనా?', ready: false, question: 'దేనికి వాడతారు -- బట్టలు మాత్రమేనా?',
+            facts: {'item': 'iron beeruva', 'budget': '30000-40000', 'size': 'large', 'doors': '2'}, unknown: ['use']),
+        brain('సరే. ఏదైనా బ్రాండ్ కావాలా?', ready: false, question: 'ఏదైనా బ్రాండ్ కావాలా?',
+            facts: {'item': 'iron beeruva', 'budget': '30000-40000', 'size': 'large', 'doors': '2',
+                'use': 'clothes + locker + shelves'}, unknown: ['brand']),
+        brain('సరే. డెలివరీ కావాలా?', ready: false, question: 'డెలివరీ కావాలా?',
+            facts: {'item': 'iron beeruva', 'budget': '30000-40000', 'size': 'large', 'doors': '2',
+                'use': 'clothes + locker + shelves', 'brand': 'Godrej'}, flexible: ['brand'], unknown: ['delivery']),
+        brain('సరే, మీ వివరాలు సరిపోయాయి.', ready: true, subject: 'large two-door steel almirah with locker',
+            facts: {'item': 'iron beeruva', 'budget': '30000-40000', 'size': 'large', 'doors': '2',
+                'use': 'clothes + locker + shelves', 'brand': 'Godrej', 'delivery': 'home delivery'},
+            flexible: ['brand']),
+      ];
+      return _Harness(
+        matches: _FakeMatchRepository(results ?? [const UniversalMatchResult(dealId: 'alm1', matches: [almirah, almirah2])]),
+        assistant: _Assistant((_) => turns[turn < turns.length ? turn++ : turns.length - 1]),
+      );
+    }
+
+    testWidgets('ROOT CAUSE: without the brain a bare product noun searched at once (offline rule)', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'x', matches: [almirah])]),
+        assistant: _Assistant((_) => {'reply': 'సరే, బీరువా వెతుకుతాను.', 'domain': 'PRODUCT', 'transactional': true,
+            'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+            'entities': {'subject': 'ఐరన్ బీరువా'}}),
+      );
+      await h.pump(tester);
+      // The phone had a known place (as on APK 1304).
+      final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+      await container.read(locationControllerProvider.notifier).selectManualLocation(BuyerSavedLocation(
+          id: 'v', name: 'Vijayawada', address: 'Vijayawada', point: GeoPoint(16.5062, 80.6480),
+          type: SavedLocationType.custom));
+      await _Harness.settle(tester);
+      await h.send(tester, 'నాకు ఒక ఐరన్ బీరువా కావాలి');
+      expect(h.matches.deals, hasLength(1), reason: 'APK 1304: the static schema had nothing missing -> search');
+    });
+
+    testWidgets('1-3, 5, 6, 14: broad request asks first; answers update state; ONE search once enough is known',
+        (tester) async {
+      final h = wardrobe();
+      await h.pump(tester);
+      await h.send(tester, 'నాకు ఒక ఐరన్ బీరువా కావాలి in Vijayawada');
+      expect(h.matches.deals, isEmpty, reason: '1: no premature retrieval');
+      expect(workspace(), findsNothing, reason: '1: no cards before the conversation understood the need');
+      expect(find.textContaining('మీ బడ్జెట్ ఎంత?'), findsOneWidget, reason: '1: one useful question');
+      for (final (answer, question) in [
+        ('30-40 వేలు', 'ఏ సైజు, ఎన్ని డోర్లు కావాలి?'),
+        ('పెద్దది, రెండు డోర్లు', 'దేనికి వాడతారు -- బట్టలు మాత్రమేనా?'),
+        ('multi use', 'ఏదైనా బ్రాండ్ కావాలా?'),
+        ('Godrej okay, ఇతర మంచి బ్రాండ్లు కూడా okay', 'డెలివరీ కావాలా?'),
+      ]) {
+        await h.send(tester, answer);
+        expect(h.matches.deals, isEmpty, reason: '2/14: no paid search on a clarification ($answer)');
+        expect(workspace(), findsNothing);
+        expect(find.textContaining(question), findsOneWidget, reason: '2: the next question, never a repeat');
+      }
+      expect(find.textContaining('మీ బడ్జెట్ ఎంత?'), findsOneWidget, reason: '2: budget asked once only');
+      await h.send(tester, 'మా ఇంటికి delivery కావాలి');
+      expect(h.matches.deals, hasLength(1), reason: '3: exactly ONE consolidated retrieval');
+      final searched = h.matches.deals.single;
+      expect(searched.subject, 'large two-door steel almirah with locker', reason: '3: consolidated subject');
+      expect(searched.dynamicFields['budget_max'] ?? searched.price, isNotNull, reason: '5: budget from the short reply');
+      final facts = searched.dynamicFields['brain_facts'] as Map;
+      expect(facts['use'], 'clothes + locker + shelves', reason: '5: "multi use" attached to its question');
+      expect(searched.dynamicFields['no_preference'], contains('brand'), reason: '6: brand flexible');
+      expect(searched.dynamicFields['brand'], isNull, reason: '6: flexible brand is not a hard constraint');
+      expect(h.matches.traces.single!['search_gate'], startsWith('search (brain'));
+      expect(workspace(), findsOneWidget);
+      expect(cards(), findsNWidgets(2));
+      // 8: compare uses the shown evidence, no new search
+      await h.send(tester, 'ఏది మంచిది?');
+      expect(h.matches.deals, hasLength(1), reason: '8: compare reuses current evidence');
+    });
+
+    testWidgets('4: a complete first-turn request searches at once, no questionnaire', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'ac', matches: [almirah])]),
+        assistant: _Assistant((_) => brain('Got it.', ready: true,
+            subject: '1.5 ton inverter split AC', facts: {'type': 'split', 'capacity': '1.5 ton', 'inverter': 'yes',
+                'budget': 'under 40000', 'room': '150 sq ft', 'usage': '8 hours/day'},
+            entities: {'subject': 'AC', 'budget': '40000'})),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'Need a 1.5 ton inverter split AC under ₹40,000 for a 150 sq ft room, about 8 hours/day');
+      expect(h.matches.deals, hasLength(1));
+      expect(h.matches.deals.single.subject, '1.5 ton inverter split AC');
+      expect(find.textContaining('?'), findsNothing, reason: 'no question about what was already supplied');
+    });
+
+    testWidgets('7 + 12: a preference change updates state without a restart; stale cards are labelled, not current',
+        (tester) async {
+      var turn = 0;
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: 'a1', matches: [almirah]),
+          const UniversalMatchResult(dealId: 'a2', matches: [almirah2]),
+        ]),
+        assistant: _Assistant((_) => [
+              brain('ok', ready: true, subject: 'Godrej 2-door steel almirah',
+                  facts: {'item': 'steel almirah', 'brand': 'Godrej', 'budget': '30000-40000'},
+                  entities: {'subject': 'steel almirah', 'brand': 'Godrej'}),
+              brain('సరే, ఏ బ్రాండ్ అయినా సరే. లాకర్ కావాలా?', ready: false, question: 'లాకర్ కావాలా?',
+                  facts: {'item': 'steel almirah', 'budget': '30000-40000'}, flexible: ['brand'], unknown: ['locker']),
+              brain('ok', ready: true, subject: '2-door steel almirah with locker',
+                  facts: {'item': 'steel almirah', 'budget': '30000-40000', 'locker': 'yes'}, flexible: ['brand']),
+            ][turn < 3 ? turn++ : 2]),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'Godrej 2-door steel almirah ₹30-40k in Vijayawada');
+      expect(h.matches.deals, hasLength(1));
+      expect(h.matches.deals.single.dynamicFields['brand'], 'Godrej');
+      await h.send(tester, 'any good brand is okay');
+      expect(h.matches.deals, hasLength(1), reason: 'not ready: no search');
+      final deal = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)))
+          .read(universalDealControllerProvider)
+          .deal!;
+      expect(deal.dynamicFields['brand'], isNull, reason: '7: obsolete firm brand dropped');
+      expect(deal.dynamicFields['no_preference'], contains('brand'));
+      expect((deal.dynamicFields['brain_facts'] as Map)['budget'], '30000-40000', reason: '7: no restart, budget kept');
+      expect(find.byKey(const Key('askodoxResultsOutdated')), findsOneWidget,
+          reason: '12: earlier cards are labelled as for the earlier details');
+      await h.send(tester, 'yes, with locker');
+      expect(h.matches.deals, hasLength(2));
+      expect(find.byKey(const Key('askodoxResultsOutdated')), findsNothing);
+      expect(find.text('Steel almirah with locker at Store B'), findsOneWidget);
+      expect(find.text('Godrej Slimline 2-door steel almirah at Store A'), findsNothing, reason: '12/13: replaced');
+    });
+
+    testWidgets('10 + 12: an unseen category works without a script; a different need hides the old cards',
+        (tester) async {
+      var turn = 0;
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: 'b1', matches: [almirah]),
+          const UniversalMatchResult(dealId: 'c1', matches: [climber]),
+        ]),
+        assistant: _Assistant((_) => [
+              brain('ok', ready: true, subject: 'steel almirah', facts: {'item': 'steel almirah'},
+                  entities: {'subject': 'steel almirah'}),
+              brain('సరే. ఎన్ని చెట్లు ఉన్నాయి?', ready: false, question: 'ఎన్ని చెట్లు ఉన్నాయి?',
+                  facts: {'service': 'coconut tree climbing'}, unknown: ['trees'], newNeed: true,
+                  entities: {'subject': 'coconut tree climber'}),
+              brain('ok', ready: true, subject: 'coconut tree climbing service for 20 trees',
+                  facts: {'service': 'coconut tree climbing', 'trees': '20'}),
+            ][turn < 3 ? turn++ : 2]),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'steel almirah show me in Vijayawada');
+      expect(cards(), findsOneWidget);
+      await h.send(tester, 'I need someone to climb coconut trees');
+      expect(h.matches.deals, hasLength(1), reason: '10: a question first for the unseen need');
+      expect(workspace(), findsNothing, reason: '12: almirah cards never pose as climber results');
+      await h.send(tester, '20 trees');
+      expect(h.matches.deals, hasLength(2));
+      expect(h.matches.deals.last.subject, 'coconut tree climbing service for 20 trees');
+      expect(find.text('Ramu coconut tree climbing service'), findsOneWidget);
+    });
+
+    testWidgets('11 + 13: rendering, scrolling and tapping cards never start a retrieval; no duplicate cards',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'r1', matches: [almirah, almirah2])]),
+        assistant: _Assistant((_) => brain('ok', ready: true, subject: 'steel almirah',
+            facts: {'item': 'steel almirah'}, entities: {'subject': 'steel almirah'})),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'steel almirah show me in Vijayawada');
+      expect(h.matches.deals, hasLength(1));
+      await tester.drag(find.byKey(const Key('askodoxComparisonRail')), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+      expect(h.matches.deals, hasLength(1), reason: '11: presentation never searches');
+      final keys = tester.widgetList(cards()).map((w) => '${(w.key as ValueKey).value}').toList();
+      expect(keys.toSet().length, keys.length, reason: '13: no duplicate card');
+    });
+
+    testWidgets('14: an ambiguous need is clarified before any search', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'd1', matches: [almirah])]),
+        assistant: _Assistant((_) => brain('మీకు delivery ఉద్యోగం కావాలా, లేక ఏదైనా పార్సెల్ పంపాలా?', ready: false,
+            question: 'మీకు delivery ఉద్యోగం కావాలా, లేక ఏదైనా పార్సెల్ పంపాలా?', unknown: ['intent'],
+            entities: {'subject': 'delivery'})),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'delivery చేయాలి');
+      expect(h.matches.deals, isEmpty);
+      expect(workspace(), findsNothing);
+    });
+  });
+
   group('top result workspace (locked layout after 1303)', () {
     const acA = UniversalMatch(id: 'online-0-ac-a', title: 'Voltas 1.5 ton split AC at Store A', source: 'online',
         destinationUrl: 'https://a.example/ac', price: 38990);

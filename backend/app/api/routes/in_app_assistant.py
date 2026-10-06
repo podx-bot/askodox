@@ -42,6 +42,15 @@ class AssistantDecision(BaseModel):
     # Decision brain mode: advice (reasoning, no result cards), commerce
     # (search / act), follow_up (about options already shown) or chat.
     mode: str = "chat"
+    # Conversation Decision Brain: accumulated state, whether a search is
+    # justified now (None = the model gave no readiness; the app keeps its
+    # offline rule), the ONE next question and the consolidated search subject.
+    state: dict[str, Any] = Field(default_factory=dict)
+    search_ready: bool | None = None
+    next_question: str | None = None
+    search_subject: str | None = None
+    ready_reason: str = ""
+    new_need: bool = False
     # Added 2026-09-16 (round 9, roadmap Phase 1: "Reconnect what already
     # works"). BuyerIntelligenceService.build_buying_guide() is a real,
     # tested service that already existed but was only ever wired into the

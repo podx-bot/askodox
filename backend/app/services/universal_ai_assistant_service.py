@@ -45,6 +45,42 @@ def _reply_language_rule(locale: str) -> str:
         "titles as they are.\n"
     )
 
+# The Conversation Decision Brain's state + search-readiness rules. Generic
+# for every domain (products, services, jobs, travel, finance, unknown
+# categories): no category scripts, no fixed questionnaire, no keyword ->
+# question lists. The app searches only when ``search_ready`` is true.
+CONVERSATION_STATE_RULES = (
+    "Conversation state and search readiness (any domain, any category, any language; never a fixed questionnaire, "
+    "never a per-category script): search is a TOOL, not the default response to a product or service noun. "
+    "From the WHOLE conversation (history + current message) return state = {goal: one short line, "
+    "facts: object of every requirement the user supplied or unambiguously implied so far (short snake_case keys of "
+    "your choice, values as the user meant them; a later statement replaces an earlier one; a short reply such as "
+    "'30-40 thousand', 'two door', 'multi use', 'yes', '150 sq ft' answers the question the assistant just asked), "
+    "flexible: list of the fact keys the user is flexible about ('any', 'no preference', 'X okay, others also fine') "
+    "-- only the preference being discussed, never everything, unknown_critical: list of the few still-unknown things "
+    "that would MATERIALLY change which options are right for THIS user (judge it for this specific need; leave out "
+    "anything that only fine-tunes)}. "
+    "search_ready = true only when searching now would give this user genuinely useful, well-targeted options: the "
+    "need is clear and unknown_critical is empty, OR the user asks to see options now (show me / search / any is "
+    "fine), OR asks where to buy or get it, OR asks for videos/reviews. A broad first message that only names a "
+    "product, service or category is usually NOT ready. A message that already contains what matters IS ready -- "
+    "never ask for anything already known and never ask just to fill a form. "
+    "When search_ready is false for a request that needs options: next_question = the ONE most useful question "
+    "(the unknown that most changes the decision), natural and in the user's language; reply must end with exactly "
+    "that question and must not mention results; ask only one question per turn. "
+    "When search_ready is true: next_question = null; search_subject = one concise consolidated search phrase for "
+    "the wanted thing built from the accumulated facts (the item or service plus its defining attributes such as "
+    "type, size, capacity, material, firm brand; no budget, no location, no filler words); reply = a short "
+    "acknowledgement that never claims results. "
+    "Genuinely ambiguous intent (for example 'delivery cheyali' = a delivery job vs sending a parcel): ask which, "
+    "search_ready false. Advice / decision questions, general chat and questions about options already shown: "
+    "search_ready false, next_question null unless a question is genuinely needed. "
+    "ready_reason = one short phrase explaining the readiness decision. "
+    "new_need = true only when the current message starts a DIFFERENT need from the one being discussed (a new item "
+    "or service, not an answer, correction or refinement of the current one); then state describes the new need only. "
+)
+
+
 class UniversalAIAssistantService:
     GENERAL_MARKER = "OASAT domain=GENERAL;"
     ALLOWED_DOMAINS = {
@@ -141,6 +177,63 @@ class UniversalAIAssistantService:
         "The customer is ending the conversation",
     )
     _ABOUT_SHOWN_MARKERS = _APP_CONTEXT_MARKERS[:3]
+
+    @staticmethod
+    def _short(value: Any, limit: int) -> Any:
+        if isinstance(value, bool) or isinstance(value, (int, float)):
+            return value
+        if isinstance(value, list):
+            return [str(v)[:limit] for v in value[:10] if str(v).strip()]
+        return str(value or "").strip()[:limit]
+
+    @classmethod
+    def brain_state(cls, data: dict[str, Any], *, transactional: bool, mode: str, action: str) -> dict[str, Any]:
+        """The Conversation Decision Brain's state for this turn, normalized:
+        accumulated facts / flexible preferences / decision-critical unknowns,
+        whether a search is justified now, the ONE next question and the
+        consolidated search subject. ``search_ready`` is None only when the
+        model gave no readiness (the app then keeps its offline rule)."""
+        raw_state = data.get("state") if isinstance(data.get("state"), dict) else {}
+        facts_in = raw_state.get("facts") if isinstance(raw_state.get("facts"), dict) else {}
+        facts = {}
+        for key, value in list(facts_in.items())[:30]:
+            name = re.sub(r"[^a-z0-9_]+", "_", str(key).strip().lower()).strip("_")[:40]
+            clean_value = cls._short(value, 200)
+            if name and clean_value not in ("", [], None):
+                facts[name] = clean_value
+        def names(raw: Any) -> list[str]:
+            items = raw if isinstance(raw, list) else []
+            return [str(x).strip()[:80] for x in items[:12] if str(x).strip()]
+        state = {
+            "goal": str(raw_state.get("goal") or "").strip()[:200],
+            "facts": facts,
+            "flexible": [re.sub(r"[^a-z0-9_]+", "_", f.lower()).strip("_") for f in names(raw_state.get("flexible"))],
+            "unknown_critical": names(raw_state.get("unknown_critical")),
+        }
+        raw_ready = data.get("search_ready")
+        if isinstance(raw_ready, str):
+            raw_ready = {"true": True, "false": False}.get(raw_ready.strip().lower())
+        ready: bool | None = raw_ready if isinstance(raw_ready, bool) else None
+        question = str(data.get("next_question") or "").strip()[:300] or None
+        subject = str(data.get("search_subject") or "").strip()[:120] or None
+        if mode in {"advice", "follow_up"} or not transactional:
+            # Reasoning / options already shown / chat: never a search.
+            ready = False
+            question = question if mode == "chat" and transactional else None
+        elif action in {"search_videos", "find_local"}:
+            ready = True  # the user asked to see videos / where to get it
+        if ready:
+            question = None
+        else:
+            subject = None
+        return {
+            "state": state,
+            "search_ready": ready,
+            "next_question": question,
+            "search_subject": subject,
+            "ready_reason": str(data.get("ready_reason") or "").strip()[:200],
+            "new_need": data.get("new_need") is True or str(data.get("new_need")).strip().lower() == "true",
+        }
 
     @classmethod
     def split_app_context(cls, message: str) -> tuple[str, str, bool]:
@@ -405,7 +498,8 @@ class UniversalAIAssistantService:
         prompt = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
-            "reply, domain, transactional, action, confidence, entities. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
+            "reply, domain, transactional, action, confidence, entities, state, search_ready, next_question, search_subject, "
+            "ready_reason, new_need. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
             "PARCEL, RIDE, PRODUCT, FOOD, EVENT, APPOINTMENT, LEDGER, UNKNOWN. transactional is boolean. action is a short snake_case string. "
             "entities must be a JSON object containing only facts actually supplied or unambiguously inherited from the conversation. "
             "Useful entity keys include subject, category, role, skill, quantity, unit, headcount, date, time, timing, location, from, to, budget, price, salary, pay, pay_basis, duration, shift, context, variant, quality, size, model, brand, fulfilment, availability, specialist, service_type, job_type, seats, notes. "
@@ -434,6 +528,7 @@ class UniversalAIAssistantService:
             "Do not downgrade a short follow-up such as 'salary 800 estha', '10 members', 'repu 11 am', 'Vijayawada', or 'one person' to GENERAL when the prior context is staffing or another transaction. "
             "If a new request clearly changes intent, switch domains. Example: staffing follow-up -> parcel request must switch from STAFFING to PARCEL. "
             "Use previous turns as authoritative context for ellipsis and follow-ups. "
+            + CONVERSATION_STATE_RULES +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
             "location again, and do not include a location question in reply. Only ask about "
@@ -545,10 +640,15 @@ class UniversalAIAssistantService:
                 if domain in {"GENERAL", "UNKNOWN"}:
                     domain = "PRODUCT"
                 reply = self._local_search_reply(locale)
+            brain = self.brain_state(data, transactional=transactional, mode=mode, action=action)
+            if brain["search_ready"] is False and brain["next_question"] and "?" not in reply:
+                # Not ready yet: the turn ends with the ONE next question.
+                reply = f"{reply.rstrip()}\n\n{brain['next_question']}".strip()
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
             return {
+                **brain,
                 "reply": reply,
                 "domain": domain,
                 "transactional": transactional,
