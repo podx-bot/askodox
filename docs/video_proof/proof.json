@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T10:05:16Z",
+ "generated_at": "2026-10-06T10:11:08Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:8eaa692a7229480e",
+   "trace_key": "browse:611083ff8df54839",
    "videos": [
     {
      "video_id": "yt_ddTpAyeDQ4I",
@@ -33,12 +33,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -160,20 +160,6 @@
       "location_label": null
      },
      {
-      "title": "Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.sathya.store",
-      "price": 37989.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.sathya.store/store/vijayawada-2",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
       "segment": null,
       "match_source": "online",
@@ -200,6 +186,20 @@
       "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
+      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
+      "location_label": null
      }
     ]
    }
@@ -209,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:41edf48b56714a54",
+   "trace_key": "browse:be7f7c7632524a22",
    "videos": [
     {
      "video_id": "yt_ddTpAyeDQ4I",
@@ -293,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి గది పరిమాణం లేదా చూడవలసిన దూరం ఎంత ఉందో చెబుతారా?",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి, టీవీకి మీ వీక్షణ దూరానికి ( viewing distance) సరిపడా స్థలం ఉందో లేదో సరిచూసుకోవాలి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "search_videos"
+    "follow_action": "check_product_suitability"
    },
    "next": {
     "step": "deals",
@@ -358,20 +358,6 @@
       "location_label": null
      },
      {
-      "title": "Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.sathya.store",
-      "price": 37989.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.sathya.store/store/vijayawada-2",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
       "segment": null,
       "match_source": "online",
@@ -398,6 +384,20 @@
       "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
+      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
+      "location_label": null
      }
     ]
    }
@@ -407,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:a6f6824292f0481a",
+   "trace_key": "browse:f38cda3faa14464a",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,7 +433,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
@@ -610,7 +610,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:b1b1a00635f14fdf",
+   "trace_key": "browse:781ceb2d050e4b2c",
    "videos": [
     {
      "video_id": "yt_77aOlpHhpOw",
@@ -813,7 +813,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:da5dfeadc4e348da",
+   "trace_key": "browse:c89cd586ae3b42ef",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -995,7 +995,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:72fa7b7667aa40da",
+   "trace_key": "browse:3d17f819e9ec4d59",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1178,7 +1178,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:1400ac1af4884172",
+   "trace_key": "browse:c831c449037e496d",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1262,7 +1262,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "FOOD",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1287,16 +1287,16 @@
     },
     "options": [
      {
-      "title": "The Kazus Royal Dum Biryani",
+      "title": "Bismillah Paradise Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 1.5,
+      "distance_km": 0.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1378,7 +1378,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:43f84f9a6047463a",
+   "trace_key": "browse:a1028624d8cb4c9b",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1407,7 +1407,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1516,20 +1516,6 @@
       "location_label": null
      },
      {
-      "title": "5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.trawell.in",
-      "price": 6785.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.trawell.in/tour-packages/araku-valley",
-      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
-      "location_label": null
-     },
-     {
       "title": "Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack",
       "segment": "deals",
       "match_source": "online",
@@ -1544,17 +1530,17 @@
       "location_label": null
      },
      {
-      "title": "Araku Valley Packages From Vijaywada - Vijaywada to Araku Valley Packages @ ₹10379",
-      "segment": null,
+      "title": "5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off",
+      "segment": "deals",
       "match_source": "online",
-      "source_name": "www.makemytrip.com",
-      "price": 10379.0,
+      "source_name": "www.trawell.in",
+      "price": 6785.0,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.makemytrip.com/holidays-india/araku_valley-packages-from-vijaywada.html",
-      "image_url": null,
+      "destination_url": "https://www.trawell.in/tour-packages/araku-valley",
+      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
       "location_label": null
      },
      {
@@ -1570,6 +1556,20 @@
       "destination_url": "https://www.makemytrip.com/railways/vijayawada-araku-valley-train-tickets.html",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Araku Valley Packages From Vijaywada - Vijaywada to Araku Valley Packages @ ₹10379",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.makemytrip.com",
+      "price": 10379.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.makemytrip.com/holidays-india/araku_valley-packages-from-vijaywada.html",
+      "image_url": null,
+      "location_label": null
      }
     ]
    }
@@ -1579,7 +1579,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:55e0c7863d36480f",
+   "trace_key": "browse:05872064b3354d26",
    "videos": [
     {
      "video_id": "yt_RJworx5674I",
@@ -1783,7 +1783,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:f4d03f838e42418f",
+   "trace_key": "browse:1e9c0b7c5cd54048",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1812,8 +1812,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "iPhone 15 offer",
      "brand": "Apple",
+     "model": "iPhone 15",
+     "subject": "iPhone 15 offer",
      "location": "Vijayawada"
     }
    },
@@ -1987,7 +1988,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:d4db1e99141e49ed",
+   "trace_key": "browse:d32497bd6fb544f5",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2067,9 +2068,9 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఈ ఏసీ సర్వీస్ లేదా కూలింగ్ సరిపోతుందో లేదో వీడియోలు మరియు రివ్యూలలో చూసి తెలుసుకోవచ్చు.",
+    "follow_reply": "ఈ ఏసీ సర్వీస్ లేదా క్లీనింగ్ మీ గది పరిమాణానికి తగినదో కాదో తెలుసుకోవడానికి వీడియో రివ్యూలను వెతుకుతున్నాను.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "search_videos"
    },
    "next": {
