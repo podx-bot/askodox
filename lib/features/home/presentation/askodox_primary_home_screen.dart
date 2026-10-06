@@ -33,6 +33,7 @@ import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
 import '../../companion/companion_hub.dart';
 import '../application/saved_options.dart';
+import '../domain/follow_up_router.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
@@ -1680,6 +1681,35 @@ class _AskodoxPrimaryHomeScreenState
     if (explicitContext == null && actionable != null && askodoxConfirmsAction(text)) {
       await _actOnConfirmation(text, actionable, speakResponse);
       return;
+    }
+    // Follow-up about the results ON SCREEN ("compare the best 3",
+    // "cheapest?", "only local", "any deals?", "directions"): answered from
+    // the current result set -- never a new unrelated search, never a canned
+    // reply. Unknown facts are "Not verified". When the shown results cannot
+    // answer (no row has a rating / an offer), the normal flow searches.
+    if (explicitContext == null && !_pendingDiscussOnly && latestResults != null) {
+      final followUp = askodoxFollowUpIntent(text);
+      if (followUp == AskodoxFollowUp.directions) {
+        final target = [
+          for (final m in askodoxComparableRows(latestResults.matches))
+            if (askodoxDirectionsUri(m) != null) m,
+        ].firstOrNull;
+        if (target != null) {
+          await launchUrl(askodoxDirectionsUri(target)!, mode: LaunchMode.externalApplication);
+          await _replyAndSave(
+              _te ? '${target.title} కి దారి Google Maps లో తెరుస్తున్నాను.' : 'Opening directions to ${target.title} in Google Maps.',
+              speakResponse,
+              text);
+          return;
+        }
+      } else if (followUp != null) {
+        final answer = askodoxAnswerFollowUp(followUp, latestResults.matches,
+            te: _te, budget: askodoxFollowUpBudget(text));
+        if (answer != null) {
+          await _replyAndSave(answer, speakResponse, text);
+          return;
+        }
+      }
     }
     final wantsHuman = latestResults != null &&
         latestResults.hasLocal &&

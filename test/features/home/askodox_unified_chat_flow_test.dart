@@ -1136,6 +1136,35 @@ void main() {
     });
   });
 
+  group('follow-up router over shown results', () {
+    testWidgets('"Compare the best 3" compares the shown results; no new search, no canned video reply', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '82', matches: [_registeredTv, _registeredTv2]),
+        ]),
+        assistant: _Assistant((message) => message.toLowerCase().contains('show me')
+            ? {'reply': 'Checking real sellers.', 'domain': 'PRODUCT', 'transactional': true,
+               'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+               'entities': {'subject': 'office chair', 'budget': '30000'}}
+            : {'reply': 'Sure -- looking for real videos and reviews.', 'domain': 'PRODUCT', 'transactional': true,
+               'action': 'search_videos', 'confidence': 0.9, 'source': 'universal_ai'}),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'show me office chair options under 30000');
+      final searches = h.matches.deals.length;
+      expect(searches, greaterThan(0));
+      final asked = h.assistant.requests.length;
+      await h.send(tester, 'Compare the best 3');
+      expect(find.textContaining('Comparing the 2 options shown'), findsOneWidget);
+      expect(find.textContaining('Rating: Not verified'), findsWidgets);
+      expect(find.textContaining('looking for real videos and reviews'), findsNothing);
+      expect(h.matches.deals.length, searches, reason: 'no new search for a follow-up');
+      expect(h.assistant.requests.length, asked, reason: 'answered from the shown results');
+      await h.send(tester, 'which is the cheapest?');
+      expect(find.textContaining('By stated price (lowest first)'), findsOneWidget);
+    });
+  });
+
   group('held phone findings (START FIXES)', () {
     BuyerSavedLocation place(String name, double lat, double lng) => BuyerSavedLocation(
         id: name, name: name, address: name, point: GeoPoint(lat, lng), type: SavedLocationType.custom);
