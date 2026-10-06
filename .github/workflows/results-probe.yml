@@ -21,6 +21,42 @@ jobs:
           bases = {'production': 'https://podx-ai-connect-production-3279.up.railway.app',
                    'staging': 'https://staging.askodox.com'}
           coords = {'Vijayawada': (16.5062, 80.6480)}
+          import time
+          want = json.load(open('.github/results-probe.json')).get('expect_commit', '')
+          for _ in range(40):  # wait for Railway to serve the merged commit
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(bases['production'] + '/health', headers={'User-Agent': 'ASKODOX-probe'}), timeout=30) as r:
+                      live = json.loads(r.read()).get('commit', '')
+              except Exception as e:
+                  live = repr(e)
+              print('DEPLOYED_COMMIT:', live, '(want', want + ')')
+              if not want or str(live).startswith(want):
+                  break
+              time.sleep(30)
+          for text in ('what AC capacity do I need for a 150 sq ft bedroom', 'should I take a personal loan to buy a bike',
+                       'washing machine under 30000', 'నాకు ఏ బిజినెస్ పెట్టాలో సలహా ఇవ్వు'):
+              dreq = urllib.request.Request(bases['production'] + '/api/in-app/assistant', data=json.dumps(
+                  {'message': text, 'locale': 'en', 'history': [], 'location': 'Vijayawada'}).encode(),
+                  headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
+              try:
+                  with urllib.request.urlopen(dreq, timeout=90) as r:
+                      d = json.loads(r.read())
+                  print(f"MODE {text!r} -> mode={d.get('mode')} transactional={d.get('transactional')} action={d.get('action')} reply={str(d.get('reply'))[:220]!r}")
+              except urllib.error.HTTPError as e:
+                  print(f"MODE {text!r} -> HTTP {e.code}")
+          for path, body in (('/admin/cc/smart-entry/import', {'items': [], 'confirm': True}), ('/admin/cc/smart-entry', {'inputs': ['https://x.in']}),
+                             ('/admin/cc/assistant/ask', {'question': 'show products with missing prices'})):
+              try:
+                  urllib.request.urlopen(urllib.request.Request(bases['production'] + path, data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST'), timeout=60)
+                  print(f"GUARD POST {path} -> 200 (unexpected)")
+              except urllib.error.HTTPError as e:
+                  print(f"GUARD POST {path} -> HTTP {e.code}")
+          for path in ('/admin/cc/smart-entry/templates', '/api/products/mine/1'):
+              try:
+                  urllib.request.urlopen(urllib.request.Request(bases['production'] + path, headers={'User-Agent': 'ASKODOX-probe'}), timeout=60)
+                  print(f"GUARD {path} -> 200 (unexpected)")
+              except urllib.error.HTTPError as e:
+                  print(f"GUARD {path} -> HTTP {e.code}")
           # askodox.com/chat is proxied to the production backend (same engine).
           for url in ('https://askodox.com/chat', 'https://askodox.com/'):
               try:
@@ -153,6 +189,10 @@ jobs:
                   except Exception as e:
                       print('SEARCH_HEALTH:', e)
                   print('STALE_ROWS:', sum(1 for x in m if x.get('stale')))
+                  print('PRICE_TRUTH:', json.dumps({'kinds': {k: sum(1 for x in m if x.get('price_kind') == k) for k in sorted({str(x.get('price_kind')) for x in m})},
+                        'conditional_offers': [(str(x.get('title'))[:40], x.get('price'), x.get('offer_price'), x.get('offer_condition')) for x in m if x.get('offer_price')][:5],
+                        'budget_fit': {k: sum(1 for x in m if x.get('budget_fit') == k) for k in sorted({str(x.get('budget_fit')) for x in m})},
+                        'rejected': [(str(r.get('title'))[:40], r.get('price'), r.get('reason')) for r in data.get('rejected') or []][:8]}, ensure_ascii=False))
                   print('MARKETPLACES:', {k: sum(v for h, v in hosts.items() if k in h) for k in ('amazon', 'flipkart', 'meesho')})
                   adv = data.get('advisor') or {}
                   print('ADVISOR:', json.dumps({'category': (adv.get('category') or {}).get('key'), 'ready': adv.get('ready'), 'questions': [(q.get('field'), q.get('required'), q.get('question')) for q in adv.get('questions') or []], 'guidance': [g.get('title') for g in adv.get('guidance') or []]}, ensure_ascii=False))
