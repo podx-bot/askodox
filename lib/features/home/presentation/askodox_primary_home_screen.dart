@@ -34,6 +34,7 @@ import '../application/match_action_executor.dart';
 import '../../companion/companion_hub.dart';
 import '../application/saved_options.dart';
 import '../domain/follow_up_router.dart';
+import '../domain/search_readiness.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
@@ -752,7 +753,10 @@ class _AskodoxPrimaryHomeScreenState
     var listingBannerIsError = false;
     if (deal != null) {
       _trackSearchQuery(deal.subject ?? deal.category);
+      // Only a search the readiness gate already allowed is re-run; a
+      // request that was still being asked about stays without results.
       if (deal.readyToMatch &&
+          deal.dynamicFields['searched'] == true &&
           AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
         if (deal.intent == DealIntent.sell && _userMeansToSell(deal.rawText, deal)) {
           // A completed "sell" deal is a real listing to save, not a buyer
@@ -1405,6 +1409,48 @@ class _AskodoxPrimaryHomeScreenState
   /// marked, never shown as current).
   String? _resultsStaleFor;
 
+  /// The shown results were for a DIFFERENT need than the one now being
+  /// discussed (no search justified yet): not shown as if they matched.
+  int? _resultsHiddenFor;
+
+  /// The shown results were for EARLIER details of the same need (budget,
+  /// brand, size... changed; the new search is not justified yet): dimmed and
+  /// labelled, never presented as matches for the new details.
+  int? _resultsOutdatedFor;
+
+  /// What the options on screen were searched for (the brain decides from
+  /// it whether a new detail needs a new search or the current options do).
+  Map<String, Object?>? _searchedFor() {
+    final pinned = _pinnedResultsTurn;
+    if (pinned == null || _resultsHiddenFor == pinned) return null;
+    final deal = _dealByTurn[pinned];
+    if (deal == null) return null;
+    final fields = deal.dynamicFields;
+    return {
+      'subject': deal.subject,
+      if (fields['brain_facts'] is Map) 'facts': fields['brain_facts'],
+      if (fields['budget_max'] != null) 'budget_max': fields['budget_max'],
+      if (fields['brand'] != null) 'brand': fields['brand'],
+      if (deal.size != null) 'size': deal.size,
+      if (deal.location.label?.trim().isNotEmpty ?? false) 'location': deal.location.label,
+      'options_shown': _resultsByTurn[pinned]?.matches.length ?? 0,
+    };
+  }
+
+  /// What a search was for: the request's details, without bookkeeping.
+  static String _requirementSignature(UniversalDeal deal) {
+    const volatile = {'searched', 'said_subject', 'advisor_asked', 'requested_groups', 'aiCategory'};
+    final fields = {
+      for (final e in deal.dynamicFields.entries)
+        if (!volatile.contains(e.key)) e.key: '${e.value}',
+    };
+    final keys = fields.keys.toList()..sort();
+    return [
+      (deal.subject ?? '').trim().toLowerCase(), deal.size ?? '', '${deal.price ?? ''}', '${deal.quantity ?? ''}',
+      deal.location.label ?? '', for (final k in keys) '$k=${fields[k]}',
+    ].join('|');
+  }
+
   Future<void> _retryMatching(int turnIndex) async {
     final deal = _dealByTurn[turnIndex];
     if (deal == null || _sending) return;
@@ -1786,24 +1832,33 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
 
-    // Several needs in one message ("fridge ₹30–40k, TV ₹20–30k, car ₹10
-    // lakh"): each becomes its own requirement with its own slots and its
-    // own real results -- nothing is mixed between categories.
-    final needs = explicitContext == null && !discussOnly
-        ? askodoxSplitNeeds(text)
-        : const <AskodoxNeedSegment>[];
-    if (needs.isNotEmpty) {
-      await _searchSeveralNeeds(needs, speakResponse, text);
-      return;
-    }
-
+    // Every turn passes the Conversation Decision Brain BEFORE any search:
+    // it reads the whole conversation and says whether a search is justified
+    // now (see search_readiness.dart).
     final decision = await ref.read(askodoxAssistantServiceProvider).decide(
       message: aiMessage,
       locale: _lang,
       history: history,
       location: _saysNearMe(text) ? knownLocationLabel : (_requestedPlace?.label ?? knownLocationLabel),
+      searchedFor: _searchedFor(),
     );
     final aiUsable = decision?.usable == true;
+    // The brain owns readiness this turn (a question about options already
+    // shown never searches anyway).
+    final brainGates = aiUsable && decision!.gatesSearch && !discussOnly;
+
+    // Several needs in one message ("fridge ₹30–40k, TV ₹20–30k, car ₹10
+    // lakh"): each becomes its own requirement with its own slots and its
+    // own real results -- nothing is mixed between categories. Only when the
+    // brain agrees enough is known (or gave no readiness).
+    final needs = explicitContext == null && !discussOnly && !(brainGates && decision.searchReady == false)
+        ? askodoxSplitNeeds(text)
+        : const <AskodoxNeedSegment>[];
+    if (needs.isNotEmpty) {
+      _lastSearchGate = 'search (${brainGates ? 'brain' : 'offline'}: several needs)';
+      await _searchSeveralNeeds(needs, speakResponse, text);
+      return;
+    }
     if (aiUsable) {
       _lastDecision = decision;
       // The same brain decision dresses the companion in Automatic mode (a
@@ -1834,9 +1889,13 @@ class _AskodoxPrimaryHomeScreenState
     // (budget...) is still the active request.
     final continuingActiveDeal = activeDealSession.deal != null &&
         (!activeDealSession.completed || _pendingAdvisorField != null);
+    // The brain says whether this message answers the need being discussed
+    // or starts a different one; the short-message rule is the offline case.
+    final brainNewNeed = aiUsable && decision!.gatesSearch && decision.newNeed;
     final detailAnswer = !discussOnly &&
         clarified == null &&
         continuingActiveDeal &&
+        !brainNewNeed &&
         AskodoxHomeRequestRouting.isShortDetailAnswer(text);
     // "Tata" / "only Voltas" after (or during) a search refines THAT search
     // -- even when its results are already shown -- instead of starting a
@@ -1847,6 +1906,7 @@ class _AskodoxPrimaryHomeScreenState
     final brandRefinement = !discussOnly &&
         clarified == null &&
         !detailAnswer &&
+        !brainNewNeed &&
         activeDealSession.deal != null &&
         text.trim().split(RegExp(r'\s+')).length <= 4 &&
         askodoxDetectRole(text) == null &&
@@ -1919,6 +1979,13 @@ class _AskodoxPrimaryHomeScreenState
         notifier.reset();
         notifier.adopt(parked);
         if (!showOnly) notifier.answer(text);
+      } else if (brainNewNeed && session.deal != null) {
+        // The brain: a different need. The current one is kept (parked) for
+        // when the customer returns to it.
+        _parkDeal(session.deal!);
+        _lastGoodProductQuery = null;
+        notifier.reset();
+        notifier.start(routedText);
       } else if (session.deal != null &&
           !session.completed &&
           !detailAnswer &&
@@ -2052,10 +2119,27 @@ class _AskodoxPrimaryHomeScreenState
         if (clean.isNotEmpty) notifier.refineSubject(clean);
       }
 
-      // Real seller-backed search replaces the old DemoNaturalMatchCatalog
-      // sandbox data. `readyToMatch` keeps the same "don't show anything
-      // until the request is actually understood" gate the demo catalog
-      // used internally, now applied explicitly here.
+      // The brain's accumulated state (every fact so far, flexible
+      // preferences, the consolidated subject once ready) is the request.
+      if (brainGates) {
+        final facts = decision.facts;
+        final flexibleBrand = decision.flexible.any((f) => f.contains('brand'));
+        for (final fact in facts.entries) {
+          if (!RegExp('budget|price', caseSensitive: false).hasMatch(fact.key)) continue;
+          final range = askodoxBudgetRange('${fact.value}');
+          if (!range.isEmpty) notifier.applyBudget(min: range.min, max: range.max);
+        }
+        final firmBrand = '${facts['brand'] ?? ''}'.trim();
+        if (firmBrand.isNotEmpty && !flexibleBrand && !askodoxIsNoPreference(firmBrand) && firmBrand.length <= 40) {
+          notifier.applyBrand(firmBrand, known: known);
+        }
+        notifier.applyBrainState(
+          facts: facts,
+          flexible: decision.flexible,
+          searchSubject: decision.searchReady == true ? decision.searchSubject : null,
+        );
+      }
+
       final namedGroups = askodoxRequestedGroups(text);
       if (namedGroups.isNotEmpty) notifier.rememberGroups(namedGroups);
       final dealSession = ref.read(universalDealControllerProvider);
@@ -2073,14 +2157,18 @@ class _AskodoxPrimaryHomeScreenState
           final aiOptions = aiUsable && decision!.action == 'clarify_need'
               ? [for (final o in (decision.entities['clarify_options'] as List? ?? const [])) '$o']
               : const <String>[];
+          // With the brain deciding, ambiguity is its call (clarify_need);
+          // the fixed keyword rules only cover the offline case.
           final candidate = askodoxDynamicClarification(options: aiOptions, question: decision?.reply) ??
-              askodoxClarificationFor(text);
+              (brainGates ? null : askodoxClarificationFor(text));
           if (candidate != null && !_clarifiedKeys.contains(candidate.key)) {
             needClarification = candidate;
             _showNowAfterClarification = showNow;
           }
         }
-        if (!deal.readyToMatch) detailQuestion = dealSession.lastQuestion;
+        // The brain asks the ONE next question itself (in its reply); the
+        // schema's fixed next slot is only the offline fallback.
+        if (!deal.readyToMatch && !brainGates) detailQuestion = dealSession.lastQuestion;
       }
       // Never loop on the same question: once asked and answered, or when
       // the customer says "show me", search with what is known.
@@ -2090,9 +2178,16 @@ class _AskodoxPrimaryHomeScreenState
           clarified == null &&
           detailQuestion == _lastAskedQuestion &&
           missingNow.join('|') == _lastMissing.join('|');
-      final searchNow = deal != null &&
-          (deal.readyToMatch ||
-              ((showNow || repeating) && (deal.subject?.trim().isNotEmpty ?? false)));
+      final gate = askodoxSearchGate(
+        hasSubject: deal?.subject?.trim().isNotEmpty ?? false,
+        brainReady: brainGates ? decision.searchReady : null,
+        userAskedNow: showNow || videoAsk,
+        schemaReady: deal?.readyToMatch ?? false,
+        repeating: repeating,
+        brainReason: brainGates ? decision.readyReason : '',
+      );
+      _lastSearchGate = gate.toString();
+      final searchNow = deal != null && gate.allowed;
       if (searchNow && !deal.readyToMatch) detailQuestion = repeating || videoAsk ? null : detailQuestion;
       // The deal's next question is written in English in the category
       // schema: ask it in the conversation language (APK 1275: Telugu chat
@@ -2114,6 +2209,7 @@ class _AskodoxPrimaryHomeScreenState
           // A "sell" guess the user never said is a buyer search.
           final searchDeal = deal.intent == DealIntent.sell ? deal.copyWith(intent: DealIntent.buy) : deal;
           matchedDeal = searchDeal;
+          notifier.markSearched();
           results = await _findUniversalMatches(searchDeal);
           // Universal Advisor: a required, decision-changing detail (e.g.
           // budget for a TV) is asked BEFORE final recommendations, unless
@@ -2121,7 +2217,8 @@ class _AskodoxPrimaryHomeScreenState
           final advisor = results.advisor;
           // Command Center can switch the advisor off (globally or targeted);
           // the server then sends no hold, and the app also never holds.
-          if (ref.read(askodoxFlagProvider('advisor.enabled')) &&
+          if (!brainGates &&
+              ref.read(askodoxFlagProvider('advisor.enabled')) &&
               askodoxAdvisorHolds(advisor, showNow: showNow, videoAsk: videoAsk)) {
             advisorHeld = advisor;
             notifier.markAdvisorAsked(advisor!.field ?? '');
@@ -2237,7 +2334,7 @@ class _AskodoxPrimaryHomeScreenState
         reply = '${reply.trim()}\n\n${guidance.first}';
       }
       final optional = results.advisor!.question?.trim();
-      if (optional != null && optional.isNotEmpty && !reply.trim().endsWith('?') &&
+      if (!brainGates && optional != null && optional.isNotEmpty && !reply.trim().endsWith('?') &&
           advisorFieldAsked != results.advisor!.field) {
         reply = '${reply.trim()}\n\n$optional';
         _pendingAdvisorField = results.advisor!.field;
@@ -2301,6 +2398,19 @@ class _AskodoxPrimaryHomeScreenState
       if (support.need != AskodoxSupportNeed.none) {
         _supportByTurn[assistantIndex] = support;
       }
+      // The requirement moved on without a new (justified) search: the old
+      // cards must not pose as matches for it.
+      final pinned = _pinnedResultsTurn;
+      final shownFor = pinned == null ? null : _dealByTurn[pinned];
+      final nowWanted = ref.read(universalDealControllerProvider).deal;
+      if (transactional && (results == null || results.isEmpty) && shownFor != null && nowWanted != null) {
+        if (!askodoxSameNeed(shownFor.subject, nowWanted.subject) &&
+            !askodoxSameNeed('${shownFor.dynamicFields['said_subject'] ?? ''}', nowWanted.subject)) {
+          _resultsHiddenFor = pinned;
+        } else if (_requirementSignature(shownFor) != _requirementSignature(nowWanted)) {
+          _resultsOutdatedFor = pinned;
+        }
+      }
       if (needClarification != null) {
         _clarificationByTurn[assistantIndex] = needClarification;
         _pendingClarification = needClarification;
@@ -2360,6 +2470,10 @@ class _AskodoxPrimaryHomeScreenState
       'active_role': ref.read(askodoxRoleProvider).active.name,
       'ui_language': Localizations.localeOf(context).languageCode,
       'missing_slots': deal.missingForMatch,
+      // Why this search ran (search-readiness gate) and the brain's state.
+      'search_gate': _lastSearchGate,
+      if (_lastDecision?.facts.isNotEmpty ?? false) 'brain_facts': _lastDecision!.facts,
+      if (_lastDecision?.unknownCritical.isNotEmpty ?? false) 'brain_unknown': _lastDecision!.unknownCritical,
       'location_used': deal.location.label?.trim().isNotEmpty == true
           ? deal.location.label
           : (deal.location.latitude != null ? 'GPS point (not named)' : 'none'),
@@ -3248,7 +3362,8 @@ class _AskodoxPrimaryHomeScreenState
             // ONE conversational page: the active results (category tabs +
             // compact rows) stay above, the conversation about them scrolls
             // below, then the input -- the shell's nav sits under it.
-            if (_active && _pinnedResultsTurn != null) _resultContext(te, _pinnedResultsTurn!),
+            if (_active && _pinnedResultsTurn != null && _resultsHiddenFor != _pinnedResultsTurn)
+              _resultContext(te, _pinnedResultsTurn!),
             Expanded(child: _active ? _chat(te) : _home(te)),
             _composer(te)
           ]),
@@ -3533,6 +3648,9 @@ class _AskodoxPrimaryHomeScreenState
   /// The size toggles, the "Results N" header, its summary line, the price
   /// strip and the category chips are hidden (APK 1303 phone finding): the
   /// cards themselves sit directly under the app header.
+  /// The latest search-readiness decision (diagnostics trace).
+  String _lastSearchGate = '';
+
   final AskodoxResultsMode _resultsMode = AskodoxResultsMode.compact;
   final bool _resultsModeChosen = false;
 
@@ -3573,11 +3691,21 @@ class _AskodoxPrimaryHomeScreenState
               ),
             ]),
           ),
+        if (_resultsOutdatedFor == index && _resultsStaleFor == null)
+          Padding(
+            key: const Key('askodoxResultsOutdated'),
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+            child: Text(
+                te
+                    ? 'ఇవి మీ పాత వివరాలకు ఫలితాలు -- కొత్త వివరాలతో త్వరలో నవీకరిస్తాను.'
+                    : 'These are for your earlier details -- I will update them for the new ones.',
+                style: const TextStyle(fontSize: 11.5, color: _muted)),
+          ),
         ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxHeight),
           child: Opacity(
-            // Cards from the old place are dimmed while they refresh.
-            opacity: _resultsStaleFor == null ? 1 : .45,
+            // Cards from the old place / earlier details are dimmed.
+            opacity: _resultsStaleFor == null && _resultsOutdatedFor != index ? 1 : .45,
             child: SingleChildScrollView(
               key: const Key('askodoxResultContextScroll'),
               padding: const EdgeInsets.fromLTRB(14, 6, 6, 0),

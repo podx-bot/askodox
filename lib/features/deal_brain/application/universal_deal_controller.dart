@@ -109,6 +109,52 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
   }
 
+  /// The Conversation Decision Brain's accumulated state for the active
+  /// request: every fact so far (kept as `brain_facts`, sent with the
+  /// search), preferences the user is flexible about (that preference only,
+  /// an obsolete firm value is dropped -- "Godrej" -> "any good brand"), and
+  /// the consolidated search subject built from the whole conversation.
+  void applyBrainState({
+    Map<String, Object?> facts = const {},
+    List<String> flexible = const [],
+    String? searchSubject,
+  }) {
+    final current = state.deal;
+    if (current == null) return;
+    final fields = Map<String, Object?>.from(current.dynamicFields);
+    if (facts.isNotEmpty) {
+      fields['brain_facts'] = {for (final e in facts.entries) e.key: e.value is List ? e.value : '${e.value}'};
+    }
+    var subject = current.subject;
+    if (flexible.isNotEmpty) {
+      final none = {...((fields['no_preference'] as List?) ?? const []).map((e) => '$e'), ...flexible};
+      fields['no_preference'] = none.toList();
+      for (final key in flexible) {
+        if (!key.contains('brand')) continue;
+        final previous = '${fields.remove('brand') ?? ''}'.trim();
+        if (previous.isNotEmpty && subject != null) {
+          subject = subject.replaceAll(RegExp(RegExp.escape(previous), caseSensitive: false), '')
+              .replaceAll(RegExp(r'\s{2,}'), ' ')
+              .trim();
+        }
+      }
+    }
+    final consolidated = searchSubject?.trim();
+    if (consolidated != null && consolidated.isNotEmpty) {
+      fields.putIfAbsent('said_subject', () => current.subject ?? '');
+      subject = consolidated;
+    }
+    _setSession(_sessionFor(current.copyWith(subject: subject, dynamicFields: fields)));
+  }
+
+  /// The search-readiness gate let this request search (restoring the app
+  /// re-runs only searches that were justified, never a half-asked need).
+  void markSearched() {
+    final current = state.deal;
+    if (current == null || current.dynamicFields['searched'] == true) return;
+    _setSession(state.copyWith(deal: current.copyWith(dynamicFields: {...current.dynamicFields, 'searched': true})));
+  }
+
   /// Result groups the customer asked for ("videos", "deals", "reviews")
   /// are remembered on the request, so a later short answer ("20000")
   /// still brings them (real-phone: only online links came back).

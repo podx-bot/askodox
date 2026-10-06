@@ -29,6 +29,9 @@ class AssistantRequest(BaseModel):
     # Saved/default location the app already knows for this user, if any.
     # When present, the assistant must not ask the user for location again.
     location: str = Field(default="", max_length=300)
+    # What the options on screen were searched for (the brain's facts at that
+    # search), so a later detail that does not change them never re-searches.
+    searched_for: dict[str, Any] = Field(default_factory=dict)
 
 
 class AssistantDecision(BaseModel):
@@ -42,6 +45,15 @@ class AssistantDecision(BaseModel):
     # Decision brain mode: advice (reasoning, no result cards), commerce
     # (search / act), follow_up (about options already shown) or chat.
     mode: str = "chat"
+    # Conversation Decision Brain: accumulated state, whether a search is
+    # justified now (None = the model gave no readiness; the app keeps its
+    # offline rule), the ONE next question and the consolidated search subject.
+    state: dict[str, Any] = Field(default_factory=dict)
+    search_ready: bool | None = None
+    next_question: str | None = None
+    search_subject: str | None = None
+    ready_reason: str = ""
+    new_need: bool = False
     # Added 2026-09-16 (round 9, roadmap Phase 1: "Reconnect what already
     # works"). BuyerIntelligenceService.build_buying_guide() is a real,
     # tested service that already existed but was only ever wired into the
@@ -64,11 +76,15 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     # app keeps working through its deterministic flow (same as model-down).
     decision = None
     if _feature_enabled(container, "ai.assistant"):
+        # searched_for only when the app sent it: other decide() implementations
+        # (fallbacks, fakes) keep their older signature.
+        extra = {"searched_for": payload.searched_for} if payload.searched_for else {}
         decision = service.decide(
             payload.message,
             history=history,
             locale=payload.locale,
             location=payload.location,
+            **extra,
         )
 
     if decision is None:

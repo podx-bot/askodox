@@ -54,7 +54,43 @@ class InAppAssistantDecision {
     this.entities = const <String, Object?>{},
     this.buyingGuide,
     this.mode = 'chat',
+    this.searchReady,
+    this.nextQuestion,
+    this.searchSubject,
+    this.facts = const <String, Object?>{},
+    this.flexible = const <String>[],
+    this.unknownCritical = const <String>[],
+    this.readyReason = '',
+    this.newNeed = false,
   });
+
+  /// The brain: this message starts a DIFFERENT need (not an answer to the
+  /// one being discussed).
+  final bool newNeed;
+
+  /// Conversation Decision Brain: is a search justified NOW? Null = the
+  /// backend gave no readiness (older backend / model omitted it); the app
+  /// then keeps its offline rule.
+  final bool? searchReady;
+
+  /// The ONE next question when the search is not justified yet.
+  final String? nextQuestion;
+
+  /// One consolidated search phrase built from everything the user said.
+  final String? searchSubject;
+
+  /// Accumulated facts from the whole conversation (keys chosen by the brain).
+  final Map<String, Object?> facts;
+
+  /// Facts the user is flexible about ("any", "X okay, others also fine").
+  final List<String> flexible;
+
+  /// What still materially changes the decision.
+  final List<String> unknownCritical;
+  final String readyReason;
+
+  /// The brain decides readiness for this turn.
+  bool get gatesSearch => usable && searchReady != null;
 
   /// Decision-brain mode from the backend: `advice` (reasoning, never result
   /// cards), `commerce` (search / act), `follow_up` (about options already
@@ -94,6 +130,9 @@ class InAppAssistantDecision {
     }
 
     final rawGuide = json['buying_guide'];
+    final state = json['state'] is Map ? Map<String, dynamic>.from(json['state'] as Map) : const <String, dynamic>{};
+    List<String> names(Object? raw) => raw is List ? [for (final v in raw) '$v'.trim()].where((v) => v.isNotEmpty).toList() : const [];
+    final rawReady = json['search_ready'];
 
     return InAppAssistantDecision(
       reply: (json['reply'] ?? '').toString(),
@@ -106,6 +145,14 @@ class InAppAssistantDecision {
       buyingGuide:
           rawGuide is Map ? BuyingGuide.fromJson(Map<String, dynamic>.from(rawGuide)) : null,
       mode: (json['mode'] ?? 'chat').toString().toLowerCase(),
+      searchReady: rawReady is bool ? rawReady : null,
+      nextQuestion: (json['next_question'] as String?)?.trim().isEmpty ?? true ? null : (json['next_question'] as String).trim(),
+      searchSubject: (json['search_subject'] as String?)?.trim().isEmpty ?? true ? null : (json['search_subject'] as String).trim(),
+      facts: state['facts'] is Map ? Map<String, Object?>.unmodifiable(Map<String, Object?>.from(state['facts'] as Map)) : const {},
+      flexible: names(state['flexible']),
+      unknownCritical: names(state['unknown_critical']),
+      readyReason: (json['ready_reason'] ?? '').toString(),
+      newNeed: json['new_need'] == true,
     );
   }
 
@@ -140,6 +187,7 @@ class InAppAssistantService {
     required String locale,
     required List<InAppAssistantTurn> history,
     String? location,
+    Map<String, Object?>? searchedFor,
   }) async {
     final clean = message.trim();
     if (clean.isEmpty) return null;
@@ -160,6 +208,7 @@ class InAppAssistantService {
               'locale': locale,
               'history': history.takeLast(12).map((turn) => turn.toJson()).toList(),
               if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
+              if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
             }),
           )
           .timeout(const Duration(seconds: 15));

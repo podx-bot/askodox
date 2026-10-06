@@ -1,0 +1,93 @@
+{
+ "note": "Run 4: services ready once work, place and date are known",
+ "location": "Vijayawada",
+ "conversations": [
+  {
+   "id": "A",
+   "title": "broad steel wardrobe (benchmark progression)",
+   "locale": "te",
+   "turns": [
+    "నాకు ఒక ఐరన్ బీరువా కావాలి",
+    "30-40 వేలు",
+    "పెద్దది, రెండు డోర్లు",
+    "multi use",
+    "Godrej okay, ఇతర మంచి బ్రాండ్లు కూడా okay",
+    "మా ఇంటికి delivery కావాలి",
+    {
+     "text": "ఏది మంచిది?",
+     "about_shown": true
+    }
+   ]
+  },
+  {
+   "id": "B",
+   "title": "detailed steel wardrobe in the first turn",
+   "locale": "en",
+   "turns": [
+    "I need a large two-door steel almirah with a locker and shelves for clothes, budget 30000 to 40000, Godrej or any good brand, home delivery in Vijayawada"
+   ]
+  },
+  {
+   "id": "C",
+   "title": "broad AC purchase",
+   "locale": "en",
+   "turns": [
+    "I want an AC",
+    "Budget ₹40,000, split AC",
+    "Room is 150 sq ft, any brand is fine"
+   ]
+  },
+  {
+   "id": "D",
+   "title": "detailed AC in the first turn",
+   "locale": "en",
+   "turns": [
+    "Need a 1.5 ton inverter split AC under ₹40,000 for a 150 sq ft room, about 8 hours/day"
+   ]
+  },
+  {
+   "id": "E",
+   "title": "service request",
+   "locale": "en",
+   "turns": [
+    "I need a plumber",
+    "Kitchen sink pipe is leaking, can someone come tomorrow morning?"
+   ]
+  },
+  {
+   "id": "F",
+   "title": "ambiguous request",
+   "locale": "te",
+   "turns": [
+    "delivery చేయాలి",
+    "ఒక పార్సెల్ బెంజ్ సర్కిల్ నుండి గుణదలకి పంపాలి, ఈరోజు సాయంత్రం"
+   ]
+  },
+  {
+   "id": "G",
+   "title": "advice / decision (no search)",
+   "locale": "en",
+   "turns": [
+    "Should I buy a 1.5 ton or 2 ton AC for a 180 sq ft room on the top floor?"
+   ]
+  },
+  {
+   "id": "H",
+   "title": "previously unseen request",
+   "locale": "en",
+   "turns": [
+    "I need someone to climb and clean 20 coconut trees at my farm near Vuyyuru",
+    "This Sunday, around 2000 rupees total"
+   ]
+  },
+  {
+   "id": "I",
+   "title": "preference change without restart",
+   "locale": "en",
+   "turns": [
+    "I want a Godrej steel almirah, two doors, under 35000",
+    "Actually any good brand is okay, not only Godrej"
+   ]
+  }
+ ]
+}
