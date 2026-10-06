@@ -124,6 +124,116 @@ class UniversalAIAssistantService:
                     result[clean_key] = items[:20]
         return result
 
+
+    # ------------------------------------------------------------------
+    # Decision brain: what the USER said vs what the app appended.
+    # The app appends context after the user's words (the options already
+    # shown, the option asked about, attachment / sign-off guidance). That
+    # context mentions "reviews", "rating" etc., so deterministic checks
+    # must look only at the user's own words -- reading the context turned
+    # every question about shown options into "looking for real videos and
+    # reviews" (APK 1302 phone test).
+    _APP_CONTEXT_MARKERS = (
+        "Options already shown to the user:",
+        "Option the user is asking about:",
+        "Compare for the user.",
+        "The customer shared attachment",
+        "The customer is ending the conversation",
+    )
+    _ABOUT_SHOWN_MARKERS = _APP_CONTEXT_MARKERS[:3]
+
+    @classmethod
+    def split_app_context(cls, message: str) -> tuple[str, str, bool]:
+        """(user_text, app_context, about_shown_options)."""
+        text = str(message or "")
+        cut = len(text)
+        for marker in cls._APP_CONTEXT_MARKERS:
+            at = text.find(marker)
+            if at >= 0:
+                cut = min(cut, at)
+        user = text[:cut].strip()
+        context = text[cut:].strip()
+        about = any(m in context for m in cls._ABOUT_SHOWN_MARKERS)
+        return (user or text.strip()), context, about
+
+    # Advice / decision questions get reasoning, not result cards.
+    _ADVICE_ASK = re.compile(
+        r"\bshould (i|we)\b|\bis (it|this|that) (a )?(good|bad|wise|safe|sensible|worth)\b|\bworth it\b"
+        r"|\b(what are|any) (the )?(risks?|pros|cons|downsides?)\b|\bpros (and|&) cons\b|\brisks? (of|in)\b"
+        r"|\bwhich (business|model|loan|plan|option|policy|scheme|investment|course|career|is (safer|better|suitable|right))\b"
+        r"|\bhow (much|many)\b.{0,40}\b(do|would|will) (i|we) need\b|\bwhat\b.{0,25}\b(capacity|size|tonnage|ton|wattage|amount|budget|coverage|cover)\b.{0,40}\bneed\b"
+        r"|\b(can|could) (i|we) afford\b|\bfinancially\b|\bhelp me (decide|choose|plan)\b|\b(advice|advise|guidance)\b"
+        r"|\b(is|are) .{0,40}\b(profitable|viable|feasible)\b|\bbusiness (plan|idea|model)\b|\bstart (a|an|my) .{0,40}business\b"
+        r"|చేయాలా|చేయవచ్చా|మంచిదా|సరైనదా|రిస్క్|లాభనష్టాలు|నష్టాలు|సలహా|ఏది (మంచిది|సురక్షితం)|ఎంత .{0,20}కావాలి"
+        r"|करना चाहिए|सलाह|जोखिम|फायदे.{0,10}नुकसान|कितना .{0,20}चाहिए",
+        re.IGNORECASE)
+    # ... unless the user plainly asks to see / buy / find things now.
+    _COMMERCE_NOW = re.compile(
+        r"\b(show|find|list|search|book|order|buy now|near me|nearby|shops?|stores?|dealers?|sellers?|price list|deals?|offers?)\b"
+        r"|చూపించు|చూపండి|కొనాలి|దగ్గర|షాప్|दिखाओ|दिखाइए|खरीदना|दुकान",
+        re.IGNORECASE)
+
+    @classmethod
+    def wants_advice(cls, user_text: str) -> bool:
+        text = user_text or ""
+        return (bool(cls._ADVICE_ASK.search(text)) and not cls._COMMERCE_NOW.search(text)
+                and not cls._asks_where_to_get(text) and not cls._asks_for_videos(text))
+
+    def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str) -> str:
+        """A full advisory answer (decision mode): goal, decision-critical
+        gaps, reasoning, numbers, risks, alternatives, recommendation, why,
+        next steps. Returns "" when no model answered."""
+        prompt = (
+            "You are ASKODOX's decision advisor for people in India. The user wants ADVICE / a DECISION, not a "
+            "list of shops. Think like an experienced, honest advisor.\n"
+            "Answer in this order, using short headings and bullet points, in the user's language:\n"
+            "1. Your goal (one line: what they are really trying to decide).\n"
+            "2. What I still need to know -- ONLY the 1-3 facts that would change the recommendation, and only if "
+            "not already known from the conversation. Never re-ask anything already given.\n"
+            "3. Analysis -- reason step by step; when numbers help (capacity, EMI, margin, break-even, running "
+            "cost), calculate with the user's own numbers and show the formula briefly; say clearly when a number is "
+            "an assumption.\n"
+            "4. Risks and what could go wrong (be specific; challenge unsafe or unrealistic assumptions politely).\n"
+            "5. Options compared (pros / cons of 2-3 realistic alternatives).\n"
+            "6. My recommendation and WHY.\n"
+            "7. Next steps (concrete actions; you may offer: 'Say \"show me options\" to see real sellers / offers').\n"
+            "Rules: never invent prices, laws, interest rates, product specs or shop names as facts -- give typical "
+            "ranges and say they vary; recommend verifying regulated matters (loans, insurance, licences, tax, "
+            "health) with a qualified professional; no result cards are shown for this answer.\n"
+            + _reply_language_rule(locale)
+            + (f"Known user location: {location}\n" if location else "")
+            + f"Conversation so far JSON: {json.dumps(history, ensure_ascii=False)}\n"
+            + f"User's question: {user_text}"
+        )
+        text = ""
+        if self.configured:
+            try:
+                client = self.client or genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    temperature=0.3, max_output_tokens=3072,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0))
+                response = self._generate_with_retry(client, prompt, config)
+                text = str(getattr(response, "text", "") or "").strip()
+            except Exception:
+                logger.exception("universal_ai_assistant.advise: gemini call failed (len=%d)", len(user_text))
+        if not text and self.openai_api_key:
+            try:
+                response = self.http.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"},
+                    json={"model": self.openai_model,
+                          "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}]})
+                response.raise_for_status()
+                text = self._openai_output_text(response.json())
+            except Exception:
+                logger.exception("universal_ai_assistant.advise: openai fallback failed (len=%d)", len(user_text))
+        if text.startswith("{"):
+            try:  # a model that answered JSON anyway
+                text = str(json.loads(text).get("reply") or "").strip()
+            except (ValueError, AttributeError):
+                pass
+        return text
+
     @classmethod
     def _reply_asks_for_location(cls, sentence: str) -> bool:
         """True if a sentence looks like it is asking the user for a location.
@@ -310,7 +420,9 @@ class UniversalAIAssistantService:
             "or have found options -- the app says that only when real results exist. "
             "Explicit constraints are sacred: repeat a size, budget, quantity, brand, colour or date EXACTLY as the user "
             "gave it (size 9 stays 'size 9' -- never 'size 8 or 9', never rounded or widened). "
-            "If the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
+            "Decision brain: if the message asks for advice or a decision (should I, risks, pros/cons, which is safer, how much do I need, is it worth it), it is NOT a search: transactional false, action advise. "
+            "If the app lists options already shown to the user, the message is a follow-up about THOSE options (compare, which is best, reviews, deals, details, why): answer it from the listed facts only -- compare side by side, write Not verified for any fact not listed -- transactional false, action answer_about_options, never a new search. "
+            "Otherwise, if the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
             "set transactional true, action search_videos, entities.subject = the thing itself (without the words "
             "video/review), and never say 'here are' results or describe specs -- the app shows the real results. "
             "Never name specific shops, stores, dealers, showrooms or service companies from memory: if the user asks where "
@@ -399,7 +511,22 @@ class UniversalAIAssistantService:
                 reply = self._strip_location_question(reply, locale)
             if not reply:
                 return None
-            if self._asks_for_videos(clean):
+            user_text, _app_context, about_shown = self.split_app_context(clean)
+            mode = "commerce" if transactional else "chat"
+            if about_shown:
+                # A follow-up about options already on screen: answer it from
+                # those options; never a new search, never a canned reply.
+                mode = "follow_up"
+                transactional = False
+                action = "answer_about_options"
+            elif self.wants_advice(user_text):
+                mode = "advice"
+                transactional = False
+                action = "advise"
+                advice = self._advise(user_text, compact_history, locale, clean_location)
+                if advice:
+                    reply = advice
+            elif self._asks_for_videos(user_text):
                 # Deterministic: a video / review ask is a real search. The
                 # app shows the real videos; the reply never claims results
                 # or describes specs it did not get from a source.
@@ -408,7 +535,7 @@ class UniversalAIAssistantService:
                 if domain in {"GENERAL", "UNKNOWN"}:
                     domain = "PRODUCT"
                 reply = self._video_search_reply(locale)
-            elif self._asks_where_to_get(clean):
+            elif self._asks_where_to_get(user_text):
                 # Deterministic: "where can I get it here" is a real search.
                 # Shop / dealer names come only from real results, never
                 # from the model's memory.
@@ -428,6 +555,7 @@ class UniversalAIAssistantService:
                 "action": action,
                 "confidence": confidence,
                 "entities": entities,
+                "mode": mode,
                 **({"grounding": grounding} if grounding is not None else {}),
             }
         except Exception:

@@ -466,10 +466,16 @@ STATUS_ERROR = "error"
 def _price_fields(*texts: Any) -> dict[str, Any]:
     """A price only when the page text literally states one -- flagged as
     unverified (a snippet can be stale, an EMI, or another variant)."""
-    price = price_from_text(*texts)
-    if price is None:
+    from app.services import price_truth
+
+    info = price_truth.classify(*texts)
+    if info["price"] is None and info["offer_price"] is None:
         return {"price": None, "price_verified": False, "price_source": None}
-    return {"price": price, "price_verified": False, "price_source": "page_text"}
+    # The row's price is never a conditional (bank / coupon / exchange) or
+    # MRP amount; those travel separately with their provenance.
+    return {"price": info["price"], "price_verified": False, "price_source": "page_text",
+            "price_kind": info["price_kind"], "list_price": info["list_price"],
+            "offer_price": info["offer_price"], "offer_condition": info["offer_condition"]}
 
 
 class UniversalOnlineFallbackService:

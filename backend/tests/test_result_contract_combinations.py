@@ -356,6 +356,12 @@ def test_diagnostics_record_returned_and_rendered_sections(app_env):
     assert [s["kind"] for s in item["sections_returned"] if s["count"]] == ["local"]
     assert item["sections_rendered"] == ["local"] and item["render_suppressed"] == {}
     assert item["sources_attempted"]["nearby"] == "ok"
+    # decision trace: mode, raw vs kept, ranking and the card action per section
+    assert item["mode"]
+    assert len(item["ranking"]) == min(15, item["counts_raw_vs_kept"]["kept"])
+    assert item["ranking"][0]["rank"] == 1 and item["ranking"][0]["section"] == "local"
+    assert set(item["actions"]["local"]) <= {"order_request", "directions", "open_link", "none"}
+    assert isinstance(item["rejected"], list) and isinstance(item["price_provenance"], dict)
     assert client.get("/admin/cc/results/diagnostics").status_code in (401, 403)
 
 

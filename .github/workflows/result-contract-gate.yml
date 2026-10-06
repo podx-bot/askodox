@@ -54,4 +54,8 @@ jobs:
             tests/test_supply_fit.py \
             tests/test_smart_entry.py \
             tests/test_business_command_center.py \
-            tests/test_admin_functional_audit.py
+            tests/test_admin_functional_audit.py \
+            tests/test_decision_brain.py \
+            tests/test_price_truth.py \
+            tests/test_my_listing_edit.py \
+            tests/test_admin_ops.py

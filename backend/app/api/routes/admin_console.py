@@ -61,6 +61,7 @@ td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}tr.r:hove
 .drawer.show{display:flex}.dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .db{padding:16px 18px;overflow:auto;flex:1}.df{padding:12px 18px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px}
 .f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}.f input,.f select,.f textarea{color:var(--ink);font-size:14px}
+.qa{border:1px dashed var(--brand);margin-bottom:12px}.fs{align-self:flex-start;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--greybg);color:var(--grey)}.fs-FETCHED{background:var(--okbg);color:var(--ok)}.fs-REVIEW{background:var(--warnbg);color:var(--warn)}.fs-MISSING{background:var(--badbg);color:var(--bad)}.fs-TEMPLATE,.fs-PREVIOUS,.fs-DEFAULT{background:var(--infobg);color:var(--info)}.b-grey{background:var(--greybg);color:var(--grey)}details.pd{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:10px}details.pd summary{cursor:pointer;margin-bottom:6px}
 .f .req{color:var(--bad)}.err{color:var(--bad);font-size:13px;margin:6px 0}.okm{color:var(--ok);font-size:13px}
 .funnel .row{display:grid;grid-template-columns:150px 1fr 60px;gap:8px;align-items:center;font-size:12.5px;margin:5px 0}
 .funnel .track{background:var(--greybg);border-radius:6px;height:12px;overflow:hidden}.funnel .fill{height:12px;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:6px}
@@ -185,9 +186,10 @@ function input(f,v){const id="fld_"+f.name,val=v??"",req=f.required?' <span clas
 function readForm(res,partial){const out={};for(const f of res.fields){const el=document.querySelector("#fld_"+f.name);if(!el)continue;let v=el.value;
   if(f.kind==="list")v=v.split(",").map(x=>x.trim()).filter(Boolean);else if(f.kind==="bool")v=v==="true";else if(f.kind==="json"){try{v=v.trim()?JSON.parse(v):{}}catch(e){throw new Error(f.label+": invalid JSON")}}
   else if((f.kind==="number"||f.kind==="int")&&v!=="")v=Number(v);else if(v==="")v=null;out[f.name]=v}return out}
-function openForm(name,rec){const res=R(name);drawer((rec?"Edit ":"New ")+res.label.replace(/s$/,""),res.fields.map(f=>input(f,rec?rec.data[f.name]:undefined)).join("")+'<div id="ferr" class="err"></div>',
-  '<button class="p" onclick="saveForm(\''+name+'\','+(rec?'\''+esc(rec.id)+'\','+rec.version:'null,null')+')">Save</button><button onclick="closeDrawer()">Cancel</button>')}
-async function saveForm(name,id,version){const res=R(name);try{const data=readForm(res);const r=id?await call("platform/r/"+name+"/"+id,"PATCH",{data,version}):await call("platform/r/"+name,"POST",{data});await resourcePage(name);openRecord(name,r.id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function openForm(name,rec){const res=R(name);const qt=QA_RES[name]||null;drawer((rec?"Edit ":"New ")+res.label.replace(/s$/,""),(qt&&!rec?qaStrip(qt):"")+res.fields.map(f=>input(f,rec?rec.data[f.name]:undefined)).join("")+'<div id="ferr" class="err"></div>',
+  '<button class="p" onclick="saveForm(\''+name+'\','+(rec?'\''+esc(rec.id)+'\','+rec.version:'null,null')+')">Save</button><button onclick="closeDrawer()">Cancel</button>');
+  qaSetup(qt,"fld_",{required:res.fields.filter(f=>f.required).map(f=>f.name),recommended:res.fields.filter(f=>!f.required&&(f.list_column||f.filter)).map(f=>f.name)},!rec)}
+async function saveForm(name,id,version){const res=R(name);const snap=qaSnap();try{const data=readForm(res);const r=id?await call("platform/r/"+name+"/"+id,"PATCH",{data,version}):await call("platform/r/"+name,"POST",{data});qaKeep(snap);await resourcePage(name);openRecord(name,r.id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
 async function openRecord(name,id){const res=R(name);const [rec,h]=await Promise.all([call("platform/r/"+name+"/"+id),call("platform/r/"+name+"/"+id+"/history")]);const manage=can(res.permission+":manage");
   const hide={feature:rec.data.featured===true,unfeature:rec.data.featured!==true,verify:rec.data.verified===true,unverify:rec.data.verified!==true,enable:rec.status==="ACTIVE",disable:rec.status==="DISABLED"};
   const acts=res.actions.filter(a=>!rec.archived&&!hide[a.name]&&(!a.from_status.length||a.from_status.includes(rec.status))&&(a.manage?manage:true));
@@ -215,10 +217,10 @@ async function sponsored(){const d=await call("sponsored");STATE.sp=d.campaigns;
   document.querySelector("#page").innerHTML=head("Sponsored campaigns","Paid placements are labelled and always shown after organic results; untargeted ads are never served.",m?'<button class="p" onclick="spForm()">+ New campaign</button>':'')+
   grid(d.campaigns,[["name","Campaign"],["kind","Kind"],["status","Status",badge],["label","Label"],["stats","Impr.",s=>s.impressions],["stats","Clicks",s=>s.clicks],["stats","CTR",s=>s.ctr==null?"—":s.ctr+"%"],["stats","Leads/Orders",s=>s.leads+" / "+s.orders],["stats","Spend",s=>money(s.spend)],["budget","Budget",money]],"spOpen")}
 function spForm(c){const F=[["advertiser_id","Advertiser id"],["name","Name"],["kind","Kind"],["title","Title"],["subtitle","Subtitle"],["destination_url","Destination (https)"],["deep_link","Deep link"],["tracking_url","Tracking URL (https)"],["image_url","Image URL"],["categories","Categories (comma)"],["keywords","Keywords (comma)"],["locations","Locations (comma)"],["radius_km","Radius km"],["language","Language (en/te…)"],["audience","Audience"],["objective","Objective"],["format","Format"],["starts_at","Start"],["ends_at","End"],["budget","Total budget ₹"],["daily_budget","Daily budget ₹"],["cost_per_click","Cost per click ₹"],["cost_per_thousand","Cost per 1000 ₹"],["max_impressions","Max impressions"],["max_clicks","Max clicks"],["priority","Priority"]];
-  drawer(c?"Edit campaign":"New campaign",F.map(([k,l])=>'<label class="f">'+l+'<input id="sp_'+k+'" value="'+esc(c?(Array.isArray(c[k])?c[k].join(", "):c[k]??""):"")+'"></label>').join("")+'<div id="ferr" class="err"></div>',
-  '<button class="p" onclick="spSave('+(c?c.id:"null")+')">Save</button>')}
-async function spSave(id){const body={};document.querySelectorAll("[id^=sp_]").forEach(e=>{const k=e.id.slice(3);let v=e.value.trim();if(["categories","keywords","locations"].includes(k))v=v?v.split(",").map(x=>x.trim()):[];if(v!=="")body[k]=v});
-  try{id?await call("sponsored/campaigns/"+id,"PATCH",body):await call("sponsored/campaigns","POST",body);closeDrawer();sponsored()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+  const isNew=!(c&&c.id);drawer(c?"Edit campaign":"New campaign",(isNew?qaStrip("sponsored"):"")+F.map(([k,l])=>'<label class="f">'+l+'<input id="sp_'+k+'" value="'+esc(c?(Array.isArray(c[k])?c[k].join(", "):c[k]??""):"")+'"></label>').join("")+'<div id="ferr" class="err"></div>',
+  '<button class="p" onclick="spSave('+(c&&c.id?c.id:"null")+')">Save</button>');qaSetup("sponsored","sp_",QA_FORMS.sponsored.groups,isNew)}
+async function spSave(id){const snap=qaSnap();const body={};document.querySelectorAll("[id^=sp_]").forEach(e=>{const k=e.id.slice(3);let v=e.value.trim();if(["categories","keywords","locations"].includes(k))v=v?v.split(",").map(x=>x.trim()):[];if(v!=="")body[k]=v});
+  try{id?await call("sponsored/campaigns/"+id,"PATCH",body):await call("sponsored/campaigns","POST",body);qaKeep(snap);closeDrawer();sponsored()}catch(e){document.querySelector("#ferr").textContent=e.message}}
 function spOpen(i){const c=STATE.sp[i],m=can("sponsored:manage");drawer(c.name,'<div>'+badge(c.status)+(c.archived?' '+badge("archived"):'')+'</div><table>'+Object.entries(c).filter(([k])=>k!=="stats").map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(v)+'</td></tr>').join("")+'</table><h3>Performance</h3><table>'+Object.entries(c.stats).map(([k,v])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+esc(v??"—")+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',
   m?['APPROVED','PAUSED','DISABLED'].map(s=>'<button onclick="spAct('+c.id+',\'status\',\''+s+'\')">'+(s==="APPROVED"?"Approve":s==="PAUSED"?"Pause":"Disable")+'</button>').join("")+'<button onclick=\'spForm(STATE.sp['+i+'])\'>Edit</button><button onclick="spAct('+c.id+',\'duplicate\')">Duplicate</button><button onclick="spAct('+c.id+',\''+(c.archived?"restore":"archive")+'\')">'+(c.archived?"Restore":"Archive")+'</button>':'')}
 async function spAct(id,a,s){try{a==="status"?await call("sponsored/campaigns/"+id+"/status","POST",{status:s}):await call("sponsored/campaigns/"+id+"/"+a,"POST");closeDrawer();sponsored()}catch(e){document.querySelector("#ferr").textContent=e.message}}
@@ -427,53 +429,159 @@ async function affForm(id){const c=STATE.afcan||{};const i=id?(await call("affil
     else if(k==="description")el='<textarea id="af_description">'+esc(v||"")+'</textarea>';
     else el='<input id="af_'+k+'" value="'+esc(Array.isArray(v)?v.join(", "):(v??""))+'"'+(k==="affiliate_url"&&!c.links?' disabled title="Needs the affiliate_products:links permission"':'')+'>';
     return '<label class="f">'+l+el+'</label>'};
-  drawer(id?"Edit product":"Add product",(id?'':'<div class="muted" style="margin-bottom:8px">Paste the product page URL and press <b>Fetch details</b>: name, images and price are read from the page\'s own metadata where the site allows it. Always check them.</div><button onclick="affExtract()">Fetch details</button><div id="af_note" class="muted" style="margin:6px 0"></div>')+AFF_FIELDS.map(f).join("")+'<div id="ferr" class="err"></div>',
-   '<button class="p" onclick="affSave('+(id||0)+')">Save</button><button onclick="closeDrawer()">Cancel</button>')}
-async function affExtract(){const url=document.querySelector("#af_original_product_url").value.trim();const n=document.querySelector("#af_note");n.textContent="Reading the page…";
-  try{const r=await call("affiliate-products/extract","POST",{url});const fl=r.fields||{};
-    for(const [k,v] of Object.entries(fl)){const el=document.querySelector("#af_"+k);if(el&&v!=null&&v!==""&&!el.disabled)el.value=Array.isArray(v)?v.join(", "):v}
-    const ss=document.querySelector("#af_stock_status");if(ss&&r.suggested_stock)ss.value=r.suggested_stock;n.textContent=r.note+(r.found.length?" Found: "+r.found.join(", "):"");
-    const fs=r.field_status||{};document.querySelectorAll(".af_manual").forEach(x=>x.remove());
-    for(const [k,st] of Object.entries(fs)){const el=document.querySelector("#af_"+(k==="images"?"images":k));if(el&&st==="manual_entry_required"&&!el.value)el.insertAdjacentHTML("afterend",'<span class="af_manual err" style="font-size:12px">Manual entry required</span>')}}catch(e){n.textContent=e.message}}
-async function affSave(id){const out={};for(const [k] of AFF_FIELDS){const el=document.querySelector("#af_"+k);if(!el||el.disabled)continue;let v=el.value.trim();
+  drawer(id?"Edit product":"Add product",(id?'':qaStrip("catalog"))+AFF_FIELDS.map(f).join("")+'<div id="ferr" class="err"></div>',
+   '<button class="p" onclick="affSave('+(id||0)+')">Save</button><button onclick="closeDrawer()">Cancel</button>');qaSetup("catalog","af_",QA_FORMS.catalog.groups,!id)}
+async function affSave(id){const snap=qaSnap();const out={};for(const [k] of AFF_FIELDS){const el=document.querySelector("#af_"+k);if(!el||el.disabled)continue;let v=el.value.trim();
     if(k==="images"||k==="variants")v=v?v.split(",").map(x=>x.trim()).filter(Boolean):[];else if(k==="price"||k==="mrp")v=v===""?null:Number(v);else if(k==="sponsored")v=v==="true";else if(v==="")v=null;
     if(!id&&(v===null||(Array.isArray(v)&&!v.length)))continue;out[k]=v}
-  try{const r=id?await call("affiliate-products/"+id,"PATCH",out):await call("affiliate-products","POST",out);await affproducts();affOpen(r.item.id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+  try{const r=id?await call("affiliate-products/"+id,"PATCH",out):await call("affiliate-products","POST",out);qaKeep(snap);await affproducts();affOpen(r.item.id)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+const SE_CSV={catalog:"url,title,price,brand,category,image_url,description",content:"url,title,description,image_url",affiliate_link:"title,affiliate_url,url,image_url,category",source:"name,domain",video:"title,url,platform",merchant_offer:"title,merchant,discount_percent,min_spend,max_benefit,ends_on,terms"};
+const SE_VERDICT={NEW:"b-ok",UPDATE:"b-info",DUPLICATE:"b-grey",INVALID:"b-bad",NEEDS_REVIEW:"b-warn"};
+function seBadge(v){return '<span class="badge '+(SE_VERDICT[v]||"")+'">'+esc(v==="NEEDS_REVIEW"?"NEEDS REVIEW":v||"?")+'</span>'}
 async function smartentry(){const s=STATE.se||(STATE.se={target:"auto",items:[]});
-  document.querySelector("#page").innerHTML=head("Smart Entry","Paste links or offer text (one link per line; separate texts with a blank line). ASKODOX reads each one, fills the matching form and shows where every value came from. Nothing is saved until you press Save in the form.",
-   '<select id="se_t">'+["auto","offer","merchant_offer","affiliate_link","catalog","source","video","sponsored","content"].map(t=>'<option '+(s.target===t?"selected":"")+'>'+t+'</option>').join("")+'</select><button class="p" onclick="seRun()">Read &amp; prepare</button>')+
-   '<textarea id="se_in" style="width:100%;min-height:120px" placeholder="https://www.meesho.com/…&#10;https://amzn.to/…&#10;&#10;10% instant discount on HDFC credit cards, min purchase ₹5,000 …"></textarea><div id="se_err" class="err"></div><div id="se_out"></div>';seShow()}
+  document.querySelector("#page").innerHTML=head("Smart Entry","Paste links or offer text (one link per line; separate texts with a blank line), or upload a CSV. ASKODOX reads each one, checks it against what is already stored and marks it NEW / UPDATE / DUPLICATE / INVALID / NEEDS REVIEW. Nothing is saved until you open it in a form or import the ones you select as drafts.",
+   '<select id="se_t" onchange="STATE.se.target=this.value;seCsvHint()">'+["auto","offer","merchant_offer","affiliate_link","catalog","content","source","video","sponsored"].map(t=>'<option '+(s.target===t?"selected":"")+'>'+t+'</option>').join("")+'</select><button class="p" onclick="seRun()">Read &amp; prepare</button>')+
+   '<textarea id="se_in" style="width:100%;min-height:120px" placeholder="https://www.meesho.com/…&#10;https://amzn.to/…&#10;&#10;10% instant discount on HDFC credit cards, min purchase ₹5,000 …"></textarea>'+
+   '<div class="bar" style="margin-top:8px"><label class="muted">CSV file <input type="file" id="se_csv" accept=".csv,text/csv"></label><span id="se_csvhint" class="muted"></span></div>'+
+   '<div id="se_err" class="err"></div><div id="se_out"></div>';
+  if(STATE.sePrefill){document.querySelector("#se_in").value=STATE.sePrefill;STATE.sePrefill=""}seCsvHint();seShow()}
+function seCsvHint(){const t=(STATE.se||{}).target||"auto",h=document.querySelector("#se_csvhint");if(!h)return;const cols=SE_CSV[t==="auto"?"catalog":t];
+  h.innerHTML=cols?'Columns for '+esc(t==="auto"?"catalog":t)+': <span class="mono">'+esc(cols)+'</span> <button onclick="seCsvTemplate()">Download CSV template</button>':'Pick a form that supports CSV (catalog, content, affiliate_link, source, video, merchant_offer).'}
+function seCsvTemplate(){const t=(STATE.se.target==="auto"?"catalog":STATE.se.target);const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([SE_CSV[t]+"\n"],{type:"text/csv"}));a.download="askodox-"+t+"-template.csv";a.click()}
 function seInputs(text){const out=[];for(const block of text.split(/\n\s*\n/)){const lines=block.split("\n").map(x=>x.trim()).filter(Boolean);if(!lines.length)continue;
   if(lines.every(l=>/^https?:\/\//i.test(l)))out.push(...lines);else out.push(lines.join("\n"))}return out}
-async function seRun(){const t=document.querySelector("#se_t").value;STATE.se.target=t;const o=document.querySelector("#se_out");o.innerHTML='<div class="muted">Reading…</div>';
-  try{const r=await call("smart-entry","POST",{inputs:seInputs(document.querySelector("#se_in").value),target:t});STATE.se.items=r.items;STATE.se.summary=r;seShow()}catch(e){o.innerHTML="";document.querySelector("#se_err").textContent=e.message}}
-function seShow(){const s=STATE.se,o=document.querySelector("#se_out");if(!o||!s.items.length)return;const r=s.summary||{};
-  o.innerHTML='<div class="muted" style="margin:8px 0">'+s.items.length+' prepared · '+(r.duplicates_skipped||0)+' duplicates skipped · '+(r.failed||0)+' could not be read'+(r.truncated?' · '+r.truncated+' over the limit, not read':'')+'</div>'+
-   s.items.map((it,i)=>'<div class="card" style="margin-bottom:10px"><b>'+esc(it.target||"?")+'</b> '+badge(it.status)+' <span class="muted">'+esc(it.kind||"")+' · '+esc((it.input||"").slice(0,90))+'</span>'+(it.note?'<div class="muted">'+esc(it.note)+'</div>':'')+
-    '<table>'+Object.entries(it.fields||{}).map(([k,f])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(f.value)+'</td><td>'+badge(f.confidence)+'</td><td class="muted">'+esc(f.provenance)+'</td></tr>').join("")+'</table>'+
+async function seRun(){const t=document.querySelector("#se_t").value;STATE.se.target=t;const o=document.querySelector("#se_out");document.querySelector("#se_err").textContent="";o.innerHTML='<div class="muted">Reading…</div>';
+  try{const file=document.querySelector("#se_csv").files[0];const body={inputs:seInputs(document.querySelector("#se_in").value),target:t};
+    if(file){if(file.size>500000)throw new Error("The CSV is larger than 500 KB — split it.");body.csv=await file.text();body.inputs=[]}
+    const r=await call("smart-entry","POST",body);STATE.se.items=r.items;STATE.se.summary=r;STATE.se.done=null;seShow()}catch(e){o.innerHTML="";document.querySelector("#se_err").textContent=e.message}}
+function sePickable(it){return it.importable&&it.can_save!==false&&!["INVALID","DUPLICATE"].includes(it.verdict)}
+function seShow(){const s=STATE.se,o=document.querySelector("#se_out");if(!o||!s.items.length)return;const r=s.summary||{},v=r.verdicts||{};
+  const picks=s.items.filter(sePickable).length,done=s.done||{};
+  o.innerHTML='<div class="card" style="margin:10px 0"><b>Preview</b> · '+s.items.length+' item(s) · '+Object.keys(SE_VERDICT).map(k=>seBadge(k)+' '+(v[k]||0)).join(" &nbsp; ")+
+    '<div class="muted" style="margin-top:6px">'+(r.duplicates_skipped||0)+' identical input(s) skipped · '+(r.failed||0)+' could not be read'+(r.truncated?' · '+r.truncated+' over the limit, not read':'')+'</div>'+
+    (picks?'<div class="bar" style="margin:8px 0 0"><select id="se_tpl"><option value="">Defaults: none</option></select><button class="p" onclick="seImport()">Import selected as drafts</button><span class="muted">Imported items are drafts / review items — nothing goes live from here.</span></div>':'<div class="muted" style="margin-top:6px">Nothing here can be imported in bulk — open each one in its form.</div>')+'</div>'+
+   s.items.map((it,i)=>'<div class="card" style="margin-bottom:10px">'+(sePickable(it)?'<input type="checkbox" id="se_pick_'+i+'" '+(it.verdict==="UPDATE"?"":"checked")+'> ':'')+seBadge(it.verdict)+' <b>'+esc(it.target||"?")+'</b> '+badge(it.status)+' <span class="muted">'+esc(it.kind||"")+' · '+esc((it.input||"").slice(0,90))+'</span>'+
+    (done[i]?'<div class="'+(done[i].ok?"okm":"err")+'">'+(done[i].ok?'Saved #'+esc(done[i].id)+' ('+esc(done[i].status||"")+')':esc(done[i].error))+'</div>':'')+
+    (it.existing?'<div class="muted">Matches '+(it.existing.id?'#'+esc(it.existing.id)+' ':'')+esc(it.existing.title||"")+'</div>':'')+
+    (it.changes&&Object.keys(it.changes).length?'<div class="muted">Differs: '+esc(Object.entries(it.changes).map(([k,c])=>k+": "+c.from+" → "+c.to).join("; "))+(sePickable(it)?' — tick to apply to the stored record':'')+'</div>':'')+
+    ((it.errors||[]).length?'<div class="err">'+esc(it.errors.join("; "))+'</div>':'')+(it.note?'<div class="muted">'+esc(it.note)+'</div>':'')+
+    '<table>'+Object.entries(it.fields||{}).map(([k,f])=>'<tr><td class="muted">'+esc(k)+'</td><td>'+cell(f.value)+'</td><td><span class="fs fs-'+(f.confidence==="high"?"FETCHED":"REVIEW")+'">'+(f.confidence==="high"?"FETCHED":"NEEDS REVIEW")+'</span></td><td class="muted">'+esc(f.provenance)+'</td></tr>').join("")+'</table>'+
     (it.not_found&&it.not_found.length?'<div class="muted">Not found (fill by hand): '+esc(it.not_found.join(", "))+'</div>':'')+
-    (it.can_save===false?'<div class="muted">You do not have permission to create this kind of record.</div>':'<button onclick="seUse('+i+')">Open in form</button>')+'</div>').join("")}
+    (it.can_save===false?'<div class="muted">You do not have permission to create this kind of record.</div>':'<button onclick="seUse('+i+')">Open in form</button>')+'</div>').join("");
+  if(picks)seTplOptions()}
+async function seTplOptions(){const t=STATE.se.items.find(sePickable).target;const sel=document.querySelector("#se_tpl");if(!sel)return;
+  try{const d=await call("smart-entry/templates?target="+(t==="content"?"catalog":t));STATE.se.templates=d.items;sel.innerHTML='<option value="">Defaults: none</option>'+d.items.map((x,i)=>'<option value="'+i+'">Defaults: '+esc(x.label)+'</option>').join("")}catch(e){sel.style.display="none"}}
+async function seImport(){const s=STATE.se;const chosen=s.items.map((it,i)=>[it,i]).filter(([it,i])=>{const c=document.querySelector("#se_pick_"+i);return c&&c.checked});
+  if(!chosen.length){document.querySelector("#se_err").textContent="Tick at least one item.";return}
+  const tpl=(s.templates||[])[document.querySelector("#se_tpl").value];const defaults={};for(const [k,v] of Object.entries((tpl&&tpl.defaults)||{}))if(!QA_FACT.has(k))defaults[k]=v;
+  const upd=chosen.filter(([it])=>it.verdict==="UPDATE").length;
+  if(!confirm("Save "+(chosen.length-upd)+" new item(s) as drafts / review items"+(upd?" and apply "+upd+" update(s) to stored records":"")+"? Nothing goes live from here."))return;
+  try{const r=await call("smart-entry/import","POST",{confirm:true,defaults,items:chosen.map(([it])=>({target:it.target,fields:it.fields,update_id:it.verdict==="UPDATE"&&it.existing?it.existing.id:null}))});
+    s.done={};r.results.forEach(x=>{s.done[chosen[x.index][1]]=x});seShow();document.querySelector("#se_err").textContent=r.failed?r.failed+" item(s) were not saved — see each card.":""}
+  catch(e){document.querySelector("#se_err").textContent=e.message}}
 function seV(it,k){const f=(it.fields||{})[k];return f?f.value:undefined}
 function seIso(v){if(!v)return "";const d=new Date(String(v).replace(/(\d)(st|nd|rd|th)/,"$1"));if(isNaN(d))return "";const z=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())}
-function seFill(prefix,map,it){for(const [k,src] of Object.entries(map)){const v=typeof src==="function"?src(it):seV(it,src);const el=document.querySelector("#"+prefix+k);if(!el||v==null||v===""||el.disabled)continue;
-  el.value=Array.isArray(v)?v.join(", "):v;const f=typeof src==="string"?(it.fields||{})[src]:null;if(f){el.title="From "+f.provenance+" ("+f.confidence+" confidence)";if(f.confidence!=="high")el.style.background="#fff7e0"}}}
 async function seUse(i){const it=STATE.se.items[i];const t=it.target;
-  if(t==="catalog"||t==="content"){await affForm();seFill("af_",{original_product_url:"source_url",title:"title",brand:"brand",category:"category",price:"price",description:"description",images:"image_url",variants:"variant"},it)}
-  else if(t==="offer"){bfForm();seFill("bf_",{name:"title",provider_name:"merchant",discount_percent:"discount_percent",discount_amount:"discount_amount",min_purchase:"min_spend",max_discount:"max_benefit",payment_methods:"payment_eligibility",terms:"terms",source_url:"source_url",coupons:"coupon_code",starts_at:x=>seIso(seV(x,"starts_on")),ends_at:x=>seIso(seV(x,"ends_on"))},it);
-    const pe=seV(it,"payment_eligibility");const ty=document.querySelector("#bf_offer_type");if(ty)ty.value=pe?(String(pe).includes("UPI")?"upi_wallet":"bank_card"):(seV(it,"coupon_code")?"coupon":"merchant_brand")}
-  else if(t==="sponsored")spForm({title:seV(it,"title"),destination_url:seV(it,"destination_url"),image_url:seV(it,"image_url")});
-  else{const res={merchant_offer:"merchant_offers",affiliate_link:"affiliate_links",source:"sources",video:"videos"}[t];if(!res)return;openForm(res);
-    seFill("fld_",{merchant_offer:{title:"title",merchant_name:"merchant",max_discount:"max_benefit",min_bill:"min_spend",terms:"terms",value:x=>seV(x,"discount_percent")??seV(x,"discount_amount"),valid_to:x=>seIso(seV(x,"ends_on"))},
-      affiliate_link:{title:"title",affiliate_url:"destination_url",image_url:"image_url",category:"category"},source:{name:"name",domains:"domain"},video:{title:"title",platform:"platform",url:"source_url"}}[t],it)}}
+  if(t==="catalog"||t==="content")await affForm();else if(t==="offer")bfForm();else if(t==="sponsored")spForm();else{const F=QA_FORMS[t];if(!F||!F.res)return;openForm(F.res)}
+  qaFill(it);if(t==="offer")seOfferType(it);const n=document.querySelector("#qa_note");if(n)n.textContent="Filled from Smart Entry: "+(it.input||"").slice(0,80)+" — check every NEEDS REVIEW field."}
+/* ---------------------------------- Quick Add: Smart Entry inside every create form -- */
+// Never carried by a template or "Duplicate previous": facts that differ per record.
+const QA_FACT=new Set(["price","mrp","stock_status","commission_status","title","name","original_product_url","affiliate_url","destination_url","source_url","url","coupons","budget","daily_budget","discount_percent","discount_amount","max_discount","min_purchase","images","image_url","product_id","canonical_url","tracking_url","deep_link","cost_per_click","cost_per_thousand","max_impressions","max_clicks","value","max_benefit","min_bill","valid_to","valid_from","starts_at","ends_at","thumbnail_url","feed_url","logo_url","verified_commission_rate","commission_percent","commission_fixed","advertiser_id","terms","description","variants","video_id","subtitle","keywords","domains","code"]);
+const QA_FORMS={
+  catalog:{prefix:"af_",map:{original_product_url:"source_url",title:"title",brand:"brand",category:"category",price:"price",description:"description",images:"image_url",variants:"variant",stock_status:"stock"},
+    groups:{required:["original_product_url","title"],recommended:["price","images","platform","category","brand","affiliate_url","stock_status"]},
+    example:"https://www.amazon.in/dp/… or any product page"},
+  offer:{prefix:"bf_",map:{name:"title",provider_name:"merchant",discount_percent:"discount_percent",discount_amount:"discount_amount",min_purchase:"min_spend",max_discount:"max_benefit",payment_methods:"payment_eligibility",terms:"terms",source_url:"source_url",coupons:"coupon_code",starts_at:x=>seIso(seV(x,"starts_on")),ends_at:x=>seIso(seV(x,"ends_on"))},
+    groups:{required:["name","offer_type","source_url"],recommended:["provider_name","payment_methods","discount_percent","discount_amount","ends_at","coupons"]},
+    example:"Offer page URL, or paste the offer text"},
+  sponsored:{prefix:"sp_",map:{title:"title",destination_url:"destination_url",image_url:"image_url"},
+    groups:{required:["advertiser_id","name","kind","title","destination_url"],recommended:["image_url","categories","keywords","locations","starts_at","ends_at","budget","daily_budget"]},
+    example:"Advertiser landing page (https)",defaults:{language:"en"}},
+  merchant_offer:{prefix:"fld_",res:"merchant_offers",map:{title:"title",merchant_name:"merchant",max_discount:"max_benefit",min_bill:"min_spend",terms:"terms",value:x=>seV(x,"discount_percent")??seV(x,"discount_amount"),valid_to:x=>seIso(seV(x,"ends_on"))},example:"Merchant offer page, or paste the offer text"},
+  affiliate_link:{prefix:"fld_",res:"affiliate_links",map:{title:"title",affiliate_url:"destination_url",original_url:x=>seV(x,"source_url")!==seV(x,"destination_url")?seV(x,"source_url"):null,image_url:"image_url",category:"category"},example:"https://amzn.to/… tracking link",defaults:{country:"IN"}},
+  source:{prefix:"fld_",res:"sources",map:{name:"name",domains:"domain"},example:"https://shop.example.in"},
+  video:{prefix:"fld_",res:"videos",map:{title:"title",platform:"platform",url:"source_url"},example:"https://www.youtube.com/watch?v=…"},
+};
+const QA_RES=Object.fromEntries(Object.entries(QA_FORMS).filter(([k,v])=>v.res).map(([k,v])=>[v.res,k]));
+const QA_STATES=["FETCHED","REVIEW","MISSING","TEMPLATE","PREVIOUS","DEFAULT","MANUAL"];
+function qaStrip(target){const F=QA_FORMS[target];if(!F)return "";
+  return '<div class="card qa" id="qa_box"><b>Quick add</b> <span class="muted">Paste a link or text, press <b>Fetch details</b>: only what the page states is filled, each field shows where it came from. Nothing is saved until you press Save.</span>'+
+   '<div class="bar" style="margin:8px 0"><input id="qa_in" style="flex:1;min-width:200px" placeholder="'+esc(F.example)+'"><button class="p" id="qa_fetch" onclick="qaFetch()">Fetch details</button></div>'+
+   '<div class="bar" style="margin:0"><select id="qa_tpl" onchange="qaTemplate(this.value)"><option value="">Start from a template…</option></select><button id="qa_prev" onclick="qaPrevious()">Duplicate previous</button><button id="qa_savetpl" onclick="qaSaveTemplate()">Save as template</button></div>'+
+   '<div id="qa_note" class="muted" style="margin-top:6px"></div><div class="muted" style="margin-top:6px;font-size:11.5px">Field states: '+QA_STATES.map(s=>'<span class="fs fs-'+s+'">'+(s==="REVIEW"?"NEEDS REVIEW":s)+'</span>').join(" ")+'</div></div>'}
+// After a form is drawn: progressive sections, completion count, field states,
+// templates and smart defaults (new records only).
+function qaSetup(target,prefix,groups,isNew){STATE.qa={target,prefix};
+  const db=document.querySelector("#db");if(!document.querySelector("#pd_done"))db.insertAdjacentHTML("afterbegin",'<div id="pd_done" class="muted" style="margin:0 0 8px;font-weight:600"></div>');
+  if(groups)pdApply(prefix,groups);
+  db.querySelectorAll("[id^='"+prefix+"']").forEach(el=>{if(!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName))return;el.addEventListener("input",()=>{fsMark(el,"MANUAL","Entered by staff");pdCount()});el.addEventListener("change",()=>{fsMark(el,"MANUAL","Entered by staff");pdCount()})});
+  const F=target&&QA_FORMS[target];
+  if(F&&isNew){for(const [k,v] of Object.entries(F.defaults||{})){const el=document.querySelector("#"+F.prefix+k);if(el&&!pdFilled(el)){el.value=v;fsMark(el,"DEFAULT","Smart default (India-first) — change it if it does not apply")}}qaTemplates()}
+  pdCount()}
+function pdApply(prefix,groups){const db=document.querySelector("#db");
+  const labels=[...db.querySelectorAll("label.f")].filter(l=>{const el=l.querySelector("input,select,textarea");return el&&el.id&&el.id.startsWith(prefix)});if(labels.length<5)return; // short forms stay flat
+  const key=l=>l.querySelector("input,select,textarea").id.slice(prefix.length);
+  const sec=(t,open,id)=>{const d=document.createElement("details");d.className="pd";d.id=id;if(open)d.open=true;d.innerHTML='<summary><b>'+t+'</b> <span class="muted" id="'+id+'_n"></span></summary>';return d};
+  const req=sec("Required",true,"pd_req"),rec=sec("Recommended",true,"pd_rec"),adv=sec("Advanced",false,"pd_adv");
+  labels[0].before(req);req.after(rec);rec.after(adv);
+  for(const l of labels){const k=key(l);(groups.required.includes(k)?req:groups.recommended.includes(k)?rec:adv).appendChild(l)}
+  for(const d of [req,rec,adv])if(d.querySelectorAll("label.f").length===0)d.remove()}
+function pdFilled(el){return !!el&&!el.disabled&&String(el.value||"").trim()!==""}
+function pdCount(){const out=[];for(const [id,t] of [["pd_req","Required"],["pd_rec","Recommended"],["pd_adv","Advanced"]]){const d=document.querySelector("#"+id);if(!d)continue;
+    const els=[...d.querySelectorAll("label.f")].map(l=>l.querySelector("input,select,textarea"));const n=els.filter(pdFilled).length;document.querySelector("#"+id+"_n").textContent=n+"/"+els.length;out.push(t+" "+n+"/"+els.length)}
+  const box=document.querySelector("#pd_done");if(box)box.textContent=out.length?"Completion: "+out.join(" · "):""}
+function fsMark(el,state,why){if(!el)return;const l=el.closest("label.f");if(!l)return;let c=l.querySelector(".fs");if(!c){c=document.createElement("span");l.insertBefore(c,el)}
+  c.className="fs fs-"+state;c.textContent=state==="REVIEW"?"NEEDS REVIEW":state;c.title=why||"";el.title=why||""}
+function qaForm(){const q=STATE.qa||{};return QA_FORMS[q.target==="content"?"catalog":q.target]}
+function qaFill(it){const F=qaForm();if(!F)return 0;let n=0;
+  for(const [k,src] of Object.entries(F.map)){const el=document.querySelector("#"+F.prefix+k);if(!el||el.disabled)continue;
+    const v=typeof src==="function"?src(it):seV(it,src);const f=typeof src==="string"?(it.fields||{})[src]:null;
+    if(v==null||v===""){if(!pdFilled(el)&&typeof src==="string"&&(it.not_found||[]).includes(src))fsMark(el,"MISSING","Not stated on the page — enter it by hand or leave it empty");continue}
+    el.value=Array.isArray(v)?v.join(", "):v;n++;
+    fsMark(el,f&&f.confidence==="high"?"FETCHED":"REVIEW",f?"From "+f.provenance+" ("+f.confidence+" confidence)":"Derived from the page text — check it")}
+  pdCount();return n}
+async function qaFetch(){const q=STATE.qa||{},note=document.querySelector("#qa_note");const raw=document.querySelector("#qa_in").value.trim();
+  if(!raw){note.textContent="Paste a link or the offer text first.";return}
+  if(raw.split(/\s+/).filter(x=>/^https?:\/\//i.test(x)).length>1){note.innerHTML='Several links pasted — check them together in bulk. <button onclick="qaToBulk()">Open bulk Smart Entry</button>';return}
+  note.textContent="Reading…";
+  try{const r=await call("smart-entry","POST",{inputs:[raw],target:q.target});const it=r.items[0];q.last=it;const n=qaFill(it);
+    if(q.target==="offer")seOfferType(it);
+    let html=esc(n+" field(s) filled from "+(it.kind||"input")+(it.status!=="ok"?" · page: "+it.status:"")+(it.note?" · "+it.note:""));
+    if(it.verdict==="DUPLICATE"||it.verdict==="UPDATE")html+='<div class="err">Already stored'+(it.existing&&it.existing.id?' as #'+esc(it.existing.id):'')+(it.verdict==="UPDATE"?' — the page now differs in: '+esc(Object.keys(it.changes||{}).join(", ")):'')+'. Edit that record instead of adding a second one.</div>';
+    const still=(it.errors||[]).filter(e=>/missing$/.test(e)).map(e=>e.replace(/ missing$/,""));if(still.length)html+='<div>Still needed: '+esc(still.join(", "))+'</div>';
+    const bad=(it.errors||[]).filter(e=>!/missing$/.test(e));if(bad.length)html+='<div class="err">'+esc(bad.join("; "))+'</div>';
+    note.innerHTML=html}catch(e){note.textContent=e.message}}
+function qaToBulk(){STATE.sePrefill=document.querySelector("#qa_in").value;STATE.se={target:(STATE.qa||{}).target||"auto",items:[]};closeDrawer();go("smartentry")}
+async function qaTemplates(){const q=STATE.qa||{};const t=q.target==="content"?"catalog":q.target;
+  try{STATE.qaT=STATE.qaT||{};const d=STATE.qaT[t]||await call("smart-entry/templates?target="+t);STATE.qaT[t]=d;q.templates=d.items;
+    const s=document.querySelector("#qa_tpl");if(s)s.innerHTML='<option value="">Start from a template…</option>'+d.items.map((x,i)=>'<option value="'+i+'">'+esc(x.label)+(x.builtin?"":" (saved)")+'</option>').join("")}
+  catch(e){const s=document.querySelector("#qa_tpl");if(s)s.style.display="none"}}
+function qaApply(values,state,why){const F=qaForm();let n=0;for(const [k,v] of Object.entries(values||{})){if(QA_FACT.has(k))continue;const el=document.querySelector("#"+F.prefix+k);if(!el||el.disabled||v==null||v==="")continue;el.value=Array.isArray(v)?v.join(", "):v;fsMark(el,state,why);n++}pdCount();return n}
+function qaTemplate(i){const q=STATE.qa||{},t=(q.templates||[])[i];if(!t)return;const n=qaApply(t.defaults,"TEMPLATE","From template: "+t.label);
+  const inp=document.querySelector("#qa_in");if(inp&&t.example)inp.placeholder=t.example;
+  document.querySelector("#qa_note").textContent=t.label+": "+n+" default(s) set. "+(t.hint||"")+" Templates never fill a price, stock, rating or commission."}
+function qaValues(){const F=qaForm(),out={};if(!F)return out;document.querySelectorAll("#db [id^='"+F.prefix+"']").forEach(el=>{if(!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)||el.disabled)return;
+    const k=el.id.slice(F.prefix.length);if(QA_FACT.has(k))return;const v=String(el.value||"").trim();if(v)out[k]=v});return out}
+function qaSnap(){const q=STATE.qa;return q&&qaForm()&&document.querySelector("#db [id^='"+qaForm().prefix+"']")?{t:q.target,v:qaValues()}:null}
+function qaKeep(s){if(!s)return;try{localStorage.setItem("askodox_qa_prev_"+s.t,JSON.stringify(s.v))}catch(e){}}
+function qaPrevious(){const q=STATE.qa||{},note=document.querySelector("#qa_note");let v=null;try{v=JSON.parse(localStorage.getItem("askodox_qa_prev_"+q.target)||"null")}catch(e){}
+  if(!v){note.textContent="Nothing saved from this form in this browser yet.";return}
+  const n=qaApply(v,"PREVIOUS","Copied from the last record you saved here");note.textContent=n+" setting(s) copied from your last saved record (never its link, name, price, stock or dates)."}
+async function qaSaveTemplate(){const q=STATE.qa||{},note=document.querySelector("#qa_note");const values=qaValues();
+  if(!Object.keys(values).length){note.textContent="Set some reusable fields (category, platform, type …) first.";return}
+  const name=prompt("Template name (it keeps: "+Object.keys(values).join(", ")+")");if(!name)return;
+  try{await call("platform/r/entry_templates","POST",{data:{name,target:q.target==="content"?"catalog":q.target,defaults:values}});if(STATE.qaT)delete STATE.qaT[q.target==="content"?"catalog":q.target];await qaTemplates();note.textContent="Saved template '"+name+"'. It appears in every "+q.target+" form."}
+  catch(e){note.textContent=e.message}}
+function seOfferType(it){const pe=seV(it,"payment_eligibility");const ty=document.querySelector("#bf_offer_type");if(ty&&(pe||seV(it,"coupon_code"))){ty.value=pe?(String(pe).includes("UPI")?"upi_wallet":"bank_card"):"coupon";fsMark(ty,"REVIEW","Inferred from the payment / coupon wording")}}
 const BF_FIELDS=[["name","Offer name *"],["offer_type","Type *"],["provider_name","Bank / merchant / partner"],["description","Description"],["payment_methods","Payment methods (comma separated)"],["discount_percent","Discount %"],["discount_amount","Flat discount (₹)"],["min_purchase","Minimum purchase (₹)"],["max_discount","Maximum discount (₹)"],["starts_at","Starts (YYYY-MM-DD)"],["ends_at","Ends (YYYY-MM-DD)"],["terms","Terms"],["source_url","Source URL (where the offer is published, https)"],["coupons","Coupon codes (comma separated)"]];
-function bfForm(){drawer("New offer",'<div class="muted" style="margin-bottom:8px">Bank / UPI / merchant / partner offers need the page where the offer is published. The offer stays unverified until staff verify it.</div>'+
+function bfForm(){drawer("New offer",qaStrip("offer")+'<div class="muted" style="margin-bottom:8px">Bank / UPI / merchant / partner offers need the page where the offer is published. The offer stays unverified until staff verify it.</div>'+
    BF_FIELDS.map(([k,l])=>'<label class="f">'+l+(k==="offer_type"?'<select id="bf_offer_type">'+["bank_card","upi_wallet","merchant_brand","affiliate_partner","coupon","cashback","askodox_credit","referral_reward","free_gift","scratch_reward","other"].map(o=>'<option>'+o+'</option>').join("")+'</select>':k==="terms"||k==="description"?'<textarea id="bf_'+k+'"></textarea>':'<input id="bf_'+k+'">')+'</label>').join("")+'<div id="ferr" class="err"></div>',
-   '<button class="p" onclick="bfSave()">Save (not live until activated)</button><button onclick="closeDrawer()">Cancel</button>')}
-async function bfSave(){const out={active:false};let codes=[];for(const [k] of BF_FIELDS){const el=document.querySelector("#bf_"+k);let v=el?el.value.trim():"";if(v==="")continue;
+   '<button class="p" onclick="bfSave()">Save (not live until activated)</button><button onclick="closeDrawer()">Cancel</button>');qaSetup("offer","bf_",QA_FORMS.offer.groups,true)}
+async function bfSave(){const snap=qaSnap();const out={active:false};let codes=[];for(const [k] of BF_FIELDS){const el=document.querySelector("#bf_"+k);let v=el?el.value.trim():"";if(v==="")continue;
     if(k==="coupons"){codes=v.split(",").map(x=>x.trim()).filter(Boolean);continue}
     if(k==="payment_methods")v=v.split(",").map(x=>x.trim()).filter(Boolean);else if(["discount_percent","discount_amount","min_purchase","max_discount"].includes(k))v=Number(v);out[k]=v}
   if(out.source_url)out.source_kind="admin_entered";
-  try{const c=await call("benefits","POST",out);if(codes.length)await call("benefits/"+c.id+"/coupons","POST",{codes});closeDrawer();if(VIEW==="benefits")benefits();else alert("Saved as a paused offer: "+c.name)}catch(e){document.querySelector("#ferr").textContent=e.message}}
+  try{const c=await call("benefits","POST",out);if(codes.length)await call("benefits/"+c.id+"/coupons","POST",{codes});qaKeep(snap);closeDrawer();if(VIEW==="benefits")benefits();else alert("Saved as a paused offer: "+c.name)}catch(e){document.querySelector("#ferr").textContent=e.message}}
 function affBulk(){const c=STATE.afcan||{};drawer("Bulk / feed import",'<div class="muted">CSV with a header row, e.g.<div class="mono">platform,title,url,affiliate_url,price,original_price,category,stock,commission,image</div>'+
    '<b>Add / update</b> creates or edits products. <b>Status feed</b> only updates stock / commission / price of products already in the catalog (from a trusted partner feed) and never creates any. Stock, commission and affiliate-link columns need their own permissions.</div>'+
    '<label class="f">Mode<select id="ab_mode"><option value="upsert">Add / update products</option><option value="status">Status feed (stock / commission / price)</option></select></label>'+
@@ -557,7 +665,14 @@ async function resultdiag(q){q=q??(STATE.rdq||"");STATE.rdq=q;const d=await call
    '<div><b>Sections returned</b> '+(x.sections_returned.map(s=>badge(s.kind+" "+s.count)+(s.empty_reason?' <span class="muted">'+esc(s.empty_reason)+'</span>':'')).join(" ")||'<span class="muted">none</span>')+'</div>'+
    '<div><b>Sections rendered</b> '+(x.sections_rendered===null?'<span class="muted">app has not reported yet</span>':(x.sections_rendered.map(badge).join(" ")||'<span class="muted">none</span>'))+'</div>'+
    '<div><b>Suppressed</b> '+kv(Object.assign({},x.suppressed||{},typeof x.render_suppressed==="object"?x.render_suppressed:{}))+'</div>'+
-   '<div><b>Answer</b> '+kv(x.answer)+(x.errors&&x.errors.length?' · errors '+esc(x.errors.join(", ")):'')+'</div></div>').join("")||'<div class="card empty">No searches recorded yet.</div>')}
+   '<div><b>Answer</b> '+kv(x.answer)+(x.errors&&x.errors.length?' · errors '+esc(x.errors.join(", ")):'')+'</div>'+
+   (x.mode?'<div><b>Mode</b> '+esc(x.mode)+' · <b>Requested location</b> '+esc(x.requested_location||"none (device / not given)")+'</div>':'')+
+   (x.counts_raw_vs_kept?'<div><b>Raw vs kept</b> '+kv(x.counts_raw_vs_kept)+' · <b>Filtered</b> '+kv(x.filtered)+'</div>':'')+
+   (x.price_provenance?'<div><b>Price provenance</b> '+kv(x.price_provenance)+' · <b>Budget fit</b> '+kv(x.budget_fit)+'</div>':'')+
+   (x.rejected&&x.rejected.length?'<div><b>Rejected</b> '+x.rejected.map(r=>esc((r.title||r.id||"?").toString().slice(0,50))+' <span class="muted">('+esc(r.reason)+(r.price!=null?' ₹'+esc(r.price):'')+')</span>').join(" · ")+'</div>':'')+
+   (x.actions?'<div><b>Card actions</b> '+Object.entries(x.actions).map(([sec,a])=>esc(sec)+': '+kv(a)).join(" | ")+'</div>':'')+
+   (x.ranking&&x.ranking.length?'<details><summary><b>Ranking</b> (top '+x.ranking.length+')</summary><ol>'+x.ranking.map(r=>'<li>'+esc(r.title)+' <span class="muted">'+esc(r.section)+(r.price_kind?' · '+esc(r.price_kind):'')+(r.budget_fit?' · '+esc(r.budget_fit):'')+(r.fit?' · fit '+esc(r.fit):'')+'</span></li>').join("")+'</ol></details>':'')+
+   '</div>').join("")||'<div class="card empty">No searches recorded yet.</div>')}
 async function mobility(){const d=await call("mobility/overview?limit=50");const a=d.analytics||{};const kv=o=>Object.entries(o||{}).map(([k,v])=>'<span class="muted">'+esc(k)+'</span> <b>'+esc(v)+'</b>').join(" · ")||'<span class="muted">none</span>';
   document.querySelector("#page").innerHTML=head("Mobility overview","Rides, parcels, local and order deliveries and carpool -- one system. Requests are offered only to APPROVED partners; nothing is confirmed until a partner accepts. Customer ids and phones never appear here; unmet demand is shown by ~10 km area. Approve / reject / ask for correction / pause / disable partners in Delivery partners; services and fare rates in Mobility services & fares.")+
   '<div class="kpis"><div class="kpi"><div class="l">Requests</div><div class="v">'+esc(a.requests??0)+'</div></div><div class="kpi"><div class="l">Acceptance rate</div><div class="v">'+(a.acceptance_rate==null?"—":Math.round(a.acceptance_rate*100)+"%")+'</div></div><div class="kpi"><div class="l">No driver found</div><div class="v">'+esc(a.no_provider_found??0)+'</div></div><div class="kpi"><div class="l">Completed</div><div class="v">'+esc(a.completed??0)+'</div></div><div class="kpi"><div class="l">Avg time to accept</div><div class="v">'+(a.avg_match_seconds==null?"—":Math.round(a.avg_match_seconds/60)+" min")+'</div></div><div class="kpi"><div class="l">Partners online</div><div class="v">'+esc(d.partners.online)+'</div></div></div>'+
@@ -608,13 +723,20 @@ async function workqueue(){const d=await call("staff/work-queue");STATE.wq=d.ite
     '<div><b>'+(L==="te"?"చేయండి":"Do")+':</b> '+esc(x.action||i.what_to_do)+'</div>'+
     '<div id="wq_x'+n+'" class="muted" style="display:none;margin-top:6px"><div><b>'+(L==="te"?"ఏమి జరిగింది":"What happened")+':</b> '+esc(x.what||"")+'</div>'+(x.why?'<div><b>'+(L==="te"?"ఎందుకు":"Why")+':</b> '+esc(x.why)+'</div>':'')+''+(x.impact?'<div><b>'+(L==="te"?"ప్రభావం":"Impact")+':</b> '+esc(x.impact)+'</div>':'')+''+(L==="te"?'':'<div><b>Done when:</b> '+esc(i.done_when)+'</div>')+(i.check_error?'<div class="err">Check could not run: '+esc(i.check_error)+'</div>':'')+'</div>'+
     '<div style="margin-top:6px"><button onclick="const e=document.querySelector(\'#wq_x'+n+'\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">'+(L==="te"?"ఇది వివరించు":"Explain this")+'</button>'+(i.count?' <a class="btn" href="'+esc(i.where)+'" onclick="if(this.getAttribute(\'href\').startsWith(\'/admin/console#\')){go(this.getAttribute(\'href\').split(\'#\')[1]);return false}">'+esc(x.button||"Open")+'</a>':'')+'</div></div>'}).join(""):'<div class="empty">Nothing in your queue.</div>')}
-async function assistant(){document.querySelector("#page").innerHTML=head("Admin assistant","Answers from recorded ASKODOX data only: what was observed, what might explain it (unverified), and what to do.",
-   '<input id="as_q" style="min-width:320px" placeholder="e.g. Which categories have unmet demand?"><button class="p" onclick="assistantAsk()">Ask</button>')+
-   '<div class="muted" style="margin-bottom:10px">Try: what increased today? · which sellers are not responding? · which products are out of stock? · which integrations are failing? · what should staff work on today?</div><div id="as_out"></div>';
+async function assistant(){document.querySelector("#page").innerHTML=head("Admin assistant","Answers from recorded ASKODOX data only: what was observed, what might explain it (unverified), and what to do. Commands never change data by themselves: each one opens the right screen with a preview, and saving there asks you to confirm.",
+   '<input id="as_q" style="min-width:360px" placeholder="e.g. add these links https://… · show products with missing prices"><select id="as_l"><option value="">Auto language</option><option value="en">English</option><option value="te">తెలుగు</option></select><button class="p" onclick="assistantAsk()">Ask</button>')+
+   '<div class="muted" style="margin-bottom:10px">Questions: what increased today? · which sellers are not responding? · which integrations are failing?<br>Commands: add these links https://… · draft an offer from https://… · show products with missing prices · find duplicates · which sources are failing? · what needs review? · why didn\'t "product name" appear? · assign opportunities · ధర లేని ఉత్పత్తులు చూపించు</div><div id="as_out"></div>';
   document.querySelector("#as_q").addEventListener("keydown",e=>{if(e.key==="Enter")assistantAsk()})}
 async function assistantAsk(){const q=document.querySelector("#as_q").value.trim();if(!q)return;const out=document.querySelector("#as_out");out.innerHTML='<div class="muted">Checking the data…</div>';
-  try{const r=await call("assistant/ask","POST",{question:q});const sec=(t,rows)=>rows&&rows.length?'<div><b>'+t+'</b><ul>'+rows.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>':'';
-   out.innerHTML=r.answers.map(a=>'<div class="card" style="margin-bottom:10px"><h3>'+esc(a.topic.replace(/_/g," "))+'</h3>'+sec("Observed",a.observed)+sec("Might explain it (unverified)",a.likely)+sec("Recommended",a.actions)+'</div>').join("")+'<div class="muted">'+esc(r.basis)+'</div>'}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
+  try{const r=await call("assistant/ask","POST",{question:q,language:document.querySelector("#as_l").value});STATE.asOps=r.answers.map(a=>a.operation);const te=r.language==="te";
+   const sec=(t,rows)=>rows&&rows.length?'<div><b>'+t+'</b><ul>'+rows.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>':'';
+   out.innerHTML=r.answers.map((a,i)=>'<div class="card" style="margin-bottom:10px"><h3>'+esc(a.title||a.topic.replace(/_/g," "))+'</h3>'+sec(te?"గమనించినది":"Observed",a.observed)+sec(te?"కారణం కావచ్చు (నిర్ధారించలేదు)":"Might explain it (unverified)",a.likely)+sec(te?"సూచన":"Recommended",a.actions)+
+     (a.operation?'<button class="p" id="as_op_'+i+'" onclick="assistantOp('+i+')">'+esc(a.operation.label)+'</button>':'')+'</div>').join("")+'<div class="muted">'+esc(r.basis)+'</div>'}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
+function assistantOp(i){const op=(STATE.asOps||[])[i];if(!op)return;
+  if(op.kind==="open_smart_entry"){const v=Object.entries(op.preview||{}).filter(([k,n])=>n).map(([k,n])=>k+" "+n).join(", ");
+    if(!confirm("Open "+op.inputs.length+" link(s) in Smart Entry ("+(v||"not checked")+")? Nothing is saved until you import them there and confirm."))return;
+    STATE.sePrefill=op.inputs.join("\n");STATE.se={target:op.target||"auto",items:[]};go("smartentry");return}
+  if(op.kind==="open_view"){if(op.view==="resultdiag"&&op.query)STATE.rdq=op.query;go(op.view)}}
 
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==VIEW&&ME){VIEW=h;renderNav();render()}});
 if(CRED)signIn();else document.querySelector("#login").style.display="block";

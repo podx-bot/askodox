@@ -759,9 +759,26 @@ bool askodoxAsksForVideos(String text) => _videoAsk.hasMatch(text);
 /// listed price with its MRP / discount when the source states them; a price
 /// found only in web-page text stays "Page mentions ₹X".
 String? askodoxPriceLabel(UniversalMatch match, {required bool te}) {
+  final base = _basePriceLabel(match, te: te);
+  final offer = match.offerPrice;
+  final parts = <String>[
+    if (base != null) base,
+    // A conditional price is never shown as THE price.
+    if (offer != null)
+      te
+          ? '₹${offer.toStringAsFixed(0)} అర్హత ఉన్న ఆఫర్‌తో${match.offerCondition == null ? '' : ' (${match.offerCondition})'}'
+          : '₹${offer.toStringAsFixed(0)} with eligible offer${match.offerCondition == null ? '' : ' (${match.offerCondition})'}',
+    if (match.budgetFit == 'over') te ? 'మీ బడ్జెట్ కంటే ఎక్కువ' : 'Over your budget',
+    if (match.budgetFit == 'within_with_offer') te ? 'ఆఫర్‌తో మాత్రమే బడ్జెట్‌లో' : 'In budget only with the offer',
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+String? _basePriceLabel(UniversalMatch match, {required bool te}) {
   final price = match.price;
   if (price == null) return null;
   final amount = '₹${price.toStringAsFixed(0)}';
+  if (match.priceKind == 'starting_from') return te ? '$amount నుంచి (చౌకైన వేరియంట్)' : 'From $amount (cheapest variant)';
   if (match.priceVerified) return amount;
   if (match.priceSource == 'catalog') {
     final mrp = match.originalPrice;
@@ -888,8 +905,17 @@ String askodoxResultsSummary(AskodoxChatResults results, {required bool telugu})
     if (n > 0) parts.add(telugu ? '$te $n' : '$en $n');
   }
 
+  bool isDeal(UniversalMatch m) =>
+      const {'deals', 'used', 'surplus'}.contains(m.segment) ||
+      m.offerTitle?.trim().isNotEmpty == true ||
+      m.offerPrice != null ||
+      (m.originalPrice != null && m.price != null && m.originalPrice! > m.price!);
+  final online = results.online;
+  final deals = [for (final m in online) if (isDeal(m)) m];
+  add(results.matches.length - results.videos.length, 'Results', 'ఫలితాలు');
   add(results.local.length, 'Local', 'దగ్గర');
-  add(results.online.length, 'Online', 'ఆన్‌లైన్');
+  add(deals.length, 'Deals', 'డీల్స్');
+  add(online.length - deals.length, 'Online', 'ఆన్‌లైన్');
   add(results.videos.length, 'Videos', 'వీడియోలు');
   final near = [for (final m in results.local) if (m.distanceKm != null) m]
     ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
@@ -898,7 +924,7 @@ String askodoxResultsSummary(AskodoxChatResults results, {required bool telugu})
     final km = m.distanceKm! < 1 ? '${(m.distanceKm! * 1000).round()} m' : '${m.distanceKm!.toStringAsFixed(1)} km';
     parts.add(telugu ? 'దగ్గరగా: ${m.title} ($km)' : 'Nearest: ${m.title} ($km)');
   }
-  return parts.join(' · ');
+  return parts.join(' | ');
 }
 
 /// "2.4 km away (straight line)" -- result distances are measured point to

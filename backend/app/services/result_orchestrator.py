@@ -266,6 +266,7 @@ def remember(container, trace_key: str, demand: Dict[str, Any], discovered: Dict
         "order": contract["orchestration"]["order"],
         "answer": contract["answer"],
         "latency_ms": discovered.get("latency_ms"),
+        **_decision_trace(demand, discovered),
     }
     db.execute("INSERT OR REPLACE INTO result_diagnostics(trace_key,created_at,query,payload,rendered) "
                "VALUES(?,?,?,?,(SELECT rendered FROM result_diagnostics WHERE trace_key=?))",
@@ -273,6 +274,61 @@ def remember(container, trace_key: str, demand: Dict[str, Any], discovered: Dict
                 trace_key))
     db.execute("DELETE FROM result_diagnostics WHERE trace_key NOT IN "
                "(SELECT trace_key FROM result_diagnostics ORDER BY created_at DESC LIMIT ?)", (_KEEP_ROWS,))
+
+
+def row_action(row: Dict[str, Any]) -> str:
+    """The card action the app offers for a row (mirrors chat_result_policy):
+    a registered ASKODOX listing -> order request, a nearby place ->
+    directions, a video -> play, anything with a link -> open link."""
+    section = section_of(row)
+    source = str(row.get("match_source") or row.get("source") or "").lower()
+    if section in ("videos", "shorts"):
+        return "play"
+    if section == "local" and (source in ("registered", "askodox", "listing") or str(row.get("id") or "").isdigit()):
+        return "order_request"
+    if section == "local" and (row.get("lat") is not None or row.get("maps_url") or row.get("place_id")):
+        return "directions"
+    if row.get("url") or row.get("destination_url") or row.get("link"):
+        return "open_link"
+    return "none"
+
+
+def _decision_trace(demand: Dict[str, Any], discovered: Dict[str, Any]) -> Dict[str, Any]:
+    """Mode, requested location, price provenance, rejections, ranking and
+    actions for Result Diagnostics (no customer identity: subjects, counts,
+    titles of public rows only)."""
+    rows = list(discovered.get("matches") or [])
+    loc = demand.get("location")
+    if isinstance(loc, dict):
+        loc = loc.get("label") or loc.get("name") or loc.get("city")
+    kinds: Dict[str, int] = {}
+    fits: Dict[str, int] = {}
+    actions: Dict[str, Dict[str, int]] = {}
+    for row in rows:
+        if row.get("price") is not None or row.get("offer_price") is not None:
+            k = str(row.get("price_kind") or ("verified" if row.get("price_verified") else "stated"))
+            kinds[k] = kinds.get(k, 0) + 1
+        if row.get("offer_price") is not None:
+            kinds["conditional_offer"] = kinds.get("conditional_offer", 0) + 1
+        if row.get("budget_fit"):
+            fits[row["budget_fit"]] = fits.get(row["budget_fit"], 0) + 1
+        sec = actions.setdefault(section_of(row), {})
+        act = row_action(row)
+        sec[act] = sec.get(act, 0) + 1
+    raw = sum(int(v or 0) for v in (discovered.get("counts") or {}).values() if isinstance(v, (int, float)))
+    return {
+        "mode": str(demand.get("mode") or demand.get("intent") or demand.get("deal_type") or "commerce"),
+        "requested_location": str(loc or "") or None,
+        "counts_raw_vs_kept": {"raw": raw, "kept": len(rows), "rejected": len(discovered.get("rejected") or [])},
+        "rejected": list(discovered.get("rejected") or [])[:30],
+        "price_provenance": kinds,
+        "budget_fit": fits,
+        "ranking": [{"rank": i + 1, "section": section_of(r), "title": str(r.get("title") or "")[:80],
+                     "price_kind": r.get("price_kind"), "budget_fit": r.get("budget_fit"),
+                     "fit": (r.get("fit") or {}).get("state") if isinstance(r.get("fit"), dict) else r.get("fit")}
+                    for i, r in enumerate(rows[:15])],
+        "actions": actions,
+    }
 
 
 def record_rendered(container, trace_key: str, rendered: Iterable[str], hidden: Dict[str, str] | None = None) -> bool:

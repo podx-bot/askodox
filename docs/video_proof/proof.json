@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-05T18:17:39Z",
+ "generated_at": "2026-10-06T10:11:08Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:65db38953a4e4be1",
+   "trace_key": "browse:611083ff8df54839",
    "videos": [
     {
      "video_id": "yt_ddTpAyeDQ4I",
@@ -33,13 +33,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "category": "TV",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -161,20 +160,6 @@
       "location_label": null
      },
      {
-      "title": "Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.sathya.store",
-      "price": 37989.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.sathya.store/store/vijayawada-2",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
       "segment": null,
       "match_source": "online",
@@ -201,6 +186,20 @@
       "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
+      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
+      "location_label": null
      }
     ]
    }
@@ -210,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:9067d0d992fc4fe6",
+   "trace_key": "browse:be7f7c7632524a22",
    "videos": [
     {
      "video_id": "yt_ddTpAyeDQ4I",
@@ -236,11 +235,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 అంగుళాల",
+     "size": "43 అంగుళాలు",
      "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
@@ -294,10 +293,10 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందా లేదా అనేది గది పరిమాణం మరియు చూసే దూరంపై ఆధారపడి ఉంటుంది. సాధారణంగా 43 అంగుళాల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉండటం మంచిది.",
+    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో చూడటానికి, టీవీకి మీ వీక్షణ దూరానికి ( viewing distance) సరిపడా స్థలం ఉందో లేదో సరిచూసుకోవాలి.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "answer_question"
+    "follow_action": "check_product_suitability"
    },
    "next": {
     "step": "deals",
@@ -359,20 +358,6 @@
       "location_label": null
      },
      {
-      "title": "Sathya Vijayawada 2, Buy Home and Kitchen Appliances online at the best price with offers | Sathya.store",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.sathya.store",
-      "price": 37989.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.sathya.store/store/vijayawada-2",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
       "segment": null,
       "match_source": "online",
@@ -399,6 +384,20 @@
       "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
       "image_url": null,
       "location_label": null
+     },
+     {
+      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "Amazon",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
+      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
+      "location_label": null
      }
     ]
    }
@@ -408,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:26d1ef94252e4fc2",
+   "trace_key": "browse:f38cda3faa14464a",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -434,7 +433,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Redmi Note 13 Pro",
@@ -611,18 +610,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:a5106c4b42d14459",
+   "trace_key": "browse:781ceb2d050e4b2c",
    "videos": [
     {
-     "video_id": "yt_E8eMNvr5GtM",
-     "title": "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price",
-     "source_name": "Mjk Cars",
-     "duration": "11:14",
+     "video_id": "yt_77aOlpHhpOw",
+     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
+     "source_name": "TheAutoBharat",
+     "duration": "1:00",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/E8eMNvr5GtM?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/E8eMNvr5GtM/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=E8eMNvr5GtM",
+     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -637,31 +636,31 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
-     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_E8eMNvr5GtM",
+    "video_id": "yt_77aOlpHhpOw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price",
-     "🚗 New Tata Nexon – Complete Details & Review",
-     "Is video mein hum dekhenge New Tata Nexon ke design, exterior, interior, features, safety, comfort, performance aur overall look ke baare mein complete details.",
-     "Tata Nexon apne premium design, दमदार build quality, शानदार features aur"
+     "Tata Nexon Cons: What You Need to Know Before Buying",
+     "Tata Nexon Cons: What You Need to Know Before Buying",
+     "Tata Nexon Cons",
+     "Thinking of buying the Tata Nexon?",
+     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Mjk Cars",
+    "creator": "TheAutoBharat",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=E8eMNvr5GtM",
-    "question": "New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price",
+    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
     "next": [
      {
       "action": "find_local",
@@ -691,7 +690,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"New Tata Nexon Pure Plus Diesel Review || Price Mileage Features || Tata Nexon Base Model Price\"",
+    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -814,7 +813,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:be49f13ffc53428c",
+   "trace_key": "browse:c89cd586ae3b42ef",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -996,18 +995,18 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:f1db3d5db608435b",
+   "trace_key": "browse:3d17f819e9ec4d59",
    "videos": [
     {
-     "video_id": "yt_Ac8Arkhzgps",
-     "title": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "source_name": "My Old Plumber",
-     "duration": "0:17",
+     "video_id": "yt_Bvxkrv7t4Dw",
+     "title": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "source_name": "vijay xyz tricks ",
+     "duration": "0:14",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Ac8Arkhzgps?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Bvxkrv7t4Dw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Ac8Arkhzgps/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
+     "image_url": "https://i.ytimg.com/vi/Bvxkrv7t4Dw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -1019,7 +1018,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "SERVICE",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1030,22 +1029,20 @@
     }
    },
    "explain": {
-    "video_id": "yt_Ac8Arkhzgps",
+    "video_id": "yt_Bvxkrv7t4Dw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
-     "Which do you prefer for sealing drains — plumbers putty or silicone?",
-     "Some plumbers swear by putty.",
-     "Others prefer silicone for a stronger long-term seal.",
-     "Both have their place depending on the sink, drain, and installation."
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
+     "thanks for watching video"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "My Old Plumber",
+    "creator": "vijay xyz tricks ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Ac8Arkhzgps",
-    "question": "Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy",
+    "url": "https://www.youtube.com/watch?v=Bvxkrv7t4Dw",
+    "question": "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed",
     "next": [
      {
       "action": "find_local",
@@ -1075,7 +1072,7 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Which do you prefer. Plumbers putty or silicone for sealing drains. #shorts #plumbing #diy\"",
+    "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
     "reply": "Sure -- looking for real videos and reviews.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
@@ -1181,7 +1178,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:e6e05b579d0a4b17",
+   "trace_key": "browse:c831c449037e496d",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1204,7 +1201,7 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "FOOD",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
@@ -1265,7 +1262,7 @@
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "FOOD",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1290,16 +1287,16 @@
     },
     "options": [
      {
-      "title": "The Kazus Royal Dum Biryani",
+      "title": "Bismillah Paradise Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 1.5,
+      "distance_km": 0.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1318,20 +1315,6 @@
       "location_label": null
      },
      {
-      "title": "Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.bigbasket.com",
-      "price": 100.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.bigbasket.com/pd/40165502/haldirams-hyderabadi-biryani-200-g/",
-      "image_url": null,
-      "location_label": null
-     },
-     {
       "title": "Order Online – HYDERABAD BIRYANI POINT",
       "segment": null,
       "match_source": "online",
@@ -1346,17 +1329,31 @@
       "location_label": null
      },
      {
-      "title": "Order Biryani Near Me Vijayawada",
+      "title": "Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket",
       "segment": null,
       "match_source": "online",
-      "source_name": "www.behrouzbiryani.com",
+      "source_name": "www.bigbasket.com",
+      "price": 100.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.bigbasket.com/pd/40165502/haldirams-hyderabadi-biryani-200-g/",
+      "image_url": null,
+      "location_label": null
+     },
+     {
+      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "www.eatsure.com",
       "price": null,
       "price_verified": false,
       "distance_km": null,
       "affiliate": false,
       "sponsored": null,
-      "destination_url": "https://www.behrouzbiryani.com/behrouz-biryani/vijayawada",
-      "image_url": "https://imgs.search.brave.com/b5pHUBq0xEnCCACNUs4irJjCjkKoQv9_2hlBHHA-DvA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hc3Nl/dHMuZmFhc29zLmlv/L2VhdHN1cmUvcHJv/ZHVjdGlvbi9vZ19p/bWdfYmIucG5n",
+      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
+      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
       "location_label": null
      },
      {
@@ -1381,7 +1378,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:b5685272d6c54ac7",
+   "trace_key": "browse:a1028624d8cb4c9b",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1404,13 +1401,13 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
+    "domain": "EVENT",
     "transactional": true,
     "action": "search_videos",
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku Valley trip",
      "location": "Vijayawada"
     }
    },
@@ -1519,20 +1516,6 @@
       "location_label": null
      },
      {
-      "title": "5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "www.trawell.in",
-      "price": 6785.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.trawell.in/tour-packages/araku-valley",
-      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
-      "location_label": null
-     },
-     {
       "title": "Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack",
       "segment": "deals",
       "match_source": "online",
@@ -1544,6 +1527,20 @@
       "sponsored": null,
       "destination_url": "https://www.ritualholidays.com/tour-packages/araku-valley-tour-packages/araku-valley-tour-packages-from-vijayawada.php",
       "image_url": "https://imgs.search.brave.com/1xj_WpvN48lQf_stT6kQqaaXYHZ3B25RpGlOh3juAf0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/cml0dWFsaG9saWRh/eXMuY29tL2ltYWdl/cy9yaXR1YWwtaG9s/aWRheXMtbG9nby5n/aWY.jpeg",
+      "location_label": null
+     },
+     {
+      "title": "5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off",
+      "segment": "deals",
+      "match_source": "online",
+      "source_name": "www.trawell.in",
+      "price": 6785.0,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://www.trawell.in/tour-packages/araku-valley",
+      "image_url": "https://imgs.search.brave.com/WTR-pir2UlbU4zKCxROHXLsrNbw7Y5FE6ZtB8vFNRFE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dHJhd2VsbC5pbi9p/bWFnZXMvdG91cnMv/b3JkZXIvQXJha3Ut/VmFsbGV5LmpwZw",
       "location_label": null
      },
      {
@@ -1582,7 +1579,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:64dc03e851a1416e",
+   "trace_key": "browse:05872064b3354d26",
    "videos": [
     {
      "video_id": "yt_RJworx5674I",
@@ -1611,9 +1608,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "subject": "used Royal Enfield Classic 350",
      "location": "Vijayawada"
     }
    },
@@ -1737,20 +1734,6 @@
       "location_label": null
      },
      {
-      "title": "Royal Enfield Classic 350 On Road Price In Vijayawada - 2026 Price Breakup & Offers",
-      "segment": "deals",
-      "match_source": "online",
-      "source_name": "thebikejunction.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://thebikejunction.com/royal-enfield-bikes/classic-350/price-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/DQZW4q8YqGZQd8rDgWwUx6u2dWeN15hRegZLS5Zv7UM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudHJhY3Rvcmp1/bmN0aW9uLmNvbS9S/b3lhbF9FbmZpZWxk/X0NsYXNzaWNfMzUw/X0dvcmtoYV80XzQ1/ZThlYzhkODYud2Vi/cD9mb3JtYXQ9d2Vi/cCZxdWFsaXR5PTQw",
-      "location_label": null
-     },
-     {
       "title": "Royal Enfield Classic 350 price in Vijayawada | Royal Enfield Classic 350 on road Price 2026 | Times Drive",
       "segment": "deals",
       "match_source": "online",
@@ -1777,6 +1760,20 @@
       "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
       "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
       "location_label": null
+     },
+     {
+      "title": "Royal Enfield Classic 350 Price in Vijayawada – Ex-Showroom, Top Model & On-Road Cost",
+      "segment": null,
+      "match_source": "online",
+      "source_name": "auto.shriramfinance.in",
+      "price": null,
+      "price_verified": false,
+      "distance_km": null,
+      "affiliate": false,
+      "sponsored": null,
+      "destination_url": "https://auto.shriramfinance.in/royal-enfield/classic-350-price-in-vijayawada",
+      "image_url": null,
+      "location_label": null
      }
     ]
    }
@@ -1786,7 +1783,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:6e790bed50364744",
+   "trace_key": "browse:1e9c0b7c5cd54048",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1812,12 +1809,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "iPhone 15 offer",
      "brand": "Apple",
      "model": "iPhone 15",
+     "subject": "iPhone 15 offer",
      "location": "Vijayawada"
     }
    },
@@ -1991,7 +1988,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:acdfe83feeb94388",
+   "trace_key": "browse:d32497bd6fb544f5",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2071,7 +2068,7 @@
     "reply": "సరే, నిజమైన వీడియోలు, రివ్యూలు వెతుకుతున్నాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి ఇది సరిపోతుందో లేదో చూడటానికి మీ AC సామర్థ్యం (టన్నుల కొలత) ఎంతో చెప్తారా?",
+    "follow_reply": "ఈ ఏసీ సర్వీస్ లేదా క్లీనింగ్ మీ గది పరిమాణానికి తగినదో కాదో తెలుసుకోవడానికి వీడియో రివ్యూలను వెతుకుతున్నాను.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "search_videos"

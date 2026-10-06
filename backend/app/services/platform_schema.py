@@ -1158,6 +1158,32 @@ _register(Resource(
 ))
 
 
+# Facts that differ per record: a template may never carry them.
+TEMPLATE_FACT_FIELDS = frozenset({
+    "price", "mrp", "list_price", "offer_price", "stock", "stock_status", "commission_status", "commission_percent",
+    "commission_fixed", "verified_commission_rate", "rating", "reviews", "title", "name", "source_url", "url",
+    "original_product_url", "affiliate_url", "destination_url", "coupon_code", "coupons", "budget", "daily_budget",
+    "discount_percent", "discount_amount", "max_discount", "min_purchase"})
+
+_register(Resource(
+    name="entry_templates", label="Entry templates", group="Catalog", prefix="etp",
+    permission="catalog", name_field="name", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Templates staff saved from a Smart Entry / Quick Add form. They prefill structure and "
+                "defaults only (category, platform, offer type, country ...) -- never a price, stock, rating "
+                "or commission. Built-in templates (Amazon, Flipkart, coupon, YouTube video ...) are always "
+                "available in every form.",
+    fields=(
+        F("name", "Template name", required=True, list_column=True),
+        F("target", "Form", "enum", options=("catalog", "content", "affiliate_link", "offer", "merchant_offer",
+                                             "source", "video", "sponsored"),
+          required=True, list_column=True, filter=True),
+        F("defaults", "Default values", "json", required=True,
+          help='{"category": "electronics", "platform": "amazon"} -- form field names of that form.'),
+        F("notes", "Notes", "longtext"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
 def resource(name: str) -> Resource:
     try:
         return RESOURCES[name]
@@ -1213,6 +1239,10 @@ def clean_data(res: Resource, data: Dict[str, Any], *, partial: bool = False,
         raise SchemaError("an affiliate video must name its affiliate link")
     if res.name == "videos" and out.get("relationship") == "sponsored" and not out.get("campaign_id"):
         raise SchemaError("a sponsored video must name its campaign")
+    if res.name == "entry_templates":
+        facts = sorted(set(out.get("defaults") or {}) & TEMPLATE_FACT_FIELDS)
+        if facts:
+            raise SchemaError("defaults: a template holds structure only, never " + ", ".join(facts))
     return out
 
 

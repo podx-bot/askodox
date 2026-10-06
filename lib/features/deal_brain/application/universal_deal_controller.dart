@@ -278,6 +278,15 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
   }
 
+  /// The place the user explicitly asked for earlier in this conversation
+  /// ("in Guntur") carries to a follow-up request that names no place --
+  /// it never silently reverts to the header / device place.
+  void applyRequestedPlace(DealLocation place) {
+    final current = state.deal;
+    if (current == null || current.location.isKnown) return;
+    _setSession(_sessionFor(current.copyWith(location: place)));
+  }
+
   void applySelectedLocation({
     required String label,
     required double latitude,

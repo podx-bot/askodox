@@ -31,7 +31,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.routes.command_center import _can, _principal, _require, _require_confirm, command_center
-from app.services import advisor_engine, demand_insights as di
+from app.services import admin_ops, advisor_engine, demand_insights as di
 
 router = APIRouter(tags=["advisor-demand"])
 
@@ -418,8 +418,9 @@ def effective_settings(request: Request) -> dict:
 # -------------------------------------------------------- admin assistant --
 
 class AskBody(BaseModel):
-    question: str = Field(min_length=2, max_length=500)
+    question: str = Field(min_length=2, max_length=4000)  # room for pasted links
     days: int = 7
+    language: str = ""
 
 
 _TOPICS = (
@@ -433,6 +434,48 @@ _TOPICS = (
 )
 
 
+def _ops_getters(request: Request, principal: dict, repo: Any, days: int) -> Dict[str, Any]:
+    """Data access for admin_ops, each only when the caller may see it."""
+    container = request.app.state.container
+    out: Dict[str, Any] = {"catalog_items": None, "prepare_links": None, "sources_overview": None,
+                           "review_counts": None, "unmet": None}
+    if _can(principal, "affiliate_products:view"):
+        def catalog_items() -> List[Dict[str, Any]]:
+            from app.api.routes.affiliate_catalog import catalog, sources
+
+            return catalog(container).list(limit=500, sources=sources(container))["items"]
+        out["catalog_items"] = catalog_items
+    from app.api.routes import smart_entry as se_route
+
+    if any(_can(principal, p) for p in set(se_route.TARGET_PERMISSION.values())):
+        def prepare_links(links: List[str], target: str) -> Dict[str, Any]:
+            return se_route.smart_entry_prepare(se_route.SmartEntryBody(inputs=links, target=target), request)
+        out["prepare_links"] = prepare_links
+    if _can(principal, "sources:view"):
+        def sources_overview() -> List[Dict[str, Any]]:
+            from app.api.routes.universal_deals import _universal_sources
+
+            return _universal_sources(container).overview()
+        out["sources_overview"] = sources_overview
+
+    def review_counts() -> Dict[str, int]:
+        from app.services import platform_schema as ps
+
+        counts: Dict[str, int] = {}
+        for name, res in ps.RESOURCES.items():
+            if "PENDING_REVIEW" in res.statuses and _can(principal, res.permission + ":view"):
+                counts[res.label] = len(repo.list(name, status="PENDING_REVIEW"))
+        if _can(principal, "affiliate_products:view"):
+            items = out["catalog_items"]() if out["catalog_items"] else []
+            counts["Catalog items (needs review / draft)"] = sum(
+                1 for i in items if i.get("review_status") in ("NEEDS_REVIEW", "DRAFT"))
+        return counts
+    out["review_counts"] = review_counts
+    if _can(principal, "demand:view"):
+        out["unmet"] = lambda: di.insights(repo, days=days)["unmet"]
+    return out
+
+
 @router.post("/admin/cc/assistant/ask")
 def admin_assistant(body: AskBody, request: Request) -> dict:
     """Answers from recorded data only. Every answer separates what was
@@ -440,10 +483,17 @@ def admin_assistant(body: AskBody, request: Request) -> dict:
     principal = _require(request, "overview:view")
     container = request.app.state.container
     text = body.question.casefold()
-    topics = [name for name, pattern in _TOPICS if re.search(pattern, text)] or ["rising", "unmet"]
     days = max(1, min(body.days, 90))
-    answers = []
     repo = _pf(container).repo
+    ops = admin_ops.commands(body.question)
+    if ops:  # operational command: answered (and previewed) by admin_ops, never executed here
+        lang = admin_ops.language(body.question, body.language)
+        getters = _ops_getters(request, principal, repo, days)
+        return {"question": body.question, "language": lang,
+                "answers": [admin_ops.run(op, body.question, lang, **getters) for op in ops],
+                "basis": "Recorded ASKODOX records only; changes happen on the linked screen after you confirm."}
+    topics = [name for name, pattern in _TOPICS if re.search(pattern, text)] or ["rising", "unmet"]
+    answers = []
     data = di.insights(repo, days=days) if _can(principal, "demand:view") else None
     for topic in dict.fromkeys(topics):
         if topic in {"unmet", "rising"} and data is None:

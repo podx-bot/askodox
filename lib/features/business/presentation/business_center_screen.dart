@@ -40,11 +40,11 @@ class BusinessCenterScreen extends ConsumerWidget {
                   padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.paddingOf(context).bottom),
                   children: [
                     Wrap(spacing: 8, runSpacing: 8, children: [
-                      _Stat(t('Listings', 'లిస్టింగ్‌లు'), page.summary['listings']),
-                      _Stat(t('Waiting requests', 'ఎదురుచూస్తున్నవి'), page.summary['requests_waiting']),
-                      _Stat(t('In progress', 'జరుగుతున్నవి'), page.summary['in_progress']),
-                      _Stat(t('Completed', 'పూర్తయినవి'), page.summary['completed']),
-                      _Stat(t('New demand', 'కొత్త డిమాండ్'), page.summary['opportunities_new']),
+                      _Stat(t('Listings', 'లిస్టింగ్‌లు'), page.summary['listings'], '/listings/mine'),
+                      _Stat(t('Waiting requests', 'ఎదురుచూస్తున్నవి'), page.summary['requests_waiting'], '/orders/incoming'),
+                      _Stat(t('In progress', 'జరుగుతున్నవి'), page.summary['in_progress'], '/orders/incoming'),
+                      _Stat(t('Completed', 'పూర్తయినవి'), page.summary['completed'], '/orders/incoming'),
+                      _Stat(t('New demand', 'కొత్త డిమాండ్'), page.summary['opportunities_new'], '/opportunities'),
                     ]),
                     const SizedBox(height: 12),
                     for (final i in page.insights) _InsightCard(insight: i),
@@ -61,24 +61,35 @@ class BusinessCenterScreen extends ConsumerWidget {
   }
 }
 
+/// A counted fact that opens the screen behind it (never a dead tile).
 class _Stat extends StatelessWidget {
-  const _Stat(this.label, this.value);
+  const _Stat(this.label, this.value, this.route);
 
   final String label;
   final int? value;
+  final String route;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        key: Key('askodoxBusinessStat-$route-$label'),
         borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push(route),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('${value ?? 0}', style: Theme.of(context).textTheme.titleMedium),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ]),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, size: 18),
+          ]),
+        ),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text('${value ?? 0}', style: Theme.of(context).textTheme.titleMedium),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ]),
     );
   }
 }

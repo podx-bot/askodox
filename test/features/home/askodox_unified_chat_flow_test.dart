@@ -1110,6 +1110,92 @@ void main() {
     container.read(askodoxGuideProvider.notifier).stop();
   });
 
+  group('decision brain (advice vs commerce)', () {
+    testWidgets('an advice question gets the reasoning and no result cards; "show me" then searches', (tester) async {
+      const advice = 'Your goal: pick an AC for a 150 sq ft room.\nAnalysis: 150 sq ft -> about 1.2-1.5 ton.\n'
+          'Recommendation: a 1.5 ton 3-star inverter AC, because you run it 8 hours a day.';
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '81', matches: [_registeredTv]),
+        ]),
+        assistant: _Assistant((message) => message.toLowerCase().contains('show me')
+            ? {'reply': 'Checking real sellers.', 'domain': 'PRODUCT', 'transactional': true,
+               'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+               'entities': {'subject': 'AC', 'budget': '40000'}}
+            : {'reply': advice, 'domain': 'PRODUCT', 'transactional': true, 'action': 'advise',
+               'confidence': 0.9, 'source': 'universal_ai', 'mode': 'advice',
+               'entities': {'subject': 'AC', 'budget': '40000'}}),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'What AC capacity do I need for 150 sq ft, 8 hours a day, budget 40000?');
+      expect(find.textContaining('1.5 ton 3-star inverter'), findsOneWidget);
+      expect(h.matches.deals, isEmpty, reason: 'advice never starts a search or shows cards');
+      expect(find.byKey(const ValueKey('askodoxResultsMode-compact')), findsNothing);
+      await h.send(tester, 'ok show me AC options');
+      expect(h.matches.deals, isNotEmpty, reason: 'advice -> commerce transition searches');
+    });
+  });
+
+  group('follow-up router over shown results', () {
+    testWidgets('"Compare the best 3" compares the shown results; no new search, no canned video reply', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '82', matches: [_registeredTv, _registeredTv2]),
+        ]),
+        assistant: _Assistant((message) => message.toLowerCase().contains('show me')
+            ? {'reply': 'Checking real sellers.', 'domain': 'PRODUCT', 'transactional': true,
+               'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+               'entities': {'subject': 'office chair', 'budget': '30000'}}
+            : {'reply': 'Sure -- looking for real videos and reviews.', 'domain': 'PRODUCT', 'transactional': true,
+               'action': 'search_videos', 'confidence': 0.9, 'source': 'universal_ai'}),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'show me office chair options under 30000');
+      final searches = h.matches.deals.length;
+      expect(searches, greaterThan(0));
+      final asked = h.assistant.requests.length;
+      await h.send(tester, 'Compare the best 3');
+      expect(find.textContaining('Comparing the 2 options shown'), findsOneWidget);
+      expect(find.textContaining('Rating: Not verified'), findsWidgets);
+      expect(find.textContaining('looking for real videos and reviews'), findsNothing);
+      expect(h.matches.deals.length, searches, reason: 'no new search for a follow-up');
+      expect(h.assistant.requests.length, asked, reason: 'answered from the shown results');
+      await h.send(tester, 'which is the cheapest?');
+      expect(find.textContaining('By stated price (lowest first)'), findsOneWidget);
+      // Directions for a shown shop: Maps (or an honest fallback), never a search.
+      await h.send(tester, 'give me directions to that shop');
+      expect(find.textContaining(RegExp(r'directions to|Could not open Google Maps')), findsWidgets);
+      expect(h.matches.deals.length, searches);
+    });
+  });
+
+  group('location truth', () {
+    testWidgets('a place asked for in chat persists to follow-ups until "near me"', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([
+          const UniversalMatchResult(dealId: '91', matches: [_registeredTv]),
+          const UniversalMatchResult(dealId: '92', matches: [_registeredTv2]),
+          const UniversalMatchResult(dealId: '93', matches: [_registeredTv2]),
+        ]),
+        assistant: _Assistant((message) {
+          final m = message.toLowerCase();
+          final subject = m.contains('fridge') ? 'fridge' : (m.contains('chair') ? 'office chair' : 'AC');
+          return {'reply': 'Checking real sellers.', 'domain': 'PRODUCT', 'transactional': true,
+                  'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+                  'entities': {'subject': subject, 'budget': '40000', if (m.contains('guntur')) 'location': 'Guntur'}};
+        }),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'show me AC shops in Guntur under 40000');
+      expect(h.matches.deals.last.location.label, 'Guntur');
+      await h.send(tester, 'show me fridge options under 40000');
+      expect(h.matches.deals.last.location.label, 'Guntur', reason: 'requested place persists to a new follow-up');
+      expect(h.assistant.requests.last['location'], 'Guntur', reason: 'the AI is told the requested place');
+      await h.send(tester, 'show me office chair options near me under 40000');
+      expect(h.matches.deals.last.location.label, isNot('Guntur'), reason: '"near me" releases the requested place');
+    });
+  });
+
   group('held phone findings (START FIXES)', () {
     BuyerSavedLocation place(String name, double lat, double lng) => BuyerSavedLocation(
         id: name, name: name, address: name, point: GeoPoint(lat, lng), type: SavedLocationType.custom);

@@ -33,6 +33,7 @@ import '../application/conversation_archive.dart';
 import '../application/match_action_executor.dart';
 import '../../companion/companion_hub.dart';
 import '../application/saved_options.dart';
+import '../domain/follow_up_router.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
@@ -211,6 +212,12 @@ class _AskodoxPrimaryHomeScreenState
   /// near me" / "Book a local service" ...): search with what is known.
   bool _pendingForcedSearch = false;
   bool _pendingDiscussOnly = false;
+
+  /// The place the user asked for in THIS conversation ("AC shops in
+  /// Guntur"): follow-ups that name no place keep it until the user says
+  /// "near me" or hand-picks another place. Separate from the device /
+  /// header place.
+  DealLocation? _requestedPlace;
 
   // One concise clarification for an ambiguous need, asked before search.
   AskodoxClarification? _pendingClarification;
@@ -605,6 +612,9 @@ class _AskodoxPrimaryHomeScreenState
       if (after == null || before == null) return;
       if (askodoxPlaceMoved(before.point.latitude, before.point.longitude, after.point.latitude,
           after.point.longitude)) {
+        // A place picked by hand replaces the place asked for in chat; the
+        // phone merely moving does not.
+        if (!next.followsDevice) _requestedPlace = null;
         unawaited(_refreshResultsForPlace(before, after));
       }
     });
@@ -1681,6 +1691,49 @@ class _AskodoxPrimaryHomeScreenState
       await _actOnConfirmation(text, actionable, speakResponse);
       return;
     }
+    // Follow-up about the results ON SCREEN ("compare the best 3",
+    // "cheapest?", "only local", "any deals?", "directions"): answered from
+    // the current result set -- never a new unrelated search, never a canned
+    // reply. Unknown facts are "Not verified". When the shown results cannot
+    // answer (no row has a rating / an offer), the normal flow searches.
+    if (explicitContext == null && !_pendingDiscussOnly && latestResults != null) {
+      final followUp = askodoxFollowUpIntent(text);
+      if (followUp == AskodoxFollowUp.directions) {
+        final target = [
+          for (final m in askodoxComparableRows(latestResults.matches))
+            if (askodoxDirectionsUri(m) != null) m,
+        ].firstOrNull;
+        if (target != null) {
+          var opened = false;
+          try {
+            opened = await launchUrl(askodoxDirectionsUri(target)!, mode: LaunchMode.externalApplication);
+          } catch (_) {
+            opened = false;
+          }
+          if (!opened) {
+            await _replyAndSave(
+                _te
+                    ? 'Google Maps తెరవలేకపోయాను. ${target.title} కార్డ్‌లో "దారి" నొక్కండి.'
+                    : 'Could not open Google Maps. Tap Directions on the ${target.title} card.',
+                speakResponse,
+                text);
+            return;
+          }
+          await _replyAndSave(
+              _te ? '${target.title} కి దారి Google Maps లో తెరుస్తున్నాను.' : 'Opening directions to ${target.title} in Google Maps.',
+              speakResponse,
+              text);
+          return;
+        }
+      } else if (followUp != null) {
+        final answer = askodoxAnswerFollowUp(followUp, latestResults.matches,
+            te: _te, budget: askodoxFollowUpBudget(text));
+        if (answer != null) {
+          await _replyAndSave(answer, speakResponse, text);
+          return;
+        }
+      }
+    }
     final wantsHuman = latestResults != null &&
         latestResults.hasLocal &&
         askodoxWantsHumanAction(text);
@@ -1748,7 +1801,7 @@ class _AskodoxPrimaryHomeScreenState
       message: aiMessage,
       locale: _lang,
       history: history,
-      location: knownLocationLabel,
+      location: _saysNearMe(text) ? knownLocationLabel : (_requestedPlace?.label ?? knownLocationLabel),
     );
     final aiUsable = decision?.usable == true;
     if (aiUsable) {
@@ -1798,7 +1851,13 @@ class _AskodoxPrimaryHomeScreenState
         text.trim().split(RegExp(r'\s+')).length <= 4 &&
         askodoxDetectRole(text) == null &&
         (askodoxQualifierReply(text) != null || askodoxDetectBrand(text, known: listedBrands) != null);
+    // Decision brain: an advice / decision question ("should I start a
+    // car-finance business?", "what AC capacity do I need?") is answered
+    // with reasoning -- never result cards -- unless the user also asked to
+    // see options now or is answering a pending detail question.
+    final adviceOnly = aiUsable && decision!.isAdvice && !showNow && !videoAsk && !detailAnswer && clarified == null;
     final transactional = !discussOnly &&
+        !adviceOnly &&
         (clarified != null ||
             videoAsk ||
             detailAnswer ||
@@ -1923,6 +1982,11 @@ class _AskodoxPrimaryHomeScreenState
         notifier.answer(routedText);
       }
 
+      if (_saysNearMe(text)) _requestedPlace = null;
+      final requested = _requestedPlace;
+      if (requested != null && ref.read(universalDealControllerProvider).deal?.location.isKnown != true) {
+        notifier.applyRequestedPlace(requested);
+      }
       if (selectedLocation != null) {
         final key = '${selectedLocation.point.latitude},${selectedLocation.point.longitude}';
         final dealLocation = ref.read(universalDealControllerProvider).deal?.location;
@@ -2231,6 +2295,7 @@ class _AskodoxPrimaryHomeScreenState
         }
         _resultsByTurn[assistantIndex] = results;
         if (matchedDeal != null) _dealByTurn[assistantIndex] = matchedDeal;
+        if (matchedDeal != null) _rememberRequestedPlace(matchedDeal.location, knownLocationLabel);
         _reportRendered(results);
       }
       if (support.need != AskodoxSupportNeed.none) {
@@ -2602,6 +2667,21 @@ class _AskodoxPrimaryHomeScreenState
         : (service ? 'I provide ${askodoxWithoutPlace(subject, place)} service'
                 '${place.isEmpty ? '' : ' in ${askodoxShortPlace(place)}'}' : 'I sell $what');
     await _send(text.replaceAll(RegExp(r'\s+'), ' ').trim());
+  }
+
+  bool _saysNearMe(String text) =>
+      RegExp(r'\b(near me|nearby|around me|my location|current location|here)\b|నా దగ్గర|దగ్గరలో|मेरे पास',
+              caseSensitive: false)
+          .hasMatch(text);
+
+  /// A search whose place came from the user's words (not the header /
+  /// device place) becomes the conversation's requested place.
+  void _rememberRequestedPlace(DealLocation location, String? headerLabel) {
+    final label = location.label?.trim() ?? '';
+    if (label.isEmpty || askodoxIsNearMePhrase(label)) return;
+    final header = (headerLabel ?? '').trim().toLowerCase();
+    if (header.isNotEmpty && (header == label.toLowerCase() || header.contains(label.toLowerCase()))) return;
+    _requestedPlace = location;
   }
 
   Future<void> _replyAndSave(String reply, bool speakResponse, String userText) async {
@@ -3451,7 +3531,9 @@ class _AskodoxPrimaryHomeScreenState
   /// The results workspace size (phone finding F): expanded cards, a
   /// compact strip, or a summary line. Typing / the keyboard folds it to
   /// compact automatically; the customer's own choice is kept.
-  AskodoxResultsMode _resultsMode = AskodoxResultsMode.expanded;
+  // Default compact: the summary line + a short card strip, so the
+  // conversation keeps most of the screen; Expand shows the full cards.
+  AskodoxResultsMode _resultsMode = AskodoxResultsMode.compact;
   bool _resultsModeChosen = false;
 
 
@@ -3466,9 +3548,12 @@ class _AskodoxPrimaryHomeScreenState
     final count = results.matches.length;
     // The keyboard is open and the customer did not choose a size: compact,
     // so the conversation and the input stay visible (never half-hidden).
-    final mode = keyboard && !_resultsModeChosen && _resultsMode == AskodoxResultsMode.expanded
+    // A request in progress with a seller (status, accept, confirm...) opens
+    // the workspace fully unless the customer chose a size themselves.
+    final activeRequest = !_resultsModeChosen && _orderByMatchKey.isNotEmpty;
+    final mode = keyboard && !_resultsModeChosen && (_resultsMode == AskodoxResultsMode.expanded || activeRequest)
         ? AskodoxResultsMode.compact
-        : _resultsMode;
+        : (activeRequest ? AskodoxResultsMode.expanded : _resultsMode);
     final maxHeight = (media.size.height - media.viewInsets.bottom) *
         (mode == AskodoxResultsMode.compact ? (keyboard ? .2 : .24) : (keyboard ? .32 : .42));
     final summary = askodoxResultsSummary(results, telugu: te);

@@ -75,6 +75,17 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxBusinessAction-/orders/incoming')));
     await tester.pumpAndSettle();
     expect(find.text('incoming orders'), findsOneWidget);
+    // Every summary tile opens the screen behind it (no dead tiles).
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxBusinessStat-/listings/mine-Listings')));
+    await tester.pumpAndSettle();
+    expect(find.text('my listings'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxBusinessStat-/orders/incoming-Completed')));
+    await tester.pumpAndSettle();
+    expect(find.text('incoming orders'), findsOneWidget);
   });
 
   test('insight json parses action and tolerates missing fields', () {

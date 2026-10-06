@@ -251,3 +251,233 @@ def ingest_batch(inputs: List[str], target: str = "auto", *, fetch: Optional[Cal
     return {"items": ordered, "count": len(ordered), "duplicates_skipped": len(items) - len(unique),
             "failed": sum(1 for r in ordered if r.get("status") in ("failed", "unavailable")),
             "truncated": max(0, len([i for i in inputs if str(i or "").strip()]) - MAX_BATCH)}
+
+
+# ---------------------------------------------------------------- templates --
+# Built-in templates prefill STRUCTURE only: the target form, defaults that are
+# true for every record of that kind (country, currency, platform, offer type
+# ...) and the example input shown as a placeholder. They never carry a
+# price, stock, rating, commission or any other fact about a real record.
+# Each default is marked "template default" in the form so staff see where
+# it came from.
+def _t(tid: str, label: str, target: str, defaults: Dict[str, Any], example: str, hint: str) -> Dict[str, Any]:
+    return {"id": tid, "label": label, "target": target, "defaults": defaults, "example": example, "hint": hint,
+            "builtin": True}
+
+
+TEMPLATES: List[Dict[str, Any]] = [
+    _t("amazon", "Amazon product", "catalog", {"platform": "amazon", "currency": "INR", "availability": "All India"},
+       "https://www.amazon.in/dp/…", "Paste the amazon.in product page; the affiliate link goes in its own field."),
+    _t("flipkart", "Flipkart product", "catalog", {"platform": "flipkart", "currency": "INR",
+                                                   "availability": "All India"},
+       "https://www.flipkart.com/…/p/…", "Paste the flipkart.com product page."),
+    _t("meesho", "Meesho product", "catalog", {"platform": "meesho", "currency": "INR", "availability": "All India"},
+       "https://www.meesho.com/…/p/…", "Paste the meesho.com product page."),
+    _t("generic_product", "Generic online product", "catalog", {"platform": "other", "currency": "INR"},
+       "https://shop.example.in/products/…", "Any store's product page; check every fetched value."),
+    _t("local_seller", "Local seller product", "catalog", {"platform": "other", "currency": "INR",
+                                                           "availability": "Local pickup / delivery"},
+       "Seller's product page or WhatsApp catalogue link",
+       "Set the seller and location; registered app sellers add their own listings in the app."),
+    _t("used_product", "Used product", "catalog", {"platform": "other", "currency": "INR", "category": "used",
+                                                   "subcategory": "pre-owned"},
+       "Listing page of the used item", "State the condition in the description; never assume it."),
+    _t("service_provider", "Service provider", "catalog", {"platform": "other", "currency": "INR",
+                                                           "category": "services"},
+       "Provider's website / profile page", "Service area goes in Location."),
+    _t("restaurant", "Restaurant", "catalog", {"platform": "other", "currency": "INR", "category": "food",
+                                              "subcategory": "restaurant"},
+       "Restaurant's menu / ordering page", "Prices only from the menu page."),
+    _t("hotel", "Hotel", "catalog", {"platform": "other", "currency": "INR", "category": "travel",
+                                    "subcategory": "hotel"},
+       "Hotel booking page", "Room price only when the page states it for a date."),
+    _t("ac_service", "AC service", "catalog", {"platform": "other", "currency": "INR", "category": "home_services",
+                                              "subcategory": "ac service"},
+       "AC service provider's page", "Visit / repair charges only as published."),
+    _t("car_listing", "Car listing", "catalog", {"platform": "other", "currency": "INR", "category": "automobiles",
+                                                "subcategory": "car"},
+       "Car listing page", "Model, year and km go in the description as the page states them."),
+    _t("insurance_lead", "Insurance lead program", "affiliate_link", {"link_type": "insurance", "country": "IN",
+                                                                      "category": "insurance"},
+       "https://partner.example.in/insurance?aff=…", "Choose the affiliate program; commission comes from it."),
+    _t("loan_lead", "Loan lead program", "affiliate_link", {"link_type": "service", "country": "IN",
+                                                            "category": "loans"},
+       "https://partner.example.in/loans?aff=…", "Choose the affiliate program; no rate is shown unless verified."),
+    _t("affiliate_link", "Affiliate link", "affiliate_link", {"link_type": "product", "country": "IN"},
+       "https://amzn.to/…", "Tracking link + the program it belongs to."),
+    _t("credit_card_offer", "Credit-card offer", "offer", {"offer_type": "bank_card"},
+       "Bank's offer page or the offer text", "Needs the page where the bank publishes it."),
+    _t("bank_offer", "Bank offer (debit / UPI)", "offer", {"offer_type": "upi_wallet"},
+       "Bank / UPI app offer page", "Needs the page where the offer is published."),
+    _t("coupon", "Coupon", "offer", {"offer_type": "coupon"},
+       "Merchant coupon page or the coupon text", "The code exactly as published."),
+    _t("sponsored", "Sponsored campaign", "sponsored", {"kind": "sponsored_listing", "language": "en", "format": "result_card"},
+       "Advertiser landing page (https)", "Budgets and dates are entered by staff, never fetched."),
+    _t("youtube_video", "YouTube video", "video", {"platform": "youtube"},
+       "https://www.youtube.com/watch?v=…", "Title and type are confirmed by staff."),
+    _t("creator_video", "Creator video", "video", {"platform": "creator", "video_type": "review"},
+       "Creator's video link", "Link the creator record."),
+    _t("news_source", "News source", "source", {"source_type": "news_content", "connector": "feed",
+                                                "feed_format": "json", "countries": ["IN"]},
+       "https://publisher.example.in/feed.json", "Approved feed only; items sync on the background runner."),
+]
+
+# Form field groups for progressive disclosure (keys = the smart-entry field
+# names; forms map them onto their own inputs).
+FIELD_GROUPS: Dict[str, Dict[str, List[str]]] = {
+    "catalog": {"required": ["source_url", "title"], "recommended": ["price", "image_url", "brand", "category"]},
+    "content": {"required": ["source_url", "title"], "recommended": ["description", "image_url"]},
+    "affiliate_link": {"required": ["title", "destination_url"], "recommended": ["image_url", "category"]},
+    "offer": {"required": ["title", "source_url"], "recommended": ["merchant", "discount_percent", "ends_on"]},
+    "merchant_offer": {"required": ["title"], "recommended": ["merchant", "ends_on", "terms"]},
+    "source": {"required": ["name"], "recommended": ["domain"]},
+    "video": {"required": ["title", "source_url", "platform"], "recommended": []},
+    "sponsored": {"required": ["title", "destination_url"], "recommended": ["image_url"]},
+}
+
+# Targets that bulk import can save as drafts / review items (the others need
+# a person per record: offers need verification, campaigns need budgets).
+IMPORTABLE = {"catalog", "content", "affiliate_link", "source", "video", "merchant_offer"}
+PLATFORM_RESOURCE = {"affiliate_link": "affiliate_links", "source": "sources", "video": "videos",
+                     "merchant_offer": "merchant_offers"}
+
+VERDICTS = ("NEW", "UPDATE", "DUPLICATE", "INVALID", "NEEDS_REVIEW")
+
+
+def to_record(target: str, fields: Dict[str, Any], defaults: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Prepared fields (value dicts or plain values) -> the target store's
+    record shape. Only stated values are carried; defaults fill gaps only."""
+    v = {k: (f.get("value") if isinstance(f, dict) and "value" in f else f) for k, f in (fields or {}).items()}
+    v = {k: x for k, x in v.items() if x not in (None, "", [])}
+    out: Dict[str, Any]
+    if target in ("catalog", "content"):
+        out = {"original_product_url": v.get("source_url"), "title": v.get("title"), "brand": v.get("brand"),
+               "category": v.get("category"), "price": v.get("price"), "description": v.get("description"),
+               "currency": v.get("currency"),
+               "images": [v["image_url"]] if v.get("image_url") else None,
+               "variants": [v["variant"]] if isinstance(v.get("variant"), str) else v.get("variant")}
+    elif target == "affiliate_link":
+        out = {"title": v.get("title"), "affiliate_url": v.get("destination_url") or v.get("source_url"),
+               "original_url": v.get("source_url") if v.get("source_url") != v.get("destination_url") else None,
+               "image_url": v.get("image_url"), "category": v.get("category")}
+    elif target == "source":
+        out = {"name": v.get("name"), "domains": [v["domain"]] if v.get("domain") else None}
+    elif target == "video":
+        out = {"title": v.get("title"), "platform": v.get("platform"), "url": v.get("source_url")}
+    elif target == "merchant_offer":
+        out = {"title": v.get("title"), "merchant_name": v.get("merchant"), "max_discount": v.get("max_benefit"),
+               "min_bill": v.get("min_spend"), "terms": v.get("terms")}
+    else:
+        out = dict(v)
+    out = {k: x for k, x in out.items() if x not in (None, "", [])}
+    for k, x in (defaults or {}).items():
+        if x not in (None, "", []) and k not in out:
+            out[k] = x
+    return out
+
+
+def validate(target: str, fields: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Problems that make an item INVALID (missing required / malformed)."""
+    errors: List[str] = []
+    values = {k: (f or {}).get("value") for k, f in (fields or {}).items()}
+    for key in FIELD_GROUPS.get(target, {}).get("required", []):
+        if key == "platform":
+            continue  # chosen in the form / by the template
+        if values.get(key) in (None, "", []):
+            errors.append(f"{key} missing")
+    for key in ("source_url", "destination_url", "image_url"):
+        url = values.get(key)
+        if url and not re.match(r"^https://[^\s/$.?#][^\s]*$", str(url), re.IGNORECASE):
+            errors.append(f"{key} must be an https link")
+    price = values.get("price")
+    if price not in (None, ""):
+        try:
+            if float(str(price).replace(",", "")) <= 0:
+                errors.append("price must be above 0")
+        except ValueError:
+            errors.append("price is not a number")
+    return errors
+
+
+def _same(a: Any, b: Any) -> bool:
+    try:
+        return float(str(a).replace(",", "")) == float(str(b).replace(",", ""))
+    except ValueError:
+        return str(a).strip().lower() == str(b).strip().lower()
+
+
+def verdict(item: Dict[str, Any], existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """NEW / UPDATE / DUPLICATE / INVALID / NEEDS_REVIEW for one prepared item.
+    ``existing`` = the stored record with the same identity (or None); UPDATE
+    lists the stated fields that differ from it."""
+    errors = list(item.get("errors") or []) + validate(item.get("target") or "", item.get("fields") or {})
+    item["errors"] = sorted(set(errors))
+    if item.get("status") == "failed" or item["errors"]:
+        item["verdict"] = "INVALID"
+        return item
+    if existing:
+        stated = to_record(item.get("target") or "", item.get("fields") or {})
+        changes = {k: {"from": existing.get(k), "to": val} for k, val in stated.items()
+                   if k in existing and existing.get(k) not in (None, "") and not _same(existing.get(k), val)
+                   and not isinstance(val, list)}
+        item["existing"] = {"id": existing.get("id"), "title": existing.get("title") or existing.get("name")}
+        item["changes"] = changes
+        item["verdict"] = "UPDATE" if changes else "DUPLICATE"
+        return item
+    item["verdict"] = "NEEDS_REVIEW" if (item.get("needs_review") or item.get("status") == "unavailable") else "NEW"
+    return item
+
+
+_CSV_ALIASES = {"url": "source_url", "link": "source_url", "product_url": "source_url",
+                "original_product_url": "source_url", "name": "title", "product_name": "title",
+                "image": "image_url", "img": "image_url", "affiliate_url": "destination_url",
+                "mrp": "list_price", "store": "merchant", "seller": "merchant"}
+
+
+def parse_csv(text: str, target: str) -> List[Dict[str, Any]]:
+    """CSV rows -> prepared items (values staff typed: provenance 'CSV column',
+    high confidence; nothing is fetched). Unknown columns are reported."""
+    import csv
+    import io
+
+    target = target if target in TARGET_FIELDS else "catalog"
+    allowed = set(TARGET_FIELDS[target]) | {"name"}
+    reader = csv.DictReader(io.StringIO((text or "").strip()))
+    items: List[Dict[str, Any]] = []
+    for line, row in enumerate(reader, start=2):
+        if len(items) >= MAX_BATCH * 4:
+            break
+        fields: Dict[str, Dict[str, Any]] = {}
+        unknown: List[str] = []
+        for col, raw in (row or {}).items():
+            if col is None:
+                continue
+            key = _CSV_ALIASES.get(col.strip().lower(), col.strip().lower())
+            value = (raw or "").strip()
+            if not value:
+                continue
+            if key not in allowed:
+                unknown.append(col)
+                continue
+            if key == "price":
+                try:
+                    value = float(value.replace(",", "").replace("₹", ""))
+                except ValueError:
+                    pass  # validate() reports it
+            fields[key] = _f(value, "high", f"CSV column '{col.strip()}'")
+        if not fields:
+            continue
+        items.append({"input": f"CSV row {line}", "kind": "csv", "target": target, "status": "ok",
+                      "note": ("Ignored columns: " + ", ".join(unknown)) if unknown else None,
+                      "fields": fields, "needs_review": [], "not_found": [k for k in TARGET_FIELDS[target]
+                                                                          if k not in fields],
+                      "prefill": {k: v["value"] for k, v in fields.items()}})
+    return items
+
+
+def summarize(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    out = {v: 0 for v in VERDICTS}
+    for item in items:
+        if item.get("verdict") in out:
+            out[item["verdict"]] += 1
+    return out

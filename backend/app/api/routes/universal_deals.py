@@ -869,6 +869,8 @@ def discover_results(payload: UniversalDealCreateRequest, request: Request) -> d
         "matches": matches,
         # Evidence for mixed requests: what was asked vs what came back.
         "requested_groups": list((demand.get("constraints") or {}).get("requested_groups") or []),
+        # Rows removed by an explicit strict budget, with the reason.
+        "rejected": discovered.get("rejected") or [],
         "group_counts": group_counts(matches),
         # Which approved marketplaces were searched and what each returned.
         "marketplaces": discovered.get("marketplaces") or {},
@@ -1088,6 +1090,8 @@ def get_matches(deal_id: int, request: Request) -> dict:
         "next_actions": discovered.get("next_actions") or [],
         "matches": matches,
         "requested_groups": list((demand.get("constraints") or {}).get("requested_groups") or []),
+        # Rows removed by an explicit strict budget, with the reason.
+        "rejected": discovered.get("rejected") or [],
         "group_counts": group_counts(matches),
         "waiting_for_interest": primary_count == 0,
         "action_result": build_action_result(
@@ -1408,6 +1412,34 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     except Exception:
         pass
     _annotate_offers(container, matches)
+    price_rejected: list = []
+    try:
+        # Budget truth: every priced row says whether it fits the budget
+        # (within / within only with an offer / over / unknown). "Only
+        # 40,000 or below" removes rows over budget -- a conditional offer
+        # price is labelled, never shown as the normal price.
+        from app.services import price_truth
+        from app.services.result_orchestrator import explicit_constraints
+
+        wanted = explicit_constraints(demand)
+
+        def _amount(value):
+            try:
+                return float(str(value).replace(",", "").replace("₹", "")) if value not in (None, "") else None
+            except ValueError:
+                return None
+
+        budget_max = _amount(wanted.get("budget_max") or wanted.get("budget"))
+        budget_min = _amount(wanted.get("budget_min"))
+        if budget_max is not None or budget_min is not None:
+            said = " ".join(str(x or "") for x in (demand.get("said"), demand.get("raw_text")))
+            checked = price_truth.annotate(matches, budget_max=budget_max, budget_min=budget_min,
+                                           strict=price_truth.is_strict(said))
+            matches, price_rejected = checked["kept"], checked["rejected"]
+            if price_rejected:
+                filtered["over_budget_strict"] = filtered.get("over_budget_strict", 0) + len(price_rejected)
+    except Exception as error:  # price truth never breaks discovery
+        errors.append(f"price_truth:{type(error).__name__}")
     try:
         # Own supply is judged against the customer's explicit constraints
         # (size / budget / brand / distance), with "why it matched".
@@ -1463,6 +1495,7 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
         "local_match_count": local_match_count,
         "counts": counts,
         "filtered": filtered,
+        "rejected": price_rejected[:30],
         "fallback_decision": fallback_decision,
         "marketplaces": marketplace_info,
         "sources": source_info,
