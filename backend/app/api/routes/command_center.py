@@ -1074,6 +1074,14 @@ def check_integration(name: str, request: Request) -> dict[str, Any]:
                         "apis": {k: _clean_google_message(v) for k, v in status.items()},
                         "all_ok": ok}
                 _MAPS_HEALTH.update(until=time.monotonic() + MAPS_HEALTH_TTL, body=body)
+        elif name == "mobility":
+            # Mobility matching is feature-flag gated. The runtime check is
+            # truthful: it reports readiness without pretending disabled
+            # production matching is live.
+            flag = command_center(container).flags().get("delivery.matching", {})
+            enabled = bool(flag.get("enabled"))
+            ok = enabled
+            detail = "delivery.matching is enabled" if enabled else "delivery.matching flag is off"
         elif name == "youtube_data_api":
             from app.services.social_video_api_service import SocialVideoApiService
             rows = SocialVideoApiService().youtube_search("ASKODOX", 1)
