@@ -913,6 +913,9 @@ class _AskodoxPrimaryHomeScreenState
     _guideByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
+    _resultsHiddenFor = null;
+    _resultsOutdatedFor = null;
+    _resultsStaleFor = null;
     _dealByTurn.clear();
     _roleNoticeByTurn.clear();
     _roleQuestionByTurn.clear();
@@ -1053,6 +1056,9 @@ class _AskodoxPrimaryHomeScreenState
   AskodoxChatResults? _latestResults() {
     if (_resultsByTurn.isEmpty) return null;
     final lastKey = _resultsByTurn.keys.reduce((a, b) => a > b ? a : b);
+    // A retired deck (genuine topic change) is no longer the active context:
+    // follow-up answering and confirmations must not reach back into it.
+    if (_resultsHiddenFor == lastKey) return null;
     return _resultsByTurn[lastKey];
   }
 
@@ -1063,6 +1069,7 @@ class _AskodoxPrimaryHomeScreenState
   AskodoxChatResults? _latestActionableResults() {
     final keys = _resultsByTurn.keys.toList()..sort((a, b) => b.compareTo(a));
     for (final key in keys.take(4)) {
+      if (key == _resultsHiddenFor) continue; // retired deck (topic change)
       final results = _resultsByTurn[key];
       if (results != null && results.hasLocal) return results;
     }
@@ -1843,6 +1850,21 @@ class _AskodoxPrimaryHomeScreenState
       searchedFor: _searchedFor(),
     );
     final aiUsable = decision?.usable == true;
+    // APK 1305: the deterministic conversation-relation layer (backend)
+    // classifies this turn against the ACTIVE need. A replaced subject or a
+    // genuine new topic retires the previous active result deck NOW: those
+    // cards belong to a different need and must not stay pinned over the new
+    // request. Same-topic refinements keep the deck untouched.
+    final relationNewTopic = decision != null &&
+        (decision.subjectChanged || decision.conversationRelation == 'new_topic');
+    if (relationNewTopic) {
+      final pinned = _pinnedResultsTurn;
+      if (pinned != null) {
+        _resultsHiddenFor = pinned;
+        _resultsOutdatedFor = null;
+        _resultsStaleFor = null;
+      }
+    }
     // The brain owns readiness this turn (a question about options already
     // shown never searches anyway).
     final brainGates = aiUsable && decision!.gatesSearch && !discussOnly;
@@ -1891,7 +1913,8 @@ class _AskodoxPrimaryHomeScreenState
         (!activeDealSession.completed || _pendingAdvisorField != null);
     // The brain says whether this message answers the need being discussed
     // or starts a different one; the short-message rule is the offline case.
-    final brainNewNeed = aiUsable && decision!.gatesSearch && decision.newNeed;
+    final brainNewNeed = relationNewTopic ||
+        (aiUsable && decision!.gatesSearch && decision.newNeed);
     final detailAnswer = !discussOnly &&
         clarified == null &&
         continuingActiveDeal &&
@@ -2390,6 +2413,8 @@ class _AskodoxPrimaryHomeScreenState
         if (id.isNotEmpty) {
           _resultsByTurn.removeWhere((_, earlier) => earlier.dealId == id && earlier.matches.isEmpty);
         }
+        // Fresh results replace any retired deck as the active context.
+        _resultsHiddenFor = null;
         _resultsByTurn[assistantIndex] = results;
         if (matchedDeal != null) _dealByTurn[assistantIndex] = matchedDeal;
         if (matchedDeal != null) _rememberRequestedPlace(matchedDeal.location, knownLocationLabel);
