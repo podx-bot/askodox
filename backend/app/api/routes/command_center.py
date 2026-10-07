@@ -1062,6 +1062,18 @@ def check_integration(name: str, request: Request) -> dict[str, Any]:
             status = maps.api_status() if maps is not None and hasattr(maps, "api_status") else {}
             ok = bool(status) and all(v == "OK" for v in status.values())
             detail = "; ".join(f"{api}: {verdict}" for api, verdict in status.items()) or "Maps service unavailable"
+            # Integration Readiness reads the shared /health/maps cache. Persist
+            # this explicit owner-triggered live probe there too, so a passed
+            # Check now is immediately reflected as LIVE instead of reverting
+            # to CONFIGURED NOT VERIFIED on refresh.
+            if status:
+                from datetime import datetime, timezone
+                import time
+                from app.api.routes.health import _MAPS_HEALTH, MAPS_HEALTH_TTL, _clean_google_message
+                body = {"configured": True, "checked_at": datetime.now(timezone.utc).isoformat(),
+                        "apis": {k: _clean_google_message(v) for k, v in status.items()},
+                        "all_ok": ok}
+                _MAPS_HEALTH.update(until=time.monotonic() + MAPS_HEALTH_TTL, body=body)
         elif name == "youtube_data_api":
             from app.services.social_video_api_service import SocialVideoApiService
             rows = SocialVideoApiService().youtube_search("ASKODOX", 1)
