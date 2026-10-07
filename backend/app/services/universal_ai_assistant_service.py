@@ -83,8 +83,7 @@ CONVERSATION_STATE_RULES = (
     "HARD GATE: never return result cards merely because a product/service/category was named. Conversation controls "
     "retrieval, never the reverse. search_ready = true only when searching now would give this user genuinely useful, "
     "well-targeted options: the need is clear and unknown_critical is empty, OR the user explicitly asks to see options "
-    "now (show me / search / any is 
-    "fine), OR asks where to buy or get it, OR asks for videos/reviews. A broad first message that only names a "
+    "now (show me / search / any is fine), OR asks where to buy or get it, OR asks for videos/reviews. A broad first message that only names a "
     "product, service or category is usually NOT ready. A message that already contains what matters IS ready -- "
     "never ask for anything already known and never ask just to fill a form. "
     "When search_ready is false for a request that needs options: next_question = the ONE most useful question "
@@ -100,8 +99,7 @@ CONVERSATION_STATE_RULES = (
     "Only real decision criteria block a search: what the thing or service is (its kind/type), its primary intended use "
     "when that materially changes the right options, its size/capacity/variant when that changes which options fit, the "
     "budget when prices span widely, condition (new/used/refurbished) when the market mixes them and the user has not "
-    "made it open, and for a service the job itself (and the 
-    "date when it must be booked). Taste preferences -- brand, colour, finish, style, design, extras -- NEVER block a "
+    "made it open, and for a service the job itself (and the date when it must be booked). Taste preferences -- brand, colour, finish, style, design, extras -- NEVER block a "
     "search when the user did not state them: leave them open (flexible) and refine after the user sees options. "
     "Internal layout, compartments, features and add-ons are refinements too: once the kind of thing, its main "
     "size/capacity/variant (when it has one) and the budget are known, the need IS ready -- ask about refinements only "
