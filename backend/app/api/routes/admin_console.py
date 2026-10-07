@@ -110,7 +110,7 @@ function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.nam
   return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"outcomes",label:"Outcomes & gaps",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"},{id:"revcmd",label:"Revenue command center",perm:"revenue:view"}]],
   ["Growth & ads",[{id:"sponsored",label:"Sponsored campaigns",perm:"sponsored:view"},r("affiliate_programs"),r("affiliate_links"),r("smart_links"),{id:"benefits",label:"Offers & coupons",perm:"growth:view"},r("merchant_offers"),{id:"referrals",label:"Referrals",perm:"growth:view"},r("promotion_campaigns")]],
   ["Advisor & demand",[{id:"demand",label:"Demand intelligence",perm:"demand:view"},r("demand_alert_rules"),r("advisor_categories"),r("advisor_questions"),r("advisor_rules"),{id:"assistant",label:"Admin assistant",perm:"overview:view"},{id:"workqueue",label:"My work queue",perm:"overview:view"}]],
-  ["Affiliate catalog",[{id:"smartentry",label:"Smart Entry (paste links)",perm:"overview:view"},{id:"affproducts",label:"Affiliate products",perm:"affiliate_products:view"},{id:"affsources",label:"Affiliate sources",perm:"affiliate_products:view"}]],
+  ["Affiliate catalog",[{id:"smartentry",label:"Smart Entry (paste links)",perm:"overview:view"},{id:"affhub",label:"Affiliate Product Hub",perm:"affiliate_products:create"},{id:"affproducts",label:"Affiliate products",perm:"affiliate_products:view"},{id:"affsources",label:"Affiliate sources",perm:"affiliate_products:view"}]],
   ["Content",[r("videos"),{id:"videoreports",label:"Video reports",perm:"content:view"},{id:"discovered",label:"Discovered videos",perm:"content:view"},r("creators"),r("video_sources"),r("reviews")]],
   ["Money",[{id:"payments",label:"Payments",perm:"payments:view"},{id:"ledger",label:"Revenue ledger",perm:"finance:view"},{id:"rewards",label:"Rewards ledger",perm:"rewards:view"},{id:"transactions",label:"Transactions",perm:"finance:view"},r("subscription_promos")]],
   ["Customers",[{id:"support",label:"Support tickets",perm:"support:view"},{id:"accounts",label:"Users & accounts",perm:"users:view"},r("listing_reviews"),r("prohibited_terms"),r("notification_templates"),r("notification_rules")]],
@@ -123,7 +123,7 @@ function renderNav(){const counts=STATE.pending||{};document.querySelector("#sid
   return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
 async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
-  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports}[VIEW];await (f||dashboard)()}
+  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={dashboard,analytics,insights,sponsored,benefits,referrals,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,affhub,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports}[VIEW];await (f||dashboard)()}
   catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
 
 /* ---------------------------------------------------------------- auth -- */
@@ -590,6 +590,46 @@ function affBulk(){const c=STATE.afcan||{};drawer("Bulk / feed import",'<div cla
    '<button onclick="affBulkRun(true)">Check (dry run)</button><button class="p" onclick="affBulkRun(false)">Import</button><button onclick="closeDrawer()">Close</button>')}
 async function affBulkRun(dry){try{const r=await call("affiliate-products/bulk","POST",{csv:document.querySelector("#ab_csv").value,mode:document.querySelector("#ab_mode").value,check_source:document.querySelector("#ab_src").value,dry_run:dry});
   document.querySelector("#ab_out").innerHTML='<div class="card"><b>'+(dry?"Dry run: ":"")+r.ok+' ok, '+r.failed+' failed</b>'+r.results.filter(x=>!x.ok).map(x=>'<div class="err">Row '+(x.row+1)+': '+esc(x.error)+'</div>').join("")+'</div>';if(!dry)affproducts()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+const AHS={READY:"Ready",NEEDS_REVIEW:"Needs review",MANUAL_ENTRY:"Enter details by hand",DUPLICATE:"Already in catalog",INVALID:"Invalid link"};
+async function affhub(){const s=STATE.ah||(STATE.ah={text:"",items:[],sel:{},done:{},list:null});
+  if(!s.list){try{s.list=await call("affiliate-products?include_deleted=true&limit=200")}catch(e){s.list={items:[],can:{}}}}
+  const c=s.list.can||{};
+  document.querySelector("#page").innerHTML=head("Affiliate Product Hub","Paste one or many product / affiliate links (Meesho first; Amazon, Flipkart, Wishlink and any shop work too). Each page is read only for what it states about itself — nothing is guessed. Commission stays <b>Unknown — needs verification</b> until verified. Save as draft; publishing needs the publish permission.",'')+
+   '<div class="card"><textarea id="ah_txt" class="mono" style="width:100%;min-height:110px" placeholder="https://www.meesho.com/...  (one or many links)" oninput="STATE.ah.text=this.value">'+esc(s.text)+'</textarea>'+
+   '<div style="margin-top:8px"><button class="p" onclick="ahPreview()">Preview</button> <button onclick="ahRetry()">Retry failed</button> <button onclick="STATE.ah.items=[];STATE.ah.sel={};STATE.ah.done={};affhub()">Clear</button></div><div id="ferr" class="err"></div></div>'+
+   (s.items.length?ahTable(c):'')+ahManage(c)}
+function ahTable(c){const s=STATE.ah;
+  const prov=p=>p?(p.source+(p.verified?" (verified)":" (unverified)")):"";
+  const inp=(i,k,v,w)=>'<input style="width:'+w+'" value="'+esc(v==null?"":v)+'" oninput="ahEdit('+i+',\''+k+'\',this.value)">';
+  return '<div class="tbl"><table><thead><tr><th></th><th>Link</th><th>Status</th><th>Title</th><th>Price</th><th>MRP</th><th>Seller / category</th><th>Missing</th></tr></thead><tbody>'+
+   s.items.map((it,i)=>{const f=it.fields||{},e=it.edited||{},done=s.done[i];const ok=!["INVALID","DUPLICATE"].includes(it.status)&&!(done&&done.ok);
+    return '<tr><td>'+(ok?'<input type="checkbox" '+(s.sel[i]?"checked":"")+' onchange="STATE.ah.sel['+i+']=this.checked">':'')+'</td>'+
+     '<td>'+(f.image_url?'<img src="'+esc(f.image_url)+'" style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:6px">':'')+'<span class="muted">'+esc(it.provider_name||"")+' · '+esc(it.link_kind||"")+'</span><div class="mono" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">'+esc(it.url)+'</div></td>'+
+     '<td>'+badge(AHS[it.status]||it.status)+(it.error?'<div class="err">'+esc(it.error)+'</div>':'')+(done?'<div class="'+(done.ok?"muted":"err")+'">'+(done.ok?"Saved #"+done.id+" · "+esc(done.review_status):esc(done.error))+((done.warnings||[]).length?'<div class="muted">'+esc(done.warnings.join("; "))+'</div>':'')+'</div>':'')+'</td>'+
+     '<td title="'+esc(prov((it.provenance||{}).title))+'">'+inp(i,"title",e.title??f.title,"220px")+'</td>'+
+     '<td title="'+esc(prov((it.provenance||{}).price))+'">'+inp(i,"price",e.price??f.price,"80px")+'</td>'+
+     '<td title="'+esc(prov((it.provenance||{}).mrp))+'">'+inp(i,"mrp",e.mrp??f.mrp,"80px")+(f.discount_percent?'<div class="muted">'+f.discount_percent+'% off (derived)</div>':'')+'</td>'+
+     '<td>'+esc(f.seller||"—")+'<div class="muted">'+esc(f.category||"")+((f.variants||[]).length?' · '+esc(f.variants.join(", ")):'')+'</div></td>'+
+     '<td class="muted">'+esc((it.missing||[]).join(", ")||"—")+'</td></tr>'}).join("")+'</tbody></table></div>'+
+   '<div style="margin:8px 0 18px"><button onclick="ahImport(false)">Save selected as drafts</button> <button class="p" onclick="ahImport(true)">'+(c.publish?"Publish selected":"Submit selected for review")+'</button></div>'}
+function ahEdit(i,k,v){const it=STATE.ah.items[i];it.edited=it.edited||{};it.edited[k]=(k==="price"||k==="mrp")?(v===""?null:Number(v)):v}
+async function ahPreview(urls){const s=STATE.ah;try{const r=await call("affiliate-hub/preview","POST",urls?{urls}:{text:s.text});
+  if(urls){r.items.forEach(n=>{const at=s.items.findIndex(o=>o.url===n.url);if(at>=0){s.items[at]={...n,index:at};delete s.done[at]}else s.items.push(n)})}else{s.items=r.items;s.sel={};s.done={}}
+  s.items.forEach((it,i)=>{if(it.status==="READY"&&!(i in s.sel))s.sel[i]=true});affhub()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function ahRetry(){const s=STATE.ah;const urls=s.items.filter((it,i)=>it.status==="MANUAL_ENTRY"||it.status==="INVALID"||(s.done[i]&&!s.done[i].ok&&s.done[i].retry)).map(it=>it.url);if(!urls.length){alert("Nothing to retry");return}ahPreview(urls)}
+async function ahImport(publish){const s=STATE.ah;const idx=Object.keys(s.sel).filter(k=>s.sel[k]).map(Number);if(!idx.length){alert("Select at least one item");return}
+  try{const r=await call("affiliate-hub/import","POST",{items:idx.map(i=>({...s.items[i],publish}))});r.results.forEach((x,n)=>{s.done[idx[n]]=x;if(x.ok)s.sel[idx[n]]=false});s.list=null;affhub()}catch(e){document.querySelector("#ferr").textContent=e.message}}
+function ahManage(c){const s=STATE.ah;const items=(s.list&&s.list.items)||[];s.msel=s.msel||{};
+  const acts=[["publish","Publish",c.publish],["enable","Enable",c.edit],["disable","Disable",c.edit],["draft","Back to draft",c.edit],["archive","Archive",c.delete],["restore","Restore",c.delete]].filter(a=>a[2]);
+  return '<h3 style="margin:18px 0 8px;font-size:15px">Catalog items — review, publish, enable, archive</h3>'+
+   (items.length?'<div style="margin-bottom:8px">'+acts.map(a=>'<button onclick="ahBulk(\''+a[0]+'\')">'+a[1]+'</button>').join(" ")+'</div><div id="ah_bulk"></div>'+
+   '<div class="tbl"><table><thead><tr><th></th><th>Product</th><th>Review</th><th>Enabled</th><th>Commission</th><th>In results</th></tr></thead><tbody>'+
+   items.map(i=>'<tr><td><input type="checkbox" '+(s.msel[i.id]?"checked":"")+' onchange="STATE.ah.msel['+i.id+']=this.checked"></td><td><b>'+esc(i.title)+'</b><div class="muted">'+esc(i.platform_name)+(i.deleted_at?' · archived':'')+'</div></td><td>'+badge(i.review_status)+'</td><td>'+badge(i.active?"ON":"OFF")+'</td><td>'+esc(i.commission_label||i.commission_status)+'</td><td>'+badge(i.eligibility.eligible?"YES":"NO")+'<div class="muted">'+esc(afWhy(i.eligibility))+'</div></td></tr>').join("")+'</tbody></table></div>'
+   :'<div class="empty">No catalog items yet.</div>')}
+async function ahBulk(action){const s=STATE.ah;const ids=Object.keys(s.msel).filter(k=>s.msel[k]).map(Number);if(!ids.length){alert("Select items first");return}
+  if(action==="archive"&&!confirm("Archive "+ids.length+" item(s)? They stop showing; history is kept and they can be restored."))return;
+  try{const r=await call("affiliate-hub/bulk-action","POST",{ids,action});s.list=null;s.msel={};await affhub();
+   document.querySelector("#ah_bulk").innerHTML='<div class="card"><b>'+esc(action)+': '+r.ok+' ok, '+r.failed+' failed</b>'+r.results.filter(x=>!x.ok).map(x=>'<div class="err">#'+x.id+': '+esc(x.error)+'</div>').join("")+'</div>'}catch(e){alert(e.message)}}
 async function affsources(){const d=await call("affiliate-sources");const manage=can("affiliate:manage")||can("integrations:manage");
   const yn=(p,k,v)=>manage?'<select onchange="affSrc(\''+p+'\',\''+k+'\',this.value===\'true\')"><option value="true" '+(v?"selected":"")+'>On</option><option value="false" '+(!v?"selected":"")+'>Off</option></select>':badge(v?"ON":"OFF");
   const pick=(p,k,v,opts)=>manage?'<select onchange="affSrc(\''+p+'\',\''+k+'\',this.value)">'+opts.map(o=>'<option '+(v===o?"selected":"")+'>'+o+'</option>').join("")+'</select>':badge(v);

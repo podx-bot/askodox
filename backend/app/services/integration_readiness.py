@@ -192,6 +192,25 @@ def runtime_rows(container: Any, *, maps_body: Dict[str, Any] | None, web: Dict[
         d_state = "LIVE" if online else "DEGRADED"
         d_reason = f"{len(approved)} approved partner(s), {len(online)} online now"
     rows.append({"integration": "Mobility (rides / delivery matching)", "state": d_state, "reason": d_reason})
+    # AI / voice providers: from REAL calls (provider_health), never from key
+    # presence alone. Sarvam answering HTTP 402 (credit exhausted) shows as
+    # QUOTA_EXHAUSTED, not LIVE and not "not configured".
+    from app.services import provider_health
+
+    settings = getattr(container, "settings", None)
+    for name, label, key_attr, flag_key in (
+            ("sarvam_stt", "Sarvam speech-to-text (voice input)", "sarvam_api_key", None),
+            ("sarvam_tts", "Sarvam text-to-speech (reply voice)", "sarvam_api_key", "voice.sarvam_tts"),
+            ("gemini", "Gemini (conversation brain)", "gemini_api_key", "ai.assistant"),
+            ("openai", "OpenAI (AI fallback)", "openai_api_key", None)):
+        observed = provider_health.state(
+            name, configured=bool(str(getattr(settings, key_attr, "") or "").strip()),
+            enabled=bool(flag(flag_key)) if flag_key else True)
+        rows.append({"integration": label, "provider": name,
+                     "state": "NOT_CONFIGURED" if observed["state"] == provider_health.NEEDS_CONFIGURATION
+                     else observed["state"],
+                     "reason": observed["reason"], "checked_at": observed["last_checked_at"],
+                     "last_success_at": observed["last_success_at"], "last_status_code": observed["last_status_code"]})
     rows.append({"integration": "ASKODOX native video upload",
                  "state": "LIVE" if flag("videos.upload") else "DISABLED",
                  "reason": "stored on the ASKODOX volume; staff review before publishing"})

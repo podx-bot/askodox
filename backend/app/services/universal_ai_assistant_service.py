@@ -23,6 +23,25 @@ from app.services.conversation_relation import ConversationRelationEngine
 logger = logging.getLogger(__name__)
 
 
+def _observe_ai(provider: str, *, ok: bool = False, error: Exception | None = None) -> None:
+    """Provider health from the real call: only the HTTP status and the
+    exception type / a quota marker are kept -- never the prompt, user text,
+    response or any credential."""
+    try:
+        from app.services import provider_health
+
+        if ok:
+            provider_health.record(provider, ok=True)
+            return
+        code = getattr(error, "code", None) or getattr(getattr(error, "response", None), "status_code", None)
+        text = str(error or "")
+        quota = "QUOTA" if re.search(r"quota|RESOURCE_EXHAUSTED|insufficient_quota|billing|credit", text, re.I) else ""
+        provider_health.record(provider, status_code=code if isinstance(code, int) else None,
+                               reason=f"{type(error).__name__} {quota}".strip())
+    except Exception:
+        pass
+
+
 
 _LANGUAGE_NAMES = {
     "en": "English", "te": "Telugu", "hi": "Hindi", "ta": "Tamil", "kn": "Kannada", "ml": "Malayalam",
@@ -200,6 +219,37 @@ class UniversalAIAssistantService:
     _ABOUT_SHOWN_MARKERS = _APP_CONTEXT_MARKERS[:3]
 
     @staticmethod
+    def reconcile_relation(relation, model_new_need: bool, brain: dict, active_subject: str,
+                           said_subject: str = "") -> tuple[str, bool]:
+        """Combine the deterministic relation with the model's own judgment.
+
+        A confident relation (>= 0.7) stands. A WEAK new-topic / return signal
+        (e.g. one new word: a brand of the same need, or a new thing?) counts
+        only when the model also says this is a new need. When the relation
+        layer cannot tell (cross-script, thin text) but the model says new
+        need and the model's own description of the need shares nothing with
+        the active one, the old results retire too.
+        """
+        from app.services.conversation_relation import _overlap, _scripts
+        name = relation.relation
+        changed = bool(relation.subject_replaced)
+        if relation.confidence < 0.7 and name in {"new_topic", "return_to_previous"}:
+            if not model_new_need:
+                return "unknown", False
+            return name, changed
+        if name == "unknown" and model_new_need and relation.has_active_deck and active_subject:
+            state = brain.get("state") or {}
+            facts = state.get("facts") or {}
+            described = " ".join(
+                [str(brain.get("search_subject") or ""), str(state.get("goal") or "")]
+                + [str(v) for v in facts.values()][:12])
+            subjects = [s for s in (active_subject, said_subject) if s.strip()]
+            comparable = any(_scripts(described) & _scripts(s) for s in subjects)
+            if described.strip() and comparable and max(_overlap(described, s) for s in subjects) == 0:
+                return "new_topic", True
+        return name, changed
+
+    @staticmethod
     def _short(value: Any, limit: int) -> Any:
         if isinstance(value, bool) or isinstance(value, (int, float)):
             return value
@@ -362,8 +412,45 @@ class UniversalAIAssistantService:
         return any(keyword.lower() in lowered for keyword in cls._LOCATION_ASK_KEYWORDS)
 
     _VIDEO_ASK = re.compile(
-        r"\b(videos?|reviews?|youtube|unboxing|demo|comparison)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|వీడియోలు|वीडियो|रिव्यू|समीक्षा)",
+        r"\b(videos?|reviews?|youtube|unboxing|demo|comparison|reels?|shorts|clips?)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|వీడియోలు|वीडियो|रिव्यू|समीक्षा)",
         re.IGNORECASE)
+
+    # Platform / channel / setup words: talking ABOUT a video platform or its
+    # setup is conversation, not a request to search videos of something.
+    _PLATFORM_TALK = re.compile(
+        r"\b(facebook|fb|instagram|insta|ig|meta|whatsapp|youtube|yt|reels?|shorts?|tiktok|snapchat|twitter|"
+        r"threads|api|apis|sdk|app|apps|account|accounts|page|pages|profile|handle|setup|set\s*up|integration|"
+        r"integrate|configure|configuration|config|login|channel|business\s+suite|creator\s+studio|token|"
+        r"webhook|permission|permissions|review\s+process|app\s+review)\b"
+        r"|ఫేస్‌?బుక్|ఇన్‌?స్టా(?:గ్రామ్)?|యూట్యూబ్|వాట్సాప్|फेसबुक|इंस्टाग्राम|यूट्यूब",
+        re.IGNORECASE)
+    _VIDEO_WORDS = re.compile(
+        r"\b(videos?|reviews?|youtube|unboxing|demo|demos|comparison|clips?|reels?|shorts?)\b"
+        r"|వీడియో\S*|విడియో\S*|రివ్యూ\S*|రివ్యు\S*|సమీక్ష\S*|పోలిక\S*|यूट्यूब|वीडियो|रिव्यू|समीक्षा",
+        re.IGNORECASE)
+
+    @classmethod
+    def _video_subject(cls, text: str) -> set[str]:
+        """What the videos would be ABOUT, once video / platform / grammar
+        words are removed (empty = no searchable subject)."""
+        from app.services.conversation_relation import _content_tokens
+        stripped = cls._PLATFORM_TALK.sub(" ", cls._VIDEO_WORDS.sub(" ", text or ""))
+        return _content_tokens(stripped)
+
+    def _video_search_wanted(self, user_text: str, entities: dict, model_transactional: bool,
+                             searched_for: dict | None) -> bool:
+        """A video ask is a search only when there is something to search
+        videos OF. "facebook and instagram videos kuda chupinchali" while
+        setting up Meta is conversation; "Samsung S23 review videos" or
+        "show videos" about the need on screen is a search."""
+        if self._video_subject(user_text):
+            return True
+        subject = str((entities or {}).get("subject") or "")
+        if subject and self._video_subject(subject) and not self._PLATFORM_TALK.search(user_text or ""):
+            return True
+        # "show me videos" about the options / need already on screen.
+        active = str((searched_for or {}).get("subject") or "")
+        return bool(active) and not self._PLATFORM_TALK.search(user_text or "")
 
     @classmethod
     def _asks_for_videos(cls, text: str) -> bool:
@@ -586,8 +673,10 @@ class UniversalAIAssistantService:
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                 )
                 response = self._generate_with_retry(client, prompt, config)
+                _observe_ai("gemini", ok=True)
                 data = self._parse_json(str(getattr(response, "text", "") or "").strip())
-            except Exception:
+            except Exception as exc:
+                _observe_ai("gemini", error=exc)
                 logger.exception(
                     "universal_ai_assistant.decide: gemini call failed%s (message_len=%d, has_known_location=%s)",
                     "; trying openai fallback" if self.openai_api_key else "; no openai fallback configured",
@@ -597,7 +686,9 @@ class UniversalAIAssistantService:
         if data is None and self.openai_api_key:
             try:
                 data = self._call_openai(prompt)
-            except Exception:
+                _observe_ai("openai", ok=True)
+            except Exception as exc:
+                _observe_ai("openai", error=exc)
                 logger.exception(
                     "universal_ai_assistant.decide: openai fallback also failed "
                     "(message_len=%d, has_known_location=%s)",
@@ -645,7 +736,8 @@ class UniversalAIAssistantService:
                 advice = self._advise(user_text, compact_history, locale, clean_location)
                 if advice:
                     reply = advice
-            elif self._asks_for_videos(user_text):
+            elif self._asks_for_videos(user_text) and self._video_search_wanted(
+                    user_text, entities, transactional, searched_for):
                 # Deterministic: a video / review ask is a real search. The
                 # app shows the real videos; the reply never claims results
                 # or describes specs it did not get from a source.
@@ -668,17 +760,25 @@ class UniversalAIAssistantService:
             # APK 1305: deterministic conversation-relation layer. The model
             # stays the primary judge; this engine corrects its probabilistic
             # new_need with same/new-topic signals from the ACTIVE need.
+            shown = searched_for or {}
+            active_subject = str(shown.get("subject") or "")
             relation = self.relation_engine.classify(
                 user_text=user_text,
-                active_subject=str((searched_for or {}).get("subject") or ""),
-                active_facts=(searched_for or {}).get("facts") or {},
-                shown_sources=(searched_for or {}).get("sources")
-                or (searched_for or {}).get("source_names") or [],
+                active_subject=active_subject,
+                active_facts=shown.get("facts") or {},
+                shown_sources=shown.get("sources") or shown.get("source_names") or [],
                 recent_user_turns=[
                     t["text"] for t in compact_history if t.get("role") == "user"
                 ][-8:],
+                subject_aliases=[str(shown.get("said_subject") or "")],
+                location_labels=[str(shown.get("location") or "")],
             )
-            brain["new_need"] = relation.resolve_new_need(brain["new_need"])
+            model_new_need = bool(brain["new_need"])
+            brain["new_need"] = relation.resolve_new_need(model_new_need)
+            relation_name, subject_changed = self.reconcile_relation(
+                relation, model_new_need, brain, active_subject, str(shown.get("said_subject") or ""))
+            if relation_name == "new_topic":
+                brain["new_need"] = True
             if (
                 relation.has_active_deck
                 and relation.confidence >= 0.7
@@ -701,8 +801,8 @@ class UniversalAIAssistantService:
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
             return {
                 **brain,
-                "conversation_relation": relation.relation,
-                "subject_changed": relation.subject_replaced,
+                "conversation_relation": relation_name,
+                "subject_changed": subject_changed,
                 "reply": reply,
                 "domain": domain,
                 "transactional": transactional,

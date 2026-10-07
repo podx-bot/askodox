@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/application/conversation_archive.dart';
+import '../../features/home/domain/conversation_language.dart';
 import '../../features/home/presentation/question_mic.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
@@ -188,7 +189,12 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           PopupMenuButton<String>(
             key: const Key('askodoxLanguageChip'),
             tooltip: isTe ? 'భాష' : 'Language',
-            onSelected: (code) => ref.read(appSettingsProvider.notifier).setLocale(Locale(code)),
+            onSelected: (code) {
+              ref.read(appSettingsProvider.notifier).setLocale(Locale(code));
+              // The header choice is explicit: it also locks the conversation
+              // language, so the replies never disagree with the header.
+              ref.read(askodoxConversationLanguageProvider.notifier).lockTo(code);
+            },
             itemBuilder: (context) => [
               for (final (code, name) in const [('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('or', 'ଓଡ଼ିଆ')])
                 PopupMenuItem(value: code, key: ValueKey('askodoxLanguage-$code'), child: Text(name)),
@@ -199,7 +205,14 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                 const Icon(Icons.language_rounded, size: 18, color: _navInk),
                 const SizedBox(width: 2),
                 Text(
-                  switch (lang) { 'te' => 'తెలుగు', 'hi' => 'हिन्दी', 'or' => 'ଓଡ଼ିଆ', _ => 'EN' },
+                  // The language ASKODOX is actually answering in (lock >
+                  // preferred > automatic), not only the UI locale.
+                  switch (ref.watch(askodoxReplyLanguageProvider)) {
+                    'te' => 'తెలుగు',
+                    'hi' => 'हिन्दी',
+                    'or' => 'ଓଡ଼ିଆ',
+                    _ => 'EN'
+                  },
                   style: const TextStyle(color: _navInk, fontSize: 12, fontWeight: FontWeight.w800),
                 ),
               ]),

@@ -327,7 +327,20 @@ def _public(row: dict[str, Any], sources: dict[str, dict[str, Any]] | None = Non
     item = dict(row)
     item["images"] = _list(item.pop("images_json", "[]"))
     item["variants"] = _list(item.pop("variants_json", "[]"))
-    item.pop("metadata_json", None)
+    try:
+        metadata = json.loads(item.pop("metadata_json", None) or "{}")
+    except ValueError:
+        metadata = {}
+    # Where each value came from (page metadata / embedded page data / URL /
+    # staff) and when -- the Affiliate Product Hub never hides provenance.
+    item["provenance"] = metadata.get("provenance") or {}
+    item["extraction"] = metadata.get("extraction") or {}
+    item["keywords"] = metadata.get("keywords") or []
+    item["tags"] = metadata.get("tags") or []
+    if metadata.get("deep_link"):
+        item["deep_link"] = metadata["deep_link"]
+    item["commission_label"] = {"ACTIVE": "Verified active", "INACTIVE": "Inactive"}.get(
+        str(item.get("commission_status") or "UNKNOWN"), "Unknown -- needs verification")
     item["active"] = bool(item.get("active"))
     item["sponsored"] = bool(item.get("sponsored"))
     price, mrp = item.get("price"), item.get("mrp")
@@ -503,7 +516,7 @@ class AffiliateCatalog:
 
     def create(self, values: dict[str, Any], *, actor: str, check_source: str = "manual",
                stock_status: Any = None, commission_status: Any = None,
-               review_status: str = "LIVE") -> dict[str, Any]:
+               review_status: str = "LIVE", metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         clean = self._clean(values)
         url = clean.get("original_product_url")
         if not url:
@@ -527,7 +540,8 @@ class AffiliateCatalog:
             "commission_checked_at": at if commission != "UNKNOWN" else None,
             "commission_check_source": check_source if commission != "UNKNOWN" else "",
             "price_checked_at": at if clean.get("price") is not None else None,
-            "created_by": actor, "updated_by": actor, "created_at": at, "updated_at": at, "metadata_json": "{}",
+            "created_by": actor, "updated_by": actor, "created_at": at, "updated_at": at,
+            "metadata_json": json.dumps(metadata or {}, ensure_ascii=False)[:20000],
             "review_status": review_status if review_status in REVIEW_STATES else "NEEDS_REVIEW",
             "submitted_by": actor, "canonical_key": canonical_key(url), "item_type": clean.get("item_type") or "product",
             **{k: v for k, v in clean.items() if k not in {"merchant", "currency", "category"}},
@@ -668,6 +682,42 @@ class AffiliateCatalog:
             conn.execute("UPDATE affiliate_products SET deleted_at=?, active=0, updated_by=?, updated_at=? WHERE id=?",
                          (at, actor, at, int(product_id)))
             self._record(conn, product_id, actor, "delete", {"deleted_at": {"from": None, "to": at}}, "manual", note)
+            row = self._row(conn, product_id)
+        return _public(row)
+
+    def restore(self, product_id: int, *, actor: str, note: str = "") -> dict[str, Any]:
+        """Undo an archive (soft delete): the row comes back DISABLED and in
+        review so it is checked again before customers see it."""
+        with self._connect() as conn:
+            before = self._row(conn, product_id)
+            if not before:
+                raise LookupError("Product not found")
+            if not before.get("deleted_at"):
+                raise ValueError("This product is not archived")
+            at = now_iso()
+            conn.execute("UPDATE affiliate_products SET deleted_at=NULL, active=0, review_status='NEEDS_REVIEW', "
+                         "updated_by=?, updated_at=? WHERE id=?", (actor, at, int(product_id)))
+            self._record(conn, product_id, actor, "restore", {"deleted_at": {"from": before.get("deleted_at"),
+                                                                             "to": None}}, "manual", note)
+            row = self._row(conn, product_id)
+        return _public(row)
+
+    def set_metadata(self, product_id: int, changes: dict[str, Any], *, actor: str) -> dict[str, Any]:
+        """Merge provenance / extraction / keywords / tags into the product's
+        metadata (never prices or states -- those have their own columns)."""
+        allowed = {k: v for k, v in (changes or {}).items()
+                   if k in {"provenance", "extraction", "keywords", "tags", "deep_link"}}
+        with self._connect() as conn:
+            before = self._row(conn, product_id)
+            if not before or before.get("deleted_at"):
+                raise LookupError("Product not found")
+            try:
+                current = json.loads(before.get("metadata_json") or "{}")
+            except ValueError:
+                current = {}
+            current.update(allowed)
+            conn.execute("UPDATE affiliate_products SET metadata_json=?, updated_by=?, updated_at=? WHERE id=?",
+                         (json.dumps(current, ensure_ascii=False)[:20000], actor, now_iso(), int(product_id)))
             row = self._row(conn, product_id)
         return _public(row)
 

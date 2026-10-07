@@ -174,6 +174,27 @@ class AskodoxConversationLanguage extends StateNotifier<String> {
     state = next;
     await prefs.setString(_key, next);
   }
+
+  /// An explicit choice outside the chat (the header language menu): the
+  /// same persistent lock as "reply in Telugu", so the header, the replies
+  /// and voice all follow ONE language. [code] 'auto' releases the lock.
+  Future<void> lockTo(String code) async {
+    if (code == 'auto') {
+      _ref.read(askodoxLanguageLockProvider.notifier).state = null;
+    } else {
+      _ref.read(askodoxLanguageLockProvider.notifier).state = code;
+      if (state != code) state = code;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (code == 'auto') {
+        await prefs.remove(_keyLock);
+      } else {
+        await prefs.setString(_keyLock, code);
+        await prefs.setString(_key, code);
+      }
+    } catch (_) {}
+  }
 }
 
 final askodoxConversationLanguageProvider =

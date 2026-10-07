@@ -88,4 +88,25 @@ void main() {
     expect(askodoxExplicitLanguageSwitch('tenglish lo matladandi'), 'te');
     expect(askodoxExplicitLanguageSwitch('telugu english mix lo cheppu'), 'te');
   });
+
+  test('header language choice is an explicit lock: replies, header and STT text agree', () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final notifier = c.read(askodoxConversationLanguageProvider.notifier);
+    await notifier.observe('telugu lo cheppu');
+    expect(c.read(askodoxReplyLanguageProvider), 'te', reason: 'explicit Telugu lock (PR #166)');
+    // A bad English STT transcript never overrides the Telugu lock.
+    await notifier.observe('I would like to see the cheapest options available near me');
+    expect(c.read(askodoxReplyLanguageProvider), 'te');
+    // Choosing English in the header is explicit too: the lock moves with it.
+    await notifier.lockTo('en');
+    expect(c.read(askodoxReplyLanguageProvider), 'en');
+    expect(c.read(askodoxLanguageLockProvider), 'en');
+    // "Automatic" releases the lock; the detected language takes over again.
+    await notifier.lockTo('auto');
+    expect(c.read(askodoxLanguageLockProvider), isNull);
+    await notifier.observe('నాకు TV కావాలి');
+    expect(c.read(askodoxReplyLanguageProvider), 'te');
+  });
 }

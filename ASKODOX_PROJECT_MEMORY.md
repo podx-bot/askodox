@@ -107,3 +107,18 @@ After each meaningful merge, append/update:
 - decisions that changed;
 - next exact priority.
 Do not store secrets or personal credentials here.
+
+## Branch in review (NOT merged): feature/universal-result-board-admin-affiliate
+Built on main 2e7dba2 (PR #166). Pending independent review before merge:
+- Relation/routing/comparison: content-token relation engine (thin refinements,
+  acks, choice questions, return-to-previous, cross-script, weak single-word new
+  topics reconciled with the model); FB/IG/Meta video talk stays conversation;
+  location/price/status labels never comparison entities.
+- Universal Result Board: expand / minimize to pill / restore / auto-retire /
+  same-topic refresh / selected-result chip; "the best one" shows one result.
+- Header language chip shows the reply language; header choice = explicit lock.
+- Affiliate Product Hub + Meesho adapter (truthful extraction with provenance,
+  drafts by default, publish permission, bulk actions, retry), Command Center page.
+- Provider health from real answers (Sarvam 402 -> QUOTA_EXHAUSTED).
+Device verification of all of the above is still required (next APK).
+

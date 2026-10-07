@@ -53,6 +53,12 @@ class SarvamTTSVoiceAssistantService(SarvamPrimaryVoiceAssistantService):
 
     def synthesize(self, text: str, voice: str = "") -> dict[str, Any]:
         primary = self._synthesize_sarvam(text, voice)
+        try:
+            from app.services.sarvam_primary_voice_assistant_service import _observe_sarvam
+
+            _observe_sarvam("sarvam_tts", primary, configured=bool(getattr(self, "sarvam_api_key", "")))
+        except Exception:
+            pass
         if primary.get("success"):
             return primary
 

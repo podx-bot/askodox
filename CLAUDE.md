@@ -366,6 +366,31 @@ this file, don't trust it blindly.
   pinned cards outdated (`askodoxResultsOutdated`); a different need hides them.
   Real-LLM proof: `conversation-trace.yml` + `.github/conversation-traces.json`
   (branch push -> waits for staging `/health` commit -> per-turn TRACE lines).
+- Conversation relation (`conversation_relation.py`) compares CONTENT words only
+  (grammar, constraints, acks, option refs, numbers removed; Indic-aware tokens,
+  plural-insensitive). Thin refinements / acks / choice questions keep the deck;
+  a single new word is a WEAK new topic that counts only when the model agrees
+  (`reconcile_relation`); a model-confirmed new need whose own description shares
+  nothing with the active one retires the deck. The app sends `said_subject` +
+  `sources` in `searched_for`. Never add per-category phrases.
+- Video asks: a search only when there is something to search videos OF
+  (`_video_search_wanted`); talk about Facebook / Instagram / Meta / setup stays
+  chat (app: `askodoxTalksAboutVideoPlatform`).
+- Comparisons never name a place / price / status / source label as a thing
+  (`comparison_entities.py`, app `askodoxComparableLabel`).
+- Result Board (home screen): `_boardMinimizedFor` (pill "N Results • ₹20k
+  subject ▲", restore), fresh results re-expand, retirement clears pill +
+  selected context (`askodoxSelectedContext`), "the best one" -> one card
+  (`askodoxWantsSingleResult` / `askodoxBestOnly`). Built on `_resultsByTurn`.
+- Header language chip = the reply language (lock > preferred > automatic);
+  choosing there is an explicit lock (`lockTo`, PR #166 semantics).
+- Affiliate Product Hub: `affiliate_providers.py` (adapter registry, Meesho
+  __NEXT_DATA__ first; provenance per field; commission never from a page),
+  `affiliate_hub.py` + `routes/affiliate_hub.py` (preview / import / bulk-action),
+  console view `affhub`; grant `affiliate_products:publish`. Same item store
+  (`affiliate_products`); Smart Links stay routing only.
+- Provider health = real answers (`provider_health.py`): Sarvam 402 ->
+  QUOTA_EXHAUSTED; readiness rows + Command Center use it, never key presence.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
