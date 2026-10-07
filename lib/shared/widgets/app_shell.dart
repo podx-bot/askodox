@@ -190,13 +190,23 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             key: const Key('askodoxLanguageChip'),
             tooltip: isTe ? 'భాష' : 'Language',
             onSelected: (code) {
-              ref.read(appSettingsProvider.notifier).setLocale(Locale(code));
-              // The header choice is explicit: it also locks the conversation
-              // language, so the replies never disagree with the header.
+              // Automatic releases the explicit lock and lets conversation detection drive replies.
+              // A concrete choice locks UI + conversation to the same language.
+              if (code == 'auto') {
+                ref.read(appSettingsProvider.notifier).useSystemLocale();
+              } else {
+                ref.read(appSettingsProvider.notifier).setLocale(Locale(code));
+              }
               ref.read(askodoxConversationLanguageProvider.notifier).lockTo(code);
             },
             itemBuilder: (context) => [
-              for (final (code, name) in const [('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('or', 'ଓଡ଼ିଆ')])
+              for (final (code, name) in const [
+                ('auto', 'Automatic'),
+                ('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'),
+                ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ'), ('ml', 'മലയാളം'),
+                ('mr', 'मराठी'), ('bn', 'বাংলা'), ('gu', 'ગુજરાતી'),
+                ('pa', 'ਪੰਜਾਬੀ'), ('or', 'ଓଡ଼ିଆ'), ('ur', 'اردو'), ('as', 'অসমীয়া'),
+              ])
                 PopupMenuItem(value: code, key: ValueKey('askodoxLanguage-$code'), child: Text(name)),
             ],
             child: Padding(
@@ -210,7 +220,16 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                   switch (ref.watch(askodoxReplyLanguageProvider)) {
                     'te' => 'తెలుగు',
                     'hi' => 'हिन्दी',
+                    'ta' => 'தமிழ்',
+                    'kn' => 'ಕನ್ನಡ',
+                    'ml' => 'മലയാളം',
+                    'mr' => 'मराठी',
+                    'bn' => 'বাংলা',
+                    'gu' => 'ગુજરાતી',
+                    'pa' => 'ਪੰਜਾਬੀ',
                     'or' => 'ଓଡ଼ିଆ',
+                    'ur' => 'اردو',
+                    'as' => 'অসমীয়া',
                     _ => 'EN'
                   },
                   style: const TextStyle(color: _navInk, fontSize: 12, fontWeight: FontWeight.w800),

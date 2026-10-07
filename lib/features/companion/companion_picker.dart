@@ -3,12 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'askodox_companion.dart';
 import 'companion_3d.dart';
-import 'companion_human.dart';
-import 'companion_human2d.dart';
 
-/// Profile > ASKODOX friend: pick the companion once (remembered). Options:
-/// Automatic, the human 3D personas, the lightweight robot (Lite) and 3D
-/// off (flat friend). Each option shows a small still preview.
+/// Profile > ASKODOX friend. Human/3D personas are intentionally hidden in
+/// this release; expose the lightweight ASKODOX robot and a still fallback.
 class AskodoxCompanionPicker extends ConsumerWidget {
   const AskodoxCompanionPicker({super.key, required this.telugu});
 
@@ -67,32 +64,12 @@ class AskodoxCompanionPicker extends ConsumerWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            option(
-              id: AskodoxCompanionSettings.automatic,
-              // The approved ASKODOX companion (natural human, one identity).
-              label: t('ASKODOX Advisor', 'ASKODOX సలహాదారు'),
-              selected: !off3d && settings.companion == AskodoxCompanionSettings.automatic,
-              onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: true),
-              preview: ClipOval(child: Image.asset('${AskodoxHuman2d.dir}/neutral.jpg', fit: BoxFit.cover)),
-            ),
-            for (final persona in AskodoxPersona.values)
-              option(
-                id: persona.name,
-                label: '${askodoxPersonaLabel(persona, telugu: telugu)} · 3D beta',
-                selected: !off3d && settings.companion == persona.name,
-                onTap: () => notifier.update(companion: persona.name, render3d: true),
-                preview: _PersonaPreview(persona: persona),
-              ),
-            option(
-              id: AskodoxCompanionSettings.humanHd,
-              label: t('Human HD (beta)', 'హ్యూమన్ HD (బీటా)'),
-              selected: !off3d && settings.companion == AskodoxCompanionSettings.humanHd,
-              onTap: () => notifier.update(companion: AskodoxCompanionSettings.humanHd, render3d: true),
-              preview: const Icon(Icons.face_retouching_natural_rounded, color: Color(0xFF6C4DFF), size: 34),
-            ),
+            // APK 1309 owner decision: human/3D companions are hidden for now.
+            // Keep the architecture in place for a future feature-flagged return,
+            // but expose only the lightweight ASKODOX robot and a still fallback.
             option(
               id: AskodoxCompanionSettings.robotLite,
-              label: t('Robot (Lite)', 'రోబోట్ (లైట్)'),
+              label: t('ASKODOX Robot (Lite)', 'ASKODOX రోబోట్ (లైట్)'),
               selected: !off3d && settings.companion == AskodoxCompanionSettings.robotLite,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.robotLite, render3d: true),
               preview: _RobotPreview(look: settings.look),
@@ -100,14 +77,14 @@ class AskodoxCompanionPicker extends ConsumerWidget {
             option(
               id: 'off3d',
               label: t('Still photo', 'స్టిల్ ఫోటో'),
-              selected: off3d && settings.companion == AskodoxCompanionSettings.automatic,
+              selected: off3d,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: false),
               preview: const Icon(Icons.photo_rounded, color: Color(0xFF8A94A6), size: 34),
             ),
           ],
         ),
       ),
-      if (!off3d && AskodoxCompanionPerformance.level > 0)
+      if (!off3d && settings.companion == AskodoxCompanionSettings.robotLite && AskodoxCompanionPerformance.level > 0)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(key: const Key('askodoxCompanionLiteNotice'), children: [
@@ -120,7 +97,7 @@ class AskodoxCompanionPicker extends ConsumerWidget {
             TextButton(
               key: const Key('askodoxCompanionRetry3d'),
               onPressed: () => notifier.update(companion: settings.companion),
-              child: Text(t('Try 3D again', 'మళ్లీ 3D')),
+              child: Text(t('Retry motion', 'కదలిక మళ్లీ ప్రయత్నించండి')),
             ),
           ]),
         ),
@@ -143,24 +120,6 @@ class AskodoxCompanionPicker extends ConsumerWidget {
         ),
     ]);
   }
-}
-
-class _PersonaPreview extends StatelessWidget {
-  const _PersonaPreview({required this.persona});
-  final AskodoxPersona persona;
-
-  static final _meshes = <AskodoxPersona, AskodoxMesh>{};
-
-  @override
-  Widget build(BuildContext context) => RepaintBoundary(
-        child: CustomPaint(
-          painter: AskodoxHuman3dPainter(
-            mesh: _meshes.putIfAbsent(persona, () => AskodoxHumanRig.build(AskodoxHumanStyle.of(persona))),
-            mood: AskodoxCompanionMood.idle,
-            t: 0,
-          ),
-        ),
-      );
 }
 
 class _RobotPreview extends StatelessWidget {
