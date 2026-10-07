@@ -3,12 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'askodox_companion.dart';
 import 'companion_3d.dart';
-import 'companion_human.dart';
-import 'companion_human2d.dart';
 
-/// Profile > ASKODOX friend: pick the companion once (remembered). Options:
-/// Automatic, the human 3D personas, the lightweight robot (Lite) and 3D
-/// off (flat friend). Each option shows a small still preview.
+/// Profile > ASKODOX friend. Human/3D personas are intentionally hidden in
+/// this release; expose the lightweight ASKODOX robot and a still fallback.
 class AskodoxCompanionPicker extends ConsumerWidget {
   const AskodoxCompanionPicker({super.key, required this.telugu});
 
@@ -87,7 +84,7 @@ class AskodoxCompanionPicker extends ConsumerWidget {
           ],
         ),
       ),
-      if (!off3d && AskodoxCompanionPerformance.level > 0)
+      if (!off3d && settings.companion == AskodoxCompanionSettings.robotLite && AskodoxCompanionPerformance.level > 0)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(key: const Key('askodoxCompanionLiteNotice'), children: [
@@ -100,7 +97,7 @@ class AskodoxCompanionPicker extends ConsumerWidget {
             TextButton(
               key: const Key('askodoxCompanionRetry3d'),
               onPressed: () => notifier.update(companion: settings.companion),
-              child: Text(t('Try 3D again', 'మళ్లీ 3D')),
+              child: Text(t('Retry motion', 'కదలిక మళ్లీ ప్రయత్నించండి')),
             ),
           ]),
         ),
@@ -123,24 +120,6 @@ class AskodoxCompanionPicker extends ConsumerWidget {
         ),
     ]);
   }
-}
-
-class _PersonaPreview extends StatelessWidget {
-  const _PersonaPreview({required this.persona});
-  final AskodoxPersona persona;
-
-  static final _meshes = <AskodoxPersona, AskodoxMesh>{};
-
-  @override
-  Widget build(BuildContext context) => RepaintBoundary(
-        child: CustomPaint(
-          painter: AskodoxHuman3dPainter(
-            mesh: _meshes.putIfAbsent(persona, () => AskodoxHumanRig.build(AskodoxHumanStyle.of(persona))),
-            mood: AskodoxCompanionMood.idle,
-            t: 0,
-          ),
-        ),
-      );
 }
 
 class _RobotPreview extends StatelessWidget {
