@@ -163,12 +163,14 @@ def runtime_rows(container: Any, *, maps_body: Dict[str, Any] | None, web: Dict[
     rows: List[Dict[str, Any]] = []
     fallbacks = web.get("fallbacks") or {}
     cse = fallbacks.get("google_cse") if isinstance(fallbacks, dict) else None
-    cse_state = {"not_configured": "NOT_CONFIGURED", None: "CONFIGURED_NOT_VERIFIED", "ok": "LIVE",
+    cse_state = {"not_configured": "DISABLED", None: "CONFIGURED_NOT_VERIFIED", "ok": "LIVE",
                  "error": "ERROR", "quota_exhausted": "QUOTA_EXHAUSTED"}.get(cse, "ERROR") \
-        if "google_cse" in fallbacks else "NOT_CONFIGURED"
-    rows.append({"integration": "Web search fallback (Google Programmable Search)", "state": cse_state,
-                 "reason": "used only when Brave fails" if cse_state != "NOT_CONFIGURED" else
-                 "GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID not set (backend-only)"})
+        if "google_cse" in fallbacks else "DISABLED"
+    rows.append({"integration": "Legacy web-search fallback (Google Programmable Search)", "state": cse_state,
+                 "reason": ("legacy entitlement only; Google closed Custom Search JSON API to new customers "
+                            "on 2026-01-20; Brave remains the primary whole-web provider")
+                 if cse_state == "DISABLED" else
+                 "legacy provider; used only when Brave fails"})
     if not maps_body or not maps_body.get("configured"):
         rows.append({"integration": "Google Maps", "state": "NOT_CONFIGURED",
                      "reason": "GOOGLE_MAPS_API_KEY is not set on this deployment", "apis": {}})
