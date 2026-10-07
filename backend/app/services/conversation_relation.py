@@ -98,6 +98,25 @@ def _source_mentioned(text: str, sources: Iterable[str]) -> bool:
     return any(len(str(s).strip()) >= 3 and str(s).strip().casefold() in low for s in sources)
 
 
+def _looks_like_constraint_fragment(text: str) -> bool:
+    """True when a constraint match is the message's main content, not incidental."""
+    meaningful = _tokens(text)
+    if not meaningful:
+        return True
+    # Remove generic constraint vocabulary/numbers; concrete nouns left behind
+    # mean semantic/history routing should get a chance before we pin this to
+    # the active result deck.
+    generic = {
+        "online", "offline", "local", "nearby", "used", "new", "second-hand",
+        "today", "tomorrow", "now", "cheap", "cheaper", "premium", "budget",
+        "pickup", "cash", "cod", "lo", "lone", "matrame", "maatrame",
+        "kavali", "kaavali", "daggara", "deggara", "ivva", "ivvu", "lopu",
+        "kinda", "paina",
+    }
+    concrete = {t for t in meaningful if t not in generic and not any(ch.isdigit() for ch in t)}
+    return len(concrete) <= 1
+
+
 @dataclass(frozen=True)
 class ConversationRelation:
     relation: str
@@ -158,9 +177,19 @@ class ConversationRelationEngine:
                     "comparison", 0.91, True, subject_replaced=not same,
                     reason="comparison",
                 )
-            if _source_mentioned(text, shown_sources):
+            source_mentioned = _source_mentioned(text, shown_sources)
+            constraint_fragment = bool(_CONSTRAINT.search(text)) and _looks_like_constraint_fragment(text)
+            # Strong overlap with an older turn takes precedence over generic
+            # source/constraint words. This prevents "return to X, local"
+            # from being trapped as a refinement of the currently visible deck.
+            history_match = max(
+                (_overlap(text, str(old)) for old in list(recent_user_turns)[-8:-1]),
+                default=0.0,
+            )
+            active_overlap = _overlap(text, subject)
+            if source_mentioned and history_match <= active_overlap:
                 return ConversationRelation("refinement", 0.94, True, reason="shown_source")
-            if _CONSTRAINT.search(text):
+            if constraint_fragment and history_match <= active_overlap:
                 # Constraint-only fragments are the canonical "Meesho lo ivva"
                 # shape: preserve the need and alter one search dimension.
                 return ConversationRelation("refinement", 0.91, True, reason="constraint")
