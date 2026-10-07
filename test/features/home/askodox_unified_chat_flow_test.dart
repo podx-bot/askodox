@@ -45,6 +45,7 @@ import 'package:podx/services/voice_transcription_service.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
+import 'package:podx/features/home/domain/follow_up_router.dart';
 import 'package:podx/features/home/application/saved_options.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/selling/data/catalogue_repository.dart';
@@ -1394,6 +1395,97 @@ void main() {
       await h.send(tester, 'delivery చేయాలి');
       expect(h.matches.deals, isEmpty);
       expect(workspace(), findsNothing);
+    });
+  });
+
+  group('Relation, Meta/video routing and comparison safety (feature/universal-result-board)', () {
+    const phone = UniversalMatch(id: 'online-0-ph', title: 'Samsung Galaxy S23 refurbished at Store A',
+        source: 'online', destinationUrl: 'https://a.example/s23', price: 19990, sourceName: 'Store A');
+    const placeTitled = UniversalMatch(id: 'local-1-ph', title: 'in Vuyyuru, Andhra Pradesh',
+        subtitle: 'Sri Lakshmi Mobiles', source: 'local', locationLabel: 'Vuyyuru, Andhra Pradesh', price: 18500);
+    const nameless = UniversalMatch(id: 'local-2-ph', title: 'near Benz Circle', source: 'local',
+        locationLabel: 'Benz Circle, Vijayawada');
+
+    Map<String, Object?> decision(String reply, {required String action, bool transactional = false,
+            bool? ready, String mode = 'chat', String relation = 'unknown', bool changed = false}) =>
+        {
+          'reply': reply, 'domain': transactional ? 'PRODUCT' : 'GENERAL', 'transactional': transactional,
+          'action': action, 'confidence': 0.9, 'source': 'universal_ai', 'mode': mode, 'entities': const {},
+          'state': {'goal': '', 'facts': const {}, 'flexible': const [], 'unknown_critical': const []},
+          'search_ready': ready, 'next_question': null, 'search_subject': ready == true ? 'Samsung S23' : null,
+          'ready_reason': '', 'new_need': false, 'conversation_relation': relation, 'subject_changed': changed,
+        };
+
+    testWidgets('Facebook / Instagram video SETUP talk stays a conversation: no search, no cards', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'x', matches: [phone])]),
+        assistant: _Assistant((_) => decision(
+            'Yes -- once the Meta app is approved, Facebook and Instagram videos can play inside ASKODOX.',
+            action: 'chat', ready: false)),
+      );
+      await h.pump(tester);
+      for (final text in ['facebook and instagram videos kuda chupinchali ga', 'Instagram reels kuda app lo play avvala?',
+                          'Meta API setup lo videos permission kavala?']) {
+        await h.send(tester, text);
+      }
+      expect(h.matches.deals, isEmpty, reason: 'talk about a video platform is not a video search');
+      expect(find.byKey(const Key('askodoxResultContext')), findsNothing, reason: 'no unrelated commerce cards');
+      expect(find.textContaining('Facebook and Instagram videos can play'), findsWidgets);
+    });
+
+    testWidgets('a genuine video search still searches when the brain says so', (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'v', matches: [phone])]),
+        assistant: _Assistant((_) => decision('Sure -- looking for real videos and reviews.',
+            action: 'search_videos', transactional: true, ready: true, mode: 'commerce')),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'Samsung S23 review videos');
+      expect(h.matches.deals, hasLength(1), reason: 'a real video ask searches');
+    });
+
+    test('a place / price / status label is never a comparison entity; real things are', () {
+      expect(askodoxIsEntityLabel('in Vuyyuru, Andhra Pradesh'), isFalse);
+      expect(askodoxIsEntityLabel('near Benz Circle'), isFalse);
+      expect(askodoxIsEntityLabel('Vijayawada లో'), isFalse);
+      expect(askodoxIsEntityLabel('under ₹20,000'), isFalse);
+      expect(askodoxIsEntityLabel('₹15,999'), isFalse);
+      for (final meta in ['Sponsored', 'In stock', 'Online', 'Not verified', 'the other options']) {
+        expect(askodoxIsEntityLabel(meta), isFalse, reason: meta);
+      }
+      expect(askodoxIsEntityLabel('Vuyyuru', locationLabels: ['Vuyyuru, Andhra Pradesh']), isFalse);
+      for (final thing in ['Samsung Galaxy S23', 'Sri Sai Plumbing Works', 'LIC Jeevan Anand', 'Hyderabad to Goa flight']) {
+        expect(askodoxIsEntityLabel(thing, locationLabels: ['Vuyyuru, Andhra Pradesh']), isTrue, reason: thing);
+      }
+      expect(askodoxComparableLabel(phone), 'Samsung Galaxy S23 refurbished at Store A');
+      expect(askodoxComparableLabel(placeTitled), 'Sri Lakshmi Mobiles', reason: 'falls back to the real name');
+      expect(askodoxComparableLabel(nameless), isNull, reason: 'a row that names no thing');
+    });
+
+    test('the deterministic comparison never lists a place as an option name', () {
+      final answer = askodoxAnswerFollowUp(AskodoxFollowUp.compare, [phone, placeTitled, nameless], te: false)!;
+      expect(answer, isNot(contains('in Vuyyuru, Andhra Pradesh')));
+      expect(answer, isNot(contains('near Benz Circle')));
+      expect(answer, contains('Sri Lakshmi Mobiles'));
+      expect(answer, contains('Unnamed option'));
+      expect(askodoxOptionContext(placeTitled), startsWith('Sri Lakshmi Mobiles'));
+    });
+
+    testWidgets('the follow-up context carries the customer wording and the shown sources', (tester) async {
+      var turn = 0;
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'p', matches: [phone])]),
+        assistant: _Assistant((_) => turn++ == 0
+            ? decision('Got it.', action: 'search_products', transactional: true, ready: true, mode: 'commerce')
+            : decision('Sure.', action: 'chat', ready: false, relation: 'refinement')),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'show me Samsung S23 refurbished phones');
+      expect(h.matches.deals, hasLength(1));
+      await h.send(tester, 'Store A lo ivva');
+      final searchedFor = h.assistant.requests.last['searched_for'] as Map;
+      expect(searchedFor['sources'], contains('Store A'));
+      expect(searchedFor['subject'], isNotNull);
     });
   });
 

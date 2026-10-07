@@ -1435,12 +1435,20 @@ class _AskodoxPrimaryHomeScreenState
     final fields = deal.dynamicFields;
     return {
       'subject': deal.subject,
+      // The customer's own wording of the need: a Telugu / Hindi follow-up is
+      // compared with words in its own script, not only the English phrase.
+      if ((fields['said_subject'] ?? '').toString().trim().isNotEmpty) 'said_subject': fields['said_subject'],
       if (fields['brain_facts'] is Map) 'facts': fields['brain_facts'],
       if (fields['budget_max'] != null) 'budget_max': fields['budget_max'],
       if (fields['brand'] != null) 'brand': fields['brand'],
       if (deal.size != null) 'size': deal.size,
       if (deal.location.label?.trim().isNotEmpty ?? false) 'location': deal.location.label,
       'options_shown': _resultsByTurn[pinned]?.matches.length ?? 0,
+      // Where the shown options came from ("Meesho lo ivva" refines them).
+      'sources': {
+        for (final m in _resultsByTurn[pinned]?.matches ?? const <UniversalMatch>[])
+          if ((m.sourceName ?? '').trim().isNotEmpty) m.sourceName!.trim(),
+      }.take(8).toList(),
     };
   }
 
@@ -1896,7 +1904,13 @@ class _AskodoxPrimaryHomeScreenState
     // videos is not asked purchase details first.
     final forcedSearch = _pendingForcedSearch;
     _pendingForcedSearch = false;
-    final videoAsk = !discussOnly && explicitContext == null && (forcedSearch || askodoxAsksForVideos(text));
+    // The brain decides whether a video ask is a SEARCH ("Samsung S23 review
+    // videos") or talk ABOUT videos / a platform ("facebook and instagram
+    // videos kuda chupinchali" while setting up Meta); the keyword alone is
+    // the offline rule only.
+    final videoWords = askodoxAsksForVideos(text) &&
+        ((aiUsable && decision!.action == 'search_videos') || !askodoxTalksAboutVideoPlatform(text));
+    final videoAsk = !discussOnly && explicitContext == null && (forcedSearch || videoWords);
     final showNow = askodoxWantsResultsNow(text) || videoAsk || (clarified != null && _showNowAfterClarification);
     final showOnly = showNow && askodoxNeedSubject(text).isEmpty;
     // A short answer such as "curry cut", "1 kg" or "skinless" is not
@@ -3123,9 +3137,12 @@ class _AskodoxPrimaryHomeScreenState
     _pendingAiContext = 'Compare for the user. Selected: ${askodoxOptionContext(match)}\n'
         'Other options shown:\n${_resultsContext(results)}';
     _pendingDiscussOnly = true;
+    // Only a real thing is named in the comparison: a row whose title is a
+    // place / price / status label is "this option" instead.
+    final label = askodoxComparableLabel(match);
     await _send(_te
-        ? '"${match.title}" ని మిగతా ఎంపికలతో పోల్చండి'
-        : 'Compare "${match.title}" with the other options');
+        ? (label == null ? 'ఈ ఎంపికను మిగతా ఎంపికలతో పోల్చండి' : '"$label" ని మిగతా ఎంపికలతో పోల్చండి')
+        : (label == null ? 'Compare this option with the other options' : 'Compare "$label" with the other options'));
   }
 
   /// A declined request never dead-ends: the same need, other options.

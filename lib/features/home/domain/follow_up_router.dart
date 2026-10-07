@@ -71,8 +71,11 @@ String _rating(UniversalMatch m, bool te) => m.ratingAverage == null
 String _stock(UniversalMatch m, bool te) =>
     askodoxStockLabel(m, te: te) ?? (te ? 'స్టాక్: ధృవీకరించలేదు' : 'Stock: Not verified');
 
+String _name(UniversalMatch m, bool te) =>
+    askodoxComparableLabel(m) ?? (te ? 'పేరు ఇవ్వని ఎంపిక' : 'Unnamed option');
+
 String _line(int i, UniversalMatch m, bool te) =>
-    '${i + 1}. ${m.title}\n   ${_price(m, te)} · ${_where(m, te)}\n   ${_rating(m, te)} · ${_stock(m, te)}'
+    '${i + 1}. ${_name(m, te)}\n   ${_price(m, te)} · ${_where(m, te)}\n   ${_rating(m, te)} · ${_stock(m, te)}'
     '${m.offerTitle?.trim().isNotEmpty == true ? '\n   ${te ? 'ఆఫర్' : 'Offer'}: ${m.offerTitle!.trim()}' : ''}';
 
 /// Real result rows only (no videos / jobs / news) in the order shown.
@@ -99,8 +102,8 @@ String? askodoxAnswerFollowUp(AskodoxFollowUp intent, List<UniversalMatch> shown
       final near = [for (final m in pick) if (m.distanceKm != null) m]
         ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
       final summary = <String>[
-        if (priced.isNotEmpty) te ? 'తక్కువ ధర: ${priced.first.title}' : 'Lowest stated price: ${priced.first.title}',
-        if (near.isNotEmpty) te ? 'దగ్గరగా: ${near.first.title}' : 'Nearest: ${near.first.title}',
+        if (priced.isNotEmpty) te ? 'తక్కువ ధర: ${_name(priced.first, te)}' : 'Lowest stated price: ${_name(priced.first, te)}',
+        if (near.isNotEmpty) te ? 'దగ్గరగా: ${_name(near.first, te)}' : 'Nearest: ${_name(near.first, te)}',
       ];
       return [
         te ? 'చూపిన ${pick.length} ఆప్షన్ల పోలిక:' : 'Comparing the ${pick.length} options shown:',

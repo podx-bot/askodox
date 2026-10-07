@@ -389,7 +389,7 @@ const askodoxGroundingRule =
 /// Short, factual description of an option so ASKODOX AI can discuss it.
 /// Facts the source did not give are stated as "not provided".
 String askodoxOptionContext(UniversalMatch match) {
-  final parts = <String>[match.title];
+  final parts = <String>[askodoxComparableLabel(match) ?? 'Option (no product name given by the source)'];
   if (match.subtitle?.trim().isNotEmpty == true) parts.add(match.subtitle!.trim());
   parts.add(match.price == null
       ? 'price: not provided'
@@ -750,10 +750,23 @@ String askodoxCompareLabel(AskodoxCompareKind kind, String lang) => switch (lang
 /// Such a message is always a real search -- the chat never answers it with
 /// an AI "here are the videos" claim that shows nothing.
 final _videoAsk = RegExp(
-    r'\b(videos?|reviews?|youtube|unboxing|demo|comparison)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|वीडियो|रिव्यू|समीक्षा)',
+    r'\b(videos?|reviews?|youtube|unboxing|demo|comparison|reels?|shorts|clips?)\b|(వీడియో|విడియో|రివ్యూ|రివ్యు|సమీక్ష|పోలిక|యూట్యూబ్|वीडियो|रिव्यू|समीक्षा)',
     caseSensitive: false);
 
 bool askodoxAsksForVideos(String text) => _videoAsk.hasMatch(text);
+
+/// Talk ABOUT a video platform / its setup ("facebook and instagram videos
+/// kuda chupinchali ga", "Meta API setup lo videos permission kavala?") is
+/// conversation, not a request to search videos of something. Same words as
+/// the backend's _PLATFORM_TALK.
+final _platformTalk = RegExp(
+    r'\b(facebook|fb|instagram|insta|ig|meta|whatsapp|youtube|yt|tiktok|snapchat|twitter|threads|api|apis|sdk|'
+    r'app|apps|account|accounts|page|pages|profile|handle|setup|set\s*up|integration|integrate|configure|'
+    r'configuration|config|login|channel|token|webhook|permission|permissions)\b'
+    r'|ఫేస్‌?బుక్|ఇన్‌?స్టా|యూట్యూబ్|వాట్సాప్|फेसबुक|इंस्टाग्राम|यूट्यूब',
+    caseSensitive: false);
+
+bool askodoxTalksAboutVideoPlatform(String text) => _platformTalk.hasMatch(text);
 
 /// The price line of a result card. A staff-catalog price is shown as the
 /// listed price with its MRP / discount when the source states them; a price
@@ -933,4 +946,61 @@ String askodoxDistanceLabel(double km, {required bool telugu, bool byRoad = fals
   final value = km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
   if (byRoad) return telugu ? '$value (రోడ్డు మార్గం)' : '$value by road';
   return telugu ? '$value (నేరుగా)' : '$value (straight line)';
+}
+
+
+// ------------------------------------------------ comparison entities --
+// A comparison is between real things. A place ("in Vuyyuru, Andhra
+// Pradesh"), a price or constraint ("under ₹20,000"), a source or status
+// label ("Sponsored", "In stock", "Online") is metadata of an option, never
+// the option itself. Same rule as backend comparison_entities.py.
+
+final _locationLead = RegExp(
+    r'^\s*(in|near|at|around|from|within|nearby|close\s+to|located\s+in|based\s+in|lo|daggara|mein|me)\b',
+    caseSensitive: false);
+final _locationTail = RegExp(r'(లో|దగ్గర|వద్ద|में|के\s+पास)\s*$');
+final _priceLike = RegExp(
+    r'^\s*((under|below|above|over|within|upto|up\s+to|around|less\s+than|more\s+than|budget)\s*)?'
+    r'(₹|rs\.?|inr)?\s*[\d,.]+\s*(k|l|lakh|lakhs|thousand|rs|rupees?|/-)?\s*$',
+    caseSensitive: false);
+final _constraintLead =
+    RegExp(r'^\s*(under|below|above|over|within|upto|up\s+to|around|less\s+than|more\s+than)\b', caseSensitive: false);
+const _metaLabels = {
+  'available', 'unavailable', 'in stock', 'out of stock', 'stock', 'verified', 'unverified', 'not verified',
+  'sponsored', 'ad', 'online', 'offline', 'local', 'nearby', 'open now', 'open', 'closed', 'new', 'used',
+  'refurbished', 'deal', 'deals', 'offer', 'offers', 'result', 'results', 'option', 'options', 'item', 'items',
+  'the other options', 'other options', 'the others', 'others', 'price not provided', 'not provided', 'unknown',
+  'best', 'cheapest', 'nearest', 'top rated', 'featured', 'partner', 'affiliate', 'marketplace', 'store', 'shop',
+  'seller', 'provider', 'listing',
+};
+
+/// True only for a phrase that can stand for a comparable thing.
+bool askodoxIsEntityLabel(String? text, {Iterable<String?> locationLabels = const [], Iterable<String?> metaLabels = const []}) {
+  final label = (text ?? '').replaceAll('"', ' ').replaceAll(RegExp(r'\s+'), ' ').trim()
+      .replaceAll(RegExp(r'^[\s.,:;-]+|[\s.,:;-]+$'), '');
+  if (label.isEmpty || !RegExp(r'[^\d\W_]', unicode: true).hasMatch(label)) return false;
+  final low = label.toLowerCase();
+  if (_metaLabels.contains(low)) return false;
+  for (final m in metaLabels) {
+    if ((m ?? '').trim().isNotEmpty && m!.trim().toLowerCase() == low) return false;
+  }
+  if (_locationLead.hasMatch(label) || _locationTail.hasMatch(label)) return false;
+  if (_priceLike.hasMatch(label) || _constraintLead.hasMatch(label)) return false;
+  for (final place in locationLabels) {
+    final p = (place ?? '').replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+    if (p.isEmpty) continue;
+    if (low == p || (low.length >= 4 && p.contains(low)) || p.startsWith(low)) return false;
+  }
+  return true;
+}
+
+/// The name a comparison may use for [match]: its title when that is a real
+/// thing, otherwise the subtitle; null when the row names no thing at all.
+String? askodoxComparableLabel(UniversalMatch match) {
+  final places = [match.locationLabel];
+  final meta = [match.source, match.sourceName, match.segment, match.availability, match.sponsoredLabel];
+  for (final candidate in [match.title, match.subtitle]) {
+    if (askodoxIsEntityLabel(candidate, locationLabels: places, metaLabels: meta)) return candidate!.trim();
+  }
+  return null;
 }
