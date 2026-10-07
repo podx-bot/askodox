@@ -13,47 +13,51 @@ class AudioCodecService:
         return imageio_ffmpeg.get_ffmpeg_exe()
 
     def audio_to_wav(self, audio_bytes: bytes) -> dict[str, Any]:
-        """Normalize WhatsApp OGG/Opus (or other decodable audio) to mono 16 kHz WAV."""
+        """Normalize recorded audio to mono 16 kHz WAV using seekable input."""
         if not audio_bytes:
             return {"success": False, "status": "EMPTY_AUDIO"}
+        import os
+        import tempfile
+        import wave
+        input_path = output_path = ""
         try:
+            with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as handle:
+                handle.write(audio_bytes); input_path = handle.name
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
+                output_path = handle.name
             process = subprocess.run(
-                [
-                    self._ffmpeg_exe(),
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    "pipe:0",
-                    "-ac",
-                    "1",
-                    "-ar",
-                    "16000",
-                    "-f",
-                    "wav",
-                    "pipe:1",
-                ],
-                input=audio_bytes,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-                timeout=20,
+                [self._ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y",
+                 "-i", input_path, "-ac", "1", "-ar", "16000", output_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=20,
             )
+            if process.returncode != 0:
+                return {"success": False, "status": "FFMPEG_NORMALIZE_ERROR",
+                        "error": process.stderr.decode("utf-8", errors="replace")[-1000:]}
+            with open(output_path, "rb") as handle:
+                output = handle.read()
+            if len(output) < 100:
+                return {"success": False, "status": "EMPTY_WAV"}
+            try:
+                with wave.open(output_path, "rb") as wav:
+                    frames, rate = wav.getnframes(), wav.getframerate()
+                    duration = frames / rate if rate else 0.0
+            except (wave.Error, OSError):
+                return {"success": False, "status": "INVALID_WAV"}
+            if frames <= 0 or duration < 0.05:
+                return {"success": False, "status": "EMPTY_WAV"}
+            return {"success": True, "status": "NORMALIZED", "content": output,
+                    "mime_type": "audio/wav", "duration_seconds": duration}
         except subprocess.TimeoutExpired:
             return {"success": False, "status": "FFMPEG_NORMALIZE_TIMEOUT"}
         except Exception as error:
             return {"success": False, "status": "FFMPEG_NORMALIZE_START_ERROR", "error": str(error)}
-
-        if process.returncode != 0:
-            return {
-                "success": False,
-                "status": "FFMPEG_NORMALIZE_ERROR",
-                "error": process.stderr.decode("utf-8", errors="replace")[-1000:],
-            }
-        output = bytes(process.stdout)
-        if not output:
-            return {"success": False, "status": "EMPTY_WAV"}
-        return {"success": True, "status": "NORMALIZED", "content": output, "mime_type": "audio/wav"}
+        finally:
+            for path in (input_path, output_path):
+                if path:
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
 
     def audio_to_pcm16(self, audio_bytes: bytes, sample_rate: int = 16000) -> dict[str, Any]:
         """Decode any recording (e.g. Android MediaRecorder AAC/M4A) to raw
