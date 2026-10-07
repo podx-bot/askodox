@@ -1489,6 +1489,153 @@ void main() {
     });
   });
 
+  group('Universal Result Board lifecycle', () {
+    const a = UniversalMatch(id: 'online-0-rb', title: 'Option A from Store A', source: 'online',
+        destinationUrl: 'https://a.example/a', price: 19990, sourceName: 'Store A');
+    const b = UniversalMatch(id: 'online-1-rb', title: 'Option B from Store B', source: 'online',
+        destinationUrl: 'https://b.example/b', price: 18500, sourceName: 'Store B');
+    const c = UniversalMatch(id: 'online-2-rb', title: 'Option C from Store C', source: 'online',
+        destinationUrl: 'https://c.example/c', price: 17999, sourceName: 'Store C');
+    const nurse = UniversalMatch(id: 'external-n-rb', title: 'Care at Home nursing service', source: 'external',
+        segment: 'nearby_external', distanceKm: 2.2, destinationUrl: 'https://maps.google.com/?cid=7');
+
+    Map<String, Object?> d(String reply, {bool ready = false, String action = 'chat', bool transactional = false,
+            String? subject, Map<String, Object?> facts = const {}, String relation = 'unknown', bool changed = false,
+            bool newNeed = false}) =>
+        {
+          'reply': reply, 'domain': transactional ? 'PRODUCT' : 'GENERAL', 'transactional': transactional,
+          'action': action, 'confidence': 0.9, 'source': 'universal_ai', 'mode': transactional ? 'commerce' : 'chat',
+          'entities': {if (subject != null) 'subject': subject},
+          'state': {'goal': subject ?? '', 'facts': facts, 'flexible': const [], 'unknown_critical': const []},
+          'search_ready': ready, 'next_question': null, 'search_subject': ready ? subject : null,
+          'ready_reason': '', 'new_need': newNeed, 'conversation_relation': relation, 'subject_changed': changed,
+        };
+    Map<String, Object?> search(String subject, {Map<String, Object?> facts = const {}}) =>
+        d('Got it.', ready: true, action: 'search_products', transactional: true, subject: subject, facts: facts);
+
+    Finder board() => find.byKey(const Key('askodoxResultContext'));
+    Finder pill() => find.byKey(const Key('askodoxResultPill'));
+    Finder cards() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey && '${(w.key as ValueKey).value}'.startsWith('askodoxResultCard-'));
+
+    _Harness harness(List<Map<String, Object?>> decisions, List<UniversalMatchResult> results) {
+      var turn = 0;
+      return _Harness(
+        matches: _FakeMatchRepository([...results]),
+        assistant: _Assistant((_) => decisions[turn < decisions.length ? turn++ : decisions.length - 1]),
+      );
+    }
+
+    testWidgets('ordinary conversation: one answer, NO cards, no board', (tester) async {
+      final h = harness([d('Instagram Reels are short vertical videos; you can post them from the app.')], const []);
+      await h.pump(tester);
+      await h.send(tester, 'what are instagram reels?');
+      expect(h.matches.deals, isEmpty);
+      expect(board(), findsNothing);
+      expect(pill(), findsNothing);
+      expect(cards(), findsNothing);
+    });
+
+    testWidgets('new useful results open EXPANDED; minimize -> pill with what they are for; tap restores',
+        (tester) async {
+      final h = harness([search('refurbished phones', facts: {'budget': '20000'})],
+          const [UniversalMatchResult(dealId: 'rb1', matches: [a, b, c])]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones under 20000');
+      expect(board(), findsOneWidget, reason: 'expanded on fresh results');
+      expect(cards(), findsNWidgets(3), reason: 'a real choice: several options');
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
+      expect(board(), findsNothing);
+      expect(pill(), findsOneWidget);
+      expect(find.textContaining('3 Results •'), findsOneWidget);
+      expect(find.textContaining('▲'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxResultPillRestore')));
+      await tester.pumpAndSettle();
+      expect(board(), findsOneWidget, reason: 'restored');
+      expect(pill(), findsNothing);
+      expect(cards(), findsNWidgets(3), reason: 'nothing was lost');
+    });
+
+    testWidgets('same-topic refinement with new results updates the SAME board and reopens it', (tester) async {
+      final h = harness([
+        search('refurbished phones'),
+        d('Cheaper ones.', ready: true, action: 'search_products', transactional: true, subject: 'refurbished phones',
+            relation: 'refinement'),
+      ], const [
+        UniversalMatchResult(dealId: 'rb2', matches: [a, b]),
+        UniversalMatchResult(dealId: 'rb2', matches: [c]),
+      ]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones');
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
+      expect(pill(), findsOneWidget);
+      await h.send(tester, 'sasta wala dikhao');
+      expect(h.matches.deals, hasLength(2));
+      expect(board(), findsOneWidget, reason: 'refreshed results reopen the board');
+      expect(find.byKey(const ValueKey('askodoxResultCard-online-online-2-rb')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxResultCard-online-online-0-rb')), findsNothing, reason: 'no stale cards');
+      expect(find.byKey(const Key('askodoxResultContext')), findsOneWidget, reason: 'one board, not two');
+    });
+
+    testWidgets('a genuinely unrelated topic retires the board and its pill automatically', (tester) async {
+      final h = harness([
+        search('refurbished phones'),
+        d('Sure -- what kind of nursing care do you need?', transactional: true, action: 'search_services',
+            subject: 'home nursing', relation: 'new_topic', changed: true, newNeed: true),
+      ], const [UniversalMatchResult(dealId: 'rb3', matches: [a, b])]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones');
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
+      expect(pill(), findsOneWidget);
+      await h.send(tester, 'forget that, I need home nursing for my mother');
+      expect(board(), findsNothing, reason: 'old phone cards never pose as nursing results');
+      expect(pill(), findsNothing, reason: 'the retired deck leaves no pill either');
+      expect(h.matches.deals, hasLength(1), reason: 'no premature search for the new need');
+    });
+
+    testWidgets('a selected result stays as compact context while the board is minimized', (tester) async {
+      final h = harness([search('refurbished phones'), d('Option B is ₹18,500 from Store B.')],
+          const [UniversalMatchResult(dealId: 'rb4', matches: [a, b])]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones');
+      await tester.tap(find.byKey(const ValueKey('askodoxAsk-online-1-rb')));
+      await _Harness.settle(tester);
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
+      final chip = find.byKey(const Key('askodoxSelectedContext'));
+      expect(chip, findsOneWidget);
+      expect(find.descendant(of: chip, matching: find.textContaining('Option B')), findsOneWidget);
+      // Tapping the selected context brings the board back.
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(board(), findsOneWidget);
+    });
+
+    testWidgets('"the best one" shows ONE actionable result, not a wall of cards', (tester) async {
+      final h = harness([search('home nursing')],
+          const [UniversalMatchResult(dealId: 'rb5', matches: [nurse, a, b])]);
+      await h.pump(tester);
+      await h.send(tester, 'just tell me the best one for home nursing');
+      expect(cards(), findsOneWidget);
+      expect(find.text('Care at Home nursing service'), findsOneWidget);
+    });
+
+    test('pill label is built only from real search facts', () {
+      const results = AskodoxChatResults(matches: [a, b, c]);
+      expect(askodoxBoardPillLabel(results, subject: 'phones', budget: 20000, lang: 'en'), '3 Results • ₹20k phones');
+      expect(askodoxBoardPillLabel(results, lang: 'en'), '3 Results');
+      expect(askodoxBoardPillLabel(const AskodoxChatResults(matches: [a]), subject: 'plumber', lang: 'en'),
+          '1 Result • plumber');
+      expect(askodoxBoardPillLabel(results, subject: 'బీరువా', budget: 150000, lang: 'te'), '3 ఫలితాలు • ₹1.5L బీరువా');
+      expect(askodoxWantsSingleResult('ఒక్కటి చాలు'), isTrue);
+      expect(askodoxWantsSingleResult('show me options'), isFalse);
+      expect(askodoxBestOnly(results).matches.single.id, a.id);
+    });
+  });
+
   group('top result workspace (locked layout after 1303)', () {
     const acA = UniversalMatch(id: 'online-0-ac-a', title: 'Voltas 1.5 ton split AC at Store A', source: 'online',
         destinationUrl: 'https://a.example/ac', price: 38990);

@@ -916,6 +916,8 @@ class _AskodoxPrimaryHomeScreenState
     _resultsHiddenFor = null;
     _resultsOutdatedFor = null;
     _resultsStaleFor = null;
+    _boardMinimizedFor = null;
+    _focusedMatch = null;
     _dealByTurn.clear();
     _roleNoticeByTurn.clear();
     _roleQuestionByTurn.clear();
@@ -1416,6 +1418,10 @@ class _AskodoxPrimaryHomeScreenState
   /// marked, never shown as current).
   String? _resultsStaleFor;
 
+  /// Result Board: the pinned deck the customer minimized to its pill (null
+  /// = expanded). Fresh useful results always open the board again.
+  int? _boardMinimizedFor;
+
   /// The shown results were for a DIFFERENT need than the one now being
   /// discussed (no search justified yet): not shown as if they matched.
   int? _resultsHiddenFor;
@@ -1871,6 +1877,8 @@ class _AskodoxPrimaryHomeScreenState
         _resultsHiddenFor = pinned;
         _resultsOutdatedFor = null;
         _resultsStaleFor = null;
+        _boardMinimizedFor = null;
+        _focusedMatch = null; // the selected option belonged to the old need
       }
     }
     // The brain owns readiness this turn (a question about options already
@@ -1913,6 +1921,8 @@ class _AskodoxPrimaryHomeScreenState
     final videoAsk = !discussOnly && explicitContext == null && (forcedSearch || videoWords);
     final showNow = askodoxWantsResultsNow(text) || videoAsk || (clarified != null && _showNowAfterClarification);
     final showOnly = showNow && askodoxNeedSubject(text).isEmpty;
+    // "the best one" / "ఒక్కటి చాలు": one actionable answer, not a list.
+    final wantsOne = askodoxWantsSingleResult(text);
     // A short answer such as "curry cut", "1 kg" or "skinless" is not
     // transactional on its own, but it *is* transactional when ASKODOX is
     // already collecting details for an unfinished commerce request. Do not
@@ -2427,9 +2437,11 @@ class _AskodoxPrimaryHomeScreenState
         if (id.isNotEmpty) {
           _resultsByTurn.removeWhere((_, earlier) => earlier.dealId == id && earlier.matches.isEmpty);
         }
-        // Fresh results replace any retired deck as the active context.
+        // Fresh results replace any retired deck as the active context and
+        // open the Result Board (expanded), even if the old one was minimized.
         _resultsHiddenFor = null;
-        _resultsByTurn[assistantIndex] = results;
+        _boardMinimizedFor = null;
+        _resultsByTurn[assistantIndex] = wantsOne ? askodoxBestOnly(results) : results;
         if (matchedDeal != null) _dealByTurn[assistantIndex] = matchedDeal;
         if (matchedDeal != null) _rememberRequestedPlace(matchedDeal.location, knownLocationLabel);
         _reportRendered(results);
@@ -2446,6 +2458,8 @@ class _AskodoxPrimaryHomeScreenState
         if (!askodoxSameNeed(shownFor.subject, nowWanted.subject) &&
             !askodoxSameNeed('${shownFor.dynamicFields['said_subject'] ?? ''}', nowWanted.subject)) {
           _resultsHiddenFor = pinned;
+          _boardMinimizedFor = null;
+          _focusedMatch = null;
         } else if (_requirementSignature(shownFor) != _requirementSignature(nowWanted)) {
           _resultsOutdatedFor = pinned;
         }
@@ -3405,7 +3419,9 @@ class _AskodoxPrimaryHomeScreenState
             // compact rows) stay above, the conversation about them scrolls
             // below, then the input -- the shell's nav sits under it.
             if (_active && _pinnedResultsTurn != null && _resultsHiddenFor != _pinnedResultsTurn)
-              _resultContext(te, _pinnedResultsTurn!),
+              _boardMinimizedFor == _pinnedResultsTurn
+                  ? _resultPill(te, _pinnedResultsTurn!)
+                  : _resultContext(te, _pinnedResultsTurn!),
             Expanded(child: _active ? _chat(te) : _home(te)),
             _composer(te)
           ]),
@@ -3758,6 +3774,78 @@ class _AskodoxPrimaryHomeScreenState
             ),
           ),
         ),
+        // Minimize: the board folds into its pill so the conversation gets
+        // the screen; nothing is lost (tap the pill to restore).
+        InkWell(
+          key: const Key('askodoxResultBoardMinimize'),
+          onTap: () => setState(() => _boardMinimizedFor = index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: _muted),
+              Text(te ? 'చిన్నదిగా చేయి' : 'Minimize', style: const TextStyle(fontSize: 11, color: _muted)),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /// The minimized Result Board: one line with what the results are for,
+  /// plus the selected option (if any) as compact conversation context.
+  Widget _resultPill(bool te, int index) {
+    final results = _resultsByTurn[index];
+    if (results == null) return const SizedBox.shrink();
+    final deal = _dealByTurn[index];
+    final budget = deal?.dynamicFields['budget_max'];
+    final label = askodoxBoardPillLabel(results,
+        subject: deal?.subject, budget: budget is num ? budget.toDouble() : null, lang: _lang);
+    final focused = _focusedMatch;
+    final selected = focused != null && results.matches.any((m) => m.id == focused.id) ? focused : null;
+    return Container(
+      key: const Key('askodoxResultPill'),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FBFF),
+        border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Material(
+            color: const Color(0xFFEAF1FF),
+            shape: const StadiumBorder(),
+            child: InkWell(
+              key: const Key('askodoxResultPillRestore'),
+              customBorder: const StadiumBorder(),
+              onTap: () => setState(() => _boardMinimizedFor = null),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                child: Row(children: [
+                  Expanded(
+                    child: Text('$label ▲',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _ink)),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        if (selected != null) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: InputChip(
+              key: const Key('askodoxSelectedContext'),
+              label: Text(askodoxComparableLabel(selected) ?? selected.title,
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5)),
+              avatar: const Icon(Icons.push_pin_outlined, size: 14),
+              onPressed: () => setState(() => _boardMinimizedFor = null),
+              onDeleted: () => setState(() => _focusedMatch = null),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ],
       ]),
     );
   }

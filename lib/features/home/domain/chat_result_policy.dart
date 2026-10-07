@@ -1004,3 +1004,70 @@ String? askodoxComparableLabel(UniversalMatch match) {
   }
   return null;
 }
+
+
+// ------------------------------------------------------- Result Board --
+// ONE board over the conversation, driven by the existing result state
+// (_resultsByTurn / _pinnedResultsTurn / _resultsHiddenFor). States:
+// expanded (fresh useful results) -> minimized pill ("7 Results • ₹20k
+// phones ▲") -> restored; retired when a genuinely different need starts.
+// Category-agnostic: it never reads what the rows are.
+
+/// The customer asked for ONE answer ("the best one", "just one shop",
+/// "ఒక్కటి చాలు", "sirf ek"), not a list to choose from.
+final _singleResultAsk = RegExp(
+    r'\b(the\s+best\s+one|best\s+one|just\s+one|only\s+one|one\s+best|top\s+(?:one|pick|1)|single\s+(?:best\s+)?'
+    r'(?:option|one|result)|the\s+(?:nearest|cheapest|closest)\s+one|which\s+one\s+should\s+i\s+(?:buy|take|choose)|'
+    r'sirf\s+ek|ek\s+hi|sabse\s+(?:accha|achha|best)|okkati|okkate)\b'
+    r'|ఒక్కటి|ఒక్కటే|ఒకటి\s+చాలు|ఏదో\s+ఒకటి\s+చెప్పు|సబ్సే|सिर्फ\s+एक|एक\s+ही|सबसे\s+अच्छा',
+    caseSensitive: false);
+
+bool askodoxWantsSingleResult(String text) => _singleResultAsk.hasMatch(text);
+
+/// The same results with only the first (best-ranked) row: one actionable
+/// answer instead of a wall of cards.
+AskodoxChatResults askodoxBestOnly(AskodoxChatResults results) {
+  if (results.matches.length <= 1) return results;
+  return AskodoxChatResults(
+    dealId: results.dealId,
+    matches: [results.matches.first],
+    failed: results.failed,
+    signInRequired: results.signInRequired,
+    missingFields: results.missingFields,
+    sourceStatus: results.sourceStatus,
+    searched: results.searched,
+    broadcastSent: results.broadcastSent,
+    scopeMessage: results.scopeMessage,
+    advice: results.advice,
+    nextActions: results.nextActions,
+    traceKey: results.traceKey,
+    advisor: results.advisor,
+    contract: results.contract,
+  );
+}
+
+String _compactRupees(double value) {
+  if (value >= 100000) {
+    final l = value / 100000;
+    return '₹${l == l.roundToDouble() ? l.toStringAsFixed(0) : l.toStringAsFixed(1)}L';
+  }
+  if (value >= 1000) {
+    final k = value / 1000;
+    return '₹${k == k.roundToDouble() ? k.toStringAsFixed(0) : k.toStringAsFixed(1)}k';
+  }
+  return '₹${value.toStringAsFixed(0)}';
+}
+
+/// The minimized board's one line: "7 Results • ₹20k phones". Budget and
+/// subject come from what the search was FOR (never invented).
+String askodoxBoardPillLabel(AskodoxChatResults results, {String? subject, double? budget, required String lang}) {
+  final n = results.matches.length;
+  final te = lang == 'te';
+  final count = te ? '$n ఫలితాలు' : (n == 1 ? '1 Result' : '$n Results');
+  final words = (subject ?? '').trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  final about = [
+    if (budget != null && budget > 0) _compactRupees(budget),
+    if (words.isNotEmpty) words.take(4).join(' '),
+  ].join(' ');
+  return about.isEmpty ? count : '$count • $about';
+}
