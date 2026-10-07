@@ -1080,9 +1080,22 @@ def check_integration(name: str, request: Request) -> dict[str, Any]:
             ok = bool(rows)
             detail = "YouTube Data API search OK" if ok else "YouTube Data API returned no results"
         elif name == "sarvam":
+            # Verify both directions. A TTS-only probe must never make STT look
+            # verified: run a tiny real Sarvam transcription after synthesis.
             result = container.voice_assistant_service.synthesize("ASKODOX") or {}
-            ok = bool(result.get("success")) and str(result.get("tts_path") or "").startswith("sarvam")
-            detail = "Bulbul v3 synthesis OK" if ok else f"Sarvam TTS: {result.get('status')}"
+            tts_ok = bool(result.get("success")) and str(result.get("tts_path") or "").startswith("sarvam")
+            stt_ok = False
+            stt_detail = "STT probe unavailable"
+            audio = result.get("audio_bytes") or result.get("audio") or b""
+            if tts_ok and audio:
+                voice = container.voice_assistant_service
+                transcribe = getattr(voice, "transcribe", None)
+                if callable(transcribe):
+                    stt = transcribe(audio_bytes=audio, mime_type=str(result.get("mime_type") or "audio/wav")) or {}
+                    stt_ok = bool(stt.get("success")) or str(stt.get("status") or "").endswith("EMPTY_TRANSCRIPT")
+                    stt_detail = str(stt.get("status") or ("OK" if stt_ok else "failed"))
+            ok = tts_ok and stt_ok
+            detail = f"Sarvam TTS: {'OK' if tts_ok else result.get('status')}; STT: {stt_detail}"
         else:
             return {**states[name], "checked": False}
     except Exception as error:  # a failed check is recorded, never raised to the UI
