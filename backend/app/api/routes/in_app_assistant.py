@@ -54,6 +54,12 @@ class AssistantDecision(BaseModel):
     search_subject: str | None = None
     ready_reason: str = ""
     new_need: bool = False
+    # APK 1305: deterministic conversation-relation layer output. The app
+    # retires the active result deck when the subject changed or the turn is
+    # a genuine new topic, and answers comparison/result_action turns from
+    # the options on screen instead of starting a new search.
+    conversation_relation: str = "unknown"
+    subject_changed: bool = False
     # Added 2026-09-16 (round 9, roadmap Phase 1: "Reconnect what already
     # works"). BuyerIntelligenceService.build_buying_guide() is a real,
     # tested service that already existed but was only ever wired into the
