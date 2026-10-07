@@ -270,7 +270,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('Profile picker: Automatic, 9 humans, Robot (Lite), 3D off -- choice remembered', (tester) async {
+    testWidgets('Profile picker hides human 3D personas and keeps Robot Lite + still fallback', (tester) async {
       tester.view.physicalSize = const Size(1080, 2000);
       tester.view.devicePixelRatio = 2;
       addTearDown(tester.view.resetPhysicalSize);
@@ -281,22 +281,22 @@ void main() {
         container: c,
         child: const MaterialApp(home: Scaffold(body: AskodoxCompanionPicker(telugu: false))),
       ));
-      for (final id in ['auto', ...AskodoxPersona.values.map((p) => p.name), 'robot', 'off3d']) {
-        final option = find.byKey(ValueKey('askodoxPersona-$id'));
-        await tester.scrollUntilVisible(option, 200, scrollable: find.byType(Scrollable).first);
-        expect(option, findsOneWidget, reason: id);
-      }
-      final tech = find.byKey(const ValueKey('askodoxPersona-techExpert'));
-      await tester.scrollUntilVisible(tech, -200, scrollable: find.byType(Scrollable).first);
-      await tester.tap(tech);
-      await tester.pump();
-      expect(c.read(askodoxCompanionSettingsProvider).companion, 'techExpert');
+
       final robot = find.byKey(const ValueKey('askodoxPersona-robot'));
-      await tester.scrollUntilVisible(robot, 200, scrollable: find.byType(Scrollable).first);
+      final still = find.byKey(const ValueKey('askodoxPersona-off3d'));
+      expect(robot, findsOneWidget);
+      expect(still, findsOneWidget);
+      for (final persona in AskodoxPersona.values) {
+        expect(find.byKey(ValueKey('askodoxPersona-${persona.name}')), findsNothing,
+            reason: 'human 3D personas are hidden for this release');
+      }
+
       await tester.tap(robot);
       await tester.pump();
-      expect(find.byKey(const ValueKey('askodoxLook-friendlyFace')), findsOneWidget, reason: 'robot looks appear');
-      await tester.tap(find.byKey(const ValueKey('askodoxPersona-off3d')));
+      expect(find.byKey(const ValueKey('askodoxLook-friendlyFace')), findsOneWidget,
+          reason: 'robot looks remain available');
+
+      await tester.tap(still);
       await tester.pump();
       expect(c.read(askodoxCompanionSettingsProvider).render3d, isFalse);
       expect(tester.takeException(), isNull);
