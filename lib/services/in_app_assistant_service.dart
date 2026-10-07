@@ -62,11 +62,23 @@ class InAppAssistantDecision {
     this.unknownCritical = const <String>[],
     this.readyReason = '',
     this.newNeed = false,
+    this.conversationRelation = 'unknown',
+    this.subjectChanged = false,
   });
 
   /// The brain: this message starts a DIFFERENT need (not an answer to the
   /// one being discussed).
   final bool newNeed;
+
+  /// Deterministic conversation-relation layer (APK 1305): same_topic /
+  /// refinement / result_action / comparison / new_topic /
+  /// return_to_previous / unknown.
+  final String conversationRelation;
+
+  /// True when the SUBJECT itself changed while the conversation continues
+  /// (a comparison of new items, or a new subject inside the same domain):
+  /// the active result deck belongs to a different need and must retire.
+  final bool subjectChanged;
 
   /// Conversation Decision Brain: is a search justified NOW? Null = the
   /// backend gave no readiness (older backend / model omitted it); the app
@@ -153,6 +165,8 @@ class InAppAssistantDecision {
       unknownCritical: names(state['unknown_critical']),
       readyReason: (json['ready_reason'] ?? '').toString(),
       newNeed: json['new_need'] == true,
+      conversationRelation: (json['conversation_relation'] ?? 'unknown').toString(),
+      subjectChanged: json['subject_changed'] == true,
     );
   }
 
