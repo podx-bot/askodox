@@ -18,6 +18,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
+from app.services.conversation_relation import ConversationRelationEngine
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,8 @@ CONVERSATION_STATE_RULES = (
     "ready_reason = one short phrase explaining the readiness decision. "
     "new_need = true only when the current message starts a DIFFERENT need from the one being discussed (a new item "
     "or service, not an answer, correction or refinement of the current one); then state describes the new need only. "
+    "A short message that only adds a budget, place, time, quantity, a channel or platform (online, local, a "
+    "marketplace or shop name) or picks from the options already shown is NEVER a new need. "
 )
 
 
@@ -145,6 +148,10 @@ class UniversalAIAssistantService:
         self.openai_api_key = str(openai_api_key or "").strip()
         self.openai_model = str(openai_model or "gpt-5").strip()
         self.http = http_client or httpx.Client(timeout=20.0)
+        # APK 1305: deterministic conversation-relation layer. Corrects the
+        # model's probabilistic new_need judgment and anchors result-deck
+        # retirement to the ACTIVE need instead of message order.
+        self.relation_engine = ConversationRelationEngine()
 
     @property
     def configured(self) -> bool:
@@ -658,6 +665,34 @@ class UniversalAIAssistantService:
                     domain = "PRODUCT"
                 reply = self._local_search_reply(locale)
             brain = self.brain_state(data, transactional=transactional, mode=mode, action=action)
+            # APK 1305: deterministic conversation-relation layer. The model
+            # stays the primary judge; this engine corrects its probabilistic
+            # new_need with same/new-topic signals from the ACTIVE need.
+            relation = self.relation_engine.classify(
+                user_text=user_text,
+                active_subject=str((searched_for or {}).get("subject") or ""),
+                active_facts=(searched_for or {}).get("facts") or {},
+                shown_sources=(searched_for or {}).get("sources")
+                or (searched_for or {}).get("source_names") or [],
+                recent_user_turns=[
+                    t["text"] for t in compact_history if t.get("role") == "user"
+                ][-8:],
+            )
+            brain["new_need"] = relation.resolve_new_need(brain["new_need"])
+            if (
+                relation.has_active_deck
+                and relation.confidence >= 0.7
+                and relation.relation in {"result_action", "comparison"}
+                and not relation.subject_replaced
+            ):
+                # A question about the options already on screen is answered
+                # from those options -- never a fresh search.
+                mode = "follow_up"
+                transactional = False
+                action = "answer_about_options"
+                brain["search_ready"] = False
+                brain["search_subject"] = None
+                brain["next_question"] = None
             if brain["search_ready"] is False and brain["next_question"] and "?" not in reply:
                 # Not ready yet: the turn ends with the ONE next question.
                 reply = f"{reply.rstrip()}\n\n{brain['next_question']}".strip()
@@ -666,6 +701,8 @@ class UniversalAIAssistantService:
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
             return {
                 **brain,
+                "conversation_relation": relation.relation,
+                "subject_changed": relation.subject_replaced,
                 "reply": reply,
                 "domain": domain,
                 "transactional": transactional,
