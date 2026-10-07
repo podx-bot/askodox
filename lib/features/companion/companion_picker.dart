@@ -67,32 +67,12 @@ class AskodoxCompanionPicker extends ConsumerWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            option(
-              id: AskodoxCompanionSettings.automatic,
-              // The approved ASKODOX companion (natural human, one identity).
-              label: t('ASKODOX Advisor', 'ASKODOX సలహాదారు'),
-              selected: !off3d && settings.companion == AskodoxCompanionSettings.automatic,
-              onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: true),
-              preview: ClipOval(child: Image.asset('${AskodoxHuman2d.dir}/neutral.jpg', fit: BoxFit.cover)),
-            ),
-            for (final persona in AskodoxPersona.values)
-              option(
-                id: persona.name,
-                label: '${askodoxPersonaLabel(persona, telugu: telugu)} · 3D beta',
-                selected: !off3d && settings.companion == persona.name,
-                onTap: () => notifier.update(companion: persona.name, render3d: true),
-                preview: _PersonaPreview(persona: persona),
-              ),
-            option(
-              id: AskodoxCompanionSettings.humanHd,
-              label: t('Human HD (beta)', 'హ్యూమన్ HD (బీటా)'),
-              selected: !off3d && settings.companion == AskodoxCompanionSettings.humanHd,
-              onTap: () => notifier.update(companion: AskodoxCompanionSettings.humanHd, render3d: true),
-              preview: const Icon(Icons.face_retouching_natural_rounded, color: Color(0xFF6C4DFF), size: 34),
-            ),
+            // APK 1309 owner decision: human/3D companions are hidden for now.
+            // Keep the architecture in place for a future feature-flagged return,
+            // but expose only the lightweight ASKODOX robot and a still fallback.
             option(
               id: AskodoxCompanionSettings.robotLite,
-              label: t('Robot (Lite)', 'రోబోట్ (లైట్)'),
+              label: t('ASKODOX Robot (Lite)', 'ASKODOX రోబోట్ (లైట్)'),
               selected: !off3d && settings.companion == AskodoxCompanionSettings.robotLite,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.robotLite, render3d: true),
               preview: _RobotPreview(look: settings.look),
@@ -100,7 +80,7 @@ class AskodoxCompanionPicker extends ConsumerWidget {
             option(
               id: 'off3d',
               label: t('Still photo', 'స్టిల్ ఫోటో'),
-              selected: off3d && settings.companion == AskodoxCompanionSettings.automatic,
+              selected: off3d,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: false),
               preview: const Icon(Icons.photo_rounded, color: Color(0xFF8A94A6), size: 34),
             ),
