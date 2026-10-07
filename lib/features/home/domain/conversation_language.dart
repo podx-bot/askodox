@@ -48,6 +48,20 @@ String? askodoxScriptLanguage(String text) {
   return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
 }
 
+String? askodoxExplicitLanguageSwitch(String message) {
+  final lower = message.toLowerCase();
+  if (RegExp(r'\b(?:automatic|auto mode|back to automatic|default language)\b', caseSensitive: false).hasMatch(lower)) {
+    return 'auto';
+  }
+  if (RegExp(r'\b(?:tenglish|ten-?glish|telugu[ -]?english)\b', caseSensitive: false).hasMatch(lower)) {
+    return 'te';
+  }
+  for (final entry in _explicitSwitch.entries) {
+    if (entry.key.hasMatch(message)) return entry.value;
+  }
+  return null;
+}
+
 final _explicitSwitch = <RegExp, String>{
   RegExp(r'\b(in|reply in|speak in|talk in|switch to)\s+english\b|\benglish\s*(lo|me|mein)\b', caseSensitive: false): 'en',
   RegExp(r'\b(in|reply in|speak in|switch to)\s+telugu\b|\btelugu\s*lo\b|తెలుగులో', caseSensitive: false): 'te',
@@ -93,9 +107,8 @@ String? askodoxRomanizedLanguage(String message) {
 
 /// The conversation language after [message], given the [current] one.
 String askodoxNextConversationLanguage({required String current, required String message}) {
-  for (final entry in _explicitSwitch.entries) {
-    if (entry.key.hasMatch(message)) return entry.value;
-  }
+  final explicit = askodoxExplicitLanguageSwitch(message);
+  if (explicit != null && explicit != 'auto') return explicit;
   final script = askodoxScriptLanguage(message);
   if (script != null) return script;
   final romanized = askodoxRomanizedLanguage(message);
@@ -106,37 +119,71 @@ String askodoxNextConversationLanguage({required String current, required String
   return words >= 5 ? 'en' : current;
 }
 
+final askodoxLanguageLockProvider = StateProvider<String?>((ref) => null);
+
 class AskodoxConversationLanguage extends StateNotifier<String> {
-  AskodoxConversationLanguage() : super('en') {
+  AskodoxConversationLanguage(this._ref) : super('en') {
     _restore();
   }
 
+  final Ref _ref;
   static const _key = 'askodox.conversation.language.v1';
+  static const _keyLock = 'askodox.conversation.language.lock.v1';
 
   Future<void> _restore() async {
     try {
-      final saved = (await SharedPreferences.getInstance()).getString(_key);
-      if (saved != null && saved.isNotEmpty && mounted) state = saved;
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_key);
+      final lock = prefs.getString(_keyLock);
+      if (!mounted) return;
+      if (saved != null && saved.isNotEmpty) state = saved;
+      if (lock != null && lock.isNotEmpty) {
+        _ref.read(askodoxLanguageLockProvider.notifier).state = lock;
+        if (state != lock) state = lock;
+      }
     } catch (_) {}
   }
 
-  /// Update from what the customer just said (Automatic mode only).
+  /// Observe the customer's message. Explicit language requests create a
+  /// persistent lock; Automatic releases it. Incidental STT text can never
+  /// override a lock.
   Future<void> observe(String message) async {
+    final prefs = await SharedPreferences.getInstance();
+    final explicit = askodoxExplicitLanguageSwitch(message);
+    if (explicit == 'auto') {
+      _ref.read(askodoxLanguageLockProvider.notifier).state = null;
+      await prefs.remove(_keyLock);
+      return;
+    }
+    if (explicit != null) {
+      _ref.read(askodoxLanguageLockProvider.notifier).state = explicit;
+      if (state != explicit) state = explicit;
+      await prefs.setString(_keyLock, explicit);
+      await prefs.setString(_key, explicit);
+      return;
+    }
+
+    final lock = _ref.read(askodoxLanguageLockProvider);
+    if (lock != null && lock.isNotEmpty) {
+      if (state != lock) state = lock;
+      return;
+    }
+
     final next = askodoxNextConversationLanguage(current: state, message: message);
     if (next == state) return;
     state = next;
-    try {
-      await (await SharedPreferences.getInstance()).setString(_key, next);
-    } catch (_) {}
+    await prefs.setString(_key, next);
   }
 }
 
 final askodoxConversationLanguageProvider =
-    StateNotifierProvider<AskodoxConversationLanguage, String>((ref) => AskodoxConversationLanguage());
+    StateNotifierProvider<AskodoxConversationLanguage, String>((ref) => AskodoxConversationLanguage(ref));
 
-/// The language ASKODOX answers in: an explicitly chosen Preferred Language
-/// wins; otherwise (Automatic) the detected conversation language.
+/// One source of truth for reply language: an explicit conversation lock wins,
+/// then Settings preferred locale, then Automatic/sticky conversation language.
 final askodoxReplyLanguageProvider = Provider<String>((ref) {
+  final lock = ref.watch(askodoxLanguageLockProvider);
+  if (lock != null && lock.isNotEmpty) return lock;
   final preferred = ref.watch(appSettingsProvider).locale?.languageCode;
   if (preferred != null && preferred.isNotEmpty) return preferred;
   return ref.watch(askodoxConversationLanguageProvider);
