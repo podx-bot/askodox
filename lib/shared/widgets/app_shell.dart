@@ -193,7 +193,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               // Automatic releases the explicit lock and lets conversation detection drive replies.
               // A concrete choice locks UI + conversation to the same language.
               if (code == 'auto') {
-                ref.read(appSettingsProvider.notifier).setLocale(null);
+                ref.read(appSettingsProvider.notifier).useSystemLocale();
               } else {
                 ref.read(appSettingsProvider.notifier).setLocale(Locale(code));
               }
