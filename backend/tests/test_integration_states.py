@@ -37,8 +37,9 @@ def test_mobility_and_fallback_states_come_from_flags_and_approved_partners():
     assert _rows(partners=approved)["Mobility (rides / delivery matching)"]["state"] == "DEGRADED"
     approved[0]["data"]["available"] = True
     assert _rows(partners=approved)["Mobility (rides / delivery matching)"]["state"] == "LIVE"
-    cse = "Web search fallback (Google Programmable Search)"
-    assert _rows()[cse]["state"] == "NOT_CONFIGURED"
+    cse = "Legacy web-search fallback (Google Programmable Search)"
+    assert _rows()[cse]["state"] == "DISABLED"
+    assert "closed Custom Search JSON API to new customers" in _rows()[cse]["reason"]
     assert _rows(web={"state": "ok", "fallbacks": {"google_cse": "error"}})[cse]["state"] == "ERROR"
     assert _rows(flag=lambda k: k != "videos.upload")["ASKODOX native video upload"]["state"] == "DISABLED"
 
