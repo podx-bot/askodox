@@ -82,3 +82,18 @@ def test_no_deck_does_not_invent_new_topic():
     r = engine.classify(user_text="aquarium filter", recent_user_turns=[])
     assert r.relation == "unknown"
     assert not r.has_active_deck
+
+
+def test_telugu_refinement_does_not_become_new_topic_against_english_subject():
+    r = classify("ఇంకా చౌకగా ఉన్నవి చూపించు", subject="refurbished mobile phones")
+    assert r.relation != "new_topic"
+    assert not r.subject_replaced
+
+def test_telugu_combining_marks_stay_in_words():
+    r = classify("మంచిది కావాలి", subject="మంచిది ఫోన్")
+    assert r.relation == "same_topic"
+
+def test_mixed_telugu_brand_refinement_does_not_retire_deck():
+    r = classify("Godrej okay, ఇతర మంచి బ్రాండ్లు కూడా okay", subject="Godrej appliances")
+    assert r.relation != "new_topic"
+    assert not r.subject_replaced
