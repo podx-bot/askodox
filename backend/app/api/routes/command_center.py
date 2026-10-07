@@ -889,6 +889,24 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
     except Exception:
         gateways = []
 
+    from app.services import provider_health
+
+    _observed = provider_health.snapshot()
+    _aliases = {"sarvam": ("sarvam_stt", "sarvam_tts")}
+
+    def _latest(name):
+        rows = [(_observed.get(n) or {}).get("last") for n in _aliases.get(name, (name,))]
+        rows = [r for r in rows if r]
+        return max(rows, key=lambda r: r.get("at") or "") if rows else None
+
+    def observed_state(name):
+        last = _latest(name)
+        return last["outcome"] if last else None
+
+    def observed_at(name):
+        last = _latest(name)
+        return last["at"] if last else None
+
     def state(name, label, configured, flag_keys=(), detail=""):
         enabled = all(flags[k]["enabled"] for k in flag_keys) if flag_keys else True
         check = checks.get(name)
@@ -896,6 +914,11 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
             status = "not_configured"
         elif not enabled:
             status = "disabled"
+        elif observed_state(name) in ("QUOTA_EXHAUSTED", "ERROR", "LIVE") and (
+                check is None or (observed_at(name) or "") >= str(check.get("at") or check.get("checked_at") or "")):
+            # A real provider answer newer than the last manual check wins:
+            # e.g. Sarvam HTTP 402 -> quota_exhausted, never "configured".
+            status = {"QUOTA_EXHAUSTED": "quota_exhausted", "ERROR": "error", "LIVE": "ok"}[observed_state(name)]
         elif check is None:
             status = "configured"  # present but not verified -- never "connected"
         else:

@@ -13,6 +13,21 @@ from app.services.files_fallback_voice_assistant_service import FilesFallbackVoi
 from app.services.normalized_voice_assistant_service import _voice_diag
 
 
+def _observe_sarvam(provider: str, result: dict[str, Any], *, configured: bool) -> None:
+    """Provider health from the real answer (no audio, text or key recorded):
+    HTTP 402 = credit exhausted, 401/403 = credentials, other HTTP / timeout =
+    error; an empty transcript means Sarvam answered (silence), i.e. healthy."""
+    if not configured:
+        return
+    from app.services import provider_health
+
+    status = str(result.get("status") or "")
+    if result.get("success") or status.endswith("EMPTY_TRANSCRIPT"):
+        provider_health.record(provider, ok=True)
+    elif "HTTP_" in status or "TIMEOUT" in status.upper() or result.get("error_type"):
+        provider_health.record(provider, reason=status or str(result.get("error_type") or "ERROR"))
+
+
 class SarvamPrimaryVoiceAssistantService(FilesFallbackVoiceAssistantService):
     """Use Sarvam Saaras v3 as fast India-first STT, then fall back to Gemini."""
 
@@ -61,6 +76,7 @@ class SarvamPrimaryVoiceAssistantService(FilesFallbackVoiceAssistantService):
 
     def transcribe(self, audio_bytes: bytes, mime_type: Optional[str]) -> dict[str, Any]:
         sarvam_result = self._transcribe_sarvam_complete(audio_bytes=audio_bytes, mime_type=mime_type)
+        _observe_sarvam("sarvam_stt", sarvam_result, configured=bool(self.sarvam_api_key))
         if sarvam_result.get("success"):
             return sarvam_result
 

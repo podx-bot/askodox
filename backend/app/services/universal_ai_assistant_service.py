@@ -23,6 +23,25 @@ from app.services.conversation_relation import ConversationRelationEngine
 logger = logging.getLogger(__name__)
 
 
+def _observe_ai(provider: str, *, ok: bool = False, error: Exception | None = None) -> None:
+    """Provider health from the real call: only the HTTP status and the
+    exception type / a quota marker are kept -- never the prompt, user text,
+    response or any credential."""
+    try:
+        from app.services import provider_health
+
+        if ok:
+            provider_health.record(provider, ok=True)
+            return
+        code = getattr(error, "code", None) or getattr(getattr(error, "response", None), "status_code", None)
+        text = str(error or "")
+        quota = "QUOTA" if re.search(r"quota|RESOURCE_EXHAUSTED|insufficient_quota|billing|credit", text, re.I) else ""
+        provider_health.record(provider, status_code=code if isinstance(code, int) else None,
+                               reason=f"{type(error).__name__} {quota}".strip())
+    except Exception:
+        pass
+
+
 
 _LANGUAGE_NAMES = {
     "en": "English", "te": "Telugu", "hi": "Hindi", "ta": "Tamil", "kn": "Kannada", "ml": "Malayalam",
@@ -654,8 +673,10 @@ class UniversalAIAssistantService:
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                 )
                 response = self._generate_with_retry(client, prompt, config)
+                _observe_ai("gemini", ok=True)
                 data = self._parse_json(str(getattr(response, "text", "") or "").strip())
-            except Exception:
+            except Exception as exc:
+                _observe_ai("gemini", error=exc)
                 logger.exception(
                     "universal_ai_assistant.decide: gemini call failed%s (message_len=%d, has_known_location=%s)",
                     "; trying openai fallback" if self.openai_api_key else "; no openai fallback configured",
@@ -665,7 +686,9 @@ class UniversalAIAssistantService:
         if data is None and self.openai_api_key:
             try:
                 data = self._call_openai(prompt)
-            except Exception:
+                _observe_ai("openai", ok=True)
+            except Exception as exc:
+                _observe_ai("openai", error=exc)
                 logger.exception(
                     "universal_ai_assistant.decide: openai fallback also failed "
                     "(message_len=%d, has_known_location=%s)",
