@@ -12,6 +12,7 @@ comparison syntax, explicit topic switches), so new categories need no code.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -64,7 +65,25 @@ _ACTION = re.compile(
 
 
 def _tokens(text: str) -> set[str]:
-    return {t.casefold() for t in _TOKEN.findall(text) if len(t) > 1 and t.casefold() not in _STOP}
+    tokens, current = [], []
+    def flush():
+        if current:
+            tokens.append("".join(current)); current.clear()
+    for ch in unicodedata.normalize("NFC", text):
+        if unicodedata.category(ch)[0] in {"L", "N", "M"} or ch in {"₹", "$", "€", "£", "'", "-"}:
+            current.append(ch)
+        else:
+            flush()
+    flush()
+    return {t.casefold() for t in tokens if len(t) > 1 and t.casefold() not in _STOP}
+
+
+def _script_family(ch: str) -> str:
+    name = unicodedata.name(ch, "")
+    for script in ("TELUGU", "DEVANAGARI", "TAMIL", "KANNADA", "MALAYALAM", "BENGALI", "LATIN"):
+        if script in name:
+            return script.lower()
+    return "other"
 
 
 def _overlap(a: str, b: str) -> float:
@@ -164,7 +183,10 @@ class ConversationRelationEngine:
         # utterance with an active deck is a likely topic change; the model is
         # still allowed to overrule lower-confidence cases.
         meaningful = _tokens(text)
-        if has_deck and len(meaningful) >= 2 and _overlap(text, subject) == 0:
+        text_scripts = {_script_family(ch) for ch in text if ch.isalpha()} - {"other"}
+        subject_scripts = {_script_family(ch) for ch in subject if ch.isalpha()} - {"other"}
+        comparable_script = bool(text_scripts & subject_scripts)
+        if has_deck and len(meaningful) >= 2 and _overlap(text, subject) == 0 and comparable_script:
             return ConversationRelation(
                 "new_topic", 0.74, True, subject_replaced=True,
                 reason="independent_subject",
