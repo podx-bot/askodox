@@ -63,4 +63,29 @@ void main() {
         reason: 'plain English is never mistaken for a romanized language');
     expect(askodoxRomanizedLanguage('kya'), isNull, reason: 'one marker is not enough');
   });
+  test('explicit Telugu lock survives bad English STT until explicitly released', () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final notifier = c.read(askodoxConversationLanguageProvider.notifier);
+
+    await notifier.observe('telugu lo chapandi lock');
+    expect(c.read(askodoxLanguageLockProvider), 'te');
+    expect(c.read(askodoxReplyLanguageProvider), 'te');
+
+    await notifier.observe('This is a long English speech recognition mistake from the microphone');
+    expect(c.read(askodoxReplyLanguageProvider), 'te');
+
+    await notifier.observe('reply in English');
+    expect(c.read(askodoxLanguageLockProvider), 'en');
+    expect(c.read(askodoxReplyLanguageProvider), 'en');
+
+    await notifier.observe('back to automatic');
+    expect(c.read(askodoxLanguageLockProvider), isNull);
+  });
+
+  test('Tenglish request is treated as explicit Telugu-family conversation preference', () {
+    expect(askodoxExplicitLanguageSwitch('tenglish lo matladandi'), 'te');
+    expect(askodoxExplicitLanguageSwitch('telugu english mix lo cheppu'), 'te');
+  });
 }

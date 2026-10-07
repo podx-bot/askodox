@@ -12,6 +12,7 @@ comparison syntax, explicit topic switches), so new categories need no code.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -64,7 +65,25 @@ _ACTION = re.compile(
 
 
 def _tokens(text: str) -> set[str]:
-    return {t.casefold() for t in _TOKEN.findall(text) if len(t) > 1 and t.casefold() not in _STOP}
+    tokens, current = [], []
+    def flush():
+        if current:
+            tokens.append("".join(current)); current.clear()
+    for ch in unicodedata.normalize("NFC", text):
+        if unicodedata.category(ch)[0] in {"L", "N", "M"} or ch in {"₹", "$", "€", "£", "'", "-"}:
+            current.append(ch)
+        else:
+            flush()
+    flush()
+    return {t.casefold() for t in tokens if len(t) > 1 and t.casefold() not in _STOP}
+
+
+def _script_family(ch: str) -> str:
+    name = unicodedata.name(ch, "")
+    for script in ("TELUGU", "DEVANAGARI", "TAMIL", "KANNADA", "MALAYALAM", "BENGALI", "LATIN"):
+        if script in name:
+            return script.lower()
+    return "other"
 
 
 def _overlap(a: str, b: str) -> float:
@@ -77,6 +96,25 @@ def _overlap(a: str, b: str) -> float:
 def _source_mentioned(text: str, sources: Iterable[str]) -> bool:
     low = text.casefold()
     return any(len(str(s).strip()) >= 3 and str(s).strip().casefold() in low for s in sources)
+
+
+def _looks_like_constraint_fragment(text: str) -> bool:
+    """True when a constraint match is the message's main content, not incidental."""
+    meaningful = _tokens(text)
+    if not meaningful:
+        return True
+    # Remove generic constraint vocabulary/numbers; concrete nouns left behind
+    # mean semantic/history routing should get a chance before we pin this to
+    # the active result deck.
+    generic = {
+        "online", "offline", "local", "nearby", "used", "new", "second-hand",
+        "today", "tomorrow", "now", "cheap", "cheaper", "premium", "budget",
+        "pickup", "cash", "cod", "lo", "lone", "matrame", "maatrame",
+        "kavali", "kaavali", "daggara", "deggara", "ivva", "ivvu", "lopu",
+        "kinda", "paina",
+    }
+    concrete = {t for t in meaningful if t not in generic and not any(ch.isdigit() for ch in t)}
+    return len(concrete) <= 1
 
 
 @dataclass(frozen=True)
@@ -139,9 +177,19 @@ class ConversationRelationEngine:
                     "comparison", 0.91, True, subject_replaced=not same,
                     reason="comparison",
                 )
-            if _source_mentioned(text, shown_sources):
+            source_mentioned = _source_mentioned(text, shown_sources)
+            constraint_fragment = bool(_CONSTRAINT.search(text)) and _looks_like_constraint_fragment(text)
+            # Strong overlap with an older turn takes precedence over generic
+            # source/constraint words. This prevents "return to X, local"
+            # from being trapped as a refinement of the currently visible deck.
+            history_match = max(
+                (_overlap(text, str(old)) for old in list(recent_user_turns)[-8:-1]),
+                default=0.0,
+            )
+            active_overlap = _overlap(text, subject)
+            if source_mentioned and history_match <= active_overlap:
                 return ConversationRelation("refinement", 0.94, True, reason="shown_source")
-            if _CONSTRAINT.search(text):
+            if constraint_fragment and history_match <= active_overlap:
                 # Constraint-only fragments are the canonical "Meesho lo ivva"
                 # shape: preserve the need and alter one search dimension.
                 return ConversationRelation("refinement", 0.91, True, reason="constraint")
@@ -164,7 +212,10 @@ class ConversationRelationEngine:
         # utterance with an active deck is a likely topic change; the model is
         # still allowed to overrule lower-confidence cases.
         meaningful = _tokens(text)
-        if has_deck and len(meaningful) >= 2 and _overlap(text, subject) == 0:
+        text_scripts = {_script_family(ch) for ch in text if ch.isalpha()} - {"other"}
+        subject_scripts = {_script_family(ch) for ch in subject if ch.isalpha()} - {"other"}
+        comparable_script = bool(text_scripts & subject_scripts)
+        if has_deck and len(meaningful) >= 2 and _overlap(text, subject) == 0 and comparable_script:
             return ConversationRelation(
                 "new_topic", 0.74, True, subject_replaced=True,
                 reason="independent_subject",
