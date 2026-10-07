@@ -150,7 +150,7 @@ def list_products(request: Request, q: str = "", platform: str = "", stock: str 
                                    include_deleted=include_deleted, limit=limit, offset=offset,
                                    sources=sources(container))
     data["can"] = {verb: _allowed(principal, verb) for verb in
-                   ("create", "edit", "delete", "stock", "commission", "links", "bulk_import")}
+                   ("create", "edit", "delete", "stock", "commission", "links", "bulk_import", "publish")}
     data["platforms"] = {pid: info["name"] for pid, info in ac.PLATFORMS.items()}
     return data
 
@@ -347,7 +347,11 @@ def extract_product(body: ExtractBody, request: Request) -> dict[str, Any]:
     rate_limit.check(request, "affiliate_extract", limit=30)
     fetch = getattr(request.app.state.container, "affiliate_page_fetch", None)
     try:
-        return ac.extract_metadata(body.url, fetch=fetch)
+        # Provider-aware: Open Graph / schema.org + the provider's own page
+        # data, link classification and per-field provenance.
+        from app.services import affiliate_providers
+
+        return affiliate_providers.extract(body.url, fetch=fetch)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
 

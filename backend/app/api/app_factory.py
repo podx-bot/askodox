@@ -272,6 +272,9 @@ def create_app() -> FastAPI:
     from app.api.routes.affiliate_catalog import router as affiliate_catalog_router
 
     app.include_router(affiliate_catalog_router)
+    from app.api.routes.affiliate_hub import router as affiliate_hub_router
+
+    app.include_router(affiliate_hub_router)
     from app.api.routes.smart_entry import router as smart_entry_router
 
     app.include_router(smart_entry_router)

@@ -82,6 +82,9 @@ _LEGACY_PERMISSIONS = (
     "affiliate_products:commission",
     "affiliate_products:links",
     "affiliate_products:bulk_import",
+    # Publishing a product to customer results (LIVE) is its own grant: catalog
+    # staff without it save drafts / submit for review.
+    "affiliate_products:publish",
     # Demand intelligence: see insights / send seller opportunity alerts.
     "demand:view",
     "demand:notify",
@@ -150,7 +153,8 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
                           "links:view", "links:manage", "revenue:view", "analytics:view",
                           "affiliate_products:view", "affiliate_products:create", "affiliate_products:edit",
                           "affiliate_products:delete", "affiliate_products:stock", "affiliate_products:commission",
-                          "affiliate_products:links", "affiliate_products:bulk_import"),
+                          "affiliate_products:links", "affiliate_products:bulk_import",
+                          "affiliate_products:publish"),
     # Catalog staff: add / edit products, keep stock current, bulk entry.
     # No commission, link, delete or admin rights unless granted separately.
     "affiliate_catalog_staff": ("overview:view", "affiliate_products:view", "affiliate_products:create",
@@ -185,7 +189,8 @@ ROLE_PRESETS: Dict[str, tuple[str, ...]] = {
     "supervisor": ("overview:view", "workspace:view", "workspace:create", "workspace:approve",
                    "affiliate_products:view", "affiliate_products:create", "affiliate_products:edit",
                    "affiliate_products:stock", "affiliate_products:commission", "affiliate_products:links",
-                   "affiliate_products:bulk_import", "offers:view", "offers:manage", "content:view",
+                   "affiliate_products:bulk_import", "affiliate_products:publish", "offers:view",
+                   "offers:manage", "content:view",
                    "content:manage", "sources:view", "tasks:view", "tasks:manage", "support:view",
                    "feedback:view", "demand:view", "analytics:view", "audit:view"),
 }
