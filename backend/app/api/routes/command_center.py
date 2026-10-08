@@ -2164,3 +2164,67 @@ def partner_revenue_bfsi(partner_id: str, product_type: str, payload: BFSIFlowUp
     _require(request, "integrations:manage")
     _partner_hub(request).upsert_bfsi_flow(partner_id, product_type, **payload.model_dump())
     return {"saved": True, "partner_id": partner_id, "product_type": product_type}
+
+
+# ------------------------------------------------------------ API Health & Billing --
+
+class ApiBillingSettingsBody(BaseModel):
+    monthly_budget_inr: float | None = None
+    reset_day: int | None = None
+    dashboard_url: str | None = None
+
+
+@router.get("/api-billing")
+def api_billing(request: Request) -> dict[str, Any]:
+    """Per provider: real state, failure type, credits (provider-reported /
+    labelled estimate / UNKNOWN), usage, cost, rate limit, dashboard, alerts."""
+    _require(request, "health:view")
+    from app.services import api_billing as billing
+
+    container = request.app.state.container
+    db = container.settings.database_path
+    data = billing.overview(container, db)
+    for row in data["providers"]:
+        row.pop("_history", None)
+    data["alerts"] = billing.alerts(db)
+    return data
+
+
+@router.post("/api-billing/scan")
+def api_billing_scan(request: Request) -> dict[str, Any]:
+    _require(request, "health:view")
+    from app.services import api_billing as billing
+
+    container = request.app.state.container
+    return billing.scan(container, container.settings.database_path)
+
+
+@router.put("/api-billing/{provider}")
+def api_billing_settings(provider: str, body: ApiBillingSettingsBody, request: Request) -> dict[str, Any]:
+    principal = _require(request, "integrations:manage")
+    from app.services import api_billing as billing
+
+    try:
+        return billing.save_settings(request.app.state.container.settings.database_path, provider,
+                                     actor=str(principal.get("id") or principal.get("name") or "staff"),
+                                     **body.model_dump())
+    except KeyError:
+        raise HTTPException(status_code=404, detail="unknown provider") from None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+
+
+@router.post("/api-billing/alerts/{alert_id}/{action}")
+def api_billing_alert_action(alert_id: int, action: str, request: Request) -> dict[str, Any]:
+    principal = _require(request, "health:view")
+    from app.services import api_billing as billing
+
+    try:
+        row = billing.act(request.app.state.container.settings.database_path, alert_id, action,
+                          actor=str(principal.get("id") or principal.get("name") or "staff"))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    if row is None:
+        raise HTTPException(status_code=404, detail="alert not found")
+    return row
+

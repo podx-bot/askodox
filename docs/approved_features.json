@@ -183,6 +183,19 @@
       "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
+      "id": "api_health_billing",
+      "name": "Admin API Health & Billing",
+      "purpose": "Per provider: real state, failure type, credits, usage, cost and alerts -- never an invented balance, never a recharge.",
+      "expected_behavior": "Brave credits from its own X-RateLimit headers; other balances UNKNOWN or a labelled ESTIMATE from an admin budget; actual cost UNKNOWN (provider bill); failure types billing_quota / credential / rate_limit / downtime; alerts at 20/10/5/0% remaining, spend spikes and repeated failures, once per period, acknowledge / resolve; no recharge endpoint exists.",
+      "roles": ["staff"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/api-billing"}, {"method": "POST", "path": "/admin/cc/api-billing/scan"},
+              {"method": "PUT", "path": "/admin/cc/api-billing/{provider}"}, {"method": "POST", "path": "/admin/cc/api-billing/alerts/{alert_id}/{action}"}],
+      "flags": {},
+      "tests": {"backend": ["tests/test_api_billing.py"]},
+      "dependencies": ["provider_readiness"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",
