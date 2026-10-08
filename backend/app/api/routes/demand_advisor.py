@@ -678,8 +678,17 @@ def my_auto_response(request: Request) -> dict:
     mine = [r for r in pf.repo.list("auto_response_rules", owner_ref=owner)]
     from app.services import auto_response
 
+    from app.services import social_dm
+
+    platforms = {}
+    for channel in ("askodox_chat", "facebook", "instagram", "whatsapp", "snapchat"):
+        try:  # real state only: LIVE needs a passed check, never key presence
+            platforms[channel] = social_dm.channel_status(pf.registry, channel)
+        except Exception:
+            platforms[channel] = {"status": "UNKNOWN", "reason": "status could not be read"}
     return {"item": mine[0] if mine else None,
             "channels": auto_response.channel_status((mine[0]["data"] if mine else {}), pf.registry),
+            "platforms": platforms,
             "note": "Answers only from your approved FAQ; anything else comes to you. Contact details are "
                     "shared only after you accept a request. Instagram / Facebook / WhatsApp / Snapchat need "
                     "your authorised platform connection and are not messaged from here."}

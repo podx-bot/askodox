@@ -19,8 +19,12 @@ List<({String id, String label, IconData icon, String route})> askodoxBusinessSe
         route: '/listings/mine'),
     (id: 'promotions', label: t('Promotions & coupons', 'ప్రమోషన్లు & కూపన్లు'), icon: Icons.local_offer_outlined,
         route: '/business/promotions'),
+    (id: 'automation', label: t('Conversations & automation', 'సంభాషణలు & ఆటోమేషన్'),
+        icon: Icons.smart_toy_outlined, route: '/business/automation'),
     (id: 'orders', label: t('Business orders', 'వ్యాపార ఆర్డర్లు'), icon: Icons.receipt_long_outlined,
         route: '/orders/incoming'),
+    (id: 'settings', label: t('Business settings', 'వ్యాపార సెట్టింగ్‌లు'), icon: Icons.tune_rounded,
+        route: '/business/automation?section=settings'),
   ];
 }
 

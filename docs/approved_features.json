@@ -168,6 +168,21 @@
       "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
+      "id": "conversations_automation",
+      "name": "Conversations & Automation workspace (sellers)",
+      "purpose": "Auto replies from approved answers only, handover, hours, preview and real platform status.",
+      "expected_behavior": "ON/OFF auto-replies in ASKODOX chats from the seller's approved answers (templates); handover words and out-of-hours always reach the owner; a customer message can be tried before saving; Facebook / Instagram / WhatsApp show Connected only after a verified connection (else needs setup / test mode / not available); conversation history opens the real inbox; nothing is posted to any platform from here.",
+      "roles": ["seller", "service_provider"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/business/auto-response"}, {"method": "PUT", "path": "/api/business/auto-response"},
+              {"method": "POST", "path": "/api/business/auto-response/preview"}],
+      "ui": {"keys": ["askodoxAutoReplyEnabled", "askodoxAutoSave", "askodoxAutoPreview", "askodoxAutoHistory", "askodoxAutoSettings"],
+             "symbols": ["BusinessAutomationScreen", "askodoxPlatformStatusLabel"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_business_automation.py"], "flutter": ["test/features/business/business_automation_test.dart"]},
+      "dependencies": ["roles_and_business_navigation"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",

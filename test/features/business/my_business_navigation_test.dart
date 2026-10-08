@@ -96,15 +96,16 @@ void main() {
     Widget page(String name) => Scaffold(body: Text(name));
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (_, __) => const BusinessCenterScreen()),
-      for (final p in ['/profile', '/listings/mine', '/business/promotions', '/orders/incoming', '/opportunities'])
-        GoRoute(path: p, builder: (_, __) {
-          opened.add(p);
-          return page(p);
+      for (final p in ['/profile', '/listings/mine', '/business/promotions', '/orders/incoming', '/opportunities',
+        '/business/automation'])
+        GoRoute(path: p, builder: (_, state) {
+          opened.add(state.uri.toString());
+          return page(state.uri.toString());
         }),
     ]);
     await tester.pumpWidget(_app(router, _OffersApi()));
     await tester.pumpAndSettle();
-    for (final id in ['profile', 'listings', 'promotions', 'orders', 'analytics']) {
+    for (final id in ['profile', 'listings', 'promotions', 'automation', 'orders', 'settings', 'analytics']) {
       await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxBusinessSection-$id')), 100,
           scrollable: find.byType(Scrollable).first);
       expect(find.byKey(ValueKey('askodoxBusinessSection-$id')), findsOneWidget, reason: id);
