@@ -1,0 +1,81 @@
+name: Feature Registry gate
+
+# Release protection (docs/approved_features.json): every approved feature
+# must still exist in the code -- mounted routes, response keys, widget keys,
+# symbols, approved flag defaults, acceptance tests -- and no approved
+# feature may be deleted from the registry (deprecate it with an owner
+# approval + migration instead). Then the approved features' own backend
+# and Flutter acceptance tests run. Runs on every change.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend
+        run: python -m pip install -q -r backend/requirements.txt pytest
+      - name: Base branch registry (deleted features fail the gate)
+        run: |
+          base="${{ github.base_ref || 'main' }}"
+          git show "origin/${base}:docs/approved_features.json" > /tmp/base_features.json 2>/dev/null \
+            || echo '{"features": []}' > /tmp/base_features.json
+      - name: Registry contracts
+        working-directory: backend
+        env:
+          FEATURE_REGISTRY_BASE: /tmp/base_features.json
+        run: python -m pytest -q -p no:warnings tests/test_feature_registry.py
+      - name: Approved features' backend acceptance tests
+        working-directory: backend
+        run: |
+          files=$(python - <<'PY'
+          import json
+          reg = json.load(open('../docs/approved_features.json'))
+          seen = []
+          for f in reg['features']:
+              if f.get('status') == 'deprecated':
+                  continue
+              for ref in (f.get('tests') or {}).get('backend') or []:
+                  path = ref.split('::')[0]
+                  if path not in seen:
+                      seen.append(path)
+          print(' '.join(seen))
+          PY
+          )
+          python -m pytest -q -p no:warnings $files
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Approved features' Flutter acceptance tests
+        run: |
+          flutter pub get
+          files=$(python3 - <<'PY'
+          import json
+          reg = json.load(open('docs/approved_features.json'))
+          seen = []
+          for f in reg['features']:
+              if f.get('status') == 'deprecated':
+                  continue
+              for ref in (f.get('tests') or {}).get('flutter') or []:
+                  path = ref.split('::')[0]
+                  if path not in seen:
+                      seen.append(path)
+          print(' '.join(seen))
+          PY
+          )
+          flutter test $files

@@ -1364,6 +1364,18 @@ def _result_discovery_health(request: Request) -> dict[str, Any]:
     return {"name": "result_discovery", "status": status, "detail": detail}
 
 
+@router.get("/feature-registry")
+def feature_registry(request: Request) -> dict[str, Any]:
+    """Approved features with their live state (WORKING / DEGRADED /
+    DISABLED / FAILED / UNVERIFIED) -- never WORKING without a real signal."""
+    _require(request, "health:view")
+    from app.services import feature_registry as registry
+
+    components = health(request)["components"]
+    return {"items": registry.runtime(request.app.state.container, components),
+            "policy": registry.load().get("policy")}
+
+
 @router.get("/health")
 def health(request: Request) -> dict[str, Any]:
     _require(request, "health:view")
