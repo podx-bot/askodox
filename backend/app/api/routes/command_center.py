@@ -2353,3 +2353,20 @@ def admin_action_step(run_id: int, step: str, request: Request) -> dict[str, Any
         raise HTTPException(status_code=422, detail=str(error)) from None
     raise HTTPException(status_code=422, detail="step must be approve, reject or execute")
 
+
+@router.get("/release-gate")
+def release_gate(request: Request) -> dict[str, Any]:
+    """The strict release gate (no condition waived; device checks only from
+    PHONE VERIFIED evidence)."""
+    _require(request, "health:view")
+    from app.api.routes.platform import platform
+    from app.services import release_gate as gate
+
+    container = request.app.state.container
+    try:
+        checks = [{"status": r.get("status"), "archived": r.get("archived"), "name": r.get("name")}
+                  for r in platform(container).repo.list("qa_checks", include_archived=False)]
+    except Exception:
+        checks = []
+    return gate.evaluate(request.app, incidents=incident_report(request), qa_checks=checks)
+

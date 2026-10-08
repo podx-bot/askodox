@@ -39,6 +39,9 @@ jobs:
         env:
           FEATURE_REGISTRY_BASE: /tmp/base_features.json
         run: python -m pytest -q -p no:warnings tests/test_feature_registry.py
+      - name: Strict release gate (code conditions; device checks stay PENDING until PHONE VERIFIED)
+        working-directory: backend
+        run: python -m pytest -q -p no:warnings tests/test_release_gate.py
       - name: Approved features' backend acceptance tests
         working-directory: backend
         run: |

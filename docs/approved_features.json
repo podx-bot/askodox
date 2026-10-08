@@ -225,6 +225,18 @@
       "history": [{"pr": "post-1313", "change": "introduced (image generation blocked: no provider)"}]
     },
     {
+      "id": "release_gate",
+      "name": "Strict release gate",
+      "purpose": "No release is marked READY while any condition fails or real-phone verification is missing.",
+      "expected_behavior": "Code conditions (approved features intact, Home unchanged, no recharge route, no unbacked generation claims) run in CI; runtime: no red incident; device: every phone check PHONE VERIFIED. READY only when all PASS; otherwise NOT_READY or BLOCKED_ON_DEVICE_VERIFICATION. Visible in Integration readiness.",
+      "roles": ["staff"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/release-gate"}],
+      "flags": {},
+      "tests": {"backend": ["tests/test_release_gate.py"]},
+      "dependencies": ["admin_ai_incidents"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",
