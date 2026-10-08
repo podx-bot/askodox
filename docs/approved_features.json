@@ -210,6 +210,21 @@
       "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
+      "id": "my_creations",
+      "name": "My Business -> My Creations",
+      "purpose": "Posts, descriptions, offer / catalogue / poster text and reel scripts the owner keeps and shares.",
+      "expected_behavior": "Write by hand or draft with AI from the owner's facts only (missing facts stay [placeholders]; no invented prices or claims); saved per owner; edit / copy / share through the phone's share sheet; nothing posted automatically; image generation and video generation shown as NOT_AVAILABLE with the reason; video is upload-only.",
+      "roles": ["seller", "service_provider"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/business/creations"}, {"method": "POST", "path": "/api/business/creations"},
+              {"method": "POST", "path": "/api/business/creations/draft"}],
+      "ui": {"keys": ["askodoxCreationAi", "askodoxCreationManual", "askodoxCreationImageGen", "askodoxCreationVideoUpload"],
+             "symbols": ["BusinessCreationsScreen"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_business_creations.py"], "flutter": ["test/features/business/business_creations_test.dart"]},
+      "dependencies": ["roles_and_business_navigation"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced (image generation blocked: no provider)"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",

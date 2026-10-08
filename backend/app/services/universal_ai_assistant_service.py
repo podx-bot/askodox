@@ -446,6 +446,34 @@ class UniversalAIAssistantService:
                 pass
         return advice_memory.split_meta(text)
 
+    def write_text(self, prompt: str, *, max_tokens: int = 1024) -> str:
+        """Plain text from the same models (Gemini, then OpenAI); "" when no
+        model answered -- callers say so honestly, never fake text."""
+        text = ""
+        if self.configured:
+            try:
+                client = self.client or genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    temperature=0.4, max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0))
+                text = str(getattr(self._generate_with_retry(client, prompt, config), "text", "") or "").strip()
+                _observe_ai("gemini", ok=bool(text))
+            except Exception as exc:
+                _observe_ai("gemini", error=exc)
+        if not text and self.openai_api_key:
+            try:
+                response = self.http.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"},
+                    json={"model": self.openai_model,
+                          "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}]})
+                response.raise_for_status()
+                text = self._openai_output_text(response.json()).strip()
+                _observe_ai("openai", ok=bool(text))
+            except Exception as exc:
+                _observe_ai("openai", error=exc)
+        return text
+
     @classmethod
     def _reply_asks_for_location(cls, sentence: str) -> bool:
         """True if a sentence looks like it is asking the user for a location.

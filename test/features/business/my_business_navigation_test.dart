@@ -97,7 +97,7 @@ void main() {
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (_, __) => const BusinessCenterScreen()),
       for (final p in ['/profile', '/listings/mine', '/business/promotions', '/orders/incoming', '/opportunities',
-        '/business/automation'])
+        '/business/automation', '/business/creations'])
         GoRoute(path: p, builder: (_, state) {
           opened.add(state.uri.toString());
           return page(state.uri.toString());
@@ -105,7 +105,7 @@ void main() {
     ]);
     await tester.pumpWidget(_app(router, _OffersApi()));
     await tester.pumpAndSettle();
-    for (final id in ['profile', 'listings', 'promotions', 'automation', 'orders', 'settings', 'analytics']) {
+    for (final id in ['profile', 'listings', 'creations', 'promotions', 'automation', 'orders', 'settings', 'analytics']) {
       await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxBusinessSection-$id')), 100,
           scrollable: find.byType(Scrollable).first);
       expect(find.byKey(ValueKey('askodoxBusinessSection-$id')), findsOneWidget, reason: id);

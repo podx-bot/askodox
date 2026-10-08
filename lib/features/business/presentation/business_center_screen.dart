@@ -17,6 +17,8 @@ List<({String id, String label, IconData icon, String route})> askodoxBusinessSe
         route: '/profile'),
     (id: 'listings', label: t('My listings', 'నా లిస్టింగ్‌లు'), icon: Icons.inventory_2_outlined,
         route: '/listings/mine'),
+    (id: 'creations', label: t('My creations', 'నా సృష్టి'), icon: Icons.auto_awesome_outlined,
+        route: '/business/creations'),
     (id: 'promotions', label: t('Promotions & coupons', 'ప్రమోషన్లు & కూపన్లు'), icon: Icons.local_offer_outlined,
         route: '/business/promotions'),
     (id: 'automation', label: t('Conversations & automation', 'సంభాషణలు & ఆటోమేషన్'),
