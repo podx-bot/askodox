@@ -290,8 +290,8 @@ Future<String?> _ask(BuildContext context, String title, String label, {String i
 
 Color _statusColor(BuildContext context, String status) => switch (status) {
       'ok' => Colors.green.shade700,
-      'error' => Theme.of(context).colorScheme.error,
-      'unknown' || 'configured' => Colors.orange.shade800,
+      'error' || 'quota_exhausted' => Theme.of(context).colorScheme.error,
+      'unknown' || 'configured' || 'degraded' || 'not_configured' => Colors.orange.shade800,
       _ => Theme.of(context).colorScheme.outline,
     };
 
@@ -300,8 +300,10 @@ String _statusLabel(String status) => switch (status) {
       'error' => 'Error',
       'unknown' => 'Unknown (not checked)',
       'configured' => 'Configured (not checked)',
-      'not_configured' => 'Not configured',
+      'not_configured' => 'Needs configuration',
       'disabled' => 'Disabled',
+      'degraded' => 'Degraded',
+      'quota_exhausted' => 'Quota exhausted',
       _ => status,
     };
 

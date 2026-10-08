@@ -19,6 +19,15 @@ void main() {
     expect(askodoxAttachmentGuidance(), isNot(contains('NOT confident')));
   });
 
+  test('an attachment is never assumed to be a shopping request', () {
+    final g = askodoxAttachmentGuidance();
+    expect(g, contains('Do not assume it is a shopping request'));
+    expect(g, contains('report'), reason: 'documents get explain / summarise options, not buying');
+    expect(g, contains('never diagnose'), reason: 'medical reports are explained cautiously');
+    expect(g, contains('Aadhaar'), reason: 'personal identifiers are not repeated');
+    expect(g, isNot(contains('find it nearby')), reason: 'no default shopping options');
+  });
+
   test('referral / join prompts only when the customer talks about it', () {
     expect(askodoxAllowsGrowthPrompt('I want to buy a mixer grinder'), isFalse);
     expect(askodoxAllowsGrowthPrompt('I need a plumber'), isFalse);

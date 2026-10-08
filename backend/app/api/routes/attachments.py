@@ -84,6 +84,24 @@ def _store(container: Any) -> str:
 
 @router.post("/analyze")
 def analyze_attachment(payload: AttachmentRequest, request: Request) -> dict:
+    """Records the real outcome for the Command Center (media_analysis):
+    understood, or the processor failed / was unavailable. A refused file
+    (unsupported type, too large, bad data) is the user's input, not a
+    feature failure."""
+    from app.services import assistant_health
+
+    try:
+        result = _analyze_attachment(payload, request)
+    except HTTPException as error:
+        if error.status_code in (422, 502, 503):
+            assistant_health.observe("media_analysis", False,
+                                     f"{resolve_kind(payload.filename, payload.mime_type)[0]}_http_{error.status_code}")
+        raise
+    assistant_health.observe("media_analysis", True)
+    return result
+
+
+def _analyze_attachment(payload: AttachmentRequest, request: Request) -> dict:
     from app.services import rate_limit
 
     rate_limit.check(request, "attachments", limit=20)

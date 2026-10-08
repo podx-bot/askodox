@@ -1594,6 +1594,17 @@ void main() {
       expect(board(), findsNothing, reason: 'old phone cards never pose as nursing results');
       expect(pill(), findsNothing, reason: 'the retired deck leaves no pill either');
       expect(h.matches.deals, hasLength(1), reason: 'no premature search for the new need');
+      // ARCHIVED, not erased: one small chip brings the earlier results back
+      // on the customer's tap -- never on its own.
+      final restore = find.byKey(const Key('askodoxArchivedResultsRestore'));
+      expect(restore, findsOneWidget);
+      expect(find.text('Earlier results (2)'), findsOneWidget);
+      expect(cards(), findsNothing);
+      await tester.tap(restore);
+      await tester.pumpAndSettle();
+      expect(board(), findsOneWidget, reason: 'the retired deck is recoverable');
+      expect(cards(), findsNWidgets(2));
+      expect(restore, findsNothing);
     });
 
     testWidgets('a selected result stays as compact context while the board is minimized', (tester) async {

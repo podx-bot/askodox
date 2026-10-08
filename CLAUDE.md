@@ -7,19 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `70efccb` -- PR #161 (2026-10-06): decision brain (advice vs
-  commerce `mode`), follow-up router over shown results, price truth + strict
-  budgets, requested-place persistence, compact results workspace, My Business
-  tiles + seller listing edit, Admin Smart Entry everywhere (Quick Add,
-  templates, field states, progressive forms, CSV / bulk preview + draft
-  import), admin assistant commands (en/te), Result Diagnostics decision trace.
-  Production probe (run 37451777690 on the deployed 70efccb): advice questions
-  -> mode=advice (en + te), shopping -> commerce, new admin endpoints 401
-  signed-out, Maps all OK, price kinds labelled; strict-budget rejection and
-  conditional offers are test-verified only (no priced rows in that probe).
-  Signed MAIN APK 1303 (Live Build 37451688264 on 70efccb, sha256
-  22fbc31c…1c93, cert 727b4a66…57cf = production; pinned in MAIN_APKS).
-  Before: #159 + APK 1302.
+- `main` @ `4353fe0` -- PR #163 (2026-10-06): Conversation Decision Brain owns
+  search readiness (`state`, `search_ready`, one `next_question`,
+  `search_subject`, `new_need`, `searched_for`; app gate `askodoxSearchGate`).
+  Staging traces (run 37499724579): retrieval calls A1 B1 C1 D1 E1 F0 G0 H1 I0.
+  Railway production deployment SUCCESS on 4353fe0. Signed MAIN APK 1305 (Live
+  Build 37538314167 on 4353fe0, sha256 b4b9e5c1…fe06, cert 727b4a66…57cf =
+  production, package com.askodox.askodox) on askodox-latest; NOT yet pinned in
+  MAIN_APKS. Before: #162 (results workspace UI) + #161 + APK 1303.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -391,6 +386,17 @@ this file, don't trust it blindly.
   (`affiliate_products`); Smart Links stay routing only.
 - Provider health = real answers (`provider_health.py`): Sarvam 402 ->
   QUOTA_EXHAUSTED; readiness rows + Command Center use it, never key presence.
+- One-time advice = `advice_memory.py` inside the ONE brain (`decide()` / `_advise`):
+  the app keeps the ledger per conversation (`_adviceLedger`, in the snapshot) and
+  sends `advice_given`; the reply returns `advice` + `advice_ledger`. A repeat is
+  allowed only for new_information / user_asked / critical; others are flagged +
+  counted (`assistant_health`). Never add per-category warning rules.
+- Command Center feature health (`/admin/cc/health`): `assistant_health.py`
+  (conversation_intelligence, media_analysis, advice_policy -- real outcomes, per
+  process; no traffic = unknown) + `result_discovery` from `discovery_events`.
+  Provider readiness is separate (`provider_health`); neither proves a phone flow.
+- Result Board ARCHIVED: a deck retired by a topic change shows only the chip
+  `askodoxArchivedResultsRestore` (restores on tap, never on its own).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

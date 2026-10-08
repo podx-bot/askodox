@@ -27,9 +27,16 @@ bool askodoxAttachmentWantsAction(String typed) {
 /// files are stated honestly.
 String askodoxAttachmentGuidance({bool lowConfidence = false, List<String> failed = const []}) => [
       'The customer shared attachment(s) to be understood. Explain what the attachment facts show, using only '
-          'those facts. Then ask ONE short question about what they want to do with it, with options that fit '
-          'THIS item (for example: find it nearby, compare prices, get it repaired or serviced, sell it, or '
-          'understand it better).',
+          'those facts; never describe anything the facts do not contain. Then ask ONE short question about what '
+          'they want to do with it, with options that fit THIS content.',
+      'Do not assume it is a shopping request. Offer buying, price or repair options ONLY when the attachment is '
+          'clearly a product or item someone might buy, sell or repair. For a report, bill, letter, form, '
+          'certificate, personal photo, vehicle, place or anything else, offer to explain, summarise or answer '
+          'questions about it instead.',
+      'Medical, legal or financial documents: explain the readable content cautiously, say what it does not '
+          'establish, and suggest confirming with a qualified professional; never diagnose.',
+      'Privacy: do not repeat phone numbers, ID / Aadhaar / PAN / account / card numbers, or full addresses from '
+          'the attachment unless the customer asks about that exact detail.',
       'Do not list sellers, products, prices from elsewhere, online links, referral or join-ASKODOX suggestions '
           'in this reply.',
       if (lowConfidence)
