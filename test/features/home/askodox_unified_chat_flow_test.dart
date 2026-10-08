@@ -364,11 +364,13 @@ class _FakeVoice extends VoiceTranscriptionService {
 
 class _FakeReplySpeech extends ReplySpeechService {
   Uint8List? audio;
+  Completer<void>? hold;
   final List<(String, String)> calls = [];
 
   @override
   Future<Uint8List?> sarvamAudio(String text, {required String locale, String voice = 'automatic'}) async {
     calls.add((text, locale));
+    if (hold != null) await hold!.future;
     return audio;
   }
 }
@@ -4928,6 +4930,65 @@ void main() {
       await runFor(tester, const Duration(seconds: 1));
       expect(methods(), contains('stopSpeaking'));
       expect(find.text('Listening…'), findsOneWidget);
+    });
+
+    testWidgets('a newer reply cuts off the older one -- never two voices, no device fallback for the old reply',
+        (tester) async {
+      final plays = <Completer<Object?>>[];
+      mockRecorder(
+        levels: const [],
+        extra: (call) async {
+          if (call.method == 'playReplyAudio') {
+            // Native playReplyAudio stops the previous audio first: its call
+            // returns false (cut off).
+            for (final p in plays) {
+              if (!p.isCompleted) p.complete(false);
+            }
+            final c = Completer<Object?>();
+            plays.add(c);
+            return c.future;
+          }
+          return null;
+        },
+      );
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+
+      final first = state.speakReplyForTest('First reply') as Future<void>;
+      await tester.pump();
+      final second = state.speakReplyForTest('Second reply') as Future<void>;
+      await tester.pump();
+      await first;
+      expect(methods(), isNot(contains('speakReply')),
+          reason: 'the cut-off reply must not fall back to the device voice');
+      expect(find.text('Speaking…'), findsOneWidget, reason: 'the newer reply is still speaking');
+
+      plays.last.complete(true);
+      await second;
+      await _Harness.settle(tester);
+      expect(calls.where((c) => c.method == 'playReplyAudio'), hasLength(2));
+      expect(methods(), isNot(contains('speakReply')));
+      expect(state.lastReplyVoiceEngine, 'sarvam_bulbul_v3');
+    });
+
+    testWidgets('Stop during the audio fetch: nothing is spoken afterwards', (tester) async {
+      mockRecorder(levels: const []);
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = null; // would fall back to device TTS
+      h.replySpeech.hold = Completer<void>();
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      final speaking = state.speakReplyForTest('Hello') as Future<void>;
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxStopSpeaking')));
+      await tester.pump();
+      h.replySpeech.hold!.complete();
+      await speaking;
+      await _Harness.settle(tester);
+      expect(methods(), isNot(contains('speakReply')), reason: 'Stop means silence, not the device voice');
+      expect(find.byKey(const Key('askodoxStopSpeaking')), findsNothing);
     });
   });
 

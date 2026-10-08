@@ -411,6 +411,13 @@ class MainActivity : FlutterActivity() {
         }
         selectCompatibleVoice(engine, locale, voicePreference)
 
+        // ONE audio lifecycle: device speech never plays over reply audio.
+        val player = mediaPlayer
+        mediaPlayer = null
+        if (player != null) {
+            try { player.stop() } catch (_: Exception) {}
+            try { player.release() } catch (_: Exception) {}
+        }
         pendingSpeechResult?.success(false)
         pendingSpeechResult = result
         engine.stop()

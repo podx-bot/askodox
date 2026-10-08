@@ -349,6 +349,15 @@ class _AskodoxPrimaryHomeScreenState
   /// Which engine spoke the last reply: 'sarvam_bulbul_v3' or 'device'.
   String? lastReplyVoiceEngine;
   bool _voiceFallbackNoticeShown = false;
+
+  /// ONE audio lifecycle: every spoken reply takes a new turn number; Stop
+  /// and a newer reply bump it, so an older reply whose audio was cut off
+  /// can never fall back to device TTS and talk over the new one.
+  int _speechTurn = 0;
+
+  /// Speaks [reply] through the one audio lifecycle (tests drive overlap).
+  @visibleForTesting
+  Future<void> speakReplyForTest(String reply) => _speakReply(reply, userText: reply);
   bool _voiceFinishing = false;
 
   /// Main Chat voice: record in-app, transcribe through the backend's
@@ -534,6 +543,7 @@ class _AskodoxPrimaryHomeScreenState
   /// Interruption: typing/sending a new message or starting the mic stops
   /// any reply ASKODOX is still speaking.
   Future<void> _stopSpeaking() async {
+    _speechTurn++;
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
     } catch (_) {}
@@ -3248,6 +3258,8 @@ class _AskodoxPrimaryHomeScreenState
   /// the device cannot play its audio does it fall back to device TTS.
   Future<void> _speakReply(String reply, {required String userText}) async {
     reply = askodoxPlainReply(reply); // markup is for the eye, never spoken
+    final turn = ++_speechTurn;
+    bool current() => mounted && turn == _speechTurn && _voicePhase == _VoicePhase.speaking;
     final language = askodoxSpeechLanguage(
       reply: reply,
       userText: userText,
@@ -3263,7 +3275,7 @@ class _AskodoxPrimaryHomeScreenState
               .read(askodoxReplySpeechServiceProvider)
               .sarvamAudio(reply,
                   locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
-      if (!mounted || _voicePhase != _VoicePhase.speaking) return;
+      if (!current()) return;
       if (audio != null) {
         lips.speechBegin(reply);
         _startLipSyncPolling(lips);
@@ -3277,7 +3289,8 @@ class _AskodoxPrimaryHomeScreenState
         }
       }
       _lipSyncTimer?.cancel();
-      if (!mounted || _voicePhase != _VoicePhase.speaking) return;
+      // Cut off by Stop or a newer reply: never fall back to the device voice.
+      if (!current()) return;
       lastReplyVoiceEngine = 'device';
       final preference = ref.read(appSettingsProvider).voicePreference;
       if (preference != VoicePreference.automatic && !_voiceFallbackNoticeShown && mounted) {
@@ -3304,10 +3317,12 @@ class _AskodoxPrimaryHomeScreenState
     } catch (_) {
       // The text reply remains available when no voice output works.
     } finally {
-      _lipSyncTimer?.cancel();
-      lips.speechEnd();
-      if (mounted && _voicePhase == _VoicePhase.speaking) {
-        setState(() => _voicePhase = _VoicePhase.idle);
+      if (turn == _speechTurn) {
+        _lipSyncTimer?.cancel();
+        lips.speechEnd();
+        if (mounted && _voicePhase == _VoicePhase.speaking) {
+          setState(() => _voicePhase = _VoicePhase.idle);
+        }
       }
     }
   }

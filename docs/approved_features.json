@@ -115,14 +115,14 @@
       "id": "voice",
       "name": "Continuous voice (Sarvam STT / TTS)",
       "purpose": "Speak naturally until Stop; replies spoken in the conversation language.",
-      "expected_behavior": "Recording ends on the user's Stop; long silence (8 s) and 2 min are safety limits; Telugu preserved; no markup spoken.",
+      "expected_behavior": "Recording ends on the user's Stop; long silence (8 s) and 2 min are safety limits; Telugu preserved; no markup spoken; ONE audio lifecycle -- a newer reply or Stop cuts the old one off and it never falls back to a second voice.",
       "roles": ["any"], "domains": ["any"],
       "api": [{"method": "POST", "path": "/api/in-app/voice/transcribe"}, {"method": "POST", "path": "/api/in-app/voice/speak"}],
       "ui": {"keys": ["askodoxVoicePanel", "askodoxVoiceCancel"], "symbols": ["AskodoxVoiceEndpointer"]},
       "flags": {"voice.sarvam_tts": true},
-      "tests": {"backend": ["tests/test_in_app_voice_transcribe_route.py"], "flutter": ["test/services/voice_endpointing_test.dart"]},
+      "tests": {"backend": ["tests/test_in_app_voice_transcribe_route.py"], "flutter": ["test/services/voice_endpointing_test.dart", "test/features/home/askodox_unified_chat_flow_test.dart::never two voices"]},
       "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "no stop on a thinking pause"}]
+      "history": [{"pr": "post-1312", "change": "no stop on a thinking pause"}, {"pr": "post-1313", "change": "one audio lifecycle (speech turn token; native speech stops reply audio)"}]
     },
     {
       "id": "header_location",
