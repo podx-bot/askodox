@@ -139,6 +139,21 @@
       "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
+      "id": "profile_memory",
+      "name": "Conversation -> profile memory (roles, needs, offers)",
+      "purpose": "Remember what a person needs / offers, by role, privately and under their control.",
+      "expected_behavior": "Requests become items on the ONE profile by role (buyer / seller / service_provider / service_taker = seeking services or jobs); the same need updates (history kept), never duplicates; statuses active / updated / completed / cancelled / expired; private by default, public only with explicit consent and never with contacts; OTPs, passwords, card / account / Aadhaar / PAN numbers never stored; view, correct, delete one / all, switch off; strictly per user; removed with the account.",
+      "roles": ["any"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/me/memory"}, {"method": "PUT", "path": "/api/me/memory/settings"},
+              {"method": "PATCH", "path": "/api/me/memory/{item_id}"}, {"method": "DELETE", "path": "/api/me/memory/{item_id}"},
+              {"method": "DELETE", "path": "/api/me/memory"}, {"method": "GET", "path": "/api/me/memory/{item_id}/history"}],
+      "ui": {"keys": ["askodoxProfileMemoryEntry", "askodoxMemoryEnabled", "askodoxMemoryDeleteAll"], "symbols": ["ProfileMemoryScreen"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_profile_memory.py"], "flutter": ["test/features/profile/profile_memory_screen_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",

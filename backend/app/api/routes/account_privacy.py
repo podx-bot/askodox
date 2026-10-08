@@ -145,6 +145,9 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
             conn.execute("DELETE FROM push_tokens WHERE user_id=?", (user_id,))  # no more notifications
         if "push_prefs" in tables:
             conn.execute("DELETE FROM push_prefs WHERE user_id=?", (user_id,))
+        for memory_table in ("profile_memory_items", "profile_memory_history", "profile_memory_settings"):
+            if memory_table in tables:  # conversation memory goes with the account
+                conn.execute(f"DELETE FROM {memory_table} WHERE user_id=?", (user_id,))
         conn.execute("INSERT OR REPLACE INTO account_deletions(user_id, deleted_at) VALUES(?,?)", (user_id, now))
         conn.commit()
     return {"deleted": True, **done,
