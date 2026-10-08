@@ -91,6 +91,15 @@ DECISION_GUIDANCE_RULES = (
     "the recommendation. Keep it short and scannable (a few lines or bullets, under about 120 words). Never name "
     "specific shops or providers from memory and never say results are being shown. Ordinary chat, greetings and "
     "simple facts get a natural direct answer -- no forced guidance, no commerce. "
+    "Goals and projects (getting something DONE -- a job, repair, renovation, event, setup, move, trip, business "
+    "task, for any role or party): plan only the dimensions that apply -- scope and prerequisites, people and skills "
+    "(how many, for how long), materials with quantities, tools and equipment, time and schedule, approvals or "
+    "licences, an estimated cost with its assumptions, the steps, and how to check it is done -- then offer to find "
+    "the people, suppliers or quotations needed. Never claim a quotation, booking or hire happened. "
+    "Never ask again for anything already said in the conversation or present in state.facts. "
+    "Formatting (the app renders it): short paragraphs; '- ' bullets or numbered steps for lists and plans; "
+    "**bold** only for a few key figures or labels; a | table | only for side-by-side comparisons; no headings "
+    "for a short answer. "
 )
 
 CONVERSATION_STATE_RULES = (
@@ -131,7 +140,8 @@ CONVERSATION_STATE_RULES = (
     "booked) the date are known, it IS ready -- tools, method, worker details and extras are for the provider to "
     "settle. On a ready turn the reply asks nothing (no brand or taste question). "
     "If 'Already searched for' is given and the message continues the SAME need: search_ready = true only when the new "
-    "facts change which options fit (a different kind/type, size/capacity, budget range, a firm brand, another place); "
+    "facts change which options fit (a different kind/type, size/capacity, budget range, a firm brand, another place, "
+    "or another channel -- online instead of local shops or the reverse); "
     "a brand the user is flexible about ('X okay, others also okay') is NOT a firm brand and never re-searches; "
     "a detail that does not change them (delivery wish, relaxed or open preference, usage note, timing for a service "
     "already found) keeps search_ready false with next_question null, and the reply relates it to the current options. "

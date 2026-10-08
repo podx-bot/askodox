@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 GREEN, ORANGE, RED = "GREEN", "ORANGE", "RED"
+VERIFIED, NOT_RECOVERED, UNVERIFIED = "VERIFIED", "NOT_RECOVERED", "UNVERIFIED"
 BYPASSABLE = {"nearby": "Google Places (nearby shops)", "used_deals": "Web search (online / used / deals)",
               "jobs": "Web search (jobs)"}
 WINDOW_MINUTES = 30
@@ -122,6 +123,13 @@ class SelfHealingEngine:
     def _row(row) -> Dict[str, Any]:
         data = dict(row)
         data["evidence"] = json.loads(data.pop("evidence_json") or "{}")
+        # APPLIED says the action ran -- not that the problem went away. The
+        # recovery itself is VERIFIED / NOT_RECOVERED only from evidence;
+        # until then it stays UNVERIFIED (never reported as a success).
+        if data.get("status") in ("APPLIED", "EXPIRED", "ROLLED_BACK"):
+            data["verification"] = data["evidence"].get("verification") or {"state": UNVERIFIED}
+        else:
+            data["verification"] = None
         return data
 
     def _event(self, risk: str, action: str, status: str) -> None:
@@ -264,11 +272,61 @@ class SelfHealingEngine:
         if not self._flag("selfheal.enabled"):
             return {"ran": False, "reason": "Self-Healing is switched off"}
         self._expire()
+        verified = self.verify_applied()
         found: List[Dict[str, Any]] = []
         found += self._scan_sources()
         found += self._scan_campaigns()
         found += self._scan_payments()
-        return {"ran": True, "new_issues": len(found), "issues": found}
+        return {"ran": True, "new_issues": len(found), "issues": found, "verified": verified}
+
+    # -------------------------------------------------------- verification --
+
+    def _verify(self, log_id: int, state: str, detail: str, **facts: Any) -> None:
+        item = self.get(log_id) or {}
+        evidence = dict(item.get("evidence") or {})
+        evidence["verification"] = {"state": state, "detail": detail[:160], "at": _now().isoformat(), **facts}
+        self._set(log_id, evidence_json=json.dumps(evidence, default=str))
+
+    def verify_applied(self) -> Dict[str, int]:
+        """Check applied fixes against what happened AFTER them.
+
+        bypass_source: customers must have been answered by the other sources
+        while the bypass ran (real discovery_events rows), else NOT_RECOVERED
+        once it ends. Conversation fixes are verified only when the app
+        reported that the corrected turn actually rendered."""
+        counts = {VERIFIED: 0, NOT_RECOVERED: 0, UNVERIFIED: 0}
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM cc_healing_log WHERE status IN ('APPLIED','EXPIRED') "
+                                "ORDER BY id DESC LIMIT 200").fetchall()
+        for row in rows:
+            item = self._row(row)
+            if (item["verification"] or {}).get("state") in (VERIFIED, NOT_RECOVERED):
+                continue
+            if item["action"] == "bypass_source":
+                started = item["created_at"]
+                if item.get("expires_at"):
+                    started = (datetime.fromisoformat(item["expires_at"]) - timedelta(minutes=BYPASS_MINUTES)).isoformat()
+                answered = self._answered_since(started, item.get("target") or "")
+                if answered:
+                    self._verify(item["id"], VERIFIED, f"{answered} search(es) answered by other sources during the "
+                                                      "bypass", answered=answered)
+                elif item["status"] == "EXPIRED":
+                    self._verify(item["id"], NOT_RECOVERED, "no search was answered by the other sources while the "
+                                                            "bypass ran")
+            elif str(item.get("issue_key") or "").startswith("conversation:"):
+                if (item.get("evidence") or {}).get("rendered") is True:
+                    self._verify(item["id"], VERIFIED, "the corrected reply was shown to the customer")
+            counts[((self.get(item["id"]) or {}).get("verification") or {}).get("state", UNVERIFIED)] += 1
+        return counts
+
+    def _answered_since(self, since: str, bypassed: str) -> int:
+        try:
+            with self._connect() as conn:
+                row = conn.execute("SELECT COUNT(DISTINCT demand_id) n FROM discovery_events WHERE created_at>=? "
+                                   "AND source!=? AND status='ok'", (since, bypassed)).fetchone()
+            return int(row["n"] or 0) if row else 0
+        except sqlite3.Error:
+            return 0
 
     def _scan_sources(self) -> List[Dict[str, Any]]:
         since = (_now() - timedelta(minutes=WINDOW_MINUTES)).isoformat()

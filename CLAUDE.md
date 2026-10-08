@@ -58,6 +58,11 @@ this file, don't trust it blindly.
   no category-specific fixes, cross-category tests; each PR reports universal
   applicability, extension points, cross-category tests, regressions prevented,
   justified exceptions and limitations).
+- Approved features are locked in `docs/approved_features.json` (routes,
+  response keys, widget keys, symbols, flag defaults, acceptance tests). The
+  `Feature Registry gate` workflow fails a PR that loses any of them or deletes
+  an entry; removal = status `deprecated` + owner approval + migration. Add a
+  registry entry with every new approved feature.
 - Update this file after each round that actually merges — edit it in
   place to reflect the new checkpoint; don't append another history section
   here (that's what the tracker is for).
@@ -410,6 +415,17 @@ this file, don't trust it blindly.
   results claim is removed sentence by sentence (`askodoxStripResultClaims`),
   never the whole reply; an advisor hold keeps the brain's answer
   (`askodoxWithoutTrailingQuestion`).
+- Channel = `channel_preference.py` (app `askodoxChannelPreference`): online-only
+  skips local sources + forces the web search; local-only skips the web search;
+  remembered as deal `dynamicFields['channel']`; a channel switch archives the old
+  deck. Never per-category.
+- Assistant replies render through `AskodoxRichReply` (headings / points / bold /
+  tables / links); speech gets `askodoxPlainReply`. Never show raw markup.
+- Voice ends on the user's Stop; `AskodoxVoiceEndpointer` silence (8 s) and 2 min
+  are safety limits only. Companion menus = `askodoxCompanionMenuActions` (no
+  Location; the header chip is the one location control).
+- Self-healing: APPLIED != recovered; `verify_applied` sets VERIFIED /
+  NOT_RECOVERED from real evidence, else UNVERIFIED (console "Recovery").
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

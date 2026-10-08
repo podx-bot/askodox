@@ -29,9 +29,11 @@ void main() {
       final chosen = <AskodoxHubAction>[];
       var closed = 0;
       await tester.pumpWidget(host(AskodoxCompanionHub(lang: 'en', onAction: chosen.add, onClose: () => closed++)));
-      for (final a in AskodoxHubAction.values) {
+      for (final a in askodoxCompanionMenuActions) {
         expect(find.byKey(ValueKey('askodoxHubAction-${a.name}')), findsOneWidget);
       }
+      expect(find.byKey(const ValueKey('askodoxHubAction-location')), findsNothing,
+          reason: 'APK 1312: Location lives in the header only, not in the companion ring');
       expect(find.text('Voice'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('askodoxHubAction-camera')));
       await tester.tap(find.byKey(const ValueKey('askodoxHubAction-files')));
@@ -97,9 +99,10 @@ void main() {
       await tester.pump();
       expect(find.byKey(const Key('askodoxFloatingPanel')), findsOneWidget);
       expect(find.byKey(const Key('askodoxFloatAskThis')), findsOneWidget);
-      for (final a in AskodoxHubAction.values) {
+      for (final a in askodoxCompanionMenuActions) {
         expect(find.byKey(ValueKey('askodoxFloatAction-${a.name}')), findsOneWidget);
       }
+      expect(find.byKey(const ValueKey('askodoxFloatAction-location')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('askodoxFloatAction-photos')));
       await tester.pump();
       expect(chosen, [AskodoxHubAction.photos]);

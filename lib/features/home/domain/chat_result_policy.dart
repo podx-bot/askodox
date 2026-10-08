@@ -901,6 +901,29 @@ bool askodoxAdvisorHolds(AskodoxAdvisorView? advisor, {required bool showNow, re
     !showNow &&
     !videoAsk;
 
+// Online / local channel -- mirrors backend channel_preference.py. Longer
+// online phrases first: "online shops" never counts as a local ask.
+final _onlineChannel = RegExp(
+    r'\b(online (?:shops?|stores?|links?|sites?|sellers?|marketplaces?)|order (?:it )?online|buy online|'
+    r'online|on-line|websites?|web ?sites?|e-?commerce|internet)\b|'
+    r'ఆన్\s*లైన్\S*|ఆన్‌లైన్\S*|వెబ్‌సైట్\S*|ऑनलाइन|वेबसाइट',
+    caseSensitive: false);
+final _localChannel = RegExp(
+    r'\b(near ?(?:me|by|here)|nearby|around me|in my area|local(?:ly)?|offline|walk-?in|'
+    r'shops?|stores?|dealers?|showrooms?|outlets?)\b|'
+    r'దగ్గర\S*|నా దగ్గర|స్థానిక\S*|షాప్\S*|షాపు\S*|దుకాణ\S*|लोकल|पास में|नज़दीक|नजदीक|दुकान',
+    caseSensitive: false);
+
+/// 'online' / 'local' when the customer's own words name only one channel;
+/// null when they name both or none (any category, en / te / hi).
+String? askodoxChannelPreference(String text) {
+  final online = _onlineChannel.hasMatch(text);
+  final local = _localChannel.hasMatch(text.replaceAll(_onlineChannel, ' '));
+  if (online && !local) return 'online';
+  if (local && !online) return 'local';
+  return null;
+}
+
 /// Result groups named in the customer's own words (any of en / te / hi).
 List<String> askodoxRequestedGroups(String text) {
   final t = text.toLowerCase();

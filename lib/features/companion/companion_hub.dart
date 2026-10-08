@@ -44,6 +44,19 @@ final askodoxDetailPagesOpenProvider = StateProvider<int>((ref) => 0);
 /// pipeline; voice is the only microphone in the app.
 enum AskodoxHubAction { voice, chat, camera, photos, video, files, location }
 
+/// The actions the companion MENUS offer. Location is NOT one of them: the
+/// header's location control is the one place to change it (APK 1312: a
+/// duplicate Location shortcut in the companion ring). The enum value stays
+/// for callers that still route a location action programmatically.
+const askodoxCompanionMenuActions = [
+  AskodoxHubAction.voice,
+  AskodoxHubAction.chat,
+  AskodoxHubAction.camera,
+  AskodoxHubAction.photos,
+  AskodoxHubAction.video,
+  AskodoxHubAction.files,
+];
+
 String askodoxHubLabel(AskodoxHubAction a, String lang) => switch (lang) {
       'te' => const {
           AskodoxHubAction.voice: 'మాట్లాడండి',
@@ -103,7 +116,7 @@ class AskodoxCompanionHub extends StatelessWidget {
     required this.lang,
     required this.onAction,
     required this.onClose,
-    this.actions = AskodoxHubAction.values,
+    this.actions = askodoxCompanionMenuActions,
     this.radius = 118,
   });
 
@@ -409,7 +422,7 @@ class _AskodoxInAppFloatingCompanionState extends ConsumerState<AskodoxInAppFloa
                             widget.onAskAboutThis!();
                           },
                         ),
-                      for (final a in AskodoxHubAction.values)
+                      for (final a in askodoxCompanionMenuActions)
                         ActionChip(
                           key: ValueKey('askodoxFloatAction-${a.name}'),
                           visualDensity: VisualDensity.compact,

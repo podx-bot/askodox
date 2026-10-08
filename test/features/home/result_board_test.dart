@@ -74,4 +74,23 @@ void main() {
       expect(askodoxWithoutTrailingQuestion('No question here.'), 'No question here.');
     });
   });
+
+  group('online / local channel (mirrors backend channel_preference.py)', () {
+    const cases = {
+      'show me online shops for paint': 'online',
+      'buy a laptop online': 'online',
+      'ఆన్‌లైన్ లో టైల్స్ చూపించు': 'online',
+      'ऑनलाइन दवा': 'online',
+      'plumber near me': 'local',
+      'దగ్గర్లో పెయింట్ షాప్': 'local',
+      'fertiliser dealers in Guntur': 'local',
+      'walking shoes shops and online links': null,
+      'online store or nearby shop': null,
+      'how do I learn Python': null,
+      'vitrified tiles 100 sq ft': null,
+    };
+    for (final entry in cases.entries) {
+      test('"${entry.key}" -> ${entry.value}', () => expect(askodoxChannelPreference(entry.key), entry.value));
+    }
+  });
 }
