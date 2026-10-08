@@ -7,14 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `4353fe0` -- PR #163 (2026-10-06): Conversation Decision Brain owns
-  search readiness (`state`, `search_ready`, one `next_question`,
-  `search_subject`, `new_need`, `searched_for`; app gate `askodoxSearchGate`).
-  Staging traces (run 37499724579): retrieval calls A1 B1 C1 D1 E1 F0 G0 H1 I0.
-  Railway production deployment SUCCESS on 4353fe0. Signed MAIN APK 1305 (Live
-  Build 37538314167 on 4353fe0, sha256 b4b9e5c1…fe06, cert 727b4a66…57cf =
-  production, package com.askodox.askodox) on askodox-latest; NOT yet pinned in
-  MAIN_APKS. Before: #162 (results workspace UI) + #161 + APK 1303.
+- `main` @ `fc5505f` -- PR #179 (2026-10-08, verified with `git fetch origin
+  main`): APK 1312 regressions + Approved Feature Registry. Signed APK 1313 from
+  fc5505f is a public release `apk-1313` (askodox-live-1313.apk, 71,351,246 B,
+  sha256 bb14a278…f2a8, cert 727b4a66…57cf, not marked latest).
+- Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
+  production, staging only) carries the post-1313 master round: voice one-audio
+  lifecycle + pause / resume / mute / replay; message copy / select / share;
+  Result Board mega expand with per-category navigation + provider-failure
+  notice; reply meaning colours; profile memory; My Roles / My Business
+  sections (promotions, automation, creations); API Health & Billing; Admin AI
+  incidents + action framework; strict release gate. Every new flow is CODE
+  READY only -- no real-phone verification yet.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
@@ -426,6 +430,34 @@ this file, don't trust it blindly.
   Location; the header chip is the one location control).
 - Self-healing: APPLIED != recovered; `verify_applied` sets VERIFIED /
   NOT_RECOVERED from real evidence, else UNVERIFIED (console "Recovery").
+- Voice = ONE audio lifecycle: every `_speakReply` takes `_speechTurn`; Stop / a newer
+  reply bump it so a cut-off reply never falls back to device TTS (two voices). Pause:
+  Sarvam pauses in place (`pauseReplyAudio`); device TTS stops and resumes from the last
+  `speechRange` start with the SAME engine (`deviceOnly`). Mute skips speech; Replay forces.
+- Provider failures carry their kind: Brave `last_error_kind` (per thread) -> chain ->
+  `provider_failure.failure_kind` -> source status quota_exhausted / rate_limited /
+  auth_failed / error (never `no_results`); app `askodoxProviderProblemText`.
+- Result Board default = the LOCKED one-rail layout (after 1303). Category boxes with
+  up / down + n/N exist only in mega expand (`askodoxResultBoardMega`); positions live in
+  `_boardPositions` ("dealId:kind") so they survive minimize. Don't replace the rail.
+- Reply meaning colours come ONLY from the brain's [ok] / [caution] / [risk] tags
+  (`askodoxSeverityOf`), never from app keyword guesses; tags are stripped from speech / copy.
+- Profile memory = `profile_memory.py` + `/api/me/memory` (hooked in `create_deal` via
+  `_remember`): role buyer / seller / service_provider / service_taker (= seeking services
+  or jobs), same need UPDATES (history), secrets dropped / masked, private unless consent,
+  deleted with the account. Separate from the live demand records.
+- My Business sections = `askodoxBusinessSections` (insights / Analytics first, then
+  sections). New sections need a real route; Home must never link My Business.
+- API Health & Billing (`api_billing.py`): a balance is REAL only from the provider
+  (Brave X-RateLimit headers); otherwise UNKNOWN or a labelled ESTIMATE from an admin
+  budget. No recharge route may exist (release gate checks it).
+- Admin AI incidents (`admin_incidents.py`) are template text over telemetry; a reason is
+  confirmed only from the provider's own answer. Actions only via
+  `admin_action_framework.CATALOG` (read-only max 2/h; changes need approval; blocked after
+  two NOT_RECOVERED).
+- Release gate (`release_gate.py`, `/admin/cc/release-gate`): READY only when all PASS;
+  device = qa_checks PHONE VERIFIED only. Image / video generation stay NOT_AVAILABLE
+  until a provider is chosen and its cost approved.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
