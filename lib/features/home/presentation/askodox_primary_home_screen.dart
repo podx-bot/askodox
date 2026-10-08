@@ -355,6 +355,16 @@ class _AskodoxPrimaryHomeScreenState
   /// can never fall back to device TTS and talk over the new one.
   int _speechTurn = 0;
 
+  /// The reply being spoken, which engine speaks it ('sarvam' / 'device'),
+  /// where the device voice reached (native speechRange), pause and mute.
+  String? _speakingText;
+  String _speakingUserText = '';
+  String _speakingEngine = '';
+  int _speechRangeStart = 0;
+  bool _speechPaused = false;
+  String? _pausedRemainder;
+  bool _speechMuted = false;
+
   /// Result Board: the card each category box shows ("dealId:kind" -> index)
   /// and whether the customer mega-expanded the board.
   final Map<String, int> _boardPositions = {};
@@ -549,12 +559,86 @@ class _AskodoxPrimaryHomeScreenState
   /// any reply ASKODOX is still speaking.
   Future<void> _stopSpeaking() async {
     _speechTurn++;
+    _pausedRemainder = null;
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
     } catch (_) {}
-    if (mounted && _voicePhase == _VoicePhase.speaking) {
-      setState(() => _voicePhase = _VoicePhase.idle);
+    if (mounted && (_voicePhase == _VoicePhase.speaking || _speechPaused)) {
+      setState(() {
+        _speechPaused = false;
+        _voicePhase = _VoicePhase.idle;
+      });
     }
+  }
+
+  /// Pause: Sarvam reply audio pauses in place; the device voice cannot
+  /// pause, so it stops and remembers the word it reached (resume goes on
+  /// from there with the SAME device voice -- never a voice switch).
+  Future<void> _pauseSpeaking() async {
+    if (_voicePhase != _VoicePhase.speaking || _speechPaused) return;
+    _lipSyncTimer?.cancel();
+    ref.read(askodoxCompanionVoiceProvider).speechEnd();
+    if (_speakingEngine == 'sarvam') {
+      bool? paused;
+      try {
+        paused = await _device.invokeMethod<bool>('pauseReplyAudio');
+      } catch (_) {}
+      if (paused == true) {
+        if (mounted) setState(() => _speechPaused = true);
+        return;
+      }
+    }
+    final text = _speakingText ?? '';
+    final rest = text.substring(_speechRangeStart.clamp(0, text.length)).trim();
+    _speechTurn++; // the stopped reply must not fall back to anything
+    try {
+      await _device.invokeMethod<bool>('stopSpeaking');
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _pausedRemainder = rest;
+      _speechPaused = true;
+    });
+  }
+
+  Future<void> _resumeSpeaking() async {
+    if (!_speechPaused) return;
+    final rest = _pausedRemainder;
+    if (rest == null) {
+      bool? resumed;
+      try {
+        resumed = await _device.invokeMethod<bool>('resumeReplyAudio');
+      } catch (_) {}
+      if (!mounted) return;
+      if (resumed == true) {
+        setState(() => _speechPaused = false);
+      } else {
+        await _stopSpeaking();
+      }
+      return;
+    }
+    setState(() {
+      _pausedRemainder = null;
+      _speechPaused = false;
+    });
+    if (rest.isEmpty) {
+      await _stopSpeaking();
+      return;
+    }
+    await _speakReply(rest, userText: _speakingUserText, force: true, deviceOnly: true);
+  }
+
+  /// Mute voice replies (the text stays); unmute from any message's menu.
+  Future<void> _toggleMute() async {
+    final muted = !_speechMuted;
+    setState(() => _speechMuted = muted);
+    if (muted) await _stopSpeaking();
+  }
+
+  /// Replay one reply on request (even while replies are muted).
+  Future<void> _replayReply(String text) async {
+    await _stopSpeaking();
+    await _speakReply(text, userText: text, force: true);
   }
 
   void _voiceError(String message) {
@@ -656,7 +740,9 @@ class _AskodoxPrimaryHomeScreenState
     final voice = ref.read(askodoxCompanionVoiceProvider);
     if (call.method == 'speechRange') {
       final args = Map<Object?, Object?>.from(call.arguments as Map? ?? const {});
-      voice.speechRange((args['start'] as num?)?.toInt() ?? 0, (args['end'] as num?)?.toInt() ?? 0);
+      final start = (args['start'] as num?)?.toInt() ?? 0;
+      _speechRangeStart = start; // where a paused device voice resumes
+      voice.speechRange(start, (args['end'] as num?)?.toInt() ?? 0);
     }
     return null;
   }
@@ -3261,9 +3347,16 @@ class _AskodoxPrimaryHomeScreenState
   /// Speaks the reply with the existing Sarvam Bulbul v3 pipeline
   /// (backend `/api/in-app/voice/speak`); only when Sarvam is unavailable or
   /// the device cannot play its audio does it fall back to device TTS.
-  Future<void> _speakReply(String reply, {required String userText}) async {
+  Future<void> _speakReply(String reply,
+      {required String userText, bool force = false, bool deviceOnly = false}) async {
+    if (_speechMuted && !force) return; // muted: the text reply stays
     reply = askodoxPlainReply(reply); // markup is for the eye, never spoken
     final turn = ++_speechTurn;
+    _speakingText = reply;
+    _speakingUserText = userText;
+    _speechRangeStart = 0;
+    _speechPaused = false;
+    _pausedRemainder = null;
     bool current() => mounted && turn == _speechTurn && _voicePhase == _VoicePhase.speaking;
     final language = askodoxSpeechLanguage(
       reply: reply,
@@ -3274,7 +3367,7 @@ class _AskodoxPrimaryHomeScreenState
     final lips = ref.read(askodoxCompanionVoiceProvider)..speechBegin(reply);
     try {
       // Flag voice.sarvam_tts off -> device TTS only (no Sarvam call).
-      final audio = !ref.read(askodoxFlagProvider('voice.sarvam_tts'))
+      final audio = deviceOnly || !ref.read(askodoxFlagProvider('voice.sarvam_tts'))
           ? null
           : await ref
               .read(askodoxReplySpeechServiceProvider)
@@ -3284,6 +3377,7 @@ class _AskodoxPrimaryHomeScreenState
       if (audio != null) {
         lips.speechBegin(reply);
         _startLipSyncPolling(lips);
+        _speakingEngine = 'sarvam';
         final played = await _device.invokeMethod<bool>(
           'playReplyAudio',
           <String, Object?>{'bytes': audio, 'languageCode': language},
@@ -3311,6 +3405,7 @@ class _AskodoxPrimaryHomeScreenState
         ));
       }
       lips.speechBegin(reply);
+      _speakingEngine = 'device';
       await _device.invokeMethod<bool>(
         'speakReply',
         <String, Object?>{
@@ -3325,8 +3420,12 @@ class _AskodoxPrimaryHomeScreenState
       if (turn == _speechTurn) {
         _lipSyncTimer?.cancel();
         lips.speechEnd();
+        _speakingEngine = '';
         if (mounted && _voicePhase == _VoicePhase.speaking) {
-          setState(() => _voicePhase = _VoicePhase.idle);
+          setState(() {
+            _speechPaused = false;
+            _voicePhase = _VoicePhase.idle;
+          });
         }
       }
     }
@@ -4120,7 +4219,10 @@ class _AskodoxPrimaryHomeScreenState
             Align(
               alignment:
                   turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
+              child: GestureDetector(
+               key: ValueKey('askodoxBubble-$index'),
+               onLongPress: turn.text.trim().isEmpty ? null : () => _messageActions(turn, te),
+               child: Container(
                 constraints: const BoxConstraints(maxWidth: 330),
                 margin: const EdgeInsets.only(bottom: 10),
                 padding:
@@ -4205,6 +4307,7 @@ class _AskodoxPrimaryHomeScreenState
                               style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
                   ],
                 ),
+              ),
               ),
             ),
             if (_signInTurn == index && _pendingSignInAction != null)
@@ -4629,14 +4732,108 @@ class _AskodoxPrimaryHomeScreenState
             icon: const Icon(Icons.stop_rounded),
             label: Text(te ? 'ఆపండి' : 'Stop'),
           )
-        else if (_voicePhase == _VoicePhase.speaking)
+        else if (_voicePhase == _VoicePhase.speaking) ...[
+          IconButton(
+            key: Key(_speechPaused ? 'askodoxResumeSpeaking' : 'askodoxPauseSpeaking'),
+            tooltip: _speechPaused ? (te ? 'కొనసాగించు' : 'Resume') : (te ? 'ఆపి ఉంచు' : 'Pause'),
+            visualDensity: VisualDensity.compact,
+            onPressed: _speechPaused ? _resumeSpeaking : _pauseSpeaking,
+            icon: Icon(_speechPaused ? Icons.play_arrow_rounded : Icons.pause_rounded),
+          ),
+          IconButton(
+            key: const Key('askodoxMuteSpeaking'),
+            tooltip: te ? 'వాయిస్ జవాబులు మ్యూట్' : 'Mute voice replies',
+            visualDensity: VisualDensity.compact,
+            onPressed: _toggleMute,
+            icon: const Icon(Icons.volume_off_rounded),
+          ),
           TextButton(
             key: const Key('askodoxStopSpeaking'),
             onPressed: _stopSpeaking,
             child: Text(te ? 'ఆపండి' : 'Stop'),
           ),
+        ],
       ]),
     );
+  }
+
+  /// Long-press on any message: copy, select text, share (the Android share
+  /// sheet -- the user picks where; nothing is posted by ASKODOX), and for
+  /// replies: replay aloud and mute / unmute voice replies.
+  Future<void> _messageActions(ConversationTurnRecord turn, bool te) async {
+    final text = turn.isUser ? turn.text.trim() : askodoxPlainReply(turn.text).trim();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheet) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            key: const Key('askodoxMessageCopy'),
+            leading: const Icon(Icons.copy_rounded),
+            title: Text(te ? 'కాపీ' : 'Copy'),
+            onTap: () => Navigator.pop(sheet, 'copy'),
+          ),
+          ListTile(
+            key: const Key('askodoxMessageSelect'),
+            leading: const Icon(Icons.text_fields_rounded),
+            title: Text(te ? 'టెక్స్ట్ ఎంచుకోండి' : 'Select text'),
+            onTap: () => Navigator.pop(sheet, 'select'),
+          ),
+          ListTile(
+            key: const Key('askodoxMessageShare'),
+            leading: const Icon(Icons.share_rounded),
+            title: Text(te ? 'షేర్' : 'Share'),
+            onTap: () => Navigator.pop(sheet, 'share'),
+          ),
+          if (!turn.isUser) ...[
+            ListTile(
+              key: const Key('askodoxMessageReplay'),
+              leading: const Icon(Icons.replay_rounded),
+              title: Text(te ? 'మళ్లీ వినిపించు' : 'Replay aloud'),
+              onTap: () => Navigator.pop(sheet, 'replay'),
+            ),
+            ListTile(
+              key: const Key('askodoxMessageMute'),
+              leading: Icon(_speechMuted ? Icons.volume_up_rounded : Icons.volume_off_rounded),
+              title: Text(_speechMuted
+                  ? (te ? 'వాయిస్ జవాబులు ఆన్' : 'Unmute voice replies')
+                  : (te ? 'వాయిస్ జవాబులు మ్యూట్' : 'Mute voice replies')),
+              onTap: () => Navigator.pop(sheet, 'mute'),
+            ),
+          ],
+        ]),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'copy':
+        await Clipboard.setData(ClipboardData(text: text));
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(te ? 'కాపీ అయింది' : 'Copied')));
+        }
+      case 'select':
+        await showDialog<void>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            content: SingleChildScrollView(
+              child: SelectableText(text, key: const Key('askodoxMessageSelectable')),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog), child: Text(te ? 'మూసివేయి' : 'Close')),
+            ],
+          ),
+        );
+      case 'share':
+        try {
+          await _device.invokeMethod<bool>('shareText', <String, Object?>{'text': text, 'title': 'ASKODOX'});
+        } catch (_) {
+          if (mounted) _voiceError(te ? 'షేర్ చేయలేకపోయాను.' : 'Could not open sharing.');
+        }
+      case 'replay':
+        await _replayReply(turn.text);
+      case 'mute':
+        await _toggleMute();
+    }
   }
 
   /// Level for bar [i]; the newest sample is the right-most bar.

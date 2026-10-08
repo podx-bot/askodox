@@ -5033,6 +5033,165 @@ void main() {
       expect(state.lastReplyVoiceEngine, 'sarvam_bulbul_v3');
     });
 
+    testWidgets('pause / resume Sarvam reply audio in place; never a second voice', (tester) async {
+      final playing = Completer<Object?>();
+      mockRecorder(extra: (call) async {
+        if (call.method == 'playReplyAudio') return playing.future;
+        if (call.method == 'pauseReplyAudio' || call.method == 'resumeReplyAudio') return true;
+        return null;
+      });
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      final speaking = state.speakReplyForTest('A long answer.') as Future<void>;
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxPauseSpeaking')));
+      await tester.pump();
+      expect(methods(), contains('pauseReplyAudio'));
+      expect(find.byKey(const Key('askodoxResumeSpeaking')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxResumeSpeaking')));
+      await tester.pump();
+      expect(methods(), contains('resumeReplyAudio'));
+      expect(find.byKey(const Key('askodoxPauseSpeaking')), findsOneWidget);
+      playing.complete(true);
+      await speaking;
+      await _Harness.settle(tester);
+      expect(methods(), isNot(contains('speakReply')));
+      expect(find.byKey(const Key('askodoxStopSpeaking')), findsNothing);
+    });
+
+    testWidgets('device voice: pause remembers the word reached; resume continues there with the SAME voice',
+        (tester) async {
+      final speaking = <Completer<Object?>>[];
+      mockRecorder(extra: (call) async {
+        if (call.method == 'speakReply') {
+          final c = Completer<Object?>();
+          speaking.add(c);
+          return c.future;
+        }
+        if (call.method == 'stopSpeaking') {
+          for (final c in speaking) {
+            if (!c.isCompleted) c.complete(false);
+          }
+        }
+        return null;
+      });
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = null; // no Sarvam audio -> device voice
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      unawaited(state.speakReplyForTest('First part. Second part.') as Future<void>);
+      await tester.pump();
+      // Native word ranges: the device voice has reached "Second".
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(const MethodCall('speechRange', {'start': 12, 'end': 18})),
+          (_) {});
+      await tester.tap(find.byKey(const Key('askodoxPauseSpeaking')));
+      await tester.pump();
+      expect(methods(), contains('stopSpeaking'));
+      expect(find.byKey(const Key('askodoxResumeSpeaking')), findsOneWidget);
+      final sarvamCalls = h.replySpeech.calls.length;
+
+      await tester.tap(find.byKey(const Key('askodoxResumeSpeaking')));
+      await tester.pump();
+      final resumed = calls.lastWhere((c) => c.method == 'speakReply');
+      expect((resumed.arguments as Map)['text'], 'Second part.');
+      expect(h.replySpeech.calls.length, sarvamCalls, reason: 'resume never switches to another voice engine');
+      speaking.last.complete(true);
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxStopSpeaking')), findsNothing);
+    });
+
+    testWidgets('mute stops the voice and keeps later replies silent; replay speaks on request', (tester) async {
+      final playing = Completer<Object?>();
+      mockRecorder(extra: (call) async {
+        if (call.method == 'playReplyAudio' && !playing.isCompleted) return playing.future;
+        if (call.method == 'stopSpeaking' && !playing.isCompleted) playing.complete(false);
+        return call.method == 'playReplyAudio' ? true : null;
+      });
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        assistant: _Assistant((_) => {
+              'reply': '**Tip:** check the warranty.', 'domain': 'GENERAL', 'transactional': false,
+              'confidence': 0.9, 'source': 'universal_ai',
+            }),
+      );
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      unawaited(state.speakReplyForTest('Speaking now.') as Future<void>);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxMuteSpeaking')));
+      await _Harness.settle(tester);
+      expect(methods(), contains('stopSpeaking'));
+      calls.clear();
+      await state.speakReplyForTest('A later reply.');
+      await tester.pump();
+      expect(methods(), isNot(contains('playReplyAudio')), reason: 'muted: no voice');
+      expect(methods(), isNot(contains('speakReply')));
+
+      await h.send(tester, 'any advice?');
+      await tester.longPress(find.byKey(const ValueKey('askodoxBubble-1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Unmute voice replies'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxMessageReplay')));
+      await _Harness.settle(tester);
+      final replay = calls.lastWhere((c) => c.method == 'playReplyAudio');
+      expect(replay, isNotNull, reason: 'replay is an explicit request: spoken even while muted');
+      expect(h.replySpeech.calls.last.$1, 'Tip: check the warranty.', reason: 'no markup is spoken');
+    });
+
+    testWidgets('long-press a message: copy (plain text), select text, share via the system sheet', (tester) async {
+      mockRecorder();
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
+        return null;
+      });
+      addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        assistant: _Assistant((_) => {
+              'reply': '**Tip:** check the warranty.', 'domain': 'GENERAL', 'transactional': false,
+              'confidence': 0.9, 'source': 'universal_ai',
+            }),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'any advice?');
+      final bubble = find.byKey(const ValueKey('askodoxBubble-1'));
+
+      await tester.longPress(bubble);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMessageCopy')));
+      await tester.pumpAndSettle();
+      expect(copied, 'Tip: check the warranty.');
+
+      await tester.longPress(bubble);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMessageSelect')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxMessageSelectable')), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(bubble);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMessageShare')));
+      await tester.pumpAndSettle();
+      final share = calls.lastWhere((c) => c.method == 'shareText');
+      expect((share.arguments as Map)['text'], 'Tip: check the warranty.');
+
+      // The user's own message: copy / select / share, no replay.
+      await tester.longPress(find.byKey(const ValueKey('askodoxBubble-0')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxMessageCopy')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxMessageReplay')), findsNothing);
+    });
+
     testWidgets('Stop during the audio fetch: nothing is spoken afterwards', (tester) async {
       mockRecorder(levels: const []);
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));

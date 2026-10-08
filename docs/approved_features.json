@@ -119,11 +119,23 @@
       "expected_behavior": "Recording ends on the user's Stop; long silence (8 s) and 2 min are safety limits; Telugu preserved; no markup spoken; ONE audio lifecycle -- a newer reply or Stop cuts the old one off and it never falls back to a second voice.",
       "roles": ["any"], "domains": ["any"],
       "api": [{"method": "POST", "path": "/api/in-app/voice/transcribe"}, {"method": "POST", "path": "/api/in-app/voice/speak"}],
-      "ui": {"keys": ["askodoxVoicePanel", "askodoxVoiceCancel"], "symbols": ["AskodoxVoiceEndpointer"]},
+      "ui": {"keys": ["askodoxVoicePanel", "askodoxVoiceCancel", "askodoxPauseSpeaking", "askodoxResumeSpeaking", "askodoxMuteSpeaking", "askodoxStopSpeaking"], "symbols": ["AskodoxVoiceEndpointer"]},
       "flags": {"voice.sarvam_tts": true},
-      "tests": {"backend": ["tests/test_in_app_voice_transcribe_route.py"], "flutter": ["test/services/voice_endpointing_test.dart", "test/features/home/askodox_unified_chat_flow_test.dart::never two voices"]},
+      "tests": {"backend": ["tests/test_in_app_voice_transcribe_route.py"], "flutter": ["test/services/voice_endpointing_test.dart", "test/features/home/askodox_unified_chat_flow_test.dart::never two voices", "test/features/home/askodox_unified_chat_flow_test.dart::pause / resume Sarvam reply audio", "test/features/home/askodox_unified_chat_flow_test.dart::resume continues there with the SAME voice", "test/features/home/askodox_unified_chat_flow_test.dart::mute stops the voice"]},
       "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "no stop on a thinking pause"}, {"pr": "post-1313", "change": "one audio lifecycle (speech turn token; native speech stops reply audio)"}]
+      "history": [{"pr": "post-1312", "change": "no stop on a thinking pause"}, {"pr": "post-1313", "change": "one audio lifecycle (speech turn token; native speech stops reply audio)"}, {"pr": "post-1313", "change": "pause / resume (Sarvam in place; device voice resumes from the last word, same engine), mute, replay"}]
+    },
+    {
+      "id": "message_actions",
+      "name": "Message actions (copy / select / share / replay)",
+      "purpose": "Every message can be copied, selected and shared; replies can be replayed aloud.",
+      "expected_behavior": "Long-press a message: Copy (plain text, no markup), Select text, Share through the Android share sheet (the user chooses; nothing is posted by ASKODOX); replies add Replay aloud and Mute / Unmute voice replies.",
+      "roles": ["any"], "domains": ["any"],
+      "ui": {"keys": ["askodoxMessageCopy", "askodoxMessageSelect", "askodoxMessageShare", "askodoxMessageReplay", "askodoxMessageMute", "askodoxMessageSelectable"]},
+      "flags": {},
+      "tests": {"flutter": ["test/features/home/askodox_unified_chat_flow_test.dart::long-press a message"]},
+      "dependencies": ["rich_replies", "voice"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
       "id": "header_location",

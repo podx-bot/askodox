@@ -135,6 +135,25 @@ class MainActivity : FlutterActivity() {
                     }
                     "playReplyAudio" -> playReplyAudio(call.argument<ByteArray>("bytes"), result)
                     "replyAudioProgress" -> result.success(replyAudioProgress())
+                    // Pause / resume the reply audio in place (device TTS
+                    // cannot pause: the app stops it and resumes from the
+                    // last spoken word instead).
+                    "pauseReplyAudio" -> {
+                        val player = mediaPlayer
+                        result.success(
+                            if (player != null && player.isPlaying) {
+                                try { player.pause(); true } catch (_: Exception) { false }
+                            } else false,
+                        )
+                    }
+                    "resumeReplyAudio" -> {
+                        val player = mediaPlayer
+                        result.success(
+                            if (player != null && !player.isPlaying) {
+                                try { player.start(); true } catch (_: Exception) { false }
+                            } else false,
+                        )
+                    }
                     "stopSpeaking" -> {
                         stopSpeaking()
                         result.success(true)
