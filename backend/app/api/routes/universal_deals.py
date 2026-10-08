@@ -591,6 +591,15 @@ def _structured_demand(user_id: str, payload: UniversalDealCreateRequest) -> dic
         constraints["requested_groups"] = groups
         if "videos" in groups:
             constraints["wants_videos"] = True
+    # Online / local / both, from the user's own words anywhere in the
+    # message (a later statement replaces an earlier one; nothing said keeps
+    # what the app remembered for this request).
+    from app.services.channel_preference import detect as detect_channel
+    channel = detect_channel(said)
+    if channel:
+        constraints["channel"] = channel
+    elif str(constraints.get("channel") or "") not in ("online", "local"):
+        constraints.pop("channel", None)
     # The conversation language (Revenue Center breakdown only).
     language = str((getattr(payload, "trace", None) or {}).get("language") or "").strip()[:8]
     if language:
@@ -1144,6 +1153,9 @@ def _result_contract(container, demand: dict, discovered: dict, advisor: dict | 
     return contract
 
 
+_ONLINE_CHANNEL_SOURCES = {"online", "video", "content", "sponsored"}
+
+
 def _discover(container, demand: dict, matches: list[dict] | None = None, *, trace_key: str = "") -> dict:
     """The ONE universal discovery pipeline (any category): affiliate +
     ASKODOX registered + nearby/wider local + used/surplus/deals + online +
@@ -1201,7 +1213,14 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     category = str(demand.get("domain") or "").strip()
     subject = str(demand.get("subject") or "").strip()
     discovery = _multi_source_service(container)
-    local_sources_on = any(
+    # The channel the customer asked for decides which sources run: an
+    # online-only ask never shows nearby shop cards, a local-only ask never
+    # waits for web shops (channel_preference.py; any category).
+    channel = str((demand.get("constraints") or {}).get("channel") or "")
+    # Offers / used deals are fetched by the local collector but are not a
+    # walk-in channel: an online ask that names offers still collects them.
+    wants_deals = "deals" in ((demand.get("constraints") or {}).get("requested_groups") or [])
+    local_sources_on = (channel != "online" or wants_deals) and any(
         flags.get(key, True)
         for key in ("results.registered", "results.nearby_external", "results.used", "results.surplus", "results.deals")
     )
@@ -1216,6 +1235,12 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     has_online = any(item.get("match_source") == "online" and not item.get("affiliate")
                      and str(item.get("id")) not in affiliate_ids for item in matches)
     online_on, videos_on = flags.get("results.online", True), flags.get("results.videos", True)
+    if channel == "local":
+        online_on = False
+    if channel == "online":
+        # An explicit online ask always runs the web search (a catalog or
+        # affiliate row alone is not "the online results").
+        has_online = False
     try:
         fallback = (
             discovery.online_and_videos(
@@ -1412,6 +1437,14 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
     except Exception:
         pass
     _annotate_offers(container, matches)
+    if channel == "online":
+        # An online-only ask: registered / nearby / walk-in rows that came in
+        # with the matches are not what was asked for (APK 1312).
+        kept_rows = [m for m in matches if str(m.get("match_source") or "") in _ONLINE_CHANNEL_SOURCES
+                     or str(m.get("segment") or "") in ("online", "affiliate", "partner", "marketplace")]
+        if len(kept_rows) != len(matches):
+            filtered["channel_online_only"] = filtered.get("channel_online_only", 0) + len(matches) - len(kept_rows)
+        matches = kept_rows
     price_rejected: list = []
     try:
         # Budget truth: every priced row says whether it fits the budget

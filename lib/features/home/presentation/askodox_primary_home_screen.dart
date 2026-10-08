@@ -39,6 +39,7 @@ import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
 import '../domain/result_board.dart';
+import '../../../shared/widgets/rich_reply.dart';
 import '../domain/conversation_closing.dart';
 import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
@@ -2205,6 +2206,8 @@ class _AskodoxPrimaryHomeScreenState
 
       final namedGroups = askodoxRequestedGroups(text);
       if (namedGroups.isNotEmpty) notifier.rememberGroups(namedGroups);
+      final channel = askodoxChannelPreference(text);
+      if (channel != null) notifier.rememberChannel(channel);
       final dealSession = ref.read(universalDealControllerProvider);
       final deal = dealSession.deal;
       if (deal != null) {
@@ -2477,8 +2480,14 @@ class _AskodoxPrimaryHomeScreenState
       final shownFor = pinned == null ? null : _dealByTurn[pinned];
       final nowWanted = ref.read(universalDealControllerProvider).deal;
       if (transactional && (results == null || results.isEmpty) && shownFor != null && nowWanted != null) {
-        if (!askodoxSameNeed(shownFor.subject, nowWanted.subject) &&
-            !askodoxSameNeed('${shownFor.dynamicFields['said_subject'] ?? ''}', nowWanted.subject)) {
+        final channelChanged = nowWanted.dynamicFields['channel'] != null &&
+            nowWanted.dynamicFields['channel'] != shownFor.dynamicFields['channel'];
+        if (channelChanged ||
+            (!askodoxSameNeed(shownFor.subject, nowWanted.subject) &&
+                !askodoxSameNeed('${shownFor.dynamicFields['said_subject'] ?? ''}', nowWanted.subject))) {
+          // A different need -- or the same need from another channel (local
+          // cards when online was asked): archived, recoverable, never shown
+          // as the answer to this ask (APK 1312).
           _resultsHiddenFor = pinned;
           _boardMinimizedFor = null;
           _focusedMatch = null;
@@ -3238,6 +3247,7 @@ class _AskodoxPrimaryHomeScreenState
   /// (backend `/api/in-app/voice/speak`); only when Sarvam is unavailable or
   /// the device cannot play its audio does it fall back to device TTS.
   Future<void> _speakReply(String reply, {required String userText}) async {
+    reply = askodoxPlainReply(reply); // markup is for the eye, never spoken
     final language = askodoxSpeechLanguage(
       reply: reply,
       userText: userText,
@@ -4141,11 +4151,13 @@ class _AskodoxPrimaryHomeScreenState
                                   fontSize: 12, color: turn.isUser ? Colors.white70 : _muted)),
                         ),
                     if (turn.text.isNotEmpty)
-                      Text(turn.text,
-                          style: TextStyle(
-                              color: turn.isUser ? Colors.white : _ink,
-                              height: 1.35,
-                              fontWeight: FontWeight.w500)),
+                      // Assistant replies render their structure (headings,
+                      // points, bold, tables, links) -- never raw "**".
+                      turn.isUser
+                          ? Text(turn.text,
+                              style: const TextStyle(color: Colors.white, height: 1.35, fontWeight: FontWeight.w500))
+                          : AskodoxRichReply(turn.text,
+                              style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),

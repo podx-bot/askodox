@@ -170,6 +170,15 @@ class UniversalDealController extends StateNotifier<UniversalDealSession> {
     _setSession(_sessionFor(current.copyWith(dynamicFields: fields)));
   }
 
+  /// Where the customer wants results from ('online' / 'local'); a later
+  /// statement replaces an earlier one. Part of the requirement, so a new
+  /// channel re-searches and marks the old cards as not for this ask.
+  void rememberChannel(String channel) {
+    final current = state.deal;
+    if (current == null || current.dynamicFields['channel'] == channel) return;
+    _setSession(_sessionFor(current.copyWith(dynamicFields: {...current.dynamicFields, 'channel': channel})));
+  }
+
   /// The advisor asked about [field] (never asked twice in this request).
   void markAdvisorAsked(String field) {
     final current = state.deal;

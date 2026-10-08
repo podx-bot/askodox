@@ -48,7 +48,7 @@ void main() {
     final levels = [
       ..._n(3, 150),
       for (var i = 0; i < 10; i++) ...[..._n(25, 2200), ..._n(5, 250)], // 60 s
-      ..._n(20, 150),
+      ..._n(45, 150),
     ];
     final d = _run(e, levels);
     expect(d.last, VoiceEndpointDecision.stopAfterSilence);
@@ -57,15 +57,29 @@ void main() {
 
   test('genuine silence after speech stops the turn', () {
     final e = AskodoxVoiceEndpointer();
-    final d = _run(e, [..._n(3, 150), ..._n(20, 4000), ..._n(20, 150)]);
+    final d = _run(e, [..._n(3, 150), ..._n(20, 4000), ..._n(45, 150)]);
     expect(d.last, VoiceEndpointDecision.stopAfterSilence);
-    expect(d.length, 3 + 20 + 15, reason: 'exactly 3 s of silence');
+    expect(d.length, 3 + 20 + 40, reason: 'only after 8 s of silence (safety limit)');
   });
 
   test('noisy room: background noise is not speech and does not block silence detection', () {
     final e = AskodoxVoiceEndpointer();
-    final d = _run(e, [..._n(3, 1500), ..._n(25, 9000), ..._n(30, 1600)]);
+    final d = _run(e, [..._n(3, 1500), ..._n(25, 9000), ..._n(45, 1600)]);
     expect(d.last, VoiceEndpointDecision.stopAfterSilence);
+  });
+
+  test('APK 1312: a 5 s thinking pause and a short phrase never end the turn', () {
+    final e = AskodoxVoiceEndpointer();
+    // "I want..." (1 s) -- 5 s pause -- the rest of the request (3 s) -- 5 s pause.
+    final levels = [..._n(3, 150), ..._n(5, 3000), ..._n(25, 200), ..._n(15, 3000), ..._n(25, 200)];
+    final d = _run(e, levels);
+    expect(d.every((x) => x == VoiceEndpointDecision.keepRecording), isTrue);
+  });
+
+  test('a cough is not speech that arms the silence stop', () {
+    final e = AskodoxVoiceEndpointer();
+    final d = _run(e, [..._n(3, 150), ..._n(2, 6000), ..._n(50, 150)]);
+    expect(d.contains(VoiceEndpointDecision.stopAfterSilence), isFalse);
   });
 
   test('no speech at all ends only after the long timeout', () {

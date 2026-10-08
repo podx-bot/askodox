@@ -18,10 +18,14 @@ enum VoiceEndpointDecision {
 class AskodoxVoiceEndpointer {
   AskodoxVoiceEndpointer({
     this.calibration = const Duration(milliseconds: 600),
-    this.silenceAfterSpeech = const Duration(milliseconds: 3000),
+    // APK 1312: 3 s ended turns on a natural thinking pause ("stops after
+    // 1-2 seconds of talking"). The user's Stop ends a turn; long silence
+    // is only a SAFETY limit.
+    this.silenceAfterSpeech = const Duration(seconds: 8),
     this.noSpeechTimeout = const Duration(seconds: 15),
     this.maxDuration = const Duration(minutes: 2),
-    this.minimumSpeech = const Duration(milliseconds: 400),
+    // A cough or a click is not speech that may arm the silence stop.
+    this.minimumSpeech = const Duration(milliseconds: 800),
     this.minimumThreshold = 600,
   });
 

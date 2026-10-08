@@ -1661,6 +1661,38 @@ void main() {
       });
     }
 
+    testWidgets('APK 1312: an online ask never leaves the old local cards posing as its answer', (tester) async {
+      final h = harness([
+        search('walking shoes'),
+        d('Checking online stores for walking shoes.', ready: true, action: 'search_products', transactional: true,
+            subject: 'walking shoes', relation: 'refinement'),
+      ], const [
+        UniversalMatchResult(dealId: 'ch', matches: [nurse, a]),
+        UniversalMatchResult(dealId: 'ch', matches: []),
+      ]);
+      await h.pump(tester);
+      await h.send(tester, 'walking shoes near me');
+      expect(cards(), findsNWidgets(2));
+      await h.send(tester, 'show me walking shoes online shops');
+      expect(h.matches.deals.last.dynamicFields['channel'], 'online', reason: 'the channel reaches discovery');
+      expect(cards(), findsNothing, reason: 'the old local cards are not the online answer');
+      expect(find.byKey(const ValueKey('askodoxResultCard-external-external-n-rb')), findsNothing);
+    });
+
+    testWidgets('APK 1312: switching to online with no search yet archives the local deck', (tester) async {
+      final h = harness([
+        search('walking shoes'),
+        d('Sure -- which size should I look for online?', transactional: true, action: 'search_products',
+            subject: 'walking shoes', relation: 'refinement'),
+      ], const [UniversalMatchResult(dealId: 'ch2', matches: [nurse, a])]);
+      await h.pump(tester);
+      await h.send(tester, 'walking shoes near me');
+      expect(cards(), findsNWidgets(2));
+      await h.send(tester, 'actually online only');
+      expect(cards(), findsNothing, reason: 'local cards never pose as the online answer');
+      expect(find.byKey(const Key('askodoxArchivedResultsRestore')), findsOneWidget, reason: 'archived, recoverable');
+    });
+
     testWidgets('no cards: a guidance reply keeps its estimate, only the false claim is dropped', (tester) async {
       final h = harness([
         d('Here is a rough cost breakdown: about 110 sq ft at ₹60–₹150 (estimate). Here are some options nearby.',
@@ -1968,13 +2000,18 @@ void main() {
     });
   });
 
-  testWidgets('companion Location opens the location screen; a searched place is used by the chat', (tester) async {
+  testWidgets('location screen: a searched place is used by the chat (companion ring has no Location)', (tester) async {
     final h = _Harness(matches: _FakeMatchRepository(const []))..withRouter = true;
     await h.pump(tester);
     await _openCompanionHub(tester);
-    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-location')));
+    // APK 1312 (owner decision): Location lives in the header chip only.
+    expect(find.byKey(const ValueKey('askodoxHubAction-location')), findsNothing);
+    await tester.tapAt(const Offset(20, 20)); // close the ring
     await _Harness.settle(tester);
-    expect(find.byType(LocationSetupScreen), findsOneWidget, reason: 'Location in the + ring opens the picker');
+    // The header chip opens the same /location screen.
+    GoRouter.of(tester.element(find.byType(AskodoxPrimaryHomeScreen))).push('/location');
+    await _Harness.settle(tester);
+    expect(find.byType(LocationSetupScreen), findsOneWidget, reason: 'the location picker still works');
     await tester.enterText(find.byKey(const Key('askodoxLocationSearch')), 'Benz Circle');
     await tester.tap(find.byKey(const Key('askodoxLocationSearchGo')));
     await _Harness.settle(tester);
@@ -4560,7 +4597,7 @@ void main() {
           ...speech(const Duration(seconds: 3), level: 1200), // soft voice
           ...quiet(const Duration(seconds: 2), level: 400),
         ],
-        ...quiet(const Duration(seconds: 4)),
+        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
       ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
@@ -4579,7 +4616,7 @@ void main() {
       expect(methods(), isNot(contains('stopVoiceRecording')),
           reason: 'still speaking at 20 s: no premature stop');
 
-      await runFor(tester, const Duration(seconds: 12));
+      await runFor(tester, const Duration(seconds: 17));
 
       expect(methods(), isNot(contains('startVoiceSearch')), reason: 'never the system recognizer');
       expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1));
@@ -4602,7 +4639,7 @@ void main() {
           ...speech(const Duration(seconds: 4), level: 2400),
           ...quiet(const Duration(seconds: 1), level: 300), // breaths, not silence
         ],
-        ...quiet(const Duration(seconds: 4)),
+        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
       ]);
       const longTranscript = 'నాకు విజయవాడలో రేపు ఉదయం పది గంటలకు రెండు కిలోల చికెన్ కావాలి '
           'స్కిన్‌లెస్ కర్రీ కట్ కావాలి డెలివరీ మా ఇంటికి కావాలి ధర ఎంత అవుతుందో కూడా చెప్పండి';
@@ -4622,7 +4659,7 @@ void main() {
       await runFor(tester, const Duration(seconds: 58));
       expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'still speaking at 58 s');
 
-      await runFor(tester, const Duration(seconds: 10));
+      await runFor(tester, const Duration(seconds: 15));
 
       expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1), reason: 'finalized exactly once');
       expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'audio kept, not discarded');
@@ -4639,7 +4676,7 @@ void main() {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
         ...speech(const Duration(seconds: 12)),
-        ...quiet(const Duration(seconds: 4)),
+        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
       ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
@@ -4654,7 +4691,7 @@ void main() {
       );
       await h.pump(tester, locale: 'te');
       await _tapVoice(tester);
-      await runFor(tester, const Duration(seconds: 18));
+      await runFor(tester, const Duration(seconds: 23));
 
       final speak = calls.lastWhere((c) => c.method == 'speakReply');
       expect((speak.arguments as Map)['languageCode'], 'en');
@@ -4729,12 +4766,12 @@ void main() {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
         ...speech(const Duration(seconds: 2)),
-        ...quiet(const Duration(seconds: 4)),
+        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
       ]);
       final failing = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await failing.pump(tester);
       await _tapVoice(tester);
-      await runFor(tester, const Duration(seconds: 8));
+      await runFor(tester, const Duration(seconds: 13));
       expect(find.textContaining('could not understand'), findsOneWidget);
       expect(failing.assistant.requests, isEmpty);
     });
@@ -4791,7 +4828,7 @@ void main() {
         levels: [
           ...quiet(const Duration(milliseconds: 600)),
           ...speech(const Duration(seconds: 2)),
-          ...quiet(const Duration(seconds: 4)),
+          ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
         ],
         extra: (call) async => call.method == 'playReplyAudio' ? playing.future : null,
       );
@@ -4816,7 +4853,7 @@ void main() {
       await runFor(tester, const Duration(seconds: 1));
       expect(find.text('Listening…'), findsOneWidget);
 
-      await runFor(tester, const Duration(seconds: 5));
+      await runFor(tester, const Duration(seconds: 10));
       expect(find.text('Understanding…'), findsOneWidget);
 
       h.voice.hold!.complete();
@@ -4841,7 +4878,7 @@ void main() {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
         ...speech(const Duration(seconds: 2)),
-        ...quiet(const Duration(seconds: 4)),
+        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
       ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
@@ -4857,7 +4894,7 @@ void main() {
       await h.pump(tester, locale: 'te');
       final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
       await _tapVoice(tester);
-      await runFor(tester, const Duration(seconds: 8));
+      await runFor(tester, const Duration(seconds: 13));
 
       expect(h.replySpeech.calls.single.$2, 'te');
       final speak = calls.lastWhere((c) => c.method == 'speakReply');
@@ -4871,7 +4908,7 @@ void main() {
         levels: [
           ...quiet(const Duration(milliseconds: 600)),
           ...speech(const Duration(seconds: 2)),
-          ...quiet(const Duration(seconds: 4)),
+          ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
           ...speech(const Duration(seconds: 60)),
         ],
         extra: (call) async {
@@ -4884,7 +4921,7 @@ void main() {
       h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
       await h.pump(tester);
       await _tapVoice(tester);
-      await runFor(tester, const Duration(seconds: 8));
+      await runFor(tester, const Duration(seconds: 13));
       expect(find.text('Speaking…'), findsOneWidget);
 
       await _tapVoice(tester);

@@ -33,7 +33,10 @@ def test_guidance_rule_is_universal_and_honest_about_estimates():
     for must in ("every domain", "THEIR numbers", "wastage", "general estimate", "never present it as a verified",
                  "at most ONE question", "Never name specific shops", "no forced guidance, no commerce"):
         assert must in rule, must
-    for banned in ("tile", "vitrified", "sq ft"):  # no category script hidden in the rule
+    for must in ("people and skills", "materials with quantities", "tools and equipment", "quotations",
+                 "Never claim a quotation", "Never ask again for anything already said", "the app renders it"):
+        assert must in rule, must
+    for banned in ("tile", "vitrified", "sq ft", "paint"):  # no category script hidden in the rule
         assert banned not in rule.lower()
 
 
@@ -48,6 +51,10 @@ def test_ready_turns_no_longer_ask_for_a_bare_acknowledgement():
     "I want to start a tiffin centre with 2 lakh",              # business
     "personal loan 3 lakh for 3 years, what EMI?",              # finance
     "how should I plan my exam revision in 3 weeks?",           # personal / non-commerce
+    "paint my 2BHK house, need workers and material list",      # project / manpower (regression)
+    "plan a wedding for 300 guests in Guntur",                  # event
+    "start drip irrigation on 2 acres",                         # agriculture
+    "need 5 delivery boys for my shop for 2 weeks",             # workforce / employer
     "100 చదరపు అడుగుల విట్రిఫైడ్ టైల్స్ కావాలి",                  # Telugu
 ])
 def test_every_domain_gets_the_guidance_rule(message):
