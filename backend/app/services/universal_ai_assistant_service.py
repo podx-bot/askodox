@@ -35,6 +35,11 @@ def _observe_ai(provider: str, *, ok: bool = False, error: Exception | None = No
             return
         code = getattr(error, "code", None) or getattr(getattr(error, "response", None), "status_code", None)
         text = str(error or "")
+        try:  # OpenAI puts the machine code (e.g. insufficient_quota) in the body
+            body = getattr(error, "response", None).json()
+            text += " " + str(((body or {}).get("error") or {}).get("code") or "")
+        except Exception:
+            pass
         quota = "QUOTA" if re.search(r"quota|RESOURCE_EXHAUSTED|insufficient_quota|billing|credit", text, re.I) else ""
         provider_health.record(provider, status_code=code if isinstance(code, int) else None,
                                reason=f"{type(error).__name__} {quota}".strip())
@@ -542,6 +547,63 @@ class UniversalAIAssistantService:
         )
         response.raise_for_status()
         return self._parse_json(self._openai_output_text(response.json()))
+
+    def provider_health_check(self, provider: str) -> dict[str, Any]:
+        """One tiny real call to ONE provider (Command Center "Check now").
+
+        LIVE only when that provider itself answers successfully -- a Gemini
+        check never falls back to OpenAI (or the reverse). The result holds a
+        state, the HTTP status and a short safe detail: never the prompt, the
+        response body or a credential."""
+        from app.services import provider_health
+
+        if provider == "gemini":
+            if not self.api_key and self.client is None:
+                return {"ok": False, "state": provider_health.NEEDS_CONFIGURATION, "status_code": None,
+                        "detail": "Gemini API key is not set on this deployment"}
+            try:
+                client = self.client or genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    temperature=0, max_output_tokens=8, thinking_config=types.ThinkingConfig(thinking_budget=0))
+                client.models.generate_content(model=self.model, contents="Reply with OK.", config=config)
+            except Exception as exc:
+                return self._health_failure("gemini", exc)
+            _observe_ai("gemini", ok=True)
+            return {"ok": True, "state": provider_health.LIVE, "status_code": 200,
+                    "detail": f"Gemini answered ({self.model})"}
+        if provider == "openai":
+            if not self.openai_api_key:
+                return {"ok": False, "state": provider_health.NEEDS_CONFIGURATION, "status_code": None,
+                        "detail": "OpenAI API key is not set on this deployment"}
+            try:
+                response = self.http.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"},
+                    json={"model": self.openai_model, "input": "Reply with OK.", "max_output_tokens": 16},
+                )
+                response.raise_for_status()
+            except Exception as exc:
+                return self._health_failure("openai", exc)
+            _observe_ai("openai", ok=True)
+            return {"ok": True, "state": provider_health.LIVE, "status_code": 200,
+                    "detail": f"OpenAI answered ({self.openai_model})"}
+        raise ValueError(f"unknown AI provider: {provider}")
+
+    @staticmethod
+    def _health_failure(provider: str, exc: Exception) -> dict[str, Any]:
+        from app.services import provider_health
+
+        _observe_ai(provider, error=exc)
+        observed = provider_health.state(provider, configured=True)
+        code = observed.get("last_status_code")
+        name = {"gemini": "Gemini", "openai": "OpenAI"}[provider]
+        if observed["state"] == provider_health.QUOTA_EXHAUSTED:
+            detail = f"{name} refused for quota / credit" + (f" (HTTP {code})" if code else "")
+        elif code in (401, 403):
+            detail = f"{name} rejected the credentials (HTTP {code})"
+        else:
+            detail = f"{name} call failed: " + (f"HTTP {code}" if code else type(exc).__name__)
+        return {"ok": False, "state": observed["state"], "status_code": code, "detail": detail}
 
     @staticmethod
     def _openai_output_text(data: dict[str, Any]) -> str:

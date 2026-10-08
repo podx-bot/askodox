@@ -260,7 +260,11 @@ def test_integrations_and_health_never_expose_secrets_or_fake_green(cc, monkeypa
     monkeypatch.setattr(container, "settings", dataclasses.replace(container.settings, openai_api_key=""))
     items = {i["name"]: i for i in client.get("/admin/cc/integrations", headers=OWNER).json()["items"]}
     assert items["openai"]["status"] == "not_configured"
-    assert client.post("/admin/cc/integrations/openai/check", headers=OWNER).status_code == 409
+    # Missing credentials are an honest NEEDS CONFIGURATION answer, not a failed call.
+    missing = client.post("/admin/cc/integrations/openai/check", headers=OWNER)
+    assert missing.status_code == 200
+    assert missing.json()["result"]["state"] == "NEEDS_CONFIGURATION"
+    assert missing.json()["item"]["status"] == "not_configured"
 
 
 def test_analytics_totals_and_csv_export(cc):
