@@ -1,0 +1,100 @@
+name: Publish APK release
+
+# Publishes an ALREADY BUILT, signed APK from an Android Live Build artifact
+# as a public GitHub Release asset (the .apk itself, not a ZIP):
+#   https://github.com/<repo>/releases/download/<tag>/<apk name>
+# It never builds, signs or modifies the APK, never touches the in-app update
+# channel (askodox-latest) and never overwrites: an existing release or tag
+# with the requested name stops the job.
+#
+# Trigger: push a change to .github/apk-release.json on a non-main branch
+# ({"run_id", "artifact", "build_number", "tag", "target", "expect_sha256"}).
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/apk-release.json']
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read and validate the request
+        run: |
+          set -euo pipefail
+          f=.github/apk-release.json
+          for k in run_id artifact build_number tag target; do
+            v=$(jq -r ".$k" "$f"); [ -n "$v" ] && [ "$v" != null ] || { echo "missing $k"; exit 1; }
+            echo "$(echo "$k" | tr a-z A-Z)=$v" >> "$GITHUB_ENV"
+          done
+          echo "EXPECT_SHA256=$(jq -r '.expect_sha256 // ""' "$f")" >> "$GITHUB_ENV"
+      - name: Refuse to overwrite; check the target commit
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] && [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]] && [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TAG" =~ ^apk-[0-9]+$ ]] || { echo "tag must look like apk-<n>"; exit 1; }
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::release $TAG already exists -- not overwriting"; exit 1; fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::tag $TAG already exists -- not overwriting"; exit 1; fi
+          gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET" --jq '.sha + "  " + (.commit.message|split("\n")[0])'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" \
+            --jq '"run " + (.run_number|tostring) + " " + .name + " " + .conclusion + " " + .head_sha' | tee run.txt
+          grep -q " success $TARGET$" run.txt || { echo "::error::run is not a successful build of $TARGET"; exit 1; }
+      - name: Download the artifact (as built)
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n "$ARTIFACT" -D artifact
+          find artifact -type f -exec ls -l {} \;
+          n=$(find artifact -name '*.apk' | wc -l)
+          [ "$n" -eq 1 ] || { echo "::error::expected exactly one APK, found $n"; exit 1; }
+          echo "APK=$(find artifact -name '*.apk')" >> "$GITHUB_ENV"
+      - name: Verify integrity (zip, signature, certificate, checksum)
+        run: |
+          set -euo pipefail
+          unzip -tq "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee signer.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' signer.txt \
+            || grep -q '^Verified using v3 scheme' signer.txt
+          ("$BT/aapt2" dump badging "$APK" 2>/dev/null || true) | head -n 1 | tee badging.txt
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          SIZE=$(stat -c %s "$APK")
+          echo "SHA256=$SHA" >> "$GITHUB_ENV"; echo "SIZE=$SIZE" >> "$GITHUB_ENV"
+          echo "sha256 $SHA size $SIZE"
+          if [ -f artifact/VERIFICATION.txt ]; then cat artifact/VERIFICATION.txt; fi
+          if [ -n "$EXPECT_SHA256" ]; then
+            if [ "$SHA" = "$EXPECT_SHA256" ]; then echo "matches the in-app channel copy ($EXPECT_SHA256)";
+            else echo "::warning::sha256 differs from expect_sha256 $EXPECT_SHA256 (published as built)"; fi
+          fi
+      - name: Create the public release with the APK itself
+        run: |
+          set -euo pipefail
+          NAME=$(basename "$APK")
+          cp "$APK" "$NAME"
+          echo "$SHA256  $NAME" > SHA256SUMS.txt
+          CERT=$(grep -m1 'certificate SHA-256 digest' signer.txt | awk -F': ' '{print $2}')
+          gh release create "$TAG" "$NAME" SHA256SUMS.txt -R "$GITHUB_REPOSITORY" \
+            --target "$TARGET" --latest=false \
+            --title "ASKODOX APK ${BUILD_NUMBER}" \
+            --notes "Signed ASKODOX APK ${BUILD_NUMBER}, published as built (not rebuilt or modified) from Android Live Build run ${RUN_ID}, artifact ${ARTIFACT}, commit ${TARGET}. SHA-256 ${SHA256}, ${SIZE} bytes. Signing certificate SHA-256 ${CERT}."
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+      - name: Verify the public download (no GitHub login)
+        run: |
+          set -euo pipefail
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${NAME}"
+          for i in 1 2 3 4 5; do
+            code=$(env -u GH_TOKEN curl -sS -L -o public.apk -w '%{http_code}' "$URL") || code=000
+            [ "$code" = 200 ] && break; sleep $((i*5))
+          done
+          [ "$code" = 200 ] || { echo "::error::public download returned $code"; exit 1; }
+          GOT=$(sha256sum public.apk | cut -d' ' -f1)
+          [ "$GOT" = "$SHA256" ] || { echo "::error::public file differs"; exit 1; }
+          echo "PUBLIC OK: $URL ($(stat -c %s public.apk) bytes, sha256 $GOT)"
