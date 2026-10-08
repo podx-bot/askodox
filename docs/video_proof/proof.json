@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-08T14:08:14Z",
+ "generated_at": "2026-10-08T17:30:49Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:c7c34bbdf1cf4af9",
+   "trace_key": "browse:d9d97a2cb5fb4fc9",
    "videos": [
     {
      "video_id": "yt_vJQK7mzFTK8",
@@ -33,12 +33,13 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "category": "TV",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -89,7 +90,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?\"",
-    "reply": "Based on the information provided for **Samsung 43\" Pure Color Full HD Smart TV (UA43F5600FUXXL)** from TechWay7.0:\n\n- **Display:** 43-inch Full HD with PurColor technology\n- **Features:** Smart TV features, picture & sound quality tests, and design details covered in the video\n- **Price & Availability:** Not provided by the source\n- **Rating / Reviews:** Not provided by the source\n\n*Note: These details are based on the video creator's listing and are not verified by ASKODOX.*",
+    "reply": "Based on the details provided by **TechWay7.0** for the **Samsung 43\" UA43F5600FUXXL** (2026 model):\n\n- **Display & Picture:** 43-inch Full HD display featuring PurColor technology for enhanced color expression. - **Smart Features:** Includes Samsung Smart TV functionality, a picture quality test, and sound quality evaluation. - **Design:** Features a refreshed 2026 build and design aesthetics. *Note:* The exact price, rating, reviews, stock availability, and distance are **not provided** by the source (TechWay7.0's opinion, not verified by ASKODOX).",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -117,7 +118,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -126,7 +127,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -180,7 +181,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:49439495a9a74e02",
+   "trace_key": "browse:7bea7a11da9f4562",
    "videos": [
     {
      "video_id": "yt_vJQK7mzFTK8",
@@ -209,9 +210,9 @@
     "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
+     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
@@ -262,10 +263,10 @@
    },
    "ai": {
     "question": "\"Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియో వివరాల ప్రకారం:\n\n- **టీవీ సమాచారం:** Samsung 43 అంగుళాల Full HD Smart TV (మోడల్: UA43F5600FUXXL). ఇందులో Pure Color టెక్నాలజీ, పిక్చర్/సౌండ్ క్వాలిటీ టెస్ట్, స్మార్ట్ టీవీ ఫీచర్లు ఉన్నాయని TechWay7.0 ఛానెల్ తెలిపింది. ఇది వారి వ్యక్తిగత అభిప్రాయం మాత్రమే (ASKODOX ద్వారా నిర్ధారించబడలేదు). - **ధర:** ఖచ్చితమైన ధర వివరించబడలేదు (మూలంలో ఇవ్వలేదు). - **దూరం:** అందుబాటులో ఉన్న స్థానిక షాపుల వివరాలు లేదా దూరం ఇవ్వలేదు. - **నాణ్యత:** సృష్టికర్త అభిప్రాయం ప్రకారం మంచి డిజైన్, డిస్ప్లే మరియు సౌండ్ క్వాలిటీ ఉన్నట్లు పేర్కొన్నారు. - **అందుబాటు & రివ్యూలు:** స్టాక్ వివరాలు మరియు యూజర్ రివ్యూలు మూలంలో ఇవ్వలేదు (Not verified). ధర మరియు స్థానిక లభ్యత తెలుసుకోవడానికి షాపులను సంప్రదించమంటారా?",
+    "reply": "ఈ వీడియో **TechWay7.0** ఛానెల్ ద్వారా అందించబడింది (ఇది క్రియేటర్ అభిప్రాయం, ASKODOX ద్వారా ధృవీకరించబడలేదు):\n\n- **ధర:** అందుబాటులో లేదు ( Not verified ). - **దూరం:** వివరాలు ఇవ్వలేదు. - **నాణ్యత:** 43 ఇంచుల Full HD డిస్‌ప్లే, పిక్చర్ & సౌండ్ క్వాలిటీ టెస్ట్ మరియు Pure Color టెక్నాలజీ ఉన్నాయని పేర్కొన్నారు. - **అందుబాటు:** సమాచారం ఇవ్వలేదు. - **రివ్యూలు:** వీడియో వివరణలో స్మార్ట్ టీవీ ఫీచర్లు, డిజైన్ మరియు రియల్ ప్రైస్ రివ్యూ అని ఉంది. మీకు ఈ టీవీ స్థానిక షాపుల్లో అందుబాటు లేదా ఖచ్చితమైన ధర కావాలంటే చెప్పండి, మేము షాపు వారిని అడిగి తెలుసుకుంటాము.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "సాధారణంగా **43 అంగుళాల టీవీ** చూసేందుకు **5 నుండి 7 అడుగుల దూరం** అవసరం. చిన్న గదికి సంబంధించిన ముఖ్య విషయాలు:\n- మీ గదిలో సోఫా లేదా మంచం నుండి టీవీ మధ్య కనీసం 5-6 అడుగుల దూరం ఉంటే 43 అంగుళాల టీవీ చాలా బాగా సరిపోతుంది. - ఒకవేళ వీక్షణ దూరం **4 అడుగుల కంటే తక్కువ** ఉంటే, కళ్లకు శ్రమగా అనిపించవచ్చు. అలాంటి పరిస్థితిలో 32 అంగుళాల టీవీ మేలు. మీ గదిలో టీవీ చూసే దూరం (Viewing distance) సుమారు ఎంత ఉంటుంది?",
+    "follow_reply": "సాధారణంగా **43 ఇంచుల టీవీ** సరిగ్గా చూడటానికి **5 నుండి 7 అడుగుల దూరం** ఉండాలి. మీ చిన్న గదిలో బెడ్ లేదా సోఫా నుండి టీవీ చూసే దూరం కనీసం 5 అడుగులు ఉంటే ఇది బాగా సరిపోతుంది. ఒకవేళ చూసే దూరం 5 అడుగుల కంటే తక్కువ ఉంటే, **32 ఇంచుల టీవీ** కళ్లకు మరింత సౌకర్యవంతంగా ఉంటుంది. మీ గదిలో టీవీ చూసే దూరం సుమారు ఎన్ని అడుగులు ఉంటుంది?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "advise"
@@ -288,7 +289,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -297,7 +298,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -379,7 +380,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:6bca4c0ebd04478a",
+   "trace_key": "browse:911f47c24e8c4a32",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -460,7 +461,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "This video by creator Gyan Therapy is an unboxing and initial impression of the Redmi Note 13 Pro. Based on the video description, it highlights features like the Snapdragon 7s Gen 2 processor, a 200MP triple camera setup, and a 5100mAh battery with 67W fast charging. Please note that creator opinions are not verified by ASKODOX. Details like price, user ratings, and local availability were **not provided** in the source listing.",
+    "reply": "This video by **Gyan Therapy** is an unboxing and initial impressions review of the Redmi Note 13 Pro. Key details mentioned in the video description:\n- **Processor**: Snapdragon 7s Gen 2\n- **Camera**: 200MP triple camera setup\n- **Battery & Charging**: 5100mAh battery with 67W fast charging\n\n*Note: Creator's opinion is not verified by ASKODOX. Specs like price, rating, and stock are Not verified/not provided by the source.*",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -583,7 +584,7 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:cc0489b06bde4cf2",
+   "trace_key": "browse:8b56ebeaa0b844ac",
    "videos": [
     {
      "video_id": "yt_udv2P4GxqjE",
@@ -612,9 +613,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "Tata Nexon",
      "brand": "Tata",
      "model": "Nexon",
-     "subject": "Tata Nexon",
      "location": "Vijayawada"
     }
    },
@@ -665,7 +666,7 @@
    },
    "ai": {
     "question": "Tell me more about \"तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza\"",
-    "reply": "Based on the video title from creator **Moto-Wanderer** (creator's opinion, not verified by ASKODOX):\n\n- **Video Title:** तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza\n- **Topics Covered:** Tata Nexon Facelift, Next Gen/Garud, variant walkaround (Smart, Pure, Creative, Accomplish base-to-top models), and claimed discount discussions. - **Price / Discount Details:** Not provided by the source. - **Stock / Availability:** Not provided by the source. - **Rating / Reviews:** Not provided by the source. *Note:* The video content itself was not analyzed, only its title and description details are available. Specific discount terms, pricing, and availability are not verified facts and depend on dealership offers in Vijayawada.",
+    "reply": "This video by creator Moto-Wanderer discusses the Tata Nexon Facelift (referred to as Next Gen / Garuda) and mentions potential discounts of up to ₹1 lakh while comparing its appeal against the Maruti Brezza. It covers the model lineup ranging from Smart, Pure, Creative, to Accomplish trims. - **Source**: Moto-Wanderer (Creator's opinion -- not verified by ASKODOX)\n- **Price**: Not provided\n- **Stock / Availability**: Not provided\n- **Rating / Reviews**: Not provided\n\nPlease note that specific discount claims or comparisons represent the creator's opinion and are not verified facts.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -757,7 +758,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:44719d762c4041cf",
+   "trace_key": "browse:1aa98a5849244236",
    "videos": [
     {
      "video_id": "yt_7mK4-impjiE",
@@ -787,7 +788,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "AC service",
-     "service_type": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -838,7 +838,7 @@
    },
    "ai": {
     "question": "Tell me more about \"DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo\"",
-    "reply": "Based on the details provided for the video **\"DAIKIN AC Outdoor Unit Cleaning\"** by creator **Lovepreet Singh**:\n\n- **Topics Covered:** Outdoor unit water cleaning, servicing Daikin split AC outdoor units at home, and general HVAC maintenance tips. - **Specific Video Details:** Price, stock, distance, and user ratings/reviews are **not provided** by the source. - **Note:** The video content reflects the creator's opinion and is **not verified by ASKODOX**. Cleaning an outdoor unit typically involves clearing dust and debris from the condenser coils and washing the outer fins with light water pressure. If you need a professional technician in Vijayawada to service your AC safely, let me know!",
+    "reply": "This video by creator **Lovepreet Singh** covers a DIY guide on servicing and cleaning a Daikin split AC outdoor unit at home using water cleaning techniques. - **Details from source**: Specific steps, safety precautions, tools used, and user ratings are **not provided** in the listed metadata. - **Note**: The video content represents the creator's opinion and is **not verified by ASKODOX**. If you want to perform this yourself, ensure the main power supply is completely switched off before using water, and avoid spraying high-pressure water directly into the electrical control box or fins, as bent fins reduce cooling efficiency.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -886,7 +886,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:1046a029de324d1a",
+   "trace_key": "browse:236f665fdd32400b",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -964,7 +964,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
-    "reply": "This short video is titled **\"Great Plumbing Trick To Fix Pvc Pipe Joint\"** by creator **vijay xyz tricks**. Here are the details available from the source:\n- **Content:** The creator shares a quick trick for fixing PVC pipe joints (Creator's opinion — not verified by ASKODOX). - **Price / Cost:** Not provided\n- **Ratings / Reviews:** Not provided\n- **Distance / Location:** Not provided\n\nSince the video content itself hasn't been full-length analyzed, I can't confirm the exact method shown. If you are dealing with a leaking PVC joint right now, common fixes involve applying PVC solvent cement or using epoxy putty/leak-repair tape for a temporary fix.",
+    "reply": "Based on the provided details for the video **\"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"** by creator **vijay xyz tricks**:\n\n- **Channel/Creator:** vijay xyz tricks (Creator's opinion — not verified by ASKODOX)\n- **Description/Notes:** \"thanks for watching video\"\n- **Price:** Not provided\n- **Distance:** Not provided\n- **Stock/Availability:** Not provided\n- **Rating/Reviews:** Not provided\n\n*Note:* The video content itself has not been analyzed, and detailed specifications or specific step-by-step instructions from the clip are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -991,16 +991,16 @@
     },
     "options": [
      {
-      "title": "Amulya Plumbing & Sanitary Services",
+      "title": "SS Rapid Electrical and plumbing works",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 0.2,
+      "distance_km": 1.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=10883317646997129769&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      }
@@ -1012,7 +1012,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:825e21ea3683457b",
+   "trace_key": "browse:a68de7303dcd48be",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1091,7 +1091,7 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "Based on the details provided for **\"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"** by creator **DCT EATS** (creator's opinion, not verified by ASKODOX):\n\n- **Content:** The creator and Sahil from Headbanger Eats compare three different price points of Hyderabadi mutton biryani in Mumbai. - **Featured Places:** Bikkgane Biryani (₹450 tier), Biryani By Kilo (₹800 tier), and Lit (₹1200 tier). - **Price / Ratings / Reviews:** Not provided by the source. - **Stock / Availability / Distance:** Not provided by the source.",
+    "reply": "This video by **DCT EATS** (feat. Sahil from Headbanger Eats) compares three price tiers of Hyderabadi mutton biryani in Mumbai from **Bikkgane Biryani**, **Biryani By Kilo**, and **Lit**. Here are the details available from the source:\n\n- **Restaurants featured**: Bikkgane Biryani (approx. ₹450), Biryani By Kilo (approx. ₹800), and Lit (approx. ₹1200)\n- **Topic**: Mutton Hyderabadi Biryani taste and portion comparison across price points\n- **Price / Rating / Distance**: Not provided by the source (opinions reflect DCT EATS, not verified by ASKODOX)\n\nNote: The video content itself has not been analyzed beyond these listed details.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1119,16 +1119,16 @@
     },
     "options": [
      {
-      "title": "The Kazus Royal Dum Biryani",
+      "title": "Green Bucket Biryani Governorpet Vijayawada (PJ FOOD & BEVERAGES)",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 1.5,
+      "distance_km": 2.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=561657488857289615&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1154,7 +1154,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:d470742e87584549",
+   "trace_key": "browse:97448012e58548e8",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1177,10 +1177,10 @@
    "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "EVENT",
+    "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Araku valley trip",
@@ -1234,12 +1234,12 @@
    },
    "ai": {
     "question": "Tell me more about \"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"",
-    "reply": "Based on the video listing **\"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"** by **Travel Matcha**:\n\n- **Overview**: The video provides a full travel itinerary for Araku Valley, highlighting coffee plantations, ancient caves, mist-covered hills, and local food. - **Creator Note**: These highlights reflect the creator's opinion (*Travel Matcha*) and are **Not verified** by ASKODOX. - **Details**: Price, rating, reviews, and distance are **not provided** by the source. Would you like help planning a travel itinerary or finding transport/cab options from Vijayawada to Araku Valley?",
+    "reply": "Based on the details provided for **\"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"** by creator Travel Matcha:\n\n- **Content Overview**: The creator shares a full travel itinerary for Araku Valley, highlighting attractions like mist-covered hills, coffee plantations, ancient caves, and local cuisine. *(Note: This reflects the creator's opinion and is not verified by ASKODOX).* \n- **Price**: Not provided\n- **Distance**: Not provided\n- **Rating / Reviews**: Not provided\n- **Stock / Availability**: Not provided\n\nSpecific details like entry fees, exact routes, or traveler ratings are **Not verified** as they were not provided in the source description.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "EVENT",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1355,7 +1355,7 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:8617ae9783ce428f",
+   "trace_key": "browse:09688429ff12463a",
    "videos": [
     {
      "video_id": "yt_ilhNFpIoY70",
@@ -1384,10 +1384,9 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "quality": "used",
+     "variant": "Used",
      "location": "Vijayawada"
     }
    },
@@ -1530,7 +1529,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:8d19e76912ef4a54",
+   "trace_key": "browse:e9e8a971566845fa",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1560,6 +1559,7 @@
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
+     "brand": "Apple",
      "location": "Vijayawada"
     }
    },
@@ -1610,7 +1610,7 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
-    "reply": "This video **\"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"** is a creator opinion review by **CallMeShazzam TECH** (not verified by ASKODOX). It covers long-term usage insights, performance, and whether it's worth buying during upcoming sales, featuring Malayalam audio with English subtitles. Key listing details from the source:\n- **Price:** Not provided\n- **Ratings / Reviews:** Not provided\n- **Stock / Availability:** Not provided\n\nSince specific facts like verified specs or local pricing are not provided by the source, let me know if you would like to look up current iPhone 15 deals or local availability in Vijayawada!",
+    "reply": "This video is titled **\"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"** by **CallMeShazzam TECH**. Here are the details available from the source:\n- **Creator:** CallMeShazzam TECH (their opinion, not a verified fact)\n- **Price:** Not provided\n- **Rating / Reviews:** Not provided\n- **Stock / Availability:** Not provided\n- **Distance / Location:** Not provided\n\nPlease note: The video content itself has not been analyzed, and specific specs or conclusions from the creator are Not verified by ASKODOX.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1642,16 +1642,16 @@
     },
     "options": [
      {
-      "title": "Happi Mobiles Vijayawada Bandar Road",
+      "title": "MasterPhone",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 0.9,
+      "distance_km": 0.8,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=12777118859690542021&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=1686034212541866538&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1733,7 +1733,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:5cdeb2e682e84650",
+   "trace_key": "browse:f5219257f4884324",
    "videos": [
     {
      "video_id": "yt_7mK4-impjiE",
@@ -1759,7 +1759,7 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "AC service",
@@ -1813,12 +1813,12 @@
    },
    "ai": {
     "question": "\"DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియో 'Lovepreet Singh' అనే క్రియేటర్ రూపొందించినది. డెమో మరియు సమాచారం కోసం ఇది ఉపయోగపడుతుంది:\n\n- **ధర:** Not verified (మూలంలో పేర్కొనబడలేదు)\n- **దూరం:** Not verified (మూలంలో పేర్కొనబడలేదు)\n- **నాణ్యత / రివ్యూలు:** Not verified (మూలంలో పేర్కొనబడలేదు; ఇది క్రియేటర్ అభిప్రాయం మాత్రమే)\n- **అందుబాటు:** Not verified (మూలంలో పేర్కొనబడలేదు)\n\nవీడియోలో అందించిన వివరాలు ఆధారంగా మాత్రమే ఇవి చెప్పబడ్డాయి.",
+    "reply": "మీరు అడిగిన **DAIKIN AC Outdoor Unit Cleaning** వీడియో ఆధారంగా వివరాలు:\n\n- **ధర (Price):** Not verified (వీడియో వివరాల్లో ధర అందుబాటులో లేదు)\n- **దూరం (Distance):** Not verified\n- **నాణ్యత & రివ్యూలు (Quality & Reviews):** Not verified (ఇది క్రියේటర్ Lovepreet Singh అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు)\n- **అందుబాటు (Availability):** Not verified\n\nవీడియోలో అవుట్‌డోర్ యూనిట్ వాటర్ సర్వీసింగ్ మరియు ఇంట్లో ఎలా క్లీన్ చేయాలో వివరించారు. మీకు స్థానికంగా విజయవాడలో ఏసీ సర్వీసింగ్ టెక్నీషియన్ కావాలంటే చెప్పండి, వెతికి సహాయం చేస్తాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "సాధారణంగా చిన్న గది (సుమారు 100-120 చదరపు అడుగులు)కి **1 టన్ AC** సరిగ్గా సరిపోతుంది. బయట యూనిట్ (Outdoor Unit) శుభ్రం చేయడం వల్ల AC కూలింగ్ మరియు పనితీరు పెరుగుతుంది. మీరు ఏ సైజ్/కెపాసిటీ AC ని వాడుతున్నారు?",
+    "follow_reply": "మీది ఎంత పరిమాణం ఉన్న గది? సాధారణంగా **100 చదరపు అడుగుల** లోపు ఉన్న చిన్న గదికి **0.8 టన్ నుండి 1 టన్** ఏసీ సరిపోతుంది. గది పరిమాణాన్ని బట్టి సరైన టన్ను ఏసీని ఎంచుకోవడం ద్వారా విద్యుత్ ఆదా అవుతుంది.",
     "follow_source": "universal_ai",
-    "follow_domain": "SERVICE",
+    "follow_domain": "PRODUCT",
     "follow_action": "advise"
    },
    "next": {
