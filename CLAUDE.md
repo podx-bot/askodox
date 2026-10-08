@@ -54,6 +54,10 @@ this file, don't trust it blindly.
 - Before calling a change done: run the backend suite (`pip install -r
   backend/requirements.txt`, tests under `backend/tests/`) and, for Flutter
   changes, `flutter analyze` + `flutter test`.
+- Every change follows `docs/UNIVERSAL_DEVELOPMENT_RULE.md` (universal-first,
+  no category-specific fixes, cross-category tests; each PR reports universal
+  applicability, extension points, cross-category tests, regressions prevented,
+  justified exceptions and limitations).
 - Update this file after each round that actually merges — edit it in
   place to reflect the new checkpoint; don't append another history section
   here (that's what the tracker is for).
@@ -397,6 +401,15 @@ this file, don't trust it blindly.
   Provider readiness is separate (`provider_health`); neither proves a phone flow.
 - Result Board ARCHIVED: a deck retired by a topic change shows only the chip
   `askodoxArchivedResultsRestore` (restores on tap, never on its own).
+- Result Board lifecycle + sizing = `lib/features/home/domain/result_board.dart`
+  (`askodoxBoardStateOf`, `askodoxBoardMaxHeight` from the Home column's REAL
+  height via LayoutBuilder; no room -> pill). Never size it from the full screen.
+- Reasoning before results: `DECISION_GUIDANCE_RULES` in the brain prompt (ready
+  turns reply with guidance, never a bare acknowledgement; estimates labelled,
+  never presented as verified). The app keeps that reply with the cards; a false
+  results claim is removed sentence by sentence (`askodoxStripResultClaims`),
+  never the whole reply; an advisor hold keeps the brain's answer
+  (`askodoxWithoutTrailingQuestion`).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

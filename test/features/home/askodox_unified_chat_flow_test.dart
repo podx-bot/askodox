@@ -45,6 +45,7 @@ import 'package:podx/services/voice_transcription_service.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/home/domain/active_role.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
+import 'package:podx/features/home/domain/result_board.dart';
 import 'package:podx/features/home/domain/follow_up_router.dart';
 import 'package:podx/features/home/application/saved_options.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
@@ -1633,6 +1634,105 @@ void main() {
       expect(cards(), findsOneWidget);
       expect(find.text('Care at Home nursing service'), findsOneWidget);
     });
+
+    // Reasoning before results (APK 1311), across unrelated categories: the
+    // brain's answer (estimate, decision points) is shown WITH the cards,
+    // never replaced by them. Tiles is one regression case among many.
+    final reasoned = <String, (String, String, String)>{
+      'tiles': ('100 sq.ft. vitrified tiles, budget 10000-20000', 'vitrified tiles',
+          'For 100 sq ft plan about 110 sq ft (10% cutting wastage). Approx. ₹60–₹150 per sq ft is typical '
+              '(general estimate, not a local price), so tiles fit ₹6,600–₹16,500. Check PEI rating and size.'),
+      'service': ('painting for 2BHK, budget 25000', 'house painting',
+          'A 2BHK usually needs about 900–1,100 sq ft of wall painting; labour + paint typically runs ₹18–₹30 per '
+              'sq ft (general estimate). Ask whether putty and primer are included.'),
+      'business': ('tiffin centre setup cost 2 lakh', 'tiffin centre equipment',
+          'With ₹2 lakh, a small tiffin centre typically splits into equipment (~40%), first stock (~20%) and a '
+              '3-month buffer (estimate). Licence: FSSAI basic registration.'),
+    };
+    for (final entry in reasoned.entries) {
+      testWidgets('reasoning before results: ${entry.key} answer stays with the cards', (tester) async {
+        final (said, subject, answer) = entry.value;
+        final h = harness([d(answer, ready: true, action: 'search_products', transactional: true, subject: subject)],
+            const [UniversalMatchResult(dealId: 'rr', matches: [a, b])]);
+        await h.pump(tester);
+        await h.send(tester, said);
+        expect(cards(), findsNWidgets(2), reason: 'cards support the answer');
+        expect(find.textContaining(answer.substring(0, 30)), findsOneWidget, reason: 'the reasoning is not replaced');
+      });
+    }
+
+    testWidgets('no cards: a guidance reply keeps its estimate, only the false claim is dropped', (tester) async {
+      final h = harness([
+        d('Here is a rough cost breakdown: about 110 sq ft at ₹60–₹150 (estimate). Here are some options nearby.',
+            ready: true, action: 'search_products', transactional: true, subject: 'vitrified tiles'),
+      ], const [UniversalMatchResult(dealId: 'nc', matches: [])]);
+      await h.pump(tester);
+      await h.send(tester, '100 sq ft vitrified tiles show me');
+      expect(cards(), findsNothing);
+      expect(find.textContaining('rough cost breakdown'), findsOneWidget, reason: 'guidance kept');
+      expect(find.textContaining('Here are some options'), findsNothing, reason: 'no false results claim');
+    });
+
+    testWidgets('personal / non-commerce guidance: a direct answer, no board, no cards', (tester) async {
+      final h = harness([d('A 25-minute daily revision block plus one weekly mock test is a realistic start.')], const []);
+      await h.pump(tester);
+      await h.send(tester, 'how should I plan my exam revision in 3 weeks?');
+      expect(h.matches.deals, isEmpty);
+      expect(board(), findsNothing);
+      expect(cards(), findsNothing);
+      expect(find.textContaining('daily revision block'), findsOneWidget);
+    });
+
+    testWidgets('Telugu: the Telugu answer stays with the cards', (tester) async {
+      const te = '100 చ.అ.కి సుమారు 110 చ.అ. టైల్స్ కావాలి (10% వృథా) -- ఇది అంచనా మాత్రమే.';
+      final h = harness([d(te, ready: true, action: 'search_products', transactional: true, subject: 'vitrified tiles')],
+          const [UniversalMatchResult(dealId: 'te', matches: [a, b])]);
+      await h.pump(tester, locale: 'te');
+      await h.send(tester, '100 చదరపు అడుగుల విట్రిఫైడ్ టైల్స్ కావాలి');
+      expect(cards(), findsNWidgets(2));
+      expect(find.textContaining('110 చ.అ.'), findsOneWidget);
+    });
+
+    // Android screen sizes (logical px): the board never covers the latest
+    // reply or the input, and minimize / restore reflows the conversation.
+    for (final size in const [Size(360, 640), Size(360, 760), Size(412, 915)]) {
+      testWidgets('layout ${size.width.toInt()}x${size.height.toInt()}: reply + input stay visible; minimize reflows',
+          (tester) async {
+        final h = harness([
+          d('Option guidance: compare warranty and delivery before choosing.', ready: true, action: 'search_products',
+              transactional: true, subject: 'refurbished phones'),
+        ], const [UniversalMatchResult(dealId: 'ly', matches: [a, b, c])]);
+        await h.pump(tester);
+        tester.view.physicalSize = size * 3;
+        await tester.pumpAndSettle();
+        await h.send(tester, 'refurbished phones under 20000');
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+        final input = tester.getRect(find.byType(TextField));
+        expect(input.bottom, lessThanOrEqualTo(size.height), reason: 'the input stays on screen');
+        if (board().evaluate().isNotEmpty) {
+          final boardRect = tester.getRect(board());
+          expect(boardRect.height, lessThanOrEqualTo(size.height * .45), reason: 'the board never takes the screen');
+          expect(input.top - boardRect.bottom, greaterThanOrEqualTo(askodoxConversationMinimum),
+              reason: 'the conversation keeps its room between the board and the input');
+          final reply = tester.getRect(find.textContaining('compare warranty').last);
+          expect(reply.top, greaterThanOrEqualTo(boardRect.bottom - 1), reason: 'the reply is not under the board');
+          expect(reply.bottom, lessThanOrEqualTo(input.top + 1), reason: 'the reply is not under the input');
+          final chatBefore = input.top - boardRect.bottom;
+          await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+          await tester.pumpAndSettle();
+          expect(board(), findsNothing);
+          expect(pill(), findsOneWidget);
+          final chatAfter = tester.getRect(find.byType(TextField)).top - tester.getRect(pill()).bottom;
+          expect(chatAfter, greaterThan(chatBefore), reason: 'minimize gives the conversation the room');
+          await tester.tap(find.byKey(const Key('askodoxResultPillRestore')));
+          await tester.pumpAndSettle();
+          expect(board(), findsOneWidget, reason: 'restored');
+        } else {
+          expect(pill(), findsOneWidget, reason: 'no room for a useful board: its pill, never clipped cards');
+        }
+      });
+    }
 
     test('pill label is built only from real search facts', () {
       const results = AskodoxChatResults(matches: [a, b, c]);

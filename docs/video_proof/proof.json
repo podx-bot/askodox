@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-08T07:43:04Z",
+ "generated_at": "2026-10-08T09:01:53Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,7 +7,7 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:1958f6d14ba94c5f",
+   "trace_key": "browse:16980c62651740f9",
    "videos": [
     {
      "video_id": "yt_yDD-7v3U8Ig",
@@ -33,13 +33,12 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
-     "category": "TV",
      "location": "Vijayawada"
     }
    },
@@ -89,7 +88,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\"",
-    "reply": "This video by Dealfixkaro covers top 43-inch Smart TV options to consider during major online sales like Flipkart Big Billion Days and Amazon Great Indian Festival. Please note that these represent the creator's opinion and are not verified by ASKODOX. Specific details such as prices, ratings, and stock availability are not provided by the source.",
+    "reply": "This video by Dealfixkaro covers top 43-inch Smart TV options available during major sales on Flipkart and Amazon. Please note that these are the creator's opinions and are not verified by ASKODOX. Specific details such as price, ratings, and stock are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -210,7 +209,7 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:d5b6da4f834a418a",
+   "trace_key": "browse:a1ed7f95aa754f29",
    "videos": [
     {
      "video_id": "yt_yDD-7v3U8Ig",
@@ -236,7 +235,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Samsung 43 inch TV",
@@ -291,10 +290,10 @@
    },
    "ai": {
     "question": "\"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "\"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\" వీడియో ఆధారంగా సమాచారం:\n\n• **ధర (Price):** వివరాలు అందించబడలేదు (Not verified). • **దూరం (Distance):** వివరాలు అందించబడలేదు. • **నాణ్యత & రివ్యూలు (Quality & Reviews):** ఇది Dealfixkaro వారి వ్యక్తిగత అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. నిర్దిష్టమైన రేటింగ్స్ లేదా రివ్యూ వివరాలు లభ్యం కాలేదు. • **అందుబాటు (Availability):** వివరాలు అందించబడలేదు. వీడియో వివరణ ప్రకారం, ఇందులో ఫ్లిప్‌కార్ట్ బిగ్ బిలియన్ డేస్ మరియు అమెజాన్ గ్రేట్ ఇండియన్ ఫెస్టివల్ సేల్స్‌లో లభించే 43 అంగుళాల స్మార్ట్ టీవీల గురించి చర్చించారు.",
+    "reply": "ఈ వీడియో 43 అంగుళాల స్మార్ట్ టీవీ ఆఫర్లు మరియు సేల్స్ గురించి Dealfixkaro యొక్క స్వంత అభిప్రాయాలను కవర్ చేస్తుంది (ఇది ASKODOX ద్వారా ధృవీకరించబడలేదు). అయితే, ఈ వీడియో ఆధారంగా ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూలకు సంబంధించిన వివరాలు (Not verified) అందుబాటులో లేవు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి (సాధారణంగా 10x10 అడుగుల గది) 43 అంగుళాల టీవీ కాస్త పెద్దదిగానే ఉండవచ్చు. టీవీ స్పష్టంగా చూడటానికి కనీసం 6 నుండి 8 అడుగుల దూరం ఉండటం మంచిది. మీ గదిలో చూడటానికి ఎంత దూరం ఉంటుంది?",
+    "follow_reply": "43 అంగుళాల టీవీకి కనీసం 5 నుండి 6 అడుగుల వీక్షణ దూరం ఉండాలి. మీ గది చిన్నదైతే, చూసేటప్పుడు కళ్ళపై ఒత్తిడి పడకుండా ఉండటానికి ఈ దూరం సరిపోతుందో లేదో సరిచూసుకోండి.",
     "follow_source": "universal_ai",
     "follow_domain": "GENERAL",
     "follow_action": "advise"
@@ -408,7 +407,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:b0cb22ec295f489e",
+   "trace_key": "browse:3ecfe62016f546c2",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -430,13 +429,16 @@
    ],
    "production_video_rows": 5,
    "search_decision": {
-    "reply": "",
-    "domain": "UNKNOWN",
-    "transactional": false,
-    "action": "",
-    "confidence": 0.0,
-    "source": "fallback",
-    "entities": {}
+    "reply": "Sure -- looking for real videos and reviews.",
+    "domain": "PRODUCT",
+    "transactional": true,
+    "action": "search_videos",
+    "confidence": 1.0,
+    "source": "universal_ai",
+    "entities": {
+     "subject": "Redmi Note 13 Pro",
+     "location": "Vijayawada"
+    }
    },
    "explain": {
     "video_id": "yt_kGG04jkdjxY",
@@ -484,7 +486,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "Based on the details provided by creator Gyan Therapy (their opinion, not verified by ASKODOX), the video covers an unboxing and initial impressions of the Redmi Note 13 Pro. It mentions key features including the Snapdragon 7s Gen 2 processor, a 200MP triple camera setup, a 5100mAh battery, and 67W charging from Xiaomi. Details like price, ratings, distance, and stock/availability are not provided.",
+    "reply": "This video by Gyan Therapy is an unboxing and initial impressions look at the Redmi Note 13 Pro. Based on the video description, it highlights features such as the Snapdragon 7s Gen 2 Processor, a 200MP triple camera setup, and a 5100mAh battery with 67W fast charging. Please note that these are the creator's opinions and details from their description, which are not verified by ASKODOX. Specific details like price, stock availability, and user ratings were not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -607,18 +609,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:41543d3f02d3426e",
+   "trace_key": "browse:a17e5a9457df4aee",
    "videos": [
     {
-     "video_id": "yt_Cb-YstSd3oU",
-     "title": "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
-     "source_name": "CarTalk by Ashu",
-     "duration": "9:34",
+     "video_id": "yt_77aOlpHhpOw",
+     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
+     "source_name": "TheAutoBharat",
+     "duration": "1:00",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/Cb-YstSd3oU?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/Cb-YstSd3oU/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=Cb-YstSd3oU",
+     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -627,7 +629,7 @@
      "services": []
     }
    ],
-   "production_video_rows": 4,
+   "production_video_rows": 5,
    "search_decision": {
     "reply": "Sure -- looking for real videos and reviews.",
     "domain": "PRODUCT",
@@ -638,26 +640,27 @@
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
+     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_Cb-YstSd3oU",
+    "video_id": "yt_77aOlpHhpOw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
-     "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
-     "Related Queries",
-     "tata nexon crative plus s,",
-     "tata nexon creative plus s model,"
+     "Tata Nexon Cons: What You Need to Know Before Buying",
+     "Tata Nexon Cons: What You Need to Know Before Buying",
+     "Tata Nexon Cons",
+     "Thinking of buying the Tata Nexon?",
+     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "CarTalk by Ashu",
+    "creator": "TheAutoBharat",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=Cb-YstSd3oU",
-    "question": "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
     "next": [
      {
       "action": "find_local",
@@ -687,8 +690,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details\"",
-    "reply": "This video is titled 'Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details' by creator CarTalk by Ashu. Please note that the content reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, mileage, features, and ratings were not provided in the source metadata.",
+    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
+    "reply": "This video from creator TheAutoBharat is titled 'Tata Nexon Cons: What You Need to Know Before Buying' and discusses potential drawbacks to consider before buying the compact SUV. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details like price, rating, and stock availability are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -810,7 +813,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:ffe88195574344bd",
+   "trace_key": "browse:1b76953d3f0f4670",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -887,7 +890,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
-    "reply": "This video by creator KP Vlogs & Review covers the 'Urban Company AC Service | Split AC Cleaning Advance Foamjet Technology'. Please note that the creator's opinions are not verified by ASKODOX. Specific details such as price, customer ratings, and service availability are not provided by the source.",
+    "reply": "This video is titled 'Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |' created by KP Vlogs & Review. Please note that the content reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, rating, and customer reviews are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -992,7 +995,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:f4f5b3eeae64427a",
+   "trace_key": "browse:68b8a64d75db4d84",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1022,8 +1025,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
-     "service_type": "plumbing repair",
-     "context": "kitchen sink",
      "location": "Vijayawada"
     }
    },
@@ -1072,7 +1073,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
-    "reply": "Based on the listed details, this is a video titled \"Great Plumbing Trick To Fix Pvc Pipe Joint\" by creator vijay xyz tricks (their opinion, not verified by ASKODOX). Specific details such as price, distance, rating, reviews, and stock are not provided by the source, and the video content itself has not been analyzed.",
+    "reply": "This video titled 'Great Plumbing Trick To Fix Pvc Pipe Joint' is from the creator 'vijay xyz tricks' (this is the creator's opinion, not verified by ASKODOX). Specific details such as price, stock, or ratings are not provided. Since the video content has not been analyzed, I cannot verify the exact steps or results shown.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1177,7 +1178,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:2ca0bb4eabb04524",
+   "trace_key": "browse:d17615c21942469c",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1203,7 +1204,7 @@
     "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "Hyderabadi biryani",
@@ -1256,7 +1257,7 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "Based on the details provided by DCT EATS, this video features DCT EATS and Sahil from Headbanger Eats comparing three price points of authentic Hyderabadi mutton biryani in Mumbai: ₹450, ₹800, and ₹1200. The restaurants featured are Bikkgane Biryani, Biryani By Kilo, and Lit. Please note that the specific reviews and opinions are creator's opinion -- not verified by ASKODOX. Specific details like rating, reviews, and stock availability are not provided.",
+    "reply": "This video by creator DCT EATS compares authentic Hyderabadi mutton biryani in Mumbai across three price tiers: ₹450, ₹800, and ₹1200. In the video, the host is joined by Sahil from Headbanger Eats to compare orders from three restaurants: Bikkgane Biryani, Biryani By Kilo, and Lit. Please note that specific ratings, reviews, and detailed price breakdowns are not provided by the source, and creator opinions are not verified by ASKODOX.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1377,7 +1378,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:70d710a6b2f94d68",
+   "trace_key": "browse:e18b93a408f5493d",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1457,13 +1458,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"",
-    "reply": "This video from Travel Matcha covers a full itinerary for Araku Valley, featuring places to visit like coffee plantations and ancient caves. Please note that these details reflect the creator's opinion and are Not verified by ASKODOX. Specific details such as price, rating, and user reviews are not provided by the source.",
+    "reply": "According to Travel Matcha's video description, it provides a full tour itinerary for Araku Valley, covering key places to visit, things to do, coffee plantations, and ancient caves. Please note that this is the creator's opinion and not verified by ASKODOX. Additional details such as full ratings or reviews are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you.",
+    "follow_reply": "Let me check real sellers, shops and online options near you.\n\nWhat specific type of trip or package are you looking for, and what is your budget?",
     "follow_source": "universal_ai",
     "follow_domain": "EVENT",
-    "follow_action": "find_local",
+    "follow_action": "search",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
@@ -1578,18 +1579,18 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:7402f63eb7874ab0",
+   "trace_key": "browse:1dffc328eb6d4ee5",
    "videos": [
     {
-     "video_id": "yt_RJworx5674I",
-     "title": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
-     "source_name": "The Motographer ",
-     "duration": "13:42",
+     "video_id": "yt_ilhNFpIoY70",
+     "title": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
+     "source_name": "Engine Thagaval ",
+     "duration": "0:19",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/RJworx5674I?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/ilhNFpIoY70?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/RJworx5674I/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=RJworx5674I",
+     "image_url": "https://i.ytimg.com/vi/ilhNFpIoY70/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1604,32 +1605,30 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "used Royal Enfield Classic 350",
-     "brand": "Royal Enfield",
-     "model": "Classic 350",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_RJworx5674I",
+    "video_id": "yt_ilhNFpIoY70",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
-     "Welcome to *TheMotographer* — where every ride becomes a cinematic story.",
-     "I’m a rider, creator, and reviewer who captures the soul of motorcycles.",
-     "📍 Based in Lucknow, India | Motorcycle • Cinematic • Experiences",
-     "🎯 My goal — to build a space for riders who ride not just for spe"
+     "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
+     "Royal Enfield Classic 350 – FOR SALE!",
+     "Single-owner / well-maintained condition.",
+     "Classic Royal Enfield design with smooth BS6 engine—perfect for city rides and highway cruising.",
+     "📍 Location: /126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu – 6385"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "The Motographer ",
+    "creator": "Engine Thagaval ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=RJworx5674I",
-    "question": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
+    "url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
+    "question": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
     "next": [
      {
       "action": "find_local",
@@ -1659,14 +1658,14 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350\"",
-    "reply": "This is a 10-year ownership review video for a 2015 Royal Enfield Classic 350 by creator The Motographer. Note that the creator's opinions are not verified by ASKODOX. Specific details like price, rating, reviews, and specifications are not provided in the video summary.",
+    "question": "Tell me more about \"Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield\"",
+    "reply": "Based on the video details provided by Engine Thagaval (creator's opinion, not verified by ASKODOX), this is a single-owner, well-maintained Royal Enfield Classic 350 with a smooth BS6 engine, located at Sathy Athani Main Road, Gobichettipalayam, Tamil Nadu. Details such as price, mileage, exact year, and current availability are not provided in the listing.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
-    "follow_action": "find_local",
+    "follow_action": "search",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
@@ -1782,18 +1781,18 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:9fb17e7522014077",
+   "trace_key": "browse:f7ccc4659e2e4b85",
    "videos": [
     {
-     "video_id": "yt_z--PotbWWAA",
-     "title": "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)",
-     "source_name": "GadgetsLife",
-     "duration": "8:25",
+     "video_id": "yt_LtaCjbudjpQ",
+     "title": "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub",
+     "source_name": "CallMeShazzam TECH",
+     "duration": "14:54",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/z--PotbWWAA?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/LtaCjbudjpQ?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/z--PotbWWAA/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=z--PotbWWAA",
+     "image_url": "https://i.ytimg.com/vi/LtaCjbudjpQ/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=LtaCjbudjpQ",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1812,27 +1811,26 @@
     "source": "universal_ai",
     "entities": {
      "subject": "iPhone 15 offer",
-     "brand": "Apple",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_z--PotbWWAA",
+    "video_id": "yt_LtaCjbudjpQ",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)",
-     "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake!",
-     "This Video is regrading the best deal in lowest price in upcoming Flipkart bbd sale 2026 for iPhone 15, iPhone 16 and iPhone 17.",
-     "Which one should you Buy?",
-     "Don't make mistake, make sure to watch this video till end.."
+     "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub",
+     "Thumbnail by",
+     "https://www.instagram.com/laetitia.creatives/",
+     "ndependently owned creative agency",
+     "Crafting transformative brands"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "GadgetsLife",
+    "creator": "CallMeShazzam TECH",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=z--PotbWWAA",
-    "question": "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)",
+    "url": "https://www.youtube.com/watch?v=LtaCjbudjpQ",
+    "question": "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub",
     "next": [
      {
       "action": "find_local",
@@ -1862,8 +1860,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)\"",
-    "reply": "This video from GadgetsLife discusses the upcoming Flipkart Big Billion Days (BBD) Sale 2026 deals for the iPhone 15, iPhone 16, and iPhone 17 to help buyers choose the best value option. Please note that these represent the creator's opinion and are not verified by ASKODOX. Specific details such as current prices, ratings, or stock availability are not provided in the source listing.",
+    "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
+    "reply": "This video is a long-term review of the iPhone 15 by CallMeShazzam TECH, presented in Malayalam with English subtitles. Please note that the contents reflect the creator's opinion and are not verified by ASKODOX. Specific details like price, rating, and specs for this video are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1986,7 +1984,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:56f3bb573c7a4203",
+   "trace_key": "browse:36d7c94182a34768",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2012,10 +2010,11 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "subject": "ఏసీ సర్వీస్",
+     "service_type": "AC Service",
      "location": "Vijayawada"
     }
    },
@@ -2063,10 +2062,10 @@
    },
    "ai": {
     "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "KP Vlogs & Review ఛానెల్ యొక్క \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" వీడియో వివరాల ప్రకారం:\n\n• ధర: లభ్యం కాలేదు (Not provided)\n• దూరం: లభ్యం కాలేదు (Not provided)\n• నాణ్యత / రివ్యూలు: నాట్ వెరిఫైడ్ (వీడియోలో చెప్పిన అభిప్రాయాలు క్రియేటర్ KP Vlogs & Review సొంతం, ASKODOX ద్వారా ధృవీకరించబడలేదు)\n• అందుబాటు: లభ్యం కాలేదు (Not provided)",
-    "source": "universal_ai",
+    "reply": "",
+    "source": "fallback",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "ఆ వివరాలు ఇచ్చిన సమాచారంలో అందుబాటులో లేవు (Not verified). చిన్న గదికి 1 టన్ను AC సర్వీస్ సరిపోతుందో లేదో మీ AC సామర్థ్యాన్ని బట్టి ఆధారపడి ఉంటుంది.",
+    "follow_reply": "ఆన్‌లైన్ ఆప్షన్ల వివరాల ప్రకారం గది పరిమాణానికి సంబంధించిన సమాచారం 'Not verified'. సాధారణంగా 1 టన్ను ఏసీ 100-120 చదరపు అడుగుల చిన్న గదికి సరిపోతుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "answer_about_options"
