@@ -14,6 +14,8 @@ import '../../features/notifications/presentation/notification_settings_screen.d
 import '../../features/notifications/presentation/updates_screen.dart';
 import '../../features/business/presentation/business_center_screen.dart';
 import '../../features/profile/presentation/profile_memory_screen.dart';
+import '../../features/profile/presentation/my_roles_screen.dart';
+import '../../features/business/presentation/business_promotions_screen.dart';
 import '../../features/opportunities/presentation/seller_opportunities_screen.dart';
 import '../../features/watchlist/presentation/alert_simulator_screen.dart';
 import '../../features/watchlist/presentation/watchlist_screen.dart';
@@ -183,6 +185,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/business',
           builder: (context, state) => const BusinessCenterScreen()),
       GoRoute(path: '/profile/memory', builder: (context, state) => const ProfileMemoryScreen()),
+      GoRoute(path: '/profile/roles', builder: (context, state) => const MyRolesScreen()),
+      GoRoute(path: '/business/promotions', builder: (context, state) => const BusinessPromotionsScreen()),
       GoRoute(
           path: '/deal/:requestId',
           builder: (context, state) => DealThreadScreen(

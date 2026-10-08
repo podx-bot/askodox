@@ -154,6 +154,20 @@
       "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
+      "id": "roles_and_business_navigation",
+      "name": "Profile -> My Roles / My Business navigation (Home unchanged)",
+      "purpose": "One personal identity, role sections, and one My Business hub -- never a tile on Home.",
+      "expected_behavior": "Profile -> My roles shows the personal profile once and, per held role (buyer, service taker, seller, service provider), tiles that open real screens; a role not held offers 'Add this role'. Profile -> My business: counted summary + insights (Analytics) first, then sections Business profile, My listings, Promotions & coupons, Business orders (plus Conversations & automation, Business settings and My creations as they ship). Promotions create offers that ASKODOX reviews before customers see them.",
+      "roles": ["any"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/merchant/offers"}, {"method": "POST", "path": "/api/merchant/offers"}],
+      "ui": {"keys": ["askodoxMyRolesEntry", "askodoxRolesPersonal", "askodoxBusinessSection-analytics", "askodoxOfferCreate"],
+             "symbols": ["MyRolesScreen", "BusinessPromotionsScreen", "askodoxBusinessSections"]},
+      "flags": {},
+      "tests": {"flutter": ["test/features/business/my_business_navigation_test.dart", "test/features/business/business_center_test.dart"]},
+      "dependencies": ["profile_memory"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",

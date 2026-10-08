@@ -8,6 +8,22 @@ import '../data/business_center_repository.dart';
 /// Business Command Center for a seller / provider: their own counted facts
 /// and what to do next (same records staff see). Each insight says whether
 /// it is a confirmed fact, a possible cause or a recommendation.
+/// The My Business sections (Analytics is the counted summary + insights on
+/// this screen itself). Order follows the approved navigation.
+List<({String id, String label, IconData icon, String route})> askodoxBusinessSections(bool te) {
+  String t(String en, String tel) => te ? tel : en;
+  return [
+    (id: 'profile', label: t('Business profile', 'వ్యాపార ప్రొఫైల్'), icon: Icons.store_mall_directory_outlined,
+        route: '/profile'),
+    (id: 'listings', label: t('My listings', 'నా లిస్టింగ్‌లు'), icon: Icons.inventory_2_outlined,
+        route: '/listings/mine'),
+    (id: 'promotions', label: t('Promotions & coupons', 'ప్రమోషన్లు & కూపన్లు'), icon: Icons.local_offer_outlined,
+        route: '/business/promotions'),
+    (id: 'orders', label: t('Business orders', 'వ్యాపార ఆర్డర్లు'), icon: Icons.receipt_long_outlined,
+        route: '/orders/incoming'),
+  ];
+}
+
 class BusinessCenterScreen extends ConsumerWidget {
   const BusinessCenterScreen({super.key});
 
@@ -47,11 +63,32 @@ class BusinessCenterScreen extends ConsumerWidget {
                       _Stat(t('New demand', 'కొత్త డిమాండ్'), page.summary['opportunities_new'], '/opportunities'),
                     ]),
                     const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14, bottom: 4),
+                      child: Text(t('Analytics', 'విశ్లేషణ'),
+                          key: const Key('askodoxBusinessSection-analytics'),
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ),
                     for (final i in page.insights) _InsightCard(insight: i),
                     if (page.basis.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(page.basis, style: Theme.of(context).textTheme.bodySmall),
+                      ),
+                    const SizedBox(height: 12),
+                    // My Business sections: each opens its one real screen.
+                    for (final section in askodoxBusinessSections(te))
+                      Card(
+                        elevation: 0,
+                        child: ListTile(
+                          key: ValueKey('askodoxBusinessSection-${section.id}'),
+                          leading: Icon(section.icon),
+                          title: Text(section.label),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => section.route.startsWith('/profile')
+                              ? context.go(section.route)
+                              : context.push(section.route),
+                        ),
                       ),
                   ],
                 ),
