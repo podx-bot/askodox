@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T16:58:01Z",
+ "generated_at": "2026-10-08T07:43:04Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,18 +7,18 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:77039611537c44c0",
+   "trace_key": "browse:1958f6d14ba94c5f",
    "videos": [
     {
-     "video_id": "yt_ddTpAyeDQ4I",
-     "title": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
-     "source_name": "Udrawat",
-     "duration": "7:33",
+     "video_id": "yt_yDD-7v3U8Ig",
+     "title": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+     "source_name": "Dealfixkaro",
+     "duration": "17:20",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/ddTpAyeDQ4I?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/yDD-7v3U8Ig?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/ddTpAyeDQ4I/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
+     "image_url": "https://i.ytimg.com/vi/yDD-7v3U8Ig/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -33,31 +33,32 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "category": "TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_ddTpAyeDQ4I",
+    "video_id": "yt_yDD-7v3U8Ig",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
-     "🔥 Best 43-Inch TVs to Buy in 2026!",
-     "Flipkart Big Billion Days Sale aur Amazon Great Indian Festival Sale ke time agar aap ek best 43-inch TV buy karne ka plan kar rahe hain, to ye video aapke liye hai.",
-     "Is video mein maine different budgets ke best 43-inch TVs suggest kiye hain a"
+     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+     "Looking for the Best 43 Inch TV in 2026?",
+     "In this video, I have covered some of the best 43 inch Smart TVs 2026 that you can consider during the Flipkart Big Billion Days Sale and Amazon Great Indian Fes"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Udrawat",
+    "creator": "Dealfixkaro",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
-    "question": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
+    "url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
+    "question": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
     "next": [
      {
       "action": "find_local",
@@ -87,8 +88,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days\"",
-    "reply": "This video by Udrawat covers various 43-inch TVs across different budget ranges for the Amazon Great Indian Festival and Flipkart Big Billion Days sales. Please note that specific prices, ratings, stock, and detailed specifications are Not verified by ASKODOX as they are not provided in the listing facts.",
+    "question": "Tell me more about \"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\"",
+    "reply": "This video by Dealfixkaro covers top 43-inch Smart TV options to consider during major online sales like Flipkart Big Billion Days and Amazon Great Indian Festival. Please note that these represent the creator's opinion and are not verified by ASKODOX. Specific details such as prices, ratings, and stock availability are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -118,7 +119,7 @@
     },
     "options": [
      {
-      "title": "Reliance Digital",
+      "title": "Croma - Benz Circle",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -127,12 +128,12 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
      {
-      "title": "Samsung 43-inch TVs Price List in India (September 2026)",
+      "title": "Samsung 43-inch TVs Price List in India (October 2026)",
       "segment": "deals",
       "match_source": "online",
       "source_name": "www.bajajfinserv.in",
@@ -161,7 +162,7 @@
      },
      {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
-      "segment": null,
+      "segment": "deals",
       "match_source": "online",
       "source_name": "www.flipkart.com",
       "price": null,
@@ -209,18 +210,18 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:a4441d33cb7b45e9",
+   "trace_key": "browse:d5b6da4f834a418a",
    "videos": [
     {
-     "video_id": "yt_ddTpAyeDQ4I",
-     "title": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
-     "source_name": "Udrawat",
-     "duration": "7:33",
+     "video_id": "yt_yDD-7v3U8Ig",
+     "title": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+     "source_name": "Dealfixkaro",
+     "duration": "17:20",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/ddTpAyeDQ4I?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/yDD-7v3U8Ig?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/ddTpAyeDQ4I/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
+     "image_url": "https://i.ytimg.com/vi/yDD-7v3U8Ig/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -235,31 +236,31 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
-     "brand": "Samsung",
-     "size": "43 అంగుళాల",
      "subject": "Samsung 43 inch TV",
+     "brand": "Samsung",
+     "size": "43 inch",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_ddTpAyeDQ4I",
+    "video_id": "yt_yDD-7v3U8Ig",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
-     "🔥 Best 43-Inch TVs to Buy in 2026!",
-     "Flipkart Big Billion Days Sale aur Amazon Great Indian Festival Sale ke time agar aap ek best 43-inch TV buy karne ka plan kar rahe hain, to ye video aapke liye hai.",
-     "Is video mein maine different budgets ke best 43-inch TVs suggest kiye hain a"
+     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+     "Looking for the Best 43 Inch TV in 2026?",
+     "In this video, I have covered some of the best 43 inch Smart TVs 2026 that you can consider during the Flipkart Big Billion Days Sale and Amazon Great Indian Fes"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Udrawat",
+    "creator": "Dealfixkaro",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=ddTpAyeDQ4I",
-    "question": "I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days",
+    "url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
+    "question": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
     "next": [
      {
       "action": "find_local",
@@ -289,11 +290,11 @@
     ]
    },
    "ai": {
-    "question": "\"I Bought All 43\" TVs | Best 43 Inch TV in Amazon Great Indian Festival & Flipkart Big Billion Days\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియోలో అందించిన సమాచారం ప్రకారం:\n- ధర: Not verified\n- దూరం: Not verified\n- నాణ్యత: Not verified\n- అందుబాటు: Not verified\n- రివ్యూలు: Not verified\n\nఇవి క్రియేటర్ Udrawat యొక్క అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. ఇచ్చిన వివరాల్లో ధర, దూరం మరియు నాణ్యత వంటి స్పష్టమైన సమాచారం అందుబాటులో లేదు.",
+    "question": "\"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "reply": "\"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\" వీడియో ఆధారంగా సమాచారం:\n\n• **ధర (Price):** వివరాలు అందించబడలేదు (Not verified). • **దూరం (Distance):** వివరాలు అందించబడలేదు. • **నాణ్యత & రివ్యూలు (Quality & Reviews):** ఇది Dealfixkaro వారి వ్యక్తిగత అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. నిర్దిష్టమైన రేటింగ్స్ లేదా రివ్యూ వివరాలు లభ్యం కాలేదు. • **అందుబాటు (Availability):** వివరాలు అందించబడలేదు. వీడియో వివరణ ప్రకారం, ఇందులో ఫ్లిప్‌కార్ట్ బిగ్ బిలియన్ డేస్ మరియు అమెజాన్ గ్రేట్ ఇండియన్ ఫెస్టివల్ సేల్స్‌లో లభించే 43 అంగుళాల స్మార్ట్ టీవీల గురించి చర్చించారు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి 43 అంగుళాల టీవీ సరిపోతుందో లేదో తెలుసుకోవడానికి గది పరిమాణం మరియు చూసే దూరం ముఖ్యం. సాధారణంగా 43 అంగుళాల టీవీకి 5 నుండి 6 అడుగుల దూరం ఉండాలి. మీ గదిలో అంత దూరం ఉంటే ఇది బాగా సరిపోతుంది.",
+    "follow_reply": "చిన్న గదికి (సాధారణంగా 10x10 అడుగుల గది) 43 అంగుళాల టీవీ కాస్త పెద్దదిగానే ఉండవచ్చు. టీవీ స్పష్టంగా చూడటానికి కనీసం 6 నుండి 8 అడుగుల దూరం ఉండటం మంచిది. మీ గదిలో చూడటానికి ఎంత దూరం ఉంటుంది?",
     "follow_source": "universal_ai",
     "follow_domain": "GENERAL",
     "follow_action": "advise"
@@ -316,7 +317,7 @@
     },
     "options": [
      {
-      "title": "Reliance Digital",
+      "title": "Croma - Benz Circle",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -325,12 +326,12 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
      {
-      "title": "Samsung 43-inch TVs Price List in India (September 2026)",
+      "title": "Samsung 43-inch TVs Price List in India (October 2026)",
       "segment": "deals",
       "match_source": "online",
       "source_name": "www.bajajfinserv.in",
@@ -359,7 +360,7 @@
      },
      {
       "title": "Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com",
-      "segment": null,
+      "segment": "deals",
       "match_source": "online",
       "source_name": "www.flipkart.com",
       "price": null,
@@ -407,7 +408,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:651fdf9780584f43",
+   "trace_key": "browse:b0cb22ec295f489e",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -429,17 +430,13 @@
    ],
    "production_video_rows": 5,
    "search_decision": {
-    "reply": "Sure -- looking for real videos and reviews.",
-    "domain": "PRODUCT",
-    "transactional": true,
-    "action": "search_videos",
-    "confidence": 0.98,
-    "source": "universal_ai",
-    "entities": {
-     "subject": "Redmi Note 13 Pro",
-     "brand": "Redmi",
-     "location": "Vijayawada"
-    }
+    "reply": "",
+    "domain": "UNKNOWN",
+    "transactional": false,
+    "action": "",
+    "confidence": 0.0,
+    "source": "fallback",
+    "entities": {}
    },
    "explain": {
     "video_id": "yt_kGG04jkdjxY",
@@ -487,7 +484,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "This unboxing and initial impression video is by Gyan Therapy (creator's opinion, not verified by ASKODOX). According to the video details, the Redmi Note 13 Pro features a Snapdragon 7s Gen 2 processor, a 200MP triple camera, a 5100mAh battery, and 67W charging. Price, rating, and stock availability were not provided by the source.",
+    "reply": "Based on the details provided by creator Gyan Therapy (their opinion, not verified by ASKODOX), the video covers an unboxing and initial impressions of the Redmi Note 13 Pro. It mentions key features including the Snapdragon 7s Gen 2 processor, a 200MP triple camera setup, a 5100mAh battery, and 67W charging from Xiaomi. Details like price, ratings, distance, and stock/availability are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -610,18 +607,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:3ddff7f647bc4e0d",
+   "trace_key": "browse:41543d3f02d3426e",
    "videos": [
     {
-     "video_id": "yt_KjJanS7xNAI",
-     "title": "Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|",
-     "source_name": "Sunil Autocar",
-     "duration": "14:08",
+     "video_id": "yt_Cb-YstSd3oU",
+     "title": "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+     "source_name": "CarTalk by Ashu",
+     "duration": "9:34",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/KjJanS7xNAI?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/Cb-YstSd3oU?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/KjJanS7xNAI/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=KjJanS7xNAI",
+     "image_url": "https://i.ytimg.com/vi/Cb-YstSd3oU/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=Cb-YstSd3oU",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -636,30 +633,31 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "Tata Nexon",
      "brand": "Tata",
-     "model": "Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_KjJanS7xNAI",
+    "video_id": "yt_Cb-YstSd3oU",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|",
-     "Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|",
-     "All New Tata Nexon Apne Segment ki behtreen Features Loaded Suv Car hai Is Video me Tata Nexon ke Top Model Fearless Plus Ps ka Review Video dikhaya gya hai jisme Car ke Features Interior and Exter"
+     "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+     "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
+     "Related Queries",
+     "tata nexon crative plus s,",
+     "tata nexon creative plus s model,"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Sunil Autocar",
+    "creator": "CarTalk by Ashu",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=KjJanS7xNAI",
-    "question": "Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|",
+    "url": "https://www.youtube.com/watch?v=Cb-YstSd3oU",
+    "question": "Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details",
     "next": [
      {
       "action": "find_local",
@@ -689,8 +687,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon Top Model Fearless Plus PS 2026 ❣️| NEXON Top Model Detailed Review 💪|\"",
-    "reply": "Based on the details provided from Sunil Autocar, this video covers a detailed review of the Tata Nexon Top Model Fearless Plus PS, including its interior, exterior, and features. Please note that this is the creator's opinion and not verified by ASKODOX. Specific details such as price, ratings, and stock availability are not provided by the source.",
+    "question": "Tell me more about \"Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details\"",
+    "reply": "This video is titled 'Tata Nexon Creative Plus S 2026 Model Detailed Review ✅ On-Road Price, Features, Mileage & Details' by creator CarTalk by Ashu. Please note that the content reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, mileage, features, and ratings were not provided in the source metadata.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -812,7 +810,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:8ee70d6d80564b86",
+   "trace_key": "browse:ffe88195574344bd",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -838,7 +836,7 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "AC service",
@@ -889,7 +887,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
-    "reply": "This video by KP Vlogs & Review covers the Urban Company Split AC Cleaning using Advance Foamjet Technology. Please note that this reflects the creator's personal opinion and is not verified by ASKODOX. Key details like price, rating, reviews, and availability are not provided in the source.",
+    "reply": "This video by creator KP Vlogs & Review covers the 'Urban Company AC Service | Split AC Cleaning Advance Foamjet Technology'. Please note that the creator's opinions are not verified by ASKODOX. Specific details such as price, customer ratings, and service availability are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -994,7 +992,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:a4d8d65018084002",
+   "trace_key": "browse:f4f5b3eeae64427a",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1020,10 +1018,12 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
+     "service_type": "plumbing repair",
+     "context": "kitchen sink",
      "location": "Vijayawada"
     }
    },
@@ -1072,7 +1072,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
-    "reply": "This short video is by creator 'vijay xyz tricks'. The video content has not been analyzed, and facts like price, rating, reviews, and distance are not provided by the source. Note that creator claims reflect their opinion and are not verified by ASKODOX.",
+    "reply": "Based on the listed details, this is a video titled \"Great Plumbing Trick To Fix Pvc Pipe Joint\" by creator vijay xyz tricks (their opinion, not verified by ASKODOX). Specific details such as price, distance, rating, reviews, and stock are not provided by the source, and the video content itself has not been analyzed.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1100,16 +1100,16 @@
     },
     "options": [
      {
-      "title": "SS Rapid Electrical and plumbing works",
+      "title": "Amulya Plumbing & Sanitary Services",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 1.2,
+      "distance_km": 0.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=10883317646997129769&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1177,7 +1177,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:1ffcec3fb5e84bef",
+   "trace_key": "browse:2ca0bb4eabb04524",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1256,7 +1256,7 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "This video by DCT EATS features the creator and Sahil from Headbanger Eats testing authentic Hyderabadi mutton biryani in Mumbai across three price tiers: Bikkgane Biryani (₹450), Biryani By Kilo (₹800), and Lit (₹1200). Please note that these are the creator's opinions and not verified by ASKODOX. Specific ratings, reviews, stock availability, distance, and exact item pricing details are not provided in the source.",
+    "reply": "Based on the details provided by DCT EATS, this video features DCT EATS and Sahil from Headbanger Eats comparing three price points of authentic Hyderabadi mutton biryani in Mumbai: ₹450, ₹800, and ₹1200. The restaurants featured are Bikkgane Biryani, Biryani By Kilo, and Lit. Please note that the specific reviews and opinions are creator's opinion -- not verified by ASKODOX. Specific details like rating, reviews, and stock availability are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1377,18 +1377,18 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:9f9250bd76be41dd",
+   "trace_key": "browse:70d710a6b2f94d68",
    "videos": [
     {
-     "video_id": "yt_IaaAlzSxqwA",
-     "title": "Top 10 Places in Araku Valley 🌴🌊❤✨ #araku",
-     "source_name": "Ramya Random Tales",
-     "duration": "0:25",
+     "video_id": "yt_rMd5DUP04RE",
+     "title": "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku",
+     "source_name": "Travel Matcha",
+     "duration": "6:22",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/IaaAlzSxqwA?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/rMd5DUP04RE?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/IaaAlzSxqwA/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=IaaAlzSxqwA",
+     "image_url": "https://i.ytimg.com/vi/rMd5DUP04RE/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=rMd5DUP04RE",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1406,27 +1406,27 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku Valley trip",
+     "subject": "Araku valley trip",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_IaaAlzSxqwA",
+    "video_id": "yt_rMd5DUP04RE",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Top 10 Places in Araku Valley 🌴🌊❤✨ #araku",
-     "Top 10 places you must visit in Araku.",
-     "Watch till end, give it a like & please do subscribe to the Channel.",
-     "Rana Jilleda waterfalls is ❤🤌",
-     "Galikonda View point is Overrated 🚶‍♀️"
+     "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku",
+     "in This video we are giving out a full itinerary for Araku Valley,",
+     "Araku Valley is Andhra Pradesh’s Hidden Gem!",
+     "Imagine waking up to mist-covered hills, walking through lush coffee plantations, exploring ancient caves, and tasting food that’s out of this world...",
+     "This is what a"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Ramya Random Tales",
+    "creator": "Travel Matcha",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=IaaAlzSxqwA",
-    "question": "Top 10 Places in Araku Valley 🌴🌊❤✨ #araku",
+    "url": "https://www.youtube.com/watch?v=rMd5DUP04RE",
+    "question": "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku",
     "next": [
      {
       "action": "find_local",
@@ -1456,13 +1456,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Top 10 Places in Araku Valley 🌴🌊❤✨ #araku\"",
-    "reply": "Based on the details provided by Ramya Random Tales, the video highlights Rana Jilleda Waterfalls as a favorite, considers Galikonda View Point overrated, and recommends skipping Karika Waterfalls if traveling with kids or elderly people. Please note that these are the creator's personal opinions and are not verified by ASKODOX. Specific details like exact prices, ratings, or distance are not provided.",
+    "question": "Tell me more about \"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"",
+    "reply": "This video from Travel Matcha covers a full itinerary for Araku Valley, featuring places to visit like coffee plantations and ancient caves. Please note that these details reflect the creator's opinion and are Not verified by ASKODOX. Specific details such as price, rating, and user reviews are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "EVENT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1578,18 +1578,18 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:f3da815cec06446e",
+   "trace_key": "browse:7402f63eb7874ab0",
    "videos": [
     {
-     "video_id": "yt_GW-rCk-eAoU",
-     "title": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
-     "source_name": "Bindass Singh",
-     "duration": "7:16",
+     "video_id": "yt_RJworx5674I",
+     "title": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
+     "source_name": "The Motographer ",
+     "duration": "13:42",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/GW-rCk-eAoU?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/RJworx5674I?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/GW-rCk-eAoU/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
+     "image_url": "https://i.ytimg.com/vi/RJworx5674I/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=RJworx5674I",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1604,7 +1604,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "used Royal Enfield Classic 350",
@@ -1614,20 +1614,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_GW-rCk-eAoU",
+    "video_id": "yt_RJworx5674I",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
-     "How To Check And Buy Old Royal Enfield Classic 350.How To Buy Used Royal Enfield.How To Buy Second Hand Bullet.How To Buy 2nd Hand Royal Enfield Bullet or Classic.Purani Royal Enfield Classic 350cc Kaise Kya Kya Check Karen.",
-     "#RoyalEnfield #UsedBullet #UsedClassic #BindassSingh"
+     "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
+     "Welcome to *TheMotographer* — where every ride becomes a cinematic story.",
+     "I’m a rider, creator, and reviewer who captures the soul of motorcycles.",
+     "📍 Based in Lucknow, India | Motorcycle • Cinematic • Experiences",
+     "🎯 My goal — to build a space for riders who ride not just for spe"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Bindass Singh",
+    "creator": "The Motographer ",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
-    "question": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
+    "url": "https://www.youtube.com/watch?v=RJworx5674I",
+    "question": "Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350",
     "next": [
      {
       "action": "find_local",
@@ -1657,8 +1659,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350\"",
-    "reply": "This video titled 'How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350' is by content creator Bindass Singh (creator's opinion, not verified by ASKODOX). Specific details like price, rating, reviews, stock availability, and distance are not provided in the listing facts.",
+    "question": "Tell me more about \"Royal Enfield Classic 350 (2015) | 10-Year Ownership Review #bike #royalenfield #classic350\"",
+    "reply": "This is a 10-year ownership review video for a 2015 Royal Enfield Classic 350 by creator The Motographer. Note that the creator's opinions are not verified by ASKODOX. Specific details like price, rating, reviews, and specifications are not provided in the video summary.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1780,18 +1782,18 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:e42b0264b4454323",
+   "trace_key": "browse:9fb17e7522014077",
    "videos": [
     {
-     "video_id": "yt_LtaCjbudjpQ",
-     "title": "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub",
-     "source_name": "CallMeShazzam TECH",
-     "duration": "14:54",
+     "video_id": "yt_z--PotbWWAA",
+     "title": "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)",
+     "source_name": "GadgetsLife",
+     "duration": "8:25",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/LtaCjbudjpQ?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/z--PotbWWAA?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/LtaCjbudjpQ/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=LtaCjbudjpQ",
+     "image_url": "https://i.ytimg.com/vi/z--PotbWWAA/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=z--PotbWWAA",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1811,27 +1813,26 @@
     "entities": {
      "subject": "iPhone 15 offer",
      "brand": "Apple",
-     "model": "iPhone 15",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_LtaCjbudjpQ",
+    "video_id": "yt_z--PotbWWAA",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub",
-     "Thumbnail by",
-     "https://www.instagram.com/laetitia.creatives/",
-     "ndependently owned creative agency",
-     "Crafting transformative brands"
+     "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)",
+     "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake!",
+     "This Video is regrading the best deal in lowest price in upcoming Flipkart bbd sale 2026 for iPhone 15, iPhone 16 and iPhone 17.",
+     "Which one should you Buy?",
+     "Don't make mistake, make sure to watch this video till end.."
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "CallMeShazzam TECH",
+    "creator": "GadgetsLife",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=LtaCjbudjpQ",
-    "question": "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub",
+    "url": "https://www.youtube.com/watch?v=z--PotbWWAA",
+    "question": "iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)",
     "next": [
      {
       "action": "find_local",
@@ -1861,8 +1862,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
-    "reply": "This video is a long-term review of the iPhone 15 by CallMeShazzam TECH, featuring Malayalam audio with English subtitles. It covers long-term usage impressions, whether it's the best iPhone, and its sale potential. Please note that these details reflect the creator's opinion and are Not verified by ASKODOX. Details like price, rating, and stock are not provided.",
+    "question": "Tell me more about \"iPhone 15 vs 16 vs 17 in BBD Sale | Don't Make Mistake! (HINDI)\"",
+    "reply": "This video from GadgetsLife discusses the upcoming Flipkart Big Billion Days (BBD) Sale 2026 deals for the iPhone 15, iPhone 16, and iPhone 17 to help buyers choose the best value option. Please note that these represent the creator's opinion and are not verified by ASKODOX. Specific details such as current prices, ratings, or stock availability are not provided in the source listing.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1985,7 +1986,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:892e0717664f4798",
+   "trace_key": "browse:56f3bb573c7a4203",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2011,11 +2012,10 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 1.0,
     "source": "universal_ai",
     "entities": {
      "subject": "ఏసీ సర్వీస్",
-     "service_type": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -2063,10 +2063,10 @@
    },
    "ai": {
     "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియోలో Urban Company AC Foamjet Cleaning గురించి చెప్పబడింది. ఇది Creator (KP Vlogs & Review) గారి అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు. ధర, దూరం, అందుబాటు మరియు రేటింగ్ వివరాలు ఈ సమాచారంలో అందించబడలేదు (Not verified).",
+    "reply": "KP Vlogs & Review ఛానెల్ యొక్క \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" వీడియో వివరాల ప్రకారం:\n\n• ధర: లభ్యం కాలేదు (Not provided)\n• దూరం: లభ్యం కాలేదు (Not provided)\n• నాణ్యత / రివ్యూలు: నాట్ వెరిఫైడ్ (వీడియోలో చెప్పిన అభిప్రాయాలు క్రియేటర్ KP Vlogs & Review సొంతం, ASKODOX ద్వారా ధృవీకరించబడలేదు)\n• అందుబాటు: లభ్యం కాలేదు (Not provided)",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి Split AC Foamjet Cleaning సరిపోతుంది, కానీ దీని వివరాలు మరియు పూర్తి సమాచారం వీడియో ఆధారంగా సరిగ్గా నిర్ధారించబడలేదు (Not verified).",
+    "follow_reply": "ఆ వివరాలు ఇచ్చిన సమాచారంలో అందుబాటులో లేవు (Not verified). చిన్న గదికి 1 టన్ను AC సర్వీస్ సరిపోతుందో లేదో మీ AC సామర్థ్యాన్ని బట్టి ఆధారపడి ఉంటుంది.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
     "follow_action": "answer_about_options"
