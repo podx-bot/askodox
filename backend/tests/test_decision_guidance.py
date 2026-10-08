@@ -34,7 +34,8 @@ def test_guidance_rule_is_universal_and_honest_about_estimates():
                  "at most ONE question", "Never name specific shops", "no forced guidance, no commerce"):
         assert must in rule, must
     for must in ("people and skills", "materials with quantities", "tools and equipment", "quotations",
-                 "Never claim a quotation", "Never ask again for anything already said", "the app renders it"):
+                 "Never claim a quotation", "Never ask again for anything already said", "the app renders it",
+                 "[ok]", "[caution]", "[risk]", "leave everything else untagged"):
         assert must in rule, must
     for banned in ("tile", "vitrified", "sq ft", "paint"):  # no category script hidden in the rule
         assert banned not in rule.lower()

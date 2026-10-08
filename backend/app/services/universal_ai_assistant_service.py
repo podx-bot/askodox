@@ -100,6 +100,10 @@ DECISION_GUIDANCE_RULES = (
     "Formatting (the app renders it): short paragraphs; '- ' bullets or numbered steps for lists and plans; "
     "**bold** only for a few key figures or labels; a | table | only for side-by-side comparisons; no headings "
     "for a short answer. "
+    "Meaning tags (the app colours them): start a line or point with [ok] only when it is clearly good / "
+    "recommended / safe, [caution] when it needs attention, [risk] for a real danger, loss or 'do not'; leave "
+    "everything else untagged (most lines). Tags stay in English in every language and are never invented to "
+    "decorate a reply. "
 )
 
 CONVERSATION_STATE_RULES = (

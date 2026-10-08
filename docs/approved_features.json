@@ -90,13 +90,14 @@
       "id": "rich_replies",
       "name": "Structured reply rendering",
       "purpose": "Readable answers in any language: headings, points, bold, tables, links -- never raw markup.",
-      "expected_behavior": "Assistant replies render their structure; plain replies stay plain; speech gets plain words.",
+      "expected_behavior": "Assistant replies render their structure; plain replies stay plain; speech gets plain words; lines the assistant tags [ok]/[caution]/[risk] are coloured green/orange/red with an icon (never keyword-guessed); tall scripts get 1.5 line height.",
       "roles": ["any"], "domains": ["any"],
-      "ui": {"symbols": ["AskodoxRichReply", "askodoxPlainReply"]},
+      "ui": {"symbols": ["AskodoxRichReply", "askodoxPlainReply", "askodoxSeverityOf", "askodoxSeverityStyle", "askodoxNeedsTallLines"]},
       "flags": {},
-      "tests": {"flutter": ["test/shared/rich_reply_test.dart"]},
+      "tests": {"backend": ["tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates"],
+                "flutter": ["test/shared/rich_reply_test.dart", "test/shared/rich_reply_test.dart::meaning colours"]},
       "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "introduced"}]
+      "history": [{"pr": "post-1312", "change": "introduced"}, {"pr": "post-1313", "change": "meaning colours from the assistant's [ok]/[caution]/[risk] tags (bar + tint + icon + label, light/dark), Telugu line height"}]
     },
     {
       "id": "attachments",
