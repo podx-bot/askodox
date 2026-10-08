@@ -196,6 +196,20 @@
       "history": [{"pr": "post-1313", "change": "introduced"}]
     },
     {
+      "id": "admin_ai_incidents",
+      "name": "Admin AI incidents + action framework",
+      "purpose": "Explain what is wrong from real telemetry and act only through approved, verified, auditable steps.",
+      "expected_behavior": "Incidents in ONE format (Problem / Impact / Reason / Evidence / Solution / Action Status / Retest / AI Explanation) in English or Telugu; Reason confirmed only from the provider's own answer, else 'Root cause not confirmed'; correlations labelled POSSIBLE_CORRELATION; history kept; release readiness never READY without device proof. Actions only from a fixed catalog: read-only checks may run (max 2/hour), changes need approval by the right permission, are verified (VERIFIED / NOT_RECOVERED / UNVERIFIED), keep rollback, and are blocked after two failed recoveries.",
+      "roles": ["staff"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/incidents"}, {"method": "GET", "path": "/admin/cc/actions"},
+              {"method": "POST", "path": "/admin/cc/actions"}, {"method": "POST", "path": "/admin/cc/actions/{run_id}/{step}"},
+              {"method": "POST", "path": "/admin/cc/assistant/ask"}],
+      "flags": {},
+      "tests": {"backend": ["tests/test_admin_incidents.py", "tests/test_admin_ops.py"]},
+      "dependencies": ["api_health_billing", "feature_health"], "status": "approved",
+      "history": [{"pr": "post-1313", "change": "introduced"}]
+    },
+    {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",

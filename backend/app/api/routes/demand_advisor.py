@@ -421,6 +421,7 @@ class AskBody(BaseModel):
     question: str = Field(min_length=2, max_length=4000)  # room for pasted links
     days: int = 7
     language: str = ""
+    mode: str = ""  # "incidents": the grounded incident report
 
 
 _TOPICS = (
@@ -492,6 +493,16 @@ def admin_assistant(body: AskBody, request: Request) -> dict:
         return {"question": body.question, "language": lang,
                 "answers": [admin_ops.run(op, body.question, lang, **getters) for op in ops],
                 "basis": "Recorded ASKODOX records only; changes happen on the linked screen after you confirm."}
+    from app.services import admin_incidents
+
+    if body.mode == "incidents" or (admin_incidents.is_incident_question(body.question)
+                                    and not any(re.search(p, text) for _, p in _TOPICS)):
+        if _can(principal, "health:view"):
+            from app.api.routes.command_center import incident_report
+
+            lang = admin_ops.language(body.question, body.language)
+            return {"question": body.question, "language": lang, "mode": "incidents",
+                    **incident_report(request, lang)}
     topics = [name for name, pattern in _TOPICS if re.search(pattern, text)] or ["rising", "unmet"]
     answers = []
     data = di.insights(repo, days=days) if _can(principal, "demand:view") else None

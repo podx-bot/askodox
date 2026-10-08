@@ -2228,3 +2228,128 @@ def api_billing_alert_action(alert_id: int, action: str, request: Request) -> di
         raise HTTPException(status_code=404, detail="alert not found")
     return row
 
+
+# ------------------------------------------------------- Admin AI incidents + actions --
+
+def incident_report(request: Request, language: str = "en") -> dict[str, Any]:
+    """Incidents from real telemetry only (health components, provider
+    billing / state, self-healing, feature registry) in ONE format."""
+    from app.services import admin_incidents, api_billing, feature_registry, self_healing
+
+    container = request.app.state.container
+    db = container.settings.database_path
+    components = health(request)["components"]
+    rows = api_billing.overview(container, db)["providers"]
+    try:
+        heal = self_healing.engine(container).log(limit=50)
+    except Exception:
+        heal = []
+    try:
+        registry = feature_registry.runtime(container, components)
+    except Exception:
+        registry = []
+    incidents = admin_incidents.build(components=components, billing_rows=rows, selfheal=heal, registry=registry,
+                                      lang=language)
+    admin_incidents.remember(db, incidents)
+    return {"language": "te" if language == "te" else "en", "incidents": incidents,
+            "release_readiness": admin_incidents.release_readiness(incidents),
+            "history": admin_incidents.history(db, limit=30),
+            "basis": "Recorded telemetry only: health components, provider answers, billing usage, self-healing "
+                     "and the approved-feature registry. Correlations are POSSIBLE, never proven causes."}
+
+
+@router.get("/incidents")
+def incidents(request: Request, language: str = "en") -> dict[str, Any]:
+    _require(request, "health:view")
+    return incident_report(request, language)
+
+
+class ActionProposal(BaseModel):
+    action: str = Field(min_length=1, max_length=40)
+    target: str = Field(default="", max_length=80)
+    incident_key: str = Field(default="", max_length=160)
+
+
+def _action_runners(request: Request, principal: dict[str, Any]) -> dict[str, Any]:
+    from app.services import api_billing, self_healing
+
+    container = request.app.state.container
+    actor = str(principal.get("id") or principal.get("name") or "staff")
+
+    def recheck(target: str) -> dict[str, Any]:
+        if target == "brave":
+            state, detail = _brave_check(container)
+        elif target == "sarvam":
+            state, detail = _sarvam_check(container)
+        else:  # no paid call: read the recorded state again
+            row = next((r for r in api_billing.overview(container, container.settings.database_path)["providers"]
+                        if r["provider"] == target), None)
+            if row is None:
+                raise ValueError("unknown provider")
+            state, detail = row["state"], "recorded state (no new call)"
+        return {"result": f"{state}: {detail}", "verified": True if state == "LIVE" else
+                (False if state in ("ERROR", "QUOTA_EXHAUSTED", "DOWN", "CREDENTIAL_ERROR", "RATE_LIMITED") else None)}
+
+    def rescan(_: str) -> dict[str, Any]:
+        out = api_billing.scan(container, container.settings.database_path)
+        return {"result": f"new alerts: {', '.join(out['created']) or 'none'}", "verified": None}
+
+    def selfheal_apply(target: str) -> dict[str, Any]:
+        eng = self_healing.engine(container)
+        applied = eng.apply(int(target), actor)
+        eng.verify_applied()
+        state = ((eng.get(int(target)) or {}).get("verification") or {})
+        state = state.get("state") if isinstance(state, dict) else state
+        return {"result": str(applied.get("result") or applied.get("status") or "applied"),
+                "verified": True if state == "VERIFIED" else False if state == "NOT_RECOVERED" else None,
+                "rollback": f"Self-healing -> issue #{target} -> Rollback"}
+
+    return {"recheck": recheck, "rescan_billing": rescan, "selfheal_apply": selfheal_apply}
+
+
+@router.get("/actions")
+def admin_actions_list(request: Request) -> dict[str, Any]:
+    _require(request, "health:view")
+    from app.services import admin_action_framework as fw
+
+    return {"catalog": fw.CATALOG, "runs": fw.runs(request.app.state.container.settings.database_path)}
+
+
+@router.post("/actions")
+def admin_action_propose(body: ActionProposal, request: Request) -> dict[str, Any]:
+    principal = _require(request, "health:view")
+    from app.services import admin_action_framework as fw
+
+    try:
+        return fw.propose(request.app.state.container.settings.database_path, body.action, body.target,
+                          actor=str(principal.get("id") or principal.get("name") or "staff"),
+                          incident_key=body.incident_key)
+    except PermissionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+
+
+@router.post("/actions/{run_id}/{step}")
+def admin_action_step(run_id: int, step: str, request: Request) -> dict[str, Any]:
+    principal = _require(request, "health:view")
+    from app.services import admin_action_framework as fw
+
+    db = request.app.state.container.settings.database_path
+    actor = str(principal.get("id") or principal.get("name") or "staff")
+    can = lambda permission: _can(principal, permission)  # noqa: E731
+    try:
+        if step == "approve":
+            return fw.approve(db, run_id, actor=actor, can=can)
+        if step == "reject":
+            return fw.reject(db, run_id, actor=actor)
+        if step == "execute":
+            return fw.execute(db, run_id, actor=actor, can=can, runners=_action_runners(request, principal))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="action not found") from None
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    raise HTTPException(status_code=422, detail="step must be approve, reject or execute")
+
