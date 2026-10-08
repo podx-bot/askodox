@@ -862,6 +862,48 @@ def update_config(key: str, payload: FlagUpdate, request: Request) -> Any:
 
 # ---------------------------------------------------------- integrations --
 
+def _when(value: Any) -> datetime:
+    """Parse a stored timestamp ("...Z" or "+00:00", with or without
+    microseconds) so "newer" is compared by time, never as text."""
+    try:
+        parsed = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
+# A manual check's outcome is stored as a leading token in its detail.
+_CHECK_STATES = {"QUOTA_EXHAUSTED": "quota_exhausted", "NEEDS_CONFIGURATION": "not_configured",
+                 "DISABLED": "disabled", "DEGRADED": "degraded"}
+
+
+def _check_status(check: dict[str, Any]) -> str:
+    if check.get("ok"):
+        return "ok"
+    token = str(check.get("detail") or "").split(":", 1)[0].strip()
+    return _CHECK_STATES.get(token, "error")
+
+
+def _mobility_readiness(container: Any, flags: dict[str, Any]) -> dict[str, Any]:
+    enabled = bool((flags.get("delivery.matching") or {}).get("enabled"))
+    try:
+        from app.api.routes.platform import platform as _platform
+        partners = _platform(container).resources.repo.list("delivery_partners")
+    except Exception:
+        partners = []
+    approved = [p for p in partners if p.get("status") == "ACTIVE" and not p.get("archived")]
+    online = [p for p in approved if (p.get("data") or {}).get("available")]
+    if not enabled:
+        status, detail = "disabled", "delivery.matching flag is off"
+    elif not approved:
+        status, detail = "not_configured", "no approved driver / delivery partner yet"
+    elif not online:
+        status, detail = "degraded", f"{len(approved)} approved partner(s), none online now"
+    else:
+        status, detail = "ok", f"{len(approved)} approved partner(s), {len(online)} online now"
+    return {"configured": bool(approved), "enabled": enabled, "status": status, "detail": detail}
+
+
 def _integration_states(container: Any) -> list[dict[str, Any]]:
     from app.services.commerce_finance import youtube_api_key
 
@@ -910,31 +952,39 @@ def _integration_states(container: Any) -> list[dict[str, Any]]:
     def state(name, label, configured, flag_keys=(), detail=""):
         enabled = all(flags[k]["enabled"] for k in flag_keys) if flag_keys else True
         check = checks.get(name)
+        observed = observed_state(name) if observed_state(name) in ("QUOTA_EXHAUSTED", "ERROR", "LIVE") else None
         if not configured:
             status = "not_configured"
         elif not enabled:
             status = "disabled"
-        elif observed_state(name) in ("QUOTA_EXHAUSTED", "ERROR", "LIVE") and (
-                check is None or (observed_at(name) or "") >= str(check.get("at") or check.get("checked_at") or "")):
-            # A real provider answer newer than the last manual check wins:
+        elif observed and (check is None or _when(observed_at(name)) > _when(check.get("checked_at"))):
+            # A real provider answer NEWER than the last manual check wins:
             # e.g. Sarvam HTTP 402 -> quota_exhausted, never "configured".
-            status = {"QUOTA_EXHAUSTED": "quota_exhausted", "ERROR": "error", "LIVE": "ok"}[observed_state(name)]
+            status = {"QUOTA_EXHAUSTED": "quota_exhausted", "ERROR": "error", "LIVE": "ok"}[observed]
         elif check is None:
             status = "configured"  # present but not verified -- never "connected"
         else:
-            status = "ok" if check["ok"] else "error"
+            # The latest manual check decides; an older success never covers
+            # a newer failed check.
+            status = _check_status(check)
         return {"name": name, "label": label, "configured": bool(configured), "enabled": enabled,
                 "status": status, "last_check": check, "detail": detail, "flags": list(flag_keys)}
 
+    # Mobility: flag + approved partners (same rule as Integration readiness).
+    mobility = _mobility_readiness(container, flags)
+
     return [
-        state("google_maps", "Google Maps / Places (nearby shops)", bool(settings.google_maps_api_key),
+        state("google_maps", "Google Maps / Places (nearby shops)", provider_health.has_key(settings.google_maps_api_key),
               ("results.nearby_external",)),
-        state("brave_search", "Brave web + video discovery", bool(settings.brave_search_api_key),
+        state("brave_search", "Brave web + video discovery", provider_health.has_key(settings.brave_search_api_key),
               ("results.online",)),
-        state("sarvam", "Sarvam voice (STT saaras / TTS Bulbul v3)", bool(settings.sarvam_api_key),
+        state("sarvam", "Sarvam voice (STT saaras / TTS Bulbul v3)", provider_health.has_key(settings.sarvam_api_key),
               ("voice.sarvam_tts",)),
-        state("gemini", "Gemini AI / voice fallback", bool(settings.gemini_api_key), ("ai.assistant",)),
-        state("openai", "OpenAI vision/text", bool(settings.openai_api_key)),
+        state("gemini", "Gemini AI / voice fallback", provider_health.has_key(settings.gemini_api_key), ("ai.assistant",)),
+        state("openai", "OpenAI vision/text", provider_health.has_key(settings.openai_api_key)),
+        {"name": "mobility", "label": "Mobility (rides / delivery matching)", "configured": mobility["configured"],
+         "enabled": mobility["enabled"], "status": mobility["status"], "last_check": checks.get("mobility"),
+         "detail": mobility["detail"], "flags": ["delivery.matching"]},
         state("whatsapp", "WhatsApp Cloud API (support channel)",
               bool(settings.whatsapp_access_token and settings.whatsapp_phone_number_id)),
         state("support_channels", "Support WhatsApp / phone numbers",
@@ -1040,98 +1090,160 @@ def integrations(request: Request) -> dict[str, Any]:
     return {"items": _integration_states(request.app.state.container)}
 
 
+def _brave_check(container: Any) -> tuple[str, str]:
+    provider = getattr(container, "brave_web_search_provider", None)
+    if provider is None:
+        return "ERROR", "Web search provider is not loaded"
+    started = datetime.now(timezone.utc)
+    rows = provider("ASKODOX marketplace", 1)
+    snapshot = provider.health_snapshot() if hasattr(provider, "health_snapshot") else {}
+    live = str((snapshot or {}).get("state") or "")
+    code = (snapshot or {}).get("http_status")
+    if getattr(provider, "last_stale_at", None) or getattr(provider, "last_error", False):
+        # A stored last-good answer is NOT a live success.
+        if live == "quota_exhausted":
+            return "QUOTA_EXHAUSTED", f"Brave refused for credit / quota (HTTP {code})"
+        if live == "auth_failed":
+            return "ERROR", f"Brave rejected the credentials (HTTP {code})"
+        return "ERROR", "Brave did not answer live" + (f" ({live}, HTTP {code})" if code else f" ({live or 'error'})")
+    if rows:
+        fresh = _when((snapshot or {}).get("at")) >= started
+        return "LIVE", ("Brave answered with live results" if fresh else
+                        "Brave answered (shared cache of a real answer from " + str((snapshot or {}).get("at"))[:19] + ")")
+    return "ERROR", "Brave answered with no results"
+
+
+def _sarvam_check(container: Any) -> tuple[str, str]:
+    """A real Bulbul TTS call AND a real Saaras STT call -- each recorded on
+    its own (sarvam_tts / sarvam_stt). STT is called directly on Sarvam,
+    never through the Gemini fallback, so a fallback answer can never make
+    Sarvam look LIVE."""
+    import time
+    from app.services import provider_health
+    from app.services.sarvam_primary_voice_assistant_service import _observe_sarvam
+
+    voice = container.voice_assistant_service
+    synth = getattr(voice, "_synthesize_sarvam", None)
+    # A fresh phrase so the TTS cache can never answer instead of Sarvam.
+    tts = synth(f"ASKODOX check {int(time.time()) % 1000}") if callable(synth) else {}
+    tts = tts or {}
+    _observe_sarvam("sarvam_tts", tts, configured=True)
+    tts_state = provider_health.LIVE if tts.get("success") else provider_health.classify(None, str(tts.get("status") or ""))
+    audio = tts.get("content") or tts.get("audio_bytes") or tts.get("audio") or b""
+    mime = str(tts.get("mime_type") or "audio/ogg")
+    if not (tts.get("success") and audio):
+        # Still verify STT for real: one second of silence (Sarvam answers
+        # with an empty transcript when healthy).
+        import io as _io
+        import wave
+        buffer = _io.BytesIO()
+        with wave.open(buffer, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(b"\x00\x00" * 16000)
+        audio, mime = buffer.getvalue(), "audio/wav"
+    direct = getattr(voice, "_transcribe_sarvam_complete", None)
+    stt = (direct(audio_bytes=audio, mime_type=mime) if callable(direct) else {}) or {}
+    _observe_sarvam("sarvam_stt", stt, configured=True)
+    stt_status = str(stt.get("status") or "")
+    stt_state = provider_health.LIVE if (stt.get("success") or stt_status.endswith("EMPTY_TRANSCRIPT")) \
+        else provider_health.classify(None, stt_status)
+
+    def label(state_value: str, status: str) -> str:
+        if state_value == provider_health.LIVE:
+            return "LIVE"
+        if state_value == provider_health.QUOTA_EXHAUSTED:
+            return "QUOTA EXHAUSTED"
+        return "failed" + (f" ({status[:40]})" if status else "")
+
+    states = {tts_state, stt_state}
+    overall = provider_health.LIVE if states == {provider_health.LIVE} else (
+        provider_health.QUOTA_EXHAUSTED if provider_health.QUOTA_EXHAUSTED in states else provider_health.ERROR)
+    return overall, (f"TTS: {label(tts_state, str(tts.get('status') or ''))}; "
+                     f"STT: {label(stt_state, stt_status)}")
+
+
 @router.post("/integrations/{name}/check")
 def check_integration(name: str, request: Request) -> dict[str, Any]:
+    """Run ONE real call for an integration now. The response's ``result``
+    is this check's own outcome (LIVE / QUOTA_EXHAUSTED / ERROR /
+    NEEDS_CONFIGURATION / DISABLED) -- an earlier success is never shown as
+    the answer to a check that just failed. Details never carry a key,
+    a provider response body or user text."""
     principal = _require(request, "integrations:manage")
     container = request.app.state.container
     states = {item["name"]: item for item in _integration_states(container)}
     if name not in states:
         raise HTTPException(status_code=404, detail="Unknown integration")
-    if not states[name]["configured"]:
-        raise HTTPException(status_code=409, detail="Integration is not configured")
-    ok, detail = False, "No live check is available for this integration"
-    try:
-        if name == "brave_search":
-            provider = getattr(container, "brave_web_search_provider", None)
-            rows = provider("ASKODOX marketplace", 1) if provider else []
-            ok, detail = bool(rows), "Web search returned results" if rows else "Web search returned nothing or failed"
-        elif name == "google_maps":
-            # Per API: Geocoding, Places (text + nearby), Routes are enabled
-            # separately on the key's Google Cloud project.
-            maps = getattr(container, "google_maps_service", None)
-            status = maps.api_status() if maps is not None and hasattr(maps, "api_status") else {}
-            ok = bool(status) and all(v == "OK" for v in status.values())
-            detail = "; ".join(f"{api}: {verdict}" for api, verdict in status.items()) or "Maps service unavailable"
-            # Integration Readiness reads the shared /health/maps cache. Persist
-            # this explicit owner-triggered live probe there too, so a passed
-            # Check now is immediately reflected as LIVE instead of reverting
-            # to CONFIGURED NOT VERIFIED on refresh.
-            if status:
-                from datetime import datetime, timezone
-                import time
-                from app.api.routes.health import _MAPS_HEALTH, MAPS_HEALTH_TTL, _clean_google_message
-                body = {"configured": True, "checked_at": datetime.now(timezone.utc).isoformat(),
-                        "apis": {k: _clean_google_message(v) for k, v in status.items()},
-                        "all_ok": ok}
-                _MAPS_HEALTH.update(until=time.monotonic() + MAPS_HEALTH_TTL, body=body)
-        elif name == "mobility":
-            # Mobility matching is feature-flag gated. The runtime check is
-            # truthful: it reports readiness without pretending disabled
-            # production matching is live.
-            flag = command_center(container).flags().get("delivery.matching", {})
-            enabled = bool(flag.get("enabled"))
-            ok = enabled
-            detail = "delivery.matching is enabled" if enabled else "delivery.matching flag is off"
-        elif name == "gemini":
-            # Exercise the existing conversation-brain provider path so
-            # provider-health records a genuine Gemini observation.
-            brain = container.universal_ai_assistant_service
-            probe = brain.reply(message="Reply with OK only.", conversation_history=[], language="en")
-            ok = bool(probe)
-            detail = "Gemini conversation-brain probe answered" if ok else "Gemini probe returned no answer"
-        elif name == "openai":
-            # Exercise the configured OpenAI fallback through its existing
-            # provider/service path; never infer LIVE from credential presence.
-            service = getattr(container, "openai_service", None)
-            check = getattr(service, "health_check", None) if service is not None else None
-            if not callable(check):
-                ok = False
-                detail = "OpenAI live-check path is not available"
+    current = states[name]
+    if name == "mobility":
+        mobility = _mobility_readiness(container, command_center(container).flags())
+        outcome = {"ok": "LIVE", "disabled": "DISABLED", "not_configured": "NEEDS_CONFIGURATION",
+                   "degraded": "DEGRADED"}[mobility["status"]]
+        detail = mobility["detail"]
+    elif not current["configured"]:
+        # Missing credentials: an honest answer, not a failed call.
+        return {"item": current, "checked": True,
+                "result": {"ok": False, "state": "NEEDS_CONFIGURATION", "status": "not_configured",
+                           "detail": "Credentials are not set on this deployment",
+                           "checked_at": datetime.now(timezone.utc).isoformat()}}
+    else:
+        outcome, detail = "ERROR", "No live check is available for this integration"
+        try:
+            if name == "brave_search":
+                outcome, detail = _brave_check(container)
+            elif name == "google_maps":
+                # Per API: Geocoding, Places (text + nearby), Routes are enabled
+                # separately on the key's Google Cloud project.
+                maps = getattr(container, "google_maps_service", None)
+                status = maps.api_status() if maps is not None and hasattr(maps, "api_status") else {}
+                ok = bool(status) and all(v == "OK" for v in status.values())
+                quota = [v for v in status.values() if v != "OK" and
+                         ("quota" in str(v).lower() or "exceeded" in str(v).lower())]
+                outcome = "LIVE" if ok else ("QUOTA_EXHAUSTED" if quota else "ERROR")
+                from app.api.routes.health import _clean_google_message
+                detail = "; ".join(f"{api}: {_clean_google_message(verdict)}"
+                                   for api, verdict in status.items()) or "Maps service unavailable"
+                # Integration Readiness reads the shared /health/maps cache. Persist
+                # this explicit owner-triggered live probe there too, so a passed
+                # Check now is immediately reflected as LIVE instead of reverting
+                # to CONFIGURED NOT VERIFIED on refresh.
+                if status:
+                    import time
+                    from app.api.routes.health import _MAPS_HEALTH, MAPS_HEALTH_TTL, _clean_google_message
+                    body = {"configured": True, "checked_at": datetime.now(timezone.utc).isoformat(),
+                            "apis": {k: _clean_google_message(v) for k, v in status.items()},
+                            "all_ok": ok}
+                    _MAPS_HEALTH.update(until=time.monotonic() + MAPS_HEALTH_TTL, body=body)
+            elif name in ("gemini", "openai"):
+                # Provider-specific: the Gemini check never falls back to
+                # OpenAI (or the reverse), so LIVE means THAT provider answered.
+                probe = container.universal_ai_assistant_service.provider_health_check(name)
+                outcome = "NEEDS_CONFIGURATION" if probe["state"] == "NEEDS_CONFIGURATION" else probe["state"]
+                detail = probe["detail"]
+            elif name == "youtube_data_api":
+                from app.services.social_video_api_service import SocialVideoApiService
+                rows = SocialVideoApiService().youtube_search("ASKODOX", 1)
+                outcome = "LIVE" if rows else "ERROR"
+                detail = "YouTube Data API search OK" if rows else "YouTube Data API returned no results"
+            elif name == "sarvam":
+                outcome, detail = _sarvam_check(container)
             else:
-                result = check() or {}
-                ok = bool(result.get("success") or result.get("ok"))
-                detail = str(result.get("detail") or result.get("status") or ("OpenAI probe answered" if ok else "OpenAI probe failed"))
-        elif name == "youtube_data_api":
-            from app.services.social_video_api_service import SocialVideoApiService
-            rows = SocialVideoApiService().youtube_search("ASKODOX", 1)
-            ok = bool(rows)
-            detail = "YouTube Data API search OK" if ok else "YouTube Data API returned no results"
-        elif name == "sarvam":
-            # Verify both directions. A TTS-only probe must never make STT look
-            # verified: run a tiny real Sarvam transcription after synthesis.
-            result = container.voice_assistant_service.synthesize("ASKODOX") or {}
-            tts_ok = bool(result.get("success")) and str(result.get("tts_path") or "").startswith("sarvam")
-            stt_ok = False
-            stt_detail = "STT probe unavailable"
-            audio = result.get("audio_bytes") or result.get("audio") or b""
-            if tts_ok and audio:
-                voice = container.voice_assistant_service
-                transcribe = getattr(voice, "transcribe", None)
-                if callable(transcribe):
-                    stt = transcribe(audio_bytes=audio, mime_type=str(result.get("mime_type") or "audio/wav")) or {}
-                    stt_ok = bool(stt.get("success")) or str(stt.get("status") or "").endswith("EMPTY_TRANSCRIPT")
-                    stt_detail = str(stt.get("status") or ("OK" if stt_ok else "failed"))
-            ok = tts_ok and stt_ok
-            detail = f"Sarvam TTS: {'OK' if tts_ok else result.get('status')}; STT: {stt_detail}"
-        else:
-            return {**states[name], "checked": False}
-    except Exception as error:  # a failed check is recorded, never raised to the UI
-        ok, detail = False, f"{type(error).__name__}"
+                return {**current, "item": current, "checked": False,
+                        "result": {"ok": False, "state": "UNAVAILABLE", "status": current["status"],
+                                   "detail": "No live check is available for this integration"}}
+        except Exception as error:  # a failed check is recorded, never raised to the UI
+            outcome, detail = "ERROR", f"Check failed: {type(error).__name__}"
+    ok = outcome == "LIVE"
+    stored = detail if ok or outcome == "ERROR" else f"{outcome}: {detail}"
     cc = command_center(container)
-    cc.save_check(name, ok, detail)
-    cc.audit(principal["id"], "integration_check", "integration", name, None, {"ok": ok})
+    saved = cc.save_check(name, ok, stored)
+    cc.audit(principal["id"], "integration_check", "integration", name, None, {"ok": ok, "state": outcome})
     item = next(i for i in _integration_states(container) if i["name"] == name)
-    return {"item": item, "checked": True}
+    return {"item": item, "checked": True,
+            "result": {"ok": ok, "state": outcome, "status": _check_status(saved), "detail": detail[:300],
+                       "checked_at": saved["checked_at"]}}
 
 
 # ------------------------------------------------------------- payments --
@@ -1253,7 +1365,8 @@ def health(request: Request) -> dict[str, Any]:
     for item in _integration_states(container):
         # Configured but never checked = unknown, never a dummy green.
         status = {"not_configured": "not_configured", "disabled": "disabled", "configured": "unknown",
-                  "ok": "ok", "error": "error"}[item["status"]]
+                  "ok": "ok", "error": "error", "quota_exhausted": "quota_exhausted",
+                  "degraded": "degraded"}.get(item["status"], "error")
         components.append({"name": item["name"], "status": status, "detail": (item.get("last_check") or {}).get("detail") or item["detail"]})
     since = _since(1)
     failures = [c for c in command_center(container).checks().values() if not c["ok"]]

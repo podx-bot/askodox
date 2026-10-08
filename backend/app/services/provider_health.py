@@ -44,6 +44,11 @@ _QUOTA_WORDS = re.compile(r"quota|credit|insufficient|resource[_ ]exhausted|bill
                           re.IGNORECASE)
 
 
+def has_key(value: Any) -> bool:
+    """A credential counts as configured only when it is a non-blank value."""
+    return bool(str(value or "").strip())
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
