@@ -7,19 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `70efccb` -- PR #161 (2026-10-06): decision brain (advice vs
-  commerce `mode`), follow-up router over shown results, price truth + strict
-  budgets, requested-place persistence, compact results workspace, My Business
-  tiles + seller listing edit, Admin Smart Entry everywhere (Quick Add,
-  templates, field states, progressive forms, CSV / bulk preview + draft
-  import), admin assistant commands (en/te), Result Diagnostics decision trace.
-  Production probe (run 37451777690 on the deployed 70efccb): advice questions
-  -> mode=advice (en + te), shopping -> commerce, new admin endpoints 401
-  signed-out, Maps all OK, price kinds labelled; strict-budget rejection and
-  conditional offers are test-verified only (no priced rows in that probe).
-  Signed MAIN APK 1303 (Live Build 37451688264 on 70efccb, sha256
-  22fbc31c…1c93, cert 727b4a66…57cf = production; pinned in MAIN_APKS).
-  Before: #159 + APK 1302.
+- `main` @ `4353fe0` -- PR #163 (2026-10-06): Conversation Decision Brain owns
+  search readiness (`state`, `search_ready`, one `next_question`,
+  `search_subject`, `new_need`, `searched_for`; app gate `askodoxSearchGate`).
+  Staging traces (run 37499724579): retrieval calls A1 B1 C1 D1 E1 F0 G0 H1 I0.
+  Railway production deployment SUCCESS on 4353fe0. Signed MAIN APK 1305 (Live
+  Build 37538314167 on 4353fe0, sha256 b4b9e5c1…fe06, cert 727b4a66…57cf =
+  production, package com.askodox.askodox) on askodox-latest; NOT yet pinned in
+  MAIN_APKS. Before: #162 (results workspace UI) + #161 + APK 1303.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
