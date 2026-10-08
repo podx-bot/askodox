@@ -38,6 +38,7 @@ import '../domain/search_readiness.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
+import '../domain/result_board.dart';
 import '../domain/conversation_closing.dart';
 import '../domain/place_phrase.dart';
 import '../../profile/data/user_profile_repository.dart';
@@ -2359,10 +2360,13 @@ class _AskodoxPrimaryHomeScreenState
     final cardsThisTurn =
         results != null && results.matches.isNotEmpty && (results.contract?.mayClaimResults ?? true);
     final keptSize = ref.read(universalDealControllerProvider).deal?.size;
-    if (transactional &&
-        needClarification == null &&
-        ((!cardsThisTurn && askodoxReplyClaimsResults(reply)) || askodoxReplyAltersSize(reply, keptSize))) {
+    if (transactional && needClarification == null && askodoxReplyAltersSize(reply, keptSize)) {
       reply = askodoxNoCardsReply(results: results, question: detailQuestion, telugu: _te);
+    } else if (transactional && needClarification == null && !cardsThisTurn && askodoxReplyClaimsResults(reply)) {
+      // Drop only the false claim; the reasoning before results stays.
+      final kept = askodoxStripResultClaims(reply);
+      final notice = askodoxNoCardsReply(results: results, question: detailQuestion, telugu: _te);
+      reply = kept.isEmpty ? notice : '$kept\n\n$notice';
     }
 
     // Dynamic questions: an unfinished requirement always ends with the NEXT
@@ -2385,7 +2389,10 @@ class _AskodoxPrimaryHomeScreenState
       // when guidance applies): no results were claimed.
       final guidance = advisorHeld.guidance.where((g) => !_guidanceGiven.contains(g)).take(1).toList();
       _guidanceGiven.addAll(guidance);
-      reply = [...guidance, advisorHeld.question!.trim()].join('\n\n');
+      // The brain's own answer (its reasoning / estimate) stays; only its
+      // trailing question yields to the advisor's one question.
+      final answer = aiUsable ? askodoxWithoutTrailingQuestion(reply) : '';
+      reply = [if (answer.isNotEmpty) answer, ...guidance, advisorHeld.question!.trim()].join('\n\n');
       _pendingAdvisorField = advisorHeld.field;
     } else if (results != null && results.advisor != null) {
       // With results: one line of trade-off guidance when it applies, never
@@ -3429,19 +3436,35 @@ class _AskodoxPrimaryHomeScreenState
     return ColoredBox(
         color: const Color(0xFFF9FBFF),
         child: Stack(children: [
-          Column(children: [
-            // ONE conversational page: the active results (category tabs +
-            // compact rows) stay above, the conversation about them scrolls
-            // below, then the input -- the shell's nav sits under it.
-            if (_active && _pinnedResultsTurn != null && _resultsHiddenFor != _pinnedResultsTurn)
-              _boardMinimizedFor == _pinnedResultsTurn
-                  ? _resultPill(te, _pinnedResultsTurn!)
-                  : _resultContext(te, _pinnedResultsTurn!)
-            else if (_active && _pinnedResultsTurn != null && _resultsHiddenFor == _pinnedResultsTurn)
-              _archivedResultsChip(te, _pinnedResultsTurn!),
-            Expanded(child: _active ? _chat(te) : _home(te)),
-            _composer(te)
-          ]),
+          // ONE conversational page: the active results stay above, the
+          // conversation about them scrolls below, then the input -- the
+          // shell's nav sits under it. The board is sized from the height
+          // ACTUALLY left for this column (header, nav and keyboard already
+          // removed), so it can never push the latest replies or the input
+          // off screen on a small phone; with no room it shows its pill.
+          LayoutBuilder(builder: (context, constraints) {
+            final pinned = _pinnedResultsTurn;
+            final board = askodoxBoardStateOf(
+              hasDeck: _active && pinned != null,
+              retired: pinned != null && _resultsHiddenFor == pinned,
+              minimized: pinned != null && _boardMinimizedFor == pinned,
+              refreshing: _resultsStaleFor != null,
+              outdated: pinned != null && _resultsOutdatedFor == pinned,
+            );
+            final keyboard = MediaQuery.of(context).viewInsets.bottom > 0;
+            final expandedMode = _resultsMode == AskodoxResultsMode.expanded || _orderByMatchKey.isNotEmpty;
+            final boardMax = askodoxBoardMaxHeight(constraints.maxHeight, keyboard: keyboard, expanded: expandedMode);
+            return Column(children: [
+              switch (board) {
+                AskodoxBoardState.hidden => const SizedBox.shrink(),
+                AskodoxBoardState.archived => _archivedResultsChip(te, pinned!),
+                AskodoxBoardState.minimized => _resultPill(te, pinned!),
+                _ => boardMax == null ? _resultPill(te, pinned!) : _resultContext(te, pinned!, maxHeight: boardMax),
+              },
+              Expanded(child: _active ? _chat(te) : _home(te)),
+              _composer(te)
+            ]);
+          }),
           // The companion's actions appear only while the user is
           // interacting with it -- never as a permanent row of buttons.
           if (hubOpen)
@@ -3727,26 +3750,18 @@ class _AskodoxPrimaryHomeScreenState
   String _lastSearchGate = '';
 
   final AskodoxResultsMode _resultsMode = AskodoxResultsMode.compact;
-  final bool _resultsModeChosen = false;
 
 
   /// The ONE result workspace above the conversation: the latest search's
   /// cards only (never a copy in the chat), bounded height (smaller while the
   /// keyboard is open) so the latest messages and the input stay on screen.
-  Widget _resultContext(bool te, int index) {
-    final media = MediaQuery.of(context);
-    final keyboard = media.viewInsets.bottom > 0;
-    // The keyboard is open: compact, so the conversation and the input stay
-    // visible. A request in progress with a seller (status, accept,
-    // confirm...) opens the workspace fully.
-    final activeRequest = !_resultsModeChosen && _orderByMatchKey.isNotEmpty;
-    final mode = keyboard && !_resultsModeChosen && (_resultsMode == AskodoxResultsMode.expanded || activeRequest)
-        ? AskodoxResultsMode.compact
-        : (activeRequest ? AskodoxResultsMode.expanded : _resultsMode);
-    final maxHeight = (media.size.height - media.viewInsets.bottom) *
-        (mode == AskodoxResultsMode.compact ? (keyboard ? .2 : .24) : (keyboard ? .32 : .42));
+  Widget _resultContext(bool te, int index, {required double maxHeight}) {
+    // [maxHeight] bounds the WHOLE board (notices + cards + minimize row),
+    // from askodoxBoardMaxHeight: the conversation and the input always keep
+    // their room below it.
     return Container(
       key: const Key('askodoxResultContext'),
+      constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: const BoxDecoration(
         color: Color(0xFFF9FBFF),
         border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
@@ -3776,8 +3791,7 @@ class _AskodoxPrimaryHomeScreenState
                     : 'These are for your earlier details -- I will update them for the new ones.',
                 style: const TextStyle(fontSize: 11.5, color: _muted)),
           ),
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxHeight),
+        Flexible(
           child: Opacity(
             // Cards from the old place / earlier details are dimmed.
             opacity: _resultsStaleFor == null && _resultsOutdatedFor != index ? 1 : .45,

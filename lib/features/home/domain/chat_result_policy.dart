@@ -575,15 +575,48 @@ const _sourceNames = {
 const _downStatuses = {'error', 'unavailable', 'disabled', 'quota_exhausted', 'needs_location', 'not_configured'};
 
 final _claimsResults = RegExp(
-    r"\b(here are|here is|showing|finding|searching for|i(?:'m| am) (?:now )?(?:showing|finding|searching|checking|looking|fetching)|"
+    // "here is / here are" claims results only with a results noun: "Here is
+    // a rough cost breakdown" is guidance, not a claim (APK 1311).
+    r'\b(here are (?!(?:\S+ ){0,3}(?:tips|steps|points|things|factors|questions|reasons|ways|considerations|'
+    r'estimates?|costs?|numbers|calculations?|pros|cons|checks)\b)|'
+    r'here is (?:some |a few |the |your |\d+ )?(?:(?:best |top |nearby |local )?(?:options|results|matches|'
+    r'shops|stores|sellers|dealers|listings|providers|products))|showing|'
+    r'(?:^|(?<=[.!?]\s))(?:finding|searching for)\b|finding .{0,60}\bfor you\b|'
+    r"i(?:'m| am) (?:now )?(?:showing|finding|searching|checking|looking|fetching)|"
+    r"(?:i(?:'m| am)|let me|we(?:'re| are)) searching|"
     r'found (?:some|these|a few|\d+)|'
     r'results? (?:will )?(?:appear|are|is) (?:below|shown)|let me (?:find|show|check|search|look)|'
     r'finding (?:you )?(?:some |the )?(?:options|results)|options below)\b'
     r'|చూపిస్తున్నాను|వెతుకుతున్నాను|ఇవి ఉన్నాయి|క్రింద ఉన్నాయి|दिखा रहा|दिखा रही|ढूंढ रहा|ढूंढ रही|ये रहे',
-    caseSensitive: false);
+    caseSensitive: false,
+    multiLine: true);
+
+/// The reply without its last line when that line is a question (the app
+/// asks its own single question instead -- never two questions in a turn).
+String askodoxWithoutTrailingQuestion(String reply) {
+  final lines = reply.trim().split('\n');
+  while (lines.isNotEmpty && (lines.last.trim().isEmpty || RegExp(r'[?？]\s*$').hasMatch(lines.last))) {
+    lines.removeLast();
+  }
+  return lines.join('\n').trim();
+}
 
 /// The reply says results are shown / being found.
 bool askodoxReplyClaimsResults(String reply) => _claimsResults.hasMatch(reply);
+
+/// The reply without the sentences / lines that claim results; everything
+/// else (the answer, estimates, advice, the question) is kept. A turn with
+/// no cards loses only its false claim, never its reasoning (APK 1311: a
+/// whole cost / quantity answer was replaced by a canned line).
+String askodoxStripResultClaims(String reply) {
+  final kept = <String>[];
+  for (final line in reply.split('\n')) {
+    final sentences = line.split(RegExp(r'(?<=[.!?।])\s+'));
+    final clean = sentences.where((sentence) => !_claimsResults.hasMatch(sentence)).join(' ').trimRight();
+    if (clean.trim().isNotEmpty || line.trim().isEmpty) kept.add(clean);
+  }
+  return kept.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+}
 
 /// The reply names a size other than the one the customer gave ("Size 8
 /// or 9" when they said 9) -- an explicit constraint must never change.

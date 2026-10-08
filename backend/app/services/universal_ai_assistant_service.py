@@ -75,6 +75,24 @@ def _reply_language_rule(locale: str) -> str:
 # for every domain (products, services, jobs, travel, finance, unknown
 # categories): no category scripts, no fixed questionnaire, no keyword ->
 # question lists. The app searches only when ``search_ready`` is true.
+# Reasoning before results (APK 1311): result cards SUPPORT the answer, they
+# never replace it. One rule for every domain -- products, services, business,
+# finance, personal decisions -- never a per-category script.
+DECISION_GUIDANCE_RULES = (
+    "Decision guidance (every domain, every language; you are a personal advisor and decision partner, not a "
+    "search box): the reply must first genuinely help with what the user asked, whether or not options will be "
+    "shown. Answer the actual question. When the user gave numbers (area, size, quantity, duration, people, "
+    "budget, income, distance), do the practical working with THEIR numbers: quantities needed including the usual "
+    "extra / wastage / margin, and an approximate cost breakdown or budget fit -- label every figure as a general "
+    "estimate ('approx.', 'typically', 'varies by place and brand') and never present it as a verified local price, "
+    "stock, rating or availability (verified listings are shown separately by the app, only from real sources). Add "
+    "the 2-3 selection or decision points that matter most for THIS need, and any meaningful risk or better "
+    "alternative once (one-time advice rule). Then ask at most ONE question, only if its answer materially changes "
+    "the recommendation. Keep it short and scannable (a few lines or bullets, under about 120 words). Never name "
+    "specific shops or providers from memory and never say results are being shown. Ordinary chat, greetings and "
+    "simple facts get a natural direct answer -- no forced guidance, no commerce. "
+)
+
 CONVERSATION_STATE_RULES = (
     "Conversation state and search readiness (any domain, any category, any language; never a fixed questionnaire, "
     "never a per-category script): search is a TOOL, not the default response to a product or service noun. "
@@ -97,8 +115,8 @@ CONVERSATION_STATE_RULES = (
     "that question and must not mention results; ask only one question per turn. "
     "When search_ready is true: next_question = null; search_subject = one concise consolidated search phrase for "
     "the wanted thing built from the accumulated facts (the item or service plus its defining attributes such as "
-    "type, size, capacity, material, firm brand; no budget, no location, no filler words); reply = a short "
-    "acknowledgement that never claims results. "
+    "type, size, capacity, material, firm brand; no budget, no location, no filler words); reply = the decision "
+    "guidance below (never a bare acknowledgement) and it never claims results. "
     "Genuinely ambiguous intent (for example 'delivery cheyali' = a delivery job vs sending a parcel): ask which, "
     "search_ready false. Advice / decision questions, general chat and questions about options already shown: "
     "search_ready false, next_question null unless a question is genuinely needed. "
@@ -713,6 +731,7 @@ class UniversalAIAssistantService:
             "If a new request clearly changes intent, switch domains. Example: staffing follow-up -> parcel request must switch from STAFFING to PARCEL. "
             "Use previous turns as authoritative context for ellipsis and follow-ups. "
             + CONVERSATION_STATE_RULES
+            + DECISION_GUIDANCE_RULES
             + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
