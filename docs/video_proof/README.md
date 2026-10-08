@@ -1,6 +1,6 @@
 # Real video content proof
 
-Generated 2026-10-08T17:43:32Z by `.github/workflows/video-real-content-proof.yml` (run 37818257445).
+Generated 2026-10-08T17:54:32Z by `.github/workflows/video-real-content-proof.yml` (run 37819657434).
 
 * Video rows: **real**, from production's live web video search (Brave) -- replayed into this branch's pipeline, which adds references, YouTube oEmbed checks (live network), linking and disclosures.
 * AI answers: **real**, from the production assistant (`/api/in-app/assistant`) given exactly what the app sends (question + grounding from this branch's explain).
@@ -17,7 +17,7 @@ Generated 2026-10-08T17:43:32Z by `.github/workflows/video-real-content-proof.ym
 | service | en | 1 | [DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning …](https://www.youtube.com/watch?v=7mK4-impjiE) | Lovepreet Singh | no -> opens in youtube | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 1 (nearby_external) |
 | home-service | en | 1 | [Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #sho…](https://www.youtube.com/watch?v=Bvxkrv7t4Dw) | vijay xyz tricks | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | plumbing repair service near me → 1 (nearby_external) |
 | food | en | 1 | [₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔](https://www.youtube.com/watch?v=NYNr1X8Qokw) | DCT EATS | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | hyderabadi biryani near me → 2 (deals, nearby_external) |
-| travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | araku valley trip reviews → 6 (deals, nearby_external) |
+| travel | en | 1 | [Araku Valley Full Tour / Things to do in Araku Valley / Pla…](https://www.youtube.com/watch?v=rMd5DUP04RE) | Travel Matcha | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | no (fallback) | araku valley trip reviews → 6 (deals, nearby_external) |
 | used-item | en | 1 | [Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichetti…](https://www.youtube.com/watch?v=ilhNFpIoY70) | Engine Thagaval | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | used royal enfield classic 350 near me → 4 (deals, nearby_external, used) |
 | deal | en | 1 | [iPhone 15 / Long Term Review / Best iPhone? / Next Sale Kin…](https://www.youtube.com/watch?v=LtaCjbudjpQ) | CallMeShazzam TECH | yes (official YouTube embed) | Creator's opinion -- not verified by ASKODOX | yes | yes | iphone 15 offers → 6 (deals, nearby_external, surplus, used) |
 | service-te | te | 1 | [DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning …](https://www.youtube.com/watch?v=7mK4-impjiE) | Lovepreet Singh | no -> opens in youtube | Creator's opinion -- not verified by ASKODOX | yes | yes | ac service near me → 1 (nearby_external) |
@@ -34,14 +34,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Samsung 43" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?"
 
-**ASKODOX AI (production):** Based on the information provided by the creator **TechWay7.0** (creator's opinion -- not verified by ASKODOX): - **Model:** Samsung 43" Pure Color Full HD 2026 (UA43F5600FUXXL) - **Key Features Listed:** Full HD Display, Pure Color Technology, Smart TV features, sound/picture quality testing, and build details. - **Price:** Not provided by the source. - **Stock / Availability / Rating:** Not provided by the source. Since this video content was not fully analyzed, specific performance results or exact pricing are not provided in the listing facts. If you'd like, I can help search for local sellers in Vijayawada or online availability for this model.
+**ASKODOX AI (production):** Based on the details provided from TechWay7.0's video on the **Samsung 43" Pure Color Full HD Smart TV (UA43F5600FUXXL, 2026 model)**: - **Features Listed:** 43-inch Full HD display, PurColor technology, Smart TV capabilities, and build/design overview. - **Testing Covered in Video:** Picture quality, sound quality, and smart features. - **Pricing & Stock:** Exact price, availability, and user ratings are **not provided** in the source listing (listed as ₹2X,XXX in the title). *Note: These details reflect the creator's video description and are not independently verified by ASKODOX.*
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "samsung 43 inch tv near me" → Reliance Digital [nearby_external]; Samsung 43-inch TVs Price List in India (October 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [deals]
+**Next step:** "samsung 43 inch tv near me" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (October 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [deals]
 
 ### electronics-te (te) -- "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో"
 
@@ -53,13 +53,13 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "Samsung 43" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** మీరు అడిగిన **Samsung 43" Pure Color Full HD Smart TV (UA43F5600FUXXL)** గురించి 'TechWay7.0' ఆధారంగా లభించిన సమాచారం: - **నాణ్యత & వివరాలు:** ఇది 43 అంగుళాల Full HD డిస్‌ప్లే, Pure Color టెక్నాలజీ మరియు స్మార్ట్ టీవీ ఫీచర్లతో వస్తుంది. డిస్‌ప్లే, సౌండ్ క్వాలిటీ మరియు డిజైన్ బాగుంటాయని క్రియేటర్ అభిప్రాయపడ్డారు (ఇది క్రెయేటర్ సొంత అభిప్రాయం, ASKODOX ద్వారా ధృవీకరించబడలేదు). - **ధర:** ఖచ్చితమైన వివరాలు అందించబడలేదు (₹2X,XXX రేంజ్‌లో ఉండవచ్చు). - **దూరం, అందుబాటు & రివ్యూలు:** స్టాక్ వివరాలు, దూరం మరియు వినియోగదారుల అసలు రివ్యూలు/రేటింగ్‌లు అందించబడలేదు (Not verified). మీరు ఈ టీవీకి సంబంధించిన అసలు ధర మరియు అందుబాటులో ఉందో లేదో షాప్ వారిని అడిగి తెలుసుకోవాలనుకుంటున్నారా?
+**ASKODOX AI (production):** మీరు ఎంచుకున్న ప్లాట్‌ఫారమ్‌లోని వీడియో సమాచారం ప్రకారం: - **బ్రాండ్ & మోడల్:** Samsung 43" Pure Color Full HD Smart TV (UA43F5600FUXXL, 2026 మోడల్). - **ఫీచర్లు:** Full HD డిస్‌ప్లే, Pure Color టెక్నాలజీ, స్మార్ట్ టీవీ ఫీచర్లు, సౌండ్ మరియు పిక్చర్ క్వాలిటీ టెస్ట్ ఉన్నాయని క్రియేటర్ (TechWay7.0) పేర్కొన్నారు (ఇది క్రియేటర్ అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు). - **ధర (Price):** Not verified (ఆధారంలో స్పష్టమైన ధర ఇవ్వలేదు, ₹2X,XXX అని ఉంది). - **దూరం (Distance):** Not verified. - **అందుబాటు (Stock/Availability):** Not verified. - **రివ్యూలు & నాణ్యత:** Not verified. ధర, అందుబాటు మరియు షాపు వివరాల కోసం మీరు నగరంలోని స్థానిక డీలర్లను సంప్రదించమంటారా?
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** 43 అంగుళాల టీవీకి సాధారణంగా **6 నుండి 8 అడుగుల వీక్షణ దూరం (viewing distance)** ఉండాలి. - **గది పరిమాణం:** మీ గది 10x10 అడుగులు లేదా అంతకంటే పెద్దదైతే, సోఫా/మంచం నుండి టీవీకి 6+ అడుగుల దూరం ఉంటే ఈ టీవీ సరిగ్గా సరిపోతుంది. - **చిన్న గది (8x8 అడుగులు లేదా అంతకంటే తక్కువ):** దూరం 5 అడుగుల కంటే తక్కువ ఉంటే 43 అంగుళాల స్క్రీన్ పెద్దదిగా అనిపించి, కళ్ళపై ఒత్తిడి పడవచ్చు. అటువంటి పరిస్థితుల్లో 32 అంగుళాల టీవీ ఉత్తమ ఎంపిక. మీ గదిలో టీవీ కి, మీరు కూర్చునే స్థలానికి మధ్య ఎంత దూరం ఉందో చూసుకోండి.
+**ASKODOX AI:** సాధారణంగా **43 అంగుళాల టీవీ** సరిగ్గా చూడటానికి **6 నుండి 8 అడుగుల దూరం** ఉండాలి. మీ గది చిన్నదైతే ఈ విషయాలు చూడండి: - **వ్యూయింగ్ డిస్టెన్స్:** మీ కూర్చునే స్థలం నుండి టీవీ స్క్రీన్ మధ్య కనీసం 6 అడుగుల దూరం ఉంటే కళ్లకు శ్రమ లేకుండా Full HD నాణ్యత బాగా కనిపిస్తుంది. - **గది పరిమాణం:** గది పరిమాణం 10x10 అడుగులు లేదా అంతకంటే ఎక్కువ ఉంటే 43 ఇంచుల టీవీ చాలా బాగా సరిపోతుంది. అంతకంటే చాలా చిన్న గది అయితే (ఉదాహరణకు 6x8 అడుగులు) 32 ఇంచుల టీవీ మరింత అనుకూలంగా ఉంటుంది. మీ గదిలో టీవీ చూసే దూరం సుమారు ఎన్ని అడుగులు ఉంటుంది?
 
-**Next step:** "samsung 43 inch tv offers" → Reliance Digital [nearby_external]; Samsung 43-inch TVs Price List in India (October 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [deals]
+**Next step:** "samsung 43 inch tv offers" → Croma - Benz Circle [nearby_external]; Samsung 43-inch TVs Price List in India (October 2026) [deals]; Shop Samsung 43 Inch TVs Online Best Deals & Prices in India [deals]; Samsung 43 Inch Smart Tv - Buy Samsung 43 Inch Smart Tv online at Best Prices in India | Flipkart.com [deals]
 
 ### phone (en) -- "Redmi Note 13 Pro review video"
 
@@ -71,7 +71,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Redmi Note 13 Pro is here - Let's Check!"
 
-**ASKODOX AI (production):** This video by Gyan Therapy is an unboxing and initial impression of the Redmi Note 13 Pro. Based on the video description, it highlights key specs including the **Snapdragon 7s Gen 2** processor, a **200MP** triple camera setup, and a **5100mAh battery** with **67W** fast charging. Note: The creator's opinion is not verified by ASKODOX. Details like price, rating, and stock are **Not verified** as they were not provided by the source.
+**ASKODOX AI (production):** This video by creator **Gyan Therapy** is an unboxing and initial impressions look at the **Redmi Note 13 Pro**. Key details listed for this option: - **Creator:** Gyan Therapy (Creator's opinion — not verified by ASKODOX) - **Key Specs Mentioned:** Snapdragon 7s Gen 2 processor, 200MP triple camera setup, 5100mAh battery with 67W charging. - **Focus:** Initial unboxing and first impressions of the Redmi Note 13 series launch in India. - **Price:** Not provided - **Ratings / Reviews:** Not provided - **Stock / Availability:** Not provided Note: The full video content has not been analyzed, and details like price or long-term performance reviews are not provided by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -90,7 +90,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza"
 
-**ASKODOX AI (production):** This video from creator Moto-Wanderer discusses the Tata Nexon Facelift (also referred to as Nexon Next Gen / Garuda) and mentions potential discounts of up to ₹1 lakh, comparing its position against the Maruti Brezza across trims like Smart, Pure, Creative, and Accomplish. Please note: The exact details, specs, and specific discount terms in the video are the creator's opinion and have **not been verified by ASKODOX**. Additionally, local pricing, ratings, exact stock, and official discount terms are **not provided** by the source. If you want verified on-road pricing or discount offers in Vijayawada, let me know!
+**ASKODOX AI (production):** Based on the details provided by the creator **Moto-Wanderer**, this video covers the **Tata Nexon Facelift / Next Gen** across various variants (Smart, Pure, Creative, Accomplish) and discusses potential discount offers up to ₹1 lakh alongside comparisons to the Maruti Brezza. Please note: The content represents the creator's opinion and is **not verified** by ASKODOX. Specific verified details like current local pricing, ratings, or stock availability are **not provided** by the source.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -109,11 +109,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo"
 
-**ASKODOX AI (production):** Based on the details provided for the video **"DAIKIN AC Outdoor Unit Cleaning"** by Lovepreet Singh: - **Topics Covered:** It demonstrates how to service and clean the outdoor unit of a Daikin split AC at home, including water spraying/washing techniques. - **Creator:** Lovepreet Singh (this represents the creator's opinion and methods, not verified by ASKODOX). - **Price / Service Cost:** Not provided - **Ratings / Reviews:** Not provided *Note:* Washing electrical components or delicate fins with high-pressure water carries a risk of damage or electrical shorting if done improperly. If you need verified professional AC servicing in Vijayawada, I can help connect you with local technicians.
+**ASKODOX AI (production):** Based on the details provided for the video **"DAIKIN AC Outdoor Unit Cleaning"** by creator Lovepreet Singh: - **Topics Covered**: The video demonstrates how to service and water-clean a Daikin split AC outdoor unit at home. - **Price / Stock / Rating**: Not provided by the source. - **Verification**: The techniques shown reflect the creator's opinion and are **Not verified** by ASKODOX. *Note*: DIY pressure washing or cleaning of outdoor AC coils can damage delicate cooling fins or cause electrical short circuits if water gets into the junction box. If you'd like, I can help you find professional local AC service technicians in Vijayawada.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you. What is the tonnage or capacity of the Daikin AC outdoor unit you need?  
+**Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]
@@ -128,14 +128,14 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed"
 
-**ASKODOX AI (production):** Based on the listed details for **Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed**: - **Source/Creator:** vijay xyz tricks (Creator's opinion -- not verified by ASKODOX) - **Description:** thanks for watching video - **Price:** Not provided - **Distance:** Not provided - **Stock/Availability:** Not provided - **Rating/Reviews:** Not provided Since the video content itself was not analyzed, specific details about the trick are not provided in the listing facts. Let me know if you would like me to search for local professional plumbers in Vijayawada instead!
+**ASKODOX AI (production):** Based on the video listing provided: - **Title**: Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed - **Creator**: vijay xyz tricks (Creator's opinion — not verified by ASKODOX) - **Description**: thanks for watching video - **Price**: Not provided - **Rating / Reviews**: Not provided - **Distance / Availability**: Not provided *Note*: The full contents of the video have not been analyzed beyond these listed facts. If you need step-by-step guidance on how to seal or fix a leaking PVC pipe joint using standard plumbing methods (like PVC solvent cement or silicone tape), let me know!
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
 **Production (main) AI:** Let me check real sellers, shops and online options near you.  
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
-**Next step:** "plumbing repair service near me" → Amulya Plumbing & Sanitary Services [nearby_external]
+**Next step:** "plumbing repair service near me" → SS Rapid Electrical and plumbing works [nearby_external]
 
 ### food (en) -- "Hyderabadi biryani review video"
 
@@ -147,7 +147,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔"
 
-**ASKODOX AI (production):** Based on the details provided for **₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔** by creator DCT EATS: - **Content:** The creator, along with Sahil from Headbanger Eats, compares authentic Hyderabadi mutton biryani in Mumbai across three price tiers: **Bikkgane Biryani**, **Biryani By Kilo**, and **Lit**. - **Specific Price / Rating / Availability:** Not provided by the source. *Note: These points reflect the creator's opinion and are not verified by ASKODOX.*
+**ASKODOX AI (production):** This video by creator **DCT EATS** (with Sahil from Headbanger Eats) compares authentic Hyderabadi mutton biryani in Mumbai across three price tiers: - **Options featured:** Bikkgane Biryani (₹450 tier), Biryani By Kilo (₹800 tier), and Lit (₹1200 tier). - **Topic:** Comparing portion, taste, and overall value at three very different price points. *Note:* Specific facts such as exact ratings, stock availability, and verified prices are **not provided** by the source. Creator opinions are not verified by ASKODOX.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -166,11 +166,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku"
 
-**ASKODOX AI (production):** Based on the details provided by the creator **Travel Matcha**, this video presents a complete travel itinerary for Araku Valley. It highlights key attractions including scenic mist-covered hills, coffee plantations, ancient caves, and local food recommendations. Here are the details listed for this option: - **Itinerary Content**: Covers places to visit and things to do in Araku Valley. - **Creator**: Travel Matcha (Creator's opinion — **Not verified** by ASKODOX). - **Price / Tour Cost**: Not provided by the source. - **Rating / Reviews**: Not provided by the source. - **Distance / Logistics**: Not provided by the source. Since the video content itself has not been fully analyzed beyond this summary, specific travel costs and ratings are not verified.
+**ASKODOX AI (production):** Based on the details provided for **"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku"** by creator Travel Matcha: - **Itinerary & Highlights:** The video covers a full itinerary including mist-covered hills, coffee plantations, ancient caves (like Borra Caves), and local food. This is the creator's opinion and not verified by ASKODOX. - **Creator:** Travel Matcha - **Price / Distance / Rating / Stock:** Not provided by the source. Let me know if you would like help planning a trip itinerary or finding transport from Vijayawada to Araku Valley!
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
-**Production (main) AI:** Let me check real sellers, shops and online options near you.  
+**Production (main) AI:**   
 **This branch:** Let me check real sellers, shops and online options near you. (action `find_local`: the real options below are the answer; shop names never come from the AI's memory)
 
 **Next step:** "araku valley trip reviews" → Akkanna Madanna Caves [nearby_external]; Araku Valley Tour Packages From Vijayawada – Vijayawada To Araku Valley Packages | TT [deals]; 5 Araku Valley Tour Packages at ₹6785 pp - Book Online with 20% Off [deals]; Araku Valley Tour Packages from Vijayawada | Araku Valley Packages from Vijayawada | Araku Valley Honeymoon Packages from Vijayawada | Araku Valley Holiday Pack [deals]
@@ -185,7 +185,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield"
 
-**ASKODOX AI (production):** Based on the listing details for **Used Royal Enfield Classic 350 – Best Deals in Gobichettipalayam** by *Engine Thagaval* (creator's opinion, not verified by ASKODOX): - **Condition:** Mentioned as single-owner and well-maintained with a BS6 engine. - **Location:** 126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu. - **Price:** Not provided by the source. - **Rating / Reviews:** Not provided. - **Distance / Stock:** Not provided. Since price and availability details are missing from the source, would you like me to help check for used Classic 350 listings closer to Vijayawada or contact details for local sellers?
+**ASKODOX AI (production):** Based on the listing details for **Used Royal Enfield Classic 350** by Engine Thagaval: - **Condition & Specs**: Described as a single-owner, well-maintained bike with a smooth BS6 engine, suitable for city rides and highway cruising. - **Location**: 126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu. - **Price**: Not provided by the source. - **Stock / Availability**: Not provided. - **Rating / Reviews**: Not provided. *Note: These details reflect the creator's opinion and listing description, not verified by ASKODOX. Price and availability are not specified.*
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -204,7 +204,7 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** Tell me more about "iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub"
 
-**ASKODOX AI (production):** This video is **"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub"** created by **CallMeShazzam TECH**. Here are the details available from the source: - **Creator:** CallMeShazzam TECH (Creator's opinion — not verified by ASKODOX) - **Language:** Malayalam with English subtitles - **Focus:** A long-term review discussing the iPhone 15's value and upcoming sale potential. - **Specific specs, ratings, and prices:** Not provided by the source. Since the video content itself has not been analyzed, specific conclusions or specifications mentioned in the video are Not verified. Let me know if you would like to search for detailed iPhone 15 specifications or compare prices!
+**ASKODOX AI (production):** This video by **CallMeShazzam TECH** provides a long-term review of the iPhone 15, discussing its overall value and whether it is a strong option during upcoming sales. Please note that these are the creator's opinions and are not verified by ASKODOX. Key details from the listing: - **Price:** Not provided - **Stock / Availability:** Not provided - **Rating / Reviews:** Not provided - **Language:** Malayalam with English subtitles Specific specifications, current pricing, and local availability are not provided in the video details.
 
 **User (follow-up, same conversation):** Is it worth buying, and where can I get it here?
 
@@ -223,11 +223,11 @@ Label: Creator's opinion -- not verified by ASKODOX
 
 **User:** "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు
 
-**ASKODOX AI (production):** ఈ వీడియోలో Daikin స్ప్లిట్ ఏసీ అవుట్‌డోర్ యూనిట్‌ను ఎలా క్లీన్ చేయాలో చూపించారు. అయితే దీనికి సంబంధించిన **ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూల వివరాలు వీడియో సోర్స్ నుండి అందించబడలేదు** (Not verified). ఇది క్రియేటర్ (Lovepreet Singh) యొక్క వ్యక్తిగత అభిప్రాయం మాత్రమే. మీరు మీ ఏసీకి ప్రాఫెషనల్ సర్వీస్ చేయించుకోవాలనుకుంటున్నారా లేదా స్వయంగా క్లీన్ చేయడానికి సమాచారం కావాలా?
+**ASKODOX AI (production):** ఈ వీడియో డైకిన్ స్ప్లిట్ ఏసీ ఔట్‌డోర్ యూనిట్ క్లీనింగ్ మరియు సర్వీస్ విధానం గురించి చూపుతుంది (క్రియేటర్ Lovepreet Singh అభిప్రాయం, ASKODOX ద్వారా ధృవీకరించబడలేదు). మీరు అడిగిన వివరాలు: - **ధర**: అందుబాటులో లేదు (Not provided) - **దూరం**: అందుబాటులో లేదు (Not provided) - **నాణ్యత / రివ్యూలు**: అందుబాటులో లేదు (Not provided) - **అందుబాటు**: అందుబాటులో లేదు (Not provided) వీడియోలో కేవలం సొంతంగా ఏసీ ఔట్‌డోర్ యూనిట్ క్లీనింగ్ ఎలా చేసుకోవాలో మార్గదర్శకం మాత్రమే ఉంది. మీకు విజయవాడలో ప్రొఫెషనల్ ఏసీ సర్వీసింగ్ టెక్నీషియన్ కావాలంటే చెప్పండి, వెతికి చూపిస్తాను.
 
 **User (follow-up, same conversation):** ఇది చిన్న గదికి సరిపోతుందా?
 
-**ASKODOX AI:** సాధారణంగా **100 Sq. Ft కంటే తక్కువ ఉన్న చిన్న గదికి 1 Ton ఏసీ** సరిగ్గా సరిపోతుంది. గదికి నేరుగా ఎండ తగలడం, పైన డాబా ఉండటం లేదా గది పరిమాణం పట్టి లోడ్ మారుతుంది. మీ గది అంచనా సైజ్ (Sq. Ft) ఎంత ఉంటుంది?
+**ASKODOX AI:** డైకిన్ ఏసీ ఔట్‌డోర్ యూనిట్ అనేది ఏదైనా ఏసీ సిస్టమ్‌లో భాగం మాత్రమే. ఈ వీడియో కేవలం ఔట్‌డోర్ యూనిట్ శుభ్రం చేయడం గురించే వివరిస్తుంది. చిన్న గదికి (ఉదాహరణకు **100 Sq. Ft.** లోపు) ఏసీ సరిపోతుందా అనేది ఆ ఏసీ **కెపాసిటీ (Tonnage)** పై ఆధారపడి ఉంటుంది: - చిన్న గదికి **0.8 Ton** లేదా **1 Ton** ఏసీ సరిగ్గా సరిపోతుంది. - గది పరిమాణానికి మించిన పెద్ద ఏసీ వాడితే విద్యుత్ వినియోగం ఎక్కువవుతుంది. మీ గది పరిమాణం ఎంత ఉందో తెలుపగలరా?
 
 **Next step:** "ac service near me" → SML AC SERVICES / ELECTRICAL WORKS [nearby_external]
 
