@@ -1560,6 +1560,66 @@ void main() {
       expect(cards(), findsNWidgets(3), reason: 'nothing was lost');
     });
 
+    testWidgets('Result Board navigation: mega expand -> category box with up / down, swipe, counter; '
+        'position survives minimize / restore', (tester) async {
+      final h = harness([search('refurbished phones')],
+          const [UniversalMatchResult(dealId: 'rbnav', matches: [a, b, c])]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones');
+      expect(cards(), findsNWidgets(3), reason: 'the default board keeps the locked one-rail layout');
+      expect(find.byKey(const ValueKey('askodoxCategoryBox-online')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMega')));
+      await tester.pumpAndSettle();
+      Finder counter() => find.byKey(const ValueKey('askodoxCategoryCounter-online'));
+      String count() => (tester.widget(counter()) as Text).data!;
+      expect(find.byKey(const ValueKey('askodoxCategoryBox-online')), findsOneWidget);
+      expect(count(), '1/3');
+      expect(cards(), findsOneWidget, reason: 'one card at a time inside the category box');
+      expect(find.byKey(const ValueKey('askodoxResultCard-online-online-0-rb')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('askodoxCategoryNext-online')));
+      await tester.pumpAndSettle();
+      expect(count(), '2/3');
+      expect(find.byKey(const ValueKey('askodoxResultCard-online-online-1-rb')), findsOneWidget);
+
+      await tester.fling(find.byKey(const ValueKey('askodoxCategorySwipe-online')), const Offset(0, -200), 1200);
+      await tester.pumpAndSettle();
+      expect(count(), '3/3', reason: 'swipe up = next');
+      final next = tester.widget<IconButton>(find.byKey(const ValueKey('askodoxCategoryNext-online')));
+      expect(next.onPressed, isNull, reason: 'no next past the last option');
+
+      await tester.tap(find.byKey(const ValueKey('askodoxCategoryPrev-online')));
+      await tester.pumpAndSettle();
+      expect(count(), '2/3');
+
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
+      expect(pill(), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxResultPillRestore')));
+      await tester.pumpAndSettle();
+      expect(cards(), findsNWidgets(3), reason: 'restored to the normal board, nothing lost');
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMega')));
+      await tester.pumpAndSettle();
+      expect(count(), '2/3', reason: 'the category position survived minimize / restore');
+    });
+
+    testWidgets('a provider failure is shown as a service problem, never as "nothing found"', (tester) async {
+      final h = harness([search('refurbished phones')], const [
+        UniversalMatchResult(dealId: 'rbq', matches: [],
+            sourceStatus: {'askodox': 'not_applicable', 'online': 'quota_exhausted', 'used_deals': 'rate_limited'}),
+      ]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones online');
+      final problem = find.byKey(const Key('askodoxResultsProviderError'));
+      expect(problem, findsOneWidget);
+      expect(find.textContaining('online stores: search quota used up'), findsOneWidget);
+      expect(find.textContaining('too many requests'), findsOneWidget);
+      expect(find.textContaining('not "no results"'), findsOneWidget);
+      expect(find.textContaining('No suitable result yet'), findsNothing);
+      expect(find.textContaining('I could not search right now'), findsOneWidget);
+    });
+
     testWidgets('same-topic refinement with new results updates the SAME board and reopens it', (tester) async {
       final h = harness([
         search('refurbished phones'),

@@ -40,6 +40,40 @@ void main() {
     });
   });
 
+  group('Result Board navigation + mega expand', () {
+    test('a category position is clamped to the rows it has', () {
+      expect(askodoxBoardPosition(0, 3), 0);
+      expect(askodoxBoardPosition(5, 3), 2, reason: 'a refreshed deck with fewer rows');
+      expect(askodoxBoardPosition(-1, 3), 0);
+      expect(askodoxBoardPosition(4, 0), 0);
+    });
+
+    test('mega expand leaves the input and the minimum conversation room', () {
+      for (final available in const [520.0, 640.0, 900.0]) {
+        final h = askodoxBoardMegaHeight(available)!;
+        expect(available - h, askodoxComposerReserve + askodoxConversationMinimum);
+        expect(h, greaterThan(askodoxBoardMaxHeight(available, keyboard: false, expanded: true)!));
+      }
+      expect(askodoxBoardMegaHeight(300), isNull);
+    });
+  });
+
+  group('provider failure vs no results', () {
+    const failing = AskodoxChatResults(searched: true, sourceStatus: {
+      'online': 'quota_exhausted', 'jobs': 'auth_failed', 'askodox': 'no_results', 'nearby': 'ok'});
+    test('each failing source is named with its reason', () {
+      final text = askodoxProviderProblemText(failing, telugu: false)!;
+      expect(text, contains('online stores: search quota used up'));
+      expect(text, contains('job sites: service key problem'));
+      expect(text, isNot(contains('ASKODOX')), reason: 'an honest empty source is not a failure');
+      expect(askodoxProviderProblemText(failing, telugu: true), contains('సర్వీస్ సమస్య'));
+    });
+    test('no failing source -> no provider notice', () {
+      const ok = AskodoxChatResults(searched: true, sourceStatus: {'online': 'no_results', 'nearby': 'ok'});
+      expect(askodoxProviderProblemText(ok, telugu: false), isNull);
+    });
+  });
+
   group('reasoning before results', () {
     test('guidance phrasing is not a results claim', () {
       for (final text in [

@@ -355,6 +355,11 @@ class _AskodoxPrimaryHomeScreenState
   /// can never fall back to device TTS and talk over the new one.
   int _speechTurn = 0;
 
+  /// Result Board: the card each category box shows ("dealId:kind" -> index)
+  /// and whether the customer mega-expanded the board.
+  final Map<String, int> _boardPositions = {};
+  int? _boardMegaFor;
+
   /// Speaks [reply] through the one audio lifecycle (tests drive overlap).
   @visibleForTesting
   Future<void> speakReplyForTest(String reply) => _speakReply(reply, userText: reply);
@@ -3478,7 +3483,9 @@ class _AskodoxPrimaryHomeScreenState
             );
             final keyboard = MediaQuery.of(context).viewInsets.bottom > 0;
             final expandedMode = _resultsMode == AskodoxResultsMode.expanded || _orderByMatchKey.isNotEmpty;
-            final boardMax = askodoxBoardMaxHeight(constraints.maxHeight, keyboard: keyboard, expanded: expandedMode);
+            final boardMax = pinned != null && _boardMegaFor == pinned && !keyboard
+                ? askodoxBoardMegaHeight(constraints.maxHeight)
+                : askodoxBoardMaxHeight(constraints.maxHeight, keyboard: keyboard, expanded: expandedMode);
             return Column(children: [
               switch (board) {
                 AskodoxBoardState.hidden => const SizedBox.shrink(),
@@ -3832,17 +3839,40 @@ class _AskodoxPrimaryHomeScreenState
         ),
         // Minimize: the board folds into its pill so the conversation gets
         // the screen; nothing is lost (tap the pill to restore).
-        InkWell(
-          key: const Key('askodoxResultBoardMinimize'),
-          onTap: () => setState(() => _boardMinimizedFor = index),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: _muted),
-              Text(te ? 'చిన్నదిగా చేయి' : 'Minimize', style: const TextStyle(fontSize: 11, color: _muted)),
-            ]),
+        Wrap(alignment: WrapAlignment.center, children: [
+          InkWell(
+            key: const Key('askodoxResultBoardMinimize'),
+            onTap: () => setState(() {
+              _boardMinimizedFor = index;
+              _boardMegaFor = null;
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: _muted),
+                Text(te ? 'చిన్నదిగా చేయి' : 'Minimize', style: const TextStyle(fontSize: 11, color: _muted)),
+              ]),
+            ),
           ),
-        ),
+          // Mega expand: the whole board with full cards; the input and the
+          // latest conversation lines keep their room.
+          InkWell(
+            key: const Key('askodoxResultBoardMega'),
+            onTap: () => setState(() => _boardMegaFor = _boardMegaFor == index ? null : index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(_boardMegaFor == index ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+                    size: 16, color: _muted),
+                Text(
+                    _boardMegaFor == index
+                        ? (te ? 'తక్కువ' : 'Less')
+                        : (te ? 'పూర్తిగా చూపు' : 'Expand'),
+                    style: const TextStyle(fontSize: 11, color: _muted)),
+              ]),
+            ),
+          ),
+        ]),
       ]),
     );
   }
@@ -4227,6 +4257,8 @@ class _AskodoxPrimaryHomeScreenState
               _ChatResultsView(
                 key: ValueKey('askodoxChatResults-$index'),
                 workspace: true,
+                positions: _boardPositions,
+                mega: _boardMegaFor == index,
                 results: results,
                 te: te,
                 lang: _lang,
@@ -5110,9 +5142,17 @@ class _ChatResultsView extends StatelessWidget {
     this.onAlternatives,
     this.onSupport,
     this.workspace = false,
+    this.positions,
+    this.mega = false,
   });
 
   final AskodoxChatResults results;
+
+  /// Category box positions (owned by the screen: survive minimize).
+  final Map<String, int>? positions;
+
+  /// Mega expand: full cards (all details) inside the category boxes.
+  final bool mega;
 
   /// Drawn in the top result workspace: the cards only -- no price summary
   /// strip, no "Online" heading over the comparison, no All / Local / Deals /
@@ -5209,6 +5249,14 @@ class _ChatResultsView extends StatelessWidget {
             icon: Icons.travel_explore_rounded,
             text: results.scopeMessage!,
           ),
+        // A provider problem (quota / rate limit / key / outage) is said as
+        // that -- never dressed up as "nothing found".
+        if (askodoxProviderProblemText(results, telugu: te) case final problem?)
+          _notice(
+            key: const Key('askodoxResultsProviderError'),
+            icon: Icons.cloud_off_rounded,
+            text: problem,
+          ),
         if (results.searched && results.matches.isEmpty)
           _notice(
             key: const Key('askodoxResultsNone'),
@@ -5241,7 +5289,10 @@ class _ChatResultsView extends StatelessWidget {
             groups: groups,
             showTabs: !workspace,
             lang: te ? 'te' : lang,
-            card: (match, kind) => _card(match, compact: true, kind: kind),
+            positions: positions,
+            positionKey: results.dealId ?? '',
+            boxes: workspace && mega,
+            card: (match, kind) => _card(match, compact: !mega, kind: kind),
           )
         else
         for (final (segment, rows) in askodoxGroupResults(results.matches)) ...[
@@ -5333,7 +5384,10 @@ class _ChatResultsView extends StatelessWidget {
           _ => key,
         };
     final none = results.sourcesWith('no_results').map(label).toList();
-    final down = results.sourcesWith('unavailable').map(label).toList();
+    // Quota / rate-limit / key / outage problems have their own notice.
+    final down = askodoxProviderProblemText(results, telugu: te) != null
+        ? <String>[]
+        : results.sourcesWith('unavailable').map(label).toList();
     if (none.isEmpty && down.isEmpty) return null;
     final parts = [
       if (none.isNotEmpty) (te ? 'ఫలితాలు లేవు: ' : 'No results from: ') + none.join(', '),
@@ -5466,7 +5520,23 @@ Color _kindColor(AskodoxCompareKind kind) => switch (kind) {
 /// labelled cards. "All" keeps every kind in column order.
 class _ComparisonBoard extends StatefulWidget {
   const _ComparisonBoard(
-      {super.key, required this.groups, required this.card, required this.lang, this.showTabs = true});
+      {super.key,
+      required this.groups,
+      required this.card,
+      required this.lang,
+      this.showTabs = true,
+      this.positions,
+      this.positionKey = '',
+      this.boxes = false});
+
+  /// Mega-expanded board: one box per category with up / down navigation.
+  /// The default board keeps the locked one-rail layout (after 1303).
+  final bool boxes;
+
+  /// Result Board navigation: which card each category box shows, owned by
+  /// the screen so it survives minimize / restore / mega expand.
+  final Map<String, int>? positions;
+  final String positionKey;
 
   final List<(AskodoxCompareKind, List<UniversalMatch>)> groups;
 
@@ -5484,8 +5554,84 @@ class _ComparisonBoard extends StatefulWidget {
 class _ComparisonBoardState extends State<_ComparisonBoard> {
   AskodoxCompareKind? _only;
 
+  int _at(AskodoxCompareKind kind, int count) =>
+      askodoxBoardPosition(widget.positions?['${widget.positionKey}:${kind.name}'] ?? 0, count);
+
+  void _move(AskodoxCompareKind kind, int count, int delta) {
+    final next = askodoxBoardPosition(_at(kind, count) + delta, count);
+    setState(() => (widget.positions ?? <String, int>{})['${widget.positionKey}:${kind.name}'] = next);
+  }
+
+  /// The top Result Board: one box per category, side by side; inside a box
+  /// the customer moves up / down through that category (buttons, vertical
+  /// swipe), with a "2/10" counter.
+  Widget _boxes() => SingleChildScrollView(
+        key: const Key('askodoxComparisonRail'),
+        scrollDirection: Axis.horizontal,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final (kind, rows) in widget.groups)
+            if (rows.isNotEmpty) _box(kind, rows),
+        ]),
+      );
+
+  Widget _box(AskodoxCompareKind kind, List<UniversalMatch> rows) {
+    final at = _at(kind, rows.length);
+    final match = rows[at];
+    final color = _kindColor(kind);
+    final many = rows.length >= 2;
+    Widget arrow(String key, IconData icon, int delta, bool enabled, String label) => IconButton(
+          key: ValueKey('askodoxCategory$key-${kind.name}'),
+          tooltip: label,
+          visualDensity: VisualDensity.compact,
+          iconSize: 20,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          onPressed: enabled ? () => _move(kind, rows.length, delta) : null,
+          icon: Icon(icon, color: enabled ? color : const Color(0xFFB8C2D3)),
+        );
+    return Padding(
+      key: ValueKey('askodoxCategoryBox-${kind.name}'),
+      padding: const EdgeInsets.only(right: 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(askodoxCompareLabel(kind, widget.lang),
+              style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
+          if (many) ...[
+            const SizedBox(width: 6),
+            Text('${at + 1}/${rows.length}',
+                key: ValueKey('askodoxCategoryCounter-${kind.name}'),
+                style: const TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: 11.5)),
+            arrow('Prev', Icons.keyboard_arrow_up_rounded, -1, at > 0,
+                switch (widget.lang) { 'te' => 'ముందుది', 'hi' => 'पिछला', _ => 'Previous' }),
+            arrow('Next', Icons.keyboard_arrow_down_rounded, 1, at < rows.length - 1,
+                switch (widget.lang) { 'te' => 'తర్వాతది', 'hi' => 'अगला', _ => 'Next' }),
+          ],
+        ]),
+        GestureDetector(
+          key: ValueKey('askodoxCategorySwipe-${kind.name}'),
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragEnd: many
+              ? (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  if (v.abs() < 80) return;
+                  _move(kind, rows.length, v < 0 ? 1 : -1); // swipe up = next
+                }
+              : null,
+          // A box is one screen-width column; the next category is a swipe
+          // to the side.
+          child: SizedBox(
+            width: (MediaQuery.sizeOf(context).width - 40).clamp(220.0, 420.0),
+            child: KeyedSubtree(
+                key: ValueKey('askodoxKind-${kind.name}-${match.id}'), child: widget.card(match, kind)),
+          ),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!widget.showTabs && widget.boxes) return _boxes();
     final all = switch (widget.lang) { 'te' => 'అన్నీ', 'hi' => 'सभी', _ => 'All' };
     final total = widget.groups.fold<int>(0, (n, g) => n + g.$2.length);
     Widget tab(String key, String label, int count, Color color, bool selected, VoidCallback onTap) => Padding(

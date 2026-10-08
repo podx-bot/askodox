@@ -119,6 +119,12 @@ class BraveWebSearchProvider:
         self._local.error = bool(value)
 
     @property
+    def last_error_kind(self) -> str | None:
+        """quota_exhausted / rate_limited / auth_failed / bad_request / error
+        for this thread's last failed call (None after a success)."""
+        return getattr(self._local, "error_kind", None)
+
+    @property
     def last_stale_at(self) -> str | None:
         """Fetch time of the stored result returned instead of a live one."""
         return getattr(self._local, "stale_at", None)
@@ -167,6 +173,7 @@ class BraveWebSearchProvider:
         key = (url, tuple(sorted((k, str(v)) for k, v in params.items())))
         store_key = json.dumps(key)
         self.last_error = False
+        self._local.error_kind = None
         self._local.stale_at = None
 
         def fetch() -> Any:
@@ -195,6 +202,8 @@ class BraveWebSearchProvider:
 
         if self._open_until > time.monotonic():
             self.last_error = True
+            # The breaker is open for the failure that opened it.
+            self._local.error_kind = str(self.health.get("state") or "error")
             external_call_budget.record_error("brave")
             return self._stale(store_key)
         try:
@@ -203,6 +212,8 @@ class BraveWebSearchProvider:
             if not isinstance(error, httpx.HTTPStatusError):
                 self._record(state="error", http_status=None, provider_code=type(error).__name__)
             self.last_error = True
+            self._local.error_kind = (str(self.health.get("state") or "error")
+                                      if isinstance(error, httpx.HTTPStatusError) else "error")
             return self._stale(store_key)
         if payload and self.store is not None:
             self.store.save(store_key, payload)

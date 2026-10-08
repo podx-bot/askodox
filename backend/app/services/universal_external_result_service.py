@@ -11,6 +11,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus, urlparse
 from typing import Any, Iterable
 
+from app.services.provider_failure import failure_kind
+
 
 class PartnerApiConnector:
     """Small fail-closed connector for explicitly configured partner search APIs."""
@@ -515,7 +517,7 @@ class UniversalOnlineFallbackService:
         results: list[dict[str, Any]] = []
         rows = self._search(query or f"{subject} price buy online {where}", limit * 3)
         if getattr(self.web_search, "last_error", False) or getattr(self, "_search_failed", False):
-            self.status["online"] = STATUS_ERROR
+            self.status["online"] = failure_kind(self.web_search) or STATUS_ERROR
             return []
         for row in rows:
             item = self._accept(row, len(results), subject=subject, category=category,
@@ -580,7 +582,7 @@ class UniversalOnlineFallbackService:
         query = f"{subject} " + " OR ".join(f"site:{host}" for host, _ in sites.values())
         rows = self._search(query, 20)
         if getattr(self.web_search, "last_error", False) or getattr(self, "_search_failed", False):
-            self.status["marketplaces"] = STATUS_ERROR
+            self.status["marketplaces"] = failure_kind(self.web_search) or STATUS_ERROR
             return []
         taken: dict[str, int] = {}
         results: list[dict[str, Any]] = []

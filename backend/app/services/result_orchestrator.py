@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional
 
+from app.services.provider_failure import FAILURE_STATES
+
 CONTRACT_VERSION = 2
 SECTION_KINDS = ("local", "deals", "online", "affiliate", "partner", "content", "videos", "shorts", "jobs",
                  "sponsored")
@@ -203,8 +205,7 @@ def build(matches: Iterable[Dict[str, Any]], *, demand: Dict[str, Any], source_s
             suppressed[kind] = "source unavailable: " + ", ".join(f"{k}={v}" for k, v in source_states.items())
     total = sum(s["count"] for s in sections)
     checked = sorted(k for k, v in status.items() if v and v != "not_applicable")
-    unavailable = sorted(k for k, v in status.items() if v in ("error", "unavailable", "needs_location",
-                                                                 "quota_exhausted"))
+    unavailable = sorted(k for k, v in status.items() if v in ("unavailable", "needs_location", *FAILURE_STATES))
     return {
         "result_contract_version": CONTRACT_VERSION,
         "sections": sections,

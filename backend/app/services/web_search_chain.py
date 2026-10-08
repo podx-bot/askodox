@@ -16,6 +16,8 @@ from __future__ import annotations
 import threading
 from typing import Any, Callable, Iterable, List, Optional
 
+from app.services.provider_failure import failure_kind
+
 
 class GoogleCseProvider:
     API_URL = "https://www.googleapis.com/customsearch/v1"
@@ -116,6 +118,10 @@ class WebSearchChain:
         self._local.error = bool(value)
 
     @property
+    def last_error_kind(self) -> Optional[str]:
+        return getattr(self._local, "error_kind", None)
+
+    @property
     def last_stale_at(self) -> Optional[str]:
         return getattr(self._local, "stale_at", None)
 
@@ -125,9 +131,11 @@ class WebSearchChain:
 
     def _run(self, method: str, query: str, limit: int) -> List[dict]:
         self.last_error = False
+        self._local.error_kind = None
         self._local.stale_at = None
         self._local.provider = None
         failed = False
+        kind = None
         for provider in self.providers:
             if not getattr(provider, "configured", True):
                 continue
@@ -138,10 +146,13 @@ class WebSearchChain:
                 rows = call(query, limit) or []
             except Exception:
                 rows, failed = [], True
+                kind = kind or "error"
                 continue
             stale = getattr(provider, "last_stale_at", None)
             if getattr(provider, "last_error", False) or (stale and method == "__call__" and not rows):
                 failed = True
+                # The primary's reason wins (the fallback only filled in).
+                kind = kind or failure_kind(provider) or "error"
                 continue
             if stale and rows and method == "__call__":
                 # A stale copy from one provider: prefer a LIVE answer from the next.
@@ -152,6 +163,7 @@ class WebSearchChain:
             self._local.provider = getattr(provider, "name", type(provider).__name__)
             return rows
         self.last_error = failed
+        self._local.error_kind = kind if failed else None
         return []
 
     def _next_live(self, after: Any, query: str, limit: int) -> Optional[List[dict]]:
