@@ -32,6 +32,10 @@ class AssistantRequest(BaseModel):
     # What the options on screen were searched for (the brain's facts at that
     # search), so a later detail that does not change them never re-searches.
     searched_for: dict[str, Any] = Field(default_factory=dict)
+    # One-time advice memory: concerns already raised in this conversation
+    # (the ledger the previous answer returned), so the brain never repeats
+    # a warning without new information, an explicit ask or a critical risk.
+    advice_given: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
 
 
 class AssistantDecision(BaseModel):
@@ -71,6 +75,11 @@ class AssistantDecision(BaseModel):
     # Present only for time-sensitive questions: whether live web evidence
     # verified the answer, and which sources (never claimed when unverified).
     grounding: dict[str, Any] | None = None
+    # The concern raised in THIS reply (key, summary, severity, repeated,
+    # allowed) and the conversation's updated advice ledger for the app to
+    # send back next turn. None / [] for turns that raise no concern.
+    advice: dict[str, Any] | None = None
+    advice_ledger: list[dict[str, Any]] = Field(default_factory=list)
 
 
 @router.post("/assistant", response_model=AssistantDecision)
@@ -85,6 +94,8 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         # searched_for only when the app sent it: other decide() implementations
         # (fallbacks, fakes) keep their older signature.
         extra = {"searched_for": payload.searched_for} if payload.searched_for else {}
+        if payload.advice_given:
+            extra["advice_given"] = payload.advice_given
         decision = service.decide(
             payload.message,
             history=history,
@@ -92,6 +103,10 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             location=payload.location,
             **extra,
         )
+
+        from app.services import assistant_health
+        assistant_health.observe("conversation_intelligence", decision is not None,
+                                 "" if decision is not None else "brain_unavailable_fallback")
 
     if decision is None:
         # Safe degradation: do not invent an AI action when the model is unavailable.

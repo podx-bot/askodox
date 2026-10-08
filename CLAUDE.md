@@ -391,6 +391,17 @@ this file, don't trust it blindly.
   (`affiliate_products`); Smart Links stay routing only.
 - Provider health = real answers (`provider_health.py`): Sarvam 402 ->
   QUOTA_EXHAUSTED; readiness rows + Command Center use it, never key presence.
+- One-time advice = `advice_memory.py` inside the ONE brain (`decide()` / `_advise`):
+  the app keeps the ledger per conversation (`_adviceLedger`, in the snapshot) and
+  sends `advice_given`; the reply returns `advice` + `advice_ledger`. A repeat is
+  allowed only for new_information / user_asked / critical; others are flagged +
+  counted (`assistant_health`). Never add per-category warning rules.
+- Command Center feature health (`/admin/cc/health`): `assistant_health.py`
+  (conversation_intelligence, media_analysis, advice_policy -- real outcomes, per
+  process; no traffic = unknown) + `result_discovery` from `discovery_events`.
+  Provider readiness is separate (`provider_health`); neither proves a phone flow.
+- Result Board ARCHIVED: a deck retired by a topic change shows only the chip
+  `askodoxArchivedResultsRestore` (restores on tap, never on its own).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

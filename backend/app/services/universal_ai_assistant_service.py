@@ -19,6 +19,7 @@ from google.genai import types
 
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
+from app.services import advice_memory
 
 logger = logging.getLogger(__name__)
 
@@ -350,10 +351,12 @@ class UniversalAIAssistantService:
         return (bool(cls._ADVICE_ASK.search(text)) and not cls._COMMERCE_NOW.search(text)
                 and not cls._asks_where_to_get(text) and not cls._asks_for_videos(text))
 
-    def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str) -> str:
+    def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
+                advice_ledger: list[dict[str, Any]] | None = None) -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
-        next steps. Returns "" when no model answered."""
+        next steps. Returns ("", None) when no model answered; otherwise the
+        answer and the concern it raised (one-time advice memory)."""
         prompt = (
             "You are ASKODOX's decision advisor for people in India. The user wants ADVICE / a DECISION, not a "
             "list of shops. Think like an experienced, honest advisor.\n"
@@ -371,6 +374,11 @@ class UniversalAIAssistantService:
             "Rules: never invent prices, laws, interest rates, product specs or shop names as facts -- give typical "
             "ranges and say they vary; recommend verifying regulated matters (loans, insurance, licences, tax, "
             "health) with a qualified professional; no result cards are shown for this answer.\n"
+            "If the user has already decided, do not argue again: help them do it well (one line on any concern "
+            "that is still critical, then practical steps for the option they chose).\n"
+            + advice_memory.prompt_block(advice_ledger or [])
+            + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
+            "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
             + _reply_language_rule(locale)
             + (f"Known user location: {location}\n" if location else "")
             + f"Conversation so far JSON: {json.dumps(history, ensure_ascii=False)}\n"
@@ -400,10 +408,11 @@ class UniversalAIAssistantService:
                 logger.exception("universal_ai_assistant.advise: openai fallback failed (len=%d)", len(user_text))
         if text.startswith("{"):
             try:  # a model that answered JSON anyway
-                text = str(json.loads(text).get("reply") or "").strip()
+                parsed = json.loads(text)
+                return str(parsed.get("reply") or "").strip(), parsed.get("advice")
             except (ValueError, AttributeError):
                 pass
-        return text
+        return advice_memory.split_meta(text)
 
     @classmethod
     def _reply_asks_for_location(cls, sentence: str) -> bool:
@@ -644,6 +653,7 @@ class UniversalAIAssistantService:
         locale: str = "",
         location: str = "",
         searched_for: dict[str, Any] | None = None,
+        advice_given: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
@@ -658,6 +668,7 @@ class UniversalAIAssistantService:
         if not clean or not (self.configured or self.openai_api_key):
             return None
         clean_location = str(location or "").strip()[:300]
+        ledger = advice_memory.sanitize_ledger(advice_given)
 
         compact_history = []
         for turn in (history or [])[-12:]:
@@ -672,7 +683,7 @@ class UniversalAIAssistantService:
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
             "reply, domain, transactional, action, confidence, entities, state, search_ready, next_question, search_subject, "
-            "ready_reason, new_need. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
+            "ready_reason, new_need, advice. domain must be one of GENERAL, JOB_SEEKER, STAFFING, SERVICE, "
             "PARCEL, RIDE, PRODUCT, FOOD, EVENT, APPOINTMENT, LEDGER, UNKNOWN. transactional is boolean. action is a short snake_case string. "
             "entities must be a JSON object containing only facts actually supplied or unambiguously inherited from the conversation. "
             "Useful entity keys include subject, category, role, skill, quantity, unit, headcount, date, time, timing, location, from, to, budget, price, salary, pay, pay_basis, duration, shift, context, variant, quality, size, model, brand, fulfilment, availability, specialist, service_type, job_type, seats, notes. "
@@ -701,7 +712,8 @@ class UniversalAIAssistantService:
             "Do not downgrade a short follow-up such as 'salary 800 estha', '10 members', 'repu 11 am', 'Vijayawada', or 'one person' to GENERAL when the prior context is staffing or another transaction. "
             "If a new request clearly changes intent, switch domains. Example: staffing follow-up -> parcel request must switch from STAFFING to PARCEL. "
             "Use previous turns as authoritative context for ellipsis and follow-ups. "
-            + CONVERSATION_STATE_RULES +
+            + CONVERSATION_STATE_RULES
+            + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
             "location again, and do not include a location question in reply. Only ask about "
@@ -797,9 +809,10 @@ class UniversalAIAssistantService:
                 mode = "advice"
                 transactional = False
                 action = "advise"
-                advice = self._advise(user_text, compact_history, locale, clean_location)
+                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger)
                 if advice:
                     reply = advice
+                    data["advice"] = advice_meta
             elif self._asks_for_videos(user_text) and self._video_search_wanted(
                     user_text, entities, transactional, searched_for):
                 # Deterministic: a video / review ask is a real search. The
@@ -860,6 +873,14 @@ class UniversalAIAssistantService:
             if brain["search_ready"] is False and brain["next_question"] and "?" not in reply:
                 # Not ready yet: the turn ends with the ONE next question.
                 reply = f"{reply.rstrip()}\n\n{brain['next_question']}".strip()
+            advice_review, advice_ledger = advice_memory.review(data.get("advice"), ledger)
+            if advice_review is not None and not advice_review["allowed"]:
+                # The model repeated a concern without new information, an
+                # explicit ask or a critical risk: flagged + counted, never silent.
+                logger.warning("universal_ai_assistant.decide: advice repeated without reason (key=%s)",
+                               advice_review["key"])
+                from app.services import assistant_health
+                assistant_health.record("advice_repeat_violation")
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
@@ -874,6 +895,8 @@ class UniversalAIAssistantService:
                 "confidence": confidence,
                 "entities": entities,
                 "mode": mode,
+                "advice": advice_review,
+                "advice_ledger": advice_ledger,
                 **({"grounding": grounding} if grounding is not None else {}),
             }
         except Exception:

@@ -1339,6 +1339,31 @@ def analytics_export(request: Request, days: int = 30, domain: str = "") -> Resp
 
 # --------------------------------------------------------------- health --
 
+def _result_discovery_health(request: Request) -> dict[str, Any]:
+    """Result discovery from real searches in the last 24 h: how many source
+    runs errored (not-applicable / needs-location / disabled runs are not
+    failures). No searches = unknown, never a dummy green."""
+    try:
+        rows = _rows(request, "SELECT source, status, COUNT(*) n FROM discovery_events WHERE created_at>=? "
+                              "GROUP BY source, status", (_since(1),))
+    except Exception as error:
+        return {"name": "result_discovery", "status": "error", "detail": type(error).__name__}
+    counted = [r for r in rows if r["status"] not in ("not_applicable", "needs_location", "disabled")]
+    total = sum(int(r["n"]) for r in counted)
+    if not total:
+        return {"name": "result_discovery", "status": "unknown", "detail": "no searches in the last 24 h"}
+    errors: dict[str, int] = {}
+    for r in counted:
+        if r["status"] == "error":
+            errors[r["source"]] = errors.get(r["source"], 0) + int(r["n"])
+    failed = sum(errors.values())
+    status = "ok" if not failed else ("error" if failed / total >= 0.5 else "degraded")
+    detail = f"{total - failed}/{total} source runs answered in the last 24 h"
+    if errors:
+        detail += "; errors: " + ", ".join(f"{k} x{v}" for k, v in sorted(errors.items()))
+    return {"name": "result_discovery", "status": status, "detail": detail}
+
+
 @router.get("/health")
 def health(request: Request) -> dict[str, Any]:
     _require(request, "health:view")
@@ -1362,6 +1387,12 @@ def health(request: Request) -> dict[str, Any]:
         components.append({"name": "support_notifications", "status": "ok", "detail": "Escalation and notification stores readable"})
     except Exception as error:
         components.append({"name": "support_notifications", "status": "error", "detail": type(error).__name__})
+    # Assistant feature outcomes for real users (conversation brain, media
+    # analysis, one-time advice) -- distinct from provider API readiness.
+    from app.services import assistant_health
+    for row in assistant_health.components():
+        components.append({"name": row["name"], "status": row["status"], "detail": row["detail"]})
+    components.append(_result_discovery_health(request))
     for item in _integration_states(container):
         # Configured but never checked = unknown, never a dummy green.
         status = {"not_configured": "not_configured", "disabled": "disabled", "configured": "unknown",

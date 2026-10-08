@@ -64,7 +64,18 @@ class InAppAssistantDecision {
     this.newNeed = false,
     this.conversationRelation = 'unknown',
     this.subjectChanged = false,
+    this.advice,
+    this.adviceLedger,
   });
+
+  /// One-time advice memory: the concern raised in THIS reply (key,
+  /// summary, severity, repeated, allowed), or null.
+  final Map<String, Object?>? advice;
+
+  /// The conversation's advice ledger after this turn; send it back as
+  /// `adviceGiven` next turn. Null when the backend did not return one
+  /// (older backend) -- keep the ledger you have.
+  final List<Map<String, Object?>>? adviceLedger;
 
   /// The brain: this message starts a DIFFERENT need (not an answer to the
   /// one being discussed).
@@ -167,6 +178,13 @@ class InAppAssistantDecision {
       newNeed: json['new_need'] == true,
       conversationRelation: (json['conversation_relation'] ?? 'unknown').toString(),
       subjectChanged: json['subject_changed'] == true,
+      advice: json['advice'] is Map ? Map<String, Object?>.unmodifiable(Map<String, Object?>.from(json['advice'] as Map)) : null,
+      adviceLedger: json['advice_ledger'] is List
+          ? List<Map<String, Object?>>.unmodifiable([
+              for (final entry in json['advice_ledger'] as List)
+                if (entry is Map) Map<String, Object?>.unmodifiable(Map<String, Object?>.from(entry)),
+            ])
+          : null,
     );
   }
 
@@ -202,6 +220,7 @@ class InAppAssistantService {
     required List<InAppAssistantTurn> history,
     String? location,
     Map<String, Object?>? searchedFor,
+    List<Map<String, Object?>>? adviceGiven,
   }) async {
     final clean = message.trim();
     if (clean.isEmpty) return null;
@@ -223,6 +242,7 @@ class InAppAssistantService {
               'history': history.takeLast(12).map((turn) => turn.toJson()).toList(),
               if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
               if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
+              if (adviceGiven != null && adviceGiven.isNotEmpty) 'advice_given': adviceGiven,
             }),
           )
           .timeout(const Duration(seconds: 15));

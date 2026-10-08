@@ -150,6 +150,10 @@ class _AskodoxPrimaryHomeScreenState
   // assistant turn they belong to. Earlier result sets stay in the history
   // while the user refines, like any other chat message.
   final Map<int, AskodoxChatResults> _resultsByTurn = {};
+
+  /// One-time advice memory for THIS conversation: concerns the brain has
+  /// already explained (key / summary / severity), sent back every turn.
+  List<Map<String, Object?>> _adviceLedger = const [];
   final Map<int, UniversalDeal> _dealByTurn = {};
   final Map<int, String> _roleNoticeByTurn = {};
   // A ready-made seller catalogue open in the conversation.
@@ -832,6 +836,7 @@ class _AskodoxPrimaryHomeScreenState
     final deals = ref.read(universalDealControllerProvider.notifier);
     return {
       'turns': [for (final turn in _turns) turn.toJson()],
+      'adviceLedger': _adviceLedger,
       'results': {
         for (final entry in _resultsByTurn.entries)
           '${entry.key}': {
@@ -907,6 +912,7 @@ class _AskodoxPrimaryHomeScreenState
   final Map<int, AskodoxGuideFlow> _guideByTurn = {};
 
   void _clearConversationState() {
+    _adviceLedger = const [];
     _videoStudyRef = null;
     _videoFocus = false;
     _taxonomyByTurn.clear();
@@ -1023,6 +1029,10 @@ class _AskodoxPrimaryHomeScreenState
         if (value is Map) _parkedDeals[key] = Map<String, Object?>.from(value);
       });
       _pendingSellerQuestion = data['pendingSellerQuestion']?.toString();
+      _adviceLedger = [
+        for (final entry in (data['adviceLedger'] as List? ?? const []))
+          if (entry is Map) Map<String, Object?>.from(entry),
+      ];
       _issueTurns = (data['issueTurns'] as num?)?.toInt() ?? 0;
       _clarifiedKeys.addAll([for (final k in (data['clarified'] as List? ?? const [])) '$k']);
       map(data['clarifications']).forEach((key, raw) {
@@ -1862,8 +1872,13 @@ class _AskodoxPrimaryHomeScreenState
       history: history,
       location: _saysNearMe(text) ? knownLocationLabel : (_requestedPlace?.label ?? knownLocationLabel),
       searchedFor: _searchedFor(),
+      adviceGiven: _adviceLedger,
     );
     final aiUsable = decision?.usable == true;
+    // One-time advice memory: keep the ledger the brain returned so a
+    // concern already explained is not repeated (an older backend returns
+    // none -- keep what we have).
+    if (aiUsable && decision!.adviceLedger != null) _adviceLedger = decision.adviceLedger!;
     // APK 1305: the deterministic conversation-relation layer (backend)
     // classifies this turn against the ACTIVE need. A replaced subject or a
     // genuine new topic retires the previous active result deck NOW: those
@@ -3421,7 +3436,9 @@ class _AskodoxPrimaryHomeScreenState
             if (_active && _pinnedResultsTurn != null && _resultsHiddenFor != _pinnedResultsTurn)
               _boardMinimizedFor == _pinnedResultsTurn
                   ? _resultPill(te, _pinnedResultsTurn!)
-                  : _resultContext(te, _pinnedResultsTurn!),
+                  : _resultContext(te, _pinnedResultsTurn!)
+            else if (_active && _pinnedResultsTurn != null && _resultsHiddenFor == _pinnedResultsTurn)
+              _archivedResultsChip(te, _pinnedResultsTurn!),
             Expanded(child: _active ? _chat(te) : _home(te)),
             _composer(te)
           ]),
@@ -3793,6 +3810,31 @@ class _AskodoxPrimaryHomeScreenState
 
   /// The minimized Result Board: one line with what the results are for,
   /// plus the selected option (if any) as compact conversation context.
+  /// Result Board ARCHIVED state: a deck retired by a topic change is not
+  /// erased -- one small chip brings it back on the customer's tap (it never
+  /// returns on its own over the new topic).
+  Widget _archivedResultsChip(bool te, int index) {
+    final count = _resultsByTurn[index]?.matches.length ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+        child: ActionChip(
+          key: const Key('askodoxArchivedResultsRestore'),
+          visualDensity: VisualDensity.compact,
+          avatar: const Icon(Icons.history, size: 16),
+          label: Text(te ? 'మునుపటి ఫలితాలు ($count)' : 'Earlier results ($count)',
+              style: const TextStyle(fontSize: 12)),
+          onPressed: () => setState(() {
+            _resultsHiddenFor = null;
+            _boardMinimizedFor = null;
+          }),
+        ),
+      ),
+    );
+  }
+
   Widget _resultPill(bool te, int index) {
     final results = _resultsByTurn[index];
     if (results == null) return const SizedBox.shrink();
