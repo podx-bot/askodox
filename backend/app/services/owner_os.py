@@ -357,6 +357,32 @@ PHONE_EVIDENCE = (
 # real test with evidence moves it). (title, area, steps -> expected)
 ACCEPTANCE_BUILD = "1292"
 ACCEPTANCE_CHECKS = (
+    # Post-1313 flows (code + tests only until a real phone proves them).
+    ("Result Board: Expand shows category boxes with up / down and n/N; position kept after minimize", "results",
+     "Search something with several options, tap Expand, use the arrows and a vertical swipe, minimize, restore, "
+     "Expand again. Expected: the same position; full cards; the default board unchanged."),
+    ("Provider failure shown as a service problem, not 'no results'", "results",
+     "When a search provider is out of quota: the board says which source failed and why, never 'nothing found'."),
+    ("Voice: pause / resume / mute / replay, never two voices", "voice",
+     "Ask by voice; pause and resume the reply; ask again while it speaks; mute; long-press a reply -> Replay. "
+     "Expected: one voice at a time, Telugu stays Telugu, Stop silences everything."),
+    ("Long-press a message: copy / select / share", "chat",
+     "Long-press a reply and your own message. Expected: plain text copied (no ** markers), selectable text, the "
+     "Android share sheet."),
+    ("Reply meaning colours", "chat",
+     "Ask for advice with a risk. Expected: risky line red, cautions orange, good points green, with icons; most "
+     "lines plain; readable in Telugu."),
+    ("Profile memory: remembered needs by role; correct / delete / switch off", "profile",
+     "Make two requests, open Profile -> What ASKODOX remembers. Expected: grouped by role, no OTP or card number, "
+     "correct / complete / delete / delete all / off all work."),
+    ("My Roles and My Business sections open real screens (Home unchanged)", "business",
+     "Profile -> My roles; Profile -> My business: every section opens a real screen; Home has no business tile."),
+    ("Conversations & automation: approved answers, handover, honest platform status", "business",
+     "Add an approved answer, switch ON, try 'refund'. Expected: handover; Instagram / Facebook / WhatsApp not "
+     "shown as connected without a verified connection."),
+    ("My Creations: AI draft from my facts, share only by me", "business",
+     "Write with AI from your facts, save, share. Expected: no invented price / offer; nothing posted by itself; "
+     "image generation shown as not available."),
     ("TV: advisor asks size / budget / brand, then real results", "advisor",
      "Say 'I want a TV'. Expected: one question at a time (size, budget, brand), 'any' skips only that question, "
      "then local + online results; nothing invented."),

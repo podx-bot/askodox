@@ -364,11 +364,13 @@ class _FakeVoice extends VoiceTranscriptionService {
 
 class _FakeReplySpeech extends ReplySpeechService {
   Uint8List? audio;
+  Completer<void>? hold;
   final List<(String, String)> calls = [];
 
   @override
   Future<Uint8List?> sarvamAudio(String text, {required String locale, String voice = 'automatic'}) async {
     calls.add((text, locale));
+    if (hold != null) await hold!.future;
     return audio;
   }
 }
@@ -1556,6 +1558,66 @@ void main() {
       expect(board(), findsOneWidget, reason: 'restored');
       expect(pill(), findsNothing);
       expect(cards(), findsNWidgets(3), reason: 'nothing was lost');
+    });
+
+    testWidgets('Result Board navigation: mega expand -> category box with up / down, swipe, counter; '
+        'position survives minimize / restore', (tester) async {
+      final h = harness([search('refurbished phones')],
+          const [UniversalMatchResult(dealId: 'rbnav', matches: [a, b, c])]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones');
+      expect(cards(), findsNWidgets(3), reason: 'the default board keeps the locked one-rail layout');
+      expect(find.byKey(const ValueKey('askodoxCategoryBox-online')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMega')));
+      await tester.pumpAndSettle();
+      Finder counter() => find.byKey(const ValueKey('askodoxCategoryCounter-online'));
+      String count() => (tester.widget(counter()) as Text).data!;
+      expect(find.byKey(const ValueKey('askodoxCategoryBox-online')), findsOneWidget);
+      expect(count(), '1/3');
+      expect(cards(), findsOneWidget, reason: 'one card at a time inside the category box');
+      expect(find.byKey(const ValueKey('askodoxResultCard-online-online-0-rb')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('askodoxCategoryNext-online')));
+      await tester.pumpAndSettle();
+      expect(count(), '2/3');
+      expect(find.byKey(const ValueKey('askodoxResultCard-online-online-1-rb')), findsOneWidget);
+
+      await tester.fling(find.byKey(const ValueKey('askodoxCategorySwipe-online')), const Offset(0, -200), 1200);
+      await tester.pumpAndSettle();
+      expect(count(), '3/3', reason: 'swipe up = next');
+      final next = tester.widget<IconButton>(find.byKey(const ValueKey('askodoxCategoryNext-online')));
+      expect(next.onPressed, isNull, reason: 'no next past the last option');
+
+      await tester.tap(find.byKey(const ValueKey('askodoxCategoryPrev-online')));
+      await tester.pumpAndSettle();
+      expect(count(), '2/3');
+
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
+      expect(pill(), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxResultPillRestore')));
+      await tester.pumpAndSettle();
+      expect(cards(), findsNWidgets(3), reason: 'restored to the normal board, nothing lost');
+      await tester.tap(find.byKey(const Key('askodoxResultBoardMega')));
+      await tester.pumpAndSettle();
+      expect(count(), '2/3', reason: 'the category position survived minimize / restore');
+    });
+
+    testWidgets('a provider failure is shown as a service problem, never as "nothing found"', (tester) async {
+      final h = harness([search('refurbished phones')], const [
+        UniversalMatchResult(dealId: 'rbq', matches: [],
+            sourceStatus: {'askodox': 'not_applicable', 'online': 'quota_exhausted', 'used_deals': 'rate_limited'}),
+      ]);
+      await h.pump(tester);
+      await h.send(tester, 'show me refurbished phones online');
+      final problem = find.byKey(const Key('askodoxResultsProviderError'));
+      expect(problem, findsOneWidget);
+      expect(find.textContaining('online stores: search quota used up'), findsOneWidget);
+      expect(find.textContaining('too many requests'), findsOneWidget);
+      expect(find.textContaining('not "no results"'), findsOneWidget);
+      expect(find.textContaining('No suitable result yet'), findsNothing);
+      expect(find.textContaining('I could not search right now'), findsOneWidget);
     });
 
     testWidgets('same-topic refinement with new results updates the SAME board and reopens it', (tester) async {
@@ -4928,6 +4990,224 @@ void main() {
       await runFor(tester, const Duration(seconds: 1));
       expect(methods(), contains('stopSpeaking'));
       expect(find.text('Listening…'), findsOneWidget);
+    });
+
+    testWidgets('a newer reply cuts off the older one -- never two voices, no device fallback for the old reply',
+        (tester) async {
+      final plays = <Completer<Object?>>[];
+      mockRecorder(
+        levels: const [],
+        extra: (call) async {
+          if (call.method == 'playReplyAudio') {
+            // Native playReplyAudio stops the previous audio first: its call
+            // returns false (cut off).
+            for (final p in plays) {
+              if (!p.isCompleted) p.complete(false);
+            }
+            final c = Completer<Object?>();
+            plays.add(c);
+            return c.future;
+          }
+          return null;
+        },
+      );
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+
+      final first = state.speakReplyForTest('First reply') as Future<void>;
+      await tester.pump();
+      final second = state.speakReplyForTest('Second reply') as Future<void>;
+      await tester.pump();
+      await first;
+      expect(methods(), isNot(contains('speakReply')),
+          reason: 'the cut-off reply must not fall back to the device voice');
+      expect(find.text('Speaking…'), findsOneWidget, reason: 'the newer reply is still speaking');
+
+      plays.last.complete(true);
+      await second;
+      await _Harness.settle(tester);
+      expect(calls.where((c) => c.method == 'playReplyAudio'), hasLength(2));
+      expect(methods(), isNot(contains('speakReply')));
+      expect(state.lastReplyVoiceEngine, 'sarvam_bulbul_v3');
+    });
+
+    testWidgets('pause / resume Sarvam reply audio in place; never a second voice', (tester) async {
+      final playing = Completer<Object?>();
+      mockRecorder(extra: (call) async {
+        if (call.method == 'playReplyAudio') return playing.future;
+        if (call.method == 'pauseReplyAudio' || call.method == 'resumeReplyAudio') return true;
+        return null;
+      });
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      final speaking = state.speakReplyForTest('A long answer.') as Future<void>;
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxPauseSpeaking')));
+      await tester.pump();
+      expect(methods(), contains('pauseReplyAudio'));
+      expect(find.byKey(const Key('askodoxResumeSpeaking')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxResumeSpeaking')));
+      await tester.pump();
+      expect(methods(), contains('resumeReplyAudio'));
+      expect(find.byKey(const Key('askodoxPauseSpeaking')), findsOneWidget);
+      playing.complete(true);
+      await speaking;
+      await _Harness.settle(tester);
+      expect(methods(), isNot(contains('speakReply')));
+      expect(find.byKey(const Key('askodoxStopSpeaking')), findsNothing);
+    });
+
+    testWidgets('device voice: pause remembers the word reached; resume continues there with the SAME voice',
+        (tester) async {
+      final speaking = <Completer<Object?>>[];
+      mockRecorder(extra: (call) async {
+        if (call.method == 'speakReply') {
+          final c = Completer<Object?>();
+          speaking.add(c);
+          return c.future;
+        }
+        if (call.method == 'stopSpeaking') {
+          for (final c in speaking) {
+            if (!c.isCompleted) c.complete(false);
+          }
+        }
+        return null;
+      });
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = null; // no Sarvam audio -> device voice
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      unawaited(state.speakReplyForTest('First part. Second part.') as Future<void>);
+      await tester.pump();
+      // Native word ranges: the device voice has reached "Second".
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(const MethodCall('speechRange', {'start': 12, 'end': 18})),
+          (_) {});
+      await tester.tap(find.byKey(const Key('askodoxPauseSpeaking')));
+      await tester.pump();
+      expect(methods(), contains('stopSpeaking'));
+      expect(find.byKey(const Key('askodoxResumeSpeaking')), findsOneWidget);
+      final sarvamCalls = h.replySpeech.calls.length;
+
+      await tester.tap(find.byKey(const Key('askodoxResumeSpeaking')));
+      await tester.pump();
+      final resumed = calls.lastWhere((c) => c.method == 'speakReply');
+      expect((resumed.arguments as Map)['text'], 'Second part.');
+      expect(h.replySpeech.calls.length, sarvamCalls, reason: 'resume never switches to another voice engine');
+      speaking.last.complete(true);
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxStopSpeaking')), findsNothing);
+    });
+
+    testWidgets('mute stops the voice and keeps later replies silent; replay speaks on request', (tester) async {
+      final playing = Completer<Object?>();
+      mockRecorder(extra: (call) async {
+        if (call.method == 'playReplyAudio' && !playing.isCompleted) return playing.future;
+        if (call.method == 'stopSpeaking' && !playing.isCompleted) playing.complete(false);
+        return call.method == 'playReplyAudio' ? true : null;
+      });
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        assistant: _Assistant((_) => {
+              'reply': '**Tip:** check the warranty.', 'domain': 'GENERAL', 'transactional': false,
+              'confidence': 0.9, 'source': 'universal_ai',
+            }),
+      );
+      h.replySpeech.audio = Uint8List.fromList([1, 2, 3]);
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      unawaited(state.speakReplyForTest('Speaking now.') as Future<void>);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxMuteSpeaking')));
+      await _Harness.settle(tester);
+      expect(methods(), contains('stopSpeaking'));
+      calls.clear();
+      await state.speakReplyForTest('A later reply.');
+      await tester.pump();
+      expect(methods(), isNot(contains('playReplyAudio')), reason: 'muted: no voice');
+      expect(methods(), isNot(contains('speakReply')));
+
+      await h.send(tester, 'any advice?');
+      await tester.longPress(find.byKey(const ValueKey('askodoxBubble-1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Unmute voice replies'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxMessageReplay')));
+      await _Harness.settle(tester);
+      final replay = calls.lastWhere((c) => c.method == 'playReplyAudio');
+      expect(replay, isNotNull, reason: 'replay is an explicit request: spoken even while muted');
+      expect(h.replySpeech.calls.last.$1, 'Tip: check the warranty.', reason: 'no markup is spoken');
+    });
+
+    testWidgets('long-press a message: copy (plain text), select text, share via the system sheet', (tester) async {
+      mockRecorder();
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
+        return null;
+      });
+      addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        assistant: _Assistant((_) => {
+              'reply': '**Tip:** check the warranty.', 'domain': 'GENERAL', 'transactional': false,
+              'confidence': 0.9, 'source': 'universal_ai',
+            }),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'any advice?');
+      final bubble = find.byKey(const ValueKey('askodoxBubble-1'));
+
+      await tester.longPress(bubble);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMessageCopy')));
+      await tester.pumpAndSettle();
+      expect(copied, 'Tip: check the warranty.');
+
+      await tester.longPress(bubble);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMessageSelect')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxMessageSelectable')), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(bubble);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxMessageShare')));
+      await tester.pumpAndSettle();
+      final share = calls.lastWhere((c) => c.method == 'shareText');
+      expect((share.arguments as Map)['text'], 'Tip: check the warranty.');
+
+      // The user's own message: copy / select / share, no replay.
+      await tester.longPress(find.byKey(const ValueKey('askodoxBubble-0')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxMessageCopy')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxMessageReplay')), findsNothing);
+    });
+
+    testWidgets('Stop during the audio fetch: nothing is spoken afterwards', (tester) async {
+      mockRecorder(levels: const []);
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+      h.replySpeech.audio = null; // would fall back to device TTS
+      h.replySpeech.hold = Completer<void>();
+      await h.pump(tester);
+      final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
+      final speaking = state.speakReplyForTest('Hello') as Future<void>;
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxStopSpeaking')));
+      await tester.pump();
+      h.replySpeech.hold!.complete();
+      await speaking;
+      await _Harness.settle(tester);
+      expect(methods(), isNot(contains('speakReply')), reason: 'Stop means silence, not the device voice');
+      expect(find.byKey(const Key('askodoxStopSpeaking')), findsNothing);
     });
   });
 

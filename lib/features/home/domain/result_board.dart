@@ -63,3 +63,18 @@ double? askodoxBoardMaxHeight(double available, {required bool keyboard, bool ex
   final height = (available * share).clamp(0.0, leftForChat < 0 ? 0.0 : leftForChat);
   return height < askodoxBoardMinimum ? null : height;
 }
+
+/// The card a category box shows: [index] clamped to the category's rows
+/// (a refreshed deck with fewer rows never points past its end).
+int askodoxBoardPosition(int index, int count) {
+  if (count <= 0) return 0;
+  return index.clamp(0, count - 1);
+}
+
+/// Mega expand: the customer asked for the whole board -- everything except
+/// the input row and the minimum conversation strip. Null = no room.
+double? askodoxBoardMegaHeight(double available) {
+  if (!available.isFinite || available <= 0) return null;
+  final height = available - askodoxComposerReserve - askodoxConversationMinimum;
+  return height < askodoxBoardMinimum ? null : height;
+}

@@ -421,6 +421,7 @@ class AskBody(BaseModel):
     question: str = Field(min_length=2, max_length=4000)  # room for pasted links
     days: int = 7
     language: str = ""
+    mode: str = ""  # "incidents": the grounded incident report
 
 
 _TOPICS = (
@@ -492,6 +493,16 @@ def admin_assistant(body: AskBody, request: Request) -> dict:
         return {"question": body.question, "language": lang,
                 "answers": [admin_ops.run(op, body.question, lang, **getters) for op in ops],
                 "basis": "Recorded ASKODOX records only; changes happen on the linked screen after you confirm."}
+    from app.services import admin_incidents
+
+    if body.mode == "incidents" or (admin_incidents.is_incident_question(body.question)
+                                    and not any(re.search(p, text) for _, p in _TOPICS)):
+        if _can(principal, "health:view"):
+            from app.api.routes.command_center import incident_report
+
+            lang = admin_ops.language(body.question, body.language)
+            return {"question": body.question, "language": lang, "mode": "incidents",
+                    **incident_report(request, lang)}
     topics = [name for name, pattern in _TOPICS if re.search(pattern, text)] or ["rising", "unmet"]
     answers = []
     data = di.insights(repo, days=days) if _can(principal, "demand:view") else None
@@ -678,8 +689,17 @@ def my_auto_response(request: Request) -> dict:
     mine = [r for r in pf.repo.list("auto_response_rules", owner_ref=owner)]
     from app.services import auto_response
 
+    from app.services import social_dm
+
+    platforms = {}
+    for channel in ("askodox_chat", "facebook", "instagram", "whatsapp", "snapchat"):
+        try:  # real state only: LIVE needs a passed check, never key presence
+            platforms[channel] = social_dm.channel_status(pf.registry, channel)
+        except Exception:
+            platforms[channel] = {"status": "UNKNOWN", "reason": "status could not be read"}
     return {"item": mine[0] if mine else None,
             "channels": auto_response.channel_status((mine[0]["data"] if mine else {}), pf.registry),
+            "platforms": platforms,
             "note": "Answers only from your approved FAQ; anything else comes to you. Contact details are "
                     "shared only after you accept a request. Instagram / Facebook / WhatsApp / Snapchat need "
                     "your authorised platform connection and are not messaged from here."}

@@ -21,6 +21,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
+from app.services.provider_failure import failure_kind
 from app.services.universal_external_result_service import (
     BUYABLE_PAGES,
     JOB_HOSTS,
@@ -302,9 +303,15 @@ class UniversalMultiSourceResultService:
         else:
             self._status["nearby"] = STATUS_ERROR if self._maps_failed else STATUS_NO_RESULTS
         web_ready = callable(self.web_search) and getattr(self.web_search, "configured", True)
-        self._status["used_deals"] = (STATUS_OK if web_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
+        # A failed search is never an honest "no results" (quota / rate limit
+        # / auth say so; the customer sees the provider problem, not "none").
+        web_failed = getattr(self, "_web_failure", None) if web else None
+        jobs_failed = getattr(self, "_jobs_failure", None) if jobs else None
+        self._status["used_deals"] = ((STATUS_OK if web_rows else web_failed or STATUS_NO_RESULTS)
+                                      if web_ready else STATUS_UNAVAILABLE)
         if "jobs" in plan:
-            self._status["jobs"] = (STATUS_OK if job_rows else STATUS_NO_RESULTS) if web_ready else STATUS_UNAVAILABLE
+            self._status["jobs"] = ((STATUS_OK if job_rows else jobs_failed or STATUS_NO_RESULTS)
+                                    if web_ready else STATUS_UNAVAILABLE)
         for source in skip:
             if source in plan and self._status.get(source) != STATUS_NEEDS_LOCATION:
                 self._status[source] = "bypassed_unhealthy"
@@ -491,12 +498,17 @@ class UniversalMultiSourceResultService:
             SEGMENT_DEALS: f"{subject} offers deals{near}",
         }
         items: list[dict[str, Any]] = []
+        self._web_failure = None
         for segment, query in queries.items():
             words = {SEGMENT_USED: _USED_WORDS, SEGMENT_SURPLUS: _SURPLUS_WORDS, SEGMENT_DEALS: _DEAL_WORDS}[segment]
             try:
                 rows = self.web_search(query, 6) or []
             except Exception:
                 rows = []
+                self._web_failure = self._web_failure or "error"
+            if not rows:
+                # Per-thread provider state: read it here, in the worker.
+                self._web_failure = self._web_failure or failure_kind(self.web_search)
             kept = 0
             for row in rows:
                 url = UniversalExternalResultService._http_url((row or {}).get("url"))
@@ -562,8 +574,10 @@ class UniversalMultiSourceResultService:
         where = location_text or "India"
         try:
             rows = self.web_search(f"{core} jobs in {where}", 12) or []
+            self._jobs_failure = None if rows else failure_kind(self.web_search)
         except Exception:
             rows = []
+            self._jobs_failure = "error"
         items: list[dict[str, Any]] = []
         for row in rows:
             url = UniversalExternalResultService._http_url((row or {}).get("url"))

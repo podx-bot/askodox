@@ -55,4 +55,61 @@ void main() {
     expect(plain, contains('Paint'));
     expect(plain, contains('guide'));
   });
+
+  group('meaning colours (severity tags from the assistant, never keyword guesses)', () {
+    testWidgets('ok / caution / risk lines are marked; untagged lines stay neutral; tags never shown', (tester) async {
+      const reply = 'Here is what to check.\n'
+          '- [ok] ISI-marked wiring is safe for home use.\n'
+          '- [caution] Check the warranty card before paying.\n'
+          '[risk] Do not pay the full amount in advance.\n\n'
+          'Anything else?';
+      await _pump(tester, reply);
+      expect(find.byKey(const ValueKey('askodoxSeverity-ok')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxSeverity-caution')), findsOneWidget);
+      expect(find.byKey(const ValueKey('askodoxSeverity-risk')), findsOneWidget);
+      final shown = _shown(tester);
+      for (final tag in ['[ok]', '[caution]', '[risk]']) {
+        expect(shown, isNot(contains(tag)));
+      }
+      expect(shown, contains('Do not pay the full amount'));
+      expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget, reason: 'meaning is not colour-only');
+    });
+
+    testWidgets('no tags -> no colour, even with warning-like words (meaning comes from the assistant)',
+        (tester) async {
+      await _pump(tester, '- Avoid cheap cables.\n- Danger zones are listed below.');
+      for (final s in ['ok', 'caution', 'risk']) {
+        expect(find.byKey(ValueKey('askodoxSeverity-$s')), findsNothing);
+      }
+    });
+
+    testWidgets('Telugu reply: tagged line coloured, taller line height', (tester) async {
+      await _pump(tester, '⚠️ ముందుగా పూర్తి డబ్బు చెల్లించకండి.\n\nమిగతావి సాధారణం.');
+      expect(find.byKey(const ValueKey('askodoxSeverity-caution')), findsOneWidget);
+      final tall = tester
+          .widgetList<Text>(find.byType(Text))
+          .where((t) => (t.textSpan?.toPlainText() ?? t.data ?? '').contains('చెల్లించకండి'))
+          .any((t) => (t.textSpan?.style?.height ?? t.style?.height ?? 0) >= 1.5);
+      expect(tall, isTrue, reason: 'Telugu gets line height 1.5');
+      expect(_shown(tester), isNot(contains('⚠️')));
+    });
+
+    test('dark and light palettes both exist for every severity', () {
+      for (final s in AskodoxSeverity.values.where((s) => s != AskodoxSeverity.neutral)) {
+        final light = askodoxSeverityStyle(s, Brightness.light);
+        final dark = askodoxSeverityStyle(s, Brightness.dark);
+        expect(light.fg, isNot(dark.fg));
+        expect(light.label, isNotEmpty);
+      }
+    });
+
+    test('speech and copy drop the tags', () {
+      final plain = askodoxPlainReply('- [risk] Do not pay in advance.\n[ok] Good choice.\n✅ Done');
+      expect(plain, isNot(contains('[risk]')));
+      expect(plain, isNot(contains('[ok]')));
+      expect(plain, isNot(contains('✅')));
+      expect(plain, contains('Do not pay in advance.'));
+      expect(plain, contains('Good choice.'));
+    });
+  });
 }

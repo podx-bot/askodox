@@ -760,6 +760,7 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
                       detail={"subject": str(stored.get("subject") or "")[:120],
                               "budget_band": budget_band(stored.get("price")),
                               "providers_notified": int((broadcast or {}).get("sent") or 0)})
+        _remember(container, user_id, stored)
         response = _deal_response(stored, "", intent_context)
         response["broadcast"] = broadcast
         return response
@@ -807,7 +808,19 @@ def create_deal(payload: UniversalDealCreateRequest, request: Request) -> dict:
             headers=headers,
         )
 
+    _remember(container, user_id, created)
     return _deal_response(created, reply, intent_context)
+
+
+def _remember(container, user_id: str, demand: dict) -> None:
+    """Conversation -> profile memory (private; the person controls it in
+    Profile). Never breaks the request."""
+    try:
+        from app.services.profile_memory import record_from_demand
+
+        record_from_demand(container.settings.database_path, user_id, dict(demand or {}))
+    except Exception:
+        pass
 
 
 def _app_structured_requirement(payload: UniversalDealCreateRequest) -> bool:

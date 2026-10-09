@@ -1,0 +1,8 @@
+{
+  "run_id": "37773692126",
+  "artifact": "askodox-phone-test-1313",
+  "build_number": "1313",
+  "tag": "apk-1313",
+  "target": "fc5505f4e8303db501422e4e6f1a59a9fe3a86dd",
+  "expect_sha256": "bb14a2782ee94d54505104a98842e2a790101ff65adbb21de8004f09e98cf2a8"
+}

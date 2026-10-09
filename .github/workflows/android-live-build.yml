@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      publish_update_channel:
+        description: Publish this build to the askodox-latest in-app update channel (reaches every installed phone; only after real-phone acceptance and owner approval)
+        required: false
+        default: false
+        type: boolean
       build_number:
         description: Explicit Android build number (leave empty = automatic, always above every published build)
         required: false
@@ -362,9 +367,12 @@ jobs:
           retention-days: 30
 
       - name: Publish ASKODOX in-app update channel
-        # Only merged code reaches users' phones: a build started by hand on
-        # a PR branch keeps its APK as a workflow artifact for testing.
-        if: steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
+        # Never automatic: a push to main (a merge) only builds, signs,
+        # verifies and uploads the phone-test artifact. The channel every
+        # installed app reads moves only when the owner dispatches this
+        # workflow on main with publish_update_channel=true, after real-phone
+        # acceptance of that build.
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_update_channel == true && steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

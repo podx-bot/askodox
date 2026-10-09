@@ -570,9 +570,39 @@ const _sourceNames = {
   'used_deals': ('used/deals pages', 'పాత/ఆఫర్ పేజీలు'),
   'online': ('online stores', 'ఆన్‌లైన్ స్టోర్లు'),
   'videos': ('videos', 'వీడియోలు'),
+  'jobs': ('job sites', 'ఉద్యోగ సైట్లు'),
+  'marketplaces': ('marketplaces', 'మార్కెట్‌ప్లేస్‌లు'),
 };
 
-const _downStatuses = {'error', 'unavailable', 'disabled', 'quota_exhausted', 'needs_location', 'not_configured'};
+/// Source statuses that mean "the provider failed", never "nothing found"
+/// (mirrors backend provider_failure.FAILURE_STATES).
+const askodoxProviderFailureStatuses = {'quota_exhausted', 'rate_limited', 'auth_failed', 'error'};
+
+/// One line naming each failing source and WHY (quota used up, too many
+/// requests, service key, not reachable) -- shown apart from "no results".
+/// Null when every source answered.
+String? askodoxProviderProblemText(AskodoxChatResults results, {required bool telugu}) {
+  String reason(String status) => switch (status) {
+        'quota_exhausted' => telugu ? 'సెర్చ్ కోటా అయిపోయింది' : 'search quota used up',
+        'rate_limited' => telugu ? 'చాలా అభ్యర్థనలు -- కాసేపట్లో మళ్లీ' : 'too many requests -- try again shortly',
+        'auth_failed' => telugu ? 'సర్వీస్ కీ సమస్య' : 'service key problem',
+        _ => telugu ? 'చేరుకోలేకపోయాను' : 'could not be reached',
+      };
+  final byReason = <String, List<String>>{};
+  for (final e in results.sourceStatus.entries) {
+    if (!askodoxProviderFailureStatuses.contains(e.value)) continue;
+    final name = _sourceNames[e.key];
+    if (name == null) continue;
+    byReason.putIfAbsent(e.value, () => []).add(telugu ? name.$2 : name.$1);
+  }
+  if (byReason.isEmpty) return null;
+  final parts = [for (final e in byReason.entries) '${e.value.join(', ')}: ${reason(e.key)}'];
+  return telugu
+      ? '${parts.join(' · ')}. ఇది సర్వీస్ సమస్య -- "ఫలితాలు లేవు" కాదు.'
+      : '${parts.join(' · ')}. This is a service problem -- not "no results".';
+}
+
+const _downStatuses = {'error', 'unavailable', 'disabled', 'quota_exhausted', 'rate_limited', 'auth_failed', 'needs_location', 'not_configured'};
 
 final _claimsResults = RegExp(
     // "here is / here are" claims results only with a results noun: "Here is
@@ -661,6 +691,9 @@ String askodoxNoResultsText(AskodoxChatResults results, {required bool telugu}) 
   final parts = <String>[];
   if (searched.isNotEmpty) {
     parts.add(telugu ? 'వెతికాను: $searched -- సరైన ఫలితం లేదు.' : 'Searched $searched -- nothing suitable yet.');
+  } else if (failed.isNotEmpty) {
+    // Nothing answered: a failure, not an empty market.
+    parts.add(telugu ? 'ఇప్పుడు వెతకలేకపోయాను.' : 'I could not search right now.');
   } else {
     parts.add(telugu ? 'ఇంకా సరైన ఫలితం దొరకలేదు.' : 'No suitable result yet.');
   }

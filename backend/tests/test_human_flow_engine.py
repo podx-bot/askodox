@@ -79,7 +79,9 @@ def test_brave_failure_is_an_error_not_no_results():
     brave = BraveWebSearchProvider("key", client=_HttpClient({}, status=401))
     fallback = UniversalOnlineFallbackService(brave)
     assert fallback.online(category="SERVICES", subject="AC repair", location_text="Vijayawada") == []
-    assert fallback.status["online"] == "error"
+    # A failure, never "no results" -- and named: a 401 is a key problem.
+    assert fallback.status["online"] == "auth_failed"
+    assert fallback.status["online"] != "no_results"
 
 
 def test_pages_are_classified_and_only_buyable_pages_are_options():

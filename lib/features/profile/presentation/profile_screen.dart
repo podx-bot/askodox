@@ -270,6 +270,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         'ఎదురుచూస్తున్న అభ్యర్థనలు, కస్టమర్లు అడిగిన లోపించిన వివరాలు, కొత్త డిమాండ్.')),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/business'))),
+          Card(
+              elevation: 0,
+              child: ListTile(
+                  key: const Key('askodoxMyRolesEntry'),
+                  leading: const Icon(Icons.badge_outlined),
+                  title: Text(t('My roles', 'నా పాత్రలు')),
+                  subtitle: Text(t('Buyer, seller, service provider, service taker -- what each role adds.',
+                      'కొనుగోలుదారు, విక్రేత, సేవ అందించేవారు, సేవ కోరేవారు -- ప్రతి పాత్ర విభాగాలు.')),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/profile/roles'))),
+          if (ref.watch(authSessionProvider).user != null)
+            Card(
+                elevation: 0,
+                child: ListTile(
+                    key: const Key('askodoxProfileMemoryEntry'),
+                    leading: const Icon(Icons.psychology_alt_outlined),
+                    title: Text(t('What ASKODOX remembers', 'ASKODOX గుర్తుంచుకున్నవి')),
+                    subtitle: Text(t('Your needs and offers by role -- private; correct, delete or switch off.',
+                        'మీ అవసరాలు / ఆఫర్లు పాత్ర వారీగా -- ప్రైవేట్; సరిచేయండి, తొలగించండి లేదా ఆపండి.')),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/profile/memory'))),
           if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty)
             Card(
                 key: const Key('askodoxSavedOptionsTile'),

@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-08T10:50:21Z",
+ "generated_at": "2026-10-09T01:35:12Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,18 +7,18 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:92d53d79fb134a8d",
+   "trace_key": "browse:c560f5bae56d435b",
    "videos": [
     {
-     "video_id": "yt_yDD-7v3U8Ig",
-     "title": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
-     "source_name": "Dealfixkaro",
-     "duration": "17:20",
+     "video_id": "yt_T09U8CUH5Jw",
+     "title": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "source_name": "TechTraveller Blend",
+     "duration": "12:09",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/yDD-7v3U8Ig?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/T09U8CUH5Jw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/yDD-7v3U8Ig/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
+     "image_url": "https://i.ytimg.com/vi/T09U8CUH5Jw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -43,21 +43,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_yDD-7v3U8Ig",
+    "video_id": "yt_T09U8CUH5Jw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
-     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
-     "Looking for the Best 43 Inch TV in 2026?",
-     "In this video, I have covered some of the best 43 inch Smart TVs 2026 that you can consider during the Flipkart Big Billion Days Sale and Amazon Great Indian Fes"
+     "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "I bought ALL the best 43-inch TVs under 30K!",
+     "- Flipkart Big Billion Days",
+     "====================================",
+     "Looking for the absolute BEST 32-inch Smart TV?"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Dealfixkaro",
+    "creator": "TechTraveller Blend",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
-    "question": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+    "url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
+    "question": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
     "next": [
      {
       "action": "find_local",
@@ -87,8 +88,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\"",
-    "reply": "Based on the details provided for the video 'Best 43 Inch TV 2026' by Dealfixkaro, it covers recommendations for top 43-inch Smart TVs to consider during sales like Flipkart Big Billion Days and Amazon Great Indian Festival. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as prices, ratings, reviews, stock availability, and exact TV specifications discussed in the video are not provided in the source listing.",
+    "question": "Tell me more about \"I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days\"",
+    "reply": "Based on the available information for the video **\"I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days\"** by creator **TechTraveller Blend**:\n\n- **Source**: TechTraveller Blend (Creator's opinion — not verified by ASKODOX)\n- **Price**: Not provided\n- **Rating / Reviews**: Not provided\n- **Stock / Availability**: Not provided\n\nNote: The description text mentions comparing 32-inch Smart TVs from brands like Samsung, LG, Motorola, Realme, and Xiaomi (Mi), though the title references 43-inch TVs under ₹30,000. Specific video contents, tested specs, and exact prices are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -111,14 +112,12 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "ok",
-     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -127,7 +126,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -172,34 +171,6 @@
       "destination_url": "https://www.flipkart.com/q/samsung-43-inch-smart-tv",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Samsung 43 inch - 49 inch Screen Size TV Price List In India (Sep 2026) | Mysmartprice",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.mysmartprice.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.mysmartprice.com/electronics/pricelist/samsung-above-42-inch-tv.html",
-      "image_url": null,
-      "location_label": null
-     },
-     {
-      "title": "Samsung 43 inch (108cm) Mini LED 4K Vision AI 2026 Smart TV | 30W Speakers | 4K Upscaling | Mini-LED HDR | 150+ Channels | 7 Years OS Upgrade | UA43M2EHAULXL : ",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "Amazon",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.amazon.in/Samsung-Speakers-Upscaling-Mini-LED-UA43M2EHAULXL/dp/B0GXZ3JVSG",
-      "image_url": "https://imgs.search.brave.com/LQnYGn8tIZswhTE4of5AczSz8s1e0WH_-ob0Iz-xpIE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFYaS1MM01XN0wu/anBn",
-      "location_label": null
      }
     ]
    }
@@ -209,18 +180,18 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:6a202c5e3a7844f5",
+   "trace_key": "browse:3eedf621362f4763",
    "videos": [
     {
-     "video_id": "yt_yDD-7v3U8Ig",
-     "title": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
-     "source_name": "Dealfixkaro",
-     "duration": "17:20",
+     "video_id": "yt_T09U8CUH5Jw",
+     "title": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "source_name": "TechTraveller Blend",
+     "duration": "12:09",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/yDD-7v3U8Ig?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/T09U8CUH5Jw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/yDD-7v3U8Ig/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
+     "image_url": "https://i.ytimg.com/vi/T09U8CUH5Jw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -239,27 +210,28 @@
     "source": "universal_ai",
     "entities": {
      "brand": "Samsung",
-     "size": "43 inches",
+     "size": "43 అంగుళాలు",
      "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_yDD-7v3U8Ig",
+    "video_id": "yt_T09U8CUH5Jw",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
-     "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
-     "Looking for the Best 43 Inch TV in 2026?",
-     "In this video, I have covered some of the best 43 inch Smart TVs 2026 that you can consider during the Flipkart Big Billion Days Sale and Amazon Great Indian Fes"
+     "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "I bought ALL the best 43-inch TVs under 30K!",
+     "- Flipkart Big Billion Days",
+     "====================================",
+     "Looking for the absolute BEST 32-inch Smart TV?"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Dealfixkaro",
+    "creator": "TechTraveller Blend",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=yDD-7v3U8Ig",
-    "question": "Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals",
+    "url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
+    "question": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
     "next": [
      {
       "action": "find_local",
@@ -289,11 +261,11 @@
     ]
    },
    "ai": {
-    "question": "\"Best 43 Inch TV 2026 ⚡ Best Smart TV 43 Inch 2026 ⚡Flipkart & Amazon TV Deals\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "మీరు అడిగిన 'Best 43 Inch TV 2026' వీడియోలో ఉన్న వివరాలు ఇవి:\n\n• **ధర (Price):** అందివ్వలేదు (Not provided)\n• **దూరం (Distance):** వర్తించదు (Not provided)\n• **నాణ్యత (Quality):** ప్రత్యేకంగా పేర్కొనలేదు\n• **అందుబాటు (Availability):** అందించలేదు\n• **రివ్యూలు (Reviews):** అందించలేదు\n\nఈ వివరాలు 'Dealfixkaro' అనే క్రియేటర్ అభిప్రాయాలు మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు (Not verified). ఈ వీడియో బిగ్ బిలియన్ డేస్ మరియు గ్రేట్ ఇండియన్ ఫెస్టివల్ సేల్స్‌లో లభించే 43 అంగుళాల స్మార్ట్ టీవీల గురించి సమాచారం అందిస్తుంది.",
+    "question": "\"I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "reply": "ఈ వీడియో ద్వారా ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూలకు సంబంధించిన వివరాలు **పరిశీలించబడలేదు (Not verified)**. వీడియో వివరణలో ఇచ్చిన వివరాల ప్రకారం:\n- **ధర:** అందుబాటులో లేదు (Not provided)\n- **దూరం:** అందుబాటులో లేదు (Not provided)\n- **నాణ్యత / రివ్యూలు:** పరిశీలించబడలేదు, ఇది TechTraveller Blend క్రియేటర్ అభిప్రాయం మాత్రమే. - **అందుబాటు:** అందుబాటులో లేదు (Not provided)\n\nమీకు నిర్దిష్ట టీవీ మోడల్ వివరాలు లేదా స్థానిక షాపుల ధరలు కావాలంటే చెప్పండి, వెతికి చెప్తాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "43 అంగుళాల టీవీకి సుమారు 5 నుండి 8 అడుగుల వీక్షణ దూరం (viewing distance) ఉండాలి. మీ చిన్న గదిలో టీవీ మరియు మీ కూర్చునే స్థలం మధ్య కనీసం 5-6 అడుగుల ఖాళీ ఉంటే, ఇది సరిగ్గా సరిపోతుంది. అంతకంటే తక్కువ దూరం ఉంటే కళ్ళపై ఒత్తిడి పడవచ్చు, అప్పుడు 32 అంగుళాల టీవీ సరైన ఎంపిక అవుతుంది.",
+    "follow_reply": "చిన్న గదికి (ఉదాహరణకు 10x10 అడుగులు) 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు. సాధారణంగా 43 ఇంచుల టీవీ చూడటానికి **6 నుండి 8 అడుగుల దూరం** ఉండాలి. - మీ గదిలో చూసే దూరం 6 అడుగుల కంటే తక్కువ ఉంటే 32 ఇంచుల టీవీ సరిపోతుంది. - 6 నుండి 8 అడుగుల దూరం ఉంటే 43 ఇంచుల టీవీ చాలా బాగుంటుంది. మీ గదిలో టీవీకి, మీరు కూర్చునే చోటికి ఎంత దూరం ఉందో చెప్పగలరా?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "advise"
@@ -316,7 +288,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -325,7 +297,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -407,7 +379,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:17ac25e2533a4412",
+   "trace_key": "browse:978af4ee8171421c",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -433,7 +405,7 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
      "brand": "Redmi",
@@ -488,7 +460,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "This video by Gyan Therapy is an unboxing and initial impressions review of the Redmi Note 13 Pro. Based on the listed details, it covers the India launch of the Redmi Note 13 series and highlights key specs including the Snapdragon 7s Gen 2 processor, a 200MP triple camera setup, and a 5,100mAh battery with 67W fast charging. Please note, creator opinions are not verified by ASKODOX. Specific details like pricing, user ratings, and stock availability are not provided in the source.",
+    "reply": "This video by creator **Gyan Therapy** is an unboxing and initial impressions look at the Redmi Note 13 Pro. Here are the details provided from the video description:\n- **Processor:** Snapdragon 7s Gen 2\n- **Camera:** 200MP triple camera setup\n- **Battery & Charging:** 5100mAh battery with 67W fast charging\n\n*Note: Creator opinions are not verified by ASKODOX. Specific details such as price, user ratings, and current availability are not provided in the video source.*",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -611,18 +583,18 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:f2850a23b91444bf",
+   "trace_key": "browse:e7244ac6417c4dfe",
    "videos": [
     {
-     "video_id": "yt_77aOlpHhpOw",
-     "title": "Tata Nexon Cons: What You Need to Know Before Buying",
-     "source_name": "TheAutoBharat",
-     "duration": "1:00",
+     "video_id": "yt_udv2P4GxqjE",
+     "title": "LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍",
+     "source_name": "Moto-Wanderer",
+     "duration": "8:15",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/77aOlpHhpOw?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/udv2P4GxqjE?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/77aOlpHhpOw/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
+     "image_url": "https://i.ytimg.com/vi/udv2P4GxqjE/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=udv2P4GxqjE",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -640,29 +612,28 @@
     "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
-     "subject": "Tata Nexon",
      "brand": "Tata",
-     "model": "Nexon",
+     "subject": "Tata Nexon",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_77aOlpHhpOw",
+    "video_id": "yt_udv2P4GxqjE",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons: What You Need to Know Before Buying",
-     "Tata Nexon Cons",
-     "Thinking of buying the Tata Nexon?",
-     "Before you make a decision, it's important to know the potential drawbacks of this popular compact SUV."
+     "LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍",
+     "तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza",
+     "Tata Nexon Smart Pure Creative Accomplish Base to Top Model",
+     "Your Queries:",
+     "Tata Nexon Facelift"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TheAutoBharat",
+    "creator": "Moto-Wanderer",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=77aOlpHhpOw",
-    "question": "Tata Nexon Cons: What You Need to Know Before Buying",
+    "url": "https://www.youtube.com/watch?v=udv2P4GxqjE",
+    "question": "LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍",
     "next": [
      {
       "action": "find_local",
@@ -692,14 +663,14 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Tata Nexon Cons: What You Need to Know Before Buying\"",
-    "reply": "This video by TheAutoBharat (creator's opinion, not verified by ASKODOX) discusses potential drawbacks of the Tata Nexon compact SUV to consider before purchasing. Details like specific pricing, customer ratings, and stock availability are not provided by the source. If you have specific questions about features, engine options, or local availability in Vijayawada, let me know!",
+    "question": "Tell me more about \"LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍\"",
+    "reply": "Based on the video listing provided by **Moto-Wanderer**:\n\n- **Title:** LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍\n- **Price:** Not provided by the source\n- **Rating / Reviews:** Not provided by the source\n- **Availability:** Not provided by the source\n\n*Note:* The video content itself was not analyzed, and the points highlighted in the title reflect the creator's opinion, which is **not verified by ASKODOX**. If you'd like details on specific features, trim levels (Smart, Pure, Creative, Accomplish), or official specifications for the Tata Nexon, let me know!",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you.",
-    "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
-    "follow_action": "find_local",
+    "follow_reply": "",
+    "follow_source": "fallback",
+    "follow_domain": "UNKNOWN",
+    "follow_action": "",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
@@ -717,9 +688,7 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "ok",
-     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -778,34 +747,6 @@
       "destination_url": "https://www.91wheels.com/cars/tata/nexon/price-in-vijayawada",
       "image_url": "https://imgs.search.brave.com/zF_zgGZeOg8irsdt8eFBEdN015blnK3--mtT-nR4vrk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuOTF3aGVlbHMu/Y29tL2Fzc2V0cy9j/X2ltYWdlcy9nYWxs/ZXJ5L3RhdGEvbmV4/b24vdGF0YS1uZXhv/bi0wLTE3ODQxOTg1/ODEucG5n",
       "location_label": null
-     },
-     {
-      "title": "Tata Nexon Price in Vijayawada – On-Road Price, EMI Plans, Variants & Features | autoX",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.autox.com",
-      "price": 859007.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.autox.com/new-cars/tata/nexon/price-in-vijayawada/",
-      "image_url": "https://imgs.search.brave.com/mwheX3lo8OGlr4oct7WThr6o3-ED1y5lVEV7rJTMAw0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMuYXV0b3guY29t/L3VwbG9hZHMvY2Fy/cy8yMDI0LzAyL3Rh/dGEtbmV4b24ud2Vi/cA",
-      "location_label": null
-     },
-     {
-      "title": "Tata Nexon (2020-2023) Price in Vijayawada - Tata Nexon (2020-2023) On Road Price in Vijayawada in July-2026",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "ackodrive.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://ackodrive.com/cars/tata-nexon-2020-2023/price-in-vijayawada/",
-      "image_url": "https://imgs.search.brave.com/P9VRHaG0bwSOd31AtYZmwzTt3IVL9fs5w6Mv4u8rok0/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hY2tv/ZHJpdmUtcHJvZC5h/Y2tvYXNzZXRzLmNv/bS9pbWFnZS90YXRh/L25leG9uICgyMDIw/LTIwMjMpL2ltYWdl/c19jZG4vc21hbGwv/SGVyby1UcmFuc3Bh/cmVudC53ZWJw",
-      "location_label": null
      }
     ]
    }
@@ -815,7 +756,7 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:d8f2285b6b6c4086",
+   "trace_key": "browse:5b54b77082394224",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -892,7 +833,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
-    "reply": "This video by KP Vlogs & Review covers the Urban Company Split AC Foamjet Cleaning Service. Please note that the contents reflect the creator's personal opinion and are not verified by ASKODOX. Here are the details available from the source:\n- **Creator:** KP Vlogs & Review\n- **Service Featured:** Urban Company Split AC Cleaning with Foamjet Technology\n- **Price:** Not provided\n- **Rating / Reviews:** Not provided\n- **Availability / Stock:** Not provided\n\nSince specific details like exact pricing or customer ratings were not provided by the source, let me know if you would like me to help you find local AC servicing options in Vijayawada!",
+    "reply": "Based on the video listed by **KP Vlogs & Review**:\n\n- **Title**: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\n- **Creator Opinion**: The creator provides an honest review and vlog about using Urban Company's Foamjet technology for Split AC cleaning (this is the creator's personal opinion, not verified by ASKODOX). - **Details**: Price, rating, reviews, and availability are **Not verified** (not provided by the source). **About Foamjet AC Cleaning Technology:**\nFoamjet cleaning uses high-pressure foam spray to penetrate deep into the condenser and evaporator coils of a Split AC. It removes stubborn dirt, mold, and heavy dust better than normal water washing, improving cooling efficiency and airflow. Would you like me to help find local AC servicing or cleaning providers near Vijayawada?",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -914,7 +855,6 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "not_applicable",
-     "online": "ok",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
@@ -932,62 +872,6 @@
       "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Professional AC service & repair experts in Vijayawada, India",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.urbancompany.com",
-      "price": 3000.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.urbancompany.com/vijayawada-ac-service-repair",
-      "image_url": "https://imgs.search.brave.com/M07R7jeyX6AxGy0ptFRrnJr8vCqaBPXKYpJrYN4Ncto/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvY2F0ZWdv/cnlfdjIvY2F0ZWdv/cnlfZWYyYjc5ZDAu/cG5n",
-      "location_label": null
-     },
-     {
-      "title": "Split AC Services in Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.vijayhomeservices.com",
-      "price": 299.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.vijayhomeservices.com/services/split-ac-service-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/Q_TWfwqy2_3v_c90lXCD2GIaa2KWx6T9a591lfBqGUo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlob21lc2Vy/dmljZXMuY29tL2Zh/dmljb24uaWNv",
-      "location_label": null
-     },
-     {
-      "title": "️ AC Repair Services in Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.smartcitycare.in",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.smartcitycare.in/air-conditioner/ac-repairing-services-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/vmEKJdhIuQGPn6Qth9Z-CDweTvPHzyH-Gvc9tB02Nsk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c21hcnRjaXR5Y2Fy/ZS5pbi9hc3NldHMv/aW1hZ2VzL29nLWRl/ZmF1bHQuanBn",
-      "location_label": null
-     },
-     {
-      "title": "Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.sulekha.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.sulekha.com/ac-repair-services/vijayawada",
-      "image_url": "https://imgs.search.brave.com/wEGWohsWisuNnTKb9-vzrKFA43i8dAN5ulIzcAotyS4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2xraW1ncy5jb20v/Y29udGVudC9pbWFn/ZXMvc3VsZWtoYS1s/b2dvLWZiLnBuZw",
-      "location_label": null
      }
     ]
    }
@@ -997,7 +881,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:7abfa292ce324a7b",
+   "trace_key": "browse:8c7b7bbc9e7148f3",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -1027,8 +911,6 @@
     "source": "universal_ai",
     "entities": {
      "subject": "kitchen sink plumbing repair",
-     "service_type": "plumbing repair",
-     "context": "kitchen sink",
      "location": "Vijayawada"
     }
    },
@@ -1077,7 +959,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
-    "reply": "This video, titled 'Great Plumbing Trick To Fix Pvc Pipe Joint' by creator vijay xyz tricks, shows a quick trick for fixing PVC pipe joints. Please note that this reflects the creator's opinion and is not verified by ASKODOX. Specific details such as price, ratings, or detailed instructions are not provided by the source. If you are dealing with a leaking PVC joint, typical options include applying PVC solvent cement, using silicone sealant for minor gaps, or replacing the pipe fitting altogether. Would you like general tips on how to properly seal a leaking PVC pipe joint?",
+    "reply": "Based on the provided details for **\"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"** by creator *vijay xyz tricks*:\n\n- **Source/Creator:** vijay xyz tricks (Creator's opinion — not verified by ASKODOX)\n- **Price:** Not provided\n- **Distance / Availability:** Not provided\n- **Rating / Reviews:** Not provided\n\nSince the video content itself has not been analyzed, specific details or steps shown in the video are not available beyond the title and creator description. If you need help fixing a leaking or loose PVC pipe joint directly, I can explain standard methods like applying PVC solvent cement or using a temporary sealant/tape. Let me know what issue you are facing with your PVC joint!",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1099,7 +981,6 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "not_applicable",
-     "online": "ok",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
@@ -1117,62 +998,6 @@
       "destination_url": "https://maps.google.com/?cid=17010184194150629942&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
-     },
-     {
-      "title": "Expert Plumbers in Vijaywada | Reliable & Affordable",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "hometriangle.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://hometriangle.com/vijaywada/plumbers",
-      "image_url": "https://imgs.search.brave.com/MTDr32eVrS8JDlg8FBlrkQLON2SW-4405Zr7-1TqhxI/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9ob21l/dHJpYW5nbGUuY29t/L2ltYWdlY2FjaGUv/bWVkaWEvNTMxOTcx/L2ltYWdlLndlYnA",
-      "location_label": null
-     },
-     {
-      "title": "Plumber in India | Book Trusted Plumbing Services at Home | Urban Company",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.urbancompany.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.urbancompany.com/vijayawada-plumbers",
-      "image_url": "https://imgs.search.brave.com/9jVup9LyZ4JQg6_qpYHAeLw3jnGUTtVyI8FKPS6Kwh8/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvaG9tZV9z/Y3JlZW4vcGx1bWJl/ci5qcGc",
-      "location_label": null
-     },
-     {
-      "title": "Plumbers @7065012902 Vijayawada - Mannubhai.com",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.mannubhai.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.mannubhai.com/vijayawada/plumber",
-      "image_url": "https://imgs.search.brave.com/tH9Fgh9eERcrb6XdN8eYgLdRX6SKZno7X0M53FFYXzA/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/bWFubnViaGFpLmNv/bS9hc3NldHMvaW1h/Z2VzL2xvZ28ucG5n",
-      "location_label": null
-     },
-     {
-      "title": "Plumbing services near me in Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "atozservice.in",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://atozservice.in/near-me/vijayawada/plumbing-services.html",
-      "image_url": "https://imgs.search.brave.com/hufhYSzsbo7S5dfvW2i2cokTZZb3C6zBxOqOAyuCXwU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9hdG96/c2VydmljZS5pbi9p/bWFnZXMvbmVhcm1l/L3BsdW0uanBn",
-      "location_label": null
      }
     ]
    }
@@ -1182,7 +1007,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:30317d6ed2f44dd6",
+   "trace_key": "browse:e2e9a51b99a340e6",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1261,7 +1086,7 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "Based on the details provided for '₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔' by creator DCT EATS (creator's opinion, not verified by ASKODOX):\n\n• **Content**: The creators (including Sahil from Headbanger Eats) compare authentic Hyderabadi mutton biryani from three restaurants at different price points: Bikkgane Biryani (₹450), Biryani By Kilo (₹800), and Lit (₹1200). • **Price & Rating**: Specific individual prices, stock availability, distance, and rating/reviews are *Not verified* / not provided by the source. Note that video details reflect creator opinions, not verified facts.",
+    "reply": "This video by DCT EATS explores whether authentic Hyderabadi mutton biryani is available in Mumbai by comparing three price points (₹450, ₹800, and ₹1200) from Bikkgane Biryani, Biryani By Kilo, and Lit, featuring Sahil from Headbanger Eats (Creator's opinion — not verified by ASKODOX). Here are the details provided for this video:\n- **Price / Distance / Rating / Reviews**: Not provided by the source. - **Featured Places**: Bikkgane Biryani, Biryani By Kilo, Lit. Since specific details like exact ratings, viewer reviews, or prices are not provided, let me know if you would like me to search for more videos or comparisons!",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1284,23 +1109,21 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "ok",
-     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
      {
-      "title": "The Kazus Royal Dum Biryani",
+      "title": "Bismillah Paradise Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 1.5,
+      "distance_km": 0.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=6955812527025701515&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1317,62 +1140,6 @@
       "destination_url": "https://www.swiggy.com/city/vijayawada/hyderabadi-biryani-dish-restaurants",
       "image_url": "https://imgs.search.brave.com/vi7cy56WmM2w6thiz2Rvw1xDQLfhA6bIesx0t5mSfiU/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS1hc3NldHMuc3dp/Z2d5LmNvbS9jX3Nj/YWxlLHdfNzE1L3Bv/cnRhbC9tL2JyYW5k/X2xvZ29zL1N3aWdn/eV9PRy5wbmc",
       "location_label": null
-     },
-     {
-      "title": "Order Online – HYDERABAD BIRYANI POINT",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "hyderabadbiryanipoint.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://hyderabadbiryanipoint.com/store/",
-      "image_url": null,
-      "location_label": null
-     },
-     {
-      "title": "Buy Haldiram's Hyderabadi Biryani Online at Best Price of Rs 100 - bigbasket",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.bigbasket.com",
-      "price": 100.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.bigbasket.com/pd/40165502/haldirams-hyderabadi-biryani-200-g/",
-      "image_url": null,
-      "location_label": null
-     },
-     {
-      "title": "Order The Biryani Life Hyderabadi & Lucknowi Biryani Online in Vijayawada from EatSure",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.eatsure.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.eatsure.com/the-biryani-life/vijayawada",
-      "image_url": "https://imgs.search.brave.com/qJe7luzwuQNFnplAYS57v5prkRLVBXOP2vEECPEFPGQ/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9wcm9k/dWN0LWFzc2V0cy5m/YWFzb3MuaW8vZWF0/c3VyZS9wcm9kdWN0/aW9uL2VhdHN1cmUt/bG9nby1mb29kY291/cnQuc3Zn",
-      "location_label": null
-     },
-     {
-      "title": "Daawat Biryani Kit Hyderabadi | Authentic Recipe | Ready in 30 min | Ready to Cook 334 gm/410gm (Weight may vary) : Amazon.in: Grocery & Gourmet Foods",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "Amazon",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.amazon.in/Daawat-Biryani-Hyderabadi-Authentic-Recipe/dp/B09WN98NG8",
-      "image_url": null,
-      "location_label": null
      }
     ]
    }
@@ -1382,7 +1149,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:c755ddd732b74ef7",
+   "trace_key": "browse:f8a1583ef3d64ab6",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1408,10 +1175,10 @@
     "domain": "EVENT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku valley trip review",
      "location": "Vijayawada"
     }
    },
@@ -1462,7 +1229,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"",
-    "reply": "Based on the details provided for **\"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"** by Travel Matcha (creator's opinion, not verified by ASKODOX):\n\n- **Overview**: Highlights a full itinerary for Araku Valley, covering mist-covered hills, coffee plantations, ancient caves, and local food. - **Price**: Not provided\n- **Rating / Reviews**: Not provided\n- **Distance / Location details**: Not provided\n- **Stock / Availability**: Not provided\n\nSince the video itself was not analyzed and further specifics like exact prices or verified user ratings were not provided by the source, we cannot confirm additional details.",
+    "reply": "Based on the details provided for **\"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"** by Travel Matcha (creator's opinion, not verified by ASKODOX):\n\n- **Content:** The video offers a complete trip itinerary for Araku Valley, highlighting mist-covered hills, coffee plantations, ancient caves, and local food. - **Pricing:** Not provided\n- **Ratings / Reviews:** Not provided\n- **Distance / Location details:** Not provided\n\n*Note: Specific facts like prices or detailed reviews are not provided by the source.*",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1583,18 +1350,18 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:131149c8727240f7",
+   "trace_key": "browse:7fe1763270204cea",
    "videos": [
     {
-     "video_id": "yt_ilhNFpIoY70",
-     "title": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
-     "source_name": "Engine Thagaval ",
-     "duration": "0:19",
+     "video_id": "yt_GW-rCk-eAoU",
+     "title": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
+     "source_name": "Bindass Singh",
+     "duration": "7:16",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/ilhNFpIoY70?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/GW-rCk-eAoU?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/ilhNFpIoY70/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
+     "image_url": "https://i.ytimg.com/vi/GW-rCk-eAoU/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1609,32 +1376,31 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
+     "variant": "used",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_ilhNFpIoY70",
+    "video_id": "yt_GW-rCk-eAoU",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
-     "Royal Enfield Classic 350 – FOR SALE!",
-     "Single-owner / well-maintained condition.",
-     "Classic Royal Enfield design with smooth BS6 engine—perfect for city rides and highway cruising.",
-     "📍 Location: /126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu – 6385"
+     "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
+     "How To Check And Buy Old Royal Enfield Classic 350.How To Buy Used Royal Enfield.How To Buy Second Hand Bullet.How To Buy 2nd Hand Royal Enfield Bullet or Classic.Purani Royal Enfield Classic 350cc Kaise Kya Kya Check Karen.",
+     "#RoyalEnfield #UsedBullet #UsedClassic #BindassSingh"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Engine Thagaval ",
+    "creator": "Bindass Singh",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
-    "question": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
+    "url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
+    "question": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
     "next": [
      {
       "action": "find_local",
@@ -1664,8 +1430,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield\"",
-    "reply": "Based on the details provided from the listing by Engine Thagaval (creator's opinion, not verified by ASKODOX):\n\n• **Condition:** Single-owner, well-maintained with a smooth BS6 engine. • **Usage:** Described as suitable for both city rides and highway cruising. • **Location:** 126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu – 638512. • **Price & Distance:** Not provided by the source. • **Seller Verification:** Not verified. Since price and exact vehicle details are not provided in the listing, would you like me to help you ask the seller for these details?",
+    "question": "Tell me more about \"How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350\"",
+    "reply": "This video by creator **Bindass Singh** covers practical tips on how to inspect and purchase a second-hand Royal Enfield Classic 350. Key points from the listed video details:\n- **Content focus**: Covers inspection steps, what to check before buying, and buying guidance for a used Classic 350. - **Source/Creator**: Bindass Singh (creator's opinion, not verified by ASKODOX). - **Details not provided**: Specific vehicle specs, pricing, seller location, stock, and condition ratings are **Not verified** in the video listing details. **General pre-purchase checklist for a used Classic 350**:\n- **Engine & Mechanicals**: Check for oil leaks around the head/sump, unusual tappet noise, and smoke from the exhaust. - **Frame & Alignment**: Inspect for frame rust, bend, or crash damage near the chassis down-tubes. - **Service History & Legal**: Verify RC transfer status, active insurance, and NOC if bought across state lines.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1689,9 +1455,7 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "ok",
-     "online": "ok",
      "videos": "not_applicable",
-     "marketplaces": "ok",
      "jobs": "not_applicable"
     },
     "options": [
@@ -1750,34 +1514,6 @@
       "destination_url": "https://www.timesdrive.in/royal-enfield/classic-350/price-in-vijayawada",
       "image_url": "https://imgs.search.brave.com/d9CHTa7METRJwgPTbY35qBSSIVAbRu1xnTQF_FvUkCM/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudGltZXNkcml2/ZS5pbi9waG90by9t/c2lkLTE1MTA2MDEw/OCx0aHVtYnNpemUt/MTAwLHdpZHRoLTkz/MCxoZWlnaHQtNjIw/LGZhbHNlLzE1MTA2/MDEwOC5qcGc",
       "location_label": null
-     },
-     {
-      "title": "Royal Enfield Classic 350 On Road Price Vijayawada Aug 2026 - ₹2.22L",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.zigwheels.com",
-      "price": 221768.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.zigwheels.com/royal-enfield-bikes/classic-350/on-road-price-vijayawada/",
-      "image_url": "https://imgs.search.brave.com/ifUfvM0Y4npsduB6PI3AVzkCXeA92wZO8kGkbtirKNE/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS56aWdjZG4uY29t/L21lZGlhL21vZGVs/LzIwMjYvTWFyL2Ns/YXNzaWMtMzUwLXJp/Z2h0LXNpZGUtdmll/d18zNjB4MjQwLmpw/Zw",
-      "location_label": null
-     },
-     {
-      "title": "Royal Enfield Classic 350 Price in Vijayawada – Ex-Showroom, Top Model & On-Road Cost",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "auto.shriramfinance.in",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://auto.shriramfinance.in/royal-enfield/classic-350-price-in-vijayawada",
-      "image_url": null,
-      "location_label": null
      }
     ]
    }
@@ -1787,7 +1523,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:d142698672f34f64",
+   "trace_key": "browse:b048c174bc0b45e8",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1816,8 +1552,6 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "brand": "Apple",
-     "model": "iPhone 15",
      "subject": "iPhone 15 offer",
      "location": "Vijayawada"
     }
@@ -1869,7 +1603,7 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
-    "reply": "This video is a long-term review of the iPhone 15 by CallMeShazzam TECH, presenting their personal creator opinion (not verified by ASKODOX). It is in Malayalam with English subtitles and covers long-term usage, overall performance, and potential sale value. Specific details such as price, ratings, distance, stock, and exact specifications are not provided by the source. If you would like to know verified specs or purchase details, let me know!",
+    "reply": "This is a video titled **iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub** by creator **CallMeShazzam TECH**. Here are the details provided from the listing:\n- **Creator:** CallMeShazzam TECH (creator's opinion, not verified by ASKODOX)\n- **Language:** Malayalam with English subtitles\n- **Price:** Not provided\n- **Rating / Reviews:** Not provided\n- **Stock / Availability:** Not provided\n\nSince the video content itself has not been analyzed, specific specs, opinions, or conclusions discussed in the video are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1992,7 +1726,7 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:90d44a9577ce40ce",
+   "trace_key": "browse:fe25f5e7c2e848a1",
    "videos": [
     {
      "video_id": "yt_qPF6hbFHCUc",
@@ -2018,11 +1752,10 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "ఏసీ సర్వీస్",
-     "service_type": "AC Service",
+     "subject": "AC service",
      "location": "Vijayawada"
     }
    },
@@ -2070,13 +1803,13 @@
    },
    "ai": {
     "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "ఈ వీడియో 'KP Vlogs & Review' అనే క్రియేటర్ యొక్క సొంత అభిప్రాయం మాత్రమే, ఇవి ASKODOX ద్వారా ధృవీకరించబడలేదు. మీరు అడిగిన వివరాలు:\n• **ధర (Price):** ఈ వీడియో వివరాల్లో అందించబడలేదు (Not provided). • **దూరం (Distance):** అందించబడలేదు. • **నాణ్యత & రివ్యూలు:** ఇది క్రియేటర్ వ్యక్తిగత రివ్యూ, కస్టమర్ రేటింగ్‌లు/రివ్యూలు విడిగా అందించబడలేదు. • **అందుబాటు (Availability):** అందించబడలేదు. స్ప్లిట్ ఏసీ ఫోమ్‌జెట్ క్లీనింగ్ ద్వారా లోపలి డస్ట్ మరియు ఫంగస్ బాగా క్లీన్ అవుతుంది. మీకు ఏసీ సర్వీసింగ్ బుకింగ్ వివరాలు కావాలంటే చెప్పండి.",
+    "reply": "ఈ వీడియో 'Urban Company AC Service (Advance Foamjet Technology)' గురించి KP Vlogs & Review వారి అభిప్రాయం మాత్రమే, ఇది ASKODOX ద్వారా ధృవీకరించబడలేదు. వీడియో వివరాల ప్రకారం:\n- **ధర:** అందుబాటులో లేదు (Not verified)\n- **దూరం:** అందుబాటులో లేదు (Not verified)\n- **నాణ్యత / రివ్యూలు:** నాట్ వెరిఫైడ్ (వీడియో క్రియేటర్ అభిప్రాయం మాత్రమే, సారాంశం వివరించబడలేదు)\n- **అందుబాటు:** అందుబాటులో లేదు (Not verified)\n\nధర మరియు ఇతర అధికారిక వివరాలు కావాలంటే సర్వీస్ ప్రొవైడర్‌ను అడిగి తెలుసుకోవచ్చు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "ఫోమ్‌జెట్ ఏసీ సర్వీసింగ్ అనేది ఏసీ రకం లేదా గది పరిమాణంతో సంబంధం లేకుండా, ఏ స్ప్లిట్ ఏసీకైనా సరిపోతుంది. చిన్న గదిలో ఉండే 1 టన్ లేదా 1.5 టన్ స్ప్లిట్ ఏసీని అయినా ఇది చాలా బాగా క్లీన్ చేస్తుంది. మీకు విజయవాడలో ఏసీ సర్వీసింగ్ చేయడానికి టెక్నీషియన్‌ను బుక్ చేయమంటారా?",
+    "follow_reply": "సాధారణంగా ఏసీ సర్వీసింగ్ (ఫైమ్ జెట్ ಕ್లీనింగ్) అనేది గది పరిమాణంతో సంబంధం లేకుండా, మీ ఏసీ పనితీరు మరియు చల్లదనాన్ని పెంచడానికి ఉపయోగపడుతుంది. మీ గది చిన్నదైనా (100 చ.అడుగుల లోపు), ఉన్న ఏసీ సరిగ్గా చల్లబరచడానికి మరియు శుభ్రంగా ఉండటానికి ఈ సర్వీస్ సరిపోతుంది. మీరు మీ చిన్న గదికి కొత్త ఏసీ లేదా సర్వీస్ బుక్ చేసుకోవాలనుకుంటున్నారా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "clarify_need"
+    "follow_action": "answer_about_options"
    },
    "next": {
     "step": "local_service",
@@ -2088,7 +1821,6 @@
      "askodox": "no_results",
      "nearby": "ok",
      "used_deals": "not_applicable",
-     "online": "ok",
      "videos": "not_applicable",
      "jobs": "not_applicable"
     },
@@ -2105,62 +1837,6 @@
       "sponsored": null,
       "destination_url": "https://maps.google.com/?cid=6469397357074467509&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
-      "location_label": null
-     },
-     {
-      "title": "Professional AC service & repair experts in Vijayawada, India",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.urbancompany.com",
-      "price": 3000.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.urbancompany.com/vijayawada-ac-service-repair",
-      "image_url": "https://imgs.search.brave.com/M07R7jeyX6AxGy0ptFRrnJr8vCqaBPXKYpJrYN4Ncto/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly9zMy1h/cC1zb3V0aGVhc3Qt/MS5hbWF6b25hd3Mu/Y29tL3VyYmFuY2xh/cC1wcm9kL2NhdGVn/b3JpZXMvY2F0ZWdv/cnlfdjIvY2F0ZWdv/cnlfZWYyYjc5ZDAu/cG5n",
-      "location_label": null
-     },
-     {
-      "title": "Split AC Services in Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.vijayhomeservices.com",
-      "price": 299.0,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.vijayhomeservices.com/services/split-ac-service-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/Q_TWfwqy2_3v_c90lXCD2GIaa2KWx6T9a591lfBqGUo/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/dmlqYXlob21lc2Vy/dmljZXMuY29tL2Zh/dmljb24uaWNv",
-      "location_label": null
-     },
-     {
-      "title": "️ AC Repair Services in Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.smartcitycare.in",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.smartcitycare.in/air-conditioner/ac-repairing-services-in-vijayawada",
-      "image_url": "https://imgs.search.brave.com/vmEKJdhIuQGPn6Qth9Z-CDweTvPHzyH-Gvc9tB02Nsk/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c21hcnRjaXR5Y2Fy/ZS5pbi9hc3NldHMv/aW1hZ2VzL29nLWRl/ZmF1bHQuanBn",
-      "location_label": null
-     },
-     {
-      "title": "Top AC Service in Vijayawada, Best AC Repair Service in Vijayawada | Sulekha Vijayawada",
-      "segment": null,
-      "match_source": "online",
-      "source_name": "www.sulekha.com",
-      "price": null,
-      "price_verified": false,
-      "distance_km": null,
-      "affiliate": false,
-      "sponsored": null,
-      "destination_url": "https://www.sulekha.com/ac-repair-services/vijayawada",
-      "image_url": "https://imgs.search.brave.com/wEGWohsWisuNnTKb9-vzrKFA43i8dAN5ulIzcAotyS4/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/c2xraW1ncy5jb20v/Y29udGVudC9pbWFn/ZXMvc3VsZWtoYS1s/b2dvLWZiLnBuZw",
       "location_label": null
      }
     ]

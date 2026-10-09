@@ -102,6 +102,15 @@ DECISION_GUIDANCE_RULES = (
     "for a short answer. "
 )
 
+# Only for app builds that render them (they send capabilities=["meaning_tags"]);
+# older APKs would show the raw "[caution]" text.
+MEANING_TAG_RULES = (
+    "Meaning tags (the app colours them): start a line or point with [ok] only when it is clearly good / "
+    "recommended / safe, [caution] when it needs attention, [risk] for a real danger, loss or 'do not'; leave "
+    "everything else untagged (most lines). Tags stay in English in every language and are never invented to "
+    "decorate a reply. "
+)
+
 CONVERSATION_STATE_RULES = (
     "Conversation state and search readiness (any domain, any category, any language; never a fixed questionnaire, "
     "never a per-category script): search is a TOOL, not the default response to a product or service noun. "
@@ -380,7 +389,8 @@ class UniversalAIAssistantService:
                 and not cls._asks_where_to_get(text) and not cls._asks_for_videos(text))
 
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
-                advice_ledger: list[dict[str, Any]] | None = None) -> tuple[str, Any]:
+                advice_ledger: list[dict[str, Any]] | None = None,
+                capabilities: list[str] | None = None) -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
@@ -405,6 +415,7 @@ class UniversalAIAssistantService:
             "If the user has already decided, do not argue again: help them do it well (one line on any concern "
             "that is still critical, then practical steps for the option they chose).\n"
             + advice_memory.prompt_block(advice_ledger or [])
+            + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
             "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
             + _reply_language_rule(locale)
@@ -441,6 +452,34 @@ class UniversalAIAssistantService:
             except (ValueError, AttributeError):
                 pass
         return advice_memory.split_meta(text)
+
+    def write_text(self, prompt: str, *, max_tokens: int = 1024) -> str:
+        """Plain text from the same models (Gemini, then OpenAI); "" when no
+        model answered -- callers say so honestly, never fake text."""
+        text = ""
+        if self.configured:
+            try:
+                client = self.client or genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    temperature=0.4, max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0))
+                text = str(getattr(self._generate_with_retry(client, prompt, config), "text", "") or "").strip()
+                _observe_ai("gemini", ok=bool(text))
+            except Exception as exc:
+                _observe_ai("gemini", error=exc)
+        if not text and self.openai_api_key:
+            try:
+                response = self.http.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"},
+                    json={"model": self.openai_model,
+                          "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}]})
+                response.raise_for_status()
+                text = self._openai_output_text(response.json()).strip()
+                _observe_ai("openai", ok=bool(text))
+            except Exception as exc:
+                _observe_ai("openai", error=exc)
+        return text
 
     @classmethod
     def _reply_asks_for_location(cls, sentence: str) -> bool:
@@ -682,6 +721,7 @@ class UniversalAIAssistantService:
         location: str = "",
         searched_for: dict[str, Any] | None = None,
         advice_given: list[dict[str, Any]] | None = None,
+        capabilities: list[str] | None = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
@@ -742,6 +782,7 @@ class UniversalAIAssistantService:
             "Use previous turns as authoritative context for ellipsis and follow-ups. "
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
+            + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
@@ -838,7 +879,7 @@ class UniversalAIAssistantService:
                 mode = "advice"
                 transactional = False
                 action = "advise"
-                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger)
+                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities)
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta
