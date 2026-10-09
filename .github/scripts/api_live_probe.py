@@ -101,18 +101,20 @@ def multipart(fields, files):
 def sections_of(data):
     secs = data.get("sections") if isinstance(data, dict) else None
     out = {}
-    if isinstance(secs, dict):
-        for k, v in secs.items():
-            items = v.get("items") if isinstance(v, dict) else v
-            out[k] = {"n": len(items or []) if isinstance(items, list) else 0,
-                      "status": (v.get("status") or v.get("empty_reason")) if isinstance(v, dict) else None}
-    elif isinstance(secs, list):
-        for s in secs:
-            if isinstance(s, dict):
-                items = s.get("items") or []
-                out[str(s.get("kind") or s.get("id") or s.get("name"))] = {
-                    "n": len(items), "status": s.get("status") or s.get("empty_reason")}
+    for sec in (secs if isinstance(secs, list) else []):
+        if isinstance(sec, dict):
+            out[str(sec.get("kind"))] = {"count": sec.get("count", len(sec.get("item_ids") or [])),
+                                         "status": sec.get("status"), "empty_reason": sec.get("empty_reason")}
     return out
+
+
+def card_overview(rows):
+    rows = [r for r in rows if isinstance(r, dict)]
+    sources = {}
+    for r in rows:
+        sources[str(r.get("source") or r.get("segment") or "?")] = sources.get(str(r.get("source") or r.get("segment") or "?"), 0) + 1
+    return {"sources": sources, "first_keys": sorted(rows[0])[:40] if rows else [],
+            "titles": [snippet(r.get("title"), 60) for r in rows[:3]]}
 
 
 def card_quality(rows):
@@ -121,8 +123,31 @@ def card_quality(rows):
         return sum(1 for r in rows if any(r.get(k) or (r.get("metadata") or {}).get(k) for k in keys))
     return {"cards": len(rows), "with_title": has("title"), "with_price": has("price", "price_value", "offer_price"),
             "with_image": has("image_url", "image", "thumbnail_url", "thumbnail"),
-            "with_link": has("url", "link", "source_url", "product_url"),
+            "with_link": has("url", "link", "source_url", "product_url", "website", "open_url", "maps_url",
+                             "action_url", "video_url", "watch_url", "apply_url"),
             "price_unverified": sum(1 for r in rows if r.get("price_verified") is False)}
+
+
+def integration_states(d):
+    out = {}
+    def walk(node, depth=0):
+        if depth > 3:
+            return
+        if isinstance(node, list):
+            for r in node:
+                if isinstance(r, dict) and (r.get("state") or r.get("status")):
+                    name = r.get("key") or r.get("name") or r.get("id") or r.get("integration") or r.get("label")
+                    out[str(name)] = r.get("state") or r.get("status")
+                else:
+                    walk(r, depth + 1)
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                if isinstance(v, dict) and isinstance(v.get("state") or v.get("status"), str):
+                    out[str(k)] = v.get("state") or v.get("status")
+                else:
+                    walk(v, depth + 1)
+    walk(d)
+    return out
 
 
 def assistant(base, message, locale="en", history=None, **extra):
@@ -145,15 +170,7 @@ def staging():
     record(env, "platform", "GET /health", code == 200, code, ms, commit=str((d or {}).get("commit", ""))[:12]
            if isinstance(d, dict) else "")
     code, d, _, ms = call(STAGING, "GET", "/health/integrations")
-    rows = d.get("integrations") or d.get("rows") or d.get("items") if isinstance(d, dict) else None
-    states = {}
-    if isinstance(rows, list):
-        for r in rows:
-            states[str(r.get("key") or r.get("name") or r.get("id"))] = r.get("state") or r.get("status")
-    elif isinstance(d, dict):
-        states = {k: (v.get("state") if isinstance(v, dict) else v) for k, v in d.items()
-                  if isinstance(v, (dict, str))}
-    record(env, "integrations", "GET /health/integrations", code == 200, code, ms, states=states)
+    record(env, "integrations", "GET /health/integrations", code == 200, code, ms, states=integration_states(d))
     code, d, _, ms = call(STAGING, "GET", "/health/search")
     record(env, "search", "GET /health/search", code == 200, code, ms,
            brave=(d or {}).get("state") or (d or {}).get("brave") if isinstance(d, dict) else None,
@@ -224,9 +241,11 @@ def staging():
         d = d if isinstance(d, dict) else {}
         secs = sections_of(d)
         rows = d.get("matches") or []
-        ok = code == 200 and (len(rows) > 0 if want is None else secs.get(want, {}).get("n", 0) > 0)
+        ok = code == 200 and (len(rows) > 0 if want is None else (secs.get(want) or {}).get("count", 0) > 0)
+        ans = d.get("answer") if isinstance(d.get("answer"), dict) else {}
         record(env, "search", name, ok, code, ms, sections=secs, quality=card_quality(rows),
-               may_claim=(d.get("answer") or {}).get("may_claim_results") if isinstance(d.get("answer"), dict) else None)
+               overview=card_overview(rows), answer={k: ans.get(k) for k in ("count", "checked", "unavailable",
+                                                                             "may_claim_results")})
     code, d, _, ms = call(STAGING, "POST", "/deals/discover", {
         "user_id": "guest", "raw_text": "AC repair near me", "intent": "buy", "subject": "AC repair",
         "category": "general", "party_a": {"side": "demand"}, "party_b": {"side": "supply"},
@@ -277,14 +296,17 @@ def staging():
             "file_base64": base64.b64encode(data).decode(), "filename": fname, "mime_type": mime,
             "user_text": text, "language": "en"})
         d = d if isinstance(d, dict) else {}
-        record(env, "attachments", name, code == 200, code, ms, kind=d.get("kind"),
-               keys=sorted(d)[:10], summary=snippet(d.get("summary") or d.get("reply") or d.get("answer"), 140))
+        facts = d.get("facts") if isinstance(d.get("facts"), dict) else {}
+        und = d.get("understanding")
+        record(env, "attachments", name, code == 200 and d.get("status") not in ("failed", "error"), code, ms,
+               status=d.get("status"), fact_keys=sorted(facts)[:15],
+               understanding=snippet(json.dumps(und, ensure_ascii=False) if not isinstance(und, str) else und, 220))
 
     # ---- errors / validation ---------------------------------------------------
     for name, method, path, body, raw, ctype, want in (
         ("Assistant empty message -> 422", "POST", "/api/in-app/assistant", {"message": ""}, None, None, (422,)),
         ("TTS text too long -> 422", "POST", "/api/in-app/voice/speak", {"text": "x" * 2600}, None, None, (422,)),
-        ("Attachment invalid base64 -> 4xx", "POST", "/api/attachments/analyze", {"file_base64": "!!!"}, None, None, (400, 422)),
+        ("Attachment invalid base64 -> 4xx", "POST", "/api/attachments/analyze", {"file_base64": "!!!"}, None, None, (400, 415, 422)),
         ("Unknown route -> 404", "GET", "/api/does-not-exist", None, None, None, (404,)),
         ("Payment webhook with bad signature -> refused", "POST", "/api/payments/webhook/razorpay",
          {"event": "payment.captured"}, None, None, (400, 401, 403, 404, 422)),
@@ -344,8 +366,7 @@ def production():
             extra["keys"] = sorted(d)[:12]
         if path == "/health/integrations" and isinstance(d, dict):
             rows = d.get("integrations") or d.get("rows") or d.get("items")
-            if isinstance(rows, list):
-                extra["states"] = {str(r.get("key") or r.get("name")): r.get("state") or r.get("status") for r in rows}
+            extra["states"] = integration_states(d)
         record(env, "readonly", name, check(code, d), code, ms, **extra)
     for name, method, path in (
         ("Profile memory without sign-in -> 401", "GET", "/api/me/memory"),
