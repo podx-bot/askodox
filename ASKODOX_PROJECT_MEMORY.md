@@ -122,3 +122,17 @@ Built on main 2e7dba2 (PR #166). Pending independent review before merge:
 - Provider health from real answers (Sarvam 402 -> QUOTA_EXHAUSTED).
 Device verification of all of the above is still required (next APK).
 
+
+## Branch in review (NOT merged): claude/navigator-ux-p0 — PR #182 (draft), 2026-10-09
+Built on main bae9c9e (PR #180). Navigator UX P0 slice:
+- Result Board: ONE tab row `Result Board | Local | Online | Deals | Reviews | Videos` + Expand + Minimize
+  (`result_board_tabs.dart`, `result_board_tab_row.dart`); tabs are views of the same deck; Reviews only
+  rows with rating AND review count; honest empty text per tab. Lifecycle (pill/restore/archive/pin/mega) unchanged.
+- Composer: exactly one `+` (Camera / Photos / Videos / Files -> existing `_pickAttachment`); no mic beside Send.
+- Header: Menu sheet over existing routes (no drawer) + Screen Guide sheet (in-app flows + cross-app guide).
+- CI on the branch: Flutter CI (analyze + 963 tests) PASS, Feature Registry gate PASS; backend suite 1034 passed locally.
+- Already true on main before this branch (verified in code, not re-done): no second mic; MP4->WAV fallback rejects
+  empty/near-empty WAV (`audio_codec_service.audio_to_wav`); PDF/DOCX/XLSX accepted by `/api/attachments/analyze`.
+- NOT done in this slice: "Shopping/Washing Machine" dropdown not found on main (nothing to delete); morning-bug
+  list not in repo/issues (needs owner screenshots); P1 workflows untouched; every item still needs a real phone.
+- Next: real-phone test of the private APK from Android Live Build on this branch, then review/merge.
