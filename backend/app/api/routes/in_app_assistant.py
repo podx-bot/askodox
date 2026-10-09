@@ -36,6 +36,9 @@ class AssistantRequest(BaseModel):
     # (the ledger the previous answer returned), so the brain never repeats
     # a warning without new information, an explicit ask or a critical risk.
     advice_given: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
+    # What this app build can render (e.g. "meaning_tags"); older builds send
+    # nothing and get replies without the new markers.
+    capabilities: list[str] = Field(default_factory=list, max_length=10)
 
 
 class AssistantDecision(BaseModel):
@@ -96,6 +99,8 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         extra = {"searched_for": payload.searched_for} if payload.searched_for else {}
         if payload.advice_given:
             extra["advice_given"] = payload.advice_given
+        if payload.capabilities:
+            extra["capabilities"] = [str(c)[:30] for c in payload.capabilities]
         decision = service.decide(
             payload.message,
             history=history,

@@ -243,6 +243,8 @@ class InAppAssistantService {
               if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
               if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
               if (adviceGiven != null && adviceGiven.isNotEmpty) 'advice_given': adviceGiven,
+              // This build renders [ok] / [caution] / [risk] meaning tags.
+              'capabilities': const ['meaning_tags'],
             }),
           )
           .timeout(const Duration(seconds: 15));

@@ -34,9 +34,10 @@ def test_guidance_rule_is_universal_and_honest_about_estimates():
                  "at most ONE question", "Never name specific shops", "no forced guidance, no commerce"):
         assert must in rule, must
     for must in ("people and skills", "materials with quantities", "tools and equipment", "quotations",
-                 "Never claim a quotation", "Never ask again for anything already said", "the app renders it",
-                 "[ok]", "[caution]", "[risk]", "leave everything else untagged"):
+                 "Never claim a quotation", "Never ask again for anything already said", "the app renders it"):
         assert must in rule, must
+    for must in ("[ok]", "[caution]", "[risk]", "leave everything else untagged"):
+        assert must in svc.MEANING_TAG_RULES, must
     for banned in ("tile", "vitrified", "sq ft", "paint"):  # no category script hidden in the rule
         assert banned not in rule.lower()
 
@@ -65,3 +66,29 @@ def test_every_domain_gets_the_guidance_rule(message):
     assert svc.DECISION_GUIDANCE_RULES in brain_prompt and "ONE-TIME ADVICE RULE" in brain_prompt
     assert all("ONE-TIME ADVICE RULE" in prompt for prompt in models.prompts)
     assert out["reply"].startswith("For 100 sq ft"), "the brain's reasoning is the reply, never replaced"
+
+
+def test_meaning_tags_only_for_app_builds_that_render_them():
+    """Older APKs (no capabilities) would show a raw "[caution]": they never get the rule."""
+    brain, models = _brain()
+    brain.decide("is it safe to pay the full amount in advance?")
+    assert "[caution]" not in models.prompts[-1]
+    brain.decide("is it safe to pay the full amount in advance?", capabilities=["meaning_tags"])
+    assert "[caution]" in models.prompts[-1] and "leave everything else untagged" in models.prompts[-1]
+
+
+def test_assistant_route_passes_capabilities_only_when_sent(monkeypatch):
+    from fastapi.testclient import TestClient
+    from server import app, container
+
+    seen = []
+
+    def fake(message, **kw):
+        seen.append(kw.get("capabilities"))
+        return None
+
+    monkeypatch.setattr(container.universal_ai_assistant_service, "decide", fake)
+    client = TestClient(app)
+    client.post("/api/in-app/assistant", json={"message": "hello"})
+    client.post("/api/in-app/assistant", json={"message": "hello", "capabilities": ["meaning_tags"]})
+    assert seen == [None, ["meaning_tags"]]

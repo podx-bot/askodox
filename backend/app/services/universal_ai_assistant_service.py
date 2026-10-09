@@ -100,6 +100,11 @@ DECISION_GUIDANCE_RULES = (
     "Formatting (the app renders it): short paragraphs; '- ' bullets or numbered steps for lists and plans; "
     "**bold** only for a few key figures or labels; a | table | only for side-by-side comparisons; no headings "
     "for a short answer. "
+)
+
+# Only for app builds that render them (they send capabilities=["meaning_tags"]);
+# older APKs would show the raw "[caution]" text.
+MEANING_TAG_RULES = (
     "Meaning tags (the app colours them): start a line or point with [ok] only when it is clearly good / "
     "recommended / safe, [caution] when it needs attention, [risk] for a real danger, loss or 'do not'; leave "
     "everything else untagged (most lines). Tags stay in English in every language and are never invented to "
@@ -384,7 +389,8 @@ class UniversalAIAssistantService:
                 and not cls._asks_where_to_get(text) and not cls._asks_for_videos(text))
 
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
-                advice_ledger: list[dict[str, Any]] | None = None) -> tuple[str, Any]:
+                advice_ledger: list[dict[str, Any]] | None = None,
+                capabilities: list[str] | None = None) -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
@@ -409,6 +415,7 @@ class UniversalAIAssistantService:
             "If the user has already decided, do not argue again: help them do it well (one line on any concern "
             "that is still critical, then practical steps for the option they chose).\n"
             + advice_memory.prompt_block(advice_ledger or [])
+            + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
             "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
             + _reply_language_rule(locale)
@@ -714,6 +721,7 @@ class UniversalAIAssistantService:
         location: str = "",
         searched_for: dict[str, Any] | None = None,
         advice_given: list[dict[str, Any]] | None = None,
+        capabilities: list[str] | None = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
@@ -774,6 +782,7 @@ class UniversalAIAssistantService:
             "Use previous turns as authoritative context for ellipsis and follow-ups. "
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
+            + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
@@ -870,7 +879,7 @@ class UniversalAIAssistantService:
                 mode = "advice"
                 transactional = False
                 action = "advise"
-                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger)
+                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities)
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta

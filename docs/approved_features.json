@@ -94,10 +94,10 @@
       "roles": ["any"], "domains": ["any"],
       "ui": {"symbols": ["AskodoxRichReply", "askodoxPlainReply", "askodoxSeverityOf", "askodoxSeverityStyle", "askodoxNeedsTallLines"]},
       "flags": {},
-      "tests": {"backend": ["tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates"],
+      "tests": {"backend": ["tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates", "tests/test_decision_guidance.py::test_meaning_tags_only_for_app_builds_that_render_them"],
                 "flutter": ["test/shared/rich_reply_test.dart", "test/shared/rich_reply_test.dart::meaning colours"]},
       "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "introduced"}, {"pr": "post-1313", "change": "meaning colours from the assistant's [ok]/[caution]/[risk] tags (bar + tint + icon + label, light/dark), Telugu line height"}]
+      "history": [{"pr": "post-1312", "change": "introduced"}, {"pr": "post-1313", "change": "meaning colours from the assistant's [ok]/[caution]/[risk] tags (bar + tint + icon + label, light/dark), Telugu line height"}, {"pr": 180, "change": "tags only for app builds that send capabilities=[meaning_tags] (older APKs never see raw tags)"}]
     },
     {
       "id": "attachments",
