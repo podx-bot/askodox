@@ -124,7 +124,7 @@ def card_quality(rows):
     return {"cards": len(rows), "with_title": has("title"), "with_price": has("price", "price_value", "offer_price"),
             "with_image": has("image_url", "image", "thumbnail_url", "thumbnail"),
             "with_link": has("url", "link", "source_url", "product_url", "website", "open_url", "maps_url",
-                             "action_url", "video_url", "watch_url", "apply_url"),
+                             "action_url", "video_url", "watch_url", "apply_url", "destination_url"),
             "price_unverified": sum(1 for r in rows if r.get("price_verified") is False)}
 
 
@@ -233,19 +233,29 @@ def staging():
         return call(STAGING, "POST", "/deals/discover", body)
     for name, text, subject, want in [
         ("Product search: 1.5 ton split AC", "1.5 ton split AC under 40000", "1.5 ton split AC", None),
-        ("Videos: phone review videos", "Samsung Galaxy S24 review videos", "Samsung Galaxy S24 review videos", "videos"),
+        ("Videos: phone review videos", "Samsung Galaxy S24 review videos", "Samsung Galaxy S24", "videos"),
         ("Jobs: delivery boy jobs", "delivery boy jobs in Vijayawada", "delivery boy jobs", "jobs"),
         ("Service nearby: AC repair", "AC repair near me", "AC repair", "local"),
+        ("Rapid repeat (rate-limit honesty)", "LED TV 43 inch", "43 inch LED TV", None),
+        ("Rapid repeat 2 (no pause)", "washing machine front load", "front load washing machine", "_any"),
     ]:
+        if not name.startswith("Rapid repeat 2"):
+            time.sleep(4)  # Brave paces requests; keep normal probes apart
         code, d, _, ms = discover(text, subject)
         d = d if isinstance(d, dict) else {}
         secs = sections_of(d)
         rows = d.get("matches") or []
-        ok = code == 200 and (len(rows) > 0 if want is None else (secs.get(want) or {}).get("count", 0) > 0)
+        if want == "_any":  # honest either way: results, or a named provider problem (never a fake "none")
+            st = {k: v for sec in secs.values() for k, v in (sec.get("status") or {}).items()}
+            ok = code == 200 and (len(rows) > 0 or any(v not in ("ok", "no_results") for v in st.values()))
+        else:
+            ok = code == 200 and (len(rows) > 0 if want is None else (secs.get(want) or {}).get("count", 0) > 0)
         ans = d.get("answer") if isinstance(d.get("answer"), dict) else {}
         record(env, "search", name, ok, code, ms, sections=secs, quality=card_quality(rows),
                overview=card_overview(rows), answer={k: ans.get(k) for k in ("count", "checked", "unavailable",
-                                                                             "may_claim_results")})
+                                                                             "may_claim_results")},
+               source_status=d.get("source_status") or d.get("sources_status") or (d.get("diagnostics") or {}).get("source_status")
+               if isinstance(d.get("diagnostics"), dict) or d.get("source_status") else None)
     code, d, _, ms = call(STAGING, "POST", "/deals/discover", {
         "user_id": "guest", "raw_text": "AC repair near me", "intent": "buy", "subject": "AC repair",
         "category": "general", "party_a": {"side": "demand"}, "party_b": {"side": "supply"},
