@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-08T18:28:31Z",
+ "generated_at": "2026-10-09T01:35:12Z",
  "production": "https://podx-ai-connect-production-3279.up.railway.app",
  "cases": [
   {
@@ -7,18 +7,18 @@
    "language": "en",
    "text": "Samsung 43 inch TV review videos",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:023a4457665b43ef",
+   "trace_key": "browse:c560f5bae56d435b",
    "videos": [
     {
-     "video_id": "yt_vJQK7mzFTK8",
-     "title": "Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?",
-     "source_name": "TechWay7.0",
-     "duration": "5:01",
+     "video_id": "yt_T09U8CUH5Jw",
+     "title": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "source_name": "TechTraveller Blend",
+     "duration": "12:09",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/vJQK7mzFTK8?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/T09U8CUH5Jw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/vJQK7mzFTK8/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=vJQK7mzFTK8",
+     "image_url": "https://i.ytimg.com/vi/T09U8CUH5Jw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -33,32 +33,32 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
-     "subject": "Samsung 43 inch TV",
      "brand": "Samsung",
      "size": "43 inch",
+     "subject": "Samsung 43 inch TV",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_vJQK7mzFTK8",
+    "video_id": "yt_T09U8CUH5Jw",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?",
-     "Samsung UA43F5600 full High definition 2026 Smart tv.",
-     "Samsung का New 2026 Pure Color Full HD Smart TV",
-     "Information.",
-     "✅ 43\" Full HD Display"
+     "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "I bought ALL the best 43-inch TVs under 30K!",
+     "- Flipkart Big Billion Days",
+     "====================================",
+     "Looking for the absolute BEST 32-inch Smart TV?"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TechWay7.0",
+    "creator": "TechTraveller Blend",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=vJQK7mzFTK8",
-    "question": "Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?",
+    "url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
+    "question": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
     "next": [
      {
       "action": "find_local",
@@ -88,8 +88,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?\"",
-    "reply": "Based on the details provided by **TechWay7.0** for the **Samsung 43\" Pure Color Full HD Smart TV (UA43F5600FUXXL)**:\n\n- **Display & Features**: It features a 43-inch Full HD display with Pure Color technology, smart TV features, and tests covering picture quality, sound quality, and build design. - **Creator Opinion**: The video highlights an unboxing, review, and price deal assessment. *Note: This represents the creator's opinion and is not verified by ASKODOX.*\n- **Price & Availability**: Specific price, ratings, distance, and stock availability were **not provided** by the source. Would you like assistance checking verified prices or availability for this model from local sellers in Vijayawada?",
+    "question": "Tell me more about \"I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days\"",
+    "reply": "Based on the available information for the video **\"I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days\"** by creator **TechTraveller Blend**:\n\n- **Source**: TechTraveller Blend (Creator's opinion — not verified by ASKODOX)\n- **Price**: Not provided\n- **Rating / Reviews**: Not provided\n- **Stock / Availability**: Not provided\n\nNote: The description text mentions comparing 32-inch Smart TVs from brands like Samsung, LG, Motorola, Realme, and Xiaomi (Mi), though the title references 43-inch TVs under ₹30,000. Specific video contents, tested specs, and exact prices are not provided by the source.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -117,7 +117,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -126,7 +126,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -180,18 +180,18 @@
    "language": "te",
    "text": "శామ్‌సంగ్ 43 అంగుళాల టీవీ రివ్యూ వీడియో",
    "subject": "samsung 43 inch tv",
-   "trace_key": "browse:ad10ea3c13fa492e",
+   "trace_key": "browse:3eedf621362f4763",
    "videos": [
     {
-     "video_id": "yt_vJQK7mzFTK8",
-     "title": "Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?",
-     "source_name": "TechWay7.0",
-     "duration": "5:01",
+     "video_id": "yt_T09U8CUH5Jw",
+     "title": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "source_name": "TechTraveller Blend",
+     "duration": "12:09",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/vJQK7mzFTK8?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/T09U8CUH5Jw?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/vJQK7mzFTK8/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=vJQK7mzFTK8",
+     "image_url": "https://i.ytimg.com/vi/T09U8CUH5Jw/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -216,22 +216,22 @@
     }
    },
    "explain": {
-    "video_id": "yt_vJQK7mzFTK8",
+    "video_id": "yt_T09U8CUH5Jw",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?",
-     "Samsung UA43F5600 full High definition 2026 Smart tv.",
-     "Samsung का New 2026 Pure Color Full HD Smart TV",
-     "Information.",
-     "✅ 43\" Full HD Display"
+     "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
+     "I bought ALL the best 43-inch TVs under 30K!",
+     "- Flipkart Big Billion Days",
+     "====================================",
+     "Looking for the absolute BEST 32-inch Smart TV?"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "TechWay7.0",
+    "creator": "TechTraveller Blend",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=vJQK7mzFTK8",
-    "question": "Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?",
+    "url": "https://www.youtube.com/watch?v=T09U8CUH5Jw",
+    "question": "I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days",
     "next": [
      {
       "action": "find_local",
@@ -261,11 +261,11 @@
     ]
    },
    "ai": {
-    "question": "\"Samsung 43\" Pure Color Full HD 2026 😱 | UA43F5600FUXXL Unboxing & True Review | ₹2X,XXX?\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "మీరు అడిగిన Samsung 43\" Pure Color Full HD Smart TV (UA43F5600FUXXL) గురించిన వివరాలు:\n\n- **నాణ్యత & ఫీచర్లు:** ఇది 43 అంగుళాల Full HD డిస్‌ప్లే, పియర్ కలర్ టెక్నాలజీ, పిక్చర్ & సౌండ్ క్వాలిటీ టెస్ట్, మరియు స్మార్ట్ టీవీ ఫీచర్లతో వస్తుందని TechWay7.0 వీడియో వివరణలో ఉంది (ఇది క్రియేటర్ అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు). - **ధర:** ఖచ్చితమైన ధర వివరణలో పేర్కొనలేదు (**Not verified**). - **దూరం:** అందుబాటులో ఉన్న దుకాణాల దూరం వివరాలు అందుబాటులో లేవు (**Not verified**). - **అందుబాటు (Stock):** స్టాక్ వివరాలు అందించబడలేదు (**Not verified**). - **రివ్యూలు:** కస్టమర్ రివ్యూలు లేదా రేటింగ్‌లు ఇవ్వబడలేదు (**Not verified**). మీరు స్థానిక దుకాణాల్లో ఈ మోడల్ ధర మరియు స్టాక్ వివరాలను తెలుసుకోవాలనుకుంటున్నారా?",
+    "question": "\"I bought ALL the Best 43-inch TV under 30K! - Flipkart Big Billion Days\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "reply": "ఈ వీడియో ద్వారా ధర, దూరం, నాణ్యత, అందుబాటు మరియు రివ్యూలకు సంబంధించిన వివరాలు **పరిశీలించబడలేదు (Not verified)**. వీడియో వివరణలో ఇచ్చిన వివరాల ప్రకారం:\n- **ధర:** అందుబాటులో లేదు (Not provided)\n- **దూరం:** అందుబాటులో లేదు (Not provided)\n- **నాణ్యత / రివ్యూలు:** పరిశీలించబడలేదు, ఇది TechTraveller Blend క్రియేటర్ అభిప్రాయం మాత్రమే. - **అందుబాటు:** అందుబాటులో లేదు (Not provided)\n\nమీకు నిర్దిష్ట టీవీ మోడల్ వివరాలు లేదా స్థానిక షాపుల ధరలు కావాలంటే చెప్పండి, వెతికి చెప్తాను.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "43 అంగుళాల టీవీ సాధారణంగా **10x10 అడుగులు లేదా అంతకంటే పెద్ద గదికి** సరిగ్గా సరిపోతుంది. టీవీ చూడటానికి **5 నుండి 7 అడుగుల దూరం** ఉంటే కళ్ళపై ఒత్తిడి పడకుండా చూసే అనుభవం బాగుంటుంది. మీ గది పరిమాణం మరియు మీరు టీవీని ఎంత దూరం నుండి చూస్తారో చెబితే, ఇది మీకు సరిపోతుందో లేదో స్పష్టంగా చెప్పగలనండి.",
+    "follow_reply": "చిన్న గదికి (ఉదాహరణకు 10x10 అడుగులు) 43 అంగుళాల టీవీ కాస్త పెద్దదిగా అనిపించవచ్చు. సాధారణంగా 43 ఇంచుల టీవీ చూడటానికి **6 నుండి 8 అడుగుల దూరం** ఉండాలి. - మీ గదిలో చూసే దూరం 6 అడుగుల కంటే తక్కువ ఉంటే 32 ఇంచుల టీవీ సరిపోతుంది. - 6 నుండి 8 అడుగుల దూరం ఉంటే 43 ఇంచుల టీవీ చాలా బాగుంటుంది. మీ గదిలో టీవీకి, మీరు కూర్చునే చోటికి ఎంత దూరం ఉందో చెప్పగలరా?",
     "follow_source": "universal_ai",
     "follow_domain": "PRODUCT",
     "follow_action": "advise"
@@ -288,7 +288,7 @@
     },
     "options": [
      {
-      "title": "Croma - Benz Circle",
+      "title": "Reliance Digital",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
@@ -297,7 +297,7 @@
       "distance_km": 1.3,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=11498515783004686425&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=3803215069048654069&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -379,7 +379,7 @@
    "language": "en",
    "text": "Redmi Note 13 Pro review video",
    "subject": "redmi note 13 pro",
-   "trace_key": "browse:340a4f90133f485e",
+   "trace_key": "browse:978af4ee8171421c",
    "videos": [
     {
      "video_id": "yt_kGG04jkdjxY",
@@ -460,7 +460,7 @@
    },
    "ai": {
     "question": "Tell me more about \"Redmi Note 13 Pro is here - Let's Check!\"",
-    "reply": "Based on the details provided from **Gyan Therapy** (creator's opinion, not verified by ASKODOX):\n\n- **Content:** Unboxing and initial impressions video for the Redmi Note 13 Pro. - **Key Specs Mentioned:** Snapdragon 7s Gen 2 processor, 200MP triple camera setup, 5100mAh battery, and 67W fast charging. - **Pricing & Stock:** Not provided by the source. - **User Ratings & Reviews:** Not provided by the source.",
+    "reply": "This video by creator **Gyan Therapy** is an unboxing and initial impressions look at the Redmi Note 13 Pro. Here are the details provided from the video description:\n- **Processor:** Snapdragon 7s Gen 2\n- **Camera:** 200MP triple camera setup\n- **Battery & Charging:** 5100mAh battery with 67W fast charging\n\n*Note: Creator opinions are not verified by ASKODOX. Specific details such as price, user ratings, and current availability are not provided in the video source.*",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -583,11 +583,11 @@
    "language": "en",
    "text": "Tata Nexon review video",
    "subject": "tata nexon",
-   "trace_key": "browse:f303fcdc2bae489c",
+   "trace_key": "browse:e7244ac6417c4dfe",
    "videos": [
     {
      "video_id": "yt_udv2P4GxqjE",
-     "title": "तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza",
+     "title": "LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍",
      "source_name": "Moto-Wanderer",
      "duration": "8:15",
      "platform": "youtube",
@@ -609,12 +609,11 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "source": "universal_ai",
     "entities": {
-     "subject": "Tata Nexon",
      "brand": "Tata",
-     "model": "Nexon",
+     "subject": "Tata Nexon",
      "location": "Vijayawada"
     }
    },
@@ -623,7 +622,7 @@
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza",
+     "LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍",
      "तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza",
      "Tata Nexon Smart Pure Creative Accomplish Base to Top Model",
      "Your Queries:",
@@ -634,7 +633,7 @@
     "creator": "Moto-Wanderer",
     "platform": "youtube",
     "url": "https://www.youtube.com/watch?v=udv2P4GxqjE",
-    "question": "तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza",
+    "question": "LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍",
     "next": [
      {
       "action": "find_local",
@@ -664,14 +663,14 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"तहलका SUV 😎 Tata Nexon Facelift / Nexon Next Gen / Garuda , पर 1 लाख Discount 🤔 खत्म Maruti Brezza\"",
-    "reply": "Based on the video listing provided by **Moto-Wanderer**:\n\n- **Title / Scope**: Discusses the Tata Nexon Facelift (Base to Top variants: Smart, Pure, Creative, Accomplish) and potential discounts or comparisons against competitors like the Maruti Brezza. - **Creator Opinion**: The claim regarding a \"₹1 lakh discount\" represents the creator's view or title claim and is **not verified** by ASKODOX. - **Pricing, Stock, & Specifications**: Details on exact prices, current dealer offers, ratings, and verified specifications were **not provided** by the source for this video. Would you like to search for official specifications or pricing for the Tata Nexon variants?",
+    "question": "Tell me more about \"LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen  | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍\"",
+    "reply": "Based on the video listing provided by **Moto-Wanderer**:\n\n- **Title:** LAUNCH DATA ✅ Tata Nexon Facelift / Next Gen | NVH खत्म | Big Tyre | Big Size | Full New Looks 😍\n- **Price:** Not provided by the source\n- **Rating / Reviews:** Not provided by the source\n- **Availability:** Not provided by the source\n\n*Note:* The video content itself was not analyzed, and the points highlighted in the title reflect the creator's opinion, which is **not verified by ASKODOX**. If you'd like details on specific features, trim levels (Smart, Pure, Creative, Accomplish), or official specifications for the Tata Nexon, let me know!",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you.",
-    "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
-    "follow_action": "find_local",
+    "follow_reply": "",
+    "follow_source": "fallback",
+    "follow_domain": "UNKNOWN",
+    "follow_action": "",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
@@ -757,18 +756,18 @@
    "language": "en",
    "text": "AC service video",
    "subject": "ac service",
-   "trace_key": "browse:0673388c4d8441c2",
+   "trace_key": "browse:5b54b77082394224",
    "videos": [
     {
-     "video_id": "yt_7mK4-impjiE",
-     "title": "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
-     "source_name": "Lovepreet Singh",
-     "duration": "0:25",
+     "video_id": "yt_qPF6hbFHCUc",
+     "title": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "source_name": "KP Vlogs & Review",
+     "duration": "0:19",
      "platform": "youtube",
-     "embed_url": null,
-     "embeddable": false,
-     "image_url": "https://i.ytimg.com/vi/7mK4-impjiE/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=7mK4-impjiE",
+     "embed_url": "https://www.youtube-nocookie.com/embed/qPF6hbFHCUc?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://i.ytimg.com/vi/qPF6hbFHCUc/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -783,7 +782,7 @@
     "domain": "SERVICE",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 1.0,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "AC service",
@@ -791,22 +790,19 @@
     }
    },
    "explain": {
-    "video_id": "yt_7mK4-impjiE",
+    "video_id": "yt_qPF6hbFHCUc",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
-     "How to Service the DAIKIN AC Outdoor Unit of Split AC",
-     "How to Service the Outdoor Unit of a Split AC",
-     "AC outdoor unit cleaning",
-     "ac cleaning at home"
+     "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Lovepreet Singh",
+    "creator": "KP Vlogs & Review",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=7mK4-impjiE",
-    "question": "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
+    "url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
+    "question": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
     "next": [
      {
       "action": "find_local",
@@ -836,13 +832,13 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo\"",
-    "reply": "This video by creator **Lovepreet Singh** covers topics such as Daikin split AC outdoor unit cleaning, servicing at home, and water washing the condenser coil. *Note: Creator's opinion – not verified by ASKODOX.*\n\nSpecific details like price, rating, reviews, stock, or distance are **not provided** by the source. If you need professional AC servicing or outdoor unit jet cleaning done locally in Vijayawada, I can help find top-rated technicians.",
+    "question": "Tell me more about \"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\"",
+    "reply": "Based on the video listed by **KP Vlogs & Review**:\n\n- **Title**: Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\n- **Creator Opinion**: The creator provides an honest review and vlog about using Urban Company's Foamjet technology for Split AC cleaning (this is the creator's personal opinion, not verified by ASKODOX). - **Details**: Price, rating, reviews, and availability are **Not verified** (not provided by the source). **About Foamjet AC Cleaning Technology:**\nFoamjet cleaning uses high-pressure foam spray to penetrate deep into the condenser and evaporator coils of a Split AC. It removes stubborn dirt, mold, and heavy dust better than normal water washing, improving cooling efficiency and airflow. Would you like me to help find local AC servicing or cleaning providers near Vijayawada?",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "PRODUCT",
+    "follow_domain": "SERVICE",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -885,7 +881,7 @@
    "language": "en",
    "text": "kitchen sink plumbing repair video",
    "subject": "plumbing repair",
-   "trace_key": "browse:7db1f42655e949cb",
+   "trace_key": "browse:8c7b7bbc9e7148f3",
    "videos": [
     {
      "video_id": "yt_Bvxkrv7t4Dw",
@@ -963,13 +959,13 @@
    },
    "ai": {
     "question": "Tell me more about \"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"",
-    "reply": "Based on the listed video details:\n\n- **Title**: Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\n- **Creator**: vijay xyz tricks (Creator's opinion — not verified by ASKODOX)\n- **Description**: thanks for watching video\n- **Price**: Not provided\n- **Distance**: Not provided\n- **Stock/Availability**: Not provided\n- **Rating/Reviews**: Not provided\n\n*Note*: The video content itself was not analyzed, so specific steps or techniques shown in the video are not provided.",
+    "reply": "Based on the provided details for **\"Great Plumbing Trick To Fix Pvc Pipe Joint #shortvideo #shorts #shortsfeed\"** by creator *vijay xyz tricks*:\n\n- **Source/Creator:** vijay xyz tricks (Creator's opinion — not verified by ASKODOX)\n- **Price:** Not provided\n- **Distance / Availability:** Not provided\n- **Rating / Reviews:** Not provided\n\nSince the video content itself has not been analyzed, specific details or steps shown in the video are not available beyond the title and creator description. If you need help fixing a leaking or loose PVC pipe joint directly, I can explain standard methods like applying PVC solvent cement or using a temporary sealant/tape. Let me know what issue you are facing with your PVC joint!",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
-    "follow_reply": "Let me check real sellers, shops and online options near you.\n\nWould you like to find local plumbing shops in Vijayawada or book a professional plumber to handle the repair?",
+    "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "search",
+    "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
      "action": "find_local"
@@ -1011,7 +1007,7 @@
    "language": "en",
    "text": "Hyderabadi biryani review video",
    "subject": "hyderabadi biryani",
-   "trace_key": "browse:7474d76e9c424ee0",
+   "trace_key": "browse:e2e9a51b99a340e6",
    "videos": [
     {
      "video_id": "yt_NYNr1X8Qokw",
@@ -1037,7 +1033,7 @@
     "domain": "FOOD",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
      "subject": "Hyderabadi biryani",
@@ -1090,7 +1086,7 @@
    },
    "ai": {
     "question": "Tell me more about \"₹450 vs ₹800 vs ₹1200 Hyderabadi Biryani In Mumbai!! 🤔\"",
-    "reply": "This video by **DCT EATS** (creator's opinion, not verified by ASKODOX) features the host alongside Sahil from Headbanger Eats comparing three price tiers of Hyderabadi Mutton Biryani in Mumbai:\n\n- **Bikkgane Biryani** (at the ₹450 price point)\n- **Biryani By Kilo** (at the ₹800 price point)\n- **Lit** (at the ₹1200 price point)\n\nSpecific details such as verified pricing breakdown, ratings, stock, or seller locations are **Not verified** (not provided by the source).",
+    "reply": "This video by DCT EATS explores whether authentic Hyderabadi mutton biryani is available in Mumbai by comparing three price points (₹450, ₹800, and ₹1200) from Bikkgane Biryani, Biryani By Kilo, and Lit, featuring Sahil from Headbanger Eats (Creator's opinion — not verified by ASKODOX). Here are the details provided for this video:\n- **Price / Distance / Rating / Reviews**: Not provided by the source. - **Featured Places**: Bikkgane Biryani, Biryani By Kilo, Lit. Since specific details like exact ratings, viewer reviews, or prices are not provided, let me know if you would like me to search for more videos or comparisons!",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1118,16 +1114,16 @@
     },
     "options": [
      {
-      "title": "New Hyderabadi Bucket Briyani",
+      "title": "Bismillah Paradise Biryani",
       "segment": "nearby_external",
       "match_source": "external",
       "source_name": null,
       "price": null,
       "price_verified": false,
-      "distance_km": 2.0,
+      "distance_km": 0.2,
       "affiliate": null,
       "sponsored": null,
-      "destination_url": "https://maps.google.com/?cid=958476255417377982&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
+      "destination_url": "https://maps.google.com/?cid=16053343574001121786&g_mp=Cidnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaFRleHQQAhgEIAA",
       "image_url": null,
       "location_label": null
      },
@@ -1153,7 +1149,7 @@
    "language": "en",
    "text": "Araku valley trip review video",
    "subject": "araku valley trip",
-   "trace_key": "browse:9cee3b4a1dc34be5",
+   "trace_key": "browse:f8a1583ef3d64ab6",
    "videos": [
     {
      "video_id": "yt_rMd5DUP04RE",
@@ -1182,7 +1178,7 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "Araku valley trip",
+     "subject": "Araku valley trip review",
      "location": "Vijayawada"
     }
    },
@@ -1233,12 +1229,12 @@
    },
    "ai": {
     "question": "Tell me more about \"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"",
-    "reply": "Based on the details provided for **\"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"** by Travel Matcha:\n\n- **Summary**: The creator presents a full itinerary for visiting Araku Valley, highlighting attractions like mist-covered hills, coffee plantations, and ancient caves. - **Creator Opinion**: These recommendations reflect the creator's opinion and are **Not verified by ASKODOX**. - **Pricing**: Not provided\n- **Ratings / Reviews**: Not provided\n- **Distance / Location details**: Not provided\n\nSince the video content itself has not been fully analyzed beyond this short description, specific details or step-by-step itinerary points are **Not verified**.",
+    "reply": "Based on the details provided for **\"Araku Valley Full Tour | Things to do in Araku Valley | Places to Visit in Araku\"** by Travel Matcha (creator's opinion, not verified by ASKODOX):\n\n- **Content:** The video offers a complete trip itinerary for Araku Valley, highlighting mist-covered hills, coffee plantations, ancient caves, and local food. - **Pricing:** Not provided\n- **Ratings / Reviews:** Not provided\n- **Distance / Location details:** Not provided\n\n*Note: Specific facts like prices or detailed reviews are not provided by the source.*",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
     "follow_source": "universal_ai",
-    "follow_domain": "EVENT",
+    "follow_domain": "PRODUCT",
     "follow_action": "find_local",
     "branch_follow": {
      "reply": "Let me check real sellers, shops and online options near you.",
@@ -1354,18 +1350,18 @@
    "language": "en",
    "text": "used Royal Enfield Classic 350 review video",
    "subject": "used royal enfield classic 350",
-   "trace_key": "browse:cdcfe99d0a9d465b",
+   "trace_key": "browse:7fe1763270204cea",
    "videos": [
     {
-     "video_id": "yt_ilhNFpIoY70",
-     "title": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
-     "source_name": "Engine Thagaval ",
-     "duration": "0:19",
+     "video_id": "yt_GW-rCk-eAoU",
+     "title": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
+     "source_name": "Bindass Singh",
+     "duration": "7:16",
      "platform": "youtube",
-     "embed_url": "https://www.youtube-nocookie.com/embed/ilhNFpIoY70?playsinline=1&rel=0",
+     "embed_url": "https://www.youtube-nocookie.com/embed/GW-rCk-eAoU?playsinline=1&rel=0",
      "embeddable": true,
-     "image_url": "https://i.ytimg.com/vi/ilhNFpIoY70/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
+     "image_url": "https://i.ytimg.com/vi/GW-rCk-eAoU/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [
@@ -1383,29 +1379,28 @@
     "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
+     "subject": "used Royal Enfield Classic 350",
      "brand": "Royal Enfield",
      "model": "Classic 350",
-     "quality": "used",
+     "variant": "used",
      "location": "Vijayawada"
     }
    },
    "explain": {
-    "video_id": "yt_ilhNFpIoY70",
+    "video_id": "yt_GW-rCk-eAoU",
     "analyzed": false,
     "answer": "I haven't watched or analyzed this video. I only know its title, the description the creator wrote and the channel.",
     "from_source": [
-     "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
-     "Royal Enfield Classic 350 – FOR SALE!",
-     "Single-owner / well-maintained condition.",
-     "Classic Royal Enfield design with smooth BS6 engine—perfect for city rides and highway cruising.",
-     "📍 Location: /126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu – 6385"
+     "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
+     "How To Check And Buy Old Royal Enfield Classic 350.How To Buy Used Royal Enfield.How To Buy Second Hand Bullet.How To Buy 2nd Hand Royal Enfield Bullet or Classic.Purani Royal Enfield Classic 350cc Kaise Kya Kya Check Karen.",
+     "#RoyalEnfield #UsedBullet #UsedClassic #BindassSingh"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Engine Thagaval ",
+    "creator": "Bindass Singh",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=ilhNFpIoY70",
-    "question": "Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield",
+    "url": "https://www.youtube.com/watch?v=GW-rCk-eAoU",
+    "question": "How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350",
     "next": [
      {
       "action": "find_local",
@@ -1435,8 +1430,8 @@
     ]
    },
    "ai": {
-    "question": "Tell me more about \"Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam | Engine Thagaval #royalenfield\"",
-    "reply": "Based on the listing details for **Used Royal Enfield Classic 350🏍️ – Best Deals in Gobichettipalayam** by **Engine Thagaval** (creator's opinion, not verified by ASKODOX):\n\n- **Condition:** Single-owner / well-maintained condition (per source)\n- **Engine & Design:** Smooth BS6 engine with classic design\n- **Location:** 126 Sathy Athani Main Road, Punjaithuraiyampalayam, Gobichettipalayam, Tamil Nadu\n- **Price:** Not provided\n- **Rating / Reviews:** Not provided\n- **Stock / Availability:** Not provided\n\nNote: The video itself was not analyzed. Facts like price, stock, and official verification are not provided by the source. Would you like me to help you find local verified used Classic 350 listings near Vijayawada?",
+    "question": "Tell me more about \"How To Check & Buy Used Classic 350 - How To Buy 2nd Hand Royal Enfield Classic 350\"",
+    "reply": "This video by creator **Bindass Singh** covers practical tips on how to inspect and purchase a second-hand Royal Enfield Classic 350. Key points from the listed video details:\n- **Content focus**: Covers inspection steps, what to check before buying, and buying guidance for a used Classic 350. - **Source/Creator**: Bindass Singh (creator's opinion, not verified by ASKODOX). - **Details not provided**: Specific vehicle specs, pricing, seller location, stock, and condition ratings are **Not verified** in the video listing details. **General pre-purchase checklist for a used Classic 350**:\n- **Engine & Mechanicals**: Check for oil leaks around the head/sump, unusual tappet noise, and smoke from the exhaust. - **Frame & Alignment**: Inspect for frame rust, bend, or crash damage near the chassis down-tubes. - **Service History & Legal**: Verify RC transfer status, active insurance, and NOC if bought across state lines.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1528,7 +1523,7 @@
    "language": "en",
    "text": "iPhone 15 offer review video",
    "subject": "iphone 15",
-   "trace_key": "browse:9ae873ef38ae4d85",
+   "trace_key": "browse:b048c174bc0b45e8",
    "videos": [
     {
      "video_id": "yt_LtaCjbudjpQ",
@@ -1554,10 +1549,10 @@
     "domain": "PRODUCT",
     "transactional": true,
     "action": "search_videos",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "source": "universal_ai",
     "entities": {
-     "subject": "iPhone 15 offer review",
+     "subject": "iPhone 15 offer",
      "location": "Vijayawada"
     }
    },
@@ -1608,7 +1603,7 @@
    },
    "ai": {
     "question": "Tell me more about \"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"",
-    "reply": "This video titled **\"iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub\"** is created by **CallMeShazzam TECH** (representing the creator's opinion, which is not verified by ASKODOX). Here are the details provided for this option:\n- **Source/Creator**: CallMeShazzam TECH\n- **Language**: Malayalam with English subtitles\n- **Price**: Not provided\n- **Rating / Reviews**: Not provided\n- **Availability / Stock**: Not provided\n\nSince the video content itself has not been analyzed, specific claims or conclusions made in the video are not available. The details listed above represent creator opinions and are not independently verified facts.",
+    "reply": "This is a video titled **iPhone 15 | Long Term Review | Best iPhone? | Next Sale King? | Malayalam with Eng Sub** by creator **CallMeShazzam TECH**. Here are the details provided from the listing:\n- **Creator:** CallMeShazzam TECH (creator's opinion, not verified by ASKODOX)\n- **Language:** Malayalam with English subtitles\n- **Price:** Not provided\n- **Rating / Reviews:** Not provided\n- **Stock / Availability:** Not provided\n\nSince the video content itself has not been analyzed, specific specs, opinions, or conclusions discussed in the video are not provided.",
     "source": "universal_ai",
     "follow_up": "Is it worth buying, and where can I get it here?",
     "follow_reply": "Let me check real sellers, shops and online options near you.",
@@ -1731,18 +1726,18 @@
    "language": "te",
    "text": "ఏసీ సర్వీస్ వీడియో",
    "subject": "ac service",
-   "trace_key": "browse:f943c74e3e824998",
+   "trace_key": "browse:fe25f5e7c2e848a1",
    "videos": [
     {
-     "video_id": "yt_7mK4-impjiE",
-     "title": "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
-     "source_name": "Lovepreet Singh",
-     "duration": "0:25",
+     "video_id": "yt_qPF6hbFHCUc",
+     "title": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "source_name": "KP Vlogs & Review",
+     "duration": "0:19",
      "platform": "youtube",
-     "embed_url": null,
-     "embeddable": false,
-     "image_url": "https://i.ytimg.com/vi/7mK4-impjiE/hqdefault.jpg",
-     "destination_url": "https://www.youtube.com/watch?v=7mK4-impjiE",
+     "embed_url": "https://www.youtube-nocookie.com/embed/qPF6hbFHCUc?playsinline=1&rel=0",
+     "embeddable": true,
+     "image_url": "https://i.ytimg.com/vi/qPF6hbFHCUc/hqdefault.jpg",
+     "destination_url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
      "disclosure": "Creator's opinion -- not verified by ASKODOX",
      "sponsored": false,
      "products": [],
@@ -1765,22 +1760,19 @@
     }
    },
    "explain": {
-    "video_id": "yt_7mK4-impjiE",
+    "video_id": "yt_qPF6hbFHCUc",
     "analyzed": false,
     "answer": "ఈ వీడియోను నేను చూడలేదు/విశ్లేషించలేదు. శీర్షిక, క్రియేటర్ ఇచ్చిన వివరణ, ఛానల్ మాత్రమే తెలుసు.",
     "from_source": [
-     "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
-     "How to Service the DAIKIN AC Outdoor Unit of Split AC",
-     "How to Service the Outdoor Unit of a Split AC",
-     "AC outdoor unit cleaning",
-     "ac cleaning at home"
+     "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
+     "#urbancompany #acservice #airconditioner #urbanclap #splitacservice #acservice2025 #summeracservice #kpvlogsandreview #honestreview #affordableservice #watchbeforehire #newtechnology #shortsyoutube #youtubecreator"
     ],
     "relationship": "creator",
     "relationship_label": "Creator's opinion -- not verified by ASKODOX",
-    "creator": "Lovepreet Singh",
+    "creator": "KP Vlogs & Review",
     "platform": "youtube",
-    "url": "https://www.youtube.com/watch?v=7mK4-impjiE",
-    "question": "DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo",
+    "url": "https://www.youtube.com/watch?v=qPF6hbFHCUc",
+    "question": "Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |",
     "next": [
      {
       "action": "find_local",
@@ -1810,14 +1802,14 @@
     ]
    },
    "ai": {
-    "question": "\"DAIKIN AC Outdoor Unit Cleaning #acservice #airconcleaning #accleaning #HVAC #shortsvideo\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
-    "reply": "మీరు అడిగిన 'DAIKIN AC Outdoor Unit Cleaning' వీడియోకు సంబంధించిన వివరాలు:\n\n- **ధర:** Not verified (మూలం నుండి వివరాలు లభించలేదు)\n- **దూరం:** Not verified\n- **నాణ్యత & రివ్యూలు:** Not verified (క్రియేటర్ Lovepreet Singh అభిప్రాయం మాత్రమే, ASKODOX ద్వారా ధృవీకరించబడలేదు)\n- **అందుబాటు:** Not verified\n\nఈ సమాచారం క్రియేటర్ వ్యక్తిగత వీడియో ద్వారా ఇవ్వబడింది. మీకు ఏసీ సర్వీస్ చేయించుకోవడానికి విజయవాడలో అందుబాటులో ఉన్న ప్రొవైడర్ల వివరాలు లేదా ధరల అంచనా కావాలంటే చెప్పగలరు.",
+    "question": "\"Urban Company AC Service | Spilit AC Cleaning Advance Foamjet Technology | AC Cleaning Service |\" గురించి చెప్పండి: ధర, దూరం, నాణ్యత, అందుబాటు, రివ్యూలు",
+    "reply": "ఈ వీడియో 'Urban Company AC Service (Advance Foamjet Technology)' గురించి KP Vlogs & Review వారి అభిప్రాయం మాత్రమే, ఇది ASKODOX ద్వారా ధృవీకరించబడలేదు. వీడియో వివరాల ప్రకారం:\n- **ధర:** అందుబాటులో లేదు (Not verified)\n- **దూరం:** అందుబాటులో లేదు (Not verified)\n- **నాణ్యత / రివ్యూలు:** నాట్ వెరిఫైడ్ (వీడియో క్రియేటర్ అభిప్రాయం మాత్రమే, సారాంశం వివరించబడలేదు)\n- **అందుబాటు:** అందుబాటులో లేదు (Not verified)\n\nధర మరియు ఇతర అధికారిక వివరాలు కావాలంటే సర్వీస్ ప్రొవైడర్‌ను అడిగి తెలుసుకోవచ్చు.",
     "source": "universal_ai",
     "follow_up": "ఇది చిన్న గదికి సరిపోతుందా?",
-    "follow_reply": "చిన్న గదికి (సుమారు 100-120 చదరపు అడుగులు) సాధారణంగా **1 టన్** సామర్థ్యం ఉన్న AC సరిపోతుంది. పెద్ద సామర్థ్యం ఉన్న AC వాడితే కరెంట్ బిల్లు ఎక్కువగా వచ్చే అవకాశం ఉంటుంది. మీ గది సైజు లేదా కొలతలు ఎంత ఉంటాయో చెప్పగలరా?",
+    "follow_reply": "సాధారణంగా ఏసీ సర్వీసింగ్ (ఫైమ్ జెట్ ಕ್లీనింగ్) అనేది గది పరిమాణంతో సంబంధం లేకుండా, మీ ఏసీ పనితీరు మరియు చల్లదనాన్ని పెంచడానికి ఉపయోగపడుతుంది. మీ గది చిన్నదైనా (100 చ.అడుగుల లోపు), ఉన్న ఏసీ సరిగ్గా చల్లబరచడానికి మరియు శుభ్రంగా ఉండటానికి ఈ సర్వీస్ సరిపోతుంది. మీరు మీ చిన్న గదికి కొత్త ఏసీ లేదా సర్వీస్ బుక్ చేసుకోవాలనుకుంటున్నారా?",
     "follow_source": "universal_ai",
     "follow_domain": "SERVICE",
-    "follow_action": "advise"
+    "follow_action": "answer_about_options"
    },
    "next": {
     "step": "local_service",
@@ -1862,7 +1854,7 @@
   },
   {
    "step": "video_watch_start",
-   "count": 9
+   "count": 11
   },
   {
    "step": "video_watch_complete",
@@ -1890,7 +1882,7 @@
   },
   {
    "step": "video_contact",
-   "count": 2
+   "count": 0
   },
   {
    "step": "lead",
