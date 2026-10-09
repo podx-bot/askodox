@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.appointment_location_middleware import AppointmentLocationMiddleware
 from app.api.request_observability_middleware import RequestObservabilityMiddleware
 from app.api.routes.command_center import router as command_center_router
+from app.api.routes.db_backup import router as db_backup_router
 from app.api.routes.admin_web import router as admin_web_router
 from app.api.routes.debug import router as debug_router
 from app.api.routes.discover import router as discover_router
@@ -269,6 +270,7 @@ def create_app() -> FastAPI:
     app.include_router(in_app_assistant_router)
     app.include_router(support_admin_router)
     app.include_router(command_center_router)
+    app.include_router(db_backup_router)
     from app.api.routes.affiliate_catalog import router as affiliate_catalog_router
 
     app.include_router(affiliate_catalog_router)
