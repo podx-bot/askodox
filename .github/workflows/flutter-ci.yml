@@ -60,8 +60,9 @@ jobs:
               except Exception: continue
               if e.get('type') == 'testStart': names[e['test']['id']] = e['test']['name']
               if e.get('type') == 'error': errs.setdefault(e['testID'], []).append(e.get('error', '')[:300])
-              if e.get('type') == 'print' and 'EXCEPTION' in e.get('message', ''): errs.setdefault(e['testID'], []).append(e['message'][:1400])
-          for tid, msgs in list(errs.items())[:10]:
+              if e.get('type') == 'print': errs.setdefault(e['testID'], []).append(e['message'][:900])
+          failed = {e2 for e2 in errs if any('Test failed' in m for m in errs[e2])}
+          for tid, msgs in [(t, errs[t]) for t in failed][:10]:
               msg = (names.get(tid, '?') + ' :: ' + ' | '.join(msgs)).replace('\n', ' ').replace('%', '%25')
               print('::error title=FAILED TEST::' + msg[:1800])
           PY

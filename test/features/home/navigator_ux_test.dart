@@ -75,6 +75,10 @@ void main() {
         expect(find.byKey(ValueKey('askodoxBoardTab-${tab.name}')), findsOneWidget);
       }
       expect(find.text('Result Board'), findsOneWidget);
+      final c = tester.getCenter(find.text('Videos 1'));
+      final hits = tester.hitTestOnBinding(c).path.take(6).map((e) => e.target.runtimeType).join('>');
+      // ignore: avoid_print
+      print('DIAG rect=${tester.getRect(find.text('Videos 1'))} list=${tester.getRect(find.byKey(const Key('askodoxResultBoardTabs')))} hits=$hits');
       await tester.tap(find.text('Videos 1'));
       await tester.pumpAndSettle();
       expect(picked, AskodoxBoardTab.videos);
