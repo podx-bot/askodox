@@ -20,6 +20,7 @@ marked (te).
 
 ## 1. Voice (one audio lifecycle)
 - [ ] 1.1 Centre mic: speak, press Stop -> transcript appears once, request runs
+- [ ] 1.1b Continuous recording: talk ~45 s with short pauses (2-3 s); recording keeps going until YOU press Stop
 - [ ] 1.2 Reply is spoken by ONE voice only (never Sarvam + device voice together)
 - [ ] 1.3 Pause while speaking -> stops; Resume continues from about the same place
 - [ ] 1.4 Mute -> next replies are not spoken; Unmute -> speech returns
@@ -50,6 +51,8 @@ marked (te).
 - [ ] 4.1 Default board = the locked one-rail layout (unchanged from 1313)
 - [ ] 4.2 Expand (mega) -> category boxes with up / down and n/N; positions kept after minimize + restore
 - [ ] 4.3 Minimize pill "N Results • subject" restores the board
+- [ ] 4.3b Pinning: the latest results stay pinned above the chat while you keep chatting (there is no manual pin button)
+- [ ] 4.3c Cards: images load, prices shown only when known (else "price not verified"), Open/links open the right page
 - [ ] 4.4 Local / online / marketplace / videos / jobs sections appear only when relevant
 - [ ] 4.5 Marketplace prices marked unverified; strict budget ("max 30000") hides over-budget rows
 - [ ] 4.6 Provider problem (if it occurs) shows "service problem" text, not "no results"
@@ -96,11 +99,20 @@ marked (te).
 - [ ] 10.8 askodox.com/chat still answers like the app
 - [ ] 10.9 No crashes in a 15-minute mixed session; battery / heat normal
 
+## 11. Permissions, stability, network
+- [ ] 11.1 First use of mic / camera / location / notifications asks permission with a clear reason
+- [ ] 11.2 Deny each permission -> app explains and keeps working; allowing later from Settings works
+- [ ] 11.3 Airplane mode during a request -> honest "no connection" message, no crash
+- [ ] 11.4 Network back -> retry works without restarting the app; chat history intact
+- [ ] 11.5 Switch apps / lock screen mid-reply and come back -> no crash, no double voice
+- [ ] 11.6 Any crash: note the time + what you tapped (screenshot / screen recording)
+
 ## Admin (owner, browser)
 - [ ] A.1 Command Center -> API Health & Billing shows real or UNKNOWN balances (no fake numbers, no recharge button)
 - [ ] A.2 Incidents + actions: read-only actions run; change actions ask for approval
 - [ ] A.3 Release gate shows NOT READY until the phone checks above are PHONE VERIFIED
 - [ ] A.4 /admin/backup still creates a verified backup (owner key only)
+- [ ] A.5 Command Center -> Integrations -> Brave -> Check: production web search is LIVE (staging is quota_exhausted)
 
 Release of 1314 (update channel or public) needs the owner's separate approval
 after this checklist passes.
