@@ -136,3 +136,8 @@ Built on main bae9c9e (PR #180). Navigator UX P0 slice:
 - NOT done in this slice: "Shopping/Washing Machine" dropdown not found on main (nothing to delete); morning-bug
   list not in repo/issues (needs owner screenshots); P1 workflows untouched; every item still needs a real phone.
 - Next: real-phone test of the private APK from Android Live Build on this branch, then review/merge.
+- 2026-10-09 round 2: layout assertion kept strict (tab row = one <=40px row at board top; cards <=16px below it,
+  same 16px rule as before). "Shopping / Washing Machine" dropdown: searched lib/ (dropdowns, popup menus, app
+  builder overlays, companion bar, notifications) -- no such widget on main or this branch; needs the owner's
+  screenshot to identify (possibly an older APK or an Android notification). Morning-bug list still not available
+  in repo / issues / memory. APK 1316 (run 37951204272) still matches the app code (later commits = tests/docs).
