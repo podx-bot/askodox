@@ -7,18 +7,19 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `fc5505f` -- PR #179 (2026-10-08, verified with `git fetch origin
-  main`): APK 1312 regressions + Approved Feature Registry. Signed APK 1313 from
-  fc5505f is a public release `apk-1313` (askodox-live-1313.apk, 71,351,246 B,
-  sha256 bb14a278…f2a8, cert 727b4a66…57cf, not marked latest).
-- Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
-  production, staging only) carries the post-1313 master round: voice one-audio
-  lifecycle + pause / resume / mute / replay; message copy / select / share;
-  Result Board mega expand with per-category navigation + provider-failure
-  notice; reply meaning colours; profile memory; My Roles / My Business
-  sections (promotions, automation, creations); API Health & Billing; Admin AI
-  incidents + action framework; strict release gate. Every new flow is CODE
-  READY only -- no real-phone verification yet.
+- `main` @ `bae9c9e` -- PR #180 (2026-10-09, verified with `git fetch origin
+  main`): post-1313 master round (voice one-audio lifecycle + pause / resume /
+  mute / replay, message actions, Result Board mega expand, provider-failure
+  kinds, reply meaning colours (opt-in `capabilities=["meaning_tags"]`),
+  profile memory, My Roles / My Business, API Health & Billing, Admin AI
+  incidents + actions, release gate). Before it: PR #181 (`6889ecb`) =
+  owner-only encrypted DB backup (`/admin/backup`); verified production backup
+  `20261009T041358Z-cf74f2f1` (179 tables, 11,783 rows, restore test passed,
+  owner-checked SHA-256). Every new flow is CODE READY only -- no real-phone
+  verification yet (checklist: docs/APK_1314_PHONE_TEST_CHECKLIST.md).
+- APK 1314 = private Live Build artifact only (run 37885318118). The in-app
+  update channel `askodox-latest` stays on 1313: since PR #180 a merge never
+  publishes it -- only a manual dispatch with `publish_update_channel=true`.
 - Railway: production env → podx-ai-connect from `main` (no custom domain,
   `podx-ai-connect-production-3279.up.railway.app`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
