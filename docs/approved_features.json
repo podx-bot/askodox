@@ -282,6 +282,22 @@
       "tests": {"backend": ["tests/test_universal_advisor_demand.py"], "flutter": ["test/features/home/universal_advisor_test.dart"]},
       "dependencies": ["decision_brain"], "status": "approved",
       "history": [{"pr": 105, "change": "introduced"}]
+    },
+    {
+      "id": "db_backup_export",
+      "name": "Owner-only encrypted database backup with verified restore",
+      "purpose": "Take a recoverable backup of the production SQLite database without Railway volume backups.",
+      "expected_behavior": "Owner key only (staff refused); read-only snapshot; AES-256-GCM with a passphrase that is never stored; a restore into an isolated database must pass integrity_check + row counts + SHA-256 before the file is offered; one-time download; no row contents in any response, log or audit entry.",
+      "roles": ["owner"], "domains": ["any"],
+      "api": [
+        {"method": "POST", "path": "/admin/cc/backup/export",
+         "response_keys": ["backup_id", "encrypted_sha256", "database_sha256", "restore_test", "tables", "download_token"]},
+        {"method": "GET", "path": "/admin/cc/backup/download/{backup_id}"}
+      ],
+      "ui": {"symbols": []}, "flags": {},
+      "tests": {"backend": ["tests/test_db_backup.py"], "flutter": []},
+      "health": "", "dependencies": [], "status": "approved",
+      "history": [{"pr": 0, "change": "introduced (release safety before PR 180)"}]
     }
   ]
 }
