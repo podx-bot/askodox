@@ -70,6 +70,9 @@ import '../data/taxonomy_repository.dart';
 import 'video_viewer_screen.dart';
 import 'video_study_panel.dart';
 import '../../guide/in_app_guide.dart';
+import '../domain/result_board_tabs.dart';
+import 'result_board_tab_row.dart';
+import 'attachment_menu.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -369,6 +372,9 @@ class _AskodoxPrimaryHomeScreenState
   /// and whether the customer mega-expanded the board.
   final Map<String, int> _boardPositions = {};
   int? _boardMegaFor;
+
+  /// The Result Board tab chosen per deck (a new deck starts on "Result Board").
+  final Map<int, AskodoxBoardTab> _boardTabFor = {};
 
   /// Speaks [reply] through the one audio lifecycle (tests drive overlap).
   @visibleForTesting
@@ -3887,9 +3893,12 @@ class _AskodoxPrimaryHomeScreenState
   /// cards only (never a copy in the chat), bounded height (smaller while the
   /// keyboard is open) so the latest messages and the input stay on screen.
   Widget _resultContext(bool te, int index, {required double maxHeight}) {
-    // [maxHeight] bounds the WHOLE board (notices + cards + minimize row),
-    // from askodoxBoardMaxHeight: the conversation and the input always keep
+    // [maxHeight] bounds the WHOLE board (tab row + notices + cards), from
+    // askodoxBoardMaxHeight: the conversation and the input always keep
     // their room below it.
+    final tab = _boardTabFor[index] ?? AskodoxBoardTab.all;
+    final tabEmpty = tab != AskodoxBoardTab.all &&
+        askodoxBoardTabRows(tab, _resultsByTurn[index]?.matches ?? const []).isEmpty;
     return Container(
       key: const Key('askodoxResultContext'),
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -3898,6 +3907,24 @@ class _AskodoxPrimaryHomeScreenState
         border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // ONE row: Result Board | Local | Online | Deals | Reviews | Videos,
+        // Expand, Minimize. Tabs are views of THIS deck, never new searches.
+        AskodoxResultBoardTabRow(
+          selected: tab,
+          counts: askodoxBoardTabCounts(_resultsByTurn[index]?.matches ?? const []),
+          lang: _lang,
+          expanded: _boardMegaFor == index,
+          onSelect: (next) => setState(() => _boardTabFor[index] = next),
+          // Minimize: the board folds into its pill so the conversation gets
+          // the screen; nothing is lost (tap the pill to restore).
+          onMinimize: () => setState(() {
+            _boardMinimizedFor = index;
+            _boardMegaFor = null;
+          }),
+          // Mega expand: the whole board with full cards; the input and the
+          // latest conversation lines keep their room.
+          onExpand: () => setState(() => _boardMegaFor = _boardMegaFor == index ? null : index),
+        ),
         if (_resultsStaleFor != null)
           Padding(
             key: const Key('askodoxResultsRefreshing'),
@@ -3931,47 +3958,20 @@ class _AskodoxPrimaryHomeScreenState
               padding: const EdgeInsets.fromLTRB(14, 6, 6, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: _turnResults(index, _turns[index], te, workspace: true),
+                children: tabEmpty
+                    ? [
+                        Padding(
+                          key: ValueKey('askodoxBoardTabEmpty-${tab.name}'),
+                          padding: const EdgeInsets.fromLTRB(2, 8, 8, 10),
+                          child: Text(askodoxBoardTabEmptyText(tab, _lang),
+                              style: const TextStyle(color: _muted, fontSize: 12.5, height: 1.35)),
+                        ),
+                      ]
+                    : _turnResults(index, _turns[index], te, workspace: true, tab: tab),
               ),
             ),
           ),
         ),
-        // Minimize: the board folds into its pill so the conversation gets
-        // the screen; nothing is lost (tap the pill to restore).
-        Wrap(alignment: WrapAlignment.center, children: [
-          InkWell(
-            key: const Key('askodoxResultBoardMinimize'),
-            onTap: () => setState(() {
-              _boardMinimizedFor = index;
-              _boardMegaFor = null;
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: _muted),
-                Text(te ? 'చిన్నదిగా చేయి' : 'Minimize', style: const TextStyle(fontSize: 11, color: _muted)),
-              ]),
-            ),
-          ),
-          // Mega expand: the whole board with full cards; the input and the
-          // latest conversation lines keep their room.
-          InkWell(
-            key: const Key('askodoxResultBoardMega'),
-            onTap: () => setState(() => _boardMegaFor = _boardMegaFor == index ? null : index),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_boardMegaFor == index ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
-                    size: 16, color: _muted),
-                Text(
-                    _boardMegaFor == index
-                        ? (te ? 'తక్కువ' : 'Less')
-                        : (te ? 'పూర్తిగా చూపు' : 'Expand'),
-                    style: const TextStyle(fontSize: 11, color: _muted)),
-              ]),
-            ),
-          ),
-        ]),
       ]),
     );
   }
@@ -4342,7 +4342,8 @@ class _AskodoxPrimaryHomeScreenState
   /// its result cards. The chat never shows result cards: the latest search
   /// lives ONCE in the workspace, and earlier searches are replaced, never
   /// left in the conversation as stale copies.
-  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te, {bool workspace = false}) => [
+  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te,
+          {bool workspace = false, AskodoxBoardTab tab = AskodoxBoardTab.all}) => [
             if (_catalogueTurn == index && _catalogue != null)
               AskodoxCatalogueCard(
                 template: _catalogue!,
@@ -4358,11 +4359,11 @@ class _AskodoxPrimaryHomeScreenState
             if (workspace && index == _pinnedResultsTurn)
               if (_resultsByTurn[index] case final results?)
               _ChatResultsView(
-                key: ValueKey('askodoxChatResults-$index'),
+                key: ValueKey(tab == AskodoxBoardTab.all ? 'askodoxChatResults-$index' : 'askodoxChatResults-$index-${tab.name}'),
                 workspace: true,
                 positions: _boardPositions,
                 mega: _boardMegaFor == index,
-                results: results,
+                results: askodoxResultsForTab(results, tab),
                 te: te,
                 lang: _lang,
                 retrying: _sending,
@@ -4570,7 +4571,14 @@ class _AskodoxPrimaryHomeScreenState
             key: const Key('askodoxVoiceCancel'),
             onPressed: _cancelVoice,
             tooltip: te ? 'రద్దు చేయండి' : 'Cancel voice',
-            icon: const Icon(Icons.close_rounded, color: _muted)),
+            icon: const Icon(Icons.close_rounded, color: _muted))
+        else
+          // The ONE attachment control: Camera / Photos / Videos / Files.
+          AskodoxAttachButton(
+            lang: _lang,
+            enabled: !_sending,
+            onPick: (choice) => unawaited(_pickAttachment(choice)),
+          ),
         Expanded(
           child: TextField(
           controller: _controller,
