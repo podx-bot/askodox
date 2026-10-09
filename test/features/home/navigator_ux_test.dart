@@ -72,14 +72,16 @@ void main() {
         ),
       ));
       for (final tab in AskodoxBoardTab.values) {
-        await tester.ensureVisible(find.byKey(ValueKey('askodoxBoardTab-${tab.name}')));
         expect(find.byKey(ValueKey('askodoxBoardTab-${tab.name}')), findsOneWidget);
       }
       expect(find.text('Result Board'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('askodoxBoardTab-videos')));
+      await tester.tap(find.text('Videos 1'));
+      await tester.pumpAndSettle();
       expect(picked, AskodoxBoardTab.videos);
       await tester.tap(find.byKey(const Key('askodoxResultBoardMinimize')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('askodoxResultBoardMega')));
+      await tester.pumpAndSettle();
       expect(minimized, isTrue);
       expect(expanded, isTrue);
     });
@@ -112,7 +114,12 @@ void main() {
     ));
     await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await tester.pumpAndSettle();
-    for (final key in ['business', 'roles', 'studio_videos', 'studio_creations', 'memory']) {
+    for (final key in ['business', 'listings', 'enquiries', 'roles']) {
+      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget);
+    }
+    for (final key in ['studio_videos', 'studio_creations', 'memory']) {
+      await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxMenu-$key')), 120,
+          scrollable: find.byType(Scrollable).last);
       expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget);
     }
     expect(find.byType(Drawer), findsNothing, reason: 'the menu is a sheet, never a drawer');
