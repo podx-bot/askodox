@@ -59,7 +59,8 @@ jobs:
               try: e = json.loads(line)
               except Exception: continue
               if e.get('type') == 'testStart': names[e['test']['id']] = e['test']['name']
-              if e.get('type') == 'error': errs.setdefault(e['testID'], []).append(e.get('error', '')[:700])
+              if e.get('type') == 'error': errs.setdefault(e['testID'], []).append(e.get('error', '')[:300])
+              if e.get('type') == 'print' and 'EXCEPTION' in e.get('message', ''): errs.setdefault(e['testID'], []).append(e['message'][:1400])
           for tid, msgs in list(errs.items())[:10]:
               msg = (names.get(tid, '?') + ' :: ' + ' | '.join(msgs)).replace('\n', ' ').replace('%', '%25')
               print('::error title=FAILED TEST::' + msg[:1800])
