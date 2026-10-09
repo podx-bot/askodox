@@ -17,8 +17,10 @@ Railway project "lavish-perfection", environment `production`).
    `podx-ai-connect`, environment `production`) -- the rollback target.
 3. Database backup of the production volume (`podx-ai-connect-volume`,
    mounted at `/data`, SQLite). Railway volume backups need a plan that
-   allows them (Hobby allows none); otherwise take a manual copy of the
-   database file. Record its timestamp and size.
+   allows them (Hobby allows none), so use the owner-only encrypted export
+   at `/admin/backup` (docs/DATABASE_BACKUP.md): it must report
+   `restore_test.verified: true`. Record `backup_id`, `encrypted_sha256`,
+   `database_sha256` and the row total.
 4. Migrations must be additive only (`CREATE TABLE IF NOT EXISTS`, new
    columns with defaults). Then old code keeps working on the new database
    and a code rollback needs no data restore.
@@ -30,7 +32,7 @@ Railway project "lavish-perfection", environment `production`).
    "Application startup complete".
 3. Then revert the merge on `main` (a revert commit, never a force push) so
    the next deploy does not bring the change back.
-4. Restore the database from the backup ONLY if data was corrupted;
+4. Restore the database from the backup (docs/DATABASE_BACKUP.md) ONLY if data was corrupted;
    additive tables written by the new code are ignored by the old code.
 
 ## Rollback (app)
