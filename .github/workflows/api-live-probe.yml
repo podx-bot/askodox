@@ -1,0 +1,24 @@
+name: API live probe
+
+# Live API checks: functional probes on STAGING (own data + its own provider
+# keys), read-only GETs and no-credential refusals on PRODUCTION. Uses no
+# secrets; prints status codes, counts and latencies only.
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/api-probe.json', '.github/scripts/api_live_probe.py', '.github/workflows/api-live-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe
+        env:
+          WANT: ${{ github.sha }}
+        run: python3 -I .github/scripts/api_live_probe.py
