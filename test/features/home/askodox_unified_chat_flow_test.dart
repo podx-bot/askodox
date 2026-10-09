@@ -1936,6 +1936,8 @@ void main() {
       // Deals | Reviews | Videos | Minimize) is the only thing above the cards.
       final tabs = tester.getRect(find.byKey(const Key('askodoxResultBoardTabs')));
       expect(tabs.top - workspace.top, lessThanOrEqualTo(2), reason: 'the tab row is the top of the board');
+      expect(tabs.height, lessThanOrEqualTo(40), reason: 'ONE compact row, not a header block');
+      expect(find.byKey(const Key('askodoxResultBoardTabs')), findsOneWidget, reason: 'exactly one tab row');
       expect(firstCard.top - tabs.bottom, lessThanOrEqualTo(16),
           reason: 'no other header row between the tab row and the cards');
       final rail = find.byKey(const Key('askodoxComparisonRail'));
