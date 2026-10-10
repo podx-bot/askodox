@@ -48,7 +48,23 @@ jobs:
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Run Flutter tests
-        run: flutter test
+        run: |
+          set +e
+          flutter test --reporter json > /tmp/t.json
+          code=$?
+          python3 - <<'PY'
+          import json
+          names, out = {}, {}
+          for line in open('/tmp/t.json'):
+              try: e = json.loads(line)
+              except Exception: continue
+              if e.get('type') == 'testStart': names[e['test']['id']] = e['test']['name']
+              if e.get('type') in ('error', 'print'): out.setdefault(e.get('testID'), []).append((e.get('error') or e.get('message') or '')[:700])
+          for tid, msgs in out.items():
+              if any('Test failed' in m or 'Expected' in m for m in msgs):
+                  print('::error title=FAILED TEST::' + (names.get(tid, '?') + ' :: ' + ' | '.join(msgs)).replace('\n', ' ')[:1900])
+          PY
+          exit $code
 
   askodox-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
