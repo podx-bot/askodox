@@ -101,4 +101,22 @@ void main() {
     expect(askodoxSpeechLanguage(reply: '👍', userText: 'నమస్తే', uiTelugu: false), 'te');
     expect(askodoxSpeechLanguage(reply: '👍', userText: '42', uiTelugu: true), 'te');
   });
+
+  test('Main Chat (until Stop): long silence or no speech never ends the turn; only the max-duration cap does', () {
+    final silent = _run(AskodoxVoiceEndpointer.untilStop(), _n(500, 150)); // 100 s of nothing
+    expect(silent.every((x) => x == VoiceEndpointDecision.keepRecording), isTrue);
+    final paused = _run(AskodoxVoiceEndpointer.untilStop(),
+        [..._n(3, 150), ..._n(20, 5000), ..._n(200, 150), ..._n(20, 5000)]); // 40 s pause mid-speech
+    expect(paused.every((x) => x == VoiceEndpointDecision.keepRecording), isTrue);
+    final runaway = _run(AskodoxVoiceEndpointer.untilStop(), _n(700, 5000));
+    expect(runaway.last, VoiceEndpointDecision.stopMaxDuration);
+    expect(runaway.length, 600, reason: 'two-minute safety cap');
+  });
+
+  test('one draft: typed words + transcript, no duplication, nothing dropped', () {
+    expect(askodoxMergeVoiceDraft('', 'నాకు AC కావాలి'), 'నాకు AC కావాలి');
+    expect(askodoxMergeVoiceDraft('1.5 ton', 'split AC under 40000'), '1.5 ton split AC under 40000');
+    expect(askodoxMergeVoiceDraft('AC', 'AC repair near me'), 'AC repair near me');
+    expect(askodoxMergeVoiceDraft('  bill  ', ''), 'bill');
+  });
 }

@@ -29,9 +29,18 @@ class AskodoxVoiceEndpointer {
     this.minimumThreshold = 600,
   });
 
+  /// Main Chat (owner requirement after APK 1316): the microphone stays open
+  /// until the user's own Stop -- no silence or no-speech auto-stop. Only the
+  /// [maxDuration] safety limit remains (the backend segments long audio).
+  AskodoxVoiceEndpointer.untilStop({Duration maxDuration = const Duration(minutes: 2)})
+      : this(silenceAfterSpeech: null, noSpeechTimeout: null, maxDuration: maxDuration);
+
   final Duration calibration;
-  final Duration silenceAfterSpeech;
-  final Duration noSpeechTimeout;
+  /// Null = never stop on silence (only Stop / [maxDuration]).
+  final Duration? silenceAfterSpeech;
+
+  /// Null = never stop because nothing was heard yet.
+  final Duration? noSpeechTimeout;
   final Duration maxDuration;
   final Duration minimumSpeech;
   final int minimumThreshold;
@@ -76,15 +85,27 @@ class AskodoxVoiceEndpointer {
 
     if (elapsed >= maxDuration) return VoiceEndpointDecision.stopMaxDuration;
     final lastSpeech = _lastSpeechAt;
-    if (heardSpeech && lastSpeech != null &&
-        elapsed - lastSpeech >= silenceAfterSpeech) {
+    final silence = silenceAfterSpeech;
+    if (silence != null && heardSpeech && lastSpeech != null &&
+        elapsed - lastSpeech >= silence) {
       return VoiceEndpointDecision.stopAfterSilence;
     }
-    if (!heardSpeech && elapsed >= noSpeechTimeout) {
+    final noSpeech = noSpeechTimeout;
+    if (noSpeech != null && !heardSpeech && elapsed >= noSpeech) {
       return VoiceEndpointDecision.stopNoSpeech;
     }
     return VoiceEndpointDecision.keepRecording;
   }
+}
+
+/// One composer draft from what the user typed and what they then said:
+/// typed words first, the transcript after (no duplicate when the transcript
+/// already contains the typed words).
+String askodoxMergeVoiceDraft(String typed, String transcript) {
+  final t = typed.trim(), v = transcript.trim();
+  if (t.isEmpty) return v;
+  if (v.isEmpty || v.contains(t)) return v.isEmpty ? t : v;
+  return '$t $v';
 }
 
 final _teluguScript = RegExp(r'[ఀ-౿]');

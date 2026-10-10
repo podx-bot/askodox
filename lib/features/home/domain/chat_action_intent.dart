@@ -97,3 +97,28 @@ final _listIntent = RegExp(
 
 /// "Sell this" / "list this" with a photo or video: build a catalog draft.
 bool askodoxWantsToList(String text) => _listIntent.hasMatch(text);
+
+final _ackOnly = RegExp(
+  r'^(yes|yeah|yep|ok|okay|sure|done|no|nope|hi|hello|thanks|thank you|fine|good|'
+  r'అవును|సరే|ఓకే|హా|లేదు|వద్దు|థాంక్స్|ధన్యవాదాలు|हाँ|हां|ठीक|नहीं)[\s.!?]*$',
+  caseSensitive: false,
+);
+final _phoneLike = RegExp(r'^[+\d][\d\s\-()]{5,}$');
+
+/// A listing needs a real thing to sell: never an acknowledgement ("yes",
+/// "సరే"), a phone number, a bare number or the place itself (APK 1316:
+/// ordinary chat replies became listings).
+bool askodoxListingSubjectValid(String? subject, {String? location}) {
+  final s = (subject ?? '').trim();
+  if (s.runes.length < 2) return false;
+  if (_ackOnly.hasMatch(s) || _phoneLike.hasMatch(s)) return false;
+  if (!RegExp(r'[^\d\s.,₹+\-]').hasMatch(s)) return false; // digits / price only
+  final place = (location ?? '').trim().toLowerCase();
+  if (place.isNotEmpty && (s.toLowerCase() == place || place.startsWith(s.toLowerCase()))) return false;
+  return true;
+}
+
+/// One listing per sold thing per conversation: later replies ("yes", a
+/// phone number, a place) must not post the same deal again.
+String askodoxListingKey(String? subject, Object? price, Object? quantity) =>
+    '${(subject ?? '').trim().toLowerCase()}|${price ?? ''}|${quantity ?? ''}';

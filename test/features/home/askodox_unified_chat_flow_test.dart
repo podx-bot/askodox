@@ -2792,6 +2792,18 @@ void main() {
     expect(composer, greaterThan(laterQuestion), reason: 'the input stays at the bottom');
   });
 
+  testWidgets('APK 1316: after a listing is posted, "yes", a phone number or a place never post it again',
+      (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository(const []));
+    await h.pump(tester);
+    await h.send(tester, 'I want to sell my 2 bicycles in Vijayawada for 3000');
+    expect(h.listings.listed, hasLength(1));
+    for (final reply in ['yes', '9876543210', 'Vijayawada', 'సరే']) {
+      await h.send(tester, reply);
+    }
+    expect(h.listings.listed, hasLength(1), reason: 'ordinary replies are not new listings');
+  });
+
   testWidgets('role follows activity: buyer then seller is announced and seller never runs a buyer search',
       (tester) async {
     final h = _Harness(
@@ -4655,7 +4667,7 @@ void main() {
     tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null));
 
-    testWidgets('long Telugu speech with natural pauses keeps recording, stops on genuine silence and replies in Telugu voice',
+    testWidgets('long Telugu speech with natural pauses keeps recording through silence until Stop and replies in Telugu voice',
         (tester) async {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
@@ -4665,7 +4677,7 @@ void main() {
           ...speech(const Duration(seconds: 3), level: 1200), // soft voice
           ...quiet(const Duration(seconds: 2), level: 400),
         ],
-        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+        ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
       ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
@@ -4685,6 +4697,8 @@ void main() {
           reason: 'still speaking at 20 s: no premature stop');
 
       await runFor(tester, const Duration(seconds: 17));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'no auto-stop on silence: the mic stays on until Stop');
+      await _stopVoice(tester);
 
       expect(methods(), isNot(contains('startVoiceSearch')), reason: 'never the system recognizer');
       expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1));
@@ -4707,7 +4721,7 @@ void main() {
           ...speech(const Duration(seconds: 4), level: 2400),
           ...quiet(const Duration(seconds: 1), level: 300), // breaths, not silence
         ],
-        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+        ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
       ]);
       const longTranscript = 'నాకు విజయవాడలో రేపు ఉదయం పది గంటలకు రెండు కిలోల చికెన్ కావాలి '
           'స్కిన్‌లెస్ కర్రీ కట్ కావాలి డెలివరీ మా ఇంటికి కావాలి ధర ఎంత అవుతుందో కూడా చెప్పండి';
@@ -4728,6 +4742,8 @@ void main() {
       expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'still speaking at 58 s');
 
       await runFor(tester, const Duration(seconds: 15));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'no auto-stop on silence: the mic stays on until Stop');
+      await _stopVoice(tester);
 
       expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1), reason: 'finalized exactly once');
       expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'audio kept, not discarded');
@@ -4744,7 +4760,7 @@ void main() {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
         ...speech(const Duration(seconds: 12)),
-        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+        ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
       ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
@@ -4760,6 +4776,8 @@ void main() {
       await h.pump(tester, locale: 'te');
       await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 23));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'no auto-stop on silence: the mic stays on until Stop');
+      await _stopVoice(tester);
 
       final speak = calls.lastWhere((c) => c.method == 'speakReply');
       expect((speak.arguments as Map)['languageCode'], 'en');
@@ -4785,19 +4803,42 @@ void main() {
       expect(find.text('I need AC repair'), findsOneWidget);
     });
 
-    testWidgets('no speech at all is reported after the long timeout, chat untouched', (tester) async {
-      mockRecorder(levels: quiet(const Duration(seconds: 30)));
+    testWidgets('no speech yet: the mic keeps listening (no timeout) until the user stops or cancels', (tester) async {
+      mockRecorder(levels: quiet(const Duration(seconds: 40)));
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await h.pump(tester);
       await _tapVoice(tester);
-      await runFor(tester, const Duration(seconds: 10));
-      expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'not at 10 s');
-      await runFor(tester, const Duration(seconds: 6));
+      await runFor(tester, const Duration(seconds: 30));
+      expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'no no-speech timeout');
+      expect(methods(), isNot(contains('stopVoiceRecording')));
+      expect(find.text('Listening…'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxVoiceCancel')));
+      await _Harness.settle(tester);
 
       expect(methods(), contains('cancelVoiceRecording'));
-      expect(find.text('I did not hear anything. Please try again.'), findsOneWidget);
       expect(h.voice.calls, isEmpty);
       expect(h.assistant.requests, isEmpty);
+    });
+
+    testWidgets('typed text + voice are ONE draft; Send while recording stops and sends both (nothing lost)',
+        (tester) async {
+      mockRecorder(levels: speech(const Duration(seconds: 60)));
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'విజయవాడలో కావాలి',
+      );
+      await h.pump(tester, locale: 'te');
+      await tester.enterText(find.byType(TextField), 'స్ప్లిట్ AC');
+      await _tapVoice(tester);
+      await runFor(tester, const Duration(seconds: 3));
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await _Harness.settle(tester);
+
+      expect(methods().where((m) => m == 'stopVoiceRecording'), hasLength(1), reason: 'Send finished the recording');
+      expect(methods(), isNot(contains('cancelVoiceRecording')), reason: 'the pending speech is transcribed, not dropped');
+      expect(h.voice.calls, hasLength(1));
+      expect(find.text('స్ప్లిట్ AC విజయవాడలో కావాలి'), findsOneWidget, reason: 'typed + spoken in one message');
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
     });
 
     testWidgets('cancel discards the recording without sending anything', (tester) async {
@@ -4834,12 +4875,14 @@ void main() {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
         ...speech(const Duration(seconds: 2)),
-        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+        ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
       ]);
       final failing = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
       await failing.pump(tester);
       await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 13));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'no auto-stop on silence: the mic stays on until Stop');
+      await _stopVoice(tester);
       expect(find.textContaining('could not understand'), findsOneWidget);
       expect(failing.assistant.requests, isEmpty);
     });
@@ -4896,7 +4939,7 @@ void main() {
         levels: [
           ...quiet(const Duration(milliseconds: 600)),
           ...speech(const Duration(seconds: 2)),
-          ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+          ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
         ],
         extra: (call) async => call.method == 'playReplyAudio' ? playing.future : null,
       );
@@ -4922,6 +4965,9 @@ void main() {
       expect(find.text('Listening…'), findsOneWidget);
 
       await runFor(tester, const Duration(seconds: 10));
+      expect(find.text('Listening…'), findsOneWidget, reason: 'silence never ends the turn');
+      await tester.tap(find.byKey(const Key('askodoxVoiceStop')));
+      await tester.pump();
       expect(find.text('Understanding…'), findsOneWidget);
 
       h.voice.hold!.complete();
@@ -4946,7 +4992,7 @@ void main() {
       mockRecorder(levels: [
         ...quiet(const Duration(milliseconds: 600)),
         ...speech(const Duration(seconds: 2)),
-        ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+        ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
       ]);
       final h = _Harness(
         matches: _FakeMatchRepository([StateError('unused')]),
@@ -4963,6 +5009,8 @@ void main() {
       final state = tester.state(find.byType(AskodoxPrimaryHomeScreen)) as dynamic;
       await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 13));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'no auto-stop on silence: the mic stays on until Stop');
+      await _stopVoice(tester);
 
       expect(h.replySpeech.calls.single.$2, 'te');
       final speak = calls.lastWhere((c) => c.method == 'speakReply');
@@ -4976,7 +5024,7 @@ void main() {
         levels: [
           ...quiet(const Duration(milliseconds: 600)),
           ...speech(const Duration(seconds: 2)),
-          ...quiet(const Duration(seconds: 9)), // past the 8 s safety silence
+          ...quiet(const Duration(seconds: 9)), // a long pause: must NOT end the turn
           ...speech(const Duration(seconds: 60)),
         ],
         extra: (call) async {
@@ -4990,6 +5038,8 @@ void main() {
       await h.pump(tester);
       await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 13));
+      expect(methods(), isNot(contains('stopVoiceRecording')), reason: 'no auto-stop on silence: the mic stays on until Stop');
+      await _stopVoice(tester);
       expect(find.text('Speaking…'), findsOneWidget);
 
       await _tapVoice(tester);
@@ -5597,6 +5647,14 @@ Future<void> _openCompanionHub(WidgetTester tester) async {
 
 /// Voice is the companion's: tap it -> Voice starts listening; while
 /// listening, a tap on the companion stops ("tap again to stop").
+/// The user's Stop (the only way a Main Chat recording ends besides Cancel
+/// and the max-duration safety limit).
+Future<void> _stopVoice(WidgetTester tester) async {
+  await tester.ensureVisible(find.byKey(const Key('askodoxVoiceStop')));
+  await tester.tap(find.byKey(const Key('askodoxVoiceStop')));
+  await _Harness.settle(tester);
+}
+
 Future<void> _tapVoice(WidgetTester tester) async {
   final listening = find.byKey(const Key('askodoxVoiceElapsed')).evaluate().isNotEmpty;
   if (listening) {

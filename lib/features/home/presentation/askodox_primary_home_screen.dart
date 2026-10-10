@@ -435,7 +435,8 @@ class _AskodoxPrimaryHomeScreenState
       setState(() => _voicePhase = _VoicePhase.idle);
       return;
     }
-    _endpointer = AskodoxVoiceEndpointer();
+    // Stays on until the user's Stop (no silence / no-speech auto-stop).
+    _endpointer = AskodoxVoiceEndpointer.untilStop();
     _voiceFinishing = false;
     _voiceTicks = 0;
     _voiceTimer = Timer.periodic(_voiceSampleInterval, (_) => _sampleVoice());
@@ -527,8 +528,18 @@ class _AskodoxPrimaryHomeScreenState
           : 'I could not understand that. Please try again or type your message.');
       return;
     }
+    // ONE draft: words already typed + this transcript (+ the attachments
+    // still in the composer) go together -- typed text is never dropped.
+    final draft = askodoxMergeVoiceDraft(_controller.text, transcript);
+    if (_sending || _analyzingAttachments) {
+      // A turn is still in flight: keep the transcript in the composer
+      // instead of discarding it; the user sends it next.
+      _controller.text = draft;
+      setState(() => _voicePhase = _VoicePhase.idle);
+      return;
+    }
     setState(() => _voicePhase = _VoicePhase.thinking);
-    await _send(transcript, true);
+    await _send(draft, true);
     if (mounted && _voicePhase == _VoicePhase.thinking) {
       setState(() => _voicePhase = _VoicePhase.idle);
     }
@@ -872,11 +883,9 @@ class _AskodoxPrimaryHomeScreenState
           deal.dynamicFields['searched'] == true &&
           AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
         if (deal.intent == DealIntent.sell && _userMeansToSell(deal.rawText, deal)) {
-          // A completed "sell" deal is a real listing to save, not a buyer
-          // search -- see `_createRealListing`.
-          final outcome = await _createRealListing(deal);
-          listingBanner = outcome.$1;
-          listingBannerIsError = outcome.$2;
+          // Restoring a conversation never posts anything: the listing was
+          // saved (or not) when the user finished it. Re-posting here made a
+          // duplicate listing on every app restart (APK 1316).
         } else {
           results = await _findUniversalMatches(
               deal.intent == DealIntent.sell ? deal.copyWith(intent: DealIntent.buy) : deal);
@@ -1389,10 +1398,26 @@ class _AskodoxPrimaryHomeScreenState
     return false;
   }
 
+  /// Deals already posted as listings in this conversation (see
+  /// [askodoxListingKey]).
+  final Set<String> _listedDealKeys = {};
+
   Future<(String?, bool)> _createRealListing(UniversalDeal deal) async {
+    final subject = deal.subject;
+    if (!askodoxListingSubjectValid(subject, location: deal.location.label)) {
+      return (
+        _te ? 'మీరు ఏమి అమ్ముతున్నారో చెప్పండి (ఉదా: "2 సైకిళ్లు ₹3000").' : 'Tell me what you are selling (e.g. "2 bicycles for ₹3000").',
+        false,
+      );
+    }
+    final key = askodoxListingKey(subject, deal.price, deal.quantity);
+    if (_listedDealKeys.contains(key)) return (null, false); // already posted
+    _listedDealKeys.add(key);
     try {
       final result =
           await ref.read(sellerListingRepositoryProvider).createListing(deal);
+      // Not saved (sign-in / error): the user may try the same listing again.
+      if (!result.success) _listedDealKeys.remove(key);
       if (result.success && result.heldForReview) {
         final subject = deal.subject ?? '';
         final why = result.message ?? '';
@@ -1433,6 +1458,7 @@ class _AskodoxPrimaryHomeScreenState
         true,
       );
     } catch (_) {
+      _listedDealKeys.remove(key);
       return (
         _te
             ? 'లిస్టింగ్ సేవ్ చేయడం సాధ్యం కాలేదు.'
@@ -1608,6 +1634,18 @@ class _AskodoxPrimaryHomeScreenState
   /// timeout, a parse failure), the composer, mic and card actions are
   /// usable again afterwards -- a stuck "sending" state disabled the input
   /// and the keyboard on real phones.
+  /// Send from the composer (button / keyboard). While recording, Send ends
+  /// the recording and sends typed text + transcript + attachments together;
+  /// while a recording is being transcribed, that flow sends the draft.
+  Future<void> _sendFromComposer() async {
+    if (_voicePhase == _VoicePhase.recording) {
+      await _finishVoice(noSpeech: false);
+      return;
+    }
+    if (_voicePhase == _VoicePhase.transcribing) return;
+    await _send();
+  }
+
   Future<void> _send([String? preset, bool speakResponse = false]) async {
     try {
       await _sendTurn(preset, speakResponse);
@@ -4585,7 +4623,7 @@ class _AskodoxPrimaryHomeScreenState
           focusNode: _focusNode,
           enabled: !_sending,
           textInputAction: TextInputAction.send,
-          onSubmitted: (_) => _send(),
+          onSubmitted: (_) => _sendFromComposer(),
           cursorColor: const Color(0xFF5B4BFF),
           style: const TextStyle(
             color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
@@ -4609,7 +4647,7 @@ class _AskodoxPrimaryHomeScreenState
           ),
         )),
         IconButton.filled(
-          onPressed: _sending ? null : _send,
+          onPressed: _sending ? null : _sendFromComposer,
           style: IconButton.styleFrom(
             backgroundColor: _blue,
             minimumSize: const Size(40, 40),
