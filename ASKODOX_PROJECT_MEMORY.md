@@ -149,3 +149,9 @@ Built on main bae9c9e (PR #180). Navigator UX P0 slice:
   OPEN DECISION: prod logs show Telugu speech (te-IN) answered in English because the explicit Settings/header
   Preferred Language was English; approved Section 2 rule says Preferred Language wins -> change reverted, owner to decide.
   NOT STARTED: Clean UI redesign, Smart Fill, Studio editing, Free/Plus/Pro subscriptions (Phases 2-5).
+- 2026-10-10 round "final consolidated" (PR #182, APK 1318): DONE (code+CI) Navigator Profile (5 sections via shared
+  `navigator_section.dart`), My Business grouped sections, My Listings (search, own-photo thumbnail, confirm remove,
+  Ready-made catalog entry); ONE data-driven catalogue engine now carries per-template attributes (`catalogue_templates.py`
+  attributes / clean_attributes; new meat_poultry, pickles, tiles_marble, electronics, services); required detail or price
+  missing -> draft. NOT DONE: Smart Fill engine, Studio editing, rides fleet/negotiation, voice text<->TTS sync,
+  subscriptions UI; Rides/Delivery/Services screens not yet restyled; listing API has no image upload outside catalogue.
