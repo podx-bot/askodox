@@ -171,13 +171,14 @@ void main() {
       final row = find.byKey(ValueKey(key));
       await tester.ensureVisible(row);
       await tester.tap(row);
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
       expect(find.text('PAGE $route'), findsOneWidget, reason: '$key opens $route');
       expect(find.text('PAGE HOME'), findsNothing, reason: 'never routed to chat');
       GoRouter.of(tester.element(find.text('PAGE $route'))).pop();
-      for (var i = 0; i < 6; i++) {
+      // Let the back transition finish before the next tap.
+      for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
     }
