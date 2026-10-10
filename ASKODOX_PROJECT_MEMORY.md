@@ -141,3 +141,11 @@ Built on main bae9c9e (PR #180). Navigator UX P0 slice:
   builder overlays, companion bar, notifications) -- no such widget on main or this branch; needs the owner's
   screenshot to identify (possibly an older APK or an Android notification). Morning-bug list still not available
   in repo / issues / memory. APK 1316 (run 37951204272) still matches the app code (later commits = tests/docs).
+- 2026-10-10 P0 round after APK 1316 (PR #182, commit b6017cb + revert 92100e1; APK 1317 phone-test link):
+  DONE (code+CI): mic until Stop (`AskodoxVoiceEndpointer.untilStop`, 2 min cap); typed + voice + attachments = one
+  draft (`askodoxMergeVoiceDraft`, Send while recording finishes & sends); no repeat listings (restore never posts,
+  once per deal, `askodoxListingSubjectValid`); backend model JSON `strict=False` (prod 2026-10-09: Gemini JSON with
+  raw newline failed -> OpenAI fallback 429 -> no answer on "Airtel").
+  OPEN DECISION: prod logs show Telugu speech (te-IN) answered in English because the explicit Settings/header
+  Preferred Language was English; approved Section 2 rule says Preferred Language wins -> change reverted, owner to decide.
+  NOT STARTED: Clean UI redesign, Smart Fill, Studio editing, Free/Plus/Pro subscriptions (Phases 2-5).
