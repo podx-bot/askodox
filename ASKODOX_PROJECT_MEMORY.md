@@ -155,3 +155,7 @@ Built on main bae9c9e (PR #180). Navigator UX P0 slice:
   attributes / clean_attributes; new meat_poultry, pickles, tiles_marble, electronics, services); required detail or price
   missing -> draft. NOT DONE: Smart Fill engine, Studio editing, rides fleet/negotiation, voice text<->TTS sync,
   subscriptions UI; Rides/Delivery/Services screens not yet restyled; listing API has no image upload outside catalogue.
+- 2026-10-10 APK 1319: voice + text together (askodoxSpeechChunks: sentence chunks, first <=160 chars, next chunk
+  prefetched; text typed in as read via askodoxRevealPrefix; one session for Stop/Pause), glued points split
+  (askodoxSplitGluedPoints), 10/14 px point/paragraph gaps. Typed turns are still NOT spoken (approved rule; owner
+  may want every reply spoken -- ask). Telugu question -> English reply = explicit English Preferred Language (decision pending).
