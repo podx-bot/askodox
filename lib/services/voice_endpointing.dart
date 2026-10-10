@@ -108,6 +108,42 @@ String askodoxMergeVoiceDraft(String typed, String transcript) {
   return '$t $v';
 }
 
+/// A reply spoken in sentence-sized chunks (cut on line / sentence ends):
+/// the first words play almost at once instead of after the WHOLE reply is
+/// synthesised (production: 10 s before a long reply started), and each
+/// chunk's text is revealed while it is spoken. Offsets index [text].
+List<({int start, int end})> askodoxSpeechChunks(String text, {int firstMax = 160, int maxChars = 320}) {
+  final cuts = <int>[0];
+  for (final m in RegExp(r'\n+|(?<=[.!?।])\s+').allMatches(text)) {
+    if (m.end > cuts.last) cuts.add(m.end);
+  }
+  if (cuts.last != text.length) cuts.add(text.length);
+  final out = <({int start, int end})>[];
+  var start = 0;
+  for (var i = 1; i < cuts.length; i++) {
+    final end = cuts[i];
+    final next = i + 1 < cuts.length ? cuts[i + 1] : null;
+    final limit = out.isEmpty ? firstMax : maxChars;
+    if (next == null || next - start > limit) {
+      if (text.substring(start, end).trim().isNotEmpty) out.add((start: start, end: end));
+      start = end;
+    }
+  }
+  return out;
+}
+
+/// The part of a markup reply shown while it is being spoken: cut at the end
+/// of a word, with an open **bold** closed so no raw "**" ever shows.
+String askodoxRevealPrefix(String markup, int end) {
+  if (end >= markup.length) return markup;
+  var cut = end.clamp(0, markup.length);
+  while (cut < markup.length && !RegExp(r'\s').hasMatch(markup[cut])) {
+    cut++;
+  }
+  final prefix = markup.substring(0, cut).trimRight();
+  return '**'.allMatches(prefix).length.isOdd ? '$prefix**' : prefix;
+}
+
 final _teluguScript = RegExp(r'[ఀ-౿]');
 final _latinLetters = RegExp(r'[A-Za-z]');
 

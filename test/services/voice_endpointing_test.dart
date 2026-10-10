@@ -119,4 +119,25 @@ void main() {
     expect(askodoxMergeVoiceDraft('AC', 'AC repair near me'), 'AC repair near me');
     expect(askodoxMergeVoiceDraft('  bill  ', ''), 'bill');
   });
+
+  test('long replies are spoken in sentence chunks (first one short) that cover the whole text', () {
+    final text = List.generate(6, (i) => 'Sentence number $i explains one more useful detail for the customer.').join(' ');
+    final chunks = askodoxSpeechChunks(text);
+    expect(chunks.length, greaterThan(1));
+    expect(chunks.first.end - chunks.first.start, lessThanOrEqualTo(160), reason: 'the first words play fast');
+    expect(chunks.first.start, 0);
+    expect(chunks.last.end, text.length);
+    for (var i = 1; i < chunks.length; i++) {
+      expect(chunks[i].start, chunks[i - 1].end, reason: 'no gap, no overlap');
+    }
+    expect(askodoxSpeechChunks('Short reply.'), hasLength(1));
+    expect(askodoxSpeechChunks(''), isEmpty);
+  });
+
+  test('revealed text cuts at a word end and never shows a raw **', () {
+    const markup = 'Intro. **Cockroach Party** is a protest.';
+    expect(askodoxRevealPrefix(markup, 10), 'Intro. **Cockroach**');
+    expect(askodoxRevealPrefix(markup, 3), 'Intro.');
+    expect(askodoxRevealPrefix(markup, 999), markup);
+  });
 }

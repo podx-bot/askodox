@@ -112,7 +112,15 @@ class AskodoxTable extends AskodoxReplyBlock {
 }
 
 /// Splits a reply into blocks. Separator rows of a table are dropped.
+/// Points the model glued into one line ("...done. - **Next**: ...",
+/// "... • **X**", "... 2. **Y**") become their own lines, so every point
+/// renders as its own point (APK 1318: three points shown as one paragraph).
+String askodoxSplitGluedPoints(String text) => text
+    .replaceAllMapped(RegExp(r'(?<=\S)[ \t]+([-•*])[ \t]+(?=\*\*)'), (m) => '\n${m.group(1)} ')
+    .replaceAllMapped(RegExp(r'(?<=[.!?:।)])[ \t]+(\d{1,2}[.)])[ \t]+(?=\*\*)'), (m) => '\n${m.group(1)} ');
+
 List<AskodoxReplyBlock> askodoxParseReply(String text) {
+  text = askodoxSplitGluedPoints(text);
   final blocks = <AskodoxReplyBlock>[];
   final paragraph = <String>[];
   final table = <List<String>>[];
@@ -246,7 +254,9 @@ class AskodoxRichReply extends StatelessWidget {
       children: [
         for (final (i, block) in blocks.indexed)
           Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : (block is AskodoxListItem ? 3 : 8)),
+            // A clear gap between points and between paragraphs (owner
+            // request: point-to-point and paragraph-to-paragraph spacing).
+            padding: EdgeInsets.only(top: i == 0 ? 0 : (block is AskodoxListItem ? 10 : 14)),
             child: switch (block) {
               AskodoxHeading(:final text) =>
                 inline(text, style.copyWith(fontWeight: FontWeight.w800, fontSize: (style.fontSize ?? 14) + 1)),

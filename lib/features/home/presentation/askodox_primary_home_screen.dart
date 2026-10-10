@@ -366,6 +366,43 @@ class _AskodoxPrimaryHomeScreenState
   int _speechRangeStart = 0;
   bool _speechPaused = false;
   String? _pausedRemainder;
+
+  /// Spoken chunks still to come after the current one (device pause/resume
+  /// continues with them).
+  List<String> _speechQueue = const [];
+
+  /// While a long reply is spoken, its text appears as it is read: the turn
+  /// and how much of its markup is shown (null = the whole reply).
+  int? _revealTurn;
+  int? _revealEnd;
+  Timer? _revealTimer;
+
+  void _clearReveal() {
+    _revealTimer?.cancel();
+    _revealTimer = null;
+    if (_revealTurn != null && mounted) {
+      setState(() {
+        _revealTurn = null;
+        _revealEnd = null;
+      });
+    }
+  }
+
+  /// Types [from]..[to] of the revealed turn over [duration] (word steps).
+  void _typeReveal(int from, int to, Duration duration) {
+    _revealTimer?.cancel();
+    final steps = ((to - from) / 6).ceil().clamp(1, 400);
+    final tick = Duration(milliseconds: (duration.inMilliseconds / steps).round().clamp(25, 400));
+    var i = 0;
+    setState(() => _revealEnd = from);
+    _revealTimer = Timer.periodic(tick, (t) {
+      if (!mounted || _revealTurn == null) return t.cancel();
+      i++;
+      final end = i >= steps ? to : from + ((to - from) * i / steps).round();
+      setState(() => _revealEnd = end);
+      if (end >= to) t.cancel();
+    });
+  }
   bool _speechMuted = false;
 
   /// Result Board: the card each category box shows ("dealId:kind" -> index)
@@ -577,6 +614,8 @@ class _AskodoxPrimaryHomeScreenState
   Future<void> _stopSpeaking() async {
     _speechTurn++;
     _pausedRemainder = null;
+    _speechQueue = const [];
+    _clearReveal();
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
     } catch (_) {}
@@ -606,7 +645,11 @@ class _AskodoxPrimaryHomeScreenState
       }
     }
     final text = _speakingText ?? '';
-    final rest = text.substring(_speechRangeStart.clamp(0, text.length)).trim();
+    final rest = [text.substring(_speechRangeStart.clamp(0, text.length)).trim(), ..._speechQueue]
+        .where((p) => p.isNotEmpty)
+        .join(' ');
+    _speechQueue = const [];
+    _clearReveal();
     _speechTurn++; // the stopped reply must not fall back to anything
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
@@ -3394,6 +3437,12 @@ class _AskodoxPrimaryHomeScreenState
   Future<void> _speakReply(String reply,
       {required String userText, bool force = false, bool deviceOnly = false}) async {
     if (_speechMuted && !force) return; // muted: the text reply stays
+    final markup = reply;
+    final chunks = askodoxSpeechChunks(markup);
+    if (chunks.length > 1) {
+      await _speakChunks(markup, chunks, userText: userText, deviceOnly: deviceOnly);
+      return;
+    }
     reply = askodoxPlainReply(reply); // markup is for the eye, never spoken
     final turn = ++_speechTurn;
     _speakingText = reply;
@@ -3476,6 +3525,96 @@ class _AskodoxPrimaryHomeScreenState
   }
 
 
+
+  /// A long reply: ONE voice session that speaks chunk after chunk (the
+  /// next chunk's audio is fetched while the current one plays) and reveals
+  /// each chunk's text as it is read -- text and voice stay together. Stop /
+  /// a newer reply end it; Sarvam pauses in place; device voice resumes with
+  /// the rest (see [_pauseSpeaking]).
+  Future<void> _speakChunks(String markup, List<({int start, int end})> chunks,
+      {required String userText, bool deviceOnly = false}) async {
+    final turn = ++_speechTurn;
+    final plain = [for (final c in chunks) askodoxPlainReply(markup.substring(c.start, c.end)).trim()];
+    final whole = askodoxPlainReply(markup);
+    final language = askodoxSpeechLanguage(reply: whole, userText: userText, uiTelugu: _te);
+    final revealIndex = _turns.lastIndexWhere((t) => !t.isUser && t.text == markup);
+    _speakingUserText = userText;
+    _speechPaused = false;
+    _pausedRemainder = null;
+    bool current() => mounted && turn == _speechTurn && _voicePhase == _VoicePhase.speaking;
+    if (mounted) {
+      setState(() {
+        _voicePhase = _VoicePhase.speaking;
+        if (revealIndex >= 0) {
+          _revealTurn = revealIndex;
+          _revealEnd = 0;
+        }
+      });
+    }
+    final lips = ref.read(askodoxCompanionVoiceProvider);
+    final useSarvam = !deviceOnly && ref.read(askodoxFlagProvider('voice.sarvam_tts'));
+    Future<Uint8List?> fetch(String text) async => useSarvam
+        ? await ref
+            .read(askodoxReplySpeechServiceProvider)
+            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue)
+        : null;
+    try {
+      var next = fetch(plain.first);
+      for (var i = 0; i < chunks.length; i++) {
+        final audio = await next;
+        if (!current()) return;
+        if (i + 1 < chunks.length) next = fetch(plain[i + 1]);
+        final text = plain[i];
+        if (text.isEmpty) continue;
+        _speakingText = text;
+        _speechRangeStart = 0;
+        _speechQueue = plain.sublist(i + 1);
+        // Opus at ~32 kbps -> seconds of speech; device voice ~13 chars / s.
+        final estimate = audio != null
+            ? Duration(milliseconds: (audio.length * 8 / 32).round())
+            : Duration(milliseconds: (text.length / 13 * 1000).round());
+        if (_revealTurn != null) _typeReveal(chunks[i].start, chunks[i].end, estimate);
+        lips.speechBegin(text);
+        bool played = false;
+        if (audio != null) {
+          _startLipSyncPolling(lips);
+          _speakingEngine = 'sarvam';
+          played = await _device.invokeMethod<bool>(
+                  'playReplyAudio', <String, Object?>{'bytes': audio, 'languageCode': language}) ==
+              true;
+          if (played) lastReplyVoiceEngine = 'sarvam_bulbul_v3';
+        }
+        _lipSyncTimer?.cancel();
+        if (!current()) return;
+        if (!played) {
+          lastReplyVoiceEngine = 'device';
+          _speakingEngine = 'device';
+          await _device.invokeMethod<bool>('speakReply', <String, Object?>{
+            'text': text,
+            'languageCode': language,
+            'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
+          });
+        }
+        if (!current()) return;
+      }
+    } catch (_) {
+      // The text reply stays available when no voice output works.
+    } finally {
+      if (turn == _speechTurn) {
+        _lipSyncTimer?.cancel();
+        lips.speechEnd();
+        _speakingEngine = '';
+        _speechQueue = const [];
+        _clearReveal();
+        if (mounted && _voicePhase == _VoicePhase.speaking) {
+          setState(() {
+            _speechPaused = false;
+            _voicePhase = _VoicePhase.idle;
+          });
+        }
+      }
+    }
+  }
 
   String _fallbackAssistantReply(String text, bool te) {
     final q = text.toLowerCase();
@@ -4341,7 +4480,11 @@ class _AskodoxPrimaryHomeScreenState
                       turn.isUser
                           ? Text(turn.text,
                               style: const TextStyle(color: Colors.white, height: 1.35, fontWeight: FontWeight.w500))
-                          : AskodoxRichReply(turn.text,
+                          : AskodoxRichReply(
+                              // Being read aloud: the text appears as it is spoken.
+                              _revealTurn == index && _revealEnd != null
+                                  ? askodoxRevealPrefix(turn.text, _revealEnd!)
+                                  : turn.text,
                               style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
                   ],
                 ),

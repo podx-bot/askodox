@@ -5018,6 +5018,51 @@ void main() {
       expect(state.lastReplyVoiceEngine, 'device');
     });
 
+    testWidgets('a long voice reply is spoken chunk by chunk and its text appears as it is read', (tester) async {
+      final first = Completer<Object?>();
+      var plays = 0;
+      mockRecorder(
+        levels: speech(const Duration(seconds: 60)),
+        extra: (call) async {
+          if (call.method != 'playReplyAudio') return null;
+          plays++;
+          return plays == 1 ? first.future : true;
+        },
+      );
+      final sentences = [
+        for (var i = 1; i <= 5; i++) 'Point $i of the answer explains one more useful detail for you today.',
+      ];
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'tell me about the protest',
+        assistant: _Assistant((_) => {
+              'reply': sentences.join(' '),
+              'domain': 'GENERAL',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
+      );
+      h.replySpeech.audio = Uint8List.fromList(List.filled(400, 1));
+      await h.pump(tester);
+      await _tapVoice(tester);
+      await runFor(tester, const Duration(seconds: 2));
+      await tester.tap(find.byKey(const Key('askodoxVoiceStop')));
+      for (var i = 0; i < 15; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+      }
+      expect(find.text('Speaking…'), findsOneWidget);
+      expect(h.replySpeech.calls.first.$1.length, lessThan(sentences.join(' ').length),
+          reason: 'the first chunk is synthesised alone -- voice starts without waiting for the whole reply');
+      expect(find.textContaining(sentences.last), findsNothing, reason: 'later text appears only as it is read');
+      first.complete(true);
+      await _Harness.settle(tester);
+      expect(plays, greaterThan(1), reason: 'one voice session, several chunks');
+      expect(h.replySpeech.calls.map((c) => c.$1).join(' '), sentences.join(' '), reason: 'every word spoken once');
+      expect(find.textContaining(sentences.last), findsOneWidget, reason: 'the whole reply is shown at the end');
+      expect(find.byKey(const Key('askodoxVoicePanel')), findsNothing);
+    });
+
     testWidgets('starting the mic while ASKODOX is speaking interrupts the reply', (tester) async {
       final playing = Completer<Object?>();
       mockRecorder(
