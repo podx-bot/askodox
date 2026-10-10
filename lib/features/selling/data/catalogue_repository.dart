@@ -29,6 +29,27 @@ class AskodoxCatalogueItem {
       );
 }
 
+/// A category-specific detail of a template (cut, fabric, warranty ...): the
+/// seller fills it in; [options] are choices, never a pre-filled fact.
+class AskodoxCatalogueAttribute {
+  const AskodoxCatalogueAttribute(
+      {required this.key, required this.labels, this.options = const [], this.required = false});
+
+  final String key;
+  final Map<String, String> labels;
+  final List<String> options;
+  final bool required;
+
+  String label(String lang) => _named(labels, lang);
+
+  factory AskodoxCatalogueAttribute.fromJson(Map<String, Object?> json) => AskodoxCatalogueAttribute(
+        key: '${json['key']}',
+        labels: {for (final e in ((json['label'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
+        options: json['kind'] == 'choice' ? [for (final o in (json['options'] as List? ?? const [])) '$o'] : const [],
+        required: json['required'] == true,
+      );
+}
+
 class AskodoxCatalogueCategory {
   const AskodoxCatalogueCategory({required this.key, required this.names, required this.items});
 
@@ -49,11 +70,15 @@ class AskodoxCatalogueCategory {
 }
 
 class AskodoxCatalogueTemplate {
-  const AskodoxCatalogueTemplate({required this.key, required this.names, required this.categories});
+  const AskodoxCatalogueTemplate(
+      {required this.key, required this.names, required this.categories, this.attributes = const []});
 
   final String key;
   final Map<String, String> names;
   final List<AskodoxCatalogueCategory> categories;
+
+  /// This category's own details (one engine, data from the backend).
+  final List<AskodoxCatalogueAttribute> attributes;
 
   String name(String lang) => _named(names, lang);
   int get itemCount => categories.fold(0, (sum, c) => sum + c.items.length);
@@ -65,6 +90,10 @@ class AskodoxCatalogueTemplate {
           for (final c in (json['categories'] as List? ?? const []))
             if (c is Map) AskodoxCatalogueCategory.fromJson(Map<String, Object?>.from(c)),
         ],
+        attributes: [
+          for (final a in (json['attributes'] as List? ?? const []))
+            if (a is Map) AskodoxCatalogueAttribute.fromJson(Map<String, Object?>.from(a)),
+        ],
       );
 }
 
@@ -73,6 +102,16 @@ class AskodoxCatalogueEntry {
   AskodoxCatalogueEntry({required this.item, required this.size, this.price, this.inStock = true, this.photoBase64});
 
   final AskodoxCatalogueItem item;
+
+  /// The seller's own values for the template's attributes.
+  final Map<String, String> attributes = {};
+
+  /// Ready to publish: a price and every REQUIRED detail (else a draft).
+  bool readyFor(List<AskodoxCatalogueAttribute> specs) =>
+      price != null &&
+      price! > 0 &&
+      specs.where((a) => a.required).every((a) => (attributes[a.key] ?? '').trim().isNotEmpty);
+
   String size;
   double? price;
   bool inStock;
@@ -84,6 +123,8 @@ class AskodoxCatalogueEntry {
         if (price != null) 'price': price,
         'stock_status': inStock ? 'IN_STOCK' : 'OUT_OF_STOCK',
         if (photoBase64 != null) 'photo_base64': photoBase64,
+        if (attributes.isNotEmpty)
+          'attributes': {for (final e in attributes.entries) if (e.value.trim().isNotEmpty) e.key: e.value.trim()},
       };
 }
 

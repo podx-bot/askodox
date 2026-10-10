@@ -1,5 +1,6 @@
-"""Ready-made seller catalogue templates (Grocery, Fruits & Vegetables,
-Fashion).
+"""Ready-made seller catalogue templates (grocery, fruits & vegetables,
+fashion, meat & poultry, pickles, tiles & marble, electronics, services) --
+ONE data-driven engine: each template carries its own category attributes.
 
 A template is a starting list of GENERIC items (no brands, no prices, no
 photos) that a seller picks from, then edits: price, size/unit, stock and an
@@ -154,14 +155,155 @@ _FASHION = [
     ]),
 ]
 
+
+def _attr(key: str, en: str, te: str, hi: str, kind: str = "text", options: tuple[str, ...] = (),
+          required: bool = False) -> Dict[str, Any]:
+    """A category-specific detail the SELLER fills in (never pre-filled with a
+    fact: options are choices to pick from, text stays empty)."""
+    return {"key": key, "label": {"en": en, "te": te, "hi": hi}, "kind": kind, "options": list(options),
+            "required": required}
+
+
+_DELIVERY = _attr("delivery", "Delivery", "డెలివరీ", "डिलीवरी", "choice", ("Pickup only", "Home delivery", "Both"))
+_SERVICE_AREA = _attr("service_area", "Service / delivery area", "సర్వీస్ / డెలివరీ ప్రాంతం", "सेवा / डिलीवरी क्षेत्र")
+
+_MEAT = [
+    _category("chicken", "Chicken", "చికెన్", "चिकन", [
+        ("whole", "Whole chicken", "పూర్తి కోడి", "पूरा चिकन", "kg", ("1 kg", "2 kg")),
+        ("curry_cut", "Chicken curry cut", "చికెన్ కర్రీ కట్", "चिकन करी कट", "kg", ("500 g", "1 kg", "2 kg")),
+        ("boneless", "Boneless chicken", "బోన్‌లెస్ చికెన్", "बोनलेस चिकन", "kg", ("500 g", "1 kg")),
+        ("country", "Country chicken (natu kodi)", "నాటు కోడి", "देसी मुर्गा", "kg", ("1 kg",)),
+        ("eggs", "Eggs", "కోడి గుడ్లు", "अंडे", "dozen", ("6", "12", "30")),
+    ]),
+    _category("mutton_fish", "Mutton & fish", "మటన్ & చేపలు", "मटन और मछली", [
+        ("mutton_curry", "Mutton curry cut", "మటన్ కర్రీ కట్", "मटन करी कट", "kg", ("500 g", "1 kg")),
+        ("mutton_boneless", "Boneless mutton", "బోన్‌లెస్ మటన్", "बोनलेस मटन", "kg", ("500 g", "1 kg")),
+        ("fish", "Fresh fish", "తాజా చేపలు", "ताज़ी मछली", "kg", ("500 g", "1 kg")),
+        ("prawns", "Prawns", "రొయ్యలు", "झींगे", "kg", ("250 g", "500 g", "1 kg")),
+    ]),
+]
+
+_PICKLES = [
+    _category("veg_pickles", "Veg pickles", "వెజ్ పచ్చళ్లు", "शाकाहारी अचार", [
+        ("avakaya", "Mango pickle (avakaya)", "ఆవకాయ", "आम का अचार", "g", ("250 g", "500 g", "1 kg")),
+        ("gongura", "Gongura pickle", "గోంగూర పచ్చడి", "गोंगुरा अचार", "g", ("250 g", "500 g", "1 kg")),
+        ("lemon", "Lemon pickle", "నిమ్మకాయ పచ్చడి", "नींबू का अचार", "g", ("250 g", "500 g")),
+        ("tomato", "Tomato pickle", "టమాటా పచ్చడి", "टमाटर अचार", "g", ("250 g", "500 g")),
+    ]),
+    _category("nonveg_pickles", "Non-veg pickles", "నాన్-వెజ్ పచ్చళ్లు", "मांसाहारी अचार", [
+        ("chicken_pickle", "Chicken pickle", "చికెన్ పచ్చడి", "चिकन अचार", "g", ("250 g", "500 g", "1 kg")),
+        ("mutton_pickle", "Mutton pickle", "మటన్ పచ్చడి", "मटन अचार", "g", ("250 g", "500 g")),
+        ("prawn_pickle", "Prawn pickle", "రొయ్యల పచ్చడి", "झींगा अचार", "g", ("250 g", "500 g")),
+    ]),
+]
+
+_TILES = [
+    _category("tiles", "Tiles", "టైల్స్", "टाइल्स", [
+        ("floor_tiles", "Floor tiles", "ఫ్లోర్ టైల్స్", "फ़्लोर टाइल्स", "sq ft", ("600x600 mm", "800x800 mm", "600x1200 mm")),
+        ("wall_tiles", "Wall tiles", "వాల్ టైల్స్", "वॉल टाइल्स", "sq ft", ("300x450 mm", "300x600 mm")),
+        ("parking_tiles", "Parking tiles", "పార్కింగ్ టైల్స్", "पार्किंग टाइल्स", "sq ft", ("300x300 mm", "400x400 mm")),
+    ]),
+    _category("stone", "Marble & granite", "మార్బుల్ & గ్రానైట్", "मार्बल और ग्रेनाइट", [
+        ("marble", "Marble", "మార్బుల్", "मार्बल", "sq ft", ("slab",)),
+        ("granite", "Granite", "గ్రానైట్", "ग्रेनाइट", "sq ft", ("slab",)),
+        ("kota", "Kota / Shahabad stone", "కోటా / షహాబాద్ రాయి", "कोटा / शाहाबाद पत्थर", "sq ft", ("2x2 ft",)),
+    ]),
+]
+
+_ELECTRONICS = [
+    _category("phones_computers", "Phones & computers", "ఫోన్లు & కంప్యూటర్లు", "फ़ोन और कंप्यूटर", [
+        ("mobile", "Mobile phone", "మొబైల్ ఫోన్", "मोबाइल फ़ोन", "piece", ("one size",)),
+        ("laptop", "Laptop", "ల్యాప్‌టాప్", "लैपटॉप", "piece", ("one size",)),
+        ("accessory", "Charger / earphones", "చార్జర్ / ఇయర్‌ఫోన్స్", "चार्जर / ईयरफ़ोन", "piece", ("one size",)),
+    ]),
+    _category("appliances", "Home appliances", "గృహోపకరణాలు", "घरेलू उपकरण", [
+        ("tv", "Television", "టీవీ", "टीवी", "piece", ("32 inch", "43 inch", "55 inch")),
+        ("fridge", "Refrigerator", "ఫ్రిజ్", "फ्रिज", "piece", ("single door", "double door")),
+        ("washing_machine", "Washing machine", "వాషింగ్ మెషిన్", "वॉशिंग मशीन", "piece", ("6 kg", "7 kg", "8 kg")),
+        ("ac", "Air conditioner", "ఏసీ", "एसी", "piece", ("1 ton", "1.5 ton", "2 ton")),
+    ]),
+]
+
+_SERVICES = [
+    _category("home_services", "Home services", "ఇంటి సేవలు", "घरेलू सेवाएँ", [
+        ("cleaning", "Home cleaning", "ఇంటి శుభ్రత", "घर की सफ़ाई", "visit", ("per visit",)),
+        ("plumbing", "Plumbing", "ప్లంబింగ్", "प्लंबिंग", "visit", ("per visit",)),
+        ("electrical", "Electrical repair", "ఎలక్ట్రికల్ రిపేర్", "बिजली मरम्मत", "visit", ("per visit",)),
+        ("ac_service", "AC service", "ఏసీ సర్వీస్", "एसी सर्विस", "visit", ("per visit",)),
+    ]),
+    _category("personal_services", "Personal & learning", "వ్యక్తిగత & విద్య", "व्यक्तिगत और शिक्षा", [
+        ("tuition", "Home tuition", "హోమ్ ట్యూషన్", "होम ट्यूशन", "hour", ("per hour", "per month")),
+        ("beauty", "Beauty at home", "ఇంటి వద్ద బ్యూటీ", "घर पर ब्यूटी", "visit", ("per visit",)),
+        ("tailoring", "Tailoring", "టైలరింగ్", "सिलाई", "piece", ("per piece",)),
+    ]),
+]
+
 TEMPLATES: Dict[str, Dict[str, Any]] = {
     "grocery": {"key": "grocery", "name": {"en": "Grocery (kirana)", "te": "కిరాణా", "hi": "किराना"},
-                "category_tag": "grocery", "categories": _GROCERY},
+                "category_tag": "grocery", "categories": _GROCERY,
+                "attributes": [_attr("brand", "Brand", "బ్రాండ్", "ब्रांड"),
+                               _attr("pack", "Pack type", "ప్యాక్ రకం", "पैक प्रकार", "choice", ("Loose", "Packed")),
+                               _DELIVERY]},
     "fruits_vegetables": {"key": "fruits_vegetables",
                           "name": {"en": "Fruits & vegetables", "te": "పండ్లు & కూరగాయలు", "hi": "फल और सब्ज़ियाँ"},
-                          "category_tag": "fruits_vegetables", "categories": _FRUITS_VEGETABLES},
+                          "category_tag": "fruits_vegetables", "categories": _FRUITS_VEGETABLES,
+                          "attributes": [_attr("grade", "Quality", "నాణ్యత", "गुणवत्ता", "choice", ("Regular", "Premium", "Organic")),
+                                         _DELIVERY]},
     "fashion": {"key": "fashion", "name": {"en": "Fashion & clothing", "te": "బట్టలు & ఫ్యాషన్", "hi": "कपड़े और फ़ैशन"},
-                "category_tag": "fashion", "categories": _FASHION},
+                "category_tag": "fashion", "categories": _FASHION,
+                "attributes": [_attr("color", "Colour", "రంగు", "रंग", required=True),
+                               _attr("fabric", "Fabric", "బట్ట", "कपड़ा", "choice",
+                                     ("Cotton", "Polyester", "Silk", "Linen", "Denim", "Blend")),
+                               _attr("fit", "Fit", "ఫిట్", "फ़िट", "choice", ("Regular", "Slim", "Loose")),
+                               _DELIVERY]},
+    "meat_poultry": {"key": "meat_poultry", "name": {"en": "Meat, chicken & fish", "te": "మాంసం, చికెన్ & చేపలు",
+                                                     "hi": "मांस, चिकन और मछली"},
+                     "category_tag": "meat", "categories": _MEAT,
+                     "attributes": [_attr("cut", "Cut", "కట్", "कट", "choice",
+                                          ("Curry cut", "Boneless", "Biryani cut", "Whole", "Mince")),
+                                    _attr("freshness", "Fresh / frozen", "తాజా / ఫ్రోజెన్", "ताज़ा / फ़्रोज़न", "choice",
+                                          ("Fresh", "Frozen"), required=True),
+                                    _attr("skin", "Skin", "చర్మం", "स्किन", "choice", ("With skin", "Skinless")),
+                                    _DELIVERY, _SERVICE_AREA]},
+    "pickles": {"key": "pickles", "name": {"en": "Pickles & podis", "te": "పచ్చళ్లు & పొడులు", "hi": "अचार और पोडी"},
+                "category_tag": "pickles", "categories": _PICKLES,
+                "attributes": [_attr("spice", "Spice level", "కారం స్థాయి", "तीखापन", "choice", ("Mild", "Medium", "Hot")),
+                               _attr("ingredients", "Main ingredients", "ముఖ్య పదార్థాలు", "मुख्य सामग्री", required=True),
+                               _attr("oil", "Oil used", "వాడిన నూనె", "इस्तेमाल तेल", "choice",
+                                     ("Groundnut", "Sesame", "Sunflower", "Mustard")),
+                               _attr("packaging", "Packaging", "ప్యాకింగ్", "पैकिंग", "choice", ("Pouch", "Jar", "Bottle")),
+                               _attr("shelf_life", "Shelf life", "నిల్వ కాలం", "शेल्फ़ लाइफ़"),
+                               _DELIVERY]},
+    "tiles_marble": {"key": "tiles_marble", "name": {"en": "Tiles, marble & granite", "te": "టైల్స్, మార్బుల్ & గ్రానైట్",
+                                                     "hi": "टाइल्स, मार्बल और ग्रेनाइट"},
+                     "category_tag": "building_materials", "categories": _TILES,
+                     "attributes": [_attr("material", "Material", "మెటీరియల్", "सामग्री", "choice",
+                                          ("Ceramic", "Vitrified", "Porcelain", "Marble", "Granite", "Natural stone"),
+                                          required=True),
+                                    _attr("color", "Colour", "రంగు", "रंग"),
+                                    _attr("thickness", "Thickness", "మందం", "मोटाई"),
+                                    _attr("finish", "Finish", "ఫినిష్", "फ़िनिश", "choice", ("Glossy", "Matt", "Rustic", "Polished")),
+                                    _attr("coverage", "Coverage per box", "బాక్స్‌కు కవరేజ్", "प्रति बॉक्स कवरेज"),
+                                    _DELIVERY, _SERVICE_AREA]},
+    "electronics": {"key": "electronics", "name": {"en": "Electronics & appliances", "te": "ఎలక్ట్రానిక్స్ & ఉపకరణాలు",
+                                                   "hi": "इलेक्ट्रॉनिक्स और उपकरण"},
+                    "category_tag": "electronics", "categories": _ELECTRONICS,
+                    "attributes": [_attr("brand", "Brand", "బ్రాండ్", "ब्रांड", required=True),
+                                   _attr("model", "Model", "మోడల్", "मॉडल"),
+                                   _attr("storage", "Storage / capacity", "స్టోరేజ్ / సామర్థ్యం", "स्टोरेज / क्षमता"),
+                                   _attr("condition", "Condition", "స్థితి", "स्थिति", "choice",
+                                         ("New", "Refurbished", "Used"), required=True),
+                                   _attr("warranty", "Warranty", "వారంటీ", "वारंटी"),
+                                   _DELIVERY]},
+    "services": {"key": "services", "name": {"en": "Services", "te": "సేవలు", "hi": "सेवाएँ"},
+                 "category_tag": "services", "categories": _SERVICES,
+                 "attributes": [_attr("scope", "What is included", "ఏమేమి ఉంటాయి", "क्या शामिल है", required=True),
+                                _attr("duration", "Usual duration", "సాధారణ సమయం", "सामान्य समय"),
+                                _attr("availability", "Available days / hours", "అందుబాటు రోజులు / సమయం",
+                                      "उपलब्ध दिन / समय"),
+                                _attr("pricing", "Pricing", "ధర విధానం", "कीमत तरीका", "choice",
+                                      ("Fixed price", "Starting from", "Quotation after visit")),
+                                _SERVICE_AREA]},
 }
 
 
@@ -181,6 +323,30 @@ def template(key: str) -> Optional[Dict[str, Any]]:
     if not found:
         return None
     return {**found, "items": _count(found)}
+
+
+def attributes(template_key: str) -> List[Dict[str, Any]]:
+    found = TEMPLATES.get(template_key)
+    return list(found.get("attributes", [])) if found else []
+
+
+def clean_attributes(template_key: str, values: Dict[str, Any] | None) -> tuple[Dict[str, str], List[str]]:
+    """Only this template's attribute keys, trimmed, choices from their
+    options; returns (kept values, missing REQUIRED keys)."""
+    kept: Dict[str, str] = {}
+    for spec in attributes(template_key):
+        raw = str((values or {}).get(spec["key"]) or "").strip()[:80]
+        if raw and spec["kind"] == "choice" and spec["options"] and raw not in spec["options"]:
+            raw = ""
+        if raw:
+            kept[spec["key"]] = raw
+    missing = [a["key"] for a in attributes(template_key) if a["required"] and a["key"] not in kept]
+    return kept, missing
+
+
+def attribute_summary(template_key: str, kept: Dict[str, str]) -> str:
+    labels = {a["key"]: a["label"]["en"] for a in attributes(template_key)}
+    return " · ".join(f"{labels.get(k, k)}: {v}" for k, v in kept.items())
 
 
 def item(template_key: str, item_key: str) -> Optional[Dict[str, Any]]:

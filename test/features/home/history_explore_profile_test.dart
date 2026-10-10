@@ -146,6 +146,43 @@ void main() {
     expect(find.text('Lakshmi Devi'), findsOneWidget, reason: 'the one stored profile updates everywhere');
   });
 
+  testWidgets('Navigator Profile: five grouped sections; every row opens its own screen (never chat)',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Widget page(String name) => Scaffold(body: Text('PAGE $name'));
+    await _pumpRouted(tester, initial: '/profile', screens: {
+      '/profile': const ProfileScreen(),
+      '/': page('HOME'),
+      for (final r in ['/business', '/listings/mine', '/orders/incoming', '/business/promotions', '/business/automation',
+          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy'])
+        r: page(r),
+    });
+    for (final section in ['business', 'studio', 'roles', 'settings', 'help']) {
+      expect(find.byKey(Key('askodoxProfileSection-$section')), findsOneWidget, reason: section);
+    }
+    expect(find.descendant(of: find.byKey(const Key('askodoxProfileSection-business')), matching: find.byType(Card)),
+        findsNothing, reason: 'one grouped card per section, not a card per row');
+    for (final (key, route) in [
+      ('profile-my-listings', '/listings/mine'),
+      ('profile-enquiries', '/orders/incoming'),
+      ('profile-native-video', '/videos/native'),
+      ('profile-mobility', '/mobility'),
+    ]) {
+      final row = find.byKey(ValueKey(key));
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.text('PAGE $route'), findsOneWidget, reason: '$key opens $route');
+      expect(find.text('PAGE HOME'), findsNothing, reason: 'never routed to chat');
+      GoRouter.of(tester.element(find.text('PAGE $route'))).pop();
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
+  });
+
   testWidgets('Profile highlights the active role without changing stored roles', (tester) async {
     SharedPreferences.setMockInitialValues({
       'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'serviceProvider'], 'active': 'seller'}),
