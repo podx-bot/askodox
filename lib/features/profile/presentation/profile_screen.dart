@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../shared/widgets/navigator_section.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -149,17 +151,116 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     String t(String en, String telugu) => te ? telugu : en;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const SizedBox(height: 10),
+      // ASKODOX Navigator: grouped sections, every row opens its own
+      // screen. Column (not a lazy list) so every section is built.
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // The user's own stored profile (photo, name, mobile, address,
           // language, roles, business) -- never placeholder data.
           AskodoxProfileHeader(telugu: te),
-          const SizedBox(height: 12),
-          Card(
-              elevation: 0,
-              child: Padding(
+          if (ref.watch(authSessionProvider).user == null)
+            AskodoxNavSection(title: t('Account', 'ఖాతా'), icon: Icons.person_outline_rounded, children: [
+              AskodoxNavRow(
+                  key: const Key('askodoxProfileSignIn'),
+                  icon: Icons.phone_iphone_rounded,
+                  title: t('Sign in with your phone', 'మీ ఫోన్‌తో సైన్ ఇన్ చేయండి'),
+                  subtitle: t('Needed only to send requests and see their status.',
+                      'అభ్యర్థనలు పంపడానికి, వాటి స్థితి చూడడానికి మాత్రమే అవసరం.'),
+                  onTap: () => context.push('/onboarding?signin=1')),
+            ]),
+          AskodoxNavSection(
+              key: const Key('askodoxProfileSection-business'),
+              title: t('My Business', 'నా వ్యాపారం'),
+              icon: Icons.storefront_rounded,
+              children: [
+            AskodoxNavRow(
+                key: const ValueKey('profile-business-center'),
+                icon: Icons.insights_rounded,
+                title: t('Business dashboard', 'వ్యాపార డాష్‌బోర్డ్'),
+                subtitle: t('Requests, missing details customers asked for, new demand.', 'అభ్యర్థనలు, కస్టమర్లు అడిగిన వివరాలు, కొత్త డిమాండ్.'),
+                onTap: () => context.push('/business')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-my-listings'),
+                icon: Icons.inventory_2_outlined,
+                title: t('My listings & catalog', 'నా లిస్టింగ్‌లు & కేటలాగ్'),
+                subtitle: t('What buyers can find from you.', 'కొనుగోలుదారులకు కనిపించేవి.'),
+                onTap: () => context.push('/listings/mine')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-enquiries'),
+                icon: Icons.mark_email_unread_outlined,
+                title: t('Customer enquiries', 'కస్టమర్ ఎంక్వైరీలు'),
+                subtitle: t('Accept or decline; contact is shared only after you accept.', 'అంగీకరించాకే కాంటాక్ట్ షేర్ అవుతుంది.'),
+                onTap: () => context.push('/orders/incoming')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-promotions'),
+                icon: Icons.local_offer_outlined,
+                title: t('Offers & promotions', 'ఆఫర్లు & ప్రమోషన్లు'),
+                onTap: () => context.push('/business/promotions')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-automation'),
+                icon: Icons.forum_outlined,
+                title: t('Auto-replies', 'ఆటో-రిప్లైలు'),
+                onTap: () => context.push('/business/automation')),
+              ]),
+          AskodoxNavSection(
+              key: const Key('askodoxProfileSection-studio'),
+              title: t('My Studio', 'నా స్టూడియో'),
+              icon: Icons.auto_awesome_outlined,
+              children: [
+            AskodoxNavRow(
+                key: const ValueKey('profile-native-video'),
+                icon: Icons.video_library_outlined,
+                title: t('My videos', 'నా వీడియోలు'),
+                subtitle: t('Upload, preview and publish after review.', 'అప్‌లోడ్, ప్రివ్యూ, రివ్యూ తర్వాత పబ్లిష్.'),
+                onTap: () => context.push('/videos/native')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-creations'),
+                icon: Icons.edit_note_rounded,
+                title: t('My creations', 'నా క్రియేషన్స్'),
+                subtitle: t('AI writing drafts from your own facts.', 'మీ వివరాలతో AI డ్రాఫ్ట్‌లు.'),
+                onTap: () => context.push('/business/creations')),
+          if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty)
+            KeyedSubtree(key: const Key('askodoxSavedOptionsTile'), child: ListTile(
+                    leading: const Icon(Icons.bookmark_rounded),
+                    title: Text('${t('Saved options', 'సేవ్ చేసినవి')} (${ref.watch(askodoxSavedOptionsProvider).length})'),
+                    subtitle: Text(t('Options you saved from conversations.', 'సంభాషణల నుండి మీరు సేవ్ చేసినవి.')),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          builder: (context) => Consumer(builder: (context, ref, _) {
+                            final saved = ref.watch(askodoxSavedOptionsProvider);
+                            return SafeArea(
+                              child: ListView(shrinkWrap: true, children: [
+                                for (final m in saved)
+                                  ListTile(
+                                    title: Text(m.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                    subtitle: Text([
+                                      if (m.price != null) '₹${m.price!.toStringAsFixed(0)}',
+                                      if (m.locationLabel?.trim().isNotEmpty == true) m.locationLabel!,
+                                      if (m.sourceName?.trim().isNotEmpty == true) m.sourceName!,
+                                    ].join(' · ')),
+                                    onTap: () {
+                                      final uri = Uri.tryParse(m.destinationUrl ?? '') ?? askodoxDirectionsUri(m);
+                                      if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    },
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded),
+                                      onPressed: () => ref.read(askodoxSavedOptionsProvider.notifier).toggle(m),
+                                    ),
+                                  ),
+                              ]),
+                            );
+                          }),
+                        ))),
+              ]),
+          AskodoxNavSection(
+              key: const Key('askodoxProfileSection-roles'),
+              title: t('Roles & Opportunities', 'పాత్రలు & అవకాశాలు'),
+              icon: Icons.badge_outlined,
+              children: [
+          (Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,134 +346,67 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ]);
                         }),
                       ]))),
-          const SizedBox(height: 12),
-          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))
-            Card(
-                elevation: 0,
-                child: ListTile(
-                    key: const ValueKey('profile-my-listings'),
-                    leading: const Icon(Icons.storefront_rounded),
-                    title: Text(t('My listings', 'నా లిస్టింగ్‌లు')),
-                    subtitle: Text(t(
-                        'What buyers can find from you. Remove or add listings.',
-                        'కొనుగోలుదారులకు కనిపించేవి. తీసివేయండి లేదా కొత్తవి జోడించండి.')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/listings/mine'))),
-          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.seller))
-            Card(
-                elevation: 0,
-                child: ListTile(
-                    key: const ValueKey('profile-business-center'),
-                    leading: const Icon(Icons.insights_rounded),
-                    title: Text(t('My business', 'నా వ్యాపారం')),
-                    subtitle: Text(t(
-                        'Waiting requests, missing details customers asked for, and new demand.',
-                        'ఎదురుచూస్తున్న అభ్యర్థనలు, కస్టమర్లు అడిగిన లోపించిన వివరాలు, కొత్త డిమాండ్.')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/business'))),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  key: const Key('askodoxMyRolesEntry'),
-                  leading: const Icon(Icons.badge_outlined),
-                  title: Text(t('My roles', 'నా పాత్రలు')),
-                  subtitle: Text(t('Buyer, seller, service provider, service taker -- what each role adds.',
-                      'కొనుగోలుదారు, విక్రేత, సేవ అందించేవారు, సేవ కోరేవారు -- ప్రతి పాత్ర విభాగాలు.')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/profile/roles'))),
-          if (ref.watch(authSessionProvider).user != null)
-            Card(
-                elevation: 0,
-                child: ListTile(
-                    key: const Key('askodoxProfileMemoryEntry'),
-                    leading: const Icon(Icons.psychology_alt_outlined),
-                    title: Text(t('What ASKODOX remembers', 'ASKODOX గుర్తుంచుకున్నవి')),
-                    subtitle: Text(t('Your needs and offers by role -- private; correct, delete or switch off.',
-                        'మీ అవసరాలు / ఆఫర్లు పాత్ర వారీగా -- ప్రైవేట్; సరిచేయండి, తొలగించండి లేదా ఆపండి.')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/profile/memory'))),
-          if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty)
-            Card(
-                key: const Key('askodoxSavedOptionsTile'),
-                elevation: 0,
-                child: ListTile(
-                    leading: const Icon(Icons.bookmark_rounded),
-                    title: Text('${t('Saved options', 'సేవ్ చేసినవి')} (${ref.watch(askodoxSavedOptionsProvider).length})'),
-                    subtitle: Text(t('Options you saved from conversations.', 'సంభాషణల నుండి మీరు సేవ్ చేసినవి.')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => showModalBottomSheet<void>(
-                          context: context,
-                          showDragHandle: true,
-                          builder: (context) => Consumer(builder: (context, ref, _) {
-                            final saved = ref.watch(askodoxSavedOptionsProvider);
-                            return SafeArea(
-                              child: ListView(shrinkWrap: true, children: [
-                                for (final m in saved)
-                                  ListTile(
-                                    title: Text(m.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                    subtitle: Text([
-                                      if (m.price != null) '₹${m.price!.toStringAsFixed(0)}',
-                                      if (m.locationLabel?.trim().isNotEmpty == true) m.locationLabel!,
-                                      if (m.sourceName?.trim().isNotEmpty == true) m.sourceName!,
-                                    ].join(' · ')),
-                                    onTap: () {
-                                      final uri = Uri.tryParse(m.destinationUrl ?? '') ?? askodoxDirectionsUri(m);
-                                      if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
-                                    },
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.delete_outline_rounded),
-                                      onPressed: () => ref.read(askodoxSavedOptionsProvider.notifier).toggle(m),
-                                    ),
-                                  ),
-                              ]),
-                            );
-                          }),
-                        ))),
-          // Request status (my orders, incoming orders, leads) lives in ONE
-          // place: the Updates tab.
-          if (ref.watch(authSessionProvider).user == null)
-            Card(
-                key: const Key('askodoxProfileSignIn'),
-                elevation: 0,
-                child: ListTile(
-                    leading: const Icon(Icons.phone_iphone_rounded, color: Color(0xFF1769FF)),
-                    title: Text(t('Sign in with your phone', 'మీ ఫోన్‌తో సైన్ ఇన్ చేయండి')),
-                    subtitle: Text(t('Needed only to send requests and see their status.',
-                        'అభ్యర్థనలు పంపడానికి, వాటి స్థితి చూడడానికి మాత్రమే అవసరం.')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/onboarding?signin=1'))),
-          if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.deliveryPartner))
-            Card(
-                elevation: 0,
-                child: ListTile(
-                    key: const Key('askodoxProfileDeliveryOpportunities'),
-                    leading: const Icon(Icons.delivery_dining_rounded),
-                    title:
-                        Text(t('Delivery opportunities', 'డెలివరీ అవకాశాలు')),
-                    subtitle: Text(t(
-                        'Join as a delivery / ride partner, go online and accept nearby requests.',
-                        'డెలివరీ / రైడ్ పార్ట్‌నర్‌గా చేరండి, ఆన్‌లైన్‌కి వెళ్లి దగ్గరి రిక్వెస్ట్‌లు అంగీకరించండి.')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    // The partner workspace (apply -> review -> online ->
-                    // offers -> trip steps), not the generic Updates list.
-                    onTap: () => context.push('/mobility?tab=3'))),
-          const SizedBox(height: 12),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  leading: const Icon(Icons.record_voice_over_outlined,
-                      color: Color(0xFF1769FF)),
-                  title: Text(t('Voice preference', 'వాయిస్ ప్రాధాన్యత'),
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(_voiceLabel(voicePreference, te)),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _pickVoicePreference(te))),
+            AskodoxNavRow(
+                key: const Key('askodoxMyRolesEntry'),
+                icon: Icons.badge_outlined,
+                title: t('My roles', 'నా పాత్రలు'),
+                subtitle: t('What each role adds.', 'ప్రతి పాత్ర విభాగాలు.'),
+                onTap: () => context.push('/profile/roles')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-opportunities'),
+                icon: Icons.trending_up_rounded,
+                title: t('Opportunities near you', 'మీ దగ్గరి అవకాశాలు'),
+                onTap: () => context.push('/opportunities')),
+            if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.deliveryPartner))
+            AskodoxNavRow(
+                key: const Key('askodoxProfileDeliveryOpportunities'),
+                icon: Icons.delivery_dining_rounded,
+                title: t('Delivery & ride partner', 'డెలివరీ & రైడ్ పార్ట్‌నర్'),
+                subtitle: t('Go online and accept nearby requests.', 'ఆన్‌లైన్‌కి వెళ్లి దగ్గరి రిక్వెస్ట్‌లు అంగీకరించండి.'),
+                onTap: () => context.push('/mobility?tab=3')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-mobility'),
+                icon: Icons.local_taxi_outlined,
+                title: t('Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్'),
+                subtitle: t('Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.'),
+                onTap: () => context.push('/mobility')),
+              ]),
+          AskodoxNavSection(
+              key: const Key('askodoxProfileSection-settings'),
+              title: t('Settings & Privacy', 'సెట్టింగ్స్ & గోప్యత'),
+              icon: Icons.settings_outlined,
+              children: [
+            AskodoxNavRow(
+                key: const ValueKey('profile-location'),
+                icon: Icons.location_on_outlined,
+                title: t('Location', 'లొకేషన్'),
+                subtitle: locationLabel,
+                onTap: () => context.push('/location')),
+            AskodoxNavRow(
+                icon: Icons.record_voice_over_outlined,
+                title: t('Voice preference', 'వాయిస్ ప్రాధాన్యత'),
+                subtitle: _voiceLabel(voicePreference, te),
+                onTap: () => _pickVoicePreference(te)),
+            AskodoxNavRow(
+                key: const ValueKey('profile-notifications'),
+                icon: Icons.notifications_none_rounded,
+                title: t('Notifications', 'నోటిఫికేషన్స్'),
+                onTap: () => context.push('/settings/notifications')),
+            if (ref.watch(authSessionProvider).user != null)
+            AskodoxNavRow(
+                key: const Key('askodoxProfileMemoryEntry'),
+                icon: Icons.psychology_alt_outlined,
+                title: t('Memory & personalization', 'మెమరీ & వ్యక్తిగతీకరణ'),
+                subtitle: t('Private; correct, delete or switch off.', 'ప్రైవేట్; సరిచేయండి, తొలగించండి లేదా ఆపండి.'),
+                onTap: () => context.push('/profile/memory')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-privacy'),
+                icon: Icons.privacy_tip_outlined,
+                title: t('Privacy & data', 'గోప్యత & డేటా'),
+                onTap: () => context.push('/privacy')),
           // How the ASKODOX friend looks (never assumes a gender) and
           // whether it moves (off = still image, saves battery).
-          Card(
-              key: const Key('askodoxCompanionLook'),
-              elevation: 0,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          KeyedSubtree(key: const Key('askodoxCompanionLook'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 SwitchListTile(
                   key: const Key('askodoxCompanionEnabled'),
                   secondary: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
@@ -480,10 +514,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 ],
               ])),
-          const SizedBox(height: 12),
-          Card(
-              elevation: 0,
-              child: Padding(
+          (Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -530,26 +561,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               label: Text(t('Download & Install',
                                   'డౌన్‌లోడ్ & ఇన్‌స్టాల్'))),
                       ]))),
-          const SizedBox(height: 12),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  key: const ValueKey('profile-location'),
-                  leading: const Icon(Icons.location_on_outlined),
-                  title: Text(t('Location', 'లొకేషన్')),
-                  subtitle: Text(locationLabel),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/location'))),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  leading: const Icon(Icons.notifications_none_rounded),
-                  title: Text(t('Notifications', 'నోటిఫికేషన్స్')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/settings/notifications'))),
-          Card(
-              elevation: 0,
-              child: ListTile(
+              ]),
+          AskodoxNavSection(
+              key: const Key('askodoxProfileSection-help'),
+              title: t('Help & Support', 'సహాయం & సపోర్ట్'),
+              icon: Icons.support_agent_rounded,
+              children: [
+          (ListTile(
                   key: const ValueKey('profile-help'),
                   leading: const Icon(Icons.support_agent_rounded),
                   title: Text(t('Help', 'సహాయం')),
@@ -599,19 +617,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
                       ))),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined),
-                  title: Text(t('Privacy', 'ప్రైవసీ')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/privacy'))),
           // Early Access label + feedback (Command Center decides who sees it).
           Builder(builder: (context) {
             final early = ref.watch(askodoxEarlyAccessProvider).valueOrNull ?? EarlyAccessInfo.inactive;
-            return Card(
-                elevation: 0,
-                child: ListTile(
+            return (ListTile(
                     key: const ValueKey('profile-feedback'),
                     leading: const Icon(Icons.bug_report_outlined),
                     title: Text(t('Report a problem / Send feedback', 'సమస్య చెప్పండి / ఫీడ్‌బ్యాక్ పంపండి')),
@@ -623,32 +632,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/beta-feedback')));
           }),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  key: const ValueKey('profile-mobility'),
-                  leading: const Icon(Icons.local_taxi_outlined),
-                  title: Text(t('Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్')),
-                  subtitle: Text(t('Book, track, or drive / deliver with ASKODOX.',
-                      'బుక్ చేయండి, ట్రాక్ చేయండి, లేదా డ్రైవ్ / డెలివర్ చేయండి.')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/mobility'))),
-          Card(
-              elevation: 0,
-              child: ListTile(
-                  key: const ValueKey('profile-native-video'),
-                  leading: const Icon(Icons.video_call_outlined),
-                  title: Text(t('My videos', 'నా వీడియోలు')),
-                  subtitle: Text(t('Publish a video about your products or services (reviewed first).',
-                      'మీ ప్రొడక్ట్స్ / సర్వీసుల గురించి వీడియో పబ్లిష్ చేయండి (ముందు రివ్యూ).')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/videos/native'))),
           // Staff only: the server decides (the number must be linked to an
           // active staff record); nothing is shown to anyone else.
           if (ref.watch(askodoxIsStaffProvider).valueOrNull == true)
-            Card(
-                elevation: 0,
-                child: ListTile(
+            (ListTile(
                     key: const ValueKey('profile-staff-workspace'),
                     leading: const Icon(Icons.badge_outlined),
                     title: Text(t('Staff Workspace', 'స్టాఫ్ వర్క్‌స్పేస్')),
@@ -662,8 +649,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 'స్టాఫ్ వర్క్‌స్పేస్ తెరవలేకపోయాం. కనెక్షన్ చూడండి.'))));
                       }
                     })),
-        ],
+              ]),
+        ]),
       ),
     );
   }
+
 }

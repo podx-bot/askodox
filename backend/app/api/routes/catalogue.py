@@ -60,6 +60,8 @@ class CatalogueItem(BaseModel):
     stock_status: str = "IN_STOCK"
     description: str | None = Field(default=None, max_length=400)
     photo_base64: str | None = None
+    # Category-specific details (template "attributes"); unknown keys dropped.
+    attributes: dict[str, str] = Field(default_factory=dict)
 
 
 class PublishCatalogue(BaseModel):
@@ -117,15 +119,22 @@ def publish_catalogue(key: str, payload: PublishCatalogue, request: Request) -> 
         features = [description, item["name"]["te"], item["name"]["hi"], item["category_name"]["en"]]
         stock = entry.stock_status.upper() if entry.stock_status.upper() in STOCK else "UNKNOWN"
         photo = _photo_bytes(entry.photo_base64)
-        if entry.price is None:
+        attrs, missing_attrs = catalogue_templates.clean_attributes(template["key"], entry.attributes)
+        summary = catalogue_templates.attribute_summary(template["key"], attrs)
+        if summary:
+            features.append(summary)
+        missing = (["price"] if entry.price is None else []) + missing_attrs
+        if missing:
+            # Never published with a required detail missing: kept as a draft.
             draft = growth(container).save_draft(
                 seller, {"subject": subject, "title": subject, "unit": item["unit"], "category_tag": template["category_tag"],
-                         "attributes": {"size": size}, "description": description},
-                ["price"], "catalogue_template")
+                         "attributes": {"size": size, **attrs}, "description": description},
+                missing, "catalogue_template")
             drafts.append({"item_key": entry.item_key, "draft_id": draft.get("id")})
             continue
         product_id = catalog.upsert_product(
-            seller_user_id=seller, subject=subject, variant=size or None, price=entry.price, unit=item["unit"],
+            seller_user_id=seller, subject=subject,
+            variant=" · ".join(v for v in (size, summary) if v) or None, price=entry.price, unit=item["unit"],
             stock_status=stock, seller_name=shop, location_label=place, category_tag=template["category_tag"],
             features=features,
         )

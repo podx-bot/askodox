@@ -12,16 +12,16 @@ const _labels = <String, Map<String, String>>{
     'categories': 'categories', 'items': 'items', 'select_all': 'Select all', 'set_prices': 'Set prices & publish',
     'price': 'Your price ₹', 'size': 'Size', 'in_stock': 'In stock', 'photo': 'Photo', 'photo_added': 'Photo added',
     'shop_name': 'Shop name', 'shop_address': 'Shop address', 'review': 'Review', 'publish': 'Publish',
-    'back': 'Back', 'include': 'Include', 'no_price_note': 'Items without a price are saved as drafts, not published.',
+    'back': 'Back', 'include': 'Include', 'details': 'Details', 'done': 'Done', 'draft': 'Draft: needs price or * detail', 'no_price_note': 'Items without a price are saved as drafts, not published.',
     'need_shop': 'Add your shop name and address.', 'photo_too_large': 'Photo too large -- take it again closer.',
-    'will_publish': 'will be published', 'will_draft': 'saved as drafts (no price yet)', 'selected': 'selected',
+    'will_publish': 'will be published', 'will_draft': 'saved as drafts (price or * detail missing)', 'selected': 'selected',
     'pick_categories': 'Pick the categories you sell, or say "all".',
   },
   'te': {
     'categories': 'విభాగాలు', 'items': 'వస్తువులు', 'select_all': 'అన్నీ ఎంచుకోండి', 'set_prices': 'ధరలు పెట్టి ప్రచురించండి',
     'price': 'మీ ధర ₹', 'size': 'సైజు', 'in_stock': 'స్టాక్ ఉంది', 'photo': 'ఫోటో', 'photo_added': 'ఫోటో జత చేశారు',
     'shop_name': 'షాప్ పేరు', 'shop_address': 'షాప్ చిరునామా', 'review': 'సమీక్షించండి', 'publish': 'ప్రచురించండి',
-    'back': 'వెనక్కి', 'include': 'చేర్చండి', 'no_price_note': 'ధర లేని వస్తువులు డ్రాఫ్ట్‌లుగా సేవ్ అవుతాయి, ప్రచురించబడవు.',
+    'back': 'వెనక్కి', 'include': 'చేర్చండి', 'details': 'వివరాలు', 'done': 'అయింది', 'draft': 'డ్రాఫ్ట్: ధర లేదా * వివరం కావాలి', 'no_price_note': 'ధర లేని వస్తువులు డ్రాఫ్ట్‌లుగా సేవ్ అవుతాయి, ప్రచురించబడవు.',
     'need_shop': 'మీ షాప్ పేరు, చిరునామా ఇవ్వండి.', 'photo_too_large': 'ఫోటో చాలా పెద్దది -- మళ్లీ తీయండి.',
     'will_publish': 'ప్రచురించబడతాయి', 'will_draft': 'డ్రాఫ్ట్‌లుగా సేవ్ (ధర ఇంకా లేదు)', 'selected': 'ఎంచుకున్నారు',
     'pick_categories': 'మీరు అమ్మే విభాగాలు ఎంచుకోండి, లేదా "అన్నీ" అని చెప్పండి.',
@@ -30,7 +30,7 @@ const _labels = <String, Map<String, String>>{
     'categories': 'श्रेणियाँ', 'items': 'आइटम', 'select_all': 'सब चुनें', 'set_prices': 'दाम डालें और प्रकाशित करें',
     'price': 'आपका दाम ₹', 'size': 'साइज़', 'in_stock': 'स्टॉक में', 'photo': 'फ़ोटो', 'photo_added': 'फ़ोटो जोड़ी गई',
     'shop_name': 'दुकान का नाम', 'shop_address': 'दुकान का पता', 'review': 'जाँचें', 'publish': 'प्रकाशित करें',
-    'back': 'वापस', 'include': 'शामिल करें', 'no_price_note': 'बिना दाम वाले आइटम ड्राफ़्ट में सेव होंगे, प्रकाशित नहीं।',
+    'back': 'वापस', 'include': 'शामिल करें', 'details': 'विवरण', 'done': 'हो गया', 'draft': 'ड्राफ़्ट: दाम या * विवरण चाहिए', 'no_price_note': 'बिना दाम वाले आइटम ड्राफ़्ट में सेव होंगे, प्रकाशित नहीं।',
     'need_shop': 'दुकान का नाम और पता डालें।', 'photo_too_large': 'फ़ोटो बहुत बड़ी है -- दोबारा लें।',
     'will_publish': 'प्रकाशित होंगे', 'will_draft': 'ड्राफ़्ट में (अभी दाम नहीं)', 'selected': 'चुने गए',
     'pick_categories': 'जो श्रेणियाँ आप बेचते हैं चुनें, या "सब" कहें।',
@@ -162,6 +162,66 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
     });
   }
 
+  /// The item's category details (from the template): choices as chips,
+  /// free text as fields; required ones are marked *. Nothing pre-filled.
+  Future<void> _details(AskodoxCatalogueEntry e) async {
+    final specs = widget.template.attributes;
+    final controllers = {
+      for (final a in specs)
+        if (a.options.isEmpty) a.key: TextEditingController(text: e.attributes[a.key] ?? ''),
+    };
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(sheet).bottom),
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('${e.item.name(widget.lang)} · ${e.size}',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(height: 8),
+              for (final a in specs) ...[
+                Text('${a.label(widget.lang)}${a.required ? ' *' : ''}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(height: 4),
+                if (a.options.isNotEmpty)
+                  Wrap(spacing: 6, runSpacing: 4, children: [
+                    for (final o in a.options)
+                      ChoiceChip(
+                        key: ValueKey('askodoxCatalogueAttr-${a.key}-$o'),
+                        label: Text(o),
+                        selected: e.attributes[a.key] == o,
+                        onSelected: (on) => setSheet(() => on ? e.attributes[a.key] = o : e.attributes.remove(a.key)),
+                      ),
+                  ])
+                else
+                  TextField(
+                    key: ValueKey('askodoxCatalogueAttr-${a.key}'),
+                    controller: controllers[a.key],
+                    maxLength: 80,
+                    decoration: const InputDecoration(isDense: true, counterText: ''),
+                    onChanged: (v) => e.attributes[a.key] = v,
+                  ),
+                const SizedBox(height: 10),
+              ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  key: const Key('askodoxCatalogueDetailsDone'),
+                  onPressed: () => Navigator.pop(sheet),
+                  child: Text(_l('done')),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _publish() async {
     if (_shop.text.trim().isEmpty || _address.text.trim().isEmpty) {
       setState(() => _message = _l('need_shop'));
@@ -216,6 +276,20 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
             onChanged: (v) => e.price = double.tryParse(v),
           ),
         ),
+        if (widget.template.attributes.isNotEmpty)
+          IconButton(
+            key: ValueKey('askodoxCatalogueDetails-${e.item.key}'),
+            tooltip: _l('details'),
+            onPressed: included ? () => _details(e) : null,
+            icon: Badge(
+              isLabelVisible: e.attributes.values.any((v) => v.trim().isNotEmpty),
+              label: Text('${e.attributes.values.where((v) => v.trim().isNotEmpty).length}'),
+              child: Icon(Icons.tune_rounded,
+                  color: included && e.price != null && !e.readyFor(widget.template.attributes)
+                      ? const Color(0xFFB26A00)
+                      : null),
+            ),
+          ),
         IconButton(
           tooltip: e.photoBase64 == null ? _l('photo') : _l('photo_added'),
           icon: Icon(e.photoBase64 == null ? Icons.add_a_photo_outlined : Icons.check_circle_rounded,
@@ -233,7 +307,8 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
   @override
   Widget build(BuildContext context) {
     final chosen = _chosen;
-    final priced = chosen.where((e) => e.price != null && e.price! > 0).length;
+    // Published only with a price AND every required detail; the rest stay drafts.
+    final priced = chosen.where((e) => e.readyFor(widget.template.attributes)).length;
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + MediaQuery.of(context).viewInsets.bottom),
@@ -255,7 +330,13 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
                           dense: true,
                           title: Text('${e.item.name(widget.lang)} · ${e.size}'),
                           trailing: Text(e.price == null ? '—' : '₹${e.price!.toStringAsFixed(0)}'),
-                          subtitle: Text(e.inStock ? _l('in_stock') : '—'),
+                          subtitle: Text([
+                            e.inStock ? _l('in_stock') : '—',
+                            for (final a in widget.template.attributes)
+                              if ((e.attributes[a.key] ?? '').trim().isNotEmpty)
+                                '${a.label(widget.lang)}: ${e.attributes[a.key]}',
+                            if (!e.readyFor(widget.template.attributes)) _l('draft'),
+                          ].join(' · ')),
                         ),
                       const Divider(),
                       Text('${_shop.text} · ${_address.text}'),

@@ -112,4 +112,27 @@ void main() {
       expect(plain, contains('Good choice.'));
     });
   });
+
+  test('APK 1318: points glued into one line become separate points (Telugu screenshot)', () {
+    const glued = 'సమాచారం ఇదిగోండి:\n'
+        '- **కాక్రోచ్ పార్టీ అంటే ఏంటి?**: ఇది ఒక నిరసన కార్యక్రమం. - **ఢిల్లీలో ఏం జరిగింది?**: సమస్యలు. '
+        '- **దీని ఉద్దేశం ఏంటి?**: దృష్టికి తీసుకురావడం.';
+    final items = askodoxParseReply(glued).whereType<AskodoxListItem>().toList();
+    expect(items, hasLength(3));
+    expect(items[1].text, startsWith('**ఢిల్లీలో'));
+    final numbered = askodoxParseReply('Options: 1. **Local** shop. 2. **Online** store.')
+        .whereType<AskodoxListItem>()
+        .toList();
+    expect(numbered.map((i) => i.number), ['1', '2']);
+    expect(askodoxSplitGluedPoints('Price is 10 - 20 rupees'), 'Price is 10 - 20 rupees',
+        reason: 'an ordinary dash is not a point');
+  });
+
+  testWidgets('points and paragraphs have a clear gap between them', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(body: AskodoxRichReply('Intro line.\n\n- **One**: a\n- **Two**: b', style: TextStyle()))));
+    final one = tester.getRect(find.textContaining('One'));
+    final two = tester.getRect(find.textContaining('Two'));
+    expect(two.top - one.bottom, greaterThanOrEqualTo(10));
+  });
 }

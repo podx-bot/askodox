@@ -70,6 +70,9 @@ import '../data/taxonomy_repository.dart';
 import 'video_viewer_screen.dart';
 import 'video_study_panel.dart';
 import '../../guide/in_app_guide.dart';
+import '../domain/result_board_tabs.dart';
+import 'result_board_tab_row.dart';
+import 'attachment_menu.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -363,12 +366,52 @@ class _AskodoxPrimaryHomeScreenState
   int _speechRangeStart = 0;
   bool _speechPaused = false;
   String? _pausedRemainder;
+
+  /// Spoken chunks still to come after the current one (device pause/resume
+  /// continues with them).
+  List<String> _speechQueue = const [];
+
+  /// While a long reply is spoken, its text appears as it is read: the turn
+  /// and how much of its markup is shown (null = the whole reply).
+  int? _revealTurn;
+  int? _revealEnd;
+  Timer? _revealTimer;
+
+  void _clearReveal() {
+    _revealTimer?.cancel();
+    _revealTimer = null;
+    if (_revealTurn != null && mounted) {
+      setState(() {
+        _revealTurn = null;
+        _revealEnd = null;
+      });
+    }
+  }
+
+  /// Types [from]..[to] of the revealed turn over [duration] (word steps).
+  void _typeReveal(int from, int to, Duration duration) {
+    _revealTimer?.cancel();
+    final steps = ((to - from) / 6).ceil().clamp(1, 400);
+    final tick = Duration(milliseconds: (duration.inMilliseconds / steps).round().clamp(25, 400));
+    var i = 0;
+    setState(() => _revealEnd = from);
+    _revealTimer = Timer.periodic(tick, (t) {
+      if (!mounted || _revealTurn == null) return t.cancel();
+      i++;
+      final end = i >= steps ? to : from + ((to - from) * i / steps).round();
+      setState(() => _revealEnd = end);
+      if (end >= to) t.cancel();
+    });
+  }
   bool _speechMuted = false;
 
   /// Result Board: the card each category box shows ("dealId:kind" -> index)
   /// and whether the customer mega-expanded the board.
   final Map<String, int> _boardPositions = {};
   int? _boardMegaFor;
+
+  /// The Result Board tab chosen per deck (a new deck starts on "Result Board").
+  final Map<int, AskodoxBoardTab> _boardTabFor = {};
 
   /// Speaks [reply] through the one audio lifecycle (tests drive overlap).
   @visibleForTesting
@@ -429,7 +472,8 @@ class _AskodoxPrimaryHomeScreenState
       setState(() => _voicePhase = _VoicePhase.idle);
       return;
     }
-    _endpointer = AskodoxVoiceEndpointer();
+    // Stays on until the user's Stop (no silence / no-speech auto-stop).
+    _endpointer = AskodoxVoiceEndpointer.untilStop();
     _voiceFinishing = false;
     _voiceTicks = 0;
     _voiceTimer = Timer.periodic(_voiceSampleInterval, (_) => _sampleVoice());
@@ -521,8 +565,18 @@ class _AskodoxPrimaryHomeScreenState
           : 'I could not understand that. Please try again or type your message.');
       return;
     }
+    // ONE draft: words already typed + this transcript (+ the attachments
+    // still in the composer) go together -- typed text is never dropped.
+    final draft = askodoxMergeVoiceDraft(_controller.text, transcript);
+    if (_sending || _analyzingAttachments) {
+      // A turn is still in flight: keep the transcript in the composer
+      // instead of discarding it; the user sends it next.
+      _controller.text = draft;
+      setState(() => _voicePhase = _VoicePhase.idle);
+      return;
+    }
     setState(() => _voicePhase = _VoicePhase.thinking);
-    await _send(transcript, true);
+    await _send(draft, true);
     if (mounted && _voicePhase == _VoicePhase.thinking) {
       setState(() => _voicePhase = _VoicePhase.idle);
     }
@@ -560,6 +614,8 @@ class _AskodoxPrimaryHomeScreenState
   Future<void> _stopSpeaking() async {
     _speechTurn++;
     _pausedRemainder = null;
+    _speechQueue = const [];
+    _clearReveal();
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
     } catch (_) {}
@@ -589,7 +645,11 @@ class _AskodoxPrimaryHomeScreenState
       }
     }
     final text = _speakingText ?? '';
-    final rest = text.substring(_speechRangeStart.clamp(0, text.length)).trim();
+    final rest = [text.substring(_speechRangeStart.clamp(0, text.length)).trim(), ..._speechQueue]
+        .where((p) => p.isNotEmpty)
+        .join(' ');
+    _speechQueue = const [];
+    _clearReveal();
     _speechTurn++; // the stopped reply must not fall back to anything
     try {
       await _device.invokeMethod<bool>('stopSpeaking');
@@ -866,11 +926,9 @@ class _AskodoxPrimaryHomeScreenState
           deal.dynamicFields['searched'] == true &&
           AskodoxHomeRequestRouting.isTransactional(deal.rawText)) {
         if (deal.intent == DealIntent.sell && _userMeansToSell(deal.rawText, deal)) {
-          // A completed "sell" deal is a real listing to save, not a buyer
-          // search -- see `_createRealListing`.
-          final outcome = await _createRealListing(deal);
-          listingBanner = outcome.$1;
-          listingBannerIsError = outcome.$2;
+          // Restoring a conversation never posts anything: the listing was
+          // saved (or not) when the user finished it. Re-posting here made a
+          // duplicate listing on every app restart (APK 1316).
         } else {
           results = await _findUniversalMatches(
               deal.intent == DealIntent.sell ? deal.copyWith(intent: DealIntent.buy) : deal);
@@ -1383,10 +1441,26 @@ class _AskodoxPrimaryHomeScreenState
     return false;
   }
 
+  /// Deals already posted as listings in this conversation (see
+  /// [askodoxListingKey]).
+  final Set<String> _listedDealKeys = {};
+
   Future<(String?, bool)> _createRealListing(UniversalDeal deal) async {
+    final subject = deal.subject;
+    if (!askodoxListingSubjectValid(subject, location: deal.location.label)) {
+      return (
+        _te ? 'మీరు ఏమి అమ్ముతున్నారో చెప్పండి (ఉదా: "2 సైకిళ్లు ₹3000").' : 'Tell me what you are selling (e.g. "2 bicycles for ₹3000").',
+        false,
+      );
+    }
+    final key = askodoxListingKey(subject, deal.price, deal.quantity);
+    if (_listedDealKeys.contains(key)) return (null, false); // already posted
+    _listedDealKeys.add(key);
     try {
       final result =
           await ref.read(sellerListingRepositoryProvider).createListing(deal);
+      // Not saved (sign-in / error): the user may try the same listing again.
+      if (!result.success) _listedDealKeys.remove(key);
       if (result.success && result.heldForReview) {
         final subject = deal.subject ?? '';
         final why = result.message ?? '';
@@ -1427,6 +1501,7 @@ class _AskodoxPrimaryHomeScreenState
         true,
       );
     } catch (_) {
+      _listedDealKeys.remove(key);
       return (
         _te
             ? 'లిస్టింగ్ సేవ్ చేయడం సాధ్యం కాలేదు.'
@@ -1602,6 +1677,18 @@ class _AskodoxPrimaryHomeScreenState
   /// timeout, a parse failure), the composer, mic and card actions are
   /// usable again afterwards -- a stuck "sending" state disabled the input
   /// and the keyboard on real phones.
+  /// Send from the composer (button / keyboard). While recording, Send ends
+  /// the recording and sends typed text + transcript + attachments together;
+  /// while a recording is being transcribed, that flow sends the draft.
+  Future<void> _sendFromComposer() async {
+    if (_voicePhase == _VoicePhase.recording) {
+      await _finishVoice(noSpeech: false);
+      return;
+    }
+    if (_voicePhase == _VoicePhase.transcribing) return;
+    await _send();
+  }
+
   Future<void> _send([String? preset, bool speakResponse = false]) async {
     try {
       await _sendTurn(preset, speakResponse);
@@ -3350,6 +3437,12 @@ class _AskodoxPrimaryHomeScreenState
   Future<void> _speakReply(String reply,
       {required String userText, bool force = false, bool deviceOnly = false}) async {
     if (_speechMuted && !force) return; // muted: the text reply stays
+    final markup = reply;
+    final chunks = askodoxSpeechChunks(markup);
+    if (chunks.length > 1) {
+      await _speakChunks(markup, chunks, userText: userText, deviceOnly: deviceOnly);
+      return;
+    }
     reply = askodoxPlainReply(reply); // markup is for the eye, never spoken
     final turn = ++_speechTurn;
     _speakingText = reply;
@@ -3432,6 +3525,96 @@ class _AskodoxPrimaryHomeScreenState
   }
 
 
+
+  /// A long reply: ONE voice session that speaks chunk after chunk (the
+  /// next chunk's audio is fetched while the current one plays) and reveals
+  /// each chunk's text as it is read -- text and voice stay together. Stop /
+  /// a newer reply end it; Sarvam pauses in place; device voice resumes with
+  /// the rest (see [_pauseSpeaking]).
+  Future<void> _speakChunks(String markup, List<({int start, int end})> chunks,
+      {required String userText, bool deviceOnly = false}) async {
+    final turn = ++_speechTurn;
+    final plain = [for (final c in chunks) askodoxPlainReply(markup.substring(c.start, c.end)).trim()];
+    final whole = askodoxPlainReply(markup);
+    final language = askodoxSpeechLanguage(reply: whole, userText: userText, uiTelugu: _te);
+    final revealIndex = _turns.lastIndexWhere((t) => !t.isUser && t.text == markup);
+    _speakingUserText = userText;
+    _speechPaused = false;
+    _pausedRemainder = null;
+    bool current() => mounted && turn == _speechTurn && _voicePhase == _VoicePhase.speaking;
+    if (mounted) {
+      setState(() {
+        _voicePhase = _VoicePhase.speaking;
+        if (revealIndex >= 0) {
+          _revealTurn = revealIndex;
+          _revealEnd = 0;
+        }
+      });
+    }
+    final lips = ref.read(askodoxCompanionVoiceProvider);
+    final useSarvam = !deviceOnly && ref.read(askodoxFlagProvider('voice.sarvam_tts'));
+    Future<Uint8List?> fetch(String text) async => useSarvam
+        ? await ref
+            .read(askodoxReplySpeechServiceProvider)
+            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue)
+        : null;
+    try {
+      var next = fetch(plain.first);
+      for (var i = 0; i < chunks.length; i++) {
+        final audio = await next;
+        if (!current()) return;
+        if (i + 1 < chunks.length) next = fetch(plain[i + 1]);
+        final text = plain[i];
+        if (text.isEmpty) continue;
+        _speakingText = text;
+        _speechRangeStart = 0;
+        _speechQueue = plain.sublist(i + 1);
+        // Opus at ~32 kbps -> seconds of speech; device voice ~13 chars / s.
+        final estimate = audio != null
+            ? Duration(milliseconds: (audio.length * 8 / 32).round())
+            : Duration(milliseconds: (text.length / 13 * 1000).round());
+        if (_revealTurn != null) _typeReveal(chunks[i].start, chunks[i].end, estimate);
+        lips.speechBegin(text);
+        bool played = false;
+        if (audio != null) {
+          _startLipSyncPolling(lips);
+          _speakingEngine = 'sarvam';
+          played = await _device.invokeMethod<bool>(
+                  'playReplyAudio', <String, Object?>{'bytes': audio, 'languageCode': language}) ==
+              true;
+          if (played) lastReplyVoiceEngine = 'sarvam_bulbul_v3';
+        }
+        _lipSyncTimer?.cancel();
+        if (!current()) return;
+        if (!played) {
+          lastReplyVoiceEngine = 'device';
+          _speakingEngine = 'device';
+          await _device.invokeMethod<bool>('speakReply', <String, Object?>{
+            'text': text,
+            'languageCode': language,
+            'voicePreference': ref.read(appSettingsProvider).voicePreference.storageValue,
+          });
+        }
+        if (!current()) return;
+      }
+    } catch (_) {
+      // The text reply stays available when no voice output works.
+    } finally {
+      if (turn == _speechTurn) {
+        _lipSyncTimer?.cancel();
+        lips.speechEnd();
+        _speakingEngine = '';
+        _speechQueue = const [];
+        _clearReveal();
+        if (mounted && _voicePhase == _VoicePhase.speaking) {
+          setState(() {
+            _speechPaused = false;
+            _voicePhase = _VoicePhase.idle;
+          });
+        }
+      }
+    }
+  }
 
   String _fallbackAssistantReply(String text, bool te) {
     final q = text.toLowerCase();
@@ -3887,9 +4070,12 @@ class _AskodoxPrimaryHomeScreenState
   /// cards only (never a copy in the chat), bounded height (smaller while the
   /// keyboard is open) so the latest messages and the input stay on screen.
   Widget _resultContext(bool te, int index, {required double maxHeight}) {
-    // [maxHeight] bounds the WHOLE board (notices + cards + minimize row),
-    // from askodoxBoardMaxHeight: the conversation and the input always keep
+    // [maxHeight] bounds the WHOLE board (tab row + notices + cards), from
+    // askodoxBoardMaxHeight: the conversation and the input always keep
     // their room below it.
+    final tab = _boardTabFor[index] ?? AskodoxBoardTab.all;
+    final tabEmpty = tab != AskodoxBoardTab.all &&
+        askodoxBoardTabRows(tab, _resultsByTurn[index]?.matches ?? const []).isEmpty;
     return Container(
       key: const Key('askodoxResultContext'),
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -3898,6 +4084,24 @@ class _AskodoxPrimaryHomeScreenState
         border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // ONE row: Result Board | Local | Online | Deals | Reviews | Videos,
+        // Expand, Minimize. Tabs are views of THIS deck, never new searches.
+        AskodoxResultBoardTabRow(
+          selected: tab,
+          counts: askodoxBoardTabCounts(_resultsByTurn[index]?.matches ?? const []),
+          lang: _lang,
+          expanded: _boardMegaFor == index,
+          onSelect: (next) => setState(() => _boardTabFor[index] = next),
+          // Minimize: the board folds into its pill so the conversation gets
+          // the screen; nothing is lost (tap the pill to restore).
+          onMinimize: () => setState(() {
+            _boardMinimizedFor = index;
+            _boardMegaFor = null;
+          }),
+          // Mega expand: the whole board with full cards; the input and the
+          // latest conversation lines keep their room.
+          onExpand: () => setState(() => _boardMegaFor = _boardMegaFor == index ? null : index),
+        ),
         if (_resultsStaleFor != null)
           Padding(
             key: const Key('askodoxResultsRefreshing'),
@@ -3931,47 +4135,20 @@ class _AskodoxPrimaryHomeScreenState
               padding: const EdgeInsets.fromLTRB(14, 6, 6, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: _turnResults(index, _turns[index], te, workspace: true),
+                children: tabEmpty
+                    ? [
+                        Padding(
+                          key: ValueKey('askodoxBoardTabEmpty-${tab.name}'),
+                          padding: const EdgeInsets.fromLTRB(2, 8, 8, 10),
+                          child: Text(askodoxBoardTabEmptyText(tab, _lang),
+                              style: const TextStyle(color: _muted, fontSize: 12.5, height: 1.35)),
+                        ),
+                      ]
+                    : _turnResults(index, _turns[index], te, workspace: true, tab: tab),
               ),
             ),
           ),
         ),
-        // Minimize: the board folds into its pill so the conversation gets
-        // the screen; nothing is lost (tap the pill to restore).
-        Wrap(alignment: WrapAlignment.center, children: [
-          InkWell(
-            key: const Key('askodoxResultBoardMinimize'),
-            onTap: () => setState(() {
-              _boardMinimizedFor = index;
-              _boardMegaFor = null;
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: _muted),
-                Text(te ? 'చిన్నదిగా చేయి' : 'Minimize', style: const TextStyle(fontSize: 11, color: _muted)),
-              ]),
-            ),
-          ),
-          // Mega expand: the whole board with full cards; the input and the
-          // latest conversation lines keep their room.
-          InkWell(
-            key: const Key('askodoxResultBoardMega'),
-            onTap: () => setState(() => _boardMegaFor = _boardMegaFor == index ? null : index),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_boardMegaFor == index ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
-                    size: 16, color: _muted),
-                Text(
-                    _boardMegaFor == index
-                        ? (te ? 'తక్కువ' : 'Less')
-                        : (te ? 'పూర్తిగా చూపు' : 'Expand'),
-                    style: const TextStyle(fontSize: 11, color: _muted)),
-              ]),
-            ),
-          ),
-        ]),
       ]),
     );
   }
@@ -4303,7 +4480,11 @@ class _AskodoxPrimaryHomeScreenState
                       turn.isUser
                           ? Text(turn.text,
                               style: const TextStyle(color: Colors.white, height: 1.35, fontWeight: FontWeight.w500))
-                          : AskodoxRichReply(turn.text,
+                          : AskodoxRichReply(
+                              // Being read aloud: the text appears as it is spoken.
+                              _revealTurn == index && _revealEnd != null
+                                  ? askodoxRevealPrefix(turn.text, _revealEnd!)
+                                  : turn.text,
                               style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
                   ],
                 ),
@@ -4342,7 +4523,8 @@ class _AskodoxPrimaryHomeScreenState
   /// its result cards. The chat never shows result cards: the latest search
   /// lives ONCE in the workspace, and earlier searches are replaced, never
   /// left in the conversation as stale copies.
-  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te, {bool workspace = false}) => [
+  List<Widget> _turnResults(int index, ConversationTurnRecord turn, bool te,
+          {bool workspace = false, AskodoxBoardTab tab = AskodoxBoardTab.all}) => [
             if (_catalogueTurn == index && _catalogue != null)
               AskodoxCatalogueCard(
                 template: _catalogue!,
@@ -4358,11 +4540,11 @@ class _AskodoxPrimaryHomeScreenState
             if (workspace && index == _pinnedResultsTurn)
               if (_resultsByTurn[index] case final results?)
               _ChatResultsView(
-                key: ValueKey('askodoxChatResults-$index'),
+                key: ValueKey(tab == AskodoxBoardTab.all ? 'askodoxChatResults-$index' : 'askodoxChatResults-$index-${tab.name}'),
                 workspace: true,
                 positions: _boardPositions,
                 mega: _boardMegaFor == index,
-                results: results,
+                results: askodoxResultsForTab(results, tab),
                 te: te,
                 lang: _lang,
                 retrying: _sending,
@@ -4570,14 +4752,21 @@ class _AskodoxPrimaryHomeScreenState
             key: const Key('askodoxVoiceCancel'),
             onPressed: _cancelVoice,
             tooltip: te ? 'రద్దు చేయండి' : 'Cancel voice',
-            icon: const Icon(Icons.close_rounded, color: _muted)),
+            icon: const Icon(Icons.close_rounded, color: _muted))
+        else
+          // The ONE attachment control: Camera / Photos / Videos / Files.
+          AskodoxAttachButton(
+            lang: _lang,
+            enabled: !_sending,
+            onPick: (choice) => unawaited(_pickAttachment(choice)),
+          ),
         Expanded(
           child: TextField(
           controller: _controller,
           focusNode: _focusNode,
           enabled: !_sending,
           textInputAction: TextInputAction.send,
-          onSubmitted: (_) => _send(),
+          onSubmitted: (_) => _sendFromComposer(),
           cursorColor: const Color(0xFF5B4BFF),
           style: const TextStyle(
             color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
@@ -4601,7 +4790,7 @@ class _AskodoxPrimaryHomeScreenState
           ),
         )),
         IconButton.filled(
-          onPressed: _sending ? null : _send,
+          onPressed: _sending ? null : _sendFromComposer,
           style: IconButton.styleFrom(
             backgroundColor: _blue,
             minimumSize: const Size(40, 40),

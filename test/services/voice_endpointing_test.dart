@@ -101,4 +101,43 @@ void main() {
     expect(askodoxSpeechLanguage(reply: '👍', userText: 'నమస్తే', uiTelugu: false), 'te');
     expect(askodoxSpeechLanguage(reply: '👍', userText: '42', uiTelugu: true), 'te');
   });
+
+  test('Main Chat (until Stop): long silence or no speech never ends the turn; only the max-duration cap does', () {
+    final silent = _run(AskodoxVoiceEndpointer.untilStop(), _n(500, 150)); // 100 s of nothing
+    expect(silent.every((x) => x == VoiceEndpointDecision.keepRecording), isTrue);
+    final paused = _run(AskodoxVoiceEndpointer.untilStop(),
+        [..._n(3, 150), ..._n(20, 5000), ..._n(200, 150), ..._n(20, 5000)]); // 40 s pause mid-speech
+    expect(paused.every((x) => x == VoiceEndpointDecision.keepRecording), isTrue);
+    final runaway = _run(AskodoxVoiceEndpointer.untilStop(), _n(700, 5000));
+    expect(runaway.last, VoiceEndpointDecision.stopMaxDuration);
+    expect(runaway.length, 600, reason: 'two-minute safety cap');
+  });
+
+  test('one draft: typed words + transcript, no duplication, nothing dropped', () {
+    expect(askodoxMergeVoiceDraft('', 'నాకు AC కావాలి'), 'నాకు AC కావాలి');
+    expect(askodoxMergeVoiceDraft('1.5 ton', 'split AC under 40000'), '1.5 ton split AC under 40000');
+    expect(askodoxMergeVoiceDraft('AC', 'AC repair near me'), 'AC repair near me');
+    expect(askodoxMergeVoiceDraft('  bill  ', ''), 'bill');
+  });
+
+  test('long replies are spoken in sentence chunks (first one short) that cover the whole text', () {
+    final text = List.generate(6, (i) => 'Sentence number $i explains one more useful detail for the customer.').join(' ');
+    final chunks = askodoxSpeechChunks(text);
+    expect(chunks.length, greaterThan(1));
+    expect(chunks.first.end - chunks.first.start, lessThanOrEqualTo(160), reason: 'the first words play fast');
+    expect(chunks.first.start, 0);
+    expect(chunks.last.end, text.length);
+    for (var i = 1; i < chunks.length; i++) {
+      expect(chunks[i].start, chunks[i - 1].end, reason: 'no gap, no overlap');
+    }
+    expect(askodoxSpeechChunks('Short reply.'), hasLength(1));
+    expect(askodoxSpeechChunks(''), isEmpty);
+  });
+
+  test('revealed text cuts at a word end and never shows a raw **', () {
+    const markup = 'Intro. **Cockroach Party** is a protest.';
+    expect(askodoxRevealPrefix(markup, 10), 'Intro. **Cockroach**');
+    expect(askodoxRevealPrefix(markup, 3), 'Intro.');
+    expect(askodoxRevealPrefix(markup, 999), markup);
+  });
 }

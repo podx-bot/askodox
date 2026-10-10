@@ -122,3 +122,40 @@ Built on main 2e7dba2 (PR #166). Pending independent review before merge:
 - Provider health from real answers (Sarvam 402 -> QUOTA_EXHAUSTED).
 Device verification of all of the above is still required (next APK).
 
+
+## Branch in review (NOT merged): claude/navigator-ux-p0 — PR #182 (draft), 2026-10-09
+Built on main bae9c9e (PR #180). Navigator UX P0 slice:
+- Result Board: ONE tab row `Result Board | Local | Online | Deals | Reviews | Videos` + Expand + Minimize
+  (`result_board_tabs.dart`, `result_board_tab_row.dart`); tabs are views of the same deck; Reviews only
+  rows with rating AND review count; honest empty text per tab. Lifecycle (pill/restore/archive/pin/mega) unchanged.
+- Composer: exactly one `+` (Camera / Photos / Videos / Files -> existing `_pickAttachment`); no mic beside Send.
+- Header: Menu sheet over existing routes (no drawer) + Screen Guide sheet (in-app flows + cross-app guide).
+- CI on the branch: Flutter CI (analyze + 963 tests) PASS, Feature Registry gate PASS; backend suite 1034 passed locally.
+- Already true on main before this branch (verified in code, not re-done): no second mic; MP4->WAV fallback rejects
+  empty/near-empty WAV (`audio_codec_service.audio_to_wav`); PDF/DOCX/XLSX accepted by `/api/attachments/analyze`.
+- NOT done in this slice: "Shopping/Washing Machine" dropdown not found on main (nothing to delete); morning-bug
+  list not in repo/issues (needs owner screenshots); P1 workflows untouched; every item still needs a real phone.
+- Next: real-phone test of the private APK from Android Live Build on this branch, then review/merge.
+- 2026-10-09 round 2: layout assertion kept strict (tab row = one <=40px row at board top; cards <=16px below it,
+  same 16px rule as before). "Shopping / Washing Machine" dropdown: searched lib/ (dropdowns, popup menus, app
+  builder overlays, companion bar, notifications) -- no such widget on main or this branch; needs the owner's
+  screenshot to identify (possibly an older APK or an Android notification). Morning-bug list still not available
+  in repo / issues / memory. APK 1316 (run 37951204272) still matches the app code (later commits = tests/docs).
+- 2026-10-10 P0 round after APK 1316 (PR #182, commit b6017cb + revert 92100e1; APK 1317 phone-test link):
+  DONE (code+CI): mic until Stop (`AskodoxVoiceEndpointer.untilStop`, 2 min cap); typed + voice + attachments = one
+  draft (`askodoxMergeVoiceDraft`, Send while recording finishes & sends); no repeat listings (restore never posts,
+  once per deal, `askodoxListingSubjectValid`); backend model JSON `strict=False` (prod 2026-10-09: Gemini JSON with
+  raw newline failed -> OpenAI fallback 429 -> no answer on "Airtel").
+  OPEN DECISION: prod logs show Telugu speech (te-IN) answered in English because the explicit Settings/header
+  Preferred Language was English; approved Section 2 rule says Preferred Language wins -> change reverted, owner to decide.
+  NOT STARTED: Clean UI redesign, Smart Fill, Studio editing, Free/Plus/Pro subscriptions (Phases 2-5).
+- 2026-10-10 round "final consolidated" (PR #182, APK 1318): DONE (code+CI) Navigator Profile (5 sections via shared
+  `navigator_section.dart`), My Business grouped sections, My Listings (search, own-photo thumbnail, confirm remove,
+  Ready-made catalog entry); ONE data-driven catalogue engine now carries per-template attributes (`catalogue_templates.py`
+  attributes / clean_attributes; new meat_poultry, pickles, tiles_marble, electronics, services); required detail or price
+  missing -> draft. NOT DONE: Smart Fill engine, Studio editing, rides fleet/negotiation, voice text<->TTS sync,
+  subscriptions UI; Rides/Delivery/Services screens not yet restyled; listing API has no image upload outside catalogue.
+- 2026-10-10 APK 1319: voice + text together (askodoxSpeechChunks: sentence chunks, first <=160 chars, next chunk
+  prefetched; text typed in as read via askodoxRevealPrefix; one session for Stop/Pause), glued points split
+  (askodoxSplitGluedPoints), 10/14 px point/paragraph gaps. Typed turns are still NOT spoken (approved rule; owner
+  may want every reply spoken -- ask). Telugu question -> English reply = explicit English Preferred Language (decision pending).
