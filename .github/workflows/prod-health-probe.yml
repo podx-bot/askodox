@@ -1,0 +1,26 @@
+name: Production health probe (read-only)
+on:
+  push:
+    branches: [claude/prod-health-probe]
+    paths: ['.github/workflows/prod-health-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Health, readiness and the new catalogue endpoints (GET only)
+        run: |
+          set -u
+          B=https://podx-ai-connect-production-3279.up.railway.app
+          fail=0
+          for p in /health /readiness /api/catalog/templates /api/catalog/templates/vehicles_parts /api/catalog/filters/pickles "/api/products/search?q=rice&attr=pack:Packed"; do
+            code=$(curl -s -o /tmp/b -w '%{http_code}' --max-time 25 "$B$p")
+            summary=$(head -c 300 /tmp/b | tr '\n' ' ')
+            echo "::notice title=$p::HTTP $code $summary"
+            [ "$code" = "200" ] || fail=1
+          done
+          commit=$(curl -s --max-time 20 "$B/readiness" | jq -r '.commit // "unknown"')
+          echo "::notice title=deployed commit::$commit"
+          exit $fail
