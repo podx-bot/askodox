@@ -7,10 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `fc5505f` -- PR #179 (2026-10-08, verified with `git fetch origin
-  main`): APK 1312 regressions + Approved Feature Registry. Signed APK 1313 from
-  fc5505f is a public release `apk-1313` (askodox-live-1313.apk, 71,351,246 B,
-  sha256 bb14a278…f2a8, cert 727b4a66…57cf, not marked latest).
+- `main` @ `1db4f74` -- PR #182 merged 2026-10-12 and deployed to Railway production (deployment
+  cdda8021 SUCCESS; /health healthy on 1db4f74). Navigator UX, P0 voice/draft/listing fixes, universal
+  catalogue + attribute master (`catalog_templates` resource, `listing_attributes` index, `/api/catalog/filters`),
+  reply language = spoken language, Voice Mode. Release APK 1321 from main (phone-test-1321, sha256 2ad83867…459a).
+  Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
   lifecycle + pause / resume / mute / replay; message copy / select / share;
