@@ -13,6 +13,7 @@ kept.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Dict, List, Optional
 
 # (key, en, te, hi, unit, sizes)
@@ -578,6 +579,9 @@ def attributes(template_key: str) -> List[Dict[str, Any]]:
     return _inherited(str(template_key or "").strip().casefold(), _registry())
 
 
+_CONTACT = re.compile(r"(?:\+?\d[\d\s-]{8,}\d)|https?://|www\.|@[A-Za-z0-9-]+\.[A-Za-z]{2,}|wa\.me", re.I)
+
+
 def _values(raw: Any) -> List[str]:
     items = raw if isinstance(raw, (list, tuple)) else str(raw or "").split(",")
     return [str(v).strip()[:80] for v in items if str(v).strip()]
@@ -611,6 +615,10 @@ def clean_attributes(template_key: str, values: Dict[str, Any] | None) -> tuple[
                 value = f"{number:g}"
         else:
             value = str(raw or "").strip()[:80]
+            # Buyers see these: contact details / links never get in this way
+            # (same rule as listings -- contact is shared only after acceptance).
+            if _CONTACT.search(value):
+                value = ""
         if value:
             kept[spec["key"]] = value
         elif spec.get("required"):

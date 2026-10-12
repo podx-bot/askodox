@@ -129,3 +129,14 @@ def test_filters_come_from_real_listings_and_search_uses_them(api):
     mine = client.get("/api/products/mine", headers=headers).json()["items"]
     row = next(r for r in mine if r["id"] == published[0]["product_id"])
     assert row["attributes"]["delivery"] == ["Courier", "Pickup"]
+
+
+def test_free_text_attributes_never_carry_contact_details():
+    from app.services import catalogue_templates as ct
+
+    for leak in ("call 98765 43210", "+91 9876543210", "see https://x.example", "www.shop.in", "mail a@b.com",
+                 "wa.me/919876543210"):
+        kept, _ = ct.clean_attributes("services", {"scope": leak})
+        assert "scope" not in kept, leak
+    kept, _ = ct.clean_attributes("services", {"scope": "Pipe fitting, tap repair, 2 hours"})
+    assert kept["scope"] == "Pipe fitting, tap repair, 2 hours"

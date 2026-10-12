@@ -298,6 +298,21 @@
       "tests": {"backend": ["tests/test_db_backup.py"], "flutter": []},
       "health": "", "dependencies": [], "status": "approved",
       "history": [{"pr": 0, "change": "introduced (release safety before PR 180)"}]
+    },
+    {
+      "id": "catalogue_attribute_master",
+      "name": "Universal catalogue + attribute master (admin-editable) with real buyer filters",
+      "purpose": "One data-driven engine for every business type: templates, inherited attributes, indexed listing attributes, filters from real listings.",
+      "expected_behavior": "catalog_templates resource seeded once and editable; parent inheritance; required / conditional / multi / number / unit attributes; missing price or required detail keeps a draft; contact details never in attributes; filters list only values real active listings carry.",
+      "roles": ["seller", "service_provider", "buyer"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/catalog/templates/{key}"}, {"method": "GET", "path": "/api/catalog/filters/{key}"},
+              {"method": "POST", "path": "/api/catalog/templates/{key}/publish"}],
+      "ui": {"keys": ["askodoxOpenCatalogTemplates", "askodoxListingSearch", "askodoxConfirmRemoveListing", "askodoxProfileSection-business", "askodoxVoiceModeSwitch"],
+             "symbols": ["AskodoxNavSection", "askodoxSpeechChunks", "askodoxSplitGluedPoints", "askodoxVoiceModeProvider"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_catalogue_attributes.py"], "flutter": ["test/features/business/my_listing_edit_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": 182, "change": "first version"}]
     }
   ]
 }
