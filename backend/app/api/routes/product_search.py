@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/products", tags=["product-search"])
@@ -75,10 +75,21 @@ def _title(row: dict[str, Any]) -> str:
 
 
 @router.get("/search", response_model=ProductSearchResponse)
-def search_products(request: Request, q: str = "", limit: int = 10, location: str = "", budget: float | None = None) -> ProductSearchResponse:
+def search_products(request: Request, q: str = "", limit: int = 10, location: str = "", budget: float | None = None,
+                    attr: list[str] = Query(default=[])) -> ProductSearchResponse:
     container: Any = request.app.state.container
     repository = container.product_catalog_repository
     rows = repository.search_active(q, limit=max(limit * 3, limit))
+    # Buyer filters "key:value" from the indexed listing attributes; several
+    # values of one key = any of them; different keys = all must match.
+    wanted: dict[str, set[str]] = {}
+    for item in attr:
+        key, _, value = str(item).partition(":")
+        if key.strip() and value.strip():
+            wanted.setdefault(key.strip(), set()).add(value.strip())
+    if wanted:
+        stored = repository.attributes_for([r["id"] for r in rows])
+        rows = [r for r in rows if all(set(stored.get(int(r["id"]), {}).get(k, [])) & v for k, v in wanted.items())]
     rows = container.product_match_ranking_service.rank(q, rows, location=location, budget=budget)[:max(1, min(limit, 50))]
     return ProductSearchResponse(
         items=[

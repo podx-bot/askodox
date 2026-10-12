@@ -32,13 +32,36 @@ class AskodoxCatalogueItem {
 /// A category-specific detail of a template (cut, fabric, warranty ...): the
 /// seller fills it in; [options] are choices, never a pre-filled fact.
 class AskodoxCatalogueAttribute {
-  const AskodoxCatalogueAttribute(
-      {required this.key, required this.labels, this.options = const [], this.required = false});
+  const AskodoxCatalogueAttribute({
+    required this.key,
+    required this.labels,
+    this.options = const [],
+    this.required = false,
+    this.kind = 'text',
+    this.multi = false,
+    this.unit,
+    this.group = 'Details',
+    this.dependsOn,
+    this.dependsValues = const [],
+  });
 
   final String key;
   final Map<String, String> labels;
   final List<String> options;
   final bool required;
+
+  /// text | choice | number
+  final String kind;
+  final bool multi;
+  final String? unit;
+  final String group;
+
+  /// Shown / kept only when attribute [dependsOn] has one of [dependsValues].
+  final String? dependsOn;
+  final List<String> dependsValues;
+
+  bool appliesTo(Map<String, String> values) =>
+      dependsOn == null || dependsValues.contains((values[dependsOn] ?? '').trim());
 
   String label(String lang) => _named(labels, lang);
 
@@ -47,6 +70,12 @@ class AskodoxCatalogueAttribute {
         labels: {for (final e in ((json['label'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
         options: json['kind'] == 'choice' ? [for (final o in (json['options'] as List? ?? const [])) '$o'] : const [],
         required: json['required'] == true,
+        kind: '${json['kind'] ?? 'text'}',
+        multi: json['multi'] == true,
+        unit: json['unit']?.toString(),
+        group: '${json['group'] ?? 'Details'}',
+        dependsOn: (json['depends_on'] as Map?)?['key']?.toString(),
+        dependsValues: [for (final v in ((json['depends_on'] as Map?)?['values'] as List? ?? const [])) '$v'],
       );
 }
 
@@ -110,7 +139,9 @@ class AskodoxCatalogueEntry {
   bool readyFor(List<AskodoxCatalogueAttribute> specs) =>
       price != null &&
       price! > 0 &&
-      specs.where((a) => a.required).every((a) => (attributes[a.key] ?? '').trim().isNotEmpty);
+      specs
+          .where((a) => a.required && a.appliesTo(attributes))
+          .every((a) => (attributes[a.key] ?? '').trim().isNotEmpty);
 
   String size;
   double? price;
@@ -124,7 +155,10 @@ class AskodoxCatalogueEntry {
         'stock_status': inStock ? 'IN_STOCK' : 'OUT_OF_STOCK',
         if (photoBase64 != null) 'photo_base64': photoBase64,
         if (attributes.isNotEmpty)
-          'attributes': {for (final e in attributes.entries) if (e.value.trim().isNotEmpty) e.key: e.value.trim()},
+          'attributes': {
+            for (final e in attributes.entries)
+              if (e.value.trim().isNotEmpty) e.key: e.value.contains(', ') ? e.value.split(', ') : e.value.trim(),
+          },
       };
 }
 

@@ -316,6 +316,12 @@ def platform(container: Any) -> Platform:
             seed_taxonomy(existing.resources)
         except Exception:
             pass
+        try:  # ready-made catalogue templates (only into an empty store)
+            from app.services.catalogue_templates import seed_defaults as seed_catalogue
+
+            seed_catalogue(existing.resources)
+        except Exception:
+            pass
         try:  # the real-phone acceptance checklist (CODE READY until a phone test)
             from app.services.owner_os import seed_acceptance_checks
 
@@ -326,6 +332,9 @@ def platform(container: Any) -> Platform:
 
     repo = existing.repo
     platform_settings.set_source(lambda: repo.list("platform_settings"), key=repo.db_path)
+    from app.services import catalogue_templates
+
+    catalogue_templates.set_source(lambda: repo.list("catalog_templates"))
     return existing
 
 

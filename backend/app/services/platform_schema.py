@@ -1009,6 +1009,29 @@ _register(Resource(
 ))
 
 _register(Resource(
+    name="catalog_templates", label="Catalogue templates", group="Advisor", prefix="ctl",
+    permission="advisor", name_field="label_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Ready-made seller catalogues and their category attributes (ONE data-driven engine). A "
+                "template inherits every attribute of its parent (product_base / service_base or any other "
+                "template) and may override one by using the same key. Attribute: {key, label {en, te, hi}, "
+                "kind text|choice|number, options, required, multi, group, unit, min, max, depends_on {key, "
+                "values}, filterable}. Items: categories [{key, name, items [{key, name, unit, sizes}]}]. "
+                "Abstract templates are parents only. Disabling a template hides it from sellers.",
+    fields=(
+        F("key", "Key (stable id)", required=True, list_column=True, filter=True),
+        F("label_en", "Name (English)", required=True, list_column=True),
+        F("label_te", "Name (Telugu)"),
+        F("label_hi", "Name (Hindi)"),
+        F("parent", "Parent template key (inherits its attributes)", list_column=True, filter=True),
+        F("category_tag", "Listing category tag", list_column=True),
+        F("abstract", "Parent only (not offered to sellers)", "bool"),
+        F("attributes", "Attributes", "json"),
+        F("categories", "Item categories", "json"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
     name="advisor_questions", label="Advisor questions", group="Advisor", prefix="adq",
     permission="advisor", name_field="question_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
     description="Questions the Universal Advisor may ask before recommending, per category (or 'any'). Only the "

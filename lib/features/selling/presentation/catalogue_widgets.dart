@@ -182,30 +182,54 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
               Text('${e.item.name(widget.lang)} · ${e.size}',
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               const SizedBox(height: 8),
-              for (final a in specs) ...[
-                Text('${a.label(widget.lang)}${a.required ? ' *' : ''}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                const SizedBox(height: 4),
-                if (a.options.isNotEmpty)
-                  Wrap(spacing: 6, runSpacing: 4, children: [
-                    for (final o in a.options)
-                      ChoiceChip(
-                        key: ValueKey('askodoxCatalogueAttr-${a.key}-$o'),
-                        label: Text(o),
-                        selected: e.attributes[a.key] == o,
-                        onSelected: (on) => setSheet(() => on ? e.attributes[a.key] = o : e.attributes.remove(a.key)),
-                      ),
-                  ])
-                else
-                  TextField(
-                    key: ValueKey('askodoxCatalogueAttr-${a.key}'),
-                    controller: controllers[a.key],
-                    maxLength: 80,
-                    decoration: const InputDecoration(isDense: true, counterText: ''),
-                    onChanged: (v) => e.attributes[a.key] = v,
-                  ),
-                const SizedBox(height: 10),
-              ],
+              for (final (i, a) in specs.indexed)
+                if (a.appliesTo(e.attributes)) ...[
+                  // Grouped like a marketplace listing form (Pricing, Stock,
+                  // Specifications, Delivery, After sale ...).
+                  if (i == 0 || specs[i - 1].group != a.group)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 6),
+                      child: Text(a.group.toUpperCase(),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF667085),
+                              letterSpacing: .6)),
+                    ),
+                  Text('${a.label(widget.lang)}${a.unit == null ? '' : ' (${a.unit})'}${a.required ? ' *' : ''}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  if (a.options.isNotEmpty)
+                    Wrap(spacing: 6, runSpacing: 4, children: [
+                      for (final o in a.options)
+                        FilterChip(
+                          key: ValueKey('askodoxCatalogueAttr-${a.key}-$o'),
+                          label: Text(o),
+                          selected: (e.attributes[a.key] ?? '').split(', ').contains(o),
+                          onSelected: (on) => setSheet(() {
+                            if (!a.multi) {
+                              on ? e.attributes[a.key] = o : e.attributes.remove(a.key);
+                              return;
+                            }
+                            final now = [
+                              for (final v in (e.attributes[a.key] ?? '').split(', '))
+                                if (v.isNotEmpty && v != o) v,
+                              if (on) o,
+                            ];
+                            now.isEmpty ? e.attributes.remove(a.key) : e.attributes[a.key] = now.join(', ');
+                          }),
+                        ),
+                    ])
+                  else
+                    TextField(
+                      key: ValueKey('askodoxCatalogueAttr-${a.key}'),
+                      controller: controllers[a.key],
+                      maxLength: 80,
+                      keyboardType: a.kind == 'number'
+                          ? const TextInputType.numberWithOptions(decimal: true)
+                          : TextInputType.text,
+                      decoration: const InputDecoration(isDense: true, counterText: ''),
+                      onChanged: (v) => setSheet(() => e.attributes[a.key] = v),
+                    ),
+                  const SizedBox(height: 10),
+                ],
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(

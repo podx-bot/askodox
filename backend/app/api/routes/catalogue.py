@@ -61,7 +61,7 @@ class CatalogueItem(BaseModel):
     description: str | None = Field(default=None, max_length=400)
     photo_base64: str | None = None
     # Category-specific details (template "attributes"); unknown keys dropped.
-    attributes: dict[str, str] = Field(default_factory=dict)
+    attributes: dict[str, str | list[str] | float] = Field(default_factory=dict)
 
 
 class PublishCatalogue(BaseModel):
@@ -83,6 +83,29 @@ def _photo_bytes(value: str | None) -> bytes | None:
     if not (data[:3] == b"\xff\xd8\xff" or data[:8] == b"\x89PNG\r\n\x1a\n"):
         raise HTTPException(status_code=415, detail="photo must be JPEG or PNG")
     return data
+
+
+@router.get("/filters/{key}")
+def catalogue_filters(key: str, request: Request) -> dict:
+    """Buyer filters for one category, computed from REAL active listings
+    (indexed attribute values + price range). An attribute nobody has listed
+    a value for yet is returned with no options -- never invented ones."""
+    template = catalogue_templates.template(key)
+    if not template:
+        raise HTTPException(status_code=404, detail="No catalogue for this category")
+    catalog = request.app.state.container.product_catalog_repository
+    specs = catalogue_templates.filterable(template["key"])
+    facets = catalog.attribute_facets(template["category_tag"], [a["key"] for a in specs])
+    return {
+        "template": template["key"],
+        "price": catalog.price_range(template["category_tag"]),
+        "filters": [
+            {"key": a["key"], "label": a["label"], "kind": a["kind"], "unit": a.get("unit"),
+             "group": a.get("group"), "multi": bool(a.get("multi")),
+             "values": [{"value": v, "count": n} for v, n in (facets.get(a["key"]) or {}).items()]}
+            for a in specs
+        ],
+    }
 
 
 @router.post("/templates/{key}/publish")
@@ -145,6 +168,8 @@ def publish_catalogue(key: str, payload: PublishCatalogue, request: Request) -> 
                 conn.execute("UPDATE seller_products SET image_media_id=? WHERE id=?",
                              (f"catalog-photo:{product_id}", product_id))
                 conn.commit()
+        multi = {a["key"] for a in catalogue_templates.attributes(template["key"]) if a.get("multi")}
+        catalog.set_attributes(product_id, {k: (v.split(", ") if k in multi else [v]) for k, v in attrs.items()})
         published.append({"item_key": entry.item_key, "product_id": product_id, "subject": subject})
     tier = None
     if published:
