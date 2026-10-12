@@ -329,6 +329,20 @@
       "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": ["test/features/radio/travel_radio_test.dart"]},
       "dependencies": [], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
+    },
+    {
+      "id": "executive_ai_brief",
+      "name": "ASKODOX Executive AI (AXE) brief",
+      "purpose": "One graded executive brief for the Owner over the release gate, incidents, API spend, Travel Radio pricing and the Feature Registry.",
+      "expected_behavior": "GET /admin/cc/axe/brief (health:view) returns overall + findings graded CONFIRMED / POSSIBLE / ESTIMATE / PENDING and owner_decisions; recommends only admin_action_framework.CATALOG actions (never runs them); en / te templates, no model call.",
+      "roles": ["admin"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/axe/brief"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_executive_ai.py"], "flutter": []},
+      "dependencies": ["travel_radio_addon"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
     }
   ]
 }
