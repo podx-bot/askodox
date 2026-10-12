@@ -130,3 +130,71 @@ String askodoxBoardTabEmptyText(AskodoxBoardTab tab, String lang) {
     AskodoxBoardTab.all => te ? 'ఫలితాలు లేవు.' : 'No results.',
   };
 }
+
+/// One filter chip of the Result Board: a structured detail sellers gave on
+/// the SHOWN rows (never a guessed value) and how many rows carry it.
+class AskodoxAttributeChip {
+  const AskodoxAttributeChip(this.key, this.value, this.count);
+  final String key, value;
+  final int count;
+
+  String get id => '$key=$value';
+
+  /// "size_uk" -> "Size uk: 9"
+  String get label {
+    final words = key.replaceAll('_', ' ').trim();
+    return '${words.isEmpty ? key : words[0].toUpperCase() + words.substring(1)}: $value';
+  }
+}
+
+/// Filter chips from the rows' own attributes: a multi value ("Cash, UPI")
+/// counts per part; a key appears only when the rows differ on it (a filter
+/// that keeps every row is no filter). Most common first, at most [limit].
+List<AskodoxAttributeChip> askodoxAttributeChips(List<UniversalMatch> matches, {int limit = 8}) {
+  final counts = <String, Map<String, int>>{};
+  for (final m in matches) {
+    for (final e in m.attributes.entries) {
+      for (final part in e.value.split(',').map((v) => v.trim()).where((v) => v.isNotEmpty).toSet()) {
+        (counts[e.key] ??= {})[part] = ((counts[e.key] ?? const {})[part] ?? 0) + 1;
+      }
+    }
+  }
+  final chips = <AskodoxAttributeChip>[
+    for (final e in counts.entries)
+      for (final v in e.value.entries)
+        if (v.value < matches.length || e.value.length > 1) AskodoxAttributeChip(e.key, v.key, v.value),
+  ]..sort((a, b) => b.count.compareTo(a.count));
+  return chips.take(limit).toList();
+}
+
+/// Rows carrying EVERY chosen detail (chips are views of the deck, never a
+/// new search). Rows without that detail are not shown under the filter.
+List<UniversalMatch> askodoxFilterByAttributes(List<UniversalMatch> matches, Set<String> chosen) {
+  if (chosen.isEmpty) return matches;
+  bool has(UniversalMatch m, String id) {
+    final i = id.indexOf('=');
+    final value = m.attributes[id.substring(0, i)];
+    return value != null && value.split(',').map((v) => v.trim()).contains(id.substring(i + 1));
+  }
+
+  return [for (final m in matches) if (chosen.every((id) => has(m, id))) m];
+}
+
+/// The deck narrowed by chosen attribute chips (notices / sources kept).
+AskodoxChatResults askodoxResultsForAttributes(AskodoxChatResults results, Set<String> chosen) {
+  if (chosen.isEmpty) return results;
+  return AskodoxChatResults(
+    dealId: results.dealId,
+    matches: askodoxFilterByAttributes(results.matches, chosen),
+    failed: results.failed,
+    signInRequired: results.signInRequired,
+    missingFields: results.missingFields,
+    sourceStatus: results.sourceStatus,
+    searched: results.searched,
+    broadcastSent: null,
+    scopeMessage: null,
+    traceKey: results.traceKey,
+    advisor: results.advisor,
+    contract: results.contract,
+  );
+}

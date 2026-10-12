@@ -347,6 +347,61 @@ _PROPERTY = [
     ]),
 ]
 
+
+_HEALTH_WELLNESS = [
+    _category("medical_equipment", "Medical equipment (non-prescription)", "వైద్య పరికరాలు", "चिकित्सा उपकरण", [
+        ("bp_monitor", "BP monitor", "బీపీ మానిటర్", "बीपी मॉनिटर", "piece", ("one size",)),
+        ("glucometer", "Glucometer", "గ్లూకోమీటర్", "ग्लूकोमीटर", "piece", ("one size",)),
+        ("wheelchair", "Wheelchair", "వీల్‌చైర్", "व्हीलचेयर", "piece", ("standard", "foldable")),
+    ]),
+    _category("wellness", "Wellness services", "వెల్‌నెస్ సేవలు", "वेलनेस सेवाएँ", [
+        ("yoga", "Yoga classes", "యోగా తరగతులు", "योग कक्षाएँ", "month", ("per month",)),
+        ("physio_home", "Physiotherapy at home", "ఇంటి వద్ద ఫిజియోథెరపీ", "घर पर फ़िज़ियोथेरेपी", "visit", ("per visit",)),
+    ]),
+]
+
+_EDUCATION = [
+    _category("classes", "Classes & coaching", "తరగతులు & కోచింగ్", "कक्षाएँ और कोचिंग", [
+        ("school_tuition", "School tuition", "స్కూల్ ట్యూషన్", "स्कूल ट्यूशन", "month", ("per month",)),
+        ("competitive", "Competitive exam coaching", "పోటీ పరీక్షల కోచింగ్", "प्रतियोगी परीक्षा कोचिंग", "course", ("per course",)),
+        ("spoken_english", "Spoken English", "స్పోకెన్ ఇంగ్లీష్", "स्पोकन इंग्लिश", "course", ("per course",)),
+        ("computer", "Computer course", "కంప్యూటర్ కోర్సు", "कंप्यूटर कोर्स", "course", ("per course",)),
+    ]),
+]
+
+_TRAVEL = [
+    _category("tours", "Tours & stays", "టూర్లు & బస", "टूर और ठहराव", [
+        ("tour_package", "Tour package", "టూర్ ప్యాకేజీ", "टूर पैकेज", "person", ("per person",)),
+        ("homestay", "Homestay / room", "హోమ్‌స్టే / గది", "होमस्टे / कमरा", "night", ("per night",)),
+        ("pilgrimage", "Pilgrimage trip", "తీర్థయాత్ర", "तीर्थ यात्रा", "person", ("per person",)),
+    ]),
+]
+
+_RENTALS = [
+    _category("equipment_rental", "Equipment & vehicle rental", "పరికరాలు & వాహనాల అద్దె", "उपकरण और वाहन किराया", [
+        ("generator", "Generator", "జనరేటర్", "जनरेटर", "day", ("per day",)),
+        ("tent_chairs", "Tent / chairs / function items", "టెంట్ / కుర్చీలు", "टेंट / कुर्सियाँ", "day", ("per day",)),
+        ("self_drive", "Self-drive car / bike", "సెల్ఫ్ డ్రైవ్ కారు / బైక్", "सेल्फ ड्राइव कार / बाइक", "day", ("per day",)),
+        ("jcb", "JCB / earth mover", "జేసీబీ", "जेसीबी", "hour", ("per hour",)),
+    ]),
+]
+
+_B2B_INDUSTRIAL = [
+    _category("industrial", "Industrial supplies", "పరిశ్రమల సామగ్రి", "औद्योगिक सामग्री", [
+        ("packaging", "Packaging material", "ప్యాకింగ్ సామగ్రి", "पैकेजिंग सामग्री", "piece", ("bulk",)),
+        ("raw_material", "Raw material", "ముడి సరుకు", "कच्चा माल", "kg", ("bulk",)),
+        ("machine_parts", "Machine parts", "మెషిన్ విడిభాగాలు", "मशीन पुर्ज़े", "piece", ("by spec",)),
+    ]),
+]
+
+_DIGITAL = [
+    _category("digital_services", "Digital services", "డిజిటల్ సేవలు", "डिजिटल सेवाएँ", [
+        ("website", "Website design", "వెబ్‌సైట్ డిజైన్", "वेबसाइट डिज़ाइन", "project", ("per project",)),
+        ("social_media", "Social media management", "సోషల్ మీడియా నిర్వహణ", "सोशल मीडिया प्रबंधन", "month", ("per month",)),
+        ("video_editing", "Video editing", "వీడియో ఎడిటింగ్", "वीडियो एडिटिंग", "video", ("per video",)),
+    ]),
+]
+
 TEMPLATES: Dict[str, Dict[str, Any]] = {
     "product_base": {"key": "product_base", "name": {"en": "Any product (base)", "te": "ఏదైనా వస్తువు (బేస్)",
                                                      "hi": "कोई भी उत्पाद (बेस)"},
@@ -479,7 +534,59 @@ TEMPLATES: Dict[str, Dict[str, Any]] = {
                                         _attr("tenants", "Preferred tenants", "కోరుకునే అద్దెదారులు", "पसंदीदा किरायेदार",
                                               "choice", ("Family", "Bachelors", "Anyone"), multi=True),
                                         _attr("approval", "Approval / documents", "అనుమతి / పత్రాలు", "स्वीकृति / दस्तावेज़",
-                                              group="Compliance", filterable=False)]}
+                                              group="Compliance", filterable=False)]},
+    "health_wellness": {"key": "health_wellness", "name": {"en": "Health equipment & wellness", "te": "ఆరోగ్య పరికరాలు & వెల్‌నెస్",
+                                                           "hi": "स्वास्थ्य उपकरण और वेलनेस"},
+                        "category_tag": "health_wellness", "parent": "product_base", "categories": _HEALTH_WELLNESS,
+                        "attributes": [_attr("brand", "Brand", "బ్రాండ్", "ब्रांड"),
+                                       _attr("certification", "Certification (e.g. ISI / CE)", "సర్టిఫికేషన్", "प्रमाणन"),
+                                       _attr("qualification", "Practitioner qualification", "అర్హత", "योग्यता",
+                                             group="Qualification"),
+                                       _attr("prescription", "Needs a prescription", "ప్రిస్క్రిప్షన్ అవసరం",
+                                             "पर्चे की ज़रूरत", "choice", ("No",), required=True, group="Compliance",
+                                             filterable=False)]},
+    "education": {"key": "education", "name": {"en": "Education & coaching", "te": "విద్య & కోచింగ్", "hi": "शिक्षा और कोचिंग"},
+                  "category_tag": "education", "parent": "service_base", "categories": _EDUCATION,
+                  "attributes": [_attr("subjects", "Subjects / courses", "సబ్జెక్టులు", "विषय", required=True),
+                                 _attr("level", "Level", "స్థాయి", "स्तर", "choice",
+                                       ("Primary", "High school", "Intermediate", "Degree", "Adults"), multi=True),
+                                 _attr("medium", "Medium", "మాధ్యమం", "माध्यम", "choice", ("Telugu", "English", "Hindi"),
+                                       multi=True),
+                                 _attr("mode", "Mode", "విధానం", "तरीका", "choice", ("Online", "Offline", "Both")),
+                                 _attr("batch_size", "Batch size", "బ్యాచ్ పరిమాణం", "बैच आकार", "number", minimum=1)]},
+    "travel_stays": {"key": "travel_stays", "name": {"en": "Travel, tours & stays", "te": "ప్రయాణం, టూర్లు & బస",
+                                                     "hi": "यात्रा, टूर और ठहराव"},
+                     "category_tag": "travel", "parent": "service_base", "categories": _TRAVEL,
+                     "attributes": [_attr("destination", "Destination", "గమ్యం", "गंतव्य", required=True),
+                                    _attr("days", "Days", "రోజులు", "दिन", "number", minimum=1, maximum=60),
+                                    _attr("includes", "Includes", "ఇందులో ఉన్నవి", "शामिल", "choice",
+                                          ("Travel", "Stay", "Food", "Guide", "Entry tickets"), multi=True),
+                                    _attr("guests", "Max guests", "గరిష్ట అతిథులు", "अधिकतम मेहमान", "number", minimum=1)]},
+    "rentals": {"key": "rentals", "name": {"en": "Rentals (equipment & vehicles)", "te": "అద్దెలు (పరికరాలు & వాహనాలు)",
+                                           "hi": "किराया (उपकरण और वाहन)"},
+                "category_tag": "rentals", "parent": "product_base", "categories": _RENTALS,
+                "attributes": [_attr("deposit", "Security deposit", "సెక్యూరిటీ డిపాజిట్", "सिक्योरिटी डिपॉज़िट", "number",
+                                     unit="₹", minimum=0),
+                               _attr("min_duration", "Minimum rental", "కనీస అద్దె కాలం", "न्यूनतम किराया अवधि"),
+                               _attr("operator", "With operator / driver", "ఆపరేటర్ తో", "ऑपरेटर सहित", "choice",
+                                     ("Yes", "No")),
+                               _attr("documents_needed", "Documents the renter must show", "అద్దెదారు చూపాల్సిన పత్రాలు",
+                                     "किरायेदार के दस्तावेज़", filterable=False)]},
+    "b2b_industrial": {"key": "b2b_industrial", "name": {"en": "B2B & industrial supplies", "te": "B2B & పరిశ్రమల సామగ్రి",
+                                                         "hi": "B2B और औद्योगिक सामग्री"},
+                       "category_tag": "b2b", "parent": "product_base", "categories": _B2B_INDUSTRIAL,
+                       "attributes": [_attr("specification", "Specification / grade", "స్పెసిఫికేషన్", "विनिर्देश",
+                                            required=True, group="Specifications"),
+                                      _attr("wholesale", "Wholesale available", "హోల్‌సేల్ ఉంది", "थोक उपलब्ध", "choice",
+                                            ("Yes",), required=True, group="Pricing"),
+                                      _attr("lead_time", "Lead time", "సరఫరా సమయం", "डिलीवरी समय", group="Delivery"),
+                                      _attr("gst_invoice", "GST invoice", "GST ఇన్వాయిస్", "GST बिल", "choice", ("Yes", "No"))]},
+    "digital": {"key": "digital", "name": {"en": "Digital services", "te": "డిజిటల్ సేవలు", "hi": "डिजिटल सेवाएँ"},
+                "category_tag": "digital", "parent": "service_base", "categories": _DIGITAL,
+                "attributes": [_attr("deliverables", "Deliverables", "ఇచ్చేవి", "डिलीवरेबल्स", required=True),
+                               _attr("turnaround", "Turnaround", "పూర్తయ్యే సమయం", "समय सीमा"),
+                               _attr("revisions", "Revisions included", "సవరణలు", "संशोधन", "number", minimum=0,
+                                     maximum=50)]}
 }
 
 
@@ -587,6 +694,29 @@ def _values(raw: Any) -> List[str]:
     return [str(v).strip()[:80] for v in items if str(v).strip()]
 
 
+def _dependency_order(specs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Every attribute after the one it depends on, whatever the declared
+    order (a child template overriding a parent key moves it to the end).
+    Display order is untouched; a cycle / unknown key keeps its place last."""
+    done: set = set()
+    keys = {s["key"] for s in specs}
+    ordered: List[Dict[str, Any]] = []
+    pending = list(specs)
+    while pending:
+        progressed = False
+        for spec in list(pending):
+            dep = (spec.get("depends_on") or {}).get("key")
+            if not dep or dep in done or dep not in keys:
+                ordered.append(spec)
+                done.add(spec["key"])
+                pending.remove(spec)
+                progressed = True
+        if not progressed:
+            ordered.extend(pending)
+            break
+    return ordered
+
+
 def clean_attributes(template_key: str, values: Dict[str, Any] | None) -> tuple[Dict[str, str], List[str]]:
     """Only this template's (inherited) attribute keys; choices from their
     options (several when multi); numbers within their range; a dependent
@@ -595,7 +725,7 @@ def clean_attributes(template_key: str, values: Dict[str, Any] | None) -> tuple[
     specs = attributes(template_key)
     kept: Dict[str, str] = {}
     missing: List[str] = []
-    for spec in specs:
+    for spec in _dependency_order(specs):
         dep = spec.get("depends_on") or {}
         if dep and kept.get(dep.get("key")) not in (dep.get("values") or []):
             continue  # not applicable for this item

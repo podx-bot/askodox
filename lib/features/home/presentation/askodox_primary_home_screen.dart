@@ -414,6 +414,9 @@ class _AskodoxPrimaryHomeScreenState
   /// The Result Board tab chosen per deck (a new deck starts on "Result Board").
   final Map<int, AskodoxBoardTab> _boardTabFor = {};
 
+  /// Attribute chips chosen per results turn ("size=9"): views of the deck.
+  final Map<int, Set<String>> _boardAttrsFor = {};
+
   /// Speaks [reply] through the one audio lifecycle (tests drive overlap).
   @visibleForTesting
   Future<void> speakReplyForTest(String reply) => _speakReply(reply, userText: reply);
@@ -4106,6 +4109,32 @@ class _AskodoxPrimaryHomeScreenState
           // latest conversation lines keep their room.
           onExpand: () => setState(() => _boardMegaFor = _boardMegaFor == index ? null : index),
         ),
+        if (askodoxAttributeChips(_resultsByTurn[index]?.matches ?? const []) case final chips
+            when chips.isNotEmpty)
+          SizedBox(
+            key: const Key('askodoxResultAttributeChips'),
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
+              children: [
+                for (final chip in chips)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      key: ValueKey('askodoxResultAttr-${chip.id}'),
+                      visualDensity: VisualDensity.compact,
+                      label: Text('${chip.label} · ${chip.count}', style: const TextStyle(fontSize: 12)),
+                      selected: _boardAttrsFor[index]?.contains(chip.id) ?? false,
+                      onSelected: (on) => setState(() {
+                        final chosen = _boardAttrsFor[index] ??= <String>{};
+                        on ? chosen.add(chip.id) : chosen.remove(chip.id);
+                      }),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         if (_resultsStaleFor != null)
           Padding(
             key: const Key('askodoxResultsRefreshing'),
@@ -4548,7 +4577,7 @@ class _AskodoxPrimaryHomeScreenState
                 workspace: true,
                 positions: _boardPositions,
                 mega: _boardMegaFor == index,
-                results: askodoxResultsForTab(results, tab),
+                results: askodoxResultsForAttributes(askodoxResultsForTab(results, tab), _boardAttrsFor[index] ?? const {}),
                 te: te,
                 lang: _lang,
                 retrying: _sending,

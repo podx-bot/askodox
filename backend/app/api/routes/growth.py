@@ -207,7 +207,10 @@ def my_rewards(request: Request) -> dict:
 
 @router.get("/api/plans")
 def list_plans(request: Request, audience: str = "") -> dict:
-    return {"items": growth(request.app.state.container).plans(active_only=True, audience=audience or None)}
+    items = growth(request.app.state.container).plans(active_only=True, audience=audience or None)
+    if not audience:  # add-ons are listed by their own screen, never as a base plan
+        items = [p for p in items if not str(p.get("audience") or "").startswith("addon")]
+    return {"items": items}
 
 
 class SubscribeRequest(BaseModel):
@@ -221,6 +224,9 @@ def subscribe(payload: SubscribeRequest, request: Request) -> dict:
     plan = repo.plan(payload.plan_code)
     if not plan or not plan["active"]:
         raise HTTPException(status_code=404, detail="Plan not available")
+    if str(plan.get("audience") or "").startswith("addon"):
+        # Add-ons bill separately (/api/radio/pass): never replace the base plan.
+        raise HTTPException(status_code=409, detail="ADDON_PLAN_USE_ADDON_ROUTE")
     sub = repo.subscribe(user, plan)
     note = ("Payment is not available in the app yet; this plan starts after payment is confirmed."
             if sub["status"] == "PENDING_PAYMENT" else "")

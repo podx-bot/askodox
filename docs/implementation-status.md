@@ -1,38 +1,43 @@
 # Implementation status (update after every work unit)
 
-Last update: 2026-10-12 · branch `claude/navigator-ux-p0` · PR #182 (draft) · main untouched (`bae9c9e`).
+Last update: 2026-10-13 IST · branch `claude/master-phase2` (PR #183) -- all items below are CODE + automated tests,
+NOT phone-verified. Production = main (PR #182 merged 2026-10-12, `1db4f74`).
 
-## Done this round (code + automated tests; NOT phone-verified)
-- Catalogue engine is ONE admin-editable, data-driven system: resource `catalog_templates` (seeded from
-  `backend/app/services/catalogue_templates.py`), parent inheritance (`product_base`, `service_base`),
-  attributes with group / unit / multi / depends_on / min / max / filterable, 13 seller templates.
-- Indexed listing attributes (`listing_attributes`), buyer filters from real listings
-  (`GET /api/catalog/filters/{key}`), search filtering (`/api/products/search?attr=key:value`),
-  `/api/products/mine` returns attributes.
-- Bug fixed: route quotes treated any listing mentioning "courier" as a delivery partner.
-- App editor: grouped sections, number fields, multi-select chips, conditional fields.
+## Done on claude/master-phase2 (code + automated tests; NOT phone-verified)
+- Structured catalogue attributes in matching: `supply_fit` judges registered listings by the seller's indexed
+  attributes; rows carry `attributes`; Result Board attribute chips filter the SHOWN deck (never a new search).
+- Mobility: goods kinds (mini truck, tempo, lorry, packers & movers, intercity courier, cold chain), pricing models
+  (per km / kg / hour / stop / fixed / quotation), up to 5 stops, bids + counter-offers + accept (agreed fare);
+  app: goods chips, stops, weight / size / handling, quote / counter / accept on the trip card.
+- Registration: one profile, many roles (courier, cab, bike taxi, fleet, restaurant, manufacturer, wholesaler,
+  enterprise, freelancer ...), draft until required details exist, staff verification queue (`role_verifications`,
+  only the reference's last 4 kept); app: My Roles -> Registration progress + Verify.
+- Catalogue: 19 templates (+ health & wellness non-Rx, education, travel & stays, rentals, B2B industrial,
+  digital services); dependency evaluation independent of override order.
+- Travel Radio add-on (`travel_radio.py`, `routes/radio.py`, app `/radio`): segments only from real facts
+  (place name, nearby places, LIVE content), shared area cache (cell `radio.cell_km`), cached Sarvam audio (7 days),
+  no repeats (`radio.repeat_hours`), daily minute cap, usage metering. Flag `radio.enabled` default OFF.
+- Radio billing: plans radio_1d / 7d / 30d (proposed Rs 29 / 149 / 399) stored INACTIVE, audience `addon_radio`,
+  separate from the base plan (`/api/subscriptions` refuses add-ons); paid pass = PENDING_PAYMENT (no gateway);
+  staff may grant PROMOTIONAL passes only.
+- Cost model (`/admin/cc/radio`, ESTIMATE): with the nearby-places lookup ON the proposed prices lose money for
+  medium / heavy listeners; with it OFF (`radio.nearby_places=0`) light + medium are covered and only the heavy
+  30-day listener loses (~Rs 668 cost vs Rs 399). Owner decision needed before activation.
+- AXE executive brief (`executive_ai.py`, `GET /admin/cc/axe/brief`, console Readiness panel): graded findings over
+  release gate, incidents, API spend, radio pricing, Feature Registry; recommends catalog actions only.
 
-## Earlier rounds on this branch
-Navigator header / Result Board tabs / one "+" / Profile 5 sections / My Listings search + thumbnails +
-confirm remove / mic until Stop / one draft (typed + voice + attachments) / no repeat listings / model JSON
-strict=False / chunked voice with text revealed as read / point spacing. APKs 1316-1319 (phone-test links).
-
-## Pending (next executable steps, in order)
-1. Wire attribute filters into `/deals` matching + Result Board filter chips (app).
-2. Mobility: goods transport kinds, multi-stop, pricing models (per-km/kg/hour/stop/contract), provider quotes.
-3. Per-role registration wizard + document verification queue (reuse `listing_reviews` pattern).
-4. More seed templates (healthcare non-Rx, education, travel, B2B industrial, rentals).
-5. Travel Radio (needs owner decisions: content sources, voice budget) and Radio billing (needs gateway approval).
+## Pending (next executable steps)
+1. Real-phone acceptance of every flow above (none is PHONE VERIFIED).
+2. Smart Fill / Studio editing / Free-Plus-Pro subscription screens (earlier backlog), nested-screen restyle.
+3. Variant combinations matrix, seller bulk CSV import, barcode scan.
 
 ## Owner decisions 2026-10-12 23:09 (apply; do not ask again)
-1. PR #182: review code, deps, migrations, CI, security; fix failures; merge + deploy to Railway production if all
-   required checks pass and nothing destructive / security-sensitive needs approval; verify deployment health.
-2. Voice: Voice Mode on -> every conversational reply is spoken; Text Mode -> voice optional (replay). Travel Radio
-   must play audio. Cost controls, caching, metering; respect mute / pause / preferences.
-3. Language: reply in the language the user speaks / explicitly selected for the conversation; never force the UI
-   language onto replies; Telugu, Hindi, English and mixed speech.
+1. PR merge + deploy to Railway production when all required checks pass and nothing destructive /
+   security-sensitive needs approval; verify deployment health.
+2. Voice: Voice Mode on -> every reply spoken; Text Mode -> optional. Travel Radio plays audio. Cost controls,
+   caching, metering; respect mute / pause / preferences.
+3. Language: reply in the language the user speaks / selected; never force the UI language.
 
 ## Blockers needing the owner
-- Merge PR #182 -> production deploy (approval).
-- Payment gateway + any price activation (Radio ₹29/149/399 are proposals only).
-- Two product rules still open: speak every reply (also typed)? reply in the spoken language over the UI preference?
+- Payment gateway + any price activation (Radio Rs 29 / 149 / 399 are proposals; plans stay inactive).
+- Switching `radio.enabled` on, and whether to keep the nearby-places lookup (main cost driver).

@@ -140,3 +140,21 @@ def test_free_text_attributes_never_carry_contact_details():
         assert "scope" not in kept, leak
     kept, _ = ct.clean_attributes("services", {"scope": "Pipe fitting, tap repair, 2 hours"})
     assert kept["scope"] == "Pipe fitting, tap repair, 2 hours"
+
+
+@pytest.mark.parametrize("key", ["health_wellness", "education", "travel_stays", "rentals", "b2b_industrial", "digital"])
+def test_new_domain_templates_resolve_with_inherited_base(key):
+    tpl = catalogue_templates.template(key)
+    assert tpl and tpl["items"] > 0
+    assert {a["key"] for a in tpl["attributes"]} & {"mrp", "negotiable", "service_area", "pricing", "availability"}
+
+
+def test_dependency_holds_when_a_child_overrides_the_parent_key():
+    # b2b_industrial re-declares `wholesale`, which moves it after `moq` in
+    # display order -- the dependent MOQ must still be kept.
+    kept, _ = catalogue_templates.clean_attributes(
+        "b2b_industrial", {"specification": "304 SS", "wholesale": "Yes", "moq": "100"})
+    assert kept.get("moq") == "100"
+    kept, _ = catalogue_templates.clean_attributes(
+        "b2b_industrial", {"specification": "304 SS", "wholesale": "No", "moq": "100"})
+    assert "moq" not in kept

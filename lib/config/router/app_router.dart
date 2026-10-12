@@ -8,6 +8,7 @@ import '../../features/home/presentation/chat_first_home_host.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/radio/presentation/travel_radio_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/selling/presentation/my_listings_screen.dart';
 import '../../features/notifications/presentation/notification_settings_screen.dart';
@@ -217,6 +218,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/beta-feedback',
           builder: (context, state) => const BetaFeedbackScreen()),
       GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
+      GoRoute(path: '/radio', builder: (context, state) => const TravelRadioScreen()),
       GoRoute(
           path: '/mobility',
           builder: (context, state) =>

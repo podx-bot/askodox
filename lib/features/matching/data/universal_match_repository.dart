@@ -115,6 +115,7 @@ class UniversalMatch {
     this.relatedServices = const [],
     this.why,
     this.fitStatus,
+    this.attributes = const {},
     this.merchantOffer,
     this.originalPrice,
     this.discountPercent,
@@ -249,6 +250,10 @@ class UniversalMatch {
   final String? why;
   final String? fitStatus;
 
+  /// A registered listing's structured catalogue details as the seller gave
+  /// them (e.g. {"size": "9", "colour": "Black"}); empty for other sources.
+  final Map<String, String> attributes;
+
   /// A registered seller's live, reviewed merchant offer ({id, title,
   /// summary, min_bill, valid_to, claim_path}).
   final Map<String, Object?>? merchantOffer;
@@ -333,6 +338,12 @@ class UniversalMatch {
           relatedServices: _strings(json['services']),
           why: (json['why']?.toString().trim().isEmpty ?? true) ? null : json['why'].toString(),
           fitStatus: json['fit'] is Map ? (json['fit'] as Map)['status']?.toString() : null,
+          attributes: json['attributes'] is Map
+              ? {
+                  for (final e in (json['attributes'] as Map).entries)
+                    if ('${e.value}'.trim().isNotEmpty) '${e.key}': '${e.value}',
+                }
+              : const {},
           merchantOffer: json['merchant_offer'] is Map
               ? Map<String, Object?>.from(json['merchant_offer'] as Map)
               : null,
@@ -410,6 +421,7 @@ class UniversalMatch {
         if (relatedServices.isNotEmpty) 'services': relatedServices,
         if (why != null) 'why': why,
         if (fitStatus != null) 'fit': {'status': fitStatus},
+        if (attributes.isNotEmpty) 'attributes': attributes,
         if (merchantOffer != null) 'merchant_offer': merchantOffer,
       };
 }

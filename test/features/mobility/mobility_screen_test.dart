@@ -70,11 +70,39 @@ class _Repo implements MobilityRepository {
   Map<String, Object?>? lastPickup;
   Map<String, Object?>? lastDrop;
   String? lastKind;
+  List<Map<String, Object?>> lastStops = const [];
+  Map<String, Object?> lastDetails = const {};
+  final bids = <String>[];
+  List<MobilityJob> mine = [];
+
+  @override
+  Future<List<MobilityJob>> myRequests() async => mine;
+
+  @override
+  Future<MobilityResult<MobilityJob>> acceptBid(String id, {required String partnerId}) async {
+    bids.add('accept:$partnerId');
+    return MobilityResult.ok(_job('PARTNER_ACCEPTED', accepted: true));
+  }
+
+  @override
+  Future<MobilityResult<MobilityJob>> bid(String id, double amount, {required String partnerId, String note = ''}) async {
+    bids.add('counter:$partnerId:${amount.round()}');
+    return MobilityResult.ok(_job('PARTNER_SEARCH'));
+  }
+
+  @override
+  Future<MobilityResult<MobilityJob>> partnerBid(String id, double amount, {String note = ''}) async {
+    bids.add('quote:${amount.round()}');
+    return MobilityResult.ok(_job('PARTNER_SEARCH'));
+  }
 
   @override
   Future<MobilityResult<MobilityJob>> request({required String kind, required Map<String, Object?> pickup,
-      required Map<String, Object?> drop, Map<String, Object?> details = const {}, String scheduleAt = ''}) async {
+      required Map<String, Object?> drop, Map<String, Object?> details = const {}, String scheduleAt = '',
+      List<Map<String, Object?>> stops = const []}) async {
     lastKind = kind;
+    lastStops = stops;
+    lastDetails = details;
     lastPickup = pickup;
     lastDrop = drop;
     return MobilityResult.ok(_job('PARTNER_SEARCH'));
@@ -185,6 +213,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobility-to-suggest-Vijayawada Airport, Gannavaram')));
     await tester.pumpAndSettle();
     expect(places.routes.last, ('Benz Circle', 'Vijayawada Airport, Gannavaram'));
+    // The form is longer now (goods kinds): bring the route line into view.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('mobility-route')), 200,
+        scrollable: find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
     expect(find.textContaining('18.4 km'), findsOneWidget);
     expect(find.byKey(const ValueKey('mobility-directions')), findsOneWidget);
     final draft = container.read(askodoxMobilityDraftProvider)!;
@@ -198,5 +229,79 @@ void main() {
     expect(repo.lastDrop?['latitude'], 16.53);
     expect(draft.location, contains('kind=ride_airport'));
     expect(askodoxRouteDirectionsUri(draft.from!, draft.to!).toString(), contains('origin=16.4991%2C80.6563'));
+  });
+
+  test('bids: the latest per partner; an agreed fare ends the bargaining', () {
+    final job = MobilityJob.fromJson({
+      'id': 'dj_9', 'kind': 'goods_tempo', 'status': 'PARTNER_SEARCH', 'stage': '',
+      'pickup': {'label': 'Vuyyuru'}, 'drop': {'label': 'Guntur'},
+      'details': {'stops': [{'label': 'Vijayawada'}], 'weight_kg': 400},
+      'bids': [
+        {'partner_id': 'p1', 'by': 'partner', 'amount': 2500},
+        {'partner_id': 'p1', 'by': 'customer', 'amount': 2100},
+        {'partner_id': 'p2', 'by': 'partner', 'amount': 2300},
+      ],
+    });
+    expect(job.stops, ['Vijayawada']);
+    expect(job.latestBids.map((b) => '${b.partnerId}:${b.by}:${b.amount.round()}'), ['p2:partner:2300', 'p1:customer:2100']);
+    expect(job.agreedFare, isNull);
+    expect(MobilityJob.fromJson({'id': 'x', 'agreed_fare': 2200}).agreedFare, 2200);
+  });
+
+  testWidgets('goods: kind, extra stop, weight / size / handling reach the request', (tester) async {
+    final repo = _Repo();
+    final container = ProviderContainer(overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      mobilityRepositoryProvider.overrideWithValue(repo),
+      growthRepositoryProvider.overrideWithValue(_Places()),
+    ]);
+    addTearDown(container.dispose);
+    container.read(askodoxMobilityDraftProvider.notifier).state = const MobilityDraft(
+        kind: 'goods_tempo',
+        from: AskodoxPlace(latitude: 16.36, longitude: 80.84, label: 'Vuyyuru'),
+        to: AskodoxPlace(latitude: 16.30, longitude: 80.44, label: 'Guntur'));
+    await tester.pumpWidget(UncontrolledProviderScope(
+        container: container, child: const MaterialApp(home: MobilityScreen(initialKind: 'goods_tempo'))));
+    await tester.pumpAndSettle();
+    final list = find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('mobility-add-stop')), 200, scrollable: list);
+    await tester.tap(find.byKey(const ValueKey('mobility-add-stop')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('mobility-stop-remove-0')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('mobility-stop-remove-0')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('mobility-weight')), 200, scrollable: list);
+    await tester.enterText(find.byKey(const ValueKey('mobility-weight')), '400');
+    await tester.enterText(find.byKey(const ValueKey('mobility-dimensions')), '6x4x4 ft');
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('mobility-submit')), 200, scrollable: list);
+    await tester.tap(find.byKey(const ValueKey('mobility-submit')));
+    await tester.pumpAndSettle();
+    expect(repo.lastKind, 'goods_tempo');
+    expect(repo.lastStops, isEmpty, reason: 'a removed stop is not sent');
+    expect(repo.lastDetails['weight_kg'], 400);
+    expect(repo.lastDetails['dimensions'], '6x4x4 ft');
+    expect(repo.lastDetails.containsKey('passengers'), isFalse);
+  });
+
+  testWidgets('customer accepts a partner quote or counters it (nothing booked before)', (tester) async {
+    final repo = _Repo()
+      ..mine = [
+        MobilityJob.fromJson({
+          'id': 'dj_9', 'kind': 'goods_tempo', 'status': 'PARTNER_SEARCH', 'stage': 'Waiting',
+          'pickup': {'label': 'Vuyyuru'}, 'drop': {'label': 'Guntur'},
+          'bids': [{'partner_id': 'p1', 'by': 'partner', 'amount': 2500}],
+        }),
+      ];
+    await tester.pumpWidget(_app(repo, tab: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('Quote ₹2500'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('mobility-bid-counter-dj_9-p1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('mobility-bid-amount')), '2200');
+    await tester.tap(find.byKey(const ValueKey('mobility-bid-send')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobility-bid-accept-dj_9-p1')));
+    await tester.pumpAndSettle();
+    expect(repo.bids, ['counter:p1:2200', 'accept:p1']);
   });
 }

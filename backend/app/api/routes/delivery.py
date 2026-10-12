@@ -125,6 +125,11 @@ def _view(container: Any, job: Dict[str, Any], user_id: str) -> Dict[str, Any]:
     if not is_requester:
         out.pop("requester", None)
         out["history"] = [{k: v for k, v in h.items() if k != "by"} for h in job.get("history") or []]
+    # Negotiation: the customer sees every partner's thread, a partner only
+    # its own; who typed an offer (user ids carry phone numbers) is never shown.
+    bids = [b for b in job.get("bids") or [] if is_requester or b.get("partner_id") in
+            _my_partner_ids(container, user_id)]
+    out["bids"] = [{k: v for k, v in b.items() if k != "actor"} for b in bids]
     out.pop("partner_user", None)
     out.pop("declined", None)
     return out
@@ -153,6 +158,10 @@ class Details(BaseModel):
     recipient_name: str = Field(default="", max_length=80)
     recipient_phone: str = Field(default="", max_length=20)
     notes_private: str = Field(default="", max_length=300)
+    # Goods / logistics / rentals: what the partner must know to quote.
+    dimensions: str = Field(default="", max_length=60)
+    handling: str = Field(default="", pattern="^(|fragile|refrigerated|heavy|liquid|livestock)$")
+    hours: Optional[float] = Field(default=None, gt=0, le=240)
 
 
 class JobBody(BaseModel):
@@ -161,6 +170,7 @@ class JobBody(BaseModel):
     pickup: Point
     drop: Point
     order_id: str = Field(default="", max_length=60)
+    stops: List[Point] = Field(default_factory=list, max_length=dj.MAX_STOPS)
     details: Details = Field(default_factory=Details)
     schedule_at: str = Field(default="", max_length=25)
 
@@ -232,6 +242,7 @@ def create_job(body: JobBody, request: Request) -> dict:
 
     pickup = _resolve_point(container, body.pickup, "pickup")
     drop = _resolve_point(container, body.drop, "drop")
+    stops = [_resolve_point(container, p, f"stop {i + 1}") for i, p in enumerate(body.stops)]
     rule = _service_rule(container, body.kind, pickup.get("label") or "")
     details = {k: v for k, v in body.details.model_dump().items() if v not in ("", None, False)}
     try:
@@ -239,7 +250,7 @@ def create_job(body: JobBody, request: Request) -> dict:
                                      partners=_partners(container),
                                      matching_enabled=feature_enabled(container, "delivery.matching"),
                                      integration_ready=ready, order_id=body.order_id, details=details,
-                                     schedule_at=body.schedule_at, fare_rule=rule)
+                                     schedule_at=body.schedule_at, fare_rule=rule, stops=stops)
     except DeliveryError as error:
         raise _error(error) from None
     return _view(container, job, user)
@@ -303,6 +314,70 @@ def accept_job(job_id: str, request: Request) -> dict:
         return _view(container, jobs(container).accept(job_id, partner_id=partner_id, partner_user=user), user)
     except DeliveryError as error:
         raise _error(error) from None
+
+
+class BidBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    amount: float = Field(gt=0, le=1_000_000)
+    note: str = Field(default="", max_length=200)
+    partner_id: str = Field(default="", max_length=60)  # customer: which partner's thread
+
+
+@router.post("/jobs/{job_id}/bids")
+def customer_bid(job_id: str, body: BidBody, request: Request) -> dict:
+    """Customer offer / counter-offer to one offered partner (nothing booked)."""
+    user = _authenticated_app_user(request)
+    container = request.app.state.container
+    try:
+        job = jobs(container).bid(job_id, by="customer", actor=user, partner_id=body.partner_id,
+                                  amount=body.amount, note=body.note)
+    except DeliveryError as error:
+        raise _error(error) from None
+    return _view(container, job, user)
+
+
+@router.post("/jobs/{job_id}/bids/partner")
+def partner_bid(job_id: str, body: BidBody, request: Request) -> dict:
+    """An offered partner's quote / counter-offer (nothing booked)."""
+    user = _authenticated_app_user(request)
+    container = request.app.state.container
+    _, partner_id = _offered_partner(container, job_id, user)
+    try:
+        job = jobs(container).bid(job_id, by="partner", actor=user, partner_id=partner_id,
+                                  amount=body.amount, note=body.note)
+    except DeliveryError as error:
+        raise _error(error) from None
+    return _view(container, job, user)
+
+
+class AcceptBidBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    partner_id: str = Field(default="", max_length=60)
+
+
+@router.post("/jobs/{job_id}/bids/accept")
+def customer_accept_bid(job_id: str, body: AcceptBidBody, request: Request) -> dict:
+    """The customer accepts a partner's latest quote: booked at that exact fare."""
+    user = _authenticated_app_user(request)
+    container = request.app.state.container
+    try:
+        job = jobs(container).accept_bid(job_id, by="customer", actor=user, partner_id=body.partner_id)
+    except DeliveryError as error:
+        raise _error(error) from None
+    return _view(container, job, user)
+
+
+@router.post("/jobs/{job_id}/bids/partner/accept")
+def partner_accept_bid(job_id: str, request: Request) -> dict:
+    """The partner accepts the customer's latest counter-offer."""
+    user = _authenticated_app_user(request)
+    container = request.app.state.container
+    _, partner_id = _offered_partner(container, job_id, user)
+    try:
+        job = jobs(container).accept_bid(job_id, by="partner", actor=user, partner_id=partner_id, partner_user=user)
+    except DeliveryError as error:
+        raise _error(error) from None
+    return _view(container, job, user)
 
 
 class ReasonBody(BaseModel):
@@ -369,7 +444,8 @@ def cancel_job(job_id: str, body: ReasonBody, request: Request) -> dict:
 
 
 # ------------------------------------------------------------- partners --
-PARTNER_SERVICES = ("food", "grocery", "parcel", "product", "pickup_drop", "documents", "other") + dj.RIDE_KINDS
+PARTNER_SERVICES = ("food", "grocery", "parcel", "product", "pickup_drop", "documents", "other") + dj.RIDE_KINDS \
+    + dj.GOODS_KINDS
 
 
 class PartnerBody(BaseModel):

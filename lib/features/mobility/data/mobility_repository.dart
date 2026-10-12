@@ -34,6 +34,9 @@ class MobilityJob {
     this.customerPhone = '',
     this.details = const {},
     this.scheduleAt = '',
+    this.bids = const [],
+    this.agreedFare,
+    this.stops = const [],
   });
 
   factory MobilityJob.fromJson(Map<String, Object?> j) {
@@ -57,6 +60,15 @@ class MobilityJob {
       customerPhone: '${j['customer_phone'] ?? ''}',
       details: Map<String, Object?>.from((j['details'] as Map?) ?? const {}),
       scheduleAt: '${j['schedule_at'] ?? ''}' == 'null' ? '' : '${j['schedule_at'] ?? ''}',
+      bids: [
+        for (final b in (j['bids'] as List?) ?? const [])
+          if (b is Map) MobilityBid.fromJson(Map<String, Object?>.from(b)),
+      ],
+      agreedFare: (j['agreed_fare'] as num?)?.toDouble(),
+      stops: [
+        for (final s in (((j['details'] as Map?) ?? const {})['stops'] as List?) ?? const [])
+          if (s is Map && '${s['label'] ?? ''}'.isNotEmpty) '${s['label']}',
+      ],
     );
   }
 
@@ -67,9 +79,42 @@ class MobilityJob {
   final Map<String, Object?> details;
   final String scheduleAt;
 
+  /// Quotes / counter-offers per partner (nothing is booked until one side
+  /// accepts the other's latest amount -> [agreedFare]).
+  final List<MobilityBid> bids;
+  final double? agreedFare;
+  final List<String> stops;
+
+  /// The latest bid of each partner thread, newest first.
+  List<MobilityBid> get latestBids {
+    final last = <String, MobilityBid>{};
+    for (final b in bids) {
+      last[b.partnerId] = b;
+    }
+    return last.values.toList().reversed.toList();
+  }
+
   bool get cancellable =>
       const {'REQUESTED', 'NEEDS_PARTNER', 'NEEDS_CONFIGURATION', 'PARTNER_SEARCH', 'PARTNER_ACCEPTED',
           'EN_ROUTE_PICKUP', 'ARRIVED_PICKUP'}.contains(status);
+}
+
+/// One quote (partner) or counter-offer (customer) on a job.
+class MobilityBid {
+  const MobilityBid({required this.partnerId, required this.by, required this.amount, this.note = ''});
+  final String partnerId;
+
+  /// partner / customer
+  final String by;
+  final double amount;
+  final String note;
+
+  factory MobilityBid.fromJson(Map<String, Object?> j) => MobilityBid(
+        partnerId: '${j['partner_id'] ?? ''}',
+        by: '${j['by'] ?? ''}',
+        amount: (j['amount'] as num?)?.toDouble() ?? 0,
+        note: '${j['note'] ?? ''}',
+      );
 }
 
 /// The partner's application / account.
@@ -116,8 +161,17 @@ abstract class MobilityRepository {
     required Map<String, Object?> drop,
     Map<String, Object?> details = const {},
     String scheduleAt = '',
+    List<Map<String, Object?>> stops = const [],
   });
   Future<List<MobilityJob>> myRequests();
+
+  /// Customer offer / counter to one partner, and accepting a partner's quote.
+  Future<MobilityResult<MobilityJob>> bid(String id, double amount, {required String partnerId, String note = ''});
+  Future<MobilityResult<MobilityJob>> acceptBid(String id, {required String partnerId});
+
+  /// Partner quote / counter, and accepting the customer's latest counter.
+  Future<MobilityResult<MobilityJob>> partnerBid(String id, double amount, {String note = ''});
+  Future<MobilityResult<MobilityJob>> partnerAcceptBid(String id);
   Future<MobilityResult<MobilityJob>> cancel(String id);
   Future<MobilityResult<MobilityJob>> confirm(String id);
 
@@ -228,7 +282,8 @@ class ApiMobilityRepository implements MobilityRepository {
           required Map<String, Object?> pickup,
           required Map<String, Object?> drop,
           Map<String, Object?> details = const {},
-          String scheduleAt = ''}) async =>
+          String scheduleAt = '',
+          List<Map<String, Object?>> stops = const []}) async =>
       _map(
           await _client.post<Map<String, Object?>>('$_base/jobs',
               body: {
@@ -237,9 +292,34 @@ class ApiMobilityRepository implements MobilityRepository {
                 'drop': drop,
                 'details': details,
                 if (scheduleAt.isNotEmpty) 'schedule_at': scheduleAt,
+                if (stops.isNotEmpty) 'stops': stops,
               },
               options: _auth),
           MobilityJob.fromJson);
+
+  @override
+  Future<MobilityResult<MobilityJob>> bid(String id, double amount, {required String partnerId, String note = ''}) async =>
+      _map(
+          await _client.post<Map<String, Object?>>('$_base/jobs/$id/bids',
+              body: {'amount': amount, 'partner_id': partnerId, if (note.isNotEmpty) 'note': note}, options: _auth),
+          MobilityJob.fromJson);
+
+  @override
+  Future<MobilityResult<MobilityJob>> acceptBid(String id, {required String partnerId}) async => _map(
+      await _client.post<Map<String, Object?>>('$_base/jobs/$id/bids/accept',
+          body: {'partner_id': partnerId}, options: _auth),
+      MobilityJob.fromJson);
+
+  @override
+  Future<MobilityResult<MobilityJob>> partnerBid(String id, double amount, {String note = ''}) async => _map(
+      await _client.post<Map<String, Object?>>('$_base/jobs/$id/bids/partner',
+          body: {'amount': amount, if (note.isNotEmpty) 'note': note}, options: _auth),
+      MobilityJob.fromJson);
+
+  @override
+  Future<MobilityResult<MobilityJob>> partnerAcceptBid(String id) async => _map(
+      await _client.post<Map<String, Object?>>('$_base/jobs/$id/bids/partner/accept', body: const {}, options: _auth),
+      MobilityJob.fromJson);
 
   @override
   Future<List<MobilityJob>> myRequests() async =>

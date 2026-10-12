@@ -629,9 +629,14 @@ _register(Resource(
         F("integration_key", "Integration key (external partners)"),
         F("services", "Services", "list", required=True, list_column=True,
           options=("food", "grocery", "parcel", "product", "pickup_drop", "documents", "other", "ride_taxi",
-                   "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only")),
+                   "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only",
+                   "goods_mini_truck", "goods_tempo", "goods_lorry", "packers_movers", "courier_intercity",
+                   "cold_chain")),
         F("vehicle", "Vehicle", "enum", options=("walk", "bicycle", "two_wheeler", "three_wheeler", "car",
                                                   "van", "truck", "any")),
+        F("fleet_size", "Fleet: vehicles", "int", min=0, max=10000,
+          help="Fleet / enterprise operators: how many vehicles; drivers are added as their own partners."),
+        F("capacity_kg", "Load capacity (kg)", "number", min=0, max=100000),
         F("vehicle_number", "Vehicle number"),
         F("licence_last4", "Licence number (last 4 digits only)", help="Documents are checked in person and never uploaded or stored."),
         F("phone_masked", "Phone (masked)"),
@@ -665,10 +670,19 @@ _register(Resource(
         F("name", "Name", required=True, list_column=True),
         F("kind", "Service", "enum", required=True, list_column=True, filter=True,
           options=("parcel", "food", "grocery", "product", "pickup_drop", "documents", "local_delivery", "other",
-                   "ride_taxi", "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only")),
+                   "ride_taxi", "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only",
+                   "goods_mini_truck", "goods_tempo", "goods_lorry", "packers_movers", "courier_intercity",
+                   "cold_chain")),
         F("town", "Town / city (blank = everywhere)", filter=True, list_column=True),
+        F("pricing_model", "Pricing model", "enum",
+          options=("base_plus_distance", "fixed", "per_km", "per_kg", "per_hour", "per_stop", "quotation"),
+          help="quotation = no estimate; offered partners send quotes and the customer accepts one."),
         F("base_fare", "Base fare (INR)", "number", min=0, max=100000),
         F("per_km", "Per km (INR)", "number", min=0, max=10000),
+        F("per_kg", "Per kg (INR)", "number", min=0, max=10000),
+        F("per_hour", "Per hour (INR)", "number", min=0, max=100000),
+        F("per_stop", "Per extra stop (INR)", "number", min=0, max=100000),
+        F("fixed_fare", "Fixed fare (INR)", "number", min=0, max=1000000),
         F("minimum_fare", "Minimum fare (INR)", "number", min=0, max=100000),
     ),
     actions=COMMON_ACTIONS,
@@ -1009,6 +1023,25 @@ _register(Resource(
 ))
 
 _register(Resource(
+    name="role_verifications", label="Role verifications", group="Delivery", prefix="rvf",
+    permission="delivery", name_field="role", initial_status="PENDING_REVIEW", statuses=LIFECYCLE,
+    description="A person asks ASKODOX to verify one of their roles (seller, driver, restaurant, fleet ...). "
+                "Documents are checked in person or by the official issuer -- never uploaded or stored here; "
+                "only the last 4 characters of a reference are kept. Approve = verified badge for that role.",
+    fields=(
+        F("user_ref", "Person (reference)", required=True, list_column=True, filter=True),
+        F("role", "Role", required=True, list_column=True, filter=True),
+        F("business_name", "Business / display name", list_column=True),
+        F("reference_kind", "Reference type", "enum",
+          options=("gstin", "fssai", "driving_licence", "vehicle_rc", "trade_licence", "udyam", "other")),
+        F("reference_last4", "Reference (last 4 only)"),
+        F("note", "Applicant note", "longtext"),
+        F("staff_note", "Staff note (how it was checked)", "longtext"),
+    ),
+    actions=COMMON_ACTIONS,
+))
+
+_register(Resource(
     name="catalog_templates", label="Catalogue templates", group="Advisor", prefix="ctl",
     permission="advisor", name_field="label_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
     description="Ready-made seller catalogues and their category attributes (ONE data-driven engine). A "
@@ -1165,6 +1198,19 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # Universal sources: live connector timeout (s) and feed refresh (h).
     "sources.timeout_seconds": (1, 15, 4),
     "sources.feed_refresh_hours": (1, 168, 24),
+    # Travel Radio add-on: per-user daily minute cap, repeat window, area
+    # cache, and the ESTIMATE unit costs behind the cost model (admin-set,
+    # never a provider bill).
+    "radio.daily_minutes": (5, 600, 120),
+    "radio.repeat_hours": (1, 168, 24),
+    "radio.area_cache_hours": (1, 168, 6),
+    "radio.chars_per_minute": (300, 2000, 900),
+    "radio.segment_chars": (80, 1500, 300),
+    "radio.tts_inr_per_10k_chars": (0, 1000, 15),
+    "radio.places_inr_per_call": (0, 50, 2.7),
+    "radio.geocode_inr_per_call": (0, 50, 0.42),
+    "radio.cell_km": (0.5, 20, 5),
+    "radio.nearby_places": (0, 1, 1),
 }
 
 _register(Resource(

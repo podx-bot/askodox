@@ -2370,3 +2370,50 @@ def release_gate(request: Request) -> dict[str, Any]:
         checks = []
     return gate.evaluate(request.app, incidents=incident_report(request), qa_checks=checks)
 
+
+@router.get("/axe/brief")
+def executive_brief(request: Request, language: str = "en") -> dict[str, Any]:
+    """ASKODOX Executive AI (AXE): one brief over the release gate, incidents,
+    API spend, Travel Radio pricing and the Feature Registry. Read-only:
+    recommended actions still go through POST /actions + approval."""
+    _require(request, "health:view")
+    from app.api.routes.platform import platform
+    from app.services import admin_action_framework, api_billing, executive_ai, feature_registry
+    from app.services import release_gate as gate
+
+    container = request.app.state.container
+    report = incident_report(request, language)
+    try:
+        checks = [{"status": r.get("status"), "archived": r.get("archived"), "name": r.get("name")}
+                  for r in platform(container).repo.list("qa_checks", include_archived=False)]
+    except Exception:
+        checks = []
+    try:
+        from app.api.routes.radio import radio
+        from app.api.routes.growth import growth
+        from app.services.travel_radio import TravelRadio, cost_model
+
+        radio(container)
+        radio_plans = TravelRadio.plans(growth(container))
+        radio_model = cost_model(radio_plans)
+    except Exception:
+        radio_plans, radio_model = [], None
+    try:
+        from app.services.integration_readiness import readiness
+        from app.api.routes.demand_advisor import _pf
+
+        pf = _pf(container)
+        payments = any(r.get("integration") == "Payment gateway" and r.get("status") == "LIVE"
+                       for r in readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=[]))
+    except Exception:
+        payments = False
+    try:
+        features = feature_registry.load().get("features") or []
+    except Exception:
+        features = []
+    return executive_ai.brief(
+        gate=gate.evaluate(request.app, incidents=report, qa_checks=checks), incidents=report["incidents"],
+        billing=api_billing.overview(container, container.settings.database_path), radio_model=radio_model,
+        radio_plans=radio_plans, registry=features, payments_configured=payments,
+        catalog=admin_action_framework.CATALOG, lang=language)
+

@@ -63,8 +63,27 @@ def _sizes(listing: Dict[str, Any]) -> Optional[List[str]]:
     return found or None
 
 
-def evaluate(listing: Dict[str, Any], demand: Dict[str, Any], *, distance_km: Optional[float] = None) -> Dict[str, Any]:
+def _norm(value: Any) -> str:
+    return re.sub(r"[^0-9a-z\u0900-\u0d7f]+", " ", str(value or "").lower()).strip()
+
+
+def _snake(key: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", str(key)).lower().strip()
+
+
+def _attribute_fit(want: Any, values: List[str]) -> bool:
+    w = _norm(want)
+    return bool(w) and any(w == _norm(v) or w in _norm(v) or _norm(v) in w for v in values if _norm(v))
+
+
+def evaluate(listing: Dict[str, Any], demand: Dict[str, Any], *, distance_km: Optional[float] = None,
+             attributes: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
+    """``attributes`` = the listing's STRUCTURED catalogue attributes
+    (listing_attributes): any customer constraint or conversation detail whose
+    key is one of them is judged on those values first (universal -- the key
+    names come from the catalogue templates, never from per-category code)."""
     constraints = explicit_constraints(demand)
+    attributes = {k: v for k, v in (attributes or {}).items() if v}
     matched: List[str] = []
     unmatched: List[str] = []
     unknown: List[str] = []
@@ -96,9 +115,23 @@ def evaluate(listing: Dict[str, Any], demand: Dict[str, Any], *, distance_km: Op
         else:
             matched.append(f"price ₹{price:,.0f} ({label})")
 
+    judged: set = set()
+    # Conversation details (deal fields) + explicit constraints that name a
+    # catalogue attribute of this listing.
+    details = {_snake(k): v for k, v in (demand.get("dynamic_fields") or {}).items()
+               if isinstance(v, (str, int, float)) and str(v).strip()}
+    details.update({k: v for k, v in constraints.items() if k not in ("size", "budget", "budget_max", "budget_min",
+                                                                      "radius_km", "quantity")})
+    for key, want in details.items():
+        values = attributes.get(key)
+        if not values:
+            continue
+        judged.add(key)
+        (matched if _attribute_fit(want, values) else unmatched).append(f"{key.replace('_', ' ')} {want}")
+
     for key in ("brand", "color"):
         want = constraints.get(key)
-        if want in (None, ""):
+        if want in (None, "") or key in judged:
             continue
         text = _listing_text(listing)
         own = str(listing.get(key) or "").strip().lower()
@@ -139,19 +172,37 @@ def why_text(fit: Dict[str, Any]) -> str:
     return "; ".join(parts)
 
 
-def annotate(matches: Iterable[Dict[str, Any]], demand: Dict[str, Any], lookup) -> List[Dict[str, Any]]:
-    """Adds ``fit`` + ``why`` to registered rows (``lookup(id)`` -> listing)
-    and returns the missing-data gaps (listing id, seller, unknown fields)."""
+def annotate(matches: Iterable[Dict[str, Any]], demand: Dict[str, Any], lookup,
+             attributes_lookup=None) -> List[Dict[str, Any]]:
+    """Adds ``fit`` + ``why`` to registered rows (``lookup(id)`` -> listing;
+    ``attributes_lookup(ids)`` -> structured catalogue attributes) and returns
+    the missing-data gaps (listing id, seller, unknown fields)."""
     gaps: List[Dict[str, Any]] = []
+    matches = list(matches)
+    ids = [int(m["id"]) for m in matches
+           if m.get("match_source") == "registered" and str(m.get("id") or "").isdigit()]
+    structured = {}
+    if attributes_lookup is not None and ids:
+        try:
+            structured = attributes_lookup(ids) or {}
+        except Exception:
+            structured = {}
     for item in matches:
         if item.get("match_source") != "registered" or not str(item.get("id") or "").isdigit():
             continue
         listing = lookup(int(item["id"]))
         if not listing:
             continue
-        fit = evaluate(listing, demand, distance_km=_num(item.get("distance_km")))
+        fit = evaluate(listing, demand, distance_km=_num(item.get("distance_km")),
+                       attributes=structured.get(int(item["id"])))
         item["fit"] = fit
         item["why"] = why_text(fit)
+        # The seller's structured details travel with the row so the Result
+        # Board can filter the SHOWN deck by them (never a new search).
+        attrs = structured.get(int(item["id"]))
+        if attrs:
+            item["attributes"] = {str(k): (", ".join(map(str, v)) if isinstance(v, list) else str(v))
+                                  for k, v in list(attrs.items())[:24]}
         if fit["unknown"]:
             gaps.append({"listing_id": int(item["id"]), "seller_user_id": listing.get("seller_user_id"),
                          "missing": fit["unknown"], "subject": listing.get("subject")})

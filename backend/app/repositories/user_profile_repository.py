@@ -34,6 +34,34 @@ ROLE_FIELDS: Dict[str, tuple] = {
     "delivery_partner": ("service_types", "availability", "operating_area", "vehicle_type", "vehicle_number",
                          "licence_document"),
     "survey_taker": ("interests", "availability"),
+    # Business / mobility roles (one master profile, many roles).
+    "courier_operator": ("service_types", "operating_area", "operating_hours", "fleet_size", "registration_ref"),
+    "cab_driver": ("vehicle_type", "vehicle_number", "operating_area", "availability", "licence_document"),
+    "bike_taxi": ("vehicle_number", "operating_area", "availability", "licence_document"),
+    "fleet_owner": ("fleet_size", "vehicle_types", "operating_area", "drivers", "registration_ref"),
+    "restaurant": ("cuisine", "operating_hours", "service_area_km", "delivery", "food_licence_last4"),
+    "manufacturer": ("products", "categories", "moq", "capacity", "operating_area", "business_document"),
+    "wholesaler": ("categories", "moq", "service_area_km", "operating_hours", "business_document"),
+    "enterprise": ("industry", "services", "operating_area", "contact_role", "business_document"),
+    "freelancer": ("skills", "portfolio", "availability", "pricing", "experience"),
+}
+
+# What makes a role registration COMPLETE (progressive: anything less is a
+# saved draft). Roles not listed only need the shared basics.
+ROLE_REQUIRED: Dict[str, tuple] = {
+    "seller": ("business_type", "working_hours"),
+    "service_provider": ("services", "service_area_km", "availability"),
+    "job_seeker": ("skills", "availability"),
+    "delivery_partner": ("service_types", "operating_area", "vehicle_type"),
+    "courier_operator": ("service_types", "operating_area", "operating_hours"),
+    "cab_driver": ("vehicle_type", "vehicle_number", "operating_area"),
+    "bike_taxi": ("vehicle_number", "operating_area"),
+    "fleet_owner": ("fleet_size", "vehicle_types", "operating_area"),
+    "restaurant": ("cuisine", "operating_hours"),
+    "manufacturer": ("products", "moq"),
+    "wholesaler": ("categories", "moq"),
+    "enterprise": ("industry", "services"),
+    "freelancer": ("skills", "availability"),
 }
 
 

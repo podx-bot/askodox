@@ -32,6 +32,12 @@ class MobilityScreen extends ConsumerStatefulWidget {
 const askodoxRideKinds = ['ride_auto', 'ride_bike', 'ride_taxi', 'ride_airport', 'ride_outstation', 'driver_only'];
 const askodoxSendKinds = ['parcel', 'documents', 'local_delivery', 'pickup_drop'];
 
+/// Goods & logistics (backend `delivery_jobs.GOODS_KINDS`): quoted by the
+/// partner -- weight / size / handling are what they need to quote.
+const askodoxGoodsKinds = ['goods_mini_truck', 'goods_tempo', 'goods_lorry', 'packers_movers', 'courier_intercity',
+  'cold_chain'];
+const askodoxMaxStops = 5;
+
 String askodoxKindLabel(String kind, bool te) => switch (kind) {
       'ride_auto' => te ? 'ఆటో' : 'Auto',
       'ride_bike' => te ? 'బైక్ టాక్సీ' : 'Bike taxi',
@@ -46,6 +52,12 @@ String askodoxKindLabel(String kind, bool te) => switch (kind) {
       'food' => te ? 'ఫుడ్' : 'Food',
       'grocery' => te ? 'కిరాణా' : 'Grocery',
       'product' => te ? 'ప్రొడక్ట్ డెలివరీ' : 'Product delivery',
+      'goods_mini_truck' => te ? 'మినీ ట్రక్' : 'Mini truck',
+      'goods_tempo' => te ? 'టెంపో' : 'Tempo',
+      'goods_lorry' => te ? 'లారీ' : 'Lorry',
+      'packers_movers' => te ? 'ప్యాకర్స్ & మూవర్స్' : 'Packers & movers',
+      'courier_intercity' => te ? 'ఇంటర్‌సిటీ కొరియర్' : 'Intercity courier',
+      'cold_chain' => te ? 'కోల్డ్ చైన్' : 'Cold chain',
       _ => kind,
     };
 
@@ -139,7 +151,12 @@ class _BookTabState extends ConsumerState<_BookTab> {
   bool _busy = false;
   MobilityJob? _last;
 
-  bool get _send => askodoxSendKinds.contains(_kind);
+  bool get _goods => askodoxGoodsKinds.contains(_kind);
+  bool get _send => askodoxSendKinds.contains(_kind) || _goods;
+  final List<AskodoxPlace?> _stops = [];
+  final _weight = TextEditingController();
+  final _dimensions = TextEditingController();
+  String _handling = '';
 
   static bool _located(AskodoxPlace? p) => p != null && (p.latitude != 0 || p.longitude != 0);
 
@@ -152,7 +169,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
     AskodoxPlace? labelled(String? label) =>
         label == null || label.trim().isEmpty ? null : AskodoxPlace(latitude: 0, longitude: 0, label: label.trim());
     final kind = widget.kind ?? draft?.kind;
-    if (kind != null && (askodoxRideKinds.contains(kind) || askodoxSendKinds.contains(kind))) _kind = kind;
+    if (kind != null &&
+        (askodoxRideKinds.contains(kind) || askodoxSendKinds.contains(kind) || askodoxGoodsKinds.contains(kind))) {
+      _kind = kind;
+    }
     _from = (draft?.from != null && (widget.from == null || draft!.from!.label == widget.from))
         ? draft!.from
         : labelled(widget.from);
@@ -209,7 +229,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
 
   @override
   void dispose() {
-    for (final c in [_notes, _recipient, _recipientPhone]) {
+    for (final c in [_notes, _recipient, _recipientPhone, _weight, _dimensions]) {
       c.dispose();
     }
     super.dispose();
@@ -222,9 +242,15 @@ class _BookTabState extends ConsumerState<_BookTab> {
       _say(context, t('Enter where from (or allow location) and where to.', 'ఎక్కడి నుంచి, ఎక్కడికి ఇవ్వండి.'));
       return;
     }
+    final stops = [for (final p in _stops) if (p != null) askodoxMobilityPoint(p)];
+    final weight = double.tryParse(_weight.text.trim());
     setState(() => _busy = true);
     final result = await ref.read(mobilityRepositoryProvider).request(kind: _kind, pickup: pickup, drop: drop,
+        stops: stops,
         details: {
+          if (_goods && weight != null && weight > 0) 'weight_kg': weight,
+          if (_goods && _dimensions.text.trim().isNotEmpty) 'dimensions': _dimensions.text.trim(),
+          if (_goods && _handling.isNotEmpty) 'handling': _handling,
           if (!_send) 'passengers': _passengers,
           if (_notes.text.trim().isNotEmpty) (_send ? 'item_description' : 'notes'): _notes.text.trim(),
           if (_send && _recipient.text.trim().isNotEmpty) 'recipient_name': _recipient.text.trim(),
@@ -268,6 +294,19 @@ class _BookTabState extends ConsumerState<_BookTab> {
                 _publish();
               }),
       ]),
+      const SizedBox(height: 8),
+      Text(t('Goods & logistics', 'సరుకులు & లాజిస్టిక్స్'), style: Theme.of(context).textTheme.titleSmall),
+      Wrap(spacing: 8, children: [
+        for (final k in askodoxGoodsKinds)
+          ChoiceChip(
+              key: ValueKey('mobility-kind-$k'),
+              label: Text(askodoxKindLabel(k, te)),
+              selected: _kind == k,
+              onSelected: (_) {
+                setState(() => _kind = k);
+                _publish();
+              }),
+      ]),
       const SizedBox(height: 12),
       AskodoxPlaceField(
           fieldKey: 'mobility-from',
@@ -285,6 +324,34 @@ class _BookTabState extends ConsumerState<_BookTab> {
           icon: Icons.place_outlined,
           value: _to,
           onChanged: (p) => _setEnd(to: p, isFrom: false)),
+      for (final (i, stop) in _stops.indexed)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(children: [
+            Expanded(
+              child: AskodoxPlaceField(
+                  fieldKey: 'mobility-stop-$i',
+                  te: te,
+                  label: '${t('Stop', 'స్టాప్')} ${i + 1}',
+                  icon: Icons.more_vert_rounded,
+                  value: stop,
+                  onChanged: (p) => setState(() => _stops[i] = p)),
+            ),
+            IconButton(
+                key: ValueKey('mobility-stop-remove-$i'),
+                onPressed: () => setState(() => _stops.removeAt(i)),
+                icon: const Icon(Icons.close_rounded)),
+          ]),
+        ),
+      if (_stops.length < askodoxMaxStops)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+              key: const ValueKey('mobility-add-stop'),
+              onPressed: () => setState(() => _stops.add(null)),
+              icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+              label: Text(t('Add a stop', 'స్టాప్ జోడించండి'))),
+        ),
       if (_from != null && _to != null)
         Padding(
           key: const ValueKey('mobility-route'),
@@ -323,6 +390,35 @@ class _BookTabState extends ConsumerState<_BookTab> {
           controller: _notes,
           decoration: InputDecoration(
               labelText: _send ? t('What are you sending?', 'ఏమి పంపుతున్నారు?') : t('Note for the driver', 'డ్రైవర్‌కు నోట్'))),
+      if (_goods) ...[
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: TextField(
+                key: const ValueKey('mobility-weight'),
+                controller: _weight,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: t('Weight (kg)', 'బరువు (కిలో)'))),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+                key: const ValueKey('mobility-dimensions'),
+                controller: _dimensions,
+                decoration: InputDecoration(labelText: t('Size (L x W x H)', 'సైజు (పొ x వె x ఎ)'))),
+          ),
+        ]),
+        DropdownButtonFormField<String>(
+          key: const ValueKey('mobility-handling'),
+          initialValue: _handling,
+          decoration: InputDecoration(labelText: t('Handling', 'జాగ్రత్తలు')),
+          items: [
+            for (final h in const ['', 'fragile', 'refrigerated', 'heavy', 'liquid', 'livestock'])
+              DropdownMenuItem(value: h, child: Text(h.isEmpty ? t('Normal', 'సాధారణం') : askodoxHandlingLabel(h, te))),
+          ],
+          onChanged: (v) => setState(() => _handling = v ?? ''),
+        ),
+      ],
       if (_send) ...[
         const SizedBox(height: 8),
         TextField(controller: _recipient, decoration: InputDecoration(labelText: t('Recipient name', 'అందుకునేవారి పేరు'))),
@@ -369,6 +465,42 @@ class _BookTabState extends ConsumerState<_BookTab> {
   }
 }
 
+String askodoxHandlingLabel(String h, bool te) => switch (h) {
+      'fragile' => te ? 'పగిలే వస్తువు' : 'Fragile',
+      'refrigerated' => te ? 'చల్లగా ఉంచాలి' : 'Refrigerated',
+      'heavy' => te ? 'భారీ' : 'Heavy',
+      'liquid' => te ? 'ద్రవం' : 'Liquid',
+      'livestock' => te ? 'పశువులు' : 'Livestock',
+      _ => h,
+    };
+
+/// Asks for an amount (quote / counter-offer); null when cancelled.
+Future<double?> askodoxAskAmount(BuildContext context, {required String title, required bool te}) async {
+  final controller = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text(title),
+      content: TextField(
+          key: const ValueKey('mobility-bid-amount'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(prefixText: '₹ ')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(te ? 'రద్దు' : 'Cancel')),
+        FilledButton(
+            key: const ValueKey('mobility-bid-send'),
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(te ? 'పంపండి' : 'Send')),
+      ],
+    ),
+  );
+  final value = double.tryParse(controller.text.trim().replaceAll(',', ''));
+  // Not disposed here: the dialog's closing animation still reads it.
+  return ok == true && value != null && value > 0 ? value : null;
+}
+
 class _JobCard extends ConsumerWidget {
   const _JobCard({required this.job, required this.te, this.onChanged, this.partnerView = false});
   final MobilityJob job;
@@ -389,7 +521,7 @@ class _JobCard extends ConsumerWidget {
             Expanded(child: Text(askodoxKindLabel(job.kind, te), style: Theme.of(context).textTheme.titleMedium)),
             Chip(label: Text(job.confirmedByPartner ? t('Accepted', 'అంగీకరించారు') : t('Not confirmed', 'ఇంకా కన్ఫర్మ్ కాలేదు'))),
           ]),
-          Text('${job.pickup} → ${job.drop}'),
+          Text([job.pickup, ...job.stops, job.drop].join(' → ')),
           if (job.distanceKm != null) Text('${job.distanceKm!.toStringAsFixed(1)} km'),
           if (job.scheduleAt.isNotEmpty)
             Text('${t('Scheduled for', 'షెడ్యూల్')}: ${job.scheduleAt.replaceFirst('T', ' ')}'),
@@ -401,7 +533,55 @@ class _JobCard extends ConsumerWidget {
           if (job.partnerName.isNotEmpty) Text('${job.partnerName} · ${job.partnerVehicle}'),
           if (job.partnerPhone.isNotEmpty) SelectableText('${t('Partner', 'పార్ట్‌నర్')}: ${job.partnerPhone}'),
           if (job.customerPhone.isNotEmpty) SelectableText('${t('Customer', 'కస్టమర్')}: ${job.customerPhone}'),
-          for (final e in job.details.entries) Text('${e.key.replaceAll('_', ' ')}: ${e.value}',
+          if (job.agreedFare != null)
+            Text(t('Agreed fare ₹${job.agreedFare!.round()}', 'ఒప్పుకున్న ఛార్జీ ₹${job.agreedFare!.round()}'),
+                key: ValueKey('mobility-agreed-${job.id}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+          if (job.agreedFare == null)
+            for (final b in job.latestBids)
+              Row(key: ValueKey('mobility-bid-${job.id}-${b.partnerId}'), children: [
+                Expanded(
+                  child: Text(b.by == 'partner'
+                      ? t('Quote ₹${b.amount.round()}', 'కోట్ ₹${b.amount.round()}')
+                      : t('Your offer ₹${b.amount.round()} -- waiting', 'మీ ఆఫర్ ₹${b.amount.round()} -- వేచి ఉంది')),
+                ),
+                // The customer answers a partner's quote; the partner answers a counter.
+                if ((b.by == 'partner') != partnerView) ...[
+                  TextButton(
+                      key: ValueKey('mobility-bid-accept-${job.id}-${b.partnerId}'),
+                      onPressed: () async {
+                        final r = partnerView
+                            ? await repo.partnerAcceptBid(job.id)
+                            : await repo.acceptBid(job.id, partnerId: b.partnerId);
+                        if (context.mounted && !r.ok) _say(context, r.error ?? '');
+                        onChanged?.call();
+                      },
+                      child: Text(t('Accept', 'అంగీకరించు'))),
+                  TextButton(
+                      key: ValueKey('mobility-bid-counter-${job.id}-${b.partnerId}'),
+                      onPressed: () async {
+                        final amount = await askodoxAskAmount(context, title: t('Your offer', 'మీ ఆఫర్'), te: te);
+                        if (amount == null) return;
+                        final r = partnerView
+                            ? await repo.partnerBid(job.id, amount)
+                            : await repo.bid(job.id, amount, partnerId: b.partnerId);
+                        if (context.mounted && !r.ok) _say(context, r.error ?? '');
+                        onChanged?.call();
+                      },
+                      child: Text(t('Counter', 'కౌంటర్'))),
+                ],
+              ]),
+          if (partnerView && job.agreedFare == null && job.latestBids.isEmpty && !job.confirmedByPartner)
+            TextButton(
+                key: ValueKey('mobility-quote-${job.id}'),
+                onPressed: () async {
+                  final amount = await askodoxAskAmount(context, title: t('Your quote', 'మీ కోట్'), te: te);
+                  if (amount == null) return;
+                  final r = await repo.partnerBid(job.id, amount);
+                  if (context.mounted && !r.ok) _say(context, r.error ?? '');
+                  onChanged?.call();
+                },
+                child: Text(t('Send a quote', 'కోట్ పంపండి'))),
+          for (final e in job.details.entries.where((e) => e.key != 'stops')) Text('${e.key.replaceAll('_', ' ')}: ${e.value}',
               style: Theme.of(context).textTheme.bodySmall),
           Wrap(spacing: 8, children: [
             if (!partnerView && job.cancellable)
@@ -445,7 +625,9 @@ class _MyTripsTab extends ConsumerStatefulWidget {
 class _MyTripsTabState extends ConsumerState<_MyTripsTab> {
   late Future<List<MobilityJob>> _items = ref.read(mobilityRepositoryProvider).myRequests();
 
-  void _reload() => setState(() => _items = ref.read(mobilityRepositoryProvider).myRequests());
+  void _reload() => setState(() {
+        _items = ref.read(mobilityRepositoryProvider).myRequests();
+      });
 
   @override
   Widget build(BuildContext context) => RefreshIndicator(
@@ -798,7 +980,7 @@ class _PartnerTabState extends ConsumerState<_PartnerTab> {
         for (final o in _offers)
           Card(
               child: Column(children: [
-            _JobCard(job: o, te: widget.te, partnerView: true),
+            _JobCard(job: o, te: widget.te, partnerView: true, onChanged: _load),
             OverflowBar(children: [
               TextButton(
                   onPressed: () async {

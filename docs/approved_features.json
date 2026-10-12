@@ -313,6 +313,36 @@
       "tests": {"backend": ["tests/test_catalogue_attributes.py"], "flutter": ["test/features/business/my_listing_edit_test.dart"]},
       "dependencies": [], "status": "approved",
       "history": [{"pr": 182, "change": "first version"}]
+    },
+    {
+      "id": "travel_radio_addon",
+      "name": "Travel Radio add-on (separate billing, plans inactive)",
+      "purpose": "Location-aware audio segments from real facts while travelling, sold as an add-on separate from the base plan.",
+      "expected_behavior": "Plans radio_1d/7d/30d (proposed Rs 29/149/399) seeded INACTIVE in growth_plans (audience addon_radio); /api/subscriptions refuses add-ons; paid passes stay PENDING_PAYMENT; only staff promotional passes grant access and only with flag radio.enabled (default off); segments only from geocoding / Places / LIVE content; audio cached; no repeats within radio.repeat_hours; daily minute cap; cost model light/medium/heavy labelled ESTIMATE.",
+      "roles": ["buyer"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/radio/status"}, {"method": "POST", "path": "/api/radio/next"},
+              {"method": "POST", "path": "/api/radio/pass"}, {"method": "GET", "path": "/admin/cc/radio"},
+              {"method": "POST", "path": "/admin/cc/radio/passes"}],
+      "ui": {"keys": ["askodoxRadioPlay", "askodoxRadioLocked"], "symbols": ["TravelRadioScreen", "askodoxRadioProblemText"]},
+      "flags": {"radio.enabled": false},
+      "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": ["test/features/radio/travel_radio_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
+    },
+    {
+      "id": "executive_ai_brief",
+      "name": "ASKODOX Executive AI (AXE) brief",
+      "purpose": "One graded executive brief for the Owner over the release gate, incidents, API spend, Travel Radio pricing and the Feature Registry.",
+      "expected_behavior": "GET /admin/cc/axe/brief (health:view) returns overall + findings graded CONFIRMED / POSSIBLE / ESTIMATE / PENDING and owner_decisions; recommends only admin_action_framework.CATALOG actions (never runs them); en / te templates, no model call.",
+      "roles": ["admin"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/axe/brief"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_executive_ai.py"], "flutter": []},
+      "dependencies": ["travel_radio_addon"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
     }
   ]
 }
