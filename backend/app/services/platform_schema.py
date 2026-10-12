@@ -1023,6 +1023,25 @@ _register(Resource(
 ))
 
 _register(Resource(
+    name="role_verifications", label="Role verifications", group="Delivery", prefix="rvf",
+    permission="delivery", name_field="role", initial_status="PENDING_REVIEW", statuses=LIFECYCLE,
+    description="A person asks ASKODOX to verify one of their roles (seller, driver, restaurant, fleet ...). "
+                "Documents are checked in person or by the official issuer -- never uploaded or stored here; "
+                "only the last 4 characters of a reference are kept. Approve = verified badge for that role.",
+    fields=(
+        F("user_ref", "Person (reference)", required=True, list_column=True, filter=True),
+        F("role", "Role", required=True, list_column=True, filter=True),
+        F("business_name", "Business / display name", list_column=True),
+        F("reference_kind", "Reference type", "enum",
+          options=("gstin", "fssai", "driving_licence", "vehicle_rc", "trade_licence", "udyam", "other")),
+        F("reference_last4", "Reference (last 4 only)"),
+        F("note", "Applicant note", "longtext"),
+        F("staff_note", "Staff note (how it was checked)", "longtext"),
+    ),
+    actions=COMMON_ACTIONS,
+))
+
+_register(Resource(
     name="catalog_templates", label="Catalogue templates", group="Advisor", prefix="ctl",
     permission="advisor", name_field="label_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
     description="Ready-made seller catalogues and their category attributes (ONE data-driven engine). A "

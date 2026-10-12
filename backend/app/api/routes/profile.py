@@ -51,6 +51,7 @@ def _verification(container: Any, user_id: str) -> dict:
 
 def _view(request: Request, user_id: str, data: dict) -> dict:
     return {**data, "verification": _verification(request.app.state.container, user_id),
+            "role_verifications": _role_verifications(request.app.state.container, user_id),
             "photo_url": "/api/me/profile/photo" if data.get("has_photo") else None}
 
 
@@ -155,12 +156,83 @@ def _clean_role_details(details: dict, current: dict) -> dict:
     return merged
 
 
+@router.get("/registration")
+def registration(request: Request) -> dict:
+    """Progressive registration across every held role: what is filled, what
+    is still needed (draft until complete) and each role's verification."""
+    from app.repositories.user_profile_repository import ROLE_FIELDS, ROLE_REQUIRED
+
+    user_id = _authenticated_app_user(request)
+    container = request.app.state.container
+    data = profiles(container).get(user_id)
+    details = data.get("role_details") or {}
+    held = [r for r in (data.get("roles") or []) if r] or list(details)
+    verifications = _role_verifications(container, user_id)
+    basics = [k for k in ("name", "language", "address") if not data.get(k)]
+    roles = []
+    for role in dict.fromkeys(held):
+        need = ROLE_REQUIRED.get(role, ())
+        have = {k for k, v in (details.get(role) or {}).items() if v not in (None, "", [])}
+        missing = [k for k in need if k not in have]
+        roles.append({"role": role, "fields": list(ROLE_FIELDS.get(role, ())), "required": list(need),
+                      "missing": missing, "status": "complete" if not missing else "draft",
+                      "verification": verifications.get(role, "not_requested")})
+    return {"basics_missing": basics, "roles": roles,
+            "complete": not basics and all(r["status"] == "complete" for r in roles)}
+
+
+def _role_verifications(container: Any, user_id: str) -> dict:
+    from app.api.routes.platform import platform, user_ref
+
+    ref = user_ref(user_id)
+    out: dict = {}
+    for row in platform(container).resources.repo.list("role_verifications"):
+        data = row.get("data") or {}
+        if data.get("user_ref") == ref and not row.get("archived"):
+            out[data.get("role")] = {"ACTIVE": "verified", "REJECTED": "rejected"}.get(row.get("status"), "pending")
+    return out
+
+
+class VerificationRequest(BaseModel):
+    role: str = Field(min_length=2, max_length=30)
+    reference_kind: str = Field(default="other", pattern="^(gstin|fssai|driving_licence|vehicle_rc|trade_licence|udyam|other)$")
+    reference: str = Field(default="", max_length=40)
+    note: str = Field(default="", max_length=300)
+
+
+@router.post("/verification")
+def request_verification(payload: VerificationRequest, request: Request) -> dict:
+    """Ask staff to verify a role. The full reference is never stored -- only
+    its last 4 characters; documents are checked outside the app."""
+    from app.api.routes.platform import platform, user_ref
+
+    user_id = _authenticated_app_user(request)
+    container = request.app.state.container
+    role = payload.role.strip().lower()
+    data = profiles(container).get(user_id)
+    if role not in (data.get("roles") or []) and role not in (data.get("role_details") or {}):
+        raise HTTPException(status_code=422, detail="Add this role to your profile first")
+    current = _role_verifications(container, user_id).get(role)
+    if current in ("pending", "verified"):
+        return {"role": role, "verification": current}
+    clean = "".join(ch for ch in payload.reference if ch.isalnum())
+    platform(container).resources.create("role_verifications", {
+        "user_ref": user_ref(user_id), "role": role,
+        "business_name": data.get("business_name") or data.get("name") or "",
+        "reference_kind": payload.reference_kind, "reference_last4": clean[-4:] if clean else "",
+        "note": payload.note.strip()}, actor=user_ref(user_id), status="PENDING_REVIEW")
+    return {"role": role, "verification": "pending"}
+
+
 @router.get("/schema")
 def profile_schema() -> dict:
     """The roles a person can hold and the fields each adds (for the app's forms)."""
     from app.repositories.user_profile_repository import ROLE_FIELDS
 
+    from app.repositories.user_profile_repository import ROLE_REQUIRED
+
     return {"roles": {role: list(fields) for role, fields in ROLE_FIELDS.items()},
+            "required": {role: list(fields) for role, fields in ROLE_REQUIRED.items()},
             "link_kinds": sorted(_LINK_KINDS)}
 
 
