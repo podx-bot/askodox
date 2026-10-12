@@ -23,7 +23,12 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 from app.services.owner_os import _km, match_delivery
 
 RIDE_KINDS = ("ride_taxi", "ride_auto", "ride_bike", "ride_outstation", "ride_airport", "driver_only")
-KINDS = ("parcel", "food", "grocery", "product", "pickup_drop", "documents", "local_delivery", "other") + RIDE_KINDS
+# Goods transport / logistics share the same request -> partner -> trip engine.
+GOODS_KINDS = ("goods_mini_truck", "goods_tempo", "goods_lorry", "packers_movers", "courier_intercity", "cold_chain")
+KINDS = ("parcel", "food", "grocery", "product", "pickup_drop", "documents", "local_delivery", "other") + RIDE_KINDS \
+    + GOODS_KINDS
+PRICING_MODELS = ("base_plus_distance", "fixed", "per_km", "per_kg", "per_hour", "per_stop", "quotation")
+MAX_STOPS = 5
 SERVICE_FOR_KIND = {"pickup_drop": "pickup_drop", "documents": "documents", "local_delivery": "product"}
 
 REQUESTED, NEEDS_CONFIGURATION, NEEDS_PARTNER = "REQUESTED", "NEEDS_CONFIGURATION", "NEEDS_PARTNER"
@@ -51,19 +56,47 @@ def allowed_step(current: str, to: str) -> bool:
     return j > i and all(step in OPTIONAL_STEPS for step in TRIP_PATH[i + 1:j])
 
 
-def fare_quote(rule: Optional[Dict[str, Any]], distance_km: float) -> Optional[Dict[str, Any]]:
-    """A quote ONLY from a configured fare rule (Command Center); never guessed."""
+def fare_quote(rule: Optional[Dict[str, Any]], distance_km: float, *, weight_kg: Optional[float] = None,
+               hours: Optional[float] = None, stops: int = 0) -> Optional[Dict[str, Any]]:
+    """An ESTIMATE only from a configured fare rule (Command Center), by its
+    pricing model; never guessed. "quotation" (or a model whose input the
+    customer did not give, e.g. per_kg without a weight) -> no estimate, the
+    partners quote."""
     if not rule:
         return None
-    try:
-        base, per_km = float(rule.get("base_fare") or 0), float(rule.get("per_km") or 0)
-        minimum = float(rule.get("minimum_fare") or 0)
-    except (TypeError, ValueError):
+
+    def num(key: str) -> float:
+        try:
+            return float(rule.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    model = str(rule.get("pricing_model") or "base_plus_distance")
+    base, minimum, km = num("base_fare"), num("minimum_fare"), float(distance_km or 0)
+    stop_charge = num("per_stop") * max(0, int(stops or 0))
+    if model == "quotation":
         return None
-    if base <= 0 and per_km <= 0:
+    if model == "fixed":
+        amount = num("fixed_fare") or base
+    elif model == "per_km":
+        amount = num("per_km") * km
+    elif model == "per_kg":
+        if not weight_kg:
+            return None
+        amount = base + num("per_kg") * float(weight_kg)
+    elif model == "per_hour":
+        if not hours:
+            return None
+        amount = base + num("per_hour") * float(hours)
+    elif model == "per_stop":
+        amount = base + num("per_stop") * (1 + max(0, int(stops or 0)))
+        stop_charge = 0.0
+    else:
+        amount = base + num("per_km") * km
+    amount += stop_charge
+    if amount <= 0:
         return None
-    amount = max(minimum, base + per_km * float(distance_km or 0))
-    return {"amount": round(amount), "currency": "INR", "basis": "configured_rate",
+    return {"amount": round(max(minimum, amount)), "currency": "INR", "basis": "configured_rate",
+            "pricing_model": model,
             "note": "Estimate from the configured rate; the partner confirms the final fare."}
 
 
@@ -89,7 +122,8 @@ class DeliveryJobs:
                     history_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
             cols = {r[1] for r in conn.execute("PRAGMA table_info(delivery_jobs)").fetchall()}
             for col, ddl in (("details_json", "TEXT NOT NULL DEFAULT '{}'"), ("declined_json", "TEXT NOT NULL DEFAULT '[]'"),
-                             ("schedule_at", "TEXT"), ("quote_json", "TEXT"), ("accepted_at", "TEXT")):
+                             ("schedule_at", "TEXT"), ("quote_json", "TEXT"), ("accepted_at", "TEXT"),
+                             ("bids_json", "TEXT NOT NULL DEFAULT '[]'"), ("agreed_fare", "REAL")):
                 if col not in cols:
                     conn.execute(f"ALTER TABLE delivery_jobs ADD COLUMN {col} {ddl}")
             conn.execute("""
@@ -121,7 +155,7 @@ class DeliveryJobs:
     def _row(row: sqlite3.Row) -> Dict[str, Any]:
         data = dict(row)
         for key in ("pickup_json", "drop_json", "offered_json", "history_json", "details_json", "declined_json",
-                    "quote_json"):
+                    "quote_json", "bids_json"):
             if key in data:
                 data[key[:-5]] = json.loads(data.pop(key) or "null")
         return data
@@ -142,14 +176,22 @@ class DeliveryJobs:
     def create(self, *, requester: str, kind: str, pickup: Dict[str, Any], drop: Dict[str, Any],
                partners: Iterable[Dict[str, Any]], matching_enabled: bool,
                integration_ready: Callable[[str], bool], order_id: str = "", details: Dict[str, Any] | None = None,
-               schedule_at: str = "", fare_rule: Dict[str, Any] | None = None) -> Dict[str, Any]:
+               schedule_at: str = "", fare_rule: Dict[str, Any] | None = None,
+               stops: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
         if kind not in KINDS:
             raise DeliveryError("bad_kind", "Unknown delivery type")
-        for point in (pickup, drop):
+        stops = list(stops or [])
+        if len(stops) > MAX_STOPS:
+            raise DeliveryError("too_many_stops", f"At most {MAX_STOPS} stops")
+        route = [pickup, *stops, drop]
+        for point in route:
             if point.get("latitude") is None or point.get("longitude") is None:
-                raise DeliveryError("needs_location", "Pickup and drop need a location")
-        distance = round(_km(float(pickup["latitude"]), float(pickup["longitude"]),
-                             float(drop["latitude"]), float(drop["longitude"])), 2)
+                raise DeliveryError("needs_location", "Pickup, stops and drop need a location")
+        # Straight-line legs through every stop (a road distance only when the
+        # Routes API answers -- never invented).
+        distance = round(sum(_km(float(a["latitude"]), float(a["longitude"]), float(b["latitude"]),
+                                 float(b["longitude"])) for a, b in zip(route, route[1:])), 2)
+        details = {**(details or {}), **({"stops": stops} if stops else {})}
         job_id = "dj_" + uuid.uuid4().hex[:16]
         now = _now()
         with self._connect() as conn:
@@ -159,7 +201,8 @@ class DeliveryJobs:
                 (job_id, requester, order_id or None, kind, json.dumps(pickup), json.dumps(drop), distance,
                  REQUESTED, "[]", json.dumps([{"status": REQUESTED, "by": requester, "at": now, "note": ""}]),
                  now, now))
-            quote = fare_quote(fare_rule, distance)
+            quote = fare_quote(fare_rule, distance, weight_kg=(details or {}).get("weight_kg"),
+                               hours=(details or {}).get("hours"), stops=len(stops))
             conn.execute("UPDATE delivery_jobs SET details_json=?, schedule_at=?, quote_json=? WHERE id=?",
                          (json.dumps(details or {}), schedule_at or None, json.dumps(quote) if quote else None,
                           job_id))
@@ -177,6 +220,48 @@ class DeliveryJobs:
                               offered_json=json.dumps([]))
         return self._save(job, PARTNER_SEARCH, "system", f"Offered to {len(offered)} partner(s).",
                           offered_json=json.dumps(offered))
+
+    # ---- bargaining: customer offer <-> partner counter-offer, with consent --
+    def bid(self, job_id: str, *, by: str, actor: str, partner_id: str, amount: float, note: str = "") -> Dict[str, Any]:
+        """One offer in a partner's negotiation thread (by = customer | partner).
+        Nothing is booked until the OTHER side accepts that exact amount."""
+        job = self._require(job_id)
+        if job["status"] != PARTNER_SEARCH:
+            raise DeliveryError("not_open", "This request is no longer open for offers")
+        if partner_id not in {o["partner_id"] for o in job.get("offered") or []}:
+            raise DeliveryError("not_offered", "This request was not offered to that partner")
+        if by == "customer" and actor != job["requester"]:
+            raise DeliveryError("not_yours", "Only the customer can make the customer's offer")
+        if not (0 < float(amount) <= 1_000_000):
+            raise DeliveryError("bad_amount", "Enter a valid amount")
+        bids = list(job.get("bids") or []) + [{"partner_id": partner_id, "by": by, "amount": round(float(amount), 2),
+                                               "note": str(note or "")[:200], "at": _now(), "actor": actor}]
+        with self._connect() as conn:
+            conn.execute("UPDATE delivery_jobs SET bids_json=?, updated_at=? WHERE id=?",
+                         (json.dumps(bids), _now(), job_id))
+        return self.get(job_id) or {}
+
+    def accept_bid(self, job_id: str, *, by: str, actor: str, partner_id: str, partner_user: str = "") -> Dict[str, Any]:
+        """Accept the OTHER side's latest offer in that thread: the agreed fare
+        is that exact amount, recorded with who agreed and when; the trip is
+        then booked with that partner."""
+        job = self._require(job_id)
+        if job["status"] != PARTNER_SEARCH:
+            raise DeliveryError("not_open", "This request is no longer open")
+        thread = [b for b in job.get("bids") or [] if b["partner_id"] == partner_id]
+        if not thread:
+            raise DeliveryError("no_offer", "There is no offer to accept")
+        last = thread[-1]
+        if last["by"] == by:
+            raise DeliveryError("own_offer", "Wait for the other side to answer your offer")
+        if by == "customer" and actor != job["requester"]:
+            raise DeliveryError("not_yours", "Only the customer can accept for the customer")
+        note = f"Agreed fare ₹{last['amount']:g} ({'partner' if last['by'] == 'partner' else 'customer'} offer accepted by {by})"
+        if not partner_user:  # the customer accepted: the partner is whoever made the partner offers
+            partner_user = next((b.get("actor") for b in reversed(thread) if b["by"] == "partner"), "")
+        fields: Dict[str, Any] = {"partner_id": partner_id, "accepted_at": _now(), "agreed_fare": last["amount"],
+                                  "partner_user": partner_user}
+        return self._save(job, PARTNER_ACCEPTED, actor, note, **fields)
 
     def offers_for(self, partner_ids: Iterable[str]) -> List[Dict[str, Any]]:
         ids = set(partner_ids)
