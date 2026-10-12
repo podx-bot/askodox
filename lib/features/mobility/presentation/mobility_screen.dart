@@ -497,7 +497,7 @@ Future<double?> askodoxAskAmount(BuildContext context, {required String title, r
     ),
   );
   final value = double.tryParse(controller.text.trim().replaceAll(',', ''));
-  controller.dispose();
+  // Not disposed here: the dialog's closing animation still reads it.
   return ok == true && value != null && value > 0 ? value : null;
 }
 
@@ -625,7 +625,9 @@ class _MyTripsTab extends ConsumerStatefulWidget {
 class _MyTripsTabState extends ConsumerState<_MyTripsTab> {
   late Future<List<MobilityJob>> _items = ref.read(mobilityRepositoryProvider).myRequests();
 
-  void _reload() => setState(() => _items = ref.read(mobilityRepositoryProvider).myRequests());
+  void _reload() => setState(() {
+        _items = ref.read(mobilityRepositoryProvider).myRequests();
+      });
 
   @override
   Widget build(BuildContext context) => RefreshIndicator(

@@ -213,6 +213,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobility-to-suggest-Vijayawada Airport, Gannavaram')));
     await tester.pumpAndSettle();
     expect(places.routes.last, ('Benz Circle', 'Vijayawada Airport, Gannavaram'));
+    // The form is longer now (goods kinds): bring the route line into view.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('mobility-route')), 200,
+        scrollable: find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
     expect(find.textContaining('18.4 km'), findsOneWidget);
     expect(find.byKey(const ValueKey('mobility-directions')), findsOneWidget);
     final draft = container.read(askodoxMobilityDraftProvider)!;
