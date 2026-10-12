@@ -1493,7 +1493,8 @@ def _discover(container, demand: dict, matches: list[dict] | None = None, *, tra
 
         catalog = getattr(container, "product_catalog_repository", None)
         if catalog is not None:
-            gaps = supply_fit.annotate(matches, demand, catalog.get)
+            gaps = supply_fit.annotate(matches, demand, catalog.get,
+                                       getattr(catalog, "attributes_for", None))
             matches = supply_fit.rank_registered(matches)
             supply_fit.record_gaps(container.settings.database_path, gaps)
     except Exception as error:  # fit annotation never breaks discovery
