@@ -24,6 +24,14 @@ strict=False / chunked voice with text revealed as read / point spacing. APKs 13
 4. More seed templates (healthcare non-Rx, education, travel, B2B industrial, rentals).
 5. Travel Radio (needs owner decisions: content sources, voice budget) and Radio billing (needs gateway approval).
 
+## Owner decisions 2026-10-12 23:09 (apply; do not ask again)
+1. PR #182: review code, deps, migrations, CI, security; fix failures; merge + deploy to Railway production if all
+   required checks pass and nothing destructive / security-sensitive needs approval; verify deployment health.
+2. Voice: Voice Mode on -> every conversational reply is spoken; Text Mode -> voice optional (replay). Travel Radio
+   must play audio. Cost controls, caching, metering; respect mute / pause / preferences.
+3. Language: reply in the language the user speaks / explicitly selected for the conversation; never force the UI
+   language onto replies; Telugu, Hindi, English and mixed speech.
+
 ## Blockers needing the owner
 - Merge PR #182 -> production deploy (approval).
 - Payment gateway + any price activation (Radio ₹29/149/399 are proposals only).
