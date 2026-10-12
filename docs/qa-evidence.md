@@ -9,3 +9,6 @@ Automated tests use fakes for providers (Sarvam, Brave, Maps, Gemini): they neve
 | 2026-10-12 | 1db4f74 (main) | 1050 passed | Flutter CI, APK CI, registry, result-contract, smokes: pass | 1321 (sha256 2ad83867…459a, 71,991,930 B) | NOT TESTED |
 
 Production probe 2026-10-12: /health 200 healthy (1db4f74), /readiness 200 ready, /api/catalog/templates 200, /api/catalog/filters/pickles 200 (no listings yet -> empty values, never invented), /api/products/search?attr= 200.
+| 2026-10-13 | 70e0255 (main, PR #183) | 1078 passed | Flutter CI, APK CI, registry, result-contract, smokes: pass | 1322 (sha256 4ac4e85a…4d26, 72,336,286 B) | NOT TESTED |
+
+Production probe 2026-10-13: /health 200 healthy (70e0255), /readiness ready, /api/plans 200 (no add-on listed), /api/radio/status 401 and /admin/cc/axe/brief + /admin/cc/radio 401 without sign-in, catalogue endpoints 200.

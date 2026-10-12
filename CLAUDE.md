@@ -7,10 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `1db4f74` -- PR #182 merged 2026-10-12 and deployed to Railway production (deployment
-  cdda8021 SUCCESS; /health healthy on 1db4f74). Navigator UX, P0 voice/draft/listing fixes, universal
-  catalogue + attribute master (`catalog_templates` resource, `listing_attributes` index, `/api/catalog/filters`),
-  reply language = spoken language, Voice Mode. Release APK 1321 from main (phone-test-1321, sha256 2ad83867…459a).
+- `main` @ `70e0255` -- PR #183 merged 2026-10-13 and deployed to Railway production (deployment
+  72bd6f0a SUCCESS; /health healthy on 70e0255; new radio / AXE routes answer 401 without sign-in; /api/plans
+  lists no add-on). Phase 2: structured attributes in matching + Result Board attribute chips, mobility goods
+  kinds / stops / bids, role registration + verification queue, 19 catalogue templates, Travel Radio add-on
+  (flag `radio.enabled` OFF, plans INACTIVE, no billing), AXE brief (`/admin/cc/axe/brief`).
+  Release APK 1322 from main (phone-test-1322, sha256 4ac4e85a…4d26). Earlier: PR #182 (`1db4f74`).
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
@@ -459,6 +461,10 @@ this file, don't trust it blindly.
 - Release gate (`release_gate.py`, `/admin/cc/release-gate`): READY only when all PASS;
   device = qa_checks PHONE VERIFIED only. Image / video generation stay NOT_AVAILABLE
   until a provider is chosen and its cost approved.
+- Travel Radio = `travel_radio.py` + `routes/radio.py`: add-on plans live in `growth_plans` with audience
+  `addon_radio` (INACTIVE; `/api/subscriptions` refuses add-ons); passes in `radio_passes` (paid = PENDING_PAYMENT,
+  staff PROMOTIONAL only); segments only from geocoding / Places / LIVE content; cost model = ESTIMATE.
+- AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
