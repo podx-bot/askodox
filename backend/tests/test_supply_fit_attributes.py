@@ -34,3 +34,6 @@ def test_annotate_reads_attributes_in_one_lookup():
         return {9: {"cut": ["Curry cut"]}}
     supply_fit.annotate(rows, {"dynamic_fields": {"cut": "Curry cut"}}, lambda i: LISTING, attrs)
     assert calls == [[9]] and rows[0]["fit"]["status"] == "fits" and "fit" not in rows[1]
+    # The seller's details travel with the row (Result Board chips); other
+    # sources never get any.
+    assert rows[0]["attributes"] == {"cut": "Curry cut"} and "attributes" not in rows[1]

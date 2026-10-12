@@ -135,4 +135,34 @@ void main() {
     expect(find.byKey(const ValueKey('askodoxGuideStart-upload_video')), findsOneWidget);
     expect(find.byKey(const Key('askodoxHeaderGuideOtherApps')), findsOneWidget);
   });
+
+  group('Result Board attribute chips (seller-given details, views of the deck)', () {
+    const a = UniversalMatch(id: '1', title: 'Shoe A', source: 'local', attributes: {'size': '9', 'colour': 'Black'});
+    const b = UniversalMatch(id: '2', title: 'Shoe B', source: 'local', attributes: {'size': '10', 'colour': 'Black'});
+    const c = UniversalMatch(id: '3', title: 'Shoe C', source: 'local', attributes: {'size': '9', 'payment': 'Cash, UPI'});
+    const web = UniversalMatch(id: 'w', title: 'Online shoe', source: 'online', destinationUrl: 'https://s/x');
+
+    test('chips only from values the rows carry; multi values split; most common first', () {
+      final chips = askodoxAttributeChips([a, b, c, web]);
+      expect(chips.first.id, 'size=9');
+      expect(chips.first.count, 2);
+      expect(chips.map((c) => c.id), containsAll(['size=10', 'colour=Black', 'payment=Cash', 'payment=UPI']));
+      expect(chips.first.label, 'Size: 9');
+      expect(askodoxAttributeChips([web]), isEmpty, reason: 'no seller details -> no chips (nothing invented)');
+      expect(askodoxAttributeChips([a, a]), isEmpty, reason: 'a value every row shares filters nothing');
+    });
+
+    test('filtering keeps rows carrying EVERY chosen detail and the deck notices', () {
+      expect(askodoxFilterByAttributes([a, b, c, web], {'size=9'}).map((m) => m.id), ['1', '3']);
+      expect(askodoxFilterByAttributes([a, b, c, web], {'size=9', 'colour=Black'}).map((m) => m.id), ['1']);
+      expect(askodoxFilterByAttributes([a, b, c, web], {'payment=UPI'}).map((m) => m.id), ['3']);
+      expect(askodoxFilterByAttributes([a, b], const {}).length, 2);
+      final results = AskodoxChatResults(matches: [a, b, c], searched: true, sourceStatus: const {'online': 'error'});
+      final narrowed = askodoxResultsForAttributes(results, {'size=10'});
+      expect(narrowed.matches.single.id, '2');
+      expect(narrowed.sourceStatus, results.sourceStatus);
+      expect(UniversalMatch.fromJson({'id': 'r', 'title': 'x', 'attributes': {'size': '9', 'note': ''}}).attributes,
+          {'size': '9'});
+    });
+  });
 }

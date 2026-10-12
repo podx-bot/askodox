@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../home/domain/active_role.dart';
+import 'registration_progress.dart';
 
 /// Profile -> My Roles: ONE personal identity (edited once, in Profile) and
 /// the sections each role adds. Buyer, Seller, Service provider and Service
@@ -64,6 +65,7 @@ class MyRolesScreen extends ConsumerWidget {
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom),
         children: [
+          const AskodoxRegistrationProgress(),
           Card(
             elevation: 0,
             child: ListTile(

@@ -197,6 +197,12 @@ def annotate(matches: Iterable[Dict[str, Any]], demand: Dict[str, Any], lookup,
                        attributes=structured.get(int(item["id"])))
         item["fit"] = fit
         item["why"] = why_text(fit)
+        # The seller's structured details travel with the row so the Result
+        # Board can filter the SHOWN deck by them (never a new search).
+        attrs = structured.get(int(item["id"]))
+        if attrs:
+            item["attributes"] = {str(k): (", ".join(map(str, v)) if isinstance(v, list) else str(v))
+                                  for k, v in list(attrs.items())[:24]}
         if fit["unknown"]:
             gaps.append({"listing_id": int(item["id"]), "seller_user_id": listing.get("seller_user_id"),
                          "missing": fit["unknown"], "subject": listing.get("subject")})
