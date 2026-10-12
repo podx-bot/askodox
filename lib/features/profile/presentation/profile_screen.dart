@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/navigator_section.dart';
+import '../../home/application/voice_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -382,6 +383,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: t('Location', 'లొకేషన్'),
                 subtitle: locationLabel,
                 onTap: () => context.push('/location')),
+            SwitchListTile(
+              key: const Key('askodoxVoiceModeSwitch'),
+              dense: true,
+              secondary: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF1769FF)),
+              title: Text(t('Voice Mode', 'వాయిస్ మోడ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(t('On: every reply is spoken. Off: text only (replay any reply).',
+                  'ఆన్: ప్రతి జవాబు వినిపిస్తుంది. ఆఫ్: టెక్స్ట్ మాత్రమే (ఏ జవాబైనా మళ్లీ వినవచ్చు).')),
+              value: ref.watch(askodoxVoiceModeProvider),
+              onChanged: (on) => ref.read(askodoxVoiceModeProvider.notifier).set(on),
+            ),
             AskodoxNavRow(
                 icon: Icons.record_voice_over_outlined,
                 title: t('Voice preference', 'వాయిస్ ప్రాధాన్యత'),

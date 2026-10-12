@@ -73,6 +73,7 @@ import '../../guide/in_app_guide.dart';
 import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
+import '../application/voice_mode.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -576,6 +577,8 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     setState(() => _voicePhase = _VoicePhase.thinking);
+    // Speaking to ASKODOX turns Voice Mode on (Profile turns it off).
+    unawaited(ref.read(askodoxVoiceModeProvider.notifier).set(true));
     await _send(draft, true);
     if (mounted && _voicePhase == _VoicePhase.thinking) {
       setState(() => _voicePhase = _VoicePhase.idle);
@@ -1686,7 +1689,8 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     if (_voicePhase == _VoicePhase.transcribing) return;
-    await _send();
+    // Voice Mode: typed turns are spoken too (Text Mode: only on Replay).
+    await _send(null, ref.read(askodoxVoiceModeProvider));
   }
 
   Future<void> _send([String? preset, bool speakResponse = false]) async {

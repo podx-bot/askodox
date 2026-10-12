@@ -2490,7 +2490,8 @@ void main() {
       expect(h.assistant.requests.last['locale'], 'en');
     });
 
-    testWidgets('explicit Preferred Language stays even when the customer types another script', (tester) async {
+    testWidgets('owner rule 2026-10-12: the UI language never forces the reply -- Telugu words get a Telugu reply',
+        (tester) async {
       final h = _Harness(
         matches: _FakeMatchRepository([
           const UniversalMatchResult(dealId: '1', matches: [_onlineMatch]),
@@ -2498,8 +2499,8 @@ void main() {
       );
       await h.pump(tester, locale: 'en');
       await h.send(tester, 'నాకు mixer grinder కావాలి చూపించండి');
-      expect(h.assistant.requests.last['locale'], 'en');
-      expect(find.text('Open'), findsWidgets);
+      expect(h.assistant.requests.last['locale'], 'te');
+      expect(find.byKey(const ValueKey('askodoxChatResults-1')), findsOneWidget, reason: 'results still shown');
     });
 
     testWidgets('Hindi conversation: Hindi locale for the AI + Hindi result labels (not Telugu-only logic)',
@@ -4885,6 +4886,23 @@ void main() {
       await _stopVoice(tester);
       expect(find.textContaining('could not understand'), findsOneWidget);
       expect(failing.assistant.requests, isEmpty);
+    });
+
+    testWidgets('Voice Mode (owner rule): after speaking once, typed turns are spoken too; Text Mode stays silent',
+        (tester) async {
+      mockRecorder(levels: speech(const Duration(seconds: 60)));
+      final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]), voiceTranscript: 'hello');
+      await h.pump(tester);
+      await h.send(tester, 'hi there');
+      expect(methods(), isNot(contains('speakReply')), reason: 'Text Mode: a typed turn is not spoken');
+      await _tapVoice(tester);
+      await runFor(tester, const Duration(seconds: 2));
+      await _stopVoice(tester);
+      final spokenAfterVoice = methods().where((m) => m == 'speakReply').length;
+      expect(spokenAfterVoice, 1);
+      await h.send(tester, 'and what about tomorrow');
+      expect(methods().where((m) => m == 'speakReply').length, spokenAfterVoice + 1,
+          reason: 'Voice Mode is on: the typed reply is spoken as well');
     });
 
     testWidgets('typing a new message interrupts a spoken reply', (tester) async {
