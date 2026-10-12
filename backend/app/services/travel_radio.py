@@ -297,6 +297,10 @@ class TravelRadio:
             return None, "", 0
         mime = str(result.get("mime_type") or "audio/ogg")
         with self._connect() as conn:
+            # Bounded: audio older than the repeat window is never replayed to
+            # the same listener, so the shared cache keeps one week at most.
+            conn.execute("DELETE FROM radio_audio_cache WHERE created_at < ?",
+                         ((_now() - timedelta(days=7)).isoformat(),))
             conn.execute("INSERT OR IGNORE INTO radio_audio_cache(text_hash,mime,audio,chars,created_at)"
                          " VALUES(?,?,?,?,?)", (digest, mime, bytes(audio), len(text), _now().isoformat()))
         return bytes(audio), mime, len(text)
