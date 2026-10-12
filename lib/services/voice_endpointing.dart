@@ -29,9 +29,18 @@ class AskodoxVoiceEndpointer {
     this.minimumThreshold = 600,
   });
 
+  /// Main Chat (owner requirement after APK 1316): the microphone stays open
+  /// until the user's own Stop -- no silence or no-speech auto-stop. Only the
+  /// [maxDuration] safety limit remains (the backend segments long audio).
+  AskodoxVoiceEndpointer.untilStop({Duration maxDuration = const Duration(minutes: 2)})
+      : this(silenceAfterSpeech: null, noSpeechTimeout: null, maxDuration: maxDuration);
+
   final Duration calibration;
-  final Duration silenceAfterSpeech;
-  final Duration noSpeechTimeout;
+  /// Null = never stop on silence (only Stop / [maxDuration]).
+  final Duration? silenceAfterSpeech;
+
+  /// Null = never stop because nothing was heard yet.
+  final Duration? noSpeechTimeout;
   final Duration maxDuration;
   final Duration minimumSpeech;
   final int minimumThreshold;
@@ -76,15 +85,63 @@ class AskodoxVoiceEndpointer {
 
     if (elapsed >= maxDuration) return VoiceEndpointDecision.stopMaxDuration;
     final lastSpeech = _lastSpeechAt;
-    if (heardSpeech && lastSpeech != null &&
-        elapsed - lastSpeech >= silenceAfterSpeech) {
+    final silence = silenceAfterSpeech;
+    if (silence != null && heardSpeech && lastSpeech != null &&
+        elapsed - lastSpeech >= silence) {
       return VoiceEndpointDecision.stopAfterSilence;
     }
-    if (!heardSpeech && elapsed >= noSpeechTimeout) {
+    final noSpeech = noSpeechTimeout;
+    if (noSpeech != null && !heardSpeech && elapsed >= noSpeech) {
       return VoiceEndpointDecision.stopNoSpeech;
     }
     return VoiceEndpointDecision.keepRecording;
   }
+}
+
+/// One composer draft from what the user typed and what they then said:
+/// typed words first, the transcript after (no duplicate when the transcript
+/// already contains the typed words).
+String askodoxMergeVoiceDraft(String typed, String transcript) {
+  final t = typed.trim(), v = transcript.trim();
+  if (t.isEmpty) return v;
+  if (v.isEmpty || v.contains(t)) return v.isEmpty ? t : v;
+  return '$t $v';
+}
+
+/// A reply spoken in sentence-sized chunks (cut on line / sentence ends):
+/// the first words play almost at once instead of after the WHOLE reply is
+/// synthesised (production: 10 s before a long reply started), and each
+/// chunk's text is revealed while it is spoken. Offsets index [text].
+List<({int start, int end})> askodoxSpeechChunks(String text, {int firstMax = 160, int maxChars = 320}) {
+  final cuts = <int>[0];
+  for (final m in RegExp(r'\n+|(?<=[.!?।])\s+').allMatches(text)) {
+    if (m.end > cuts.last) cuts.add(m.end);
+  }
+  if (cuts.last != text.length) cuts.add(text.length);
+  final out = <({int start, int end})>[];
+  var start = 0;
+  for (var i = 1; i < cuts.length; i++) {
+    final end = cuts[i];
+    final next = i + 1 < cuts.length ? cuts[i + 1] : null;
+    final limit = out.isEmpty ? firstMax : maxChars;
+    if (next == null || next - start > limit) {
+      if (text.substring(start, end).trim().isNotEmpty) out.add((start: start, end: end));
+      start = end;
+    }
+  }
+  return out;
+}
+
+/// The part of a markup reply shown while it is being spoken: cut at the end
+/// of a word, with an open **bold** closed so no raw "**" ever shows.
+String askodoxRevealPrefix(String markup, int end) {
+  if (end >= markup.length) return markup;
+  var cut = end.clamp(0, markup.length);
+  while (cut < markup.length && !RegExp(r'\s').hasMatch(markup[cut])) {
+    cut++;
+  }
+  final prefix = markup.substring(0, cut).trimRight();
+  return '**'.allMatches(prefix).length.isOdd ? '$prefix**' : prefix;
 }
 
 final _teluguScript = RegExp(r'[ఀ-౿]');

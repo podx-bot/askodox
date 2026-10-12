@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/navigator_section.dart';
 
 import '../../../core/providers/backend_providers.dart';
 import '../data/business_center_repository.dart';
@@ -68,9 +69,8 @@ class BusinessCenterScreen extends ConsumerWidget {
                       _Stat(t('Completed', 'పూర్తయినవి'), page.summary['completed'], '/orders/incoming'),
                       _Stat(t('New demand', 'కొత్త డిమాండ్'), page.summary['opportunities_new'], '/opportunities'),
                     ]),
-                    const SizedBox(height: 12),
                     Padding(
-                      padding: const EdgeInsets.only(top: 14, bottom: 4),
+                      padding: const EdgeInsets.only(top: 12, bottom: 4),
                       child: Text(t('Analytics', 'విశ్లేషణ'),
                           key: const Key('askodoxBusinessSection-analytics'),
                           style: Theme.of(context).textTheme.titleSmall),
@@ -82,20 +82,23 @@ class BusinessCenterScreen extends ConsumerWidget {
                         child: Text(page.basis, style: Theme.of(context).textTheme.bodySmall),
                       ),
                     const SizedBox(height: 12),
-                    // My Business sections: each opens its one real screen.
-                    for (final section in askodoxBusinessSections(te))
-                      Card(
-                        elevation: 0,
-                        child: ListTile(
-                          key: ValueKey('askodoxBusinessSection-${section.id}'),
-                          leading: Icon(section.icon),
-                          title: Text(section.label),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () => section.route.startsWith('/profile')
-                              ? context.go(section.route)
-                              : context.push(section.route),
-                        ),
-                      ),
+                    // My Business sections: each opens its one real screen
+                    // (ONE grouped Navigator card, not a card per row).
+                    AskodoxNavSection(
+                      title: t('Manage', 'నిర్వహణ'),
+                      icon: Icons.dashboard_customize_outlined,
+                      children: [
+                        for (final section in askodoxBusinessSections(te))
+                          AskodoxNavRow(
+                            key: ValueKey('askodoxBusinessSection-${section.id}'),
+                            icon: section.icon,
+                            title: section.label,
+                            onTap: () => section.route.startsWith('/profile')
+                                ? context.go(section.route)
+                                : context.push(section.route),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),

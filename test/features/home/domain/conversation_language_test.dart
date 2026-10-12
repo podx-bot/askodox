@@ -1,5 +1,7 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/core/providers/app_settings_provider.dart';
 import 'package:podx/features/home/domain/conversation_language.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -108,5 +110,24 @@ void main() {
     expect(c.read(askodoxLanguageLockProvider), isNull);
     await notifier.observe('నాకు TV కావాలి');
     expect(c.read(askodoxReplyLanguageProvider), 'te');
+  });
+
+  test('APK 1316: Telugu speech gets Telugu replies even when the app UI language is English (no lock)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    c.read(appSettingsProvider.notifier).setLocale(const Locale('en'));
+    expect(c.read(askodoxReplyLanguageProvider), 'en', reason: 'nothing said yet: the UI language');
+    final notifier = c.read(askodoxConversationLanguageProvider.notifier);
+    await notifier.observe('నాకు పుల్కా తినాలని ఉంది, దగ్గరలో ఎవరైనా అమ్ముతున్నారా?');
+    expect(c.read(askodoxReplyLanguageProvider), 'te');
+    await notifier.observe('Postpaid bill');
+    expect(c.read(askodoxReplyLanguageProvider), 'te', reason: 'a short Latin answer keeps the language');
+    await notifier.observe('Can you please show me the cheapest options nearby');
+    expect(c.read(askodoxReplyLanguageProvider), 'en', reason: 'a real English sentence switches');
+    // An explicit lock still wins over what is observed.
+    await notifier.lockTo('hi');
+    await notifier.observe('నాకు బిల్ పేమెంట్ చేయాలి');
+    expect(c.read(askodoxReplyLanguageProvider), 'hi');
   });
 }

@@ -206,6 +206,8 @@ def my_listings(request: Request, seller_user_id: str = "") -> MyListingsRespons
     container: Any = request.app.state.container
     user_id = _matching_app_user(seller_user_id, _authenticated_app_user(request))
     rows = container.product_catalog_repository.list_active_for_seller(user_id)
+    attributes = container.product_catalog_repository.attributes_for([r["id"] for r in rows])
+    rows = [{**r, "attributes": attributes.get(int(r["id"]), {})} for r in rows]
     profile = container.seller_profile_repository.get(user_id)
     return MyListingsResponse(items=rows, seller_tier=(profile["tier"] if profile else None))
 

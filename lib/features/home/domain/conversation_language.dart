@@ -121,6 +121,10 @@ String askodoxNextConversationLanguage({required String current, required String
 
 final askodoxLanguageLockProvider = StateProvider<String?>((ref) => null);
 
+/// The language the customer has actually written / spoken in this session
+/// (script, romanized or a real English sentence). Null until one is seen.
+final askodoxObservedLanguageProvider = StateProvider<String?>((ref) => null);
+
 class AskodoxConversationLanguage extends StateNotifier<String> {
   AskodoxConversationLanguage(this._ref) : super('en') {
     _restore();
@@ -170,6 +174,12 @@ class AskodoxConversationLanguage extends StateNotifier<String> {
     }
 
     final next = askodoxNextConversationLanguage(current: state, message: message);
+    // A message that shows its own language (not "yes", a number or a brand)
+    // decides the reply language over a UI preference (APK 1316: Telugu
+    // speech got English replies because the app UI was set to English).
+    final shown = askodoxScriptLanguage(message) ?? askodoxRomanizedLanguage(message) ??
+        (next == 'en' && next != state ? 'en' : null);
+    if (shown != null) _ref.read(askodoxObservedLanguageProvider.notifier).state = shown;
     if (next == state) return;
     state = next;
     await prefs.setString(_key, next);
@@ -200,11 +210,15 @@ class AskodoxConversationLanguage extends StateNotifier<String> {
 final askodoxConversationLanguageProvider =
     StateNotifierProvider<AskodoxConversationLanguage, String>((ref) => AskodoxConversationLanguage(ref));
 
-/// One source of truth for reply language: an explicit conversation lock wins,
-/// then Settings preferred locale, then Automatic/sticky conversation language.
+/// One source of truth for reply language: an explicit lock (header choice,
+/// "reply in Telugu") wins, then the language the customer actually uses in
+/// this session, then the Settings UI locale, then the sticky conversation
+/// language.
 final askodoxReplyLanguageProvider = Provider<String>((ref) {
   final lock = ref.watch(askodoxLanguageLockProvider);
   if (lock != null && lock.isNotEmpty) return lock;
+  final observed = ref.watch(askodoxObservedLanguageProvider);
+  if (observed != null && observed.isNotEmpty) return observed;
   final preferred = ref.watch(appSettingsProvider).locale?.languageCode;
   if (preferred != null && preferred.isNotEmpty) return preferred;
   return ref.watch(askodoxConversationLanguageProvider);

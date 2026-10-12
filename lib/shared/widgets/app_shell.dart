@@ -10,6 +10,7 @@ import '../../features/home/presentation/question_mic.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import 'header_menu.dart';
 import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
 import '../../core/providers/app_settings_provider.dart';
@@ -125,10 +126,12 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         elevation: 0,
         automaticallyImplyLeading: false,
         centerTitle: false,
-        titleSpacing: 12,
-        // Header: ASKODOX · where I am · my language · notifications. Home
-        // itself stays clean -- no shortcut grid.
+        // Header (Navigator UX): Menu · ASKODOX · Screen Guide · location ·
+        // language · notifications. Menu is a sheet over existing routes
+        // (never a drawer); Home itself stays clean -- no shortcut grid.
+        titleSpacing: 0,
         title: Row(children: [
+          AskodoxHeaderMenuButton(te: isTe),
           const Expanded(
             child: Text('ASKODOX',
                 maxLines: 1,
@@ -136,6 +139,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                 softWrap: false,
                 style: TextStyle(color: _navInk, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
           ),
+          AskodoxHeaderGuideButton(te: isTe),
           InkWell(
             key: const Key('askodoxLocationChip'),
             borderRadius: BorderRadius.circular(18),
@@ -174,7 +178,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                 }),
                 const SizedBox(width: 2),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 104),
+                  constraints: const BoxConstraints(maxWidth: 84),
                   child: Text(
                     locationLabel,
                     maxLines: 1,

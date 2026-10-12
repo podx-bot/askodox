@@ -447,7 +447,7 @@ class UniversalAIAssistantService:
                 logger.exception("universal_ai_assistant.advise: openai fallback failed (len=%d)", len(user_text))
         if text.startswith("{"):
             try:  # a model that answered JSON anyway
-                parsed = json.loads(text)
+                parsed = json.loads(text, strict=False)
                 return str(parsed.get("reply") or "").strip(), parsed.get("advice")
             except (ValueError, AttributeError):
                 pass
@@ -701,13 +701,16 @@ class UniversalAIAssistantService:
         if text.startswith("```"):
             text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
             text = re.sub(r"\s*```$", "", text)
+        # strict=False: models put raw newlines / tabs inside string values
+        # (production 2026-10-09: Gemini's reply failed with "Invalid control
+        # character", then the OpenAI fallback hit 429 -> no answer at all).
         try:
-            data = json.loads(text)
+            data = json.loads(text, strict=False)
         except json.JSONDecodeError:
             start, end = text.find("{"), text.rfind("}")
             if start < 0 or end <= start:
                 raise ValueError("no json object found in model reply")
-            data = json.loads(text[start : end + 1])
+            data = json.loads(text[start : end + 1], strict=False)
         if not isinstance(data, dict):
             raise ValueError("model reply JSON was not an object")
         return data

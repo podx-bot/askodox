@@ -97,6 +97,69 @@ class ProductCatalogRepository:
                 except sqlite3.OperationalError:
                     pass  # column already exists from a previous startup
 
+    # Structured listing attributes (one row per value) -- the index buyer
+    # filters are computed from (never from free text).
+    def _ensure_attributes(self, conn) -> None:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS listing_attributes (
+                product_id INTEGER NOT NULL,
+                attr_key TEXT NOT NULL,
+                attr_value TEXT NOT NULL,
+                PRIMARY KEY (product_id, attr_key, attr_value)
+            );
+            CREATE INDEX IF NOT EXISTS idx_listing_attributes_kv ON listing_attributes(attr_key, attr_value);
+            """
+        )
+
+    def set_attributes(self, product_id: int, values: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            self._ensure_attributes(conn)
+            conn.execute("DELETE FROM listing_attributes WHERE product_id=?", (int(product_id),))
+            for key, raw in (values or {}).items():
+                parts = raw if isinstance(raw, (list, tuple)) else [raw]
+                for part in parts:
+                    text = str(part or "").strip()
+                    if text:
+                        conn.execute("INSERT OR IGNORE INTO listing_attributes VALUES(?,?,?)",
+                                     (int(product_id), str(key), text[:80]))
+
+    def attributes_for(self, product_ids: List[int]) -> Dict[int, Dict[str, List[str]]]:
+        ids = [int(i) for i in product_ids if str(i).isdigit()]
+        if not ids:
+            return {}
+        out: Dict[int, Dict[str, List[str]]] = {}
+        with self._connect() as conn:
+            self._ensure_attributes(conn)
+            marks = ",".join("?" * len(ids))
+            for row in conn.execute(f"SELECT product_id, attr_key, attr_value FROM listing_attributes "
+                                    f"WHERE product_id IN ({marks}) ORDER BY attr_key, attr_value", ids):
+                out.setdefault(int(row[0]), {}).setdefault(row[1], []).append(row[2])
+        return out
+
+    def attribute_facets(self, category_tag: str, keys: List[str]) -> Dict[str, Dict[str, int]]:
+        """Value -> number of ACTIVE listings, per attribute, for one category."""
+        if not keys:
+            return {}
+        with self._connect() as conn:
+            self._ensure_attributes(conn)
+            marks = ",".join("?" * len(keys))
+            rows = conn.execute(
+                f"SELECT a.attr_key, a.attr_value, COUNT(DISTINCT a.product_id) FROM listing_attributes a "
+                f"JOIN seller_products p ON p.id=a.product_id WHERE p.active=1 AND p.category_tag=? "
+                f"AND a.attr_key IN ({marks}) GROUP BY a.attr_key, a.attr_value ORDER BY 3 DESC",
+                (category_tag, *keys)).fetchall()
+        out: Dict[str, Dict[str, int]] = {}
+        for key, value, count in rows:
+            out.setdefault(key, {})[value] = int(count)
+        return out
+
+    def price_range(self, category_tag: str) -> Dict[str, Any]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT MIN(price), MAX(price), COUNT(*) FROM seller_products "
+                               "WHERE active=1 AND category_tag=? AND price IS NOT NULL", (category_tag,)).fetchone()
+        return {"min": row[0], "max": row[1], "count": int(row[2] or 0)}
+
     def upsert_product(self, seller_user_id: str, subject: str, **fields: Any) -> int:
         now = self._now()
         seller = str(seller_user_id)

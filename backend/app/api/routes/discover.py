@@ -324,6 +324,12 @@ def route_quote(payload: RouteRequest, request: Request) -> dict:
         for row in catalog.search_active(query, limit=20) or []:
             if row["id"] in seen or row.get("price") in (None, ""):
                 continue
+            # A delivery / courier PROVIDER: the word is in what the listing
+            # IS (name or category), not just in a product's delivery option
+            # ("Mango pickle ... Delivery: Courier" is not a courier).
+            own = f"{row.get('subject') or ''} {row.get('category_tag') or ''}".lower()
+            if not any(w in own for w in ("delivery", "courier", "parcel", "logistics", "transport")):
+                continue
             seen.add(row["id"])
             unit = str(row.get("unit") or "").lower()
             price = float(row["price"])

@@ -112,4 +112,14 @@ void main() {
       expect(UniversalMatch.fromJson(job.toJson()).salaryText, '₹20,000 - ₹30,000 per month');
     });
   });
+
+  test('APK 1316: listings need a real thing to sell (any category, any language)', () {
+    for (final ok in ['2 bicycles', 'మామిడి పండ్లు', 'tuition classes', 'used fridge', 'AC repair service']) {
+      expect(askodoxListingSubjectValid(ok, location: 'Vijayawada'), isTrue, reason: ok);
+    }
+    for (final junk in ['yes', 'Yes.', 'సరే', 'అవును', 'ok', '9876543210', '+91 98765 43210', '3000', '₹ 3,000', 'Vijayawada', '', 'a']) {
+      expect(askodoxListingSubjectValid(junk, location: 'Vijayawada'), isFalse, reason: junk);
+    }
+    expect(askodoxListingKey('2 Bicycles', 3000, 2), askodoxListingKey(' 2 bicycles ', 3000, 2));
+  });
 }
