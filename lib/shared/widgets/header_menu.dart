@@ -20,6 +20,7 @@ const askodoxHeaderMenuEntries = <AskodoxMenuEntry>[
   AskodoxMenuEntry('enquiries', '/orders/incoming', Icons.mark_email_unread_outlined, 'Customer enquiries', 'కస్టమర్ ఎంక్వైరీలు'),
   AskodoxMenuEntry('roles', '/profile/roles', Icons.badge_outlined, 'Business & roles', 'వ్యాపారం & పాత్రలు'),
   AskodoxMenuEntry('opportunities', '/opportunities', Icons.work_outline_rounded, 'Services & opportunities', 'సేవలు & అవకాశాలు'),
+  AskodoxMenuEntry('radio', '/radio', Icons.radio_outlined, 'Travel Radio (add-on)', 'ట్రావెల్ రేడియో (యాడ్-ఆన్)'),
   AskodoxMenuEntry('mobility', '/mobility', Icons.local_shipping_outlined, 'Rides, parcels & delivery', 'రైడ్స్, పార్సెల్స్ & డెలివరీ'),
   AskodoxMenuEntry('studio_videos', '/videos/native', Icons.video_library_outlined, 'My Studio · My videos', 'నా స్టూడియో · నా వీడియోలు'),
   AskodoxMenuEntry('studio_creations', '/business/creations', Icons.auto_awesome_outlined, 'My Studio · My creations', 'నా స్టూడియో · నా క్రియేషన్స్'),

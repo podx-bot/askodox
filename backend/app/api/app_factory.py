@@ -321,6 +321,10 @@ def create_app() -> FastAPI:
 
     app.include_router(growth_router)
     app.include_router(growth_admin_router)
+    from app.api.routes.radio import admin_router as radio_admin_router, router as radio_router
+
+    app.include_router(radio_router)
+    app.include_router(radio_admin_router)
     _redact_access_log_tokens()
     from app.api.routes.attachments import router as attachments_router
     from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router

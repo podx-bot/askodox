@@ -1198,6 +1198,19 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # Universal sources: live connector timeout (s) and feed refresh (h).
     "sources.timeout_seconds": (1, 15, 4),
     "sources.feed_refresh_hours": (1, 168, 24),
+    # Travel Radio add-on: per-user daily minute cap, repeat window, area
+    # cache, and the ESTIMATE unit costs behind the cost model (admin-set,
+    # never a provider bill).
+    "radio.daily_minutes": (5, 600, 120),
+    "radio.repeat_hours": (1, 168, 24),
+    "radio.area_cache_hours": (1, 168, 6),
+    "radio.chars_per_minute": (300, 2000, 900),
+    "radio.segment_chars": (80, 1500, 300),
+    "radio.tts_inr_per_10k_chars": (0, 1000, 15),
+    "radio.places_inr_per_call": (0, 50, 2.7),
+    "radio.geocode_inr_per_call": (0, 50, 0.42),
+    "radio.cell_km": (0.5, 20, 5),
+    "radio.nearby_places": (0, 1, 1),
 }
 
 _register(Resource(
