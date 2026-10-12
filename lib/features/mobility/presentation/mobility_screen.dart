@@ -410,7 +410,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
         ]),
         DropdownButtonFormField<String>(
           key: const ValueKey('mobility-handling'),
-          value: _handling,
+          initialValue: _handling,
           decoration: InputDecoration(labelText: t('Handling', 'జాగ్రత్తలు')),
           items: [
             for (final h in const ['', 'fragile', 'refrigerated', 'heavy', 'liquid', 'livestock'])

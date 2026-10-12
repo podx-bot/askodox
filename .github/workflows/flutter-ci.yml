@@ -65,6 +65,8 @@ jobs:
                   continue
               if e.get('type') == 'testStart':
                   names[e['test']['id']] = e['test']['name']
+              if e.get('type') == 'print' and any(k in e.get('message', '') for k in ('Expected', 'Actual', 'EXCEPTION', 'Which', 'Bad state', 'No element', 'Zero widgets', 'line ', 'was not', 'Could not', 'offscreen', 'hit test')):
+                  print(f"::error title=FAILED TEST::{names.get(e.get('testID'), '?')} :: " + e['message'][:900].replace('\n', ' | '))
               if e.get('type') == 'error':
                   msg = (e.get('error') or '')[:600].replace('\n', ' | ')
                   print(f"::error title=FAILED TEST::{names.get(e.get('testID'), '?')} :: {msg}")
