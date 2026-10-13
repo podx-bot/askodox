@@ -88,4 +88,19 @@ void main() {
     expect(play.onPressed, isNull, reason: 'switched off / no pass: nothing plays');
     expect(find.byKey(const Key('askodoxRadioLocked')), findsOneWidget);
   });
+
+  testWidgets('internal testers see the testing label; plans stay unavailable', (tester) async {
+    const status = AskodoxRadioStatus(enabled: true, access: true, internalTesting: true, plans: [
+      AskodoxRadioPlan(code: 'radio_1d', name: 'Travel Radio · 1 day', price: 29, days: 1, available: false),
+    ]);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [travelRadioStatusProvider.overrideWith((ref) async => status)],
+      child: const MaterialApp(home: TravelRadioScreen()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxRadioInternalTesting')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxRadioLocked')), findsNothing);
+    expect(tester.widget<ButtonStyleButton>(find.byKey(const Key('askodoxRadioPlay'))).onPressed, isNotNull);
+    expect(find.text('Not available yet'), findsOneWidget);
+  });
 }

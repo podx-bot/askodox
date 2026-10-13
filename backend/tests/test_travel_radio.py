@@ -188,3 +188,23 @@ def test_cost_model_light_medium_heavy_estimates():
         assert {p["code"] for p in row["plans"]} == {"radio_1d", "radio_7d", "radio_30d"}
         for p in row["plans"]:
             assert p["margin_estimate_inr"] == pytest.approx(p["price"] - p["cost_estimate_inr"], abs=0.01)
+
+
+def test_internal_testers_hear_radio_while_customers_stay_off(env):
+    client, container, *_ = env
+    _cc(container).set_flag("radio.enabled", False, "test")
+    tester, me = _user(container)
+    customer, them = _user(container)
+    assert client.post("/admin/cc/radio/testers", json={"user_id": tester}).status_code in (401, 403)
+    assert client.post("/admin/cc/radio/testers", headers=OWNER, json={"user_id": tester, "note": "QA"}).status_code == 200
+    status = client.get("/api/radio/status", headers=me).json()
+    assert status["internal_testing"] is True and status["access"] is True and status["enabled"] is True
+    assert all(p["available"] is False for p in status["plans"]), "testing never activates pricing"
+    assert client.post("/api/radio/next", headers=me, json=_spot()).status_code == 200
+    assert client.get("/api/radio/status", headers=them).json()["enabled"] is False
+    assert client.post("/api/radio/next", headers=them, json=_spot()).status_code == 503
+    board = client.get("/admin/cc/radio", headers=OWNER).json()
+    assert any(t["user_id"] == tester for t in board["testers"])
+    assert board["passes"] == [] or all(p["user_id"] != tester for p in board["passes"]), "no pass was created"
+    assert client.delete(f"/admin/cc/radio/testers/{tester}", headers=OWNER).json()["removed"] is True
+    assert client.post("/api/radio/next", headers=me, json=_spot()).status_code == 503

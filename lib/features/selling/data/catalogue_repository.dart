@@ -204,6 +204,24 @@ class AskodoxCatalogueRepository {
     return null;
   }
 
+  /// Smart Fill: the template's details found in the seller's OWN words
+  /// (server `catalogue_templates.smart_fill`); null when unavailable.
+  Future<({Map<String, String> values, double? price})?> smartFill(String key, String text) async {
+    if (authToken == null || authToken!.isEmpty || text.trim().isEmpty) return null;
+    final result = await _client.post<Map<String, Object?>>('/api/catalog/templates/$key/smart-fill',
+        body: {'text': text.trim()}, options: ApiRequestOptions(authToken: authToken));
+    if (result case ApiSuccess<Map<String, Object?>>(:final data)) {
+      final values = <String, String>{};
+      for (final e in ((data['values'] as Map?) ?? const {}).entries) {
+        final v = e.value;
+        final text = v is List ? v.join(', ') : '$v';
+        if (text.trim().isNotEmpty) values['${e.key}'] = text;
+      }
+      return (values: values, price: (data['price'] as num?)?.toDouble());
+    }
+    return null;
+  }
+
   Future<AskodoxCataloguePublishResult> publish(
     String key,
     List<AskodoxCatalogueEntry> entries, {

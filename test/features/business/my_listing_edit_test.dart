@@ -71,6 +71,9 @@ class _Api implements ApiClient {
   @override
   Future<ApiResult<T>> post<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) async {
     posts.add((path, body));
+    if (path.endsWith('/smart-fill')) {
+      return ApiSuccess(<String, Object?>{'values': {'freshness': 'Fresh', 'cut': 'Boneless'}, 'price': 300} as T);
+    }
     return ApiSuccess(<String, Object?>{'published': [], 'drafts': [{'item_key': 'chicken.curry_cut'}], 'skipped': []} as T);
   }
 
@@ -176,5 +179,36 @@ void main() {
     expect(api.posts.single.$1, '/api/catalog/templates/meat_poultry/publish');
     expect((body['items'] as List).single['attributes'], {'cut': 'Curry cut'});
     expect(find.byKey(const Key('askodoxCatalogPublished')), findsOneWidget);
+  });
+
+  testWidgets('Smart Fill fills only EMPTY details from the seller\'s words; the seller\'s choices stay',
+      (tester) async {
+    final api = await pumpListings(tester);
+    await tester.tap(find.byKey(const Key('askodoxOpenCatalogTemplates')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxCatalogTemplate-meat_poultry')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('askodoxCataloguePrice-chicken.curry_cut')), '240');
+    await tester.tap(find.byKey(const ValueKey('askodoxCatalogueDetails-chicken.curry_cut')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxCatalogueAttr-cut-Curry cut')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxCatalogueSmartFillText')), 'fresh chicken boneless 300');
+    await tester.tap(find.byKey(const Key('askodoxCatalogueSmartFill')));
+    await tester.pumpAndSettle();
+    expect(api.posts.first.$1, '/api/catalog/templates/meat_poultry/smart-fill');
+    expect(find.byKey(const Key('askodoxCatalogueSmartFillNote')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxCatalogueDetailsDone')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxCatalogueShopName')), 'Ravi Chicken');
+    await tester.enterText(find.byKey(const Key('askodoxCatalogueShopAddress')), 'Vuyyuru');
+    await tester.tap(find.byKey(const Key('askodoxCatalogueReviewButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('1 will be published'), findsOneWidget, reason: 'the required detail came from Smart Fill');
+    await tester.tap(find.byKey(const Key('askodoxCataloguePublish')));
+    await tester.pumpAndSettle();
+    final item = ((api.posts.last.$2! as Map)['items'] as List).single as Map;
+    expect(item['attributes'], {'cut': 'Curry cut', 'freshness': 'Fresh'}, reason: 'the seller\'s own choice is kept');
+    expect(item['price'], 240, reason: 'a price the seller typed is never replaced');
   });
 }

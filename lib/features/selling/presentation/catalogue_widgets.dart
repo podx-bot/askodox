@@ -16,6 +16,8 @@ const _labels = <String, Map<String, String>>{
     'need_shop': 'Add your shop name and address.', 'photo_too_large': 'Photo too large -- take it again closer.',
     'will_publish': 'will be published', 'will_draft': 'saved as drafts (price or * detail missing)', 'selected': 'selected',
     'pick_categories': 'Pick the categories you sell, or say "all".',
+    'smart_fill': 'Smart Fill', 'smart_fill_hint': 'Describe it in your words (e.g. "cotton, MRP 999, home delivery")',
+    'smart_filled': 'Filled from your words -- please check', 'smart_none': 'Nothing to fill from that -- add the details below.',
   },
   'te': {
     'categories': 'విభాగాలు', 'items': 'వస్తువులు', 'select_all': 'అన్నీ ఎంచుకోండి', 'set_prices': 'ధరలు పెట్టి ప్రచురించండి',
@@ -25,6 +27,8 @@ const _labels = <String, Map<String, String>>{
     'need_shop': 'మీ షాప్ పేరు, చిరునామా ఇవ్వండి.', 'photo_too_large': 'ఫోటో చాలా పెద్దది -- మళ్లీ తీయండి.',
     'will_publish': 'ప్రచురించబడతాయి', 'will_draft': 'డ్రాఫ్ట్‌లుగా సేవ్ (ధర ఇంకా లేదు)', 'selected': 'ఎంచుకున్నారు',
     'pick_categories': 'మీరు అమ్మే విభాగాలు ఎంచుకోండి, లేదా "అన్నీ" అని చెప్పండి.',
+    'smart_fill': 'స్మార్ట్ ఫిల్', 'smart_fill_hint': 'మీ మాటల్లో చెప్పండి (ఉదా: "కాటన్, MRP 999, హోమ్ డెలివరీ")',
+    'smart_filled': 'మీ మాటల నుంచి నింపాం -- ఒకసారి చూడండి', 'smart_none': 'దీని నుంచి నింపడానికి ఏమీ లేదు -- కింద వివరాలు ఇవ్వండి.',
   },
   'hi': {
     'categories': 'श्रेणियाँ', 'items': 'आइटम', 'select_all': 'सब चुनें', 'set_prices': 'दाम डालें और प्रकाशित करें',
@@ -34,6 +38,8 @@ const _labels = <String, Map<String, String>>{
     'need_shop': 'दुकान का नाम और पता डालें।', 'photo_too_large': 'फ़ोटो बहुत बड़ी है -- दोबारा लें।',
     'will_publish': 'प्रकाशित होंगे', 'will_draft': 'ड्राफ़्ट में (अभी दाम नहीं)', 'selected': 'चुने गए',
     'pick_categories': 'जो श्रेणियाँ आप बेचते हैं चुनें, या "सब" कहें।',
+    'smart_fill': 'स्मार्ट फ़िल', 'smart_fill_hint': 'अपने शब्दों में बताएँ (जैसे "कॉटन, MRP 999, होम डिलीवरी")',
+    'smart_filled': 'आपके शब्दों से भरा गया -- कृपया जाँचें', 'smart_none': 'इससे भरने लायक कुछ नहीं -- नीचे विवरण डालें।',
   },
 };
 
@@ -142,6 +148,9 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
   late final _address = TextEditingController(text: widget.shopAddress ?? '');
   bool _reviewing = false;
   bool _busy = false;
+
+  /// Bumped when Smart Fill sets an item's price, so its field shows it.
+  final Map<String, int> _priceVersion = {};
   String? _message;
 
   String _l(String k) => askodoxCatalogueLabel(k, widget.lang);
@@ -170,6 +179,32 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
       for (final a in specs)
         if (a.options.isEmpty) a.key: TextEditingController(text: e.attributes[a.key] ?? ''),
     };
+    final describe = TextEditingController();
+    String? fillNote;
+    var filling = false;
+    // Smart Fill: only EMPTY fields take a value, and only one the seller's
+    // own words contain (server-side, never guessed). The seller still checks.
+    Future<void> smartFill(void Function(void Function()) setSheet) async {
+      setSheet(() => filling = true);
+      final out = await ref.read(askodoxCatalogueRepositoryProvider).smartFill(widget.template.key, describe.text);
+      var filled = 0;
+      for (final v in (out?.values ?? const <String, String>{}).entries) {
+        if ((e.attributes[v.key] ?? '').trim().isNotEmpty) continue;
+        e.attributes[v.key] = v.value;
+        controllers[v.key]?.text = v.value;
+        filled++;
+      }
+      if (out?.price != null && e.price == null) {
+        e.price = out!.price;
+        _priceVersion[e.item.key] = (_priceVersion[e.item.key] ?? 0) + 1;
+        filled++;
+      }
+      setSheet(() {
+        filling = false;
+        fillNote = _l(filled > 0 ? 'smart_filled' : 'smart_none');
+      });
+    }
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -181,6 +216,32 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Text('${e.item.name(widget.lang)} · ${e.size}',
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('askodoxCatalogueSmartFillText'),
+                    controller: describe,
+                    minLines: 1,
+                    maxLines: 3,
+                    maxLength: 500,
+                    decoration: InputDecoration(isDense: true, counterText: '', hintText: _l('smart_fill_hint')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  key: const Key('askodoxCatalogueSmartFill'),
+                  onPressed: filling ? null : () => smartFill(setSheet),
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                  label: Text(_l('smart_fill')),
+                ),
+              ]),
+              if (fillNote != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(fillNote!, key: const Key('askodoxCatalogueSmartFillNote'),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+                ),
               const SizedBox(height: 8),
               for (final (i, a) in specs.indexed)
                 if (a.appliesTo(e.attributes)) ...[
@@ -290,7 +351,9 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
         ),
         SizedBox(
           width: 86,
-          child: TextFormField(
+          child: KeyedSubtree(
+            key: ValueKey('askodoxCataloguePriceBox-${e.item.key}-${_priceVersion[e.item.key] ?? 0}'),
+            child: TextFormField(
             key: ValueKey('askodoxCataloguePrice-${e.item.key}'),
             enabled: included,
             initialValue: e.price == null ? '' : e.price!.toStringAsFixed(0),
@@ -298,6 +361,7 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
             decoration: InputDecoration(isDense: true, labelText: _l('price')),
             onChanged: (v) => e.price = double.tryParse(v),
+          ),
           ),
         ),
         if (widget.template.attributes.isNotEmpty)
