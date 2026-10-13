@@ -45,7 +45,8 @@ jobs:
         run: flutter pub get
 
       - name: Analyze compile errors
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+        run: |
+          flutter analyze --no-fatal-warnings --no-fatal-infos > a.txt 2>&1 || { grep -E " error " a.txt | head -20 | while read -r l; do echo "::error title=ANALYZE::$l"; done; exit 1; }
 
       - name: Analyze (diagnostic annotations)
         run: |
