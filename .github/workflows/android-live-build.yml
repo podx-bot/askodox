@@ -388,7 +388,9 @@ jobs:
             "build_number": ${BUILD_NUMBER},
             "mandatory": false,
             "notes": "Latest ASKODOX update",
-            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-${BUILD_NUMBER}.apk"
+            "apk_url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-${BUILD_NUMBER}.apk",
+            "sha256": "$(sha256sum "dist/askodox-${BUILD_NUMBER}.apk" | cut -d' ' -f1)",
+            "signer_cert_sha256": "$(tr -d '[:space:]' < .github/askodox-release-cert.sha256)"
           }
           EOF
           # Harden the moving update channel against a stale/dangling tag.

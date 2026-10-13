@@ -385,6 +385,71 @@
       "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": ["test/features/radio/travel_radio_test.dart"]},
       "dependencies": ["travel_radio_addon"], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
+    },
+    {
+      "id": "radio_tester_console",
+      "name": "Travel Radio tester management in the Command Center (audited, kill switch, billing off)",
+      "purpose": "Staff add / remove internal Radio testers from the console without API calls.",
+      "expected_behavior": "Console view radioadmin (growth:view; changes need growth:manage); every add / remove audited (radio.tester.add / radio.tester.remove); flag radio.internal_testing (default ON) is the kill switch for tester access; customer flag radio.enabled stays OFF; billing INACTIVE; a pass plan's entitlements.limits.radio_minutes_per_day tightens the daily cap.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/radio"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {"radio.internal_testing": true, "radio.enabled": false},
+      "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": []},
+      "dependencies": ["travel_radio_internal_testing"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+    },
+    {
+      "id": "partner_document_check_and_test_delivery",
+      "name": "Delivery partner document check + staff test delivery",
+      "purpose": "No independent partner takes jobs before staff have seen the required documents; staff can rehearse a delivery with one real approved partner.",
+      "expected_behavior": "delivery_partners carry docs_checked (staff tick what they saw; numbers never stored beyond last 4); motor vehicles need driving_licence + vehicle_rc + insurance, others id_proof; going online returns 409 documents_pending until ticked; matching skips partners with missing documents; POST /admin/cc/mobility/test-job (delivery:manage) offers a test_run job to ONE approved, checked partner without a fare.",
+      "roles": ["admin", "partner"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/admin/cc/mobility/test-job"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_delivery_jobs.py", "tests/test_mobility.py"], "flutter": []},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+    },
+    {
+      "id": "push_readiness_and_test_send",
+      "name": "Push notification readiness + staff test send (FCM, honest NOT_CONFIGURED)",
+      "purpose": "Show exactly what is missing for background push and let staff test a real send once credentials exist.",
+      "expected_behavior": "GET /admin/cc/push/readiness (health:view) -> NOT_CONFIGURED / SERVER_READY_NO_DEVICES / READY_UNVERIFIED + android_client NOT_BUILT + missing steps; POST /admin/cc/push/test (integrations:manage) -> 409 NOT_CONFIGURED without credentials, NO_DEVICE_TOKENS, SENT or NOT_DELIVERED (respects the user's switches), audited.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/push/readiness"}, {"method": "POST", "path": "/admin/cc/push/test"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_push_admin.py"], "flutter": []},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+    },
+    {
+      "id": "update_integrity_check",
+      "name": "In-app update installs only a checksum-verified APK, after user confirmation",
+      "purpose": "Never install a corrupted or substituted APK; never install silently.",
+      "expected_behavior": "latest.json carries sha256 + signer_cert_sha256; the release API path uses the GitHub asset digest; downloadAndInstall computes the file's SHA-256 and refuses (deletes the file) when it is missing or differs; the user confirms in the app dialog and in Android's installer.",
+      "roles": ["buyer", "seller"], "domains": ["any"],
+      "api": [],
+      "ui": {"keys": [], "symbols": ["askodoxApkDigestMatches", "askodoxNormalizeSha256"]},
+      "flags": {},
+      "tests": {"backend": [], "flutter": ["test/core/update/update_integrity_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+    },
+    {
+      "id": "plans_pricing_controls",
+      "name": "Plans & pricing console + live-pricing switch + billing readiness",
+      "purpose": "Staff configure prices, trials and usage limits; nothing goes on sale or is charged without the Owner.",
+      "expected_behavior": "Console view plansadmin; PUT /admin/cc/growth/plans/{code} refuses an active paid plan with 409 LIVE_PRICING_OFF while flag billing.live_pricing (default OFF) is off; entitlements.limits must be numbers >= 0; GET /admin/cc/growth/billing-readiness reports gateway / switch / on-sale checks and collection INACTIVE until all pass.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/growth/billing-readiness"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {"billing.live_pricing": false},
+      "tests": {"backend": ["tests/test_growth_engines.py"], "flutter": []},
+      "dependencies": ["base_plans_catalogue"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
     }
   ]
 }

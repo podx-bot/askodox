@@ -208,7 +208,20 @@ def test_referral_fraud_safeguards(api, monkeypatch):
 
 def test_plans_are_admin_configured_and_paid_plans_are_never_faked_active(api):
     client, container = api
+    from app.api.routes.command_center import command_center
+
+    cc = command_center(container)
     assert client.put("/admin/cc/growth/plans/seller-free", json={"name": "Free"}).status_code == 401
+    # A paid plan cannot go on sale while the Owner's live-pricing switch is off.
+    cc.set_flag("billing.live_pricing", False, "test")
+    assert client.put("/admin/cc/growth/plans/seller-pro", headers=OWNER,
+                      json={"name": "Seller Pro", "audience": "seller", "price": 299}).status_code == 409
+    ready = client.get("/admin/cc/growth/billing-readiness", headers=OWNER).json()
+    assert ready["collection"] == "INACTIVE" and {c["id"] for c in ready["checks"]} == {
+        "gateway_live", "live_pricing_flag", "owner_price_approval"}
+    assert client.put("/admin/cc/growth/plans/seller-x", headers=OWNER, json={
+        "name": "X", "price": 0, "entitlements": {"limits": {"listings": -1}}}).status_code == 422
+    cc.set_flag("billing.live_pricing", True, "test")  # after Owner approval (below: still no money taken)
     client.put("/admin/cc/growth/plans/seller-free", headers=OWNER,
                json={"name": "Seller Free", "audience": "seller", "credits": 20, "entitlements": {"listings": 5}})
     client.put("/admin/cc/growth/plans/seller-pro", headers=OWNER,
@@ -230,6 +243,7 @@ def test_plans_are_admin_configured_and_paid_plans_are_never_faked_active(api):
     grant = client.post("/admin/cc/growth/credits", headers=OWNER,
                         json={"user_id": user, "amount": 50, "reason": "joining bonus"}).json()
     assert grant["balance"] == 70
+    cc.set_flag("billing.live_pricing", False, "test")
 
 
 # ---------------------------------------------------------------- catalog AI --

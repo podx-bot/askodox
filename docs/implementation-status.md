@@ -40,6 +40,20 @@ NOT phone-verified. Production = main (PR #182 merged 2026-10-12, `1db4f74`).
   present with tests; the original "Studio editing" spec text was not saved in the repo, so nothing new was
   invented there.
 
+## Done on claude/phase4-blockers (code + automated tests; NOT phone-verified)
+- Travel Radio tester management in the Command Center (view "Travel Radio (testing)"): add / remove testers,
+  audited; kill switch flag `radio.internal_testing` (default ON); customers OFF; billing INACTIVE; plan usage
+  limit `limits.radio_minutes_per_day` tightens the daily cap.
+- Delivery partners: staff document checklist (`docs_checked`; motor vehicle = licence + RC + insurance, else
+  ID proof); going online / matching blocked until ticked; staff test delivery `POST /admin/cc/mobility/test-job`
+  to ONE approved, checked partner (no fare, `test_run`). No partner was created in production.
+- Push (FCM): `GET /admin/cc/push/readiness` + audited `POST /admin/cc/push/test`; honest NOT_CONFIGURED;
+  procedure `docs/push-test-procedure.md`. Firebase credentials + Android FCM client still needed (owner).
+- In-app update: SHA-256 integrity check before install (latest.json `sha256` + `signer_cert_sha256`, GitHub
+  asset digest); user confirms in the app and in Android's installer; never silent.
+- Plans & pricing console (view "Plans & pricing"): price / days / trial / on-sale / usage limits; a paid plan
+  cannot go on sale while `billing.live_pricing` (default OFF) is off; `GET /admin/cc/growth/billing-readiness`.
+
 ## Pending (next executable steps)
 1. Real-phone acceptance of every flow (none is PHONE VERIFIED) -- `docs/phone-test-checklist.md`.
 2. Retire the legacy mock admin screens (`/admin/<section>`, `/admin/analytics`, `/admin/reports`): admin-only,

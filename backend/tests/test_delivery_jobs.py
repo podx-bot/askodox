@@ -35,7 +35,8 @@ def _partner(client, container, user_id, *, approve=True, services=("parcel",), 
 
     r = client.post("/admin/cc/platform/r/delivery_partners", headers=OWNER, json={"data": {
         "name": "Test rider", "kind": "independent", "user_ref": user_ref(user_id), "services": list(services),
-        "available": True, "latitude": at[0], "longitude": at[1], "radius_km": 5}})
+        "available": True, "latitude": at[0], "longitude": at[1], "radius_km": 5,
+        "docs_checked": ["id_proof"]}})  # staff saw the documents (required since docs_missing)
     assert r.status_code == 200, r.text
     if approve:
         assert client.post(f"/admin/cc/platform/r/delivery_partners/{r.json()['id']}/actions/approve",
@@ -112,3 +113,31 @@ def test_service_type_and_cancel_rules(env):
                        json={"reason": "changed mind"}).json()["status"] == "CANCELLED"
     assert client.post("/api/delivery/jobs", headers=customer,
                        json={"kind": "rocket", "pickup": PICKUP, "drop": DROP}).status_code == 422
+
+
+def test_staff_test_delivery_reaches_only_that_checked_partner(env):
+    client, container = env
+    rider, rh = _user(container)
+    pid = _partner(client, container, rider, at=(12.111, 77.111))
+    body = {"partner_id": pid, "kind": "parcel",
+            "pickup": {"label": "Depot", "latitude": 12.111, "longitude": 77.111},
+            "drop": {"label": "Shop", "latitude": 12.121, "longitude": 77.121}}
+    assert client.post("/admin/cc/mobility/test-job", json=body).status_code in (401, 403)
+    made = client.post("/admin/cc/mobility/test-job", headers=OWNER, json=body)
+    assert made.status_code == 200, made.text
+    job = made.json()
+    assert job["test_run"] is True and job["offered"] == [pid], "works with delivery.matching off, one partner"
+    offers = client.get("/api/delivery/offers", headers=rh)
+    assert offers.status_code == 200
+    mine = [o for o in offers.json()["items"] if o["id"] == job["job_id"]]
+    assert mine and mine[0]["details"].get("test_run") is True, "the partner sees it, marked as a test"
+    # A partner whose documents were not seen is refused.
+    other, _ = _user(container)
+    unchecked = client.post("/admin/cc/platform/r/delivery_partners", headers=OWNER, json={"data": {
+        "name": "No docs", "kind": "independent", "services": ["parcel"], "vehicle": "two_wheeler",
+        "available": True, "latitude": 12.1, "longitude": 77.1, "radius_km": 5}}).json()["id"]
+    client.post(f"/admin/cc/platform/r/delivery_partners/{unchecked}/actions/approve", headers=OWNER, json={})
+    refused = client.post("/admin/cc/mobility/test-job", headers=OWNER, json={**body, "partner_id": unchecked})
+    assert refused.status_code == 409 and set(refused.json()["detail"]["missing"]) == {
+        "driving_licence", "vehicle_rc", "insurance"}
+
