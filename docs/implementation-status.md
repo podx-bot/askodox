@@ -1,6 +1,6 @@
 # Implementation status (update after every work unit)
 
-Last update: 2026-10-13 IST · branch `claude/master-phase2` (PR #183) -- all items below are CODE + automated tests,
+Last update: 2026-10-13 IST · PR #183 merged (main 70e0255, deployed); PR #185 phase 3 -- all items below are CODE + automated tests,
 NOT phone-verified. Production = main (PR #182 merged 2026-10-12, `1db4f74`).
 
 ## Done on claude/master-phase2 (code + automated tests; NOT phone-verified)
@@ -26,10 +26,25 @@ NOT phone-verified. Production = main (PR #182 merged 2026-10-12, `1db4f74`).
 - AXE executive brief (`executive_ai.py`, `GET /admin/cc/axe/brief`, console Readiness panel): graded findings over
   release gate, incidents, API spend, radio pricing, Feature Registry; recommends catalog actions only.
 
+## Done on claude/phase3-smartfill-plans (PR #185; code + automated tests; NOT phone-verified)
+- Smart Fill in the ready-made catalogue editor: `POST /api/catalog/templates/{key}/smart-fill`, values only
+  from the seller's own words (options named, number next to the attribute name / unique unit, explicit
+  "name: value"); fills only empty fields; never replaces the seller's price or choices.
+- Plans: Free (Rs 0, active), Plus Rs 499, Pro Rs 999 + 7-day trial seeded INACTIVE (audience `base`);
+  `GET /api/plans/catalogue`; app Plans screen (Menu -> Plans & subscription); old mock `/admin/subscriptions`
+  redirects to the Command Center.
+- Travel Radio internal testing: staff add testers (`POST /admin/cc/radio/testers`); testers hear Radio with the
+  customer flag OFF, no pass, no price (metered + capped); app shows "Internal testing -- no price".
+- Phone acceptance: 6 new checks seeded into `qa_checks`; full checklist `docs/phone-test-checklist.md`.
+- Studio: existing My Studio (creations AI draft / edit / share / delete, native video edit / submit) verified
+  present with tests; the original "Studio editing" spec text was not saved in the repo, so nothing new was
+  invented there.
+
 ## Pending (next executable steps)
-1. Real-phone acceptance of every flow above (none is PHONE VERIFIED).
-2. Smart Fill / Studio editing / Free-Plus-Pro subscription screens (earlier backlog), nested-screen restyle.
-3. Variant combinations matrix, seller bulk CSV import, barcode scan.
+1. Real-phone acceptance of every flow (none is PHONE VERIFIED) -- `docs/phone-test-checklist.md`.
+2. Retire the legacy mock admin screens (`/admin/<section>`, `/admin/analytics`, `/admin/reports`): admin-only,
+   duplicate the live Command Center (owner approval for removal).
+3. Variant combinations matrix, seller bulk CSV import, barcode scan, nested-screen restyle.
 
 ## Owner decisions 2026-10-12 23:09 (apply; do not ask again)
 1. PR merge + deploy to Railway production when all required checks pass and nothing destructive /
@@ -39,5 +54,6 @@ NOT phone-verified. Production = main (PR #182 merged 2026-10-12, `1db4f74`).
 3. Language: reply in the language the user speaks / selected; never force the UI language.
 
 ## Blockers needing the owner
-- Payment gateway + any price activation (Radio Rs 29 / 149 / 399 are proposals; plans stay inactive).
+- Payment gateway + any price activation (Radio Rs 29 / 149 / 399 and Plus Rs 499 / Pro Rs 999 are proposals; plans stay inactive).
+- What Plus / Pro unlock (entitlements are empty until decided).
 - Switching `radio.enabled` on, and whether to keep the nearby-places lookup (main cost driver).
