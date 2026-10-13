@@ -247,7 +247,7 @@ def create_job(body: JobBody, request: Request) -> dict:
     details = {k: v for k, v in body.details.model_dump().items() if v not in ("", None, False)}
     try:
         job = jobs(container).create(requester=user, kind=body.kind, pickup=pickup, drop=drop,
-                                     partners=_partners(container),
+                                     partners=[p for p in _partners(container) if not docs_missing(p)],
                                      matching_enabled=feature_enabled(container, "delivery.matching"),
                                      integration_ready=ready, order_id=body.order_id, details=details,
                                      schedule_at=body.schedule_at, fare_rule=rule, stops=stops)
@@ -448,6 +448,20 @@ PARTNER_SERVICES = ("food", "grocery", "parcel", "product", "pickup_drop", "docu
     + dj.GOODS_KINDS
 
 
+MOTOR_VEHICLES = ("two_wheeler", "three_wheeler", "car", "van", "truck")
+
+
+def docs_missing(partner: Dict[str, Any]) -> List[str]:
+    """Documents staff must have SEEN before an independent partner can take
+    jobs (external logistics partners are verified through their contract)."""
+    d = partner.get("data") or {}
+    if d.get("kind") == "external":
+        return []
+    needed = ("driving_licence", "vehicle_rc", "insurance") if d.get("vehicle") in MOTOR_VEHICLES else ("id_proof",)
+    have = set(d.get("docs_checked") or [])
+    return [doc for doc in needed if doc not in have]
+
+
 class PartnerBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=2, max_length=80)
@@ -455,6 +469,7 @@ class PartnerBody(BaseModel):
     vehicle: str = Field(pattern="^(walk|bicycle|two_wheeler|three_wheeler|car|van|truck|any)$")
     vehicle_number: str = Field(default="", max_length=20)
     licence_last4: str = Field(default="", pattern=r"^(|\d{4})$")
+    rc_last4: str = Field(default="", pattern=r"^(|[A-Za-z0-9]{4})$")
     town: str = Field(default="", max_length=80)
     radius_km: float = Field(default=5, ge=0.5, le=200)
 
@@ -465,7 +480,8 @@ def _partner_view(p: Dict[str, Any]) -> Dict[str, Any]:
             "services": d.get("services") or [], "vehicle": d.get("vehicle") or "",
             "vehicle_number": d.get("vehicle_number") or "", "town": d.get("town") or "",
             "radius_km": d.get("radius_km"), "available": bool(d.get("available")),
-            "verified": bool(d.get("verified")), "review_note": d.get("review_note") or ""}
+            "verified": bool(d.get("verified")), "review_note": d.get("review_note") or "",
+            "docs_missing": docs_missing(p)}
 
 
 def _partner_data(body: PartnerBody, user: str) -> Dict[str, Any]:
@@ -476,7 +492,7 @@ def _partner_data(body: PartnerBody, user: str) -> Dict[str, Any]:
         raise HTTPException(status_code=422, detail=f"Unknown service: {bad[0]}")
     return {"name": body.name, "kind": "independent", "user_ref": user_ref(user), "services": body.services,
             "vehicle": body.vehicle, "vehicle_number": body.vehicle_number.upper(),
-            "licence_last4": body.licence_last4, "town": body.town, "country": "IN", "radius_km": body.radius_km,
+            "licence_last4": body.licence_last4, "rc_last4": body.rc_last4.upper(), "town": body.town, "country": "IN", "radius_km": body.radius_km,
             "available": False, "verified": False}
 
 
@@ -542,6 +558,10 @@ def set_availability(body: AvailabilityBody, request: Request) -> dict:
     if body.available and record["status"] != "ACTIVE":
         raise HTTPException(status_code=409, detail={"code": "not_approved",
                                                      "message": "You can go online once staff approve you."})
+    if body.available and docs_missing(record):
+        raise HTTPException(status_code=409, detail={"code": "documents_pending",
+                                                     "message": "Staff still need to see your documents: "
+                                                                + ", ".join(docs_missing(record)).replace("_", " ")})
     data = dict(record.get("data") or {})
     if body.available and (body.latitude is None or body.longitude is None) and data.get("latitude") is None:
         raise HTTPException(status_code=422, detail={"code": "needs_location",
@@ -824,3 +844,44 @@ def moderate_ride(ride_id: str, body: RideModerationBody, request: Request) -> d
         raise HTTPException(status_code=404, detail="Ride not found")
     store.set_carpool_status(ride_id, body.status)
     return {"id": ride_id, "status": body.status}
+
+
+class TestJobBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    partner_id: str = Field(min_length=3, max_length=60)
+    kind: str = Field(pattern="^(" + "|".join(KINDS) + ")$")
+    pickup: Point
+    drop: Point
+
+
+@admin_router.post("/admin/cc/mobility/test-job")
+def staff_test_job(body: TestJobBody, request: Request) -> dict:
+    """A TEST delivery offered to ONE approved partner so staff can rehearse
+    accept -> pickup -> drop end to end. Requested by staff (never a
+    customer), marked test_run, no fare, and it works with delivery.matching
+    off. The partner still needs approval, checked documents and to be online
+    -- nothing about a real partner is faked."""
+    from app.api.routes.command_center import _require
+
+    principal = _require(request, "delivery:manage")
+    container = request.app.state.container
+    partner = next((p for p in _partners(container) if p["id"] == body.partner_id and not p.get("archived")), None)
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    if partner.get("status") != "ACTIVE":
+        raise HTTPException(status_code=409, detail="Approve the partner first")
+    if docs_missing(partner):
+        raise HTTPException(status_code=409, detail={"code": "documents_pending", "missing": docs_missing(partner)})
+    pickup = _resolve_point(container, body.pickup, "pickup")
+    drop = _resolve_point(container, body.drop, "drop")
+    actor = str(principal.get("id") or principal.get("name") or "staff")
+    try:
+        job = jobs(container).create(requester=f"staff-test:{actor}", kind=body.kind, pickup=pickup, drop=drop,
+                                     partners=[partner], matching_enabled=True, integration_ready=lambda _k: False,
+                                     details={"test_run": True, "notes": "ASKODOX staff test delivery"},
+                                     fare_rule=None)
+    except DeliveryError as error:
+        raise _error(error) from None
+    return {"job_id": job.get("id"), "status": job.get("status"), "offered": [o.get("partner_id") for o in
+                                                                            job.get("offered") or []],
+            "test_run": True}

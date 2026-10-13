@@ -39,6 +39,39 @@ def _enabled(container: Any) -> bool:
     return feature_enabled(container, "radio.enabled")
 
 
+def _testing_on(container: Any) -> bool:
+    from app.api.routes.command_center import feature_enabled
+
+    return feature_enabled(container, "radio.internal_testing")
+
+
+def _tester(container: Any, service: TravelRadio, user: str) -> bool:
+    return _testing_on(container) and service.is_tester(user)
+
+
+def _audit(request: Request, principal: dict, action: str, target: str, detail: dict | None = None) -> None:
+    try:
+        from app.api.routes.command_center import command_center
+
+        command_center(request.app.state.container).audit(principal["id"], action, "radio_tester", target,
+                                                          after=detail or {})
+    except Exception:
+        pass
+
+
+def _daily_cap(container: Any, service: TravelRadio, user: str) -> float:
+    """Platform cap, tightened by the pass plan's own usage limit
+    (entitlements.limits.radio_minutes_per_day) when staff set one."""
+    cap = setting("radio.daily_minutes")
+    current = service.current_pass(user) or {}
+    if current.get("status") == "ACTIVE":
+        plan = growth(container).plan(current.get("plan_code") or "") or {}
+        limit = ((plan.get("entitlements") or {}).get("limits") or {}).get("radio_minutes_per_day")
+        if isinstance(limit, (int, float)) and not isinstance(limit, bool) and limit >= 0:
+            cap = min(cap, float(limit))
+    return cap
+
+
 def _plan_rows(container: Any) -> list[dict]:
     return [{"code": p["code"], "name": p["name"], "price": p["price"], "period_days": p["period_days"],
              "available": bool(p["active"])} for p in TravelRadio.plans(growth(container))]
@@ -50,15 +83,15 @@ def radio_status(request: Request) -> dict:
     container = request.app.state.container
     service = radio(container)
     current = service.current_pass(user)
-    tester = service.is_tester(user)
+    tester = _tester(container, service, user)
     return {
         "enabled": _enabled(container) or tester,
         "internal_testing": tester,
-        "access": service.has_access(user),
+        "access": tester or (service.current_pass(user) or {}).get("status") == "ACTIVE",
         "pass": current,
         "plans": _plan_rows(container),
         "minutes_today": round(service.seconds_today(user) / 60, 1),
-        "daily_minutes": setting("radio.daily_minutes"),
+        "daily_minutes": _daily_cap(container, service, user),
         "billing": "not_available",  # no payment gateway is configured
     }
 
@@ -99,11 +132,13 @@ def next_segment(payload: NextRequest, request: Request) -> dict:
     container = request.app.state.container
     service = radio(container)
     # Customers need the flag; staff-chosen internal testers do not.
-    if not _enabled(container) and not service.is_tester(user):
+    tester = _tester(container, service, user)
+    if not _enabled(container) and not tester:
         raise HTTPException(status_code=503, detail="RADIO_DISABLED")
-    if not service.has_access(user):
+    paid = (service.current_pass(user) or {}).get("status") == "ACTIVE"
+    if not (paid or tester):
         raise HTTPException(status_code=402, detail="RADIO_ADDON_REQUIRED")
-    if service.seconds_today(user) >= setting("radio.daily_minutes") * 60:
+    if service.seconds_today(user) >= _daily_cap(container, service, user) * 60:
         raise HTTPException(status_code=429, detail="RADIO_DAILY_LIMIT")
     facts, calls = service.area_facts(getattr(container, "google_maps_service", None),
                                       payload.latitude, payload.longitude)
@@ -146,7 +181,8 @@ def admin_radio(request: Request) -> dict:
     container = request.app.state.container
     service = radio(container)
     plans = TravelRadio.plans(growth(container))
-    return {"enabled": _enabled(container), "testers": service.testers(), "plans": plans,
+    return {"enabled": _enabled(container), "internal_testing": _testing_on(container),
+            "billing": "INACTIVE", "testers": service.testers(), "plans": plans,
             "passes": service.passes(100),
             "usage": service.usage_summary(30), "cost_model": cost_model(plans)}
 
@@ -179,10 +215,14 @@ def admin_add_tester(payload: TesterRequest, request: Request) -> dict:
     No pass, no price, no billing."""
     principal = _require(request, "growth:manage")
     actor = str(principal.get("id") or principal.get("name") or "staff")
-    return radio(request.app.state.container).add_tester(payload.user_id.strip(), added_by=actor, note=payload.note)
+    out = radio(request.app.state.container).add_tester(payload.user_id.strip(), added_by=actor, note=payload.note)
+    _audit(request, principal, "radio.tester.add", payload.user_id.strip(), {"note": payload.note})
+    return out
 
 
 @admin_router.delete("/testers/{user_id}")
 def admin_remove_tester(user_id: str, request: Request) -> dict:
-    _require(request, "growth:manage")
-    return {"user_id": user_id, "removed": radio(request.app.state.container).remove_tester(user_id)}
+    principal = _require(request, "growth:manage")
+    removed = radio(request.app.state.container).remove_tester(user_id)
+    _audit(request, principal, "radio.tester.remove", user_id, {"removed": removed})
+    return {"user_id": user_id, "removed": removed}

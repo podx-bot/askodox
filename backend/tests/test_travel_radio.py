@@ -208,3 +208,39 @@ def test_internal_testers_hear_radio_while_customers_stay_off(env):
     assert board["passes"] == [] or all(p["user_id"] != tester for p in board["passes"]), "no pass was created"
     assert client.delete(f"/admin/cc/radio/testers/{tester}", headers=OWNER).json()["removed"] is True
     assert client.post("/api/radio/next", headers=me, json=_spot()).status_code == 503
+
+
+def test_tester_kill_switch_audit_and_plan_limit(env):
+    client, container, *_ = env
+    cc = _cc(container)
+    cc.set_flag("radio.enabled", False, "test")
+    tester, me = _user(container)
+    client.post("/admin/cc/radio/testers", headers=OWNER, json={"user_id": tester, "note": "QA"})
+    cc.set_flag("radio.internal_testing", False, "test")
+    try:
+        assert client.post("/api/radio/next", headers=me, json=_spot()).status_code == 503, "kill switch stops testers"
+        assert client.get("/api/radio/status", headers=me).json()["internal_testing"] is False
+    finally:
+        cc.set_flag("radio.internal_testing", True, "test")
+    assert client.post("/api/radio/next", headers=me, json=_spot()).status_code == 200
+    board = client.get("/admin/cc/radio", headers=OWNER).json()
+    assert board["billing"] == "INACTIVE" and board["internal_testing"] is True
+    audit = cc.audit_log(limit=200, action="radio.tester.add")
+    assert any(tester in str(a) for a in audit), "every tester change is audited"
+    # A pass plan's own usage limit tightens the daily cap.
+    from app.api.routes.growth import growth
+
+    repo = growth(container)
+    plan = repo.plan("radio_1d")
+    repo.upsert_plan("radio_1d", name=plan["name"], audience=plan["audience"], price=plan["price"],
+                     period_days=1, entitlements={"travel_radio": True, "limits": {"radio_minutes_per_day": 0}},
+                     active=False)
+    try:
+        payer, them = _user(container)
+        client.post("/admin/cc/radio/passes", headers=OWNER, json={"user_id": payer, "plan_code": "radio_1d"})
+        cc.set_flag("radio.enabled", True, "test")
+        assert client.get("/api/radio/status", headers=them).json()["daily_minutes"] == 0
+        assert client.post("/api/radio/next", headers=them, json={**_spot()}).status_code == 429
+    finally:
+        repo.upsert_plan("radio_1d", name=plan["name"], audience=plan["audience"], price=plan["price"],
+                         period_days=1, entitlements={"travel_radio": True}, active=False)

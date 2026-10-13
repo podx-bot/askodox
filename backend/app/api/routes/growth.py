@@ -467,6 +467,44 @@ class PlanRequest(BaseModel):
     active: bool = True
 
 
+def _live_pricing(container: Any) -> bool:
+    from app.api.routes.command_center import feature_enabled
+
+    return feature_enabled(container, "billing.live_pricing")
+
+
+@admin_router.get("/billing-readiness")
+def billing_readiness(request: Request) -> dict:
+    """What stands between the configured plans and real payment collection
+    -- from live state only (gateway readiness, the live-pricing switch, which
+    paid plans are on sale). Collection stays inactive until all are met."""
+    _require(request, "growth:view")
+    container = request.app.state.container
+    gateway = "NOT_CONFIGURED"
+    try:
+        from app.api.routes.demand_advisor import _pf
+        from app.services.integration_readiness import readiness
+
+        pf = _pf(container)
+        row = next((r for r in readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=[])
+                    if r.get("integration") == "Payment gateway"), None)
+        gateway = str((row or {}).get("status") or "NOT_CONFIGURED")
+    except Exception:
+        gateway = "UNKNOWN"
+    plans = growth(container).plans()
+    paid_on_sale = [p["code"] for p in plans if p["active"] and float(p["price"] or 0) > 0]
+    checks = [
+        {"id": "gateway_live", "ok": gateway == "LIVE", "detail": f"payment gateway: {gateway}"},
+        {"id": "live_pricing_flag", "ok": _live_pricing(container),
+         "detail": "Owner switch billing.live_pricing (Command Center -> Flags)"},
+        {"id": "owner_price_approval", "ok": bool(paid_on_sale),
+         "detail": ("paid plans on sale: " + ", ".join(paid_on_sale)) if paid_on_sale else "no paid plan on sale"},
+    ]
+    return {"collection": "ACTIVE" if all(c["ok"] for c in checks) else "INACTIVE", "checks": checks,
+            "rule": "Payments are collected only when every check is met; until then paid plans stay "
+                    "PENDING_PAYMENT and nothing is charged."}
+
+
 @admin_router.get("/plans")
 def admin_plans(request: Request) -> dict:
     _require(request, "growth:view")
@@ -481,7 +519,17 @@ def admin_upsert_plan(code: str, payload: PlanRequest, request: Request) -> dict
     code = code.strip().lower()
     if not code.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=422, detail="plan code must be letters, digits, - or _")
-    plan = growth(request.app.state.container).upsert_plan(code, **payload.model_dump())
+    container = request.app.state.container
+    if payload.active and payload.price > 0 and not _live_pricing(container):
+        # A paid plan goes on sale only after the Owner switches live pricing
+        # on (flag billing.live_pricing, default OFF). Even then no money is
+        # collected until a payment gateway exists (PENDING_PAYMENT).
+        raise HTTPException(status_code=409, detail="LIVE_PRICING_OFF")
+    limits = payload.entitlements.get("limits")
+    if limits is not None and (not isinstance(limits, dict) or any(
+            not isinstance(v, (int, float)) or isinstance(v, bool) or v < 0 for v in limits.values())):
+        raise HTTPException(status_code=422, detail="entitlements.limits must map names to numbers >= 0")
+    plan = growth(container).upsert_plan(code, **payload.model_dump())
     _audit(request, principal, "plan.upsert", f"plan:{code}", {"price": plan["price"], "active": plan["active"]})
     return plan
 

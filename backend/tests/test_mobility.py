@@ -50,6 +50,12 @@ def _driver(client, headers, at, services=("ride_auto",), approve=True):
     if approve:
         assert client.post(f"/admin/cc/platform/r/delivery_partners/{body['id']}/actions/approve", headers=OWNER,
                            json={}).status_code == 200
+        blocked = client.post("/api/delivery/partners/me/availability", headers=headers,
+                              json={"available": True, "latitude": at["latitude"], "longitude": at["longitude"]})
+        assert blocked.status_code == 409 and blocked.json()["detail"]["code"] == "documents_pending", \
+            "approved is not enough: staff must have seen the documents"
+        assert client.patch(f"/admin/cc/platform/r/delivery_partners/{body['id']}", headers=OWNER, json={
+            "data": {"docs_checked": ["driving_licence", "vehicle_rc", "insurance"]}}).status_code == 200
         on = client.post("/api/delivery/partners/me/availability", headers=headers,
                          json={"available": True, "latitude": at["latitude"], "longitude": at["longitude"]})
         assert on.status_code == 200 and on.json()["available"] is True, on.text
@@ -78,6 +84,12 @@ def test_driver_join_review_correction_and_online_rules(env):
         "only the last 4 licence digits are ever accepted"
     assert client.post(f"/admin/cc/platform/r/delivery_partners/{pid}/actions/approve", headers=OWNER,
                        json={}).status_code == 200
+    assert client.post("/api/delivery/partners/me/availability", headers=me,
+                       json={"available": True, "latitude": 16.3, "longitude": 80.8}).status_code == 409, \
+        "approved but documents not seen -> still offline"
+    assert client.patch(f"/admin/cc/platform/r/delivery_partners/{pid}", headers=OWNER, json={
+        "data": {"docs_checked": ["driving_licence", "vehicle_rc", "insurance"]}}).status_code == 200
+    assert client.get("/api/delivery/partners/me", headers=me).json()["partner"]["docs_missing"] == []
     assert client.post("/api/delivery/partners/me/availability", headers=me,
                        json={"available": True}).status_code == 422, "online needs a location"
     assert client.post(f"/admin/cc/platform/r/delivery_partners/{pid}/actions/disable", headers=OWNER,

@@ -648,6 +648,12 @@ _register(Resource(
         F("radius_km", "Serves within (km)", "number", min=0.1, max=500),
         F("available", "Available now", "bool", list_column=True),
         F("verified", "Identity / licence verified", "bool"),
+        F("rc_last4", "Vehicle RC (last 4 characters only)"),
+        F("docs_checked", "Documents checked in person", "list",
+          options=("driving_licence", "vehicle_rc", "insurance", "id_proof", "fitness_certificate"),
+          help="Tick only what a staff member saw in person. Motor vehicles need licence + RC + insurance; "
+               "others need an ID proof. A partner can go online only when the required ones are ticked."),
+        F("docs_note", "Document check note (no numbers)"),
     ),
     actions=(
         _A("submit", "Submit for review", "PENDING_REVIEW", ("DRAFT", "REJECTED")),
