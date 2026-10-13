@@ -28,8 +28,11 @@ class AskodoxRadioPlan {
 
 class AskodoxRadioStatus {
   const AskodoxRadioStatus({required this.enabled, required this.access, required this.plans,
-      this.passStatus, this.minutesToday = 0, this.dailyMinutes = 0});
+      this.passStatus, this.minutesToday = 0, this.dailyMinutes = 0, this.internalTesting = false});
   final bool enabled, access;
+
+  /// Staff-chosen internal tester: Radio plays without a pass or price.
+  final bool internalTesting;
   final List<AskodoxRadioPlan> plans;
   final String? passStatus;
   final num minutesToday, dailyMinutes;
@@ -70,6 +73,7 @@ class TravelRadioRepository {
     return AskodoxRadioStatus(
       enabled: d['enabled'] == true,
       access: d['access'] == true,
+      internalTesting: d['internal_testing'] == true,
       passStatus: pass is Map ? '${pass['status'] ?? ''}' : null,
       minutesToday: (d['minutes_today'] as num?) ?? 0,
       dailyMinutes: (d['daily_minutes'] as num?) ?? 0,

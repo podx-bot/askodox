@@ -439,6 +439,9 @@ class _FakeCatalogue implements AskodoxCatalogueRepository {
   String? get authToken => 'token';
 
   @override
+  Future<({Map<String, String> values, double? price})?> smartFill(String key, String text) async => null;
+
+  @override
   Future<AskodoxCatalogueTemplate?> template(String key) async {
     requested.add(key);
     return key == 'grocery' ? grocery : null;

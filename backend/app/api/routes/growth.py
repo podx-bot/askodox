@@ -41,6 +41,13 @@ def growth(container: Any) -> GrowthRepository:
     if repo is None:
         repo = GrowthRepository(container.settings.database_path)
         container.growth_repository = repo
+    if not getattr(repo, "_base_plans_seeded", False):
+        from app.services import subscription_plans
+
+        try:
+            subscription_plans.seed(repo)
+        finally:
+            repo._base_plans_seeded = True
     return repo
 
 
@@ -204,6 +211,16 @@ def my_rewards(request: Request) -> dict:
 
 
 # ---------------------------------------------------- plans / subscriptions --
+
+@router.get("/api/plans/catalogue")
+def plan_catalogue(request: Request) -> dict:
+    """Free / Plus / Pro with ``available`` (inactive = not on sale yet) and
+    the honest billing state: no payment gateway is configured."""
+    from app.services import subscription_plans
+
+    return {"items": subscription_plans.catalogue(growth(request.app.state.container)),
+            "billing": "not_available"}
+
 
 @router.get("/api/plans")
 def list_plans(request: Request, audience: str = "") -> dict:

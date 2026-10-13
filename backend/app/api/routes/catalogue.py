@@ -108,6 +108,24 @@ def catalogue_filters(key: str, request: Request) -> dict:
     }
 
 
+class SmartFillBody(BaseModel):
+    text: str = Field(min_length=1, max_length=1500)
+
+
+@router.post("/templates/{key}/smart-fill")
+def smart_fill(key: str, payload: SmartFillBody, request: Request) -> dict:
+    """Smart Fill for the seller's catalogue editor: values ONLY from the
+    seller's own words (see ``catalogue_templates.smart_fill``). Nothing is
+    saved -- the seller reviews and publishes."""
+    from app.services import rate_limit
+
+    _authenticated_app_user(request)
+    rate_limit.check(request, "smart_fill", limit=30)
+    if catalogue_templates.template(key) is None:
+        raise HTTPException(status_code=404, detail="Unknown catalogue")
+    return catalogue_templates.smart_fill(key, payload.text)
+
+
 @router.post("/templates/{key}/publish")
 def publish_catalogue(key: str, payload: PublishCatalogue, request: Request) -> dict:
     from app.api.routes.growth import growth

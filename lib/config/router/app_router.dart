@@ -8,6 +8,7 @@ import '../../features/home/presentation/chat_first_home_host.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/selling/presentation/my_listings_screen.dart';
@@ -34,7 +35,6 @@ import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
 import '../../features/developer/presentation/storage_usage_screen.dart';
 import '../../features/developer/presentation/performance_monitor_screen.dart';
-import '../../features/monetization/presentation/admin_monetization_screen.dart';
 import '../../features/deals/presentation/deal_screens.dart';
 import '../../features/orders/presentation/order_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
@@ -219,6 +219,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => const BetaFeedbackScreen()),
       GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
       GoRoute(path: '/radio', builder: (context, state) => const TravelRadioScreen()),
+      GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
       GoRoute(
           path: '/mobility',
           builder: (context, state) =>
@@ -231,9 +232,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(
             path: '/developer/feedback',
             builder: (context, state) => const SubmittedFeedbackScreen()),
+      // The old mock-backed subscriptions admin screen is retired: plans are
+      // managed with real data in the Command Center (Growth -> Plans).
       GoRoute(
           path: '/admin/subscriptions',
-          builder: (context, state) => const AdminMonetizationScreen()),
+          redirect: (context, state) => '/admin/command-center'),
       // The live Command Center is the admin entry point (real data, server-
       // side permissions); the legacy mock admin login now leads there.
       GoRoute(

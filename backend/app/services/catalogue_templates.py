@@ -794,3 +794,77 @@ def seed_defaults(resources: Any) -> int:
             "categories": _keyed(t.get("categories") or []),
         }, actor="system:seed", status="ACTIVE")
     return len(TEMPLATES)
+
+
+# ---------------------------------------------------------------- Smart Fill --
+_NUM = r"(\d+(?:[.,]\d+)?)"
+
+
+def _words(spec: Dict[str, Any]) -> List[str]:
+    """How a seller may name this attribute: its labels and its key."""
+    label = spec.get("label") or {}
+    names = [str(v) for v in (label.values() if isinstance(label, dict) else [label]) if v]
+    names.append(str(spec["key"]).replace("_", " "))
+    return sorted({n.strip().casefold() for n in names if n.strip()}, key=len, reverse=True)
+
+
+def smart_fill(template_key: str, text: str) -> Dict[str, Any]:
+    """Smart Fill: proposes this template's attribute values ONLY from what
+    the seller's own words say -- an option named in the text, a number next
+    to the attribute's name (or its unit), or an explicit "name: value".
+    Nothing is inferred; ambiguous choices stay empty; every value passes
+    ``clean_attributes`` (ranges, conditions, no contact details). Returns
+    values, the phrase each came from, and the item price when stated."""
+    raw = " ".join(str(text or "").split())[:1500]
+    said = raw.casefold()
+    if not said:
+        return {"values": {}, "evidence": {}, "price": None}
+    specs = attributes(template_key)
+    proposed: Dict[str, Any] = {}
+    evidence: Dict[str, str] = {}
+    unit_owners: Dict[str, List[str]] = {}
+    for spec in specs:
+        if spec.get("kind") == "number" and spec.get("unit"):
+            unit_owners.setdefault(str(spec["unit"]).casefold(), []).append(spec["key"])
+    for spec in specs:
+        key, kind = spec["key"], spec.get("kind")
+        names = _words(spec)
+        if kind == "choice":
+            hits = [o for o in spec.get("options") or []
+                    if re.search(rf"(?<!\w){re.escape(str(o).casefold())}(?!\w)", said)]
+            # "No" / "Yes" alone are too common to mean this attribute: they
+            # count only right after the attribute's own name.
+            hits = [o for o in hits if str(o).casefold() not in ("yes", "no")] + [
+                o for o in hits if str(o).casefold() in ("yes", "no") and any(
+                    re.search(rf"{re.escape(n)}\s*[:\-=]?\s*{re.escape(str(o).casefold())}(?!\w)", said) for n in names)]
+            if spec.get("multi") and hits:
+                proposed[key], evidence[key] = hits, ", ".join(hits)
+            elif len(hits) == 1:
+                proposed[key], evidence[key] = hits[0], hits[0]
+        elif kind == "number":
+            for n in names:
+                m = re.search(rf"(?<!\w){re.escape(n)}\s*(?:is|:|=|-)?\s*(?:₹|rs\.?|inr)?\s*{_NUM}", said)
+                if m:
+                    proposed[key], evidence[key] = m.group(1).replace(",", ""), m.group(0)
+                    break
+            unit = str(spec.get("unit") or "").casefold()
+            if key not in proposed and unit and unit not in ("₹",) and unit_owners.get(unit) == [key]:
+                m = re.search(rf"{_NUM}\s*{re.escape(unit)}(?!\w)", said)
+                if m:
+                    proposed[key], evidence[key] = m.group(1).replace(",", ""), m.group(0)
+        else:
+            for n in names:
+                m = re.search(rf"(?<!\w){re.escape(n)}\s*[:=]\s*([^,;.\n]{{1,60}})", raw, re.I)
+                if m and m.group(1).strip():
+                    proposed[key], evidence[key] = m.group(1).strip(), m.group(0)
+                    break
+    kept, _ = clean_attributes(template_key, proposed)
+    price = None
+    m = re.search(rf"(?:price|rate|cost|selling at|ధర|कीमत)\s*(?:is|:|=|-)?\s*(?:₹|rs\.?|inr)?\s*{_NUM}", said) or \
+        re.search(rf"(?:₹|rs\.?\s*){_NUM}", said)
+    if m:
+        try:
+            price = float(m.group(1).replace(",", ""))
+        except ValueError:
+            price = None
+    return {"values": kept, "evidence": {k: v for k, v in evidence.items() if k in kept}, "price": price}

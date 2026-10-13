@@ -99,6 +99,12 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                               ? 'మీరు ఉన్న ప్రదేశం, దగ్గరలోని ప్రదేశాలు, తాజా సమాచారం -- నిజమైన సమాచారం మాత్రమే.'
                               : 'Where you are, places nearby and fresh updates -- real information only.',
                         ),
+                        if (s.internalTesting) ...[
+                          const SizedBox(height: 6),
+                          Text(te ? 'అంతర్గత పరీక్ష -- ధర / బిల్లింగ్ లేదు' : 'Internal testing -- no price, no billing',
+                              key: const Key('askodoxRadioInternalTesting'),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
+                        ],
                         if (s.access) ...[
                           const SizedBox(height: 6),
                           Text(te

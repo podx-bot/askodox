@@ -158,3 +158,40 @@ def test_dependency_holds_when_a_child_overrides_the_parent_key():
     kept, _ = catalogue_templates.clean_attributes(
         "b2b_industrial", {"specification": "304 SS", "wholesale": "No", "moq": "100"})
     assert "moq" not in kept
+
+
+@pytest.mark.parametrize("key, text, expected", [
+    ("fashion", "Cotton kurta, MRP 999, wholesale: Yes, MOQ 50, price ₹749",
+     {"fabric": "Cotton", "mrp": "999", "wholesale": "Yes", "moq": "50"}),
+    ("electronics", "brand: Samsung, condition New", {"brand": "Samsung", "condition": "New"}),
+    ("services", "Home visit plumber, service area: Vuyyuru", {"service_area": "Vuyyuru"}),
+])
+def test_smart_fill_takes_only_what_the_seller_said(key, text, expected):
+    out = catalogue_templates.smart_fill(key, text)
+    for k, v in expected.items():
+        assert out["values"].get(k) == v, (k, out)
+    assert set(out["evidence"]) == set(out["values"])
+
+
+def test_smart_fill_never_guesses_or_leaks_contacts():
+    # Two fabrics named: ambiguous single choice stays empty.
+    assert "fabric" not in catalogue_templates.smart_fill("fashion", "cotton or silk saree")["values"]
+    # A bare "no" elsewhere is not the wholesale answer.
+    assert "wholesale" not in catalogue_templates.smart_fill("fashion", "no stains, cotton")["values"]
+    # MOQ only applies when wholesale is Yes (conditions still hold).
+    assert "moq" not in catalogue_templates.smart_fill("fashion", "MOQ 50")["values"]
+    # Contact details never get into free-text attributes.
+    out = catalogue_templates.smart_fill("electronics", "brand: call 9876543210")
+    assert "brand" not in out["values"]
+    assert catalogue_templates.smart_fill("fashion", "")["values"] == {}
+    assert catalogue_templates.smart_fill("fashion", "price ₹749")["price"] == 749
+
+
+def test_smart_fill_route_needs_sign_in_and_saves_nothing(api):
+    client, container = api
+    assert client.post("/api/catalog/templates/fashion/smart-fill", json={"text": "cotton"}).status_code == 401
+    r = client.post("/api/catalog/templates/fashion/smart-fill", headers=_auth(container),
+                    json={"text": "Cotton, MRP 999"})
+    assert r.status_code == 200 and r.json()["values"]["fabric"] == "Cotton"
+    assert client.post("/api/catalog/templates/nope/smart-fill", headers=_auth(container),
+                       json={"text": "x"}).status_code == 404

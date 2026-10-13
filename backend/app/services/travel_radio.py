@@ -102,6 +102,8 @@ class TravelRadio:
                 CREATE TABLE IF NOT EXISTS radio_played (
                     user_id TEXT NOT NULL, segment_key TEXT NOT NULL, played_at TEXT NOT NULL,
                     PRIMARY KEY (user_id, segment_key));
+                CREATE TABLE IF NOT EXISTS radio_testers (
+                    user_id TEXT PRIMARY KEY, added_by TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS radio_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, day TEXT NOT NULL,
                     segment_key TEXT, chars INTEGER NOT NULL DEFAULT 0, synthesized_chars INTEGER NOT NULL DEFAULT 0,
@@ -180,7 +182,29 @@ class TravelRadio:
 
     def has_access(self, user_id: str) -> bool:
         current = self.current_pass(user_id)
-        return bool(current and current["status"] == "ACTIVE")
+        return bool(current and current["status"] == "ACTIVE") or self.is_tester(user_id)
+
+    # -------------------------------------------------- internal testing --
+    # Staff-chosen internal testers hear Radio while the customer flag stays
+    # OFF: no pass, no price, no billing (usage is still metered + capped).
+    def is_tester(self, user_id: str) -> bool:
+        with self._connect() as conn:
+            return conn.execute("SELECT 1 FROM radio_testers WHERE user_id=?", (user_id,)).fetchone() is not None
+
+    def add_tester(self, user_id: str, *, added_by: str, note: str = "") -> Dict[str, Any]:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO radio_testers(user_id,added_by,note,created_at) VALUES(?,?,?,?) "
+                         "ON CONFLICT(user_id) DO UPDATE SET note=excluded.note",
+                         (user_id, added_by, note[:200], _now().isoformat()))
+        return {"user_id": user_id, "tester": True}
+
+    def remove_tester(self, user_id: str) -> bool:
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM radio_testers WHERE user_id=?", (user_id,)).rowcount > 0
+
+    def testers(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            return [dict(r) for r in conn.execute("SELECT * FROM radio_testers ORDER BY created_at DESC")]
 
     def passes(self, limit: int = 200) -> List[Dict[str, Any]]:
         with self._connect() as conn:

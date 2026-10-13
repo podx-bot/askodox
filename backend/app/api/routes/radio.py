@@ -50,8 +50,10 @@ def radio_status(request: Request) -> dict:
     container = request.app.state.container
     service = radio(container)
     current = service.current_pass(user)
+    tester = service.is_tester(user)
     return {
-        "enabled": _enabled(container),
+        "enabled": _enabled(container) or tester,
+        "internal_testing": tester,
         "access": service.has_access(user),
         "pass": current,
         "plans": _plan_rows(container),
@@ -95,9 +97,10 @@ def next_segment(payload: NextRequest, request: Request) -> dict:
     user = _authenticated_app_user(request)
     rate_limit.check(request, "radio", limit=30)
     container = request.app.state.container
-    if not _enabled(container):
-        raise HTTPException(status_code=503, detail="RADIO_DISABLED")
     service = radio(container)
+    # Customers need the flag; staff-chosen internal testers do not.
+    if not _enabled(container) and not service.is_tester(user):
+        raise HTTPException(status_code=503, detail="RADIO_DISABLED")
     if not service.has_access(user):
         raise HTTPException(status_code=402, detail="RADIO_ADDON_REQUIRED")
     if service.seconds_today(user) >= setting("radio.daily_minutes") * 60:
@@ -143,7 +146,8 @@ def admin_radio(request: Request) -> dict:
     container = request.app.state.container
     service = radio(container)
     plans = TravelRadio.plans(growth(container))
-    return {"enabled": _enabled(container), "plans": plans, "passes": service.passes(100),
+    return {"enabled": _enabled(container), "testers": service.testers(), "plans": plans,
+            "passes": service.passes(100),
             "usage": service.usage_summary(30), "cost_model": cost_model(plans)}
 
 
@@ -162,3 +166,23 @@ def admin_grant_pass(payload: GrantRequest, request: Request) -> dict:
         raise HTTPException(status_code=404, detail="Unknown add-on plan")
     actor = str(principal.get("id") or principal.get("name") or "staff")
     return {"pass": radio(container).grant_promotional(payload.user_id, plan, granted_by=actor)}
+
+
+class TesterRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=80)
+    note: str = Field(default="", max_length=200)
+
+
+@admin_router.post("/testers")
+def admin_add_tester(payload: TesterRequest, request: Request) -> dict:
+    """Internal testing: this user hears Radio while customers stay off.
+    No pass, no price, no billing."""
+    principal = _require(request, "growth:manage")
+    actor = str(principal.get("id") or principal.get("name") or "staff")
+    return radio(request.app.state.container).add_tester(payload.user_id.strip(), added_by=actor, note=payload.note)
+
+
+@admin_router.delete("/testers/{user_id}")
+def admin_remove_tester(user_id: str, request: Request) -> dict:
+    _require(request, "growth:manage")
+    return {"user_id": user_id, "removed": radio(request.app.state.container).remove_tester(user_id)}

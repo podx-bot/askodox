@@ -442,7 +442,40 @@ ACCEPTANCE_CHECKS = (
     ("askodox.com/chat answers like the app", "web",
      "Open askodox.com, tap Ask ASKODOX, ask 'TV under 30000'. Expected: the same advisor questions / results "
      "as the app."),
+    # Master Implementation phase 2 + 3 (code + automated tests only).
+    ("Registration: role drafts + Verify request", "profile",
+     "Profile -> add roles (e.g. Restaurant, Cab driver) -> Menu -> Business & roles. Expected: each role shows "
+     "Draft with the missing details, or Complete; Verify on a complete role sends a request (only the last 4 "
+     "characters of the number are kept); staff see it in Command Center -> Role verifications."),
+    ("Ready-made catalogue: Smart Fill from your own words", "selling",
+     "My Listings -> Ready-made catalog -> a category -> Details -> type 'cotton, MRP 999, home delivery' -> Smart "
+     "Fill. Expected: only empty fields fill, only with what you typed; your own choices and price stay; a missing "
+     "required detail keeps the item a draft."),
+    ("Result Board attribute chips filter the shown cards", "results",
+     "Search for something sellers listed with details (size / colour). Expected: chips like 'Size: 9 · 2' above "
+     "the cards; tapping narrows the SAME cards (no new search); no chips when no seller gave details."),
+    ("Rides: goods transport, stops, quotes / counter / accept", "mobility",
+     "Menu -> Rides, parcels & delivery -> Tempo -> add a stop, weight, size -> Send. As an approved partner, send "
+     "a quote; as the customer, counter then accept. Expected: nothing is booked until one side accepts the "
+     "other's exact amount; the agreed fare shows."),
+    ("Travel Radio: internal tester only, no price", "radio",
+     "Staff add your user id in Command Center (POST /admin/cc/radio/testers). Menu -> Travel Radio -> Play next. "
+     "Expected: 'Internal testing -- no price' label; real place / nearby / news only; the same segment never "
+     "repeats; Stop silences it; a non-tester sees 'not switched on yet'."),
+    ("Plans: Free / Plus Rs 499 / Pro Rs 999 (7-day trial) shown, nothing sold", "plans",
+     "Menu -> Plans & subscription. Expected: Free can be chosen; Plus and Pro say 'Not available yet' with no "
+     "button; no payment screen anywhere."),
 )
+
+# Build each check first appears in (the default is ACCEPTANCE_BUILD).
+ACCEPTANCE_BUILD_FOR = {
+    "Registration: role drafts + Verify request": "1322",
+    "Result Board attribute chips filter the shown cards": "1322",
+    "Rides: goods transport, stops, quotes / counter / accept": "1322",
+    "Ready-made catalogue: Smart Fill from your own words": "next release APK after 1322",
+    "Travel Radio: internal tester only, no price": "next release APK after 1322",
+    "Plans: Free / Plus Rs 499 / Pro Rs 999 (7-day trial) shown, nothing sold": "next release APK after 1322",
+}
 
 
 def seed_acceptance_checks(resources: Any, *, actor: str = "system") -> int:
@@ -453,7 +486,8 @@ def seed_acceptance_checks(resources: Any, *, actor: str = "system") -> int:
     for title, area, steps in ACCEPTANCE_CHECKS:
         if title in titles:
             continue
-        resources.create("qa_checks", {"title": title, "area": area, "build": ACCEPTANCE_BUILD, "result": steps},
+        resources.create("qa_checks", {"title": title, "area": area,
+                                       "build": ACCEPTANCE_BUILD_FOR.get(title, ACCEPTANCE_BUILD), "result": steps},
                          actor=actor, status="CODE READY")
         added += 1
     return added

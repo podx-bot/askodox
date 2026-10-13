@@ -343,6 +343,48 @@
       "tests": {"backend": ["tests/test_executive_ai.py"], "flutter": []},
       "dependencies": ["travel_radio_addon"], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
+    },
+    {
+      "id": "catalogue_smart_fill",
+      "name": "Smart Fill for the ready-made catalogue (seller's own words only)",
+      "purpose": "Fill a template's details from what the seller types, for any category, without guessing.",
+      "expected_behavior": "POST /api/catalog/templates/{key}/smart-fill (signed in, rate-limited) returns values only for options named in the text, numbers next to the attribute's name / unique unit, or explicit 'name: value'; ambiguous choices stay empty; clean_attributes rules apply (conditions, ranges, no contact details); the app fills only EMPTY fields and never replaces the seller's price or choices; nothing is saved until Publish.",
+      "roles": ["seller", "service_provider"],
+      "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/catalog/templates/{key}/smart-fill"}],
+      "ui": {"keys": ["askodoxCatalogueSmartFill", "askodoxCatalogueSmartFillText"], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_catalogue_attributes.py"], "flutter": ["test/features/business/my_listing_edit_test.dart"]},
+      "dependencies": ["catalogue_attribute_master"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
+    },
+    {
+      "id": "base_plans_catalogue",
+      "name": "Free / Plus / Pro plans (Plus and Pro inactive until billing is approved)",
+      "purpose": "Show the owner's proposed base plans honestly without selling anything before approval.",
+      "expected_behavior": "Plans free (Rs 0, active), plus (Rs 499 / 30 d), pro (Rs 999 / 30 d, 7-day trial) seeded once with audience 'base' (staff edits never overwritten); Plus / Pro INACTIVE; GET /api/plans/catalogue lists them with available + billing not_available; /api/subscriptions refuses inactive plans; app Plans screen shows 'Not available yet' with no button; /admin/subscriptions (old mock screen) redirects to the Command Center.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/plans/catalogue"}],
+      "ui": {"keys": ["askodoxPlansBillingNote", "askodoxPlansCurrent"], "symbols": ["AskodoxPlansScreen"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_subscription_plans.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
+    },
+    {
+      "id": "travel_radio_internal_testing",
+      "name": "Travel Radio internal testers (admin-controlled, no billing)",
+      "purpose": "Let staff-chosen testers use Travel Radio in production while the customer flag stays off.",
+      "expected_behavior": "POST /admin/cc/radio/testers and DELETE /admin/cc/radio/testers/{user_id} (growth:manage); a tester gets status internal_testing + access and /api/radio/next works with radio.enabled OFF, with no pass and no price; usage still metered and capped; non-testers get 503 RADIO_DISABLED.",
+      "roles": ["admin", "buyer"],
+      "domains": ["any"],
+      "api": [{"method": "POST", "path": "/admin/cc/radio/testers"}, {"method": "DELETE", "path": "/admin/cc/radio/testers/{user_id}"}],
+      "ui": {"keys": ["askodoxRadioInternalTesting"], "symbols": []},
+      "flags": {"radio.enabled": false},
+      "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": ["test/features/radio/travel_radio_test.dart"]},
+      "dependencies": ["travel_radio_addon"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
     }
   ]
 }
