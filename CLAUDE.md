@@ -7,12 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `1740959` -- PR #185 merged 2026-10-13 and deployed (Railway deployment 6193206e; /health healthy
-  on 1740959; /api/plans/catalogue shows Free available, Plus Rs 499 / Pro Rs 999 + 7-day trial NOT available).
-  Phase 3: Smart Fill (`/api/catalog/templates/{key}/smart-fill`), base plans (audience `base`, Plus/Pro
-  INACTIVE) + app Plans screen, Travel Radio internal testers (`/admin/cc/radio/testers`; flag still OFF),
-  6 new phone-acceptance checks + `docs/phone-test-checklist.md`. Release APK 1323 from main (phone-test-1323,
-  sha256 e6b77aa2…61df). Earlier: PR #183 (`70e0255`, APK 1322), PR #182 (`1db4f74`).
+- `main` @ `91c7cc0` -- PR #187 merged 2026-10-13 and deployed (Railway deployment 3fe121ca; /health healthy on
+  91c7cc0; new admin routes 401 without sign-in). Phase 4: Radio tester console (audited, kill switch
+  `radio.internal_testing`), partner `docs_checked` + staff test delivery (`/admin/cc/mobility/test-job`), push
+  readiness / test send (`/admin/cc/push/*`, FCM still NOT_CONFIGURED), update SHA-256 integrity, Plans & pricing
+  console + `billing.live_pricing` (OFF). Release APK 1324 from main (phone-test-1324, sha256 dc28f293…e8ae).
+  Earlier: PR #185 (`1740959`, APK 1323), PR #183 (`70e0255`), PR #182 (`1db4f74`).
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
@@ -466,6 +466,8 @@ this file, don't trust it blindly.
   staff PROMOTIONAL only); segments only from geocoding / Places / LIVE content; cost model = ESTIMATE.
 - Base plans = `subscription_plans.py` (audience `base`, seeded once from `growth()`, never overwritten);
   Smart Fill = `catalogue_templates.smart_fill` (seller's own words only; app fills empty fields only).
+- Partners take jobs only with `docs_checked` complete (`delivery.docs_missing`); paid plans go on sale only
+  with `billing.live_pricing`; updates install only on a matching SHA-256 (`askodoxApkDigestMatches`).
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
