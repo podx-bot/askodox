@@ -3,7 +3,7 @@
 Claude cannot restart itself when a usage limit resets. To continue, open a new Claude session with access to
 `podx-bot/askodox` and send exactly:
 
-> Continue ASKODOX from docs/implementation-status.md on branch claude/master-phase2 (PR #183; PR #182 is merged; main = production). Do the next
+> Continue ASKODOX from docs/implementation-status.md from main (PRs #182-#185 merged and deployed; main = production; open work = new branch from main). Do the next
 > pending step, keep tests strict, update docs/implementation-status.md and docs/qa-evidence.md, merge + deploy only per the owner rule recorded in docs/implementation-status.md (all checks green, nothing destructive / security-sensitive).
 
 Checks before working: `git fetch origin && git checkout claude/master-phase2 && git pull`;
