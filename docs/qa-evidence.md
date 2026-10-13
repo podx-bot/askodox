@@ -15,3 +15,6 @@ Production probe 2026-10-13: /health 200 healthy (70e0255), /readiness ready, /a
 | 2026-10-13 | 1740959 (main, PR #185) | 1086 passed | Flutter CI, APK CI, registry, result-contract, docker smoke: pass | 1323 (sha256 e6b77aa2…61df, 72,320,090 B) | NOT TESTED |
 
 Production probe 2026-10-13 (after #185): /health healthy (1740959), /readiness ready, /api/plans/catalogue 200 (free available; plus / pro not available), /api/plans lists Free only, radio / AXE admin routes 401 without sign-in.
+| 2026-10-13 | 91c7cc0 (main, PR #187) | 1090 passed | Flutter CI, APK CI, registry, result-contract, smokes, live-build verify: pass | 1324 (sha256 dc28f293…e8ae, 72,336,474 B) | NOT TESTED |
+
+Production probe 2026-10-13 (after #187): /health healthy (91c7cc0), /readiness ready, /admin/cc/radio + /admin/cc/push/readiness 401 without sign-in, /api/plans/catalogue unchanged (Plus / Pro not available).
