@@ -45,29 +45,10 @@ jobs:
         run: flutter pub get
 
       - name: Analyze compile errors
-        run: |
-          flutter analyze --no-fatal-warnings --no-fatal-infos > a.txt 2>&1 || { grep -E " error " a.txt | head -20 | while read -r l; do echo "::error title=ANALYZE::$l"; done; exit 1; }
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Run Flutter tests
-        run: |
-          flutter test --reporter json > results.json || true
-          python3 - <<'PY'
-          import json
-          names, fails = {}, []
-          for line in open('results.json'):
-              try:
-                  e = json.loads(line)
-              except Exception:
-                  continue
-              if e.get('type') == 'testStart':
-                  names[e['test']['id']] = e['test']['name']
-              if e.get('type') == 'print' and any(k in e.get('message', '') for k in ('Expected', 'Actual', 'EXCEPTION', 'Error', 'error')):
-                  print(f"::error title=FAILED TEST::{names.get(e.get('testID'), '?')} :: " + e['message'][:900].replace('\n', ' | '))
-              if e.get('type') == 'error':
-                  print(f"::error title=FAILED TEST::{names.get(e.get('testID'), '?')} :: " + (e.get('error') or '')[:900].replace('\n', ' | '))
-                  fails.append(1)
-          raise SystemExit(1 if fails else 0)
-          PY
+        run: flutter test
 
   askodox-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
