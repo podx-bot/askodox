@@ -21,7 +21,7 @@ class AskodoxFirebaseConfig {
   static const senderId = String.fromEnvironment('FIREBASE_SENDER_ID');
   static const projectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
 
-  static bool get configured => [apiKey, appId, senderId, projectId].every((v) => v.trim().isNotEmpty);
+  static const bool configured = apiKey != '' && appId != '' && senderId != '' && projectId != '';
 }
 
 /// A message as ASKODOX uses it: what to show and which screen it opens.
