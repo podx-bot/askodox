@@ -18,3 +18,6 @@ Production probe 2026-10-13 (after #185): /health healthy (1740959), /readiness 
 | 2026-10-13 | 91c7cc0 (main, PR #187) | 1090 passed | Flutter CI, APK CI, registry, result-contract, smokes, live-build verify: pass | 1324 (sha256 dc28f293…e8ae, 72,336,474 B) | NOT TESTED |
 
 Production probe 2026-10-13 (after #187): /health healthy (91c7cc0), /readiness ready, /admin/cc/radio + /admin/cc/push/readiness 401 without sign-in, /api/plans/catalogue unchanged (Plus / Pro not available).
+| 2026-10-14 | d39bdab (main, PR #189) | 1095 passed | Flutter CI, APK CI (with Firebase plugins), registry, result-contract, smokes, live-build verify: pass | 1325 (sha256 e957ec40…0489, 72,556,545 B) | NOT TESTED |
+
+Production probe 2026-10-14 (after #189): /health healthy (d39bdab), /readiness ready, /api/billing/purchases/mine + /admin/cc/billing/status 401 without sign-in. Live FCM / live gateway tests: BLOCKED (no Firebase project values, no gateway account).

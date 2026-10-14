@@ -7,13 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `91c7cc0` -- PR #187 merged 2026-10-13 and deployed (Railway deployment 3fe121ca; /health healthy on
-  91c7cc0; new admin routes 401 without sign-in). Phase 4: Radio tester console (audited, kill switch
-  `radio.internal_testing`), partner `docs_checked` + staff test delivery (`/admin/cc/mobility/test-job`), push
-  readiness / test send (`/admin/cc/push/*`, FCM still NOT_CONFIGURED), update SHA-256 integrity, Plans & pricing
-  console + `billing.live_pricing` (OFF). Release APK 1324 from main (phone-test-1324, sha256 dc28f293…e8ae).
-  Earlier: PR #185 (`1740959`, APK 1323), PR #183 (`70e0255`), PR #182 (`1db4f74`).
-  Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`.
+- `main` @ `d39bdab` -- PR #189 merged 2026-10-14 and deployed (Railway deployment e3471f43; /health healthy on
+  d39bdab; /api/billing/* and /admin/cc/billing/* 401 without sign-in). Phase 5: Android FCM client
+  (`lib/services/push_registration.dart`, Firebase values from GitHub repository variables -- none set yet),
+  delivery / billing push alerts, Cashfree adapter + Razorpay refunds, Live payments locked unless
+  `ASKODOX_PAYMENTS_LIVE_APPROVED=yes`, subscription + Radio billing (`/api/billing/*`, TEST mode for billing
+  testers only), console "Billing, gateways & push". Release APK 1325 from main (phone-test-1325, sha256
+  e957ec40…0489). Earlier: PR #187 (`91c7cc0`, APK 1324), PR #185, #183, #182.
+  Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
   lifecycle + pause / resume / mute / replay; message copy / select / share;
@@ -468,6 +469,9 @@ this file, don't trust it blindly.
   Smart Fill = `catalogue_templates.smart_fill` (seller's own words only; app fills empty fields only).
 - Partners take jobs only with `docs_checked` complete (`delivery.docs_missing`); paid plans go on sale only
   with `billing.live_pricing`; updates install only on a matching SHA-256 (`askodoxApkDigestMatches`).
+- Billing = `billing.py` + `routes/billing.py` on the ONE payment layer (`commerce_finance.PaymentService`,
+  `razorpay_gateway.py`, `cashfree_gateway.py`); purchases activate only via `Platform.sync_order` on PAID
+  (`billing:` order_ref). Live mode = env `ASKODOX_PAYMENTS_LIVE_APPROVED` only (never the console).
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
