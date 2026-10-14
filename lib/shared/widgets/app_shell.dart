@@ -10,6 +10,7 @@ import '../../features/home/presentation/question_mic.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import '../../services/push_registration.dart';
 import 'header_menu.dart';
 import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
@@ -50,6 +51,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   void dispose() {
+    _pushRoutes?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _updatesTimer?.cancel();
     super.dispose();
@@ -80,6 +82,24 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     }
     await _handleSharedText();
     await _checkUpdates();
+    await _syncPush();
+  }
+
+  StreamSubscription<String>? _pushRoutes;
+
+  /// FCM: register this phone's token (idempotent) and open the screen a
+  /// tapped notification is about. Without Firebase values in the build this
+  /// is a no-op and the app keeps its local notifications.
+  Future<void> _syncPush() async {
+    try {
+      final push = ref.read(askodoxPushRegistrationProvider);
+      _pushRoutes ??= push.openedRoutes.listen((route) {
+        if (mounted) route == '/' ? context.go('/') : context.push(route);
+      });
+      await push.sync();
+    } catch (_) {
+      // Push is best effort; the app never depends on it.
+    }
   }
 
   /// "Share -> ASKODOX" from another app: staff add the link in the Staff

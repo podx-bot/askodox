@@ -135,9 +135,11 @@ class RazorpayGateway:
             updated = self.repo.transition_payment(payment_id, "FAILED", actor="webhook:razorpay",
                                                    note=str(pay.get("error_description") or name)[:200])
         else:
-            updated = self.repo.transition_payment(payment_id, "PARTIALLY_REFUNDED", actor="webhook:razorpay",
-                                                   refund_amount=float(refund.get("amount") or 0) / 100,
-                                                   note=f"refund {refund.get('id')}")
+            amount = float(refund.get("amount") or 0) / 100
+            remaining = float(current["amount"]) - float(current.get("refunded_amount") or 0)
+            updated = self.repo.transition_payment(
+                payment_id, "REFUNDED" if abs(amount - remaining) < 1e-9 else "PARTIALLY_REFUNDED",
+                actor="webhook:razorpay", refund_amount=amount, note=f"refund {refund.get('id')}")
         return {"duplicate": False, "payment": updated}
 
     def _payment_by_provider_ref(self, provider_ref: str) -> Optional[str]:
@@ -145,3 +147,16 @@ class RazorpayGateway:
             if p["provider"] == "razorpay" and p["provider_ref"] == provider_ref:
                 return p["id"]
         return None
+
+    # --------------------------------------------------------------- refund
+    def refund(self, payment: Dict[str, Any], amount: float, *, refund_id: str) -> Dict[str, Any]:
+        """Ask Razorpay to refund a captured payment; the state changes only when
+        Razorpay's signed refund.processed webhook confirms it."""
+        if not payment.get("provider_ref"):
+            raise PlatformConflict("this payment has no Razorpay payment id to refund")
+        status, body = self.http("POST", f"{API}/payments/{payment['provider_ref']}/refund", auth=self._auth(),
+                                 json={"amount": int(round(float(amount) * 100)), "receipt": refund_id[:40],
+                                       "notes": {"askodox_payment_id": payment["id"]}})
+        if status != 200 or not isinstance(body, dict) or not str(body.get("id", "")).startswith("rfnd_"):
+            raise PlatformConflict(f"Razorpay refused the refund (HTTP {status})")
+        return {"provider": "razorpay", "refund_id": body["id"], "status": str(body.get("status") or "pending")}

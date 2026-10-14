@@ -419,6 +419,26 @@ class GrowthRepository:
             self.add_credits(user_id, float(plan["credits"]), f"plan:{plan['code']}")
         return sub
 
+    def activate_paid(self, user_id: str, plan: Dict[str, Any], *, payment_id: str) -> Dict[str, Any]:
+        """A gateway-confirmed payment (signed webhook / verified checkout)
+        starts the plan now for its period; it replaces the user's current one."""
+        now = datetime.now(timezone.utc)
+        ends = now + timedelta(days=int(plan.get("period_days") or 30))
+        with self._connect() as conn:
+            conn.execute("UPDATE growth_subscriptions SET status='CANCELLED', updated_at=? "
+                         "WHERE user_id=? AND status IN ('TRIAL','ACTIVE','PENDING_PAYMENT')", (_now(), user_id))
+            cur = conn.execute(
+                "INSERT INTO growth_subscriptions(user_id,plan_code,status,starts_at,ends_at,source,created_at,"
+                "updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                (user_id, plan["code"], "ACTIVE", now.isoformat(), ends.isoformat(), f"payment:{payment_id}"[:60],
+                 _now(), _now()))
+            return dict(conn.execute("SELECT * FROM growth_subscriptions WHERE id=?", (cur.lastrowid,)).fetchone())
+
+    def cancel_subscription(self, subscription_id: int, reason: str = "refunded") -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE growth_subscriptions SET status='CANCELLED', updated_at=? WHERE id=?",
+                         (_now(), int(subscription_id)))
+
     def current_subscription(self, user_id: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             row = conn.execute(

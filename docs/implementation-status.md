@@ -54,6 +54,17 @@ NOT phone-verified. Production = main (PR #182 merged 2026-10-12, `1db4f74`).
 - Plans & pricing console (view "Plans & pricing"): price / days / trial / on-sale / usage limits; a paid plan
   cannot go on sale while `billing.live_pricing` (default OFF) is off; `GET /admin/cc/growth/billing-readiness`.
 
+## Done on claude/phase5-fcm-payments (code + automated tests; NOT phone-verified; live integrations BLOCKED)
+- Android FCM client (`lib/services/push_registration.dart`): Firebase from build-time repository variables,
+  token register / refresh, foreground display, tap routing, unregister on account deletion. Push alerts for
+  delivery steps and billing activation / refund (orders and demand already pushed). BLOCKED for live use until
+  the Firebase project values + service account exist (`docs/push-test-procedure.md`).
+- Payments: Cashfree adapter (official 2023-08-01 API) next to Razorpay; Razorpay refunds; full-refund state fix;
+  Live mode locked unless `ASKODOX_PAYMENTS_LIVE_APPROVED=yes` (live keys refused too).
+- Billing: `/api/billing/*` for base plans + Radio add-on; TEST mode for staff billing testers only; activation
+  only on gateway-confirmed PAID; refunds through the gateway; console "Billing, gateways & push".
+  BLOCKED for live use until a gateway approves the merchant account (`docs/payments-setup.md`).
+
 ## Pending (next executable steps)
 1. Real-phone acceptance of every flow (none is PHONE VERIFIED) -- `docs/phone-test-checklist.md`.
 2. Retire the legacy mock admin screens (`/admin/<section>`, `/admin/analytics`, `/admin/reports`): admin-only,

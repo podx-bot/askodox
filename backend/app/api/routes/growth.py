@@ -46,6 +46,9 @@ def growth(container: Any) -> GrowthRepository:
 
         try:
             subscription_plans.seed(repo)
+            from app.services.travel_radio import TravelRadio
+
+            TravelRadio.seed_plans(repo)  # add-on plans exist wherever plans are read (INACTIVE)
         finally:
             repo._base_plans_seeded = True
     return repo
