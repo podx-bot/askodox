@@ -20,12 +20,15 @@ from pydantic import BaseModel, Field
 
 admin_router = APIRouter(prefix="/admin/cc/push", tags=["command-center"])
 
-# The Android FCM client is added only once a Firebase app exists
-# (docs/EXTERNAL_SETUP.md). Until then the app shows local notifications.
-ANDROID_CLIENT = "NOT_BUILT"
+# The Android FCM client is in the app (lib/services/push_registration.dart)
+# but activates only in an APK built with the Firebase repository variables.
+# A registered device token is the only evidence that an APK has them.
+ANDROID_CLIENT = "BUILT_NEEDS_FIREBASE_VALUES"
 MISSING_WHEN_UNCONFIGURED = (
-    "Railway variable FIREBASE_SERVICE_ACCOUNT_JSON (service account of the Firebase project)",
-    "Firebase Android app + google-services.json, then the FCM client in the app build",
+    "Railway variable FIREBASE_SERVICE_ACCOUNT_JSON (service account of the Firebase project), or the same JSON "
+    "saved in Command Center -> Integrations -> Firebase push",
+    "GitHub repository variables FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_SENDER_ID, FIREBASE_PROJECT_ID "
+    "(Firebase Android app), then a new APK build",
 )
 
 
@@ -36,9 +39,11 @@ def _require(request: Request, permission: str) -> dict:
 
 
 def _service(request: Request):
-    from app.services.push_service import push_service
+    """The same sender production uses: credentials saved in the Command
+    Center (fcm_push) or the FIREBASE_SERVICE_ACCOUNT_JSON variable."""
+    from app.api.routes.platform import platform
 
-    return push_service(request.app.state.container)
+    return platform(request.app.state.container).push()
 
 
 def _token_counts(service: Any) -> tuple[int, int]:
@@ -47,10 +52,7 @@ def _token_counts(service: Any) -> tuple[int, int]:
     return int(row[0] or 0), int(row[1] or 0)
 
 
-@admin_router.get("/readiness")
-def push_readiness(request: Request) -> dict:
-    _require(request, "health:view")
-    service = _service(request)
+def readiness_for(service: Any) -> dict:
     tokens, users = _token_counts(service)
     if not service.configured:
         state = "NOT_CONFIGURED"
@@ -59,12 +61,19 @@ def push_readiness(request: Request) -> dict:
     else:
         state = "READY_UNVERIFIED"  # only a real phone test proves delivery
     return {
-        "state": state, "server_credentials": service.configured, "android_client": ANDROID_CLIENT,
+        "state": state, "server_credentials": service.configured,
+        "android_client": "REGISTERING" if tokens else ANDROID_CLIENT,
         "device_tokens": tokens, "users_with_devices": users,
         "missing": ([MISSING_WHEN_UNCONFIGURED[0]] if not service.configured else [])
-        + ([MISSING_WHEN_UNCONFIGURED[1]] if ANDROID_CLIENT != "BUILT" else []),
+        + ([MISSING_WHEN_UNCONFIGURED[1]] if not tokens else []),
         "test_procedure": "docs/push-test-procedure.md",
     }
+
+
+@admin_router.get("/readiness")
+def push_readiness(request: Request) -> dict:
+    _require(request, "health:view")
+    return readiness_for(_service(request))
 
 
 class TestPush(BaseModel):

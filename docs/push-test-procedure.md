@@ -1,8 +1,15 @@
 # Push notifications (Firebase Cloud Messaging): readiness and test procedure
 
-Current state (2026-10-13): **NOT CONFIGURED**. No Firebase project credentials exist and the Android app has
-no FCM client yet, so phones cannot register for background push. While the app is open, it shows local,
+Current state (2026-10-14): **NOT CONFIGURED**. No Firebase project credentials exist. The Android FCM client
+is built (`lib/services/push_registration.dart`) but switches on only in an APK built with the Firebase values,
+so phones cannot register for background push yet. While the app is open, it shows local,
 silent notifications. Nothing here claims push works until step 5 passes on a real phone.
+
+## Alerts sent (each obeys the user's notification switches, once per event)
+- Orders / booking requests and replies.
+- Demand opportunities for sellers.
+- Delivery / ride: partner accepted, picked up, arrived, delivered; quote accepted.
+- Subscription and Travel Radio: pass / plan activated, payment refunded.
 
 ## What is already built
 - Server sender: `backend/app/services/push_service.py` (FCM HTTP v1, silent channel `askodox_updates`, once
@@ -16,12 +23,19 @@ silent notifications. Nothing here claims push works until step 5 passes on a re
   user's registered devices, respects their switches, is audited, and reports what FCM accepted.
 
 ## Owner / external steps (credentials are never invented)
-1. Create a Firebase project and add an Android app with package `com.askodox.askodox`.
-2. Download `google-services.json`. It goes into the app build (CI secret / repo per the owner's choice);
-   then the FCM client (`firebase_messaging`) is added and the app registers its token with
-   `POST /api/me/push-token`. This is a code change and a new APK.
-3. Create a service account with the "Firebase Cloud Messaging API Admin" role and put its JSON in the
-   Railway variable `FIREBASE_SERVICE_ACCOUNT_JSON` (production only, never in the repo).
+1. Firebase console: create a project and add an Android app with package `com.askodox.askodox`.
+2. From that Android app's settings, copy four values into **GitHub -> Settings -> Secrets and variables ->
+   Actions -> Variables**:
+   - `FIREBASE_API_KEY`
+   - `FIREBASE_APP_ID`
+   - `FIREBASE_SENDER_ID` (the project number)
+   - `FIREBASE_PROJECT_ID`
+
+   They are public client identifiers, not secrets, and no `google-services.json` is committed. The next Live
+   Build APK then registers its token with `POST /api/me/push-token` and refreshes it automatically.
+3. Firebase -> Project settings -> Service accounts -> generate a key. Put the JSON in the Railway variable
+   `FIREBASE_SERVICE_ACCOUNT_JSON`, or paste it in Command Center -> Integrations -> Firebase push (encrypted).
+   Never commit it to GitHub.
 
 ## Test procedure (real phone, after steps 1-3)
 1. Install the new APK, sign in, allow notifications.

@@ -164,6 +164,13 @@ jobs:
           flutter test
 
       - name: Build installable debug APK
+        env:
+          # Firebase Android client values (public identifiers, not secrets):
+          # repository variables; empty -> the app says push is not configured.
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
         run: |
           flutter build apk --debug \
             --build-number="${BUILD_NUMBER}" \
@@ -172,7 +179,11 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
-            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
+            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}" \
+            --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY}" \
+            --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \
+            --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
+            --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
 
       - name: Prepare release signing when configured
         id: signing
@@ -205,6 +216,13 @@ jobs:
 
       - name: Build stable signed release APK
         if: steps.signing.outputs.configured == 'true'
+        env:
+          # Firebase Android client values (public identifiers, not secrets):
+          # repository variables; empty -> the app says push is not configured.
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
         run: |
           flutter build apk --release \
             --build-number="${BUILD_NUMBER}" \
@@ -213,7 +231,11 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=true \
-            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}"
+            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}" \
+            --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY}" \
+            --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \
+            --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
+            --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
 
       - name: Guard release APK (key, package, versionCode, backend)
         if: steps.signing.outputs.configured == 'true'

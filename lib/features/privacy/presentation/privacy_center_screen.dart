@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../services/push_registration.dart';
 import '../../location/application/location_controller.dart';
 
 /// "Your privacy" in plain words, with only actions that really work:
@@ -121,6 +122,8 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
       await prefs.remove(key);
     }
     await ref.read(locationControllerProvider.notifier).clearSaved();
+    // This phone stops receiving pushes (the server already removed the tokens).
+    await ref.read(askodoxPushRegistrationProvider).unregister();
     await ref.read(authSessionProvider.notifier).logout();
     if (!mounted) return;
     _say(_t('Your account was deleted.', 'మీ ఖాతా తొలగించబడింది.'));

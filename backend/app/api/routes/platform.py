@@ -105,6 +105,10 @@ class Platform:
 
         self.razorpay = RazorpayGateway(self.repo, self.registry,
                                         getattr(container, "comms_http", None) or comms.default_http)
+        from app.services.cashfree_gateway import CashfreeGateway
+
+        self.cashfree = CashfreeGateway(self.repo, self.registry,
+                                        getattr(container, "comms_http", None) or comms.default_http)
         self._push: Any = None
         from app.services.promotion_engine import PromotionEngine
 
@@ -148,20 +152,42 @@ class Platform:
         return self.promotions.run_due(campaigns, enabled=self._flag_on("notifications.promotions"))
 
     # online payments -----------------------------------------------------
+    CHECKOUT_PROVIDERS = ("razorpay", "cashfree")
+
     def checkout_provider(self) -> Optional[str]:
         """The gateway that can take an online payment right now: one with a real
-        adapter, credentials and TEST/LIVE status (Razorpay today)."""
-        status = self.registry.status("razorpay")
-        return "razorpay" if status["status"] in (fin.STATUS_LIVE, fin.STATUS_TEST) else None
+        adapter, credentials and TEST/LIVE status. ASKODOX_PAYMENT_PROVIDER picks
+        one when both are ready (e.g. whichever approved the merchant account)."""
+        import os
 
-    def start_checkout(self, payment: Dict[str, Any]) -> Dict[str, Any]:
-        if payment["provider"] != "razorpay":
-            raise fin.PlatformConflict("no checkout adapter for this provider")
-        return self.razorpay.start(payment)
+        preferred = os.environ.get("ASKODOX_PAYMENT_PROVIDER", "").strip().lower()
+        order = sorted(self.CHECKOUT_PROVIDERS, key=lambda p: p != preferred)
+        for provider in order:
+            if self.registry.status(provider)["status"] in (fin.STATUS_LIVE, fin.STATUS_TEST):
+                return provider
+        return None
+
+    def start_checkout(self, payment: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+        if payment["provider"] == "razorpay":
+            return self.razorpay.start(payment)
+        if payment["provider"] == "cashfree":
+            return self.cashfree.start(payment, **kwargs)
+        raise fin.PlatformConflict("no checkout adapter for this provider")
+
+    def gateway_refund(self, payment: Dict[str, Any], amount: float, *, refund_id: str) -> Dict[str, Any]:
+        adapter = {"razorpay": self.razorpay, "cashfree": self.cashfree}.get(payment["provider"])
+        if adapter is None:
+            raise fin.PlatformConflict("this payment was not taken by a gateway")
+        return adapter.refund(payment, amount, refund_id=refund_id)
 
     def sync_order(self, payment: Dict[str, Any]) -> None:
         """A gateway-paid customer order becomes payment VERIFIED (by the gateway)."""
         ref = str(payment.get("order_ref") or "")
+        if ref.startswith("billing:"):
+            from app.services import billing
+
+            billing.on_payment(self.container, payment)
+            return
         if payment.get("status") != "PAID" or not ref.startswith("order:"):
             return
         try:
@@ -1656,6 +1682,19 @@ async def payment_webhook(provider: str, request: Request) -> dict:
         try:
             result = pf.razorpay.webhook(body, request.headers.get("x-razorpay-signature") or "",
                                          request.headers.get("x-razorpay-event-id") or "")
+        except PermissionError as error:
+            raise HTTPException(status_code=401, detail=str(error)) from None
+        except Exception as error:
+            raise _err(error) from None
+        if result.get("payment"):
+            pf.sync_order(result["payment"])
+        return {"ok": True, "duplicate": bool(result.get("duplicate")), "ignored": bool(result.get("ignored")),
+                "status": (result.get("payment") or {}).get("status")}
+    if provider == "cashfree" and request.headers.get("x-webhook-signature"):
+        # Cashfree's own signed webhook format (Developers -> Webhooks -> this URL).
+        try:
+            result = pf.cashfree.webhook(body, request.headers.get("x-webhook-signature") or "",
+                                         request.headers.get("x-webhook-timestamp") or "")
         except PermissionError as error:
             raise HTTPException(status_code=401, detail=str(error)) from None
         except Exception as error:

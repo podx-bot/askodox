@@ -141,3 +141,26 @@ def test_staff_test_delivery_reaches_only_that_checked_partner(env):
     assert refused.status_code == 409 and set(refused.json()["detail"]["missing"]) == {
         "driving_licence", "vehicle_rc", "insurance"}
 
+
+def test_customer_is_pushed_when_a_partner_accepts(env, monkeypatch):
+    client, container = env
+    container.command_center_repository.set_flag("delivery.matching", True, "test")
+    sent = []
+
+    class Recorder:
+        def notify_async(self, user_id, **kw):
+            sent.append((user_id, kw["event_key"], kw["route"]))
+
+    from app.api.routes.platform import platform
+
+    monkeypatch.setattr(type(platform(container)), "push", lambda self: Recorder())
+    cust_id, customer = _user(container)
+    rider_id, rider = _user(container)
+    _partner(client, container, rider_id, at=(13.222, 78.222))
+    job = client.post("/api/delivery/jobs", headers=customer, json={
+        "kind": "parcel", "pickup": {"label": "A", "latitude": 13.222, "longitude": 78.222},
+        "drop": {"label": "B", "latitude": 13.23, "longitude": 78.23}}).json()
+    assert client.post(f"/api/delivery/jobs/{job['id']}/accept", headers=rider).status_code == 200
+    assert (cust_id, f"delivery:{job['id']}:PARTNER_ACCEPTED", "/mobility?tab=1") in sent
+    assert all(u == cust_id for u, _, _ in sent), "only the requester is told"
+

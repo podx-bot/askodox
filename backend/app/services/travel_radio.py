@@ -180,6 +180,18 @@ class TravelRadio:
                  ends.isoformat() if ends else None, granted_by or None, now, now))
             return dict(conn.execute("SELECT * FROM radio_passes WHERE id=?", (cur.lastrowid,)).fetchone())
 
+    def activate_paid(self, user_id: str, plan: Dict[str, Any], *, payment_id: str) -> Dict[str, Any]:
+        """A gateway-confirmed payment starts the pass now (separate from the
+        base plan)."""
+        days = int(plan.get("period_days") or 1)
+        return self._insert(user_id, plan, status="ACTIVE", source="payment",
+                            ends=_now() + timedelta(days=days), granted_by=f"payment:{payment_id}")
+
+    def cancel_pass(self, pass_id: int) -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE radio_passes SET status='CANCELLED', updated_at=? WHERE id=?",
+                         (_now().isoformat(), int(pass_id)))
+
     def has_access(self, user_id: str) -> bool:
         current = self.current_pass(user_id)
         return bool(current and current["status"] == "ACTIVE") or self.is_tester(user_id)

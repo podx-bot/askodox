@@ -450,6 +450,47 @@
       "tests": {"backend": ["tests/test_growth_engines.py"], "flutter": []},
       "dependencies": ["base_plans_catalogue"], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+    },
+    {
+      "id": "payment_gateways_sandbox_and_live_lock",
+      "name": "Razorpay + Cashfree adapters (official APIs), TEST mode, Live mode locked",
+      "purpose": "Take payments through an individual / sole-proprietor merchant account once a gateway approves it, starting in sandbox only.",
+      "expected_behavior": "Cashfree adapter (2023-08-01: orders -> payment_session_id, webhook base64 HMAC of timestamp+body, stale replays refused, refunds); Razorpay refunds; checkout provider = the gateway in TEST/LIVE (ASKODOX_PAYMENT_PROVIDER picks); live mode and live keys refused (LIVE_MODE_LOCKED) unless ASKODOX_PAYMENTS_LIVE_APPROVED=yes; a full refund webhook ends REFUNDED.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/payments/webhook/{provider}"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {"billing.live_pricing": false},
+      "tests": {"backend": ["tests/test_billing.py", "tests/test_platform_core.py"], "flutter": []},
+      "dependencies": ["plans_pricing_controls"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
+    },
+    {
+      "id": "subscription_radio_billing",
+      "name": "Subscription + Travel Radio billing (activate only on gateway-confirmed payment)",
+      "purpose": "Sell base plans and the separate Radio add-on through one payment layer, safely.",
+      "expected_behavior": "POST /api/billing/checkout (TEST: billing testers only; LIVE: owner approvals + on sale); POST /api/billing/razorpay/verify checks the checkout signature; plan / pass activates only on PAID, idempotent; refund requested by staff (confirm) through the gateway and the plan / pass ends on the refund webhook; Radio pass separate from the base plan; no card data stored; staff GET /admin/cc/billing/status, testers, refunds (console view billingadmin).",
+      "roles": ["buyer", "admin"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/billing/checkout"}, {"method": "POST", "path": "/api/billing/razorpay/verify"},
+              {"method": "GET", "path": "/api/billing/purchases/mine"}, {"method": "GET", "path": "/admin/cc/billing/status"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_billing.py"], "flutter": []},
+      "dependencies": ["payment_gateways_sandbox_and_live_lock", "travel_radio_addon", "base_plans_catalogue"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
+    },
+    {
+      "id": "fcm_android_client",
+      "name": "Android FCM client (token registration, refresh, foreground display, tap routing)",
+      "purpose": "Background push on phones once Firebase values exist, without committing config files.",
+      "expected_behavior": "Firebase initialised from build-time variables FIREBASE_API_KEY / APP_ID / SENDER_ID / PROJECT_ID (Live Build repository variables); without them sync() is notConfigured and nothing is called; with them: permission, token -> POST /api/me/push-token, onTokenRefresh re-registers, foreground messages shown via the local channel, taps open only in-app routes; account deletion unregisters; delivery / subscription / radio events push to the requester.",
+      "roles": ["buyer", "seller", "partner"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/me/push-token"}],
+      "ui": {"keys": [], "symbols": ["AskodoxPushRegistration", "AskodoxFirebaseConfig"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_push_admin.py", "tests/test_delivery_jobs.py"], "flutter": ["test/services/push_registration_test.dart"]},
+      "dependencies": ["push_readiness_and_test_send"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
     }
   ]
 }

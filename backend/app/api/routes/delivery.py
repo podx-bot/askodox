@@ -305,15 +305,39 @@ def _offered_partner(container: Any, job_id: str, user: str) -> tuple[Dict[str, 
     return job, mine[0]
 
 
+_PUSH_TEXT = {
+    "PARTNER_ACCEPTED": "A partner accepted your request.",
+    "PICKED_UP": "Your delivery / ride has been picked up.",
+    "ARRIVED_DROP": "Your partner has arrived.",
+    "DELIVERED": "Delivered -- please confirm it is complete.",
+}
+
+
+def _tell(container: Any, user_id: str, job: Dict[str, Any], text: str) -> None:
+    """Silent push to a real app user (never to staff test requesters); the
+    user's notification switches apply. Never breaks the request."""
+    if not user_id or not str(user_id).startswith("app-") or not text:
+        return
+    try:
+        from app.api.routes.platform import platform
+
+        platform(container).push().notify_async(user_id, title="ASKODOX", body=text, route="/mobility?tab=1",
+                                                event_key=f"delivery:{job.get('id')}:{job.get('status')}")
+    except Exception:
+        pass
+
+
 @router.post("/jobs/{job_id}/accept")
 def accept_job(job_id: str, request: Request) -> dict:
     user = _authenticated_app_user(request)
     container = request.app.state.container
     _, partner_id = _offered_partner(container, job_id, user)
     try:
-        return _view(container, jobs(container).accept(job_id, partner_id=partner_id, partner_user=user), user)
+        job = jobs(container).accept(job_id, partner_id=partner_id, partner_user=user)
     except DeliveryError as error:
         raise _error(error) from None
+    _tell(container, job.get("requester") or "", job, _PUSH_TEXT["PARTNER_ACCEPTED"])
+    return _view(container, job, user)
 
 
 class BidBody(BaseModel):
@@ -364,6 +388,7 @@ def customer_accept_bid(job_id: str, body: AcceptBidBody, request: Request) -> d
         job = jobs(container).accept_bid(job_id, by="customer", actor=user, partner_id=body.partner_id)
     except DeliveryError as error:
         raise _error(error) from None
+    _tell(container, job.get("partner_user") or "", job, "The customer accepted your quote -- the trip is booked.")
     return _view(container, job, user)
 
 
@@ -377,6 +402,7 @@ def partner_accept_bid(job_id: str, request: Request) -> dict:
         job = jobs(container).accept_bid(job_id, by="partner", actor=user, partner_id=partner_id, partner_user=user)
     except DeliveryError as error:
         raise _error(error) from None
+    _tell(container, job.get("requester") or "", job, _PUSH_TEXT["PARTNER_ACCEPTED"])
     return _view(container, job, user)
 
 
@@ -418,7 +444,9 @@ def advance_job(job_id: str, body: StatusBody, request: Request) -> dict:
     user = _authenticated_app_user(request)
     container = request.app.state.container
     try:
-        return _view(container, jobs(container).advance(job_id, partner_user=user, to=body.status), user)
+        job = jobs(container).advance(job_id, partner_user=user, to=body.status)
+        _tell(container, job.get("requester") or "", job, _PUSH_TEXT.get(job.get("status") or "", ""))
+        return _view(container, job, user)
     except DeliveryError as error:
         raise _error(error) from None
 

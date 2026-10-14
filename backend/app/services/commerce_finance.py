@@ -36,7 +36,9 @@ PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = 
     # payments
     "direct_settlement": ("payments", "Cash / direct UPI between parties", (), (), True),
     "razorpay": ("payments", "Razorpay", ("key_secret", "webhook_secret"), ("key_id",), False),
-    "cashfree": ("payments", "Cashfree", ("client_secret", "webhook_secret"), ("client_id",), False),
+    # Cashfree signs webhooks with the client secret (API 2023-08-01), so no
+    # separate webhook secret exists for it.
+    "cashfree": ("payments", "Cashfree", ("client_secret",), ("client_id",), False),
     "phonepe": ("payments", "PhonePe PG", ("salt_key", "webhook_secret"), ("merchant_id",), False),
     "paytm": ("payments", "Paytm PG", ("merchant_key", "webhook_secret"), ("merchant_id",), False),
     "stripe": ("payments", "Stripe", ("secret_key", "webhook_secret"), ("publishable_key",), False),
@@ -93,6 +95,7 @@ ENV_SOURCES: Dict[str, Dict[str, str]] = {
               "port": "SMTP_PORT", "username": "SMTP_USERNAME"},
     "razorpay": {"key_id": "RAZORPAY_KEY_ID", "key_secret": "RAZORPAY_KEY_SECRET",
                  "webhook_secret": "RAZORPAY_WEBHOOK_SECRET"},
+    "cashfree": {"client_id": "CASHFREE_CLIENT_ID", "client_secret": "CASHFREE_CLIENT_SECRET"},
 }
 
 # Accepted alternative deployment-variable names (tried after ENV_SOURCES, in
@@ -136,6 +139,27 @@ ACTIVE_WHEN_CONFIGURED = frozenset({"youtube_data"})
 
 # The sandbox gateway only ever exists outside production.
 PRODUCTION_ENV_NAMES = ("production", "prod")
+
+
+# Live payment mode is locked until the Owner sets this deployment variable
+# (Railway) to "yes" after the gateway approved the merchant account. Nothing
+# in the Command Center can switch it on, so Live cannot happen by accident.
+LIVE_APPROVAL_ENV = "ASKODOX_PAYMENTS_LIVE_APPROVED"
+
+
+def live_payments_approved(env: Dict[str, str]) -> bool:
+    return str(env.get(LIVE_APPROVAL_ENV) or "").strip().lower() == "yes"
+
+
+def live_credentials(provider: str, key_id: str) -> bool:
+    """A key that moves real money: Razorpay rzp_live_..., a Cashfree client
+    id that is not a sandbox (TEST...) id."""
+    key = str(key_id or "").strip()
+    if provider == "razorpay":
+        return key.startswith("rzp_live_")
+    if provider == "cashfree":
+        return bool(key) and not key.upper().startswith("TEST")
+    return False
 
 
 def is_production(env: Dict[str, str]) -> bool:
@@ -283,8 +307,14 @@ class IntegrationRegistry:
         enabled = bool(row.get("enabled"))
         if provider in ACTIVE_WHEN_CONFIGURED and not missing and mode != "mock":
             enabled, mode = True, "live"
+        key_field = "key_id" if provider == "razorpay" else "client_id" if provider == "cashfree" else ""
+        locked_live = (group == "payments" and not live_payments_approved(self.env) and
+                       (mode == "live" or (key_field and live_credentials(
+                           provider, config.get(key_field) or self._env(provider, key_field)))))
         if internal:
             state = STATUS_LIVE
+        elif locked_live:
+            state = STATUS_ERROR  # live keys / mode without the Owner's approval: refuse to take money
         elif not self.available(provider):
             state = STATUS_DISABLED
         elif enabled and mode == "mock":
@@ -303,6 +333,8 @@ class IntegrationRegistry:
             readiness = "NOT_CONFIGURED"
         elif state == STATUS_DISABLED:
             readiness = "DISABLED"
+        elif locked_live:
+            readiness = "LIVE_MODE_LOCKED"
         elif row.get("last_check_ok") == 0:
             readiness = "CHECK_FAILED"
         elif row.get("last_check_ok") == 1:
@@ -320,6 +352,8 @@ class IntegrationRegistry:
                    if provider in self.QUOTA_CAPS else {}),
                 "env_vars": dict(ENV_SOURCES.get(provider, {})),
                 "env_aliases": {k: list(v) for k, v in ENV_ALIASES.get(provider, {}).items()},
+                **({"live_approved": live_payments_approved(self.env), "live_locked": bool(locked_live)}
+                   if group == "payments" else {}),
                 "last_check_at": row.get("last_check_at"), "last_check_ok": row.get("last_check_ok"),
                 "last_check_detail": row.get("last_check_detail")}
 
@@ -377,6 +411,14 @@ class IntegrationRegistry:
             raise ValueError("mode must be test, live or mock")
         if not self.available(provider) and enabled:
             raise PermissionError("the sandbox gateway cannot be enabled in production")
+        if PROVIDERS[provider][0] == "payments" and not live_payments_approved(self.env):
+            if mode == "live":
+                raise PermissionError("LIVE_MODE_LOCKED: live payments need the Owner's approval "
+                                      f"({LIVE_APPROVAL_ENV}=yes in the deployment)")
+            key_field = "key_id" if provider == "razorpay" else "client_id" if provider == "cashfree" else ""
+            if key_field and live_credentials(provider, str((config or {}).get(key_field) or "")):
+                raise PermissionError("LIVE_MODE_LOCKED: live keys cannot be saved before the Owner approves live "
+                                      "payments -- use the gateway's TEST / sandbox keys")
         secret_names, config_keys = self.secret_names(provider), self.config_keys(provider)
         row = self._row(provider)
         cfg = json.loads(row.get("config_json") or "{}")
