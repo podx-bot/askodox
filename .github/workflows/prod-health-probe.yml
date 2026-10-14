@@ -9,7 +9,7 @@ jobs:
       - name: GET only
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for p in /health /readiness /api/plans /api/plans/catalogue /api/catalog/templates /api/catalog/filters/pickles /api/radio/status /admin/cc/axe/brief /admin/cc/radio /admin/cc/push/readiness /admin/cc/growth/billing-readiness; do
+          for p in /health /readiness /api/plans /api/plans/catalogue /api/catalog/templates /api/catalog/filters/pickles /api/radio/status /admin/cc/axe/brief /admin/cc/radio /admin/cc/push/readiness /admin/cc/growth/billing-readiness /admin/cc/billing/status /api/billing/purchases/mine; do
             code=$(curl -s -o body.txt -w '%{http_code}' "$B$p")
             echo "::notice title=$p::HTTP $code $(head -c 300 body.txt | tr '\n' ' ')"
           done
