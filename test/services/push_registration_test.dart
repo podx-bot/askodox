@@ -85,7 +85,8 @@ void main() {
     final routes = <String>[];
     push.openedRoutes.listen(routes.add);
     expect(await push.sync(), AskodoxPushState.registered);
-    expect(api.posts.single, ('/api/me/push-token', {'token': 'fcm-token-0123456789-abcdef', 'platform': 'android'}));
+    expect(api.posts.single.$1, '/api/me/push-token');
+    expect(api.posts.single.$2, {'token': 'fcm-token-0123456789-abcdef', 'platform': 'android'});
     await push.sync();
     fcm.refresh.add('fcm-token-rotated-9876543210');
     fcm.foreground.add(const AskodoxPushMessage(title: 'ASKODOX', body: 'A partner accepted', route: '/mobility?tab=1'));
