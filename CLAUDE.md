@@ -7,12 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `61f771b` -- PR #191 merged 2026-10-15 and deployed (Railway 8dee2d81; /health healthy on 61f771b;
-  `/health/integrations` Razorpay row TEST_MODE_READY, key_kind test, key check OK, checkout_ready, webhook
-  signing not set). Razorpay TEST mode from Railway vars RAZORPAY_KEY_ID/KEY_SECRET: hosted checkout
-  `/billing/pay/{id}?t=`, signature + own-order verify, cancel / failed-attempt / late capture, read-only
-  reconciliation, `billing_events`, Radio billing behind `billing.radio_checkout` (OFF). Release APK 1326 from
-  main (phone-test-1326, sha256 ce958249…9fc1). Earlier: PR #189 (`d39bdab`, APK 1325), #187, #185.
+- `main` @ `3e887b4` -- PR #193 merged 2026-10-15 and deployed (Railway ddefa65f; /health healthy on 3e887b4;
+  Razorpay row TEST_MODE_READY, key check OK, webhook signing set, invalid webhook signature -> 401; 0 verified
+  webhook deliveries so far). One gateway state (`payment_gateway_health`), API Health Razorpay row + Check with
+  gateway, readiness TEST_MODE_VERIFIED, TEST purchases -> TEST_PAID (no entitlement). Release APK 1327 from main
+  (phone-test-1327, sha256 ca929a9b…b57f). Earlier: PR #191 (`61f771b`, APK 1326), #189 (`d39bdab`, APK 1325).
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
@@ -475,6 +474,8 @@ this file, don't trust it blindly.
   payment.failed never fails an order (retry allowed); `billing.refresh` reads back via GET only. Env-only gateway
   credentials enable TEST mode until staff configure the row (`updated_by`). The public health row must never
   contain the word "secret" (test_integration_states).
+- Gateway state = `payment_gateway_health.check` ONLY (public health row, readiness, API Health, Billing); only a
+  Razorpay 401 records a failed check. TEST money -> purchase TEST_PAID, never a subscription / pass.
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.

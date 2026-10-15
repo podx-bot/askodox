@@ -24,3 +24,6 @@ Production probe 2026-10-14 (after #189): /health healthy (d39bdab), /readiness 
 | 2026-10-15 | 61f771b (main, PR #191) | 1101 passed | Flutter CI, APK CI, registry, result-contract, smokes, live-build verify: pass | 1326 (sha256 ce958249…9fc1, 72,572,929 B) | NOT TESTED |
 
 Production probe 2026-10-15 (after #191): /health healthy (61f771b); /health/integrations Razorpay = TEST_MODE_READY (key_kind test, read-only key check OK, checkout_ready true, webhook signing not set); /api/billing/options, /purchases/mine, /admin/cc/billing/status 401 without sign-in; forged pay links 404. Real Razorpay test payment on a phone: PENDING (owner).
+| 2026-10-15 | 3e887b4 (main, PR #193) | 1105 passed | Flutter CI, APK CI, registry, result-contract, docker smoke, verify: pass | 1327 (sha256 ca929a9b…b57f, 72,572,929 B) | NOT TESTED |
+
+Production probe 2026-10-15 (after #193): /health healthy (3e887b4); Razorpay row TEST_MODE_READY (key check OK, webhook signing set, 0 verified webhook deliveries); invalid-signature webhook POST -> 401 "invalid signature"; admin api-billing / readiness / gateway check -> 401 without sign-in. Real Razorpay test payment + webhook delivery: PENDING (owner phone test).
