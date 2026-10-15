@@ -9,7 +9,9 @@ jobs:
       - name: GET only
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for p in /admin/cc/billing/status /api/billing/purchases/mine /health /readiness /api/plans /api/plans/catalogue /api/catalog/templates /api/catalog/filters/pickles /api/radio/status /admin/cc/axe/brief /admin/cc/radio /admin/cc/push/readiness /admin/cc/growth/billing-readiness /admin/cc/billing/status /api/billing/purchases/mine; do
+          for p in /health /api/billing/options /api/billing/purchases/mine /admin/cc/billing/status '/billing/pay/bp_none?t=1.bad' '/api/billing/pay/bp_none/status?t=1.bad'; do
             code=$(curl -s -o body.txt -w '%{http_code}' "$B$p")
             echo "::notice title=$p::HTTP $code $(head -c 300 body.txt | tr '\n' ' ')"
           done
+          curl -s "$B/health/integrations" -o integ.txt
+          python3 -c "import json;r=[i for i in json.load(open('integ.txt'))['items'] if i['integration']=='Razorpay'];print('::notice title=Razorpay row::'+json.dumps(r))"
