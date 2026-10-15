@@ -6,12 +6,17 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: GET only
+      - name: Webhook reachability (no state change)
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for p in /health /api/billing/options /api/billing/purchases/mine /admin/cc/billing/status '/billing/pay/bp_none?t=1.bad' '/api/billing/pay/bp_none/status?t=1.bad'; do
-            code=$(curl -s -o body.txt -w '%{http_code}' "$B$p")
-            echo "::notice title=$p::HTTP $code $(head -c 300 body.txt | tr '\n' ' ')"
-          done
-          curl -s "$B/health/integrations" -o integ.txt
-          python3 -c "import json;r=[i for i in json.load(open('integ.txt'))['items'] if i['integration']=='Razorpay'];print('::notice title=Razorpay row::'+json.dumps(r))"
+          W=$B/api/payments/webhook/razorpay
+          code=$(curl -s -o b.txt -w '%{http_code}' "$B/health"); echo "::notice title=GET /health::HTTP $code $(head -c 200 b.txt)"
+          code=$(curl -s -o b.txt -w '%{http_code}' "$W"); echo "::notice title=GET webhook::HTTP $code $(head -c 200 b.txt)"
+          # Unsigned-by-Razorpay POST: must be refused (401) before any processing.
+          code=$(curl -s -o b.txt -w '%{http_code}' -X POST "$W" -H 'Content-Type: application/json' \
+            -H 'X-Razorpay-Signature: 0000000000000000000000000000000000000000000000000000000000000000' \
+            -H 'X-Razorpay-Event-Id: probe_invalid_sig' --data '{"event":"probe.invalid","payload":{}}')
+          echo "::notice title=POST webhook (invalid signature)::HTTP $code $(head -c 200 b.txt)"
+          curl -s "$B/health/integrations" -o i.txt
+          python3 -c "import json;r=[i for i in json.load(open('i.txt'))['items'] if i['integration']=='Razorpay'];print('::notice title=Razorpay row::'+json.dumps(r))"
+          echo "::notice title=TLS::$(curl -sv -o /dev/null $B/health 2>&1 | grep -E 'SSL connection|subject:|expire date' | tr '\n' ' ')"
