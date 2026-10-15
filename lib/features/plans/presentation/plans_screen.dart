@@ -42,7 +42,12 @@ class AskodoxPlansScreen extends ConsumerWidget {
                   subtitle: Text([
                     p.price == 0 ? t('Free', 'ఉచితం') : '₹${p.price} / ${p.periodDays} ${t('days', 'రోజులు')}',
                     if (p.trialDays > 0) t('${p.trialDays}-day trial', '${p.trialDays} రోజుల ట్రయల్'),
-                    if (!p.available) t('Not available yet', 'ఇంకా అందుబాటులో లేదు'),
+                    if (s.payable.contains(p.code))
+                      s.paymentMode == 'test'
+                          ? t('Test payment available', 'టెస్ట్ చెల్లింపు అందుబాటులో ఉంది')
+                          : t('Available', 'అందుబాటులో ఉంది')
+                    else if (!p.available)
+                      t('Not available yet', 'ఇంకా అందుబాటులో లేదు'),
                   ].join(' · ')),
                   trailing: s.currentPlan == p.code && s.currentStatus != 'PENDING_PAYMENT'
                       ? const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A))
@@ -107,8 +112,12 @@ class AskodoxPlansScreen extends ConsumerWidget {
     if (s.payable.isNotEmpty) return null;
     final reasons = s.payReasons.values.toSet();
     if (reasons.contains('TEST_MODE_TESTERS_ONLY')) {
-      return t('Payments are in TEST mode: only billing testers chosen by staff can pay.',
-          'చెల్లింపులు టెస్ట్ మోడ్‌లో ఉన్నాయి: స్టాఫ్ ఎంచుకున్న బిల్లింగ్ టెస్టర్లు మాత్రమే చెల్లించగలరు.');
+      final who = s.accountLast4.isEmpty ? '' : ' (••••${s.accountLast4})';
+      return t(
+          'Payments are in TEST mode: only billing testers chosen by staff can pay. '
+              'This account$who is not on the billing tester list.',
+          'చెల్లింపులు టెస్ట్ మోడ్‌లో ఉన్నాయి: స్టాఫ్ ఎంచుకున్న బిల్లింగ్ టెస్టర్లు మాత్రమే చెల్లించగలరు. '
+              'ఈ అకౌంట్$who బిల్లింగ్ టెస్టర్ జాబితాలో లేదు.');
     }
     if (reasons.contains('NO_PAYMENT_GATEWAY')) {
       return t('Online payment is not available yet.', 'ఆన్‌లైన్ చెల్లింపు ఇంకా అందుబాటులో లేదు.');

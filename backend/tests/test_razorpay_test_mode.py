@@ -363,8 +363,12 @@ def test_tester_matches_the_phone_however_it_was_typed_at_sign_in(env):
     assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).json()["detail"] == \
         "TEST_MODE_TESTERS_ONLY"
     assert client.post("/admin/cc/billing/testers", headers=OWNER, json={"user_id": "+91 98765 00001"}).status_code == 200
-    opts = {i["plan_code"]: i for i in client.get("/api/billing/options", headers=me).json()["items"]}
-    assert opts["plus"]["payable"] is True
+    got = client.get("/api/billing/options", headers=me).json()
+    opts = {i["plan_code"]: i for i in got["items"]}
+    assert opts["plus"]["payable"] is True and opts["pro"]["payable"] is True
+    assert opts["radio_7d"]["reason"] == "RADIO_BILLING_OFF"
+    assert got["account"] == {"phone_last4": "0001", "billing_tester": True}, "masked: last 4 digits only"
+    assert "9876500001" not in json.dumps(got)
     assert billing.store(container).is_tester("app-phone-919876500001")
     assert not billing.store(container).is_tester("app-phone-9876500002"), "a different number is not a tester"
     # Removing by any spelling revokes it fully.
