@@ -7,8 +7,10 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `8760fea` -- PR #195 (billing testers match by the last 10 phone digits) merged + deployed 2026-10-15
-  (/health healthy on 8760fea; backend only, APK 1327 stays current). Before it: PR #193 (Railway ddefa65f;
+- `main` @ `6a7ccc0` -- PR #197 merged + deployed 2026-10-15: /api/billing/options returns the caller's masked
+  account (phone_last4, billing_tester) and logs one masked `billing.options` line per check (Railway deploy logs);
+  payable plans say "Test payment available". Release APK 1328 (phone-test-1328, sha256 09b95b80…0f65). PR #195
+  (testers match by the last 10 phone digits). Before: PR #193 (Railway ddefa65f;
   Razorpay row TEST_MODE_READY, key check OK, webhook signing set, invalid webhook signature -> 401; 0 verified
   webhook deliveries so far). One gateway state (`payment_gateway_health`), API Health Razorpay row + Check with
   gateway, readiness TEST_MODE_VERIFIED, TEST purchases -> TEST_PAID (no entitlement). Release APK 1327 from main
@@ -476,7 +478,8 @@ this file, don't trust it blindly.
   credentials enable TEST mode until staff configure the row (`updated_by`). The public health row must never
   contain the word "secret" (test_integration_states).
 - Gateway state = `payment_gateway_health.check` ONLY (public health row, readiness, API Health, Billing); only a
-  Razorpay 401 records a failed check. TEST money -> purchase TEST_PAID, never a subscription / pass.
+  Razorpay 401 records a failed check. TEST money -> purchase TEST_PAID, never a subscription / pass. Why a tester has no Pay
+  button: Railway deploy logs, filter `billing.options` (masked last 4, tester, reasons).
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
