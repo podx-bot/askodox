@@ -352,3 +352,23 @@ def test_only_a_live_purchase_activates_and_testers_can_be_added_by_phone(env):
     assert billing.on_payment(container, {"id": "pay_L", "status": "PAID",
                                           "order_ref": f"billing:{live['id']}"})["status"] == "ACTIVE"
     assert growth(container).current_subscription(uid)["plan_code"] == "plus"
+
+
+def test_tester_matches_the_phone_however_it_was_typed_at_sign_in(env):
+    client, container, _ = env
+    from app.services import billing
+
+    # Signed in typing 10 digits (id app-phone-9876500001); staff typed +91 ...
+    me = {"Authorization": f"Bearer {issue_token('app-phone-9876500001', container.settings.session_token_secret)}"}
+    assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).json()["detail"] == \
+        "TEST_MODE_TESTERS_ONLY"
+    assert client.post("/admin/cc/billing/testers", headers=OWNER, json={"user_id": "+91 98765 00001"}).status_code == 200
+    opts = {i["plan_code"]: i for i in client.get("/api/billing/options", headers=me).json()["items"]}
+    assert opts["plus"]["payable"] is True
+    assert billing.store(container).is_tester("app-phone-919876500001")
+    assert not billing.store(container).is_tester("app-phone-9876500002"), "a different number is not a tester"
+    # Removing by any spelling revokes it fully.
+    assert client.delete("/admin/cc/billing/testers/9876500001", headers=OWNER).json()["removed"] is True
+    assert not billing.store(container).is_tester("app-phone-9876500001")
+    assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).json()["detail"] == \
+        "TEST_MODE_TESTERS_ONLY"

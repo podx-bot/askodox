@@ -122,7 +122,8 @@ idempotency and refund. No plan, subscription or Radio pass is activated. Only a
 
 ## Phone test (TEST mode, no real money)
 1. Command Center -> Billing, gateways & push: Razorpay shows `TEST`, key `test`, enabled by `environment`.
-2. Add yourself as a billing tester: your phone number (`98XXXXXXXX`) or app user id. Without this, the app shows
+2. Add yourself as a billing tester: your phone number (`98XXXXXXXX`) or app user id. The number matches by its
+   last 10 digits however you typed it at app sign-in, with or without +91. Removing it revokes every spelling. Without this, the app shows
    "Payments are in TEST mode: only billing testers chosen by staff can pay" and no Pay button.
 3. App -> header menu -> "Plans & subscription": Plus shows **Pay (test)**. Tap it. The Razorpay page opens with "TEST MODE".
 4. Pay with a Razorpay test card or test UPI from Razorpay's test-payment docs, never a real card. Then go back
