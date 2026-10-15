@@ -7,7 +7,10 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `6a7ccc0` -- PR #197 merged + deployed 2026-10-15: /api/billing/options returns the caller's masked
+- `main` @ `7016192` -- PR #199 merged + deployed 2026-10-16: `tester_identity` = ONE tester rule for billing AND
+  Radio testers (last 10 digits; the shared demo login 919999999999 is never a tester, adding it -> 409). Root
+  cause of "no Pay button" on APK 1328: the phone was signed in with the demo account (masked log ...9999).
+  Backend only; APK 1328 stays current. Before: PR #197 (`6a7ccc0`): /api/billing/options returns the caller's masked
   account (phone_last4, billing_tester) and logs one masked `billing.options` line per check (Railway deploy logs);
   payable plans say "Test payment available". Release APK 1328 (phone-test-1328, sha256 09b95b80…0f65). PR #195
   (testers match by the last 10 phone digits). Before: PR #193 (Railway ddefa65f;
