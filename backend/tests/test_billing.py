@@ -86,6 +86,11 @@ def test_test_mode_is_for_testers_only_and_activation_needs_a_verified_signature
     assert client.post("/admin/cc/billing/testers", headers=OWNER, json={"user_id": uid}).status_code == 200
     assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "free"}).json()["detail"] == \
         "FREE_PLAN_NO_PAYMENT"
+    assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "radio_7d"}).json()["detail"] == \
+        "RADIO_BILLING_OFF", "Radio billing stays off (even for testers) until the Owner switches it on"
+    from app.api.routes.command_center import command_center
+
+    command_center(container).set_flag("billing.radio_checkout", True, "test")
     out = client.post("/api/billing/checkout", headers=me, json={"plan_code": "radio_7d"}).json()
     assert out["mode"] == "test" and out["kind"] == "radio" and out["amount"] == 149
     checkout = out["checkout"]

@@ -13,17 +13,33 @@ Who may buy:
   any configured plan, so the whole flow can be rehearsed before approval;
 - LIVE gateway: only after the Owner's approvals -- live mode unlocked
   (ASKODOX_PAYMENTS_LIVE_APPROVED), flag billing.live_pricing, plan on sale.
+- Travel Radio passes additionally need flag billing.radio_checkout (default
+  OFF), so Radio billing stays off even for testers until the Owner approves.
+
+Purchase states: PENDING (order created) -> ACTIVE (gateway-confirmed PAID) /
+FAILED / CANCELLED (customer closed the checkout) / EXPIRED (no payment after
+PENDING_TTL_HOURS) -> REFUNDED. A capture that Razorpay reports later still
+activates a CANCELLED / EXPIRED purchase (the money was taken). Every step is
+logged in billing_events (who, what, when; never card / UPI data).
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import sqlite3
+import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.travel_radio import ADDON_AUDIENCE
 
-STATES = ("PENDING", "ACTIVE", "FAILED", "REFUNDED", "CANCELLED")
+STATES = ("PENDING", "ACTIVE", "FAILED", "REFUNDED", "CANCELLED", "EXPIRED")
+OPEN_STATES = ("PENDING", "CANCELLED", "EXPIRED")  # a later gateway capture still activates these
+PENDING_TTL_HOURS = 24
+PAY_LINK_TTL_SECONDS = 30 * 60
+RADIO_FLAG = "billing.radio_checkout"
 
 
 def _now() -> str:
@@ -43,6 +59,10 @@ class BillingStore:
                 CREATE INDEX IF NOT EXISTS ix_billing_user ON billing_purchases(user_id);
                 CREATE TABLE IF NOT EXISTS billing_testers (
                     user_id TEXT PRIMARY KEY, added_by TEXT NOT NULL, created_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS billing_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_id TEXT NOT NULL, event TEXT NOT NULL,
+                    actor TEXT NOT NULL, detail_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS ix_billing_events ON billing_events(purchase_id);
                 """
             )
 
@@ -77,6 +97,19 @@ class BillingStore:
             args.append(user_id)
         with self._connect() as conn:
             return [dict(r) for r in conn.execute(sql + " ORDER BY created_at DESC LIMIT ?", [*args, int(limit)])]
+
+    # audit trail -------------------------------------------------------
+    def log(self, purchase_id: str, event: str, actor: str, detail: Optional[Dict[str, Any]] = None) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO billing_events(purchase_id, event, actor, detail_json, created_at) "
+                         "VALUES(?,?,?,?,?)", (purchase_id, event, actor, json.dumps(detail or {})[:2000], _now()))
+
+    def events(self, purchase_id: str) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT event, actor, detail_json, created_at FROM billing_events WHERE purchase_id=?"
+                                " ORDER BY id", (purchase_id,)).fetchall()
+        return [{"event": r["event"], "actor": r["actor"], "detail": json.loads(r["detail_json"] or "{}"),
+                 "at": r["created_at"]} for r in rows]
 
     # testers -----------------------------------------------------------
     def is_tester(self, user_id: str) -> bool:
@@ -149,6 +182,8 @@ def checkout(container: Any, user_id: str, plan_code: str) -> Dict[str, Any]:
     if reason:
         raise BillingError(reason)
     kind = "radio" if plan["audience"] == ADDON_AUDIENCE else "base"
+    if kind == "radio" and not feature_enabled(container, RADIO_FLAG):
+        raise BillingError("RADIO_BILLING_OFF")
     purchase = store(container).create(user_id=user_id, plan_code=plan["code"], kind=kind,
                                        amount=float(plan["price"]), provider=provider, mode=mode, status="PENDING")
     payment = pf.payments.create(idempotency_key=f"billing:{purchase['id']}", method="upi", amount=float(plan["price"]),
@@ -156,10 +191,114 @@ def checkout(container: Any, user_id: str, plan_code: str) -> Dict[str, Any]:
                                  provider=provider, actor=f"user:{user_id}")
     store(container).update(purchase["id"], payment_id=payment["id"])
     digits = "".join(ch for ch in user_id if ch.isdigit())[-10:]
-    params = pf.start_checkout(payment, **({"customer_id": purchase["id"], "phone": digits} if provider == "cashfree"
-                                           else {}))
+    try:
+        params = pf.start_checkout(payment, **({"customer_id": purchase["id"], "phone": digits}
+                                               if provider == "cashfree" else {}))
+    except Exception as error:
+        store(container).update(purchase["id"], status="FAILED")
+        store(container).log(purchase["id"], "gateway_order_failed", "system", {"error": str(error)[:200]})
+        raise BillingError("GATEWAY_UNAVAILABLE", 502) from None
+    store(container).log(purchase["id"], "checkout_started", f"user:{user_id}",
+                         {"plan_code": plan["code"], "amount": float(plan["price"]), "provider": provider,
+                          "mode": mode, "order_id": params.get("order_id")})
     return {"purchase_id": purchase["id"], "plan_code": plan["code"], "kind": kind, "amount": plan["price"],
             "mode": mode, "checkout": params}
+
+
+def options(container: Any, user_id: str) -> Dict[str, Any]:
+    """What this signed-in user can buy right now (the app shows Pay only for
+    these). Server-side rules only; the app never decides."""
+    from app.api.routes.command_center import feature_enabled
+    from app.api.routes.growth import growth
+    from app.api.routes.platform import platform
+
+    pf = platform(container)
+    provider = pf.checkout_provider() if feature_enabled(container, "payments.online") else None
+    mode = (pf.registry.status(provider).get("mode") or "test") if provider else None
+    items = []
+    for plan in growth(container).plans():
+        if str(plan.get("audience") or "") not in ("base", ADDON_AUDIENCE):
+            continue
+        reason = "NO_PAYMENT_GATEWAY" if not provider else eligibility(container, user_id, plan, mode or "test")
+        if not reason and plan["audience"] == ADDON_AUDIENCE and not feature_enabled(container, RADIO_FLAG):
+            reason = "RADIO_BILLING_OFF"
+        items.append({"plan_code": plan["code"], "price": plan["price"], "payable": reason is None,
+                      "reason": reason})
+    return {"provider": provider, "mode": mode, "items": items}
+
+
+# ------------------------------------------------------------ pay link --
+# The hosted checkout page (/billing/pay/{id}) is opened in a browser, outside
+# the app's session, so it carries a short-lived token bound to ONE purchase.
+def _link_key(container: Any) -> bytes:
+    return ("billing-pay-link:" + str(container.settings.session_token_secret)).encode()
+
+
+def pay_token(container: Any, purchase_id: str, *, ttl: int = PAY_LINK_TTL_SECONDS) -> str:
+    expires = int(time.time()) + int(ttl)
+    sig = hmac.new(_link_key(container), f"{purchase_id}.{expires}".encode(), hashlib.sha256).hexdigest()[:40]
+    return f"{expires}.{sig}"
+
+
+def check_pay_token(container: Any, purchase_id: str, token: str) -> bool:
+    try:
+        expires_s, sig = str(token or "").split(".", 1)
+        expires = int(expires_s)
+    except ValueError:
+        return False
+    if expires < time.time():
+        return False
+    expected = hmac.new(_link_key(container), f"{purchase_id}.{expires}".encode(), hashlib.sha256).hexdigest()[:40]
+    return hmac.compare_digest(expected, sig)
+
+
+# ------------------------------------------------- customer / gateway --
+def cancel(container: Any, purchase_id: str, actor: str) -> Dict[str, Any]:
+    """The customer closed the checkout. Client-reported, so it can only STOP a
+    pending purchase -- a capture Razorpay reports later still activates it."""
+    purchase = store(container).get(purchase_id)
+    if purchase and purchase["status"] == "PENDING":
+        purchase = store(container).update(purchase_id, status="CANCELLED")
+        store(container).log(purchase_id, "checkout_closed", actor)
+    return purchase  # type: ignore[return-value]
+
+
+def note_gateway_event(container: Any, payment: Dict[str, Any], event: str, *, actor: str,
+                       detail: Optional[Dict[str, Any]] = None) -> None:
+    ref = str(payment.get("order_ref") or "")
+    if ref.startswith("billing:") and store(container).get(ref.split(":", 1)[1]):
+        store(container).log(ref.split(":", 1)[1], event, actor, detail)
+
+
+def refresh(container: Any, purchase_id: str, *, actor: str = "system") -> Dict[str, Any]:
+    """Reconcile one purchase with the gateway (read-only) and expire a stale
+    PENDING one. Safe to call any number of times."""
+    from app.api.routes.platform import platform
+
+    purchase = store(container).get(purchase_id)
+    if not purchase or not purchase.get("payment_id"):
+        return {"purchase": purchase, "gateway": None}
+    pf = platform(container)
+    gateway = None
+    payment = pf.repo.payment(purchase["payment_id"])
+    if payment and purchase["provider"] == "razorpay" and purchase["status"] in (*OPEN_STATES, "ACTIVE"):
+        try:
+            gateway = pf.razorpay.reconcile(payment)
+        except Exception as error:  # a gateway outage leaves the state as it is
+            gateway = {"checked": False, "reason": type(error).__name__}
+        if gateway.get("checked"):
+            before = payment["status"]
+            payment = gateway["payment"]
+            if payment["status"] != before:
+                store(container).log(purchase_id, "reconciled", actor, {"payment": f"{before}->{payment['status']}"})
+            pf.sync_order(payment)
+    purchase = store(container).get(purchase_id) or purchase
+    if purchase["status"] == "PENDING":
+        created = datetime.fromisoformat(purchase["created_at"])
+        if datetime.now(timezone.utc) - created > timedelta(hours=PENDING_TTL_HOURS):
+            purchase = store(container).update(purchase_id, status="EXPIRED")
+            store(container).log(purchase_id, "expired", actor, {"after_hours": PENDING_TTL_HOURS})
+    return {"purchase": purchase, "gateway": {k: v for k, v in (gateway or {}).items() if k != "payment"} or None}
 
 
 def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -175,15 +314,17 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
         return None
     status = payment.get("status")
     plan = growth(container).plan(purchase["plan_code"]) or {"code": purchase["plan_code"]}
-    if status == "PAID" and purchase["status"] == "PENDING":
+    if status == "PAID" and purchase["status"] in OPEN_STATES:
         if purchase["kind"] == "radio":
             target = radio(container).activate_paid(purchase["user_id"], plan, payment_id=payment["id"])
         else:
             target = growth(container).activate_paid(purchase["user_id"], plan, payment_id=payment["id"])
         purchase = store(container).update(purchase["id"], status="ACTIVE", target_id=str(target["id"]))
+        store(container).log(purchase["id"], "activated", "gateway", {"payment_id": payment["id"]})
         _notify(container, purchase, "activated")
     elif status == "FAILED" and purchase["status"] == "PENDING":
         purchase = store(container).update(purchase["id"], status="FAILED")
+        store(container).log(purchase["id"], "payment_failed", "gateway")
     elif status == "REFUNDED" and purchase["status"] == "ACTIVE":
         if purchase.get("target_id"):
             if purchase["kind"] == "radio":
@@ -191,6 +332,7 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
             else:
                 growth(container).cancel_subscription(int(purchase["target_id"]))
         purchase = store(container).update(purchase["id"], status="REFUNDED")
+        store(container).log(purchase["id"], "refunded", "gateway", {"payment_id": payment["id"]})
         _notify(container, purchase, "refunded")
     return purchase
 

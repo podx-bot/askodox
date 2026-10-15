@@ -1,9 +1,14 @@
 """Billing routes (see ``app/services/billing.py``).
 
-Customer (signed in): POST /api/billing/checkout, POST /api/billing/razorpay/verify,
-GET /api/billing/purchases/mine, GET /api/billing/purchases/{id}
+Customer (signed in): GET /api/billing/options, POST /api/billing/checkout,
+POST /api/billing/razorpay/verify, GET /api/billing/purchases/mine,
+GET /api/billing/purchases/{id} (reconciles an open purchase with the gateway),
+POST /api/billing/purchases/{id}/cancel
+Hosted checkout (browser, purchase-bound short-lived link token):
+GET /billing/pay/{id}?t=..., POST /api/billing/pay/{id}/verify|cancel,
+GET /api/billing/pay/{id}/status
 Staff: GET /admin/cc/billing/status, POST|DELETE /admin/cc/billing/testers,
-POST /admin/cc/billing/purchases/{id}/refund
+POST /admin/cc/billing/purchases/{id}/refund, POST /admin/cc/billing/purchases/{id}/reconcile
 """
 from __future__ import annotations
 
@@ -11,6 +16,7 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.api.routes.in_app_deal import _authenticated_app_user
@@ -18,6 +24,25 @@ from app.services import billing
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 admin_router = APIRouter(prefix="/admin/cc/billing", tags=["command-center"])
+page_router = APIRouter(tags=["billing"])
+
+
+def _public_base(request: Request) -> str:
+    from app.api.routes.partners import _public_base as base
+
+    return base(request)
+
+
+def _pay_url(request: Request, purchase_id: str) -> str:
+    container = request.app.state.container
+    return f"{_public_base(request)}/billing/pay/{purchase_id}?t={billing.pay_token(container, purchase_id)}"
+
+
+@router.get("/options")
+def billing_options(request: Request) -> dict:
+    """Which plans this user may pay for now (server rules; TEST mode = testers only)."""
+    user = _authenticated_app_user(request)
+    return billing.options(request.app.state.container, user)
 
 
 class CheckoutBody(BaseModel):
@@ -31,9 +56,12 @@ def start_checkout(body: CheckoutBody, request: Request) -> dict:
     user = _authenticated_app_user(request)
     rate_limit.check(request, "billing_checkout", limit=10)
     try:
-        return billing.checkout(request.app.state.container, user, body.plan_code.strip())
+        out = billing.checkout(request.app.state.container, user, body.plan_code.strip())
     except billing.BillingError as error:
         raise HTTPException(status_code=error.status, detail=error.code) from None
+    if out["checkout"].get("provider") == "razorpay":
+        out["pay_url"] = _pay_url(request, out["purchase_id"])  # hosted Razorpay Checkout page
+    return out
 
 
 class RazorpayVerifyBody(BaseModel):
@@ -54,17 +82,28 @@ def razorpay_verify(body: RazorpayVerifyBody, request: Request) -> dict:
     purchase = billing.store(container).get(body.purchase_id)
     if not purchase or purchase["user_id"] != user:
         raise HTTPException(status_code=404, detail="Purchase not found")
+    return {"purchase": _public(_verify(container, purchase, body.razorpay_order_id, body.razorpay_payment_id,
+                                        body.razorpay_signature, actor=f"user:{user}"))}
+
+
+def _verify(container: Any, purchase: dict, order_id: str, rzp_payment_id: str, signature: str, *, actor: str) -> dict:
+    from app.api.routes.platform import platform
+
     pf = platform(container)
+    if purchase.get("provider") != "razorpay" or pf.razorpay.order_for(purchase.get("payment_id") or "") != order_id:
+        billing.store(container).log(purchase["id"], "verify_rejected", actor, {"reason": "order_mismatch"})
+        raise HTTPException(status_code=409, detail="ORDER_MISMATCH")  # checked BEFORE any state change
     try:
-        result = pf.razorpay.verify_checkout(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature)
+        result = pf.razorpay.verify_checkout(order_id, rzp_payment_id, signature)
     except PermissionError:
+        billing.store(container).log(purchase["id"], "verify_rejected", actor, {"reason": "invalid_signature"})
         raise HTTPException(status_code=401, detail="INVALID_SIGNATURE") from None
     except KeyError:
         raise HTTPException(status_code=404, detail="Unknown order") from None
-    if result["payment"]["id"] != purchase["payment_id"]:
-        raise HTTPException(status_code=409, detail="ORDER_MISMATCH")
+    billing.store(container).log(purchase["id"], "checkout_verified", actor,
+                                 {"duplicate": bool(result.get("duplicate")), "razorpay_payment_id": rzp_payment_id})
     pf.sync_order(result["payment"])
-    return {"purchase": _public(billing.store(container).get(purchase["id"]))}
+    return billing.store(container).get(purchase["id"])  # type: ignore[return-value]
 
 
 def _public(p: dict | None) -> dict | None:
@@ -79,13 +118,157 @@ def my_purchases(request: Request) -> dict:
     return {"items": [_public(p) for p in billing.store(request.app.state.container).list(user_id=user, limit=50)]}
 
 
-@router.get("/purchases/{purchase_id}")
-def my_purchase(purchase_id: str, request: Request) -> dict:
+def _own(request: Request, purchase_id: str) -> tuple[str, dict]:
     user = _authenticated_app_user(request)
     purchase = billing.store(request.app.state.container).get(purchase_id)
     if not purchase or purchase["user_id"] != user:
         raise HTTPException(status_code=404, detail="Purchase not found")
-    return {"purchase": _public(purchase)}
+    return user, purchase
+
+
+def _refreshed(request: Request, purchase: dict, actor: str) -> dict:
+    """An open purchase is read back from the gateway (rate-limited, GET only)."""
+    from app.services import rate_limit
+
+    if purchase["status"] in billing.OPEN_STATES:
+        rate_limit.check(request, "billing_refresh", limit=30)
+        purchase = billing.refresh(request.app.state.container, purchase["id"], actor=actor)["purchase"]
+    return purchase
+
+
+@router.get("/purchases/{purchase_id}")
+def my_purchase(purchase_id: str, request: Request) -> dict:
+    user, purchase = _own(request, purchase_id)
+    return {"purchase": _public(_refreshed(request, purchase, f"user:{user}"))}
+
+
+@router.post("/purchases/{purchase_id}/cancel")
+def cancel_my_purchase(purchase_id: str, request: Request) -> dict:
+    user, _ = _own(request, purchase_id)
+    return {"purchase": _public(billing.cancel(request.app.state.container, purchase_id, f"user:{user}"))}
+
+
+# ------------------------------------------------- hosted checkout page --
+
+def _linked(request: Request, purchase_id: str, token: str) -> dict:
+    container = request.app.state.container
+    purchase = billing.store(container).get(purchase_id)
+    if not purchase or not billing.check_pay_token(container, purchase_id, token):
+        raise HTTPException(status_code=404, detail="This payment link is invalid or has expired")
+    return purchase
+
+
+class PayVerifyBody(BaseModel):
+    t: str = Field(min_length=10, max_length=80)
+    razorpay_order_id: str = Field(min_length=3, max_length=64)
+    razorpay_payment_id: str = Field(min_length=3, max_length=64)
+    razorpay_signature: str = Field(min_length=10, max_length=128)
+
+
+class PayTokenBody(BaseModel):
+    t: str = Field(min_length=10, max_length=80)
+
+
+@router.post("/pay/{purchase_id}/verify")
+def pay_verify(purchase_id: str, body: PayVerifyBody, request: Request) -> dict:
+    from app.services import rate_limit
+
+    rate_limit.check(request, "billing_pay_verify", limit=20)
+    purchase = _linked(request, purchase_id, body.t)
+    done = _verify(request.app.state.container, purchase, body.razorpay_order_id, body.razorpay_payment_id,
+                   body.razorpay_signature, actor="checkout_page")
+    return {"purchase": _public(done)}
+
+
+@router.post("/pay/{purchase_id}/cancel")
+def pay_cancel(purchase_id: str, body: PayTokenBody, request: Request) -> dict:
+    _linked(request, purchase_id, body.t)
+    return {"purchase": _public(billing.cancel(request.app.state.container, purchase_id, "checkout_page"))}
+
+
+@router.get("/pay/{purchase_id}/status")
+def pay_status(purchase_id: str, t: str, request: Request) -> dict:
+    purchase = _linked(request, purchase_id, t)
+    return {"purchase": _public(_refreshed(request, purchase, "checkout_page"))}
+
+
+_PAY_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com; "
+            "frame-src https://api.razorpay.com https://*.razorpay.com; connect-src 'self' https://*.razorpay.com; "
+            "img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://*.razorpay.com; "
+            "base-uri 'none'; form-action 'self'")
+
+
+@page_router.get("/billing/pay/{purchase_id}", response_class=HTMLResponse)
+def pay_page(purchase_id: str, request: Request, t: str = "") -> HTMLResponse:
+    """Razorpay Standard Checkout for ONE purchase. Amount, order and key come
+    from the server; the page only reports what Razorpay returns, and the
+    server verifies it (signature / read-back) before anything activates."""
+    import html as h
+    import json as js
+
+    from app.api.routes.growth import growth
+    from app.api.routes.platform import platform
+
+    container = request.app.state.container
+    try:
+        purchase = _linked(request, purchase_id, t)
+    except HTTPException:
+        return HTMLResponse(_PAGE.replace("__BODY__", "<h1>Link expired</h1><p>This payment link is invalid or has "
+                                          "expired. Go back to the ASKODOX app and start again.</p>")
+                            .replace("__CONFIG__", "null"), status_code=404, headers={"Content-Security-Policy": _PAY_CSP})
+    pf = platform(container)
+    payment = pf.repo.payment(purchase.get("payment_id") or "") or {}
+    plan = growth(container).plan(purchase["plan_code"]) or {}
+    config = None
+    if purchase["status"] == "PENDING" and purchase.get("provider") == "razorpay" and payment:
+        config = {"key": pf.registry.config_value("razorpay", "key_id"),
+                  "order_id": pf.razorpay.order_for(payment["id"]),
+                  "amount": int(round(float(payment["amount"]) * 100)), "currency": payment.get("currency") or "INR",
+                  "name": "ASKODOX", "description": str(plan.get("name") or purchase["plan_code"])[:80],
+                  "purchase_id": purchase["id"], "t": t}
+    test = purchase.get("mode") == "test"
+    body = (('<div class="test">TEST MODE &middot; no real money. Use Razorpay test card / test UPI only.</div>'
+             if test else "") +
+            f'<h1>{h.escape(str(plan.get("name") or purchase["plan_code"]))}</h1>'
+            f'<p class="amt">&#8377;{float(purchase["amount"]):,.2f}</p>'
+            f'<p id="status">Status: <b>{h.escape(purchase["status"])}</b></p>'
+            + ('<button id="pay">Pay now</button>' if config else '')
+            + '<button id="check" class="sec">Check status</button>'
+            '<p class="note">Card / UPI details are entered on Razorpay\'s own checkout; ASKODOX never sees them. '
+            'When done, go back to the ASKODOX app.</p>')
+    page = _PAGE.replace("__BODY__", body).replace("__CONFIG__", js.dumps(config).replace("</", "<\\/"))
+    page = page.replace("__ID__", js.dumps(purchase["id"])).replace("__T__", js.dumps(t))
+    return HTMLResponse(page, headers={"Content-Security-Policy": _PAY_CSP, "X-Frame-Options": "DENY",
+                                       "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"})
+
+
+_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ASKODOX payment</title>
+<style>body{font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px 16px;color:#101828;background:#fff}
+.test{background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:8px 10px;font-weight:700;font-size:14px}
+h1{font-size:22px;margin:18px 0 4px}.amt{font-size:28px;font-weight:800;margin:0 0 12px}
+button{display:block;width:100%;padding:14px;margin:10px 0;border:0;border-radius:10px;font-size:16px;font-weight:700;
+background:#2563EB;color:#fff}button.sec{background:#EEF2F6;color:#101828}.note{font-size:13px;color:#667085}</style>
+</head><body>__BODY__
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+const CFG=__CONFIG__, ID=__ID__, T=__T__;
+const show=(s,extra)=>{const el=document.getElementById("status");if(el)el.innerHTML="Status: <b>"+s+"</b>"+(extra?"<br>"+extra:"");
+  if(s!=="PENDING"){const b=document.getElementById("pay");if(b)b.remove()}};
+async function post(path,body){const r=await fetch("/api/billing/pay/"+encodeURIComponent(ID)+path,{method:"POST",
+  headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({t:T},body||{}))});return r.json().catch(()=>({}))}
+async function check(){const r=await fetch("/api/billing/pay/"+encodeURIComponent(ID)+"/status?t="+encodeURIComponent(T));
+  const d=await r.json().catch(()=>({}));if(d.purchase)show(d.purchase.status,d.purchase.status==="ACTIVE"?"Paid. Go back to the ASKODOX app.":"")}
+const c=document.getElementById("check");if(c)c.onclick=check;
+const p=document.getElementById("pay");
+if(p&&CFG&&window.Razorpay){p.onclick=()=>{const rzp=new Razorpay({key:CFG.key,order_id:CFG.order_id,amount:CFG.amount,
+  currency:CFG.currency,name:CFG.name,description:CFG.description,notes:{purchase_id:CFG.purchase_id},
+  handler:async(resp)=>{show("VERIFYING");const d=await post("/verify",resp);
+    if(d.purchase)show(d.purchase.status,d.purchase.status==="ACTIVE"?"Paid. Go back to the ASKODOX app.":"");else show("NOT VERIFIED","Use Check status.")},
+  modal:{ondismiss:async()=>{const d=await post("/cancel");if(d.purchase)show(d.purchase.status)}}});
+  rzp.on("payment.failed",()=>show("PENDING","That attempt failed. You can try again."));rzp.open()}}
+else if(p){p.disabled=true;show("PENDING","Razorpay checkout could not load. Check your connection and reload.")}
+</script></body></html>"""
 
 
 # -------------------------------------------------------------- staff --
@@ -123,14 +306,16 @@ def billing_status(request: Request) -> dict:
         st = pf.registry.status(provider)
         gateways.append({"provider": provider, "label": st["label"], "status": st["status"], "mode": st["mode"],
                          "readiness": st["readiness"], "missing": st["missing"], "live_locked": st.get("live_locked"),
-                         "warnings": st.get("warnings") or []})
+                         "warnings": st.get("warnings") or [], "enabled_by": st.get("enabled_by") or "",
+                         "key_kind": fin.key_kind(provider, st["config"].get("key_id") or st["config"].get("client_id"))})
     plans = growth(container).plans()
     return {
         "checkout_provider": pf.checkout_provider(),
         "live_payments_approved": fin.live_payments_approved(dict(os.environ)),
         "live_approval_variable": fin.LIVE_APPROVAL_ENV,
         "flags": {"billing.live_pricing": feature_enabled(container, "billing.live_pricing"),
-                  "payments.online": feature_enabled(container, "payments.online")},
+                  "payments.online": feature_enabled(container, "payments.online"),
+                  billing.RADIO_FLAG: feature_enabled(container, billing.RADIO_FLAG)},
         "gateways": gateways,
         "firebase": readiness_for(pf.push()),
         "plans": [{"code": p["code"], "audience": p["audience"], "price": p["price"], "period_days": p["period_days"],
@@ -189,3 +374,26 @@ def refund_purchase(purchase_id: str, body: RefundBody, request: Request) -> dic
         raise HTTPException(status_code=409, detail=str(error)[:200]) from None
     _audit(request, principal, "billing.refund.requested", purchase_id, {"amount": amount})
     return {"requested": result, "note": "The plan is cancelled when the gateway confirms the refund."}
+
+
+@admin_router.post("/purchases/{purchase_id}/reconcile")
+def reconcile_purchase(purchase_id: str, request: Request) -> dict:
+    """Read the purchase back from the gateway (GET only: never refunds or
+    captures) and show its audit trail."""
+    principal = _require(request, "payments:manage")
+    container = request.app.state.container
+    if not billing.store(container).get(purchase_id):
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    out = billing.refresh(container, purchase_id, actor=f"staff:{principal.get('id')}")
+    _audit(request, principal, "billing.reconcile", purchase_id, {"status": out["purchase"]["status"]})
+    return {**out, "events": billing.store(container).events(purchase_id)}
+
+
+@admin_router.get("/purchases/{purchase_id}")
+def purchase_detail(purchase_id: str, request: Request) -> dict:
+    _require(request, "growth:view")
+    container = request.app.state.container
+    purchase = billing.store(container).get(purchase_id)
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    return {"purchase": purchase, "events": billing.store(container).events(purchase_id)}

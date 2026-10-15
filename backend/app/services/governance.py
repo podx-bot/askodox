@@ -52,6 +52,7 @@ TOXIC_COMBINATIONS: tuple[tuple[frozenset, str], ...] = (
 # Feature flags: what switching them risks.
 FLAG_RISK: Dict[str, str] = {
     "payments.online": RED,
+    "billing.radio_checkout": RED,
     "payments.subscriptions": RED,
     "rewards": ORANGE,
     "coupons": ORANGE,

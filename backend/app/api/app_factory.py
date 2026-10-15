@@ -332,6 +332,9 @@ def create_app() -> FastAPI:
 
     app.include_router(billing_router)
     app.include_router(billing_admin_router)
+    from app.api.routes.billing import page_router as billing_page_router
+
+    app.include_router(billing_page_router)
     _redact_access_log_tokens()
     from app.api.routes.attachments import router as attachments_router
     from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router
@@ -416,11 +419,12 @@ def create_app() -> FastAPI:
 
 
 def _redact_access_log_tokens() -> None:
-    """Partner postback URLs carry ?token=...; access logs never show it."""
+    """Partner postback URLs carry ?token=..., hosted payment links ?t=...;
+    access logs never show either."""
     import logging
     import re
 
-    pattern = re.compile(r"((?:token|api_key|apikey|key|secret)=)[^&\s\"]+", re.IGNORECASE)
+    pattern = re.compile(r"((?:token|api_key|apikey|key|secret|(?<=[?&])t)=)[^&\s\"]+", re.IGNORECASE)
 
     class _Redact(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool:

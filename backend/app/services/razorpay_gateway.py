@@ -127,13 +127,17 @@ class RazorpayGateway:
         if target == "PAID":
             if current["status"] not in ("CREATED", "PENDING"):
                 return {"duplicate": True, "payment": current}  # already paid via checkout verify
+            paid = pay.get("amount") if name == "payment.captured" else order.get("amount_paid", pay.get("amount"))
+            currency = pay.get("currency") or order.get("currency") or "INR"
+            if not self.amount_matches(current, paid, currency):
+                return {"mismatch": True, "event": name, "payment": current}  # never PAID on a wrong amount
             updated = self.repo.transition_payment(payment_id, "PAID", actor="webhook:razorpay",
                                                    provider_ref=pay.get("id"), note=name)
         elif target == "FAILED":
-            if current["status"] not in ("CREATED", "PENDING"):
-                return {"ignored": True, "event": name}  # a later retry already succeeded
-            updated = self.repo.transition_payment(payment_id, "FAILED", actor="webhook:razorpay",
-                                                   note=str(pay.get("error_description") or name)[:200])
+            # One failed attempt: the customer may retry on the same order, so
+            # the payment stays PENDING (a later capture must still count).
+            return {"attempt_failed": True, "event": name, "payment": current,
+                    "reason": str(pay.get("error_description") or pay.get("error_reason") or "")[:200]}
         else:
             amount = float(refund.get("amount") or 0) / 100
             remaining = float(current["amount"]) - float(current.get("refunded_amount") or 0)
@@ -141,6 +145,59 @@ class RazorpayGateway:
                 payment_id, "REFUNDED" if abs(amount - remaining) < 1e-9 else "PARTIALLY_REFUNDED",
                 actor="webhook:razorpay", refund_amount=amount, note=f"refund {refund.get('id')}")
         return {"duplicate": False, "payment": updated}
+
+    @staticmethod
+    def amount_matches(payment: Dict[str, Any], paise: Any, currency: str = "INR") -> bool:
+        try:
+            return (int(paise) == int(round(float(payment["amount"]) * 100))
+                    and str(currency or "INR").upper() == str(payment.get("currency") or "INR").upper())
+        except (TypeError, ValueError):
+            return False
+
+    def order_for(self, payment_id: str) -> Optional[str]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT order_id FROM pf_gateway_orders WHERE provider='razorpay' AND payment_id=?",
+                               (payment_id,)).fetchone()
+        return row["order_id"] if row else None
+
+    # ------------------------------------------------------------ reconcile
+    def reconcile(self, payment: Dict[str, Any]) -> Dict[str, Any]:
+        """Read-only check against Razorpay (Orders -> payments, Payments ->
+        refunds). Moves the payment forward only on what Razorpay reports:
+        a captured attempt with the right amount -> PAID; processed refunds ->
+        (PARTIALLY_)REFUNDED. It never creates a refund or a capture."""
+        order_id = self.order_for(payment["id"])
+        if not order_id:
+            return {"checked": False, "reason": "no Razorpay order", "payment": payment}
+        status, body = self.http("GET", f"{API}/orders/{order_id}/payments", auth=self._auth())
+        if status != 200 or not isinstance(body, dict):
+            return {"checked": False, "reason": f"Razorpay HTTP {status}", "payment": payment}
+        attempts = [a for a in body.get("items") or [] if isinstance(a, dict)]
+        summary = [{"id": a.get("id"), "status": a.get("status"), "method": a.get("method"),
+                    "error": a.get("error_description")} for a in attempts]
+        current = self.repo.payment(payment["id"])
+        captured = [a for a in attempts if a.get("status") in ("captured", "refunded")
+                    and self.amount_matches(current, a.get("amount"), a.get("currency") or "INR")]
+        if captured and current["status"] in ("CREATED", "PENDING"):
+            current = self.repo.transition_payment(current["id"], "PAID", actor="reconcile:razorpay",
+                                                   provider_ref=captured[0].get("id"),
+                                                   note="captured (read back from Razorpay)")
+        if current["status"] in ("PAID", "PARTIALLY_REFUNDED", "SETTLED") and current.get("provider_ref"):
+            st, refunds = self.http("GET", f"{API}/payments/{current['provider_ref']}/refunds", auth=self._auth())
+            if st == 200 and isinstance(refunds, dict):
+                done = sum(int(r.get("amount") or 0) for r in refunds.get("items") or []
+                           if isinstance(r, dict) and r.get("status") == "processed") / 100
+                extra = done - float(current.get("refunded_amount") or 0)
+                if extra > 1e-9:
+                    remaining = float(current["amount"]) - float(current.get("refunded_amount") or 0)
+                    current = self.repo.transition_payment(
+                        current["id"], "REFUNDED" if abs(extra - remaining) < 1e-9 else "PARTIALLY_REFUNDED",
+                        actor="reconcile:razorpay", refund_amount=extra, note="refund read back from Razorpay")
+        state = ("captured" if captured else "authorized" if any(a.get("status") == "authorized" for a in attempts)
+                 else "failed" if attempts and all(a.get("status") == "failed" for a in attempts)
+                 else "no_attempt" if not attempts else "pending")
+        return {"checked": True, "order_id": order_id, "gateway_state": state, "attempts": summary,
+                "payment": current}
 
     def _payment_by_provider_ref(self, provider_ref: str) -> Optional[str]:
         for p in self.repo.payments(limit=5000):
