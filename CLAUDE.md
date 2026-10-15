@@ -7,13 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `d39bdab` -- PR #189 merged 2026-10-14 and deployed (Railway deployment e3471f43; /health healthy on
-  d39bdab; /api/billing/* and /admin/cc/billing/* 401 without sign-in). Phase 5: Android FCM client
-  (`lib/services/push_registration.dart`, Firebase values from GitHub repository variables -- none set yet),
-  delivery / billing push alerts, Cashfree adapter + Razorpay refunds, Live payments locked unless
-  `ASKODOX_PAYMENTS_LIVE_APPROVED=yes`, subscription + Radio billing (`/api/billing/*`, TEST mode for billing
-  testers only), console "Billing, gateways & push". Release APK 1325 from main (phone-test-1325, sha256
-  e957ec40…0489). Earlier: PR #187 (`91c7cc0`, APK 1324), PR #185, #183, #182.
+- `main` @ `61f771b` -- PR #191 merged 2026-10-15 and deployed (Railway 8dee2d81; /health healthy on 61f771b;
+  `/health/integrations` Razorpay row TEST_MODE_READY, key_kind test, key check OK, checkout_ready, webhook
+  signing not set). Razorpay TEST mode from Railway vars RAZORPAY_KEY_ID/KEY_SECRET: hosted checkout
+  `/billing/pay/{id}?t=`, signature + own-order verify, cancel / failed-attempt / late capture, read-only
+  reconciliation, `billing_events`, Radio billing behind `billing.radio_checkout` (OFF). Release APK 1326 from
+  main (phone-test-1326, sha256 ce958249…9fc1). Earlier: PR #189 (`d39bdab`, APK 1325), #187, #185.
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
@@ -472,6 +471,10 @@ this file, don't trust it blindly.
 - Billing = `billing.py` + `routes/billing.py` on the ONE payment layer (`commerce_finance.PaymentService`,
   `razorpay_gateway.py`, `cashfree_gateway.py`); purchases activate only via `Platform.sync_order` on PAID
   (`billing:` order_ref). Live mode = env `ASKODOX_PAYMENTS_LIVE_APPROVED` only (never the console).
+- Razorpay checkout = the hosted page `/billing/pay/{id}` (routes/billing.py `page_router`, mounted in app_factory);
+  payment.failed never fails an order (retry allowed); `billing.refresh` reads back via GET only. Env-only gateway
+  credentials enable TEST mode until staff configure the row (`updated_by`). The public health row must never
+  contain the word "secret" (test_integration_states).
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.

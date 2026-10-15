@@ -21,3 +21,6 @@ Production probe 2026-10-13 (after #187): /health healthy (91c7cc0), /readiness 
 | 2026-10-14 | d39bdab (main, PR #189) | 1095 passed | Flutter CI, APK CI (with Firebase plugins), registry, result-contract, smokes, live-build verify: pass | 1325 (sha256 e957ec40…0489, 72,556,545 B) | NOT TESTED |
 
 Production probe 2026-10-14 (after #189): /health healthy (d39bdab), /readiness ready, /api/billing/purchases/mine + /admin/cc/billing/status 401 without sign-in. Live FCM / live gateway tests: BLOCKED (no Firebase project values, no gateway account).
+| 2026-10-15 | 61f771b (main, PR #191) | 1101 passed | Flutter CI, APK CI, registry, result-contract, smokes, live-build verify: pass | 1326 (sha256 ce958249…9fc1, 72,572,929 B) | NOT TESTED |
+
+Production probe 2026-10-15 (after #191): /health healthy (61f771b); /health/integrations Razorpay = TEST_MODE_READY (key_kind test, read-only key check OK, checkout_ready true, webhook signing not set); /api/billing/options, /purchases/mine, /admin/cc/billing/status 401 without sign-in; forged pay links 404. Real Razorpay test payment on a phone: PENDING (owner).
