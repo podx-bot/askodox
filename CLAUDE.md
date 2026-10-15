@@ -7,7 +7,8 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `3e887b4` -- PR #193 merged 2026-10-15 and deployed (Railway ddefa65f; /health healthy on 3e887b4;
+- `main` @ `8760fea` -- PR #195 (billing testers match by the last 10 phone digits) merged + deployed 2026-10-15
+  (/health healthy on 8760fea; backend only, APK 1327 stays current). Before it: PR #193 (Railway ddefa65f;
   Razorpay row TEST_MODE_READY, key check OK, webhook signing set, invalid webhook signature -> 401; 0 verified
   webhook deliveries so far). One gateway state (`payment_gateway_health`), API Health Razorpay row + Check with
   gateway, readiness TEST_MODE_VERIFIED, TEST purchases -> TEST_PAID (no entitlement). Release APK 1327 from main
