@@ -7,7 +7,10 @@ import 'package:podx/features/plans/data/plans_repository.dart';
 import 'package:podx/features/plans/presentation/plans_screen.dart';
 
 class _Api implements ApiClient {
+  _Api({this.payable = false});
+  final bool payable;
   final posts = <Object?>[];
+  String purchaseStatus = 'PENDING';
 
   @override
   Future<ApiResult<T>> get<T>(String path, {ApiRequestOptions options = const ApiRequestOptions()}) async {
@@ -20,12 +23,32 @@ class _Api implements ApiClient {
         ],
       } as T);
     }
+    if (path == '/api/billing/options' && payable) {
+      return ApiSuccess(<String, Object?>{
+        'provider': 'razorpay',
+        'mode': 'test',
+        'items': [
+          {'plan_code': 'plus', 'payable': true},
+          {'plan_code': 'pro', 'payable': false, 'reason': 'TEST_MODE_TESTERS_ONLY'},
+        ],
+      } as T);
+    }
+    if (path == '/api/billing/purchases/bp_1') {
+      return ApiSuccess(<String, Object?>{'purchase': {'id': 'bp_1', 'status': purchaseStatus}} as T);
+    }
     return ApiSuccess(<String, Object?>{'subscription': null} as T);
   }
 
   @override
   Future<ApiResult<T>> post<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) async {
     posts.add(body);
+    if (path == '/api/billing/checkout') {
+      return ApiSuccess(<String, Object?>{
+        'purchase_id': 'bp_1',
+        'pay_url': 'https://example.test/billing/pay/bp_1?t=1.x',
+        'checkout': {'provider': 'razorpay'},
+      } as T);
+    }
     return ApiSuccess(<String, Object?>{'subscription': {'plan_code': 'free', 'status': 'ACTIVE'}} as T);
   }
 
@@ -54,5 +77,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.posts.single, {'plan_code': 'free'});
     expect(find.text('Plan updated.'), findsOneWidget);
+  });
+
+  testWidgets('TEST mode: Pay only where the server allows it; sends only the plan code; status comes from the server',
+      (tester) async {
+    final api = _Api(payable: true);
+    final opened = <Uri>[];
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        plansRepositoryProvider.overrideWithValue(PlansRepository(api, authToken: 't')),
+        askodoxPayLauncherProvider.overrideWithValue((url) async {
+          opened.add(url);
+          return true;
+        }),
+      ],
+      child: const MaterialApp(home: AskodoxPlansScreen()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxPlanPay-plus')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxPlanPay-pro')), findsNothing, reason: 'server said not payable');
+    expect(find.byKey(const Key('askodoxPlansTestMode')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('askodoxPlanPay-plus')));
+    await tester.pumpAndSettle();
+    expect(api.posts.single, {'plan_code': 'plus'}, reason: 'never an amount from the app');
+    expect(opened.single.path, '/billing/pay/bp_1');
+    await tester.tap(find.byKey(const Key('askodoxPayCheck')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Not confirmed yet'), findsOneWidget);
+    api.purchaseStatus = 'ACTIVE';
+    await tester.tap(find.byKey(const Key('askodoxPayCheck')));
+    await tester.pumpAndSettle();
+    expect(find.text('Paid. Your plan is active.'), findsOneWidget);
   });
 }

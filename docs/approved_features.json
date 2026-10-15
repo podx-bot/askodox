@@ -491,6 +491,21 @@
       "tests": {"backend": ["tests/test_push_admin.py", "tests/test_delivery_jobs.py"], "flutter": ["test/services/push_registration_test.dart"]},
       "dependencies": ["push_readiness_and_test_send"], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
+    },
+    {
+      "id": "razorpay_test_mode_checkout",
+      "name": "Razorpay TEST mode: hosted checkout, verification, reconciliation, audit",
+      "purpose": "Let billing testers pay for approved plans with Razorpay TEST keys from the deployment variables, with no real money and no client-trusted amount or success.",
+      "expected_behavior": "RAZORPAY_KEY_ID (rzp_test_) + RAZORPAY_KEY_SECRET alone enable Razorpay in TEST mode (staff settings override; webhook secret optional); GET /api/billing/options lists what the server lets this user pay for; checkout returns pay_url -> GET /billing/pay/{id}?t= (30-minute purchase-bound token) opening Razorpay Standard Checkout with server amount / order / key; success verified by HMAC signature bound to the purchase's own order; closing = CANCELLED; failed attempts keep the order PENDING (retry); a later capture still activates; webhooks need the right amount + currency and are deduplicated; open purchases are read back from Razorpay (GET only, never refunds or captures) and expire after 24 h; refunds only by staff with confirmation, status read back; every step in billing_events; Radio billing behind billing.radio_checkout (OFF); live keys LIVE_MODE_LOCKED; /health/integrations Razorpay row is secret-free.",
+      "roles": ["buyer", "admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/billing/options"}, {"method": "GET", "path": "/billing/pay/{purchase_id}"},
+              {"method": "POST", "path": "/api/billing/pay/{purchase_id}/verify"}, {"method": "POST", "path": "/api/billing/pay/{purchase_id}/cancel"},
+              {"method": "GET", "path": "/api/billing/purchases/{purchase_id}"}, {"method": "POST", "path": "/admin/cc/billing/purchases/{purchase_id}/reconcile"}],
+      "ui": {"keys": ["askodoxPlansTestMode", "askodoxPayCheck", "askodoxPayStatusText"], "symbols": ["askodoxPayLauncherProvider", "AskodoxCheckoutStart"]},
+      "flags": {"billing.radio_checkout": false, "billing.live_pricing": false},
+      "tests": {"backend": ["tests/test_razorpay_test_mode.py", "tests/test_billing.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
+      "dependencies": ["subscription_radio_billing", "payment_gateways_sandbox_and_live_lock"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/razorpay-test-mode)"}]
     }
   ]
 }

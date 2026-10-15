@@ -1686,9 +1686,16 @@ async def payment_webhook(provider: str, request: Request) -> dict:
             raise HTTPException(status_code=401, detail=str(error)) from None
         except Exception as error:
             raise _err(error) from None
-        if result.get("payment"):
+        if result.get("attempt_failed") or result.get("mismatch"):
+            from app.services import billing
+
+            billing.note_gateway_event(pf.container, result["payment"],
+                                       "attempt_failed" if result.get("attempt_failed") else "amount_mismatch",
+                                       actor="webhook:razorpay", detail={"reason": result.get("reason") or ""})
+        elif result.get("payment"):
             pf.sync_order(result["payment"])
         return {"ok": True, "duplicate": bool(result.get("duplicate")), "ignored": bool(result.get("ignored")),
+                "attempt_failed": bool(result.get("attempt_failed")), "mismatch": bool(result.get("mismatch")),
                 "status": (result.get("payment") or {}).get("status")}
     if provider == "cashfree" and request.headers.get("x-webhook-signature"):
         # Cashfree's own signed webhook format (Developers -> Webhooks -> this URL).

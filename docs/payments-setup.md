@@ -1,6 +1,9 @@
 # Payments: gateway setup, TEST mode and Live approval
 
-Status (2026-10-14): **code ready, no gateway configured**. Nothing charges real money. Live mode is locked.
+Status (2026-10-15): **Razorpay TEST keys are set as Railway variables** (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`).
+Razorpay runs in TEST mode for billing testers only. Nothing charges real money, and Live mode is locked.
+The public `/health/integrations` "Razorpay" row shows the state without any key: `TEST_MODE_READY` after
+Razorpay accepted the keys in a read-only check.
 
 ## What is built (one payment layer)
 - `commerce_finance.PaymentService`: one payment record per purchase, with an idempotency key and a strict state
@@ -67,7 +70,44 @@ ASKODOX works with either. If both are ready, `ASKODOX_PAYMENT_PROVIDER=razorpay
    - `billing.live_pricing` ON
    - plans on sale
 
-## App
-The app needs the gateway's checkout SDK (Razorpay Checkout / Cashfree SDK) added once a gateway is chosen.
-The server returns the checkout parameters (`/api/billing/checkout`), and Razorpay success is verified at
-`/api/billing/razorpay/verify`. Until a gateway exists, the Plans screen says payments are not available.
+## Razorpay TEST mode flow (2026-10-15)
+- **Keys from Railway only:** `RAZORPAY_KEY_ID` (`rzp_test_...`) + `RAZORPAY_KEY_SECRET` switch Razorpay on in
+  TEST mode until staff change it in the Command Center (staff settings win). `RAZORPAY_WEBHOOK_SECRET` is
+  optional. Without it, payments are confirmed by the checkout signature or by reading the order back from Razorpay.
+- **Who can pay:** `GET /api/billing/options` says, per plan, whether this user may pay now. In TEST mode that
+  means staff-chosen billing testers only.
+- **Radio stays off:** Travel Radio passes also need flag `billing.radio_checkout`, which is OFF.
+- **Checkout:**
+  - The app sends only the plan code to `POST /api/billing/checkout`. The server sets the price and creates the
+    Razorpay order (amount in paise).
+  - The server returns `pay_url`: `/billing/pay/{purchase}?t=...`, a 30-minute link bound to that one purchase,
+    redacted in access logs.
+  - The app opens the link in the browser. The page loads Razorpay Standard Checkout with the server's key,
+    order and amount.
+- **Success:** the checkout returns a signature. The server checks `HMAC_SHA256(key_secret, order_id|payment_id)`
+  AND that the order belongs to this purchase, then activates the plan once.
+- **Cancel:** closing the checkout marks the purchase `CANCELLED`. If Razorpay later reports a capture, the plan
+  still activates, because the money was taken.
+- **Failed attempt:** stays `PENDING`, because Razorpay allows a retry on the same order. The attempt is logged.
+- **Pending:**
+  - `GET /api/billing/purchases/{id}` (the app's "Check status") reads the order's payments back from Razorpay.
+    This is a GET only.
+  - A captured payment with the right amount becomes `ACTIVE`.
+  - A purchase with no capture after 24 h becomes `EXPIRED`.
+- **Webhooks** (when the secret is set): signature, event-id replay protection and amount / currency checks.
+  A wrong amount never pays.
+- **Refunds:**
+  - Only staff can refund, with confirmation (Command Center -> Billing -> Refund).
+  - "Check with gateway" reads refund status back. It never creates a refund or a capture.
+- **Audit:**
+  - `billing_events` records each step: who, what and when, never card / UPI data.
+  - Payment state history is in `pf_state_history`. Staff see both under "Check with gateway".
+
+## Phone test (TEST mode, no real money)
+1. Command Center -> Billing, gateways & push: Razorpay shows `TEST`, key `test`, enabled by `environment`.
+2. Add your app user id (`app-phone-91XXXXXXXXXX`) as a billing tester.
+3. App -> header menu -> "Plans & subscription": Plus shows **Pay (test)**. Tap it. The Razorpay page opens with "TEST MODE".
+4. Pay with a Razorpay test card or test UPI from Razorpay's test-payment docs, never a real card. Then go back
+   to the app and tap **Check status**. Expected: `ACTIVE`.
+5. Repeat and close the checkout: `CANCELLED`. Repeat and use a failing test card: stays `PENDING`, then retry.
+6. Refund (staff) -> **Check with gateway** -> `REFUNDED`, and the plan ends.

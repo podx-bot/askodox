@@ -35,7 +35,9 @@ MODES = ("test", "live", "mock")
 PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = {
     # payments
     "direct_settlement": ("payments", "Cash / direct UPI between parties", (), (), True),
-    "razorpay": ("payments", "Razorpay", ("key_secret", "webhook_secret"), ("key_id",), False),
+    # The webhook secret is optional: without it a payment is confirmed by the
+    # verified checkout signature or by reading the order back from Razorpay.
+    "razorpay": ("payments", "Razorpay", ("key_secret",), ("key_id",), False),
     # Cashfree signs webhooks with the client secret (API 2023-08-01), so no
     # separate webhook secret exists for it.
     "cashfree": ("payments", "Cashfree", ("client_secret",), ("client_id",), False),
@@ -71,7 +73,12 @@ PROVIDERS: Dict[str, tuple[str, str, tuple[str, ...], tuple[str, ...], bool]] = 
 # Optional settings per provider (not needed to be "configured").
 OPTIONAL_SECRETS: Dict[str, tuple[str, ...]] = {
     "whatsapp_cloud": ("app_secret",),  # verifies inbound webhook signatures
+    "razorpay": ("webhook_secret",),  # verifies Razorpay's signed webhooks
 }
+# Checkout gateways whose credentials may come from deployment variables alone:
+# until staff configure them in the Command Center, complete env credentials
+# switch them on in TEST mode (live keys stay locked, see live_credentials).
+ENV_ENABLED_GATEWAYS = frozenset({"razorpay", "cashfree"})
 OPTIONAL_CONFIG: Dict[str, tuple[str, ...]] = {
     "whatsapp_cloud": ("api_version", "template_name", "template_language"),
     "sms": ("vendor", "dlt_template_id", "account_sid"),
@@ -160,6 +167,18 @@ def live_credentials(provider: str, key_id: str) -> bool:
     if provider == "cashfree":
         return bool(key) and not key.upper().startswith("TEST")
     return False
+
+
+def key_kind(provider: str, key_id: Any) -> str:
+    """test / live / missing / unknown for a gateway's PUBLIC key id (never a secret)."""
+    key = str(key_id or "").strip()
+    if not key:
+        return "missing"
+    if provider == "razorpay":
+        return "test" if key.startswith("rzp_test_") else "live" if key.startswith("rzp_live_") else "unknown"
+    if provider == "cashfree":
+        return "test" if key.upper().startswith("TEST") else "live"
+    return "unknown"
 
 
 def is_production(env: Dict[str, str]) -> bool:
@@ -307,6 +326,10 @@ class IntegrationRegistry:
         enabled = bool(row.get("enabled"))
         if provider in ACTIVE_WHEN_CONFIGURED and not missing and mode != "mock":
             enabled, mode = True, "live"
+        env_enabled = (provider in ENV_ENABLED_GATEWAYS and not missing and not row.get("updated_by")
+                       and all(sources.get(n) == "environment" for n in secret_names + config_keys))
+        if env_enabled:
+            enabled = True  # deployment variables only, never touched by staff: TEST mode (row default)
         key_field = "key_id" if provider == "razorpay" else "client_id" if provider == "cashfree" else ""
         locked_live = (group == "payments" and not live_payments_approved(self.env) and
                        (mode == "live" or (key_field and live_credentials(
@@ -351,6 +374,7 @@ class IntegrationRegistry:
                 **({"quota": {"used_today": self.quota_used(provider), "daily_cap": self.quota_cap(provider)}}
                    if provider in self.QUOTA_CAPS else {}),
                 "env_vars": dict(ENV_SOURCES.get(provider, {})),
+                **({"enabled_by": "environment"} if env_enabled else {}),
                 "env_aliases": {k: list(v) for k, v in ENV_ALIASES.get(provider, {}).items()},
                 **({"live_approved": live_payments_approved(self.env), "live_locked": bool(locked_live)}
                    if group == "payments" else {}),
