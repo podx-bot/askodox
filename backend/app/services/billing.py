@@ -119,20 +119,40 @@ class BillingStore:
 
     # testers -----------------------------------------------------------
     def is_tester(self, user_id: str) -> bool:
+        """Exact id, or the same phone number however it was typed at sign-in:
+        the app id is "app-phone-<digits as typed>", so 9876543210 and
+        +91 98765 43210 are compared by their last 10 digits."""
+        key = phone_key(user_id)
         with self._connect() as conn:
-            return conn.execute("SELECT 1 FROM billing_testers WHERE user_id=?", (user_id,)).fetchone() is not None
+            if conn.execute("SELECT 1 FROM billing_testers WHERE user_id=?", (user_id,)).fetchone():
+                return True
+            if not key:
+                return False
+            return any(phone_key(r["user_id"]) == key for r in conn.execute("SELECT user_id FROM billing_testers"))
 
     def add_tester(self, user_id: str, added_by: str) -> None:
         with self._connect() as conn:
             conn.execute("INSERT OR IGNORE INTO billing_testers VALUES(?,?,?)", (user_id, added_by, _now()))
 
     def remove_tester(self, user_id: str) -> bool:
+        """Removes the id and every entry for the same phone number (access fully revoked)."""
+        key = phone_key(user_id)
         with self._connect() as conn:
-            return conn.execute("DELETE FROM billing_testers WHERE user_id=?", (user_id,)).rowcount > 0
+            ids = [r["user_id"] for r in conn.execute("SELECT user_id FROM billing_testers")
+                   if r["user_id"] == user_id or (key and phone_key(r["user_id"]) == key)]
+            for uid in ids:
+                conn.execute("DELETE FROM billing_testers WHERE user_id=?", (uid,))
+        return bool(ids)
 
     def testers(self) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             return [dict(r) for r in conn.execute("SELECT * FROM billing_testers ORDER BY created_at DESC")]
+
+
+def phone_key(user_id: str) -> str:
+    """Last 10 digits of a phone-based id ("" when there are fewer)."""
+    digits = "".join(ch for ch in str(user_id or "") if ch.isdigit())
+    return digits[-10:] if len(digits) >= 10 else ""
 
 
 def tester_user_id(raw: str) -> str:
