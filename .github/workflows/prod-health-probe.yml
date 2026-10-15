@@ -19,4 +19,8 @@ jobs:
           echo "::notice title=POST webhook (invalid signature)::HTTP $code $(head -c 200 b.txt)"
           curl -s "$B/health/integrations" -o i.txt
           python3 -c "import json;r=[i for i in json.load(open('i.txt'))['items'] if i['integration']=='Razorpay'];print('::notice title=Razorpay row::'+json.dumps(r))"
+          for p in /admin/cc/api-billing /admin/cc/platform/readiness /api/billing/options; do
+            code=$(curl -s -o b.txt -w '%{http_code}' "$B$p"); echo "::notice title=GET $p (no sign-in)::HTTP $code $(head -c 120 b.txt)"
+          done
+          code=$(curl -s -o b.txt -w '%{http_code}' -X POST "$B/admin/cc/api-billing/razorpay/check"); echo "::notice title=POST gateway check (no sign-in)::HTTP $code $(head -c 120 b.txt)"
           echo "::notice title=TLS::$(curl -sv -o /dev/null $B/health 2>&1 | grep -E 'SSL connection|subject:|expire date' | tr '\n' ' ')"
