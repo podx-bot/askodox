@@ -35,7 +35,9 @@ class AskodoxPlansState {
       this.payable = const {},
       this.paymentMode,
       this.payReasons = const {},
-      this.paymentNeedsSignIn = false});
+      this.paymentNeedsSignIn = false,
+      this.accountLast4 = '',
+      this.billingTester});
   final List<AskodoxPlan> plans;
   final String? currentPlan, currentStatus;
 
@@ -50,6 +52,11 @@ class AskodoxPlansState {
 
   /// The server refused the session for payment options (sign in again).
   final bool paymentNeedsSignIn;
+
+  /// Last 4 digits of the signed-in number and whether the SERVER counts it
+  /// as a billing tester (so the owner can compare with the Command Center).
+  final String accountLast4;
+  final bool? billingTester;
 }
 
 /// A started checkout: the hosted Razorpay page to open, or why not.
@@ -86,12 +93,19 @@ class PlansRepository {
     final reasons = <String, String>{};
     String? mode;
     var needsSignIn = false;
+    var last4 = '';
+    bool? tester;
     if (authToken != null && authToken!.isNotEmpty) {
       final opts = await _client.get<Map<String, Object?>>('/api/billing/options',
           options: ApiRequestOptions(authToken: authToken));
       switch (opts) {
         case ApiSuccess<Map<String, Object?>>(:final data):
           mode = data['mode'] as String?;
+          final account = data['account'];
+          if (account is Map) {
+            last4 = '${account['phone_last4'] ?? ''}';
+            tester = account['billing_tester'] == true;
+          }
           for (final i in (data['items'] as List?) ?? const []) {
             if (i is! Map) continue;
             if (i['payable'] == true) {
@@ -111,7 +125,9 @@ class PlansRepository {
         payable: payable,
         paymentMode: mode,
         payReasons: reasons,
-        paymentNeedsSignIn: needsSignIn);
+        paymentNeedsSignIn: needsSignIn,
+        accountLast4: last4,
+        billingTester: tester);
   }
 
   /// Starts a server-priced checkout (only the plan code is sent).

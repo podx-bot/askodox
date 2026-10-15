@@ -41,6 +41,7 @@ class _Api implements ApiClient {
           {'plan_code': 'plus', 'payable': false, 'reason': 'TEST_MODE_TESTERS_ONLY'},
           {'plan_code': 'pro', 'payable': false, 'reason': 'TEST_MODE_TESTERS_ONLY'},
         ],
+        'account': {'phone_last4': '3210', 'billing_tester': false},
       } as T);
     }
     if (path == '/api/billing/purchases/bp_1') {
@@ -107,6 +108,8 @@ void main() {
     expect(find.byKey(const ValueKey('askodoxPlanPay-plus')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPlanPay-pro')), findsNothing, reason: 'server said not payable');
     expect(find.byKey(const Key('askodoxPlansTestMode')), findsOneWidget);
+    expect(find.text('₹499 / 30 days · Test payment available'), findsOneWidget,
+        reason: 'a payable plan never says "Not available yet"');
     await tester.tap(find.byKey(const ValueKey('askodoxPlanPay-plus')));
     await tester.pumpAndSettle();
     expect(api.posts.single, {'plan_code': 'plus'}, reason: 'never an amount from the app');
@@ -129,5 +132,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('askodoxPlanPay-plus')), findsNothing);
     expect(find.textContaining('only billing testers'), findsOneWidget);
+    expect(find.textContaining('••••3210'), findsOneWidget, reason: 'masked number to compare with the tester list');
   });
 }

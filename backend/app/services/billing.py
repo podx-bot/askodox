@@ -40,6 +40,10 @@ from typing import Any, Dict, List, Optional
 
 from app.services.travel_radio import ADDON_AUDIENCE
 
+import logging
+
+_log = logging.getLogger("uvicorn.error")
+
 STATES = ("PENDING", "ACTIVE", "TEST_PAID", "FAILED", "REFUNDED", "CANCELLED", "EXPIRED")
 PAID_STATES = ("ACTIVE", "TEST_PAID")  # refundable
 OPEN_STATES = ("PENDING", "CANCELLED", "EXPIRED")  # a later gateway capture still activates these
@@ -265,7 +269,15 @@ def options(container: Any, user_id: str) -> Dict[str, Any]:
             reason = "RADIO_BILLING_OFF"
         items.append({"plan_code": plan["code"], "price": plan["price"], "payable": reason is None,
                       "reason": reason})
-    return {"provider": provider, "mode": mode, "items": items}
+    key = phone_key(user_id)
+    account = {"phone_last4": key[-4:] if key else "", "billing_tester": store(container).is_tester(user_id)}
+    # One masked line per check (never the full number): lets staff see in the
+    # deploy logs exactly why a tester has no Pay button.
+    _log.info("billing.options account=...%s tester=%s provider=%s mode=%s payable=%s reasons=%s",
+              account["phone_last4"] or "-", account["billing_tester"], provider, mode,
+              ",".join(i["plan_code"] for i in items if i["payable"]) or "-",
+              ",".join(sorted({str(i["reason"]) for i in items if i["reason"]})) or "-")
+    return {"provider": provider, "mode": mode, "items": items, "account": account}
 
 
 # ------------------------------------------------------------ pay link --
