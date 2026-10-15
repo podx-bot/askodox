@@ -43,6 +43,9 @@ def readiness(registry: fin.IntegrationRegistry, *, outbox: Any = None, repo: An
         live = [s for s in statuses if s["status"] == fin.STATUS_LIVE]
         configured = [s for s in statuses if s["status"] in (fin.STATUS_LIVE, fin.STATUS_TEST)]
         errors = [s for s in statuses if s["status"] == fin.STATUS_ERROR]
+        # A TEST (sandbox) gateway whose keys passed a real, read-only check:
+        # verified for TEST mode only -- never "LIVE".
+        test_verified = [s for s in statuses if s["status"] == fin.STATUS_TEST and s.get("last_check_ok") == 1]
         row: Dict[str, Any] = {
             "integration": name,
             "providers": [{"provider": s["provider"], "label": s["label"], "status": s["status"],
@@ -51,7 +54,8 @@ def readiness(registry: fin.IntegrationRegistry, *, outbox: Any = None, repo: An
                           for s in statuses],
             "backend_ready": True,
             "admin_control_ready": True,
-            "status": "LIVE" if live else ("CONFIGURED_NOT_VERIFIED" if configured else
+            "status": "LIVE" if live else ("TEST_MODE_VERIFIED" if kind == "payments" and test_verified else
+                                           "CONFIGURED_NOT_VERIFIED" if configured else
                                            ("ERROR" if errors else "NOT_CONFIGURED")),
             "real_credential_required": not live,
             "credentials": {s["provider"]: {"required": s["required"],
@@ -102,7 +106,7 @@ def readiness(registry: fin.IntegrationRegistry, *, outbox: Any = None, repo: An
     return rows
 
 
-HEALTH_STATES = ("LIVE", "CONFIGURED", "DEGRADED", "DISABLED", "NEEDS_CONFIGURATION", "CHECK_FAILED")
+HEALTH_STATES = ("LIVE", "TEST_VERIFIED", "CONFIGURED", "DEGRADED", "DISABLED", "NEEDS_CONFIGURATION", "CHECK_FAILED")
 
 
 def health(row: Dict[str, Any], statuses: List[Dict[str, Any]]) -> tuple:
@@ -128,6 +132,8 @@ def health(row: Dict[str, Any], statuses: List[Dict[str, Any]]) -> tuple:
             if quota.get("daily_cap") and quota.get("used_today", 0) >= 0.9 * quota["daily_cap"]:
                 return "DEGRADED", f"{s['label']} near its daily quota"
         return "LIVE", "a real check passed"
+    if row["status"] == "TEST_MODE_VERIFIED":
+        return "TEST_VERIFIED", "TEST keys accepted by the gateway (read-only check); no real money moves"
     return "CONFIGURED", "credentials present; run Check to verify"
 
 
@@ -136,14 +142,15 @@ def health(row: Dict[str, Any], statuses: List[Dict[str, Any]]) -> tuple:
 # LIVE / NOT_CONFIGURED / DEGRADED / ERROR / QUOTA_EXHAUSTED / DISABLED
 # (CONFIGURED_NOT_VERIFIED only until the first real check has run).
 INTEGRATION_STATES = ("LIVE", "NOT_CONFIGURED", "DEGRADED", "ERROR", "QUOTA_EXHAUSTED", "DISABLED",
-                      "CONFIGURED_NOT_VERIFIED")
+                      "CONFIGURED_NOT_VERIFIED", "TEST_MODE_VERIFIED")
 
 
 def integration_state(row: Dict[str, Any]) -> str:
     raw = str(row.get("status") or "").upper()
     if raw in ("QUOTA_EXHAUSTED",):
         return "QUOTA_EXHAUSTED"
-    return {"LIVE": "LIVE", "CONFIGURED": "CONFIGURED_NOT_VERIFIED", "DEGRADED": "DEGRADED",
+    return {"LIVE": "LIVE", "TEST_VERIFIED": "TEST_MODE_VERIFIED", "CONFIGURED": "CONFIGURED_NOT_VERIFIED",
+            "DEGRADED": "DEGRADED",
             "DISABLED": "DISABLED", "NEEDS_CONFIGURATION": "NOT_CONFIGURED", "CHECK_FAILED": "ERROR"}.get(
         str(row.get("health") or ""), "ERROR")
 

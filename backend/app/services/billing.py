@@ -16,7 +16,12 @@ Who may buy:
 - Travel Radio passes additionally need flag billing.radio_checkout (default
   OFF), so Radio billing stays off even for testers until the Owner approves.
 
-Purchase states: PENDING (order created) -> ACTIVE (gateway-confirmed PAID) /
+TEST-mode purchases never create a real entitlement: a gateway-confirmed PAID
+on a TEST purchase becomes TEST_PAID (proves the payment flow) and no plan or
+pass is activated. Only a LIVE purchase (after every Owner approval) activates.
+
+Purchase states: PENDING (order created) -> ACTIVE (LIVE: gateway-confirmed PAID) /
+TEST_PAID (TEST: confirmed, nothing activated) /
 FAILED / CANCELLED (customer closed the checkout) / EXPIRED (no payment after
 PENDING_TTL_HOURS) -> REFUNDED. A capture that Razorpay reports later still
 activates a CANCELLED / EXPIRED purchase (the money was taken). Every step is
@@ -35,7 +40,8 @@ from typing import Any, Dict, List, Optional
 
 from app.services.travel_radio import ADDON_AUDIENCE
 
-STATES = ("PENDING", "ACTIVE", "FAILED", "REFUNDED", "CANCELLED", "EXPIRED")
+STATES = ("PENDING", "ACTIVE", "TEST_PAID", "FAILED", "REFUNDED", "CANCELLED", "EXPIRED")
+PAID_STATES = ("ACTIVE", "TEST_PAID")  # refundable
 OPEN_STATES = ("PENDING", "CANCELLED", "EXPIRED")  # a later gateway capture still activates these
 PENDING_TTL_HOURS = 24
 PAY_LINK_TTL_SECONDS = 30 * 60
@@ -127,6 +133,21 @@ class BillingStore:
     def testers(self) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             return [dict(r) for r in conn.execute("SELECT * FROM billing_testers ORDER BY created_at DESC")]
+
+
+def tester_user_id(raw: str) -> str:
+    """Staff may type the tester's phone number: 10 digits / +91... -> the app
+    user id "app-phone-91XXXXXXXXXX" (see lib/core/auth/auth_controller.dart).
+    Anything else is kept as typed."""
+    text = str(raw or "").strip()
+    if text.lower().startswith("app-"):
+        return text
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if len(digits) == 10:
+        return "app-phone-91" + digits
+    if len(digits) == 12 and digits.startswith("91"):
+        return "app-phone-" + digits
+    return text
 
 
 def store(container: Any) -> BillingStore:
@@ -281,7 +302,7 @@ def refresh(container: Any, purchase_id: str, *, actor: str = "system") -> Dict[
     pf = platform(container)
     gateway = None
     payment = pf.repo.payment(purchase["payment_id"])
-    if payment and purchase["provider"] == "razorpay" and purchase["status"] in (*OPEN_STATES, "ACTIVE"):
+    if payment and purchase["provider"] == "razorpay" and purchase["status"] in (*OPEN_STATES, *PAID_STATES):
         try:
             gateway = pf.razorpay.reconcile(payment)
         except Exception as error:  # a gateway outage leaves the state as it is
@@ -314,7 +335,12 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
         return None
     status = payment.get("status")
     plan = growth(container).plan(purchase["plan_code"]) or {"code": purchase["plan_code"]}
-    if status == "PAID" and purchase["status"] in OPEN_STATES:
+    if status == "PAID" and purchase["status"] in OPEN_STATES and purchase.get("mode") != "live":
+        # TEST (sandbox) money: the flow is proven, but no real entitlement is created.
+        purchase = store(container).update(purchase["id"], status="TEST_PAID")
+        store(container).log(purchase["id"], "test_paid_no_entitlement", "gateway", {"payment_id": payment["id"]})
+        _notify(container, purchase, "test_paid")
+    elif status == "PAID" and purchase["status"] in OPEN_STATES:
         if purchase["kind"] == "radio":
             target = radio(container).activate_paid(purchase["user_id"], plan, payment_id=payment["id"])
         else:
@@ -325,8 +351,8 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
     elif status == "FAILED" and purchase["status"] == "PENDING":
         purchase = store(container).update(purchase["id"], status="FAILED")
         store(container).log(purchase["id"], "payment_failed", "gateway")
-    elif status == "REFUNDED" and purchase["status"] == "ACTIVE":
-        if purchase.get("target_id"):
+    elif status == "REFUNDED" and purchase["status"] in PAID_STATES:
+        if purchase.get("target_id") and purchase["status"] == "ACTIVE":
             if purchase["kind"] == "radio":
                 radio(container).cancel_pass(int(purchase["target_id"]))
             else:
@@ -342,7 +368,9 @@ def _notify(container: Any, purchase: Dict[str, Any], what: str) -> None:
         from app.api.routes.platform import platform
 
         name = "Travel Radio pass" if purchase["kind"] == "radio" else "plan"
-        body = (f"Your {name} is active." if what == "activated" else f"Your {name} payment was refunded.")
+        body = (f"Your {name} is active." if what == "activated"
+                else f"Test payment for the {name} confirmed (TEST mode: nothing was activated)."
+                if what == "test_paid" else f"Your {name} payment was refunded.")
         platform(container).push().notify_async(purchase["user_id"], title="ASKODOX", body=body,
                                                 route="/radio" if purchase["kind"] == "radio" else "/plans",
                                                 event_key=f"billing:{purchase['id']}:{what}")

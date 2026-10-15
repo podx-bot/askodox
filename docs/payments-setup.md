@@ -103,11 +103,29 @@ ASKODOX works with either. If both are ready, `ASKODOX_PAYMENT_PROVIDER=razorpay
   - `billing_events` records each step: who, what and when, never card / UPI data.
   - Payment state history is in `pf_state_history`. Staff see both under "Check with gateway".
 
+## TEST money never creates a real entitlement (2026-10-15)
+A gateway-confirmed TEST payment becomes `TEST_PAID`. It proves the flow: order, checkout, signature or webhook,
+idempotency and refund. No plan, subscription or Radio pass is activated. Only a LIVE purchase activates a plan
+(`ACTIVE`), and that is possible only after every Owner approval.
+
+## One gateway state everywhere
+`payment_gateway_health.check` answers for every screen: the public `/health/integrations`, Integration readiness
+(`TEST_MODE_VERIFIED`), API Health & Billing (Razorpay row) and Billing.
+- **Key check:** Razorpay's own answer to an authenticated read-only call (`GET /v1/payments?count=1`), cached for
+  15 minutes.
+- **Check with gateway:** under API Health & Billing -> Razorpay, `POST /admin/cc/api-billing/razorpay/check`
+  forces a fresh check at most once a minute. It is audited and never creates, captures or refunds anything.
+- **Webhook evidence:** counts signature-verified events stored in `pf_payment_events`, and rejected signatures
+  since the last deploy.
+- **Failed checks:** only a Razorpay 401 marks the keys as failed, which turns checkout off. A network blip changes
+  nothing.
+
 ## Phone test (TEST mode, no real money)
 1. Command Center -> Billing, gateways & push: Razorpay shows `TEST`, key `test`, enabled by `environment`.
-2. Add your app user id (`app-phone-91XXXXXXXXXX`) as a billing tester.
+2. Add yourself as a billing tester: your phone number (`98XXXXXXXX`) or app user id. Without this, the app shows
+   "Payments are in TEST mode: only billing testers chosen by staff can pay" and no Pay button.
 3. App -> header menu -> "Plans & subscription": Plus shows **Pay (test)**. Tap it. The Razorpay page opens with "TEST MODE".
 4. Pay with a Razorpay test card or test UPI from Razorpay's test-payment docs, never a real card. Then go back
    to the app and tap **Check status**. Expected: `ACTIVE`.
 5. Repeat and close the checkout: `CANCELLED`. Repeat and use a failing test card: stays `PENDING`, then retry.
-6. Refund (staff) -> **Check with gateway** -> `REFUNDED`, and the plan ends.
+6. Refund (staff) -> **Check with gateway** -> `REFUNDED`.

@@ -7,8 +7,8 @@ import 'package:podx/features/plans/data/plans_repository.dart';
 import 'package:podx/features/plans/presentation/plans_screen.dart';
 
 class _Api implements ApiClient {
-  _Api({this.payable = false});
-  final bool payable;
+  _Api({this.payable = false, this.testersOnly = false});
+  final bool payable, testersOnly;
   final posts = <Object?>[];
   String purchaseStatus = 'PENDING';
 
@@ -29,6 +29,16 @@ class _Api implements ApiClient {
         'mode': 'test',
         'items': [
           {'plan_code': 'plus', 'payable': true},
+          {'plan_code': 'pro', 'payable': false, 'reason': 'TEST_MODE_TESTERS_ONLY'},
+        ],
+      } as T);
+    }
+    if (path == '/api/billing/options' && testersOnly) {
+      return ApiSuccess(<String, Object?>{
+        'provider': 'razorpay',
+        'mode': 'test',
+        'items': [
+          {'plan_code': 'plus', 'payable': false, 'reason': 'TEST_MODE_TESTERS_ONLY'},
           {'plan_code': 'pro', 'payable': false, 'reason': 'TEST_MODE_TESTERS_ONLY'},
         ],
       } as T);
@@ -104,9 +114,20 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxPayCheck')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Not confirmed yet'), findsOneWidget);
-    api.purchaseStatus = 'ACTIVE';
+    api.purchaseStatus = 'TEST_PAID';
     await tester.tap(find.byKey(const Key('askodoxPayCheck')));
     await tester.pumpAndSettle();
-    expect(find.text('Paid. Your plan is active.'), findsOneWidget);
+    expect(find.text('Test payment confirmed. TEST mode: no plan was activated.'), findsOneWidget);
+  });
+
+  testWidgets('Not a billing tester: no Pay button, and the server\'s reason is shown', (tester) async {
+    final api = _Api(testersOnly: true);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [plansRepositoryProvider.overrideWithValue(PlansRepository(api, authToken: 't'))],
+      child: const MaterialApp(home: AskodoxPlansScreen()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxPlanPay-plus')), findsNothing);
+    expect(find.textContaining('only billing testers'), findsOneWidget);
   });
 }

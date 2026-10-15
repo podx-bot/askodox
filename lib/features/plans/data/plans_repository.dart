@@ -29,7 +29,13 @@ class AskodoxPlan {
 
 class AskodoxPlansState {
   const AskodoxPlansState(
-      {required this.plans, this.currentPlan, this.currentStatus, this.payable = const {}, this.paymentMode});
+      {required this.plans,
+      this.currentPlan,
+      this.currentStatus,
+      this.payable = const {},
+      this.paymentMode,
+      this.payReasons = const {},
+      this.paymentNeedsSignIn = false});
   final List<AskodoxPlan> plans;
   final String? currentPlan, currentStatus;
 
@@ -38,6 +44,12 @@ class AskodoxPlansState {
 
   /// 'test' (sandbox, no real money) or 'live'; null when no gateway is ready.
   final String? paymentMode;
+
+  /// Why the server will not take payment for a plan (e.g. TEST_MODE_TESTERS_ONLY).
+  final Map<String, String> payReasons;
+
+  /// The server refused the session for payment options (sign in again).
+  final bool paymentNeedsSignIn;
 }
 
 /// A started checkout: the hosted Razorpay page to open, or why not.
@@ -71,19 +83,35 @@ class PlansRepository {
       }
     }
     final payable = <String>{};
+    final reasons = <String, String>{};
     String? mode;
+    var needsSignIn = false;
     if (authToken != null && authToken!.isNotEmpty) {
       final opts = await _client.get<Map<String, Object?>>('/api/billing/options',
           options: ApiRequestOptions(authToken: authToken));
-      if (opts case ApiSuccess<Map<String, Object?>>(:final data)) {
-        mode = data['mode'] as String?;
-        for (final i in (data['items'] as List?) ?? const []) {
-          if (i is Map && i['payable'] == true) payable.add('${i['plan_code']}');
-        }
+      switch (opts) {
+        case ApiSuccess<Map<String, Object?>>(:final data):
+          mode = data['mode'] as String?;
+          for (final i in (data['items'] as List?) ?? const []) {
+            if (i is! Map) continue;
+            if (i['payable'] == true) {
+              payable.add('${i['plan_code']}');
+            } else if (i['reason'] != null) {
+              reasons['${i['plan_code']}'] = '${i['reason']}';
+            }
+          }
+        case ApiError<Map<String, Object?>>(:final failure):
+          needsSignIn = failure.statusCode == 401;
       }
     }
     return AskodoxPlansState(
-        plans: plans, currentPlan: plan, currentStatus: status, payable: payable, paymentMode: mode);
+        plans: plans,
+        currentPlan: plan,
+        currentStatus: status,
+        payable: payable,
+        paymentMode: mode,
+        payReasons: reasons,
+        paymentNeedsSignIn: needsSignIn);
   }
 
   /// Starts a server-priced checkout (only the plan code is sent).

@@ -153,18 +153,18 @@ def test_env_keys_enable_test_mode_and_the_hosted_checkout_pays_on_a_verified_si
 
     good = {"t": token, "razorpay_order_id": order_id, "razorpay_payment_id": "pay_A1",
             "razorpay_signature": _sig(order_id, "pay_A1")}
-    assert client.post(f"/api/billing/pay/{pid}/verify", json=good).json()["purchase"]["status"] == "ACTIVE"
-    assert client.post(f"/api/billing/pay/{pid}/verify", json=good).json()["purchase"]["status"] == "ACTIVE"
+    assert client.post(f"/api/billing/pay/{pid}/verify", json=good).json()["purchase"]["status"] == "TEST_PAID"
+    assert client.post(f"/api/billing/pay/{pid}/verify", json=good).json()["purchase"]["status"] == "TEST_PAID"
     from app.api.routes.growth import growth
 
     subs = [s for s in growth(container).subscriptions() if s["user_id"] == uid]
-    assert len(subs) == 1 and subs[0]["status"] == "ACTIVE" and subs[0]["plan_code"] == "plus", \
-        "a replayed verify never activates twice"
+    assert subs == [], "TEST money never creates a real paid entitlement (and replays change nothing)"
     detail = client.get(f"/admin/cc/billing/purchases/{pid}", headers=OWNER).json()
     events = [e["event"] for e in detail["events"]]
-    assert events[0] == "checkout_started" and events.count("verify_rejected") == 2 and "activated" in events
+    assert events[0] == "checkout_started" and events.count("verify_rejected") == 2
+    assert events.count("test_paid_no_entitlement") == 1 and "activated" not in events
     assert "4111" not in json.dumps(detail) and "cvv" not in json.dumps(detail).lower()
-    assert [i["status"] for i in client.get("/api/billing/purchases/mine", headers=me).json()["items"]] == ["ACTIVE"]
+    assert [i["status"] for i in client.get("/api/billing/purchases/mine", headers=me).json()["items"]] == ["TEST_PAID"]
 
 
 def test_cancel_then_late_capture_still_activates_and_duplicates_change_nothing(env, monkeypatch):
@@ -185,7 +185,7 @@ def test_cancel_then_late_capture_still_activates_and_duplicates_change_nothing(
     assert wrong["mismatch"] is True and wrong["status"] == "PENDING"
     ok = _webhook(client, _captured(order_id, "pay_C1", 49900), "evt_c1").json()
     assert ok["status"] == "PAID"
-    assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "ACTIVE", \
+    assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "TEST_PAID", \
         "money taken after the checkout was closed is honoured"
     again = _webhook(client, _captured(order_id, "pay_C1", 49900), "evt_c1").json()
     assert again["duplicate"] is True
@@ -197,7 +197,7 @@ def test_cancel_then_late_capture_still_activates_and_duplicates_change_nothing(
     assert client.post("/api/payments/webhook/razorpay", content=body,
                        headers={"x-razorpay-signature": "f" * 64}).status_code == 401
     events = [e["event"] for e in client.get(f"/admin/cc/billing/purchases/{pid}", headers=OWNER).json()["events"]]
-    assert events.count("activated") == 1 and "checkout_closed" in events
+    assert events.count("test_paid_no_entitlement") == 1 and "checkout_closed" in events
     assert "attempt_failed" in events and "amount_mismatch" in events
 
 
@@ -211,7 +211,7 @@ def test_pending_is_read_back_from_razorpay_expires_and_refunds_are_only_read(en
     assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "PENDING"
     rzp.attempts[order_id] = [{"id": "pay_P0", "status": "failed", "amount": 49900, "currency": "INR"},
                               {"id": "pay_P1", "status": "captured", "amount": 49900, "currency": "INR"}]
-    assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "ACTIVE"
+    assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "TEST_PAID"
 
     # Refund status: read back only. Reconciliation never POSTs to Razorpay.
     posts_before = [c for c in rzp.calls if c[0] == "POST"]
@@ -270,3 +270,85 @@ def test_staff_configuration_overrides_the_environment(env):
     uid, me = _tester(client, container)
     assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).json()["detail"] == \
         "NO_PAYMENT_GATEWAY"
+
+
+def test_gateway_check_is_read_only_shared_and_verifies_readiness(env, monkeypatch):
+    client, container, rzp = env
+    assert client.post("/admin/cc/api-billing/razorpay/check").status_code in (401, 403)
+    posts = len([c for c in rzp.calls if c[0] == "POST"])
+    out = client.post("/admin/cc/api-billing/razorpay/check", headers=OWNER).json()
+    assert out["state"] == "TEST_MODE_VERIFIED" and out["key_check"] == "OK" and out["key_kind"] == "test"
+    assert out["checkout_ready"] is True and out["webhook_signing"] == "not set"
+    assert len([c for c in rzp.calls if c[0] == "POST"]) == posts, "the check never creates anything"
+    gets = [c for c in rzp.calls if c[0] == "GET" and c[1].endswith("/payments")]
+    assert gets and gets[-1][2]["params"] == {"count": 1}
+    text = json.dumps(out)
+    assert KEY_SECRET not in text and KEY_ID not in text
+    again = client.post("/admin/cc/api-billing/razorpay/check", headers=OWNER).json()
+    assert len([c for c in rzp.calls if c[0] == "GET" and c[1].endswith("/payments")]) == len(gets), \
+        "at most one fresh call per minute"
+    assert again["state"] == "TEST_MODE_VERIFIED"
+    # The same state on API Health & Billing and Integration readiness (no more "not verified").
+    row = {p["provider"]: p for p in client.get("/admin/cc/api-billing", headers=OWNER).json()["providers"]}["razorpay"]
+    assert row["state"] == "TEST_MODE_VERIFIED" and row["gateway"]["key_check"] == "OK"
+    assert row["failure_type"] is None and KEY_SECRET not in json.dumps(row)
+    items = client.get("/admin/cc/platform/readiness", headers=OWNER).json()["items"]
+    pay = {i["integration"]: i for i in items}["Payment gateway"]
+    assert pay["status"] == "TEST_MODE_VERIFIED" and pay["health"] == "TEST_VERIFIED"
+    # Recording the check keeps the env-enabled gateway usable.
+    uid, me = _tester(client, container)
+    assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).status_code == 200
+
+
+def test_rejected_keys_switch_checkout_off_and_show_credential_error(env):
+    client, container, rzp = env
+    rzp.key_ok = False
+    out = client.post("/admin/cc/api-billing/razorpay/check", headers=OWNER).json()
+    assert out["state"] == "CREDENTIAL_ERROR" and out["checkout_ready"] is False
+    uid, me = _tester(client, container)
+    assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).json()["detail"] == \
+        "NO_PAYMENT_GATEWAY", "keys Razorpay refused never start a checkout"
+
+
+def test_webhook_evidence_counts_verified_and_rejected_deliveries(env, monkeypatch):
+    client, container, _ = env
+    monkeypatch.setenv("RAZORPAY_WEBHOOK_SECRET", WH_SECRET)
+    container.platform = None
+    from app.services import payment_gateway_health as gh
+
+    before = gh.WEBHOOK_REJECTIONS["count"]
+    uid, me = _tester(client, container)
+    out, _ = _buy(client, me)
+    order_id = out["checkout"]["order_id"]
+    body = json.dumps(_captured(order_id, "pay_E1", 49900)).encode()
+    assert client.post("/api/payments/webhook/razorpay", content=body,
+                       headers={"x-razorpay-signature": "a" * 64}).status_code == 401
+    assert _webhook(client, _captured(order_id, "pay_E1", 49900), "evt_e1").json()["status"] == "PAID"
+    g = gh.check(container)
+    assert g["webhook_signing"] == "set" and g["webhooks"]["verified_events"] == 1
+    assert g["webhooks"]["last_verified_at"] and g["webhooks"]["rejected_signatures_since_deploy"] == before + 1
+    rows = {r["integration"]: r for r in client.get("/health/integrations").json()["items"]}
+    assert rows["Razorpay"]["webhook_events_verified"] == 1 and rows["Razorpay"]["webhook_signing"] == "set"
+
+
+def test_only_a_live_purchase_activates_and_testers_can_be_added_by_phone(env):
+    client, container, _ = env
+    from app.api.routes.growth import growth
+    from app.services import billing
+
+    r = client.post("/admin/cc/billing/testers", headers=OWNER, json={"user_id": "+91 98765 43210"})
+    assert r.json()["user_id"] == "app-phone-919876543210"
+    assert billing.tester_user_id("9876543210") == "app-phone-919876543210"
+    assert billing.tester_user_id("app-phone-919876543210") == "app-phone-919876543210"
+    # A LIVE purchase (only possible after every Owner approval) is the one path that activates.
+    uid = "app-phone-91" + str(uuid.uuid4().int)[:10]
+    live = billing.store(container).create(user_id=uid, plan_code="plus", kind="base", amount=499.0,
+                                           provider="razorpay", mode="live", status="PENDING")
+    test = billing.store(container).create(user_id=uid, plan_code="plus", kind="base", amount=499.0,
+                                           provider="razorpay", mode="test", status="PENDING")
+    assert billing.on_payment(container, {"id": "pay_T", "status": "PAID",
+                                          "order_ref": f"billing:{test['id']}"})["status"] == "TEST_PAID"
+    assert growth(container).current_subscription(uid) is None
+    assert billing.on_payment(container, {"id": "pay_L", "status": "PAID",
+                                          "order_ref": f"billing:{live['id']}"})["status"] == "ACTIVE"
+    assert growth(container).current_subscription(uid)["plan_code"] == "plus"

@@ -179,53 +179,24 @@ def integrations_health(request: Request) -> dict:
     return {"items": rows}
 
 
-_RZP_HEALTH: dict = {}
-RZP_HEALTH_TTL = 900.0
+from app.services import payment_gateway_health as _gateway_health
+
+_RZP_HEALTH = _gateway_health._CACHE  # one shared cache (tests clear it)
 
 
 def _razorpay_health(container: Any) -> dict:
-    """Secret-free Razorpay row: configured or not, TEST / LIVE key kind (never
-    the key), webhook secret present or not, and a cached read-only key check
-    (GET /v1/payments?count=1) -- live keys are never probed while locked."""
-    import time as _t
-
-    from app.api.routes.platform import platform
-    from app.services import comms
-    from app.services import commerce_finance as fin
-
-    row = {"integration": "Razorpay", "state": "NOT_CONFIGURED", "reason": ""}
+    """Secret-free Razorpay row (same state as the Command Center screens)."""
     try:
-        reg = platform(container).registry
-        st = reg.status("razorpay")
-        kind = fin.key_kind("razorpay", reg.config_value("razorpay", "key_id"))
-        row.update(mode=st["mode"], key_kind=kind, webhook_signing="set" if "webhook_secret" in st["secrets_set"]
-                   else "not set", enabled_by=st.get("enabled_by") or ("command_center" if st["enabled"] else ""))
-        if st["missing"]:
-            row["reason"] = "Razorpay API keys are not set in the deployment"
-            return row
-        if st.get("live_locked"):
-            row.update(state="LIVE_MODE_LOCKED", reason="live key without the Owner's approval: takes no payment")
-            return row
-        if st["status"] not in (fin.STATUS_TEST, fin.STATUS_LIVE):
-            row.update(state=st["status"], reason="gateway not enabled")
-            return row
-        now = _t.monotonic()
-        if _RZP_HEALTH.get("until", 0) < now:
-            http = getattr(container, "comms_http", None) or comms.default_http
-            try:
-                ok, _detail = comms.probe_razorpay(reg, http)
-            except Exception:
-                ok = False
-            _RZP_HEALTH.update(until=now + RZP_HEALTH_TTL, ok=ok)
-        ok = bool(_RZP_HEALTH.get("ok"))
-        from app.api.routes.command_center import feature_enabled
-
-        row["checkout_ready"] = bool(ok and feature_enabled(container, "payments.online")
-                                     and platform(container).checkout_provider() == "razorpay")
-        row.update(state=("TEST_MODE_READY" if kind == "test" else "CONFIGURED") if ok else "KEY_CHECK_FAILED",
-                   key_check="OK" if ok else "FAILED",
-                   reason="keys accepted by Razorpay (read-only check); no real-money payment possible in TEST mode"
-                   if ok and kind == "test" else "" if ok else "Razorpay did not accept the keys")
+        g = _gateway_health.check(container)
     except Exception as error:
-        row.update(state="ERROR", reason=type(error).__name__)
+        return {"integration": "Razorpay", "state": "ERROR", "reason": type(error).__name__}
+    state = {"TEST_MODE_VERIFIED": "TEST_MODE_READY", "CHECK_FAILED": "KEY_CHECK_FAILED",
+             "CREDENTIAL_ERROR": "KEY_CHECK_FAILED", "NEEDS_CONFIGURATION": "NOT_CONFIGURED"}.get(g["state"], g["state"])
+    row = {"integration": "Razorpay", "state": state, "reason": g["reason"], "mode": g["mode"],
+           "key_kind": g["key_kind"], "webhook_signing": g["webhook_signing"], "enabled_by": g["enabled_by"],
+           "checkout_ready": g["checkout_ready"],
+           "webhook_events_verified": g["webhooks"]["verified_events"],
+           "webhook_last_verified_at": g["webhooks"]["last_verified_at"]}
+    if g["key_check"] != "NOT_RUN":
+        row["key_check"] = g["key_check"]
     return row

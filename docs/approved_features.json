@@ -506,6 +506,19 @@
       "tests": {"backend": ["tests/test_razorpay_test_mode.py", "tests/test_billing.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
       "dependencies": ["subscription_radio_billing", "payment_gateways_sandbox_and_live_lock"], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/razorpay-test-mode)"}]
+    },
+    {
+      "id": "razorpay_gateway_health_and_test_entitlements",
+      "name": "One Razorpay gateway state (read-only key check, webhook evidence) + TEST payments never entitle",
+      "purpose": "Every admin screen tells the same verified truth about the payment gateway, and sandbox money never unlocks a paid plan.",
+      "expected_behavior": "payment_gateway_health.check: authenticated read-only GET /v1/payments?count=1 (cached 15 min, forced at most once a minute by POST /admin/cc/api-billing/razorpay/check, audited); a pass is recorded so Integration readiness shows TEST_MODE_VERIFIED / health TEST_VERIFIED; only HTTP 401 records a failure (CREDENTIAL_ERROR, checkout off); API Health & Billing has a Razorpay row with mode, key kind, key check, webhook signing, verified webhook events and rejected signatures; no key, secret or signature in any response; a TEST purchase confirmed by the gateway becomes TEST_PAID with no subscription / pass, only a LIVE purchase becomes ACTIVE; testers can be added by phone number; the app shows the server's reason when there is no Pay button.",
+      "roles": ["admin", "buyer"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/admin/cc/api-billing/razorpay/check"}, {"method": "GET", "path": "/admin/cc/api-billing"}],
+      "ui": {"keys": ["askodoxPlansPayNote"], "symbols": []},
+      "flags": {"billing.radio_checkout": false, "billing.live_pricing": false},
+      "tests": {"backend": ["tests/test_razorpay_test_mode.py", "tests/test_billing.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
+      "dependencies": ["razorpay_test_mode_checkout"], "status": "approved",
+      "history": [{"pr": null, "change": "first version (branch claude/razorpay-gateway-health)"}]
     }
   ]
 }
