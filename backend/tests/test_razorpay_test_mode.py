@@ -238,7 +238,7 @@ def test_live_key_in_the_environment_is_locked_and_health_never_shows_secrets(en
     rows = {r["integration"]: r for r in client.get("/health/integrations").json()["items"]}
     rz = rows["Razorpay"]
     assert rz["state"] == "TEST_MODE_READY" and rz["key_kind"] == "test" and rz["key_check"] == "OK"
-    assert rz["webhook_secret"] == "not set" and rz["mode"] == "test" and rz["checkout_ready"] is True
+    assert rz["webhook_signing"] == "not set" and rz["mode"] == "test" and rz["checkout_ready"] is True
     text = json.dumps(rows)
     assert KEY_SECRET not in text and KEY_ID not in text, "not even the public key id is published"
 

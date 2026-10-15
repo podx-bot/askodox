@@ -198,10 +198,10 @@ def _razorpay_health(container: Any) -> dict:
         reg = platform(container).registry
         st = reg.status("razorpay")
         kind = fin.key_kind("razorpay", reg.config_value("razorpay", "key_id"))
-        row.update(mode=st["mode"], key_kind=kind, webhook_secret="set" if "webhook_secret" in st["secrets_set"]
+        row.update(mode=st["mode"], key_kind=kind, webhook_signing="set" if "webhook_secret" in st["secrets_set"]
                    else "not set", enabled_by=st.get("enabled_by") or ("command_center" if st["enabled"] else ""))
         if st["missing"]:
-            row["reason"] = "missing: " + ", ".join(st["missing"])
+            row["reason"] = "Razorpay API keys are not set in the deployment"
             return row
         if st.get("live_locked"):
             row.update(state="LIVE_MODE_LOCKED", reason="live key without the Owner's approval: takes no payment")
