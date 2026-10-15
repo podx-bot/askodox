@@ -335,6 +335,11 @@ def add_tester(body: TesterBody, request: Request) -> dict:
     """A billing tester may pay in TEST (sandbox) mode only -- no real money."""
     principal = _require(request, "growth:manage")
     user_id = billing.tester_user_id(body.user_id)
+    from app.services import tester_identity
+
+    if tester_identity.is_demo_account(user_id):
+        raise HTTPException(status_code=409, detail="DEMO_ACCOUNT_NOT_ALLOWED: the shared demo login cannot be a "
+                                                    "tester -- add the person's own number")
     billing.store(request.app.state.container).add_tester(user_id, str(principal.get("id")))
     _audit(request, principal, "billing.tester.add", user_id, {})
     return {"user_id": user_id, "tester": True}
