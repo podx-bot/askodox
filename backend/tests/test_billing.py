@@ -107,12 +107,12 @@ def test_test_mode_is_for_testers_only_and_activation_needs_a_verified_signature
     body = {"purchase_id": pid, "razorpay_order_id": checkout["order_id"], "razorpay_payment_id": "pay_T1",
             "razorpay_signature": sig}
     ok = client.post("/api/billing/razorpay/verify", headers=me, json=body).json()
-    assert ok["purchase"]["status"] == "ACTIVE"
+    assert ok["purchase"]["status"] == "TEST_PAID", "TEST money never creates a real entitlement"
     assert client.post("/api/billing/razorpay/verify", headers=me, json=body).json()["purchase"]["status"] == \
-        "ACTIVE", "replays change nothing"
+        "TEST_PAID", "replays change nothing"
     from app.api.routes.radio import radio
 
-    assert radio(container).current_pass(uid)["status"] == "ACTIVE", "Radio pass is separate from the base plan"
+    assert radio(container).current_pass(uid) is None, "TEST purchase: no Radio pass is created"
     other, them = _user(container)
     assert client.post("/api/billing/razorpay/verify", headers=them, json=body).status_code == 404, "own only"
 
@@ -120,7 +120,7 @@ def test_test_mode_is_for_testers_only_and_activation_needs_a_verified_signature
     assert client.post(f"/admin/cc/billing/purchases/{pid}/refund", headers=OWNER, json={}).status_code == 409
     asked = client.post(f"/admin/cc/billing/purchases/{pid}/refund", headers=OWNER, json={"confirm": True}).json()
     assert asked["requested"]["refund_id"] == "rfnd_T1"
-    assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "ACTIVE"
+    assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "TEST_PAID"
     event = json.dumps({"event": "refund.processed", "payload": {"refund": {"entity": {
         "id": "rfnd_T1", "payment_id": "pay_T1", "amount": 14900}}}}).encode()
     whsig = hmac.new(RZP_WHSEC.encode(), event, hashlib.sha256).hexdigest()
@@ -130,7 +130,7 @@ def test_test_mode_is_for_testers_only_and_activation_needs_a_verified_signature
                        headers={"x-razorpay-signature": whsig, "x-razorpay-event-id": "evt_rf_1"}).json()
     assert done["status"] == "REFUNDED"
     assert client.get(f"/api/billing/purchases/{pid}", headers=me).json()["purchase"]["status"] == "REFUNDED"
-    assert radio(container).current_pass(uid) is None, "the refunded pass is cancelled"
+    assert radio(container).current_pass(uid) is None, "still no pass after the refund"
 
 
 def test_live_mode_is_locked_without_owner_approval(env, monkeypatch):
@@ -187,11 +187,11 @@ def test_cashfree_sandbox_base_plan_via_signed_webhook(env):
         "x-webhook-signature": sig, "x-webhook-timestamp": ts}).json()
     assert ok["status"] == "PAID"
     assert client.get(f"/api/billing/purchases/{out['purchase_id']}", headers=me).json()["purchase"]["status"] == \
-        "ACTIVE"
+        "TEST_PAID"
     from app.api.routes.growth import growth
 
     sub = growth(container).current_subscription(uid)
-    assert sub["plan_code"] == "pro" and sub["status"] == "ACTIVE"
+    assert sub is None or sub["plan_code"] != "pro", "TEST money never activates a paid plan"
     again = client.post("/api/payments/webhook/cashfree", content=event, headers={
         "x-webhook-signature": sig, "x-webhook-timestamp": ts}).json()
     assert again["duplicate"] is True, "idempotent"

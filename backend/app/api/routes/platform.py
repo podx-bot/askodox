@@ -985,6 +985,12 @@ def integration_readiness(request: Request) -> dict:
         partners = partner_repo(request.app.state.container).partners()
     except Exception:
         partners = []
+    try:  # the same cached, read-only Razorpay key check as every other screen
+        from app.services import payment_gateway_health
+
+        payment_gateway_health.check(request.app.state.container)
+    except Exception:
+        pass
     items = readiness(pf.registry, outbox=pf.outbox, repo=pf.repo, partners=partners)
     from app.api.routes.health import _search_health
 
@@ -1683,6 +1689,9 @@ async def payment_webhook(provider: str, request: Request) -> dict:
             result = pf.razorpay.webhook(body, request.headers.get("x-razorpay-signature") or "",
                                          request.headers.get("x-razorpay-event-id") or "")
         except PermissionError as error:
+            from app.services import payment_gateway_health
+
+            payment_gateway_health.note_webhook_rejected()
             raise HTTPException(status_code=401, detail=str(error)) from None
         except Exception as error:
             raise _err(error) from None

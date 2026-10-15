@@ -40,6 +40,10 @@ PROVIDERS: dict[str, dict[str, Any]] = {
                "dashboard": "https://platform.openai.com/usage"},
     "sarvam": {"label": "Sarvam (voice STT / TTS)", "usage": (), "fallback": "device voice",
                "dashboard": "https://dashboard.sarvam.ai/"},
+    # Payment gateway: no API credit balance; its state is Razorpay's own answer
+    # to an authenticated read-only call (payment_gateway_health).
+    "razorpay": {"label": "Razorpay (payment gateway)", "usage": (), "fallback": None,
+                 "dashboard": "https://dashboard.razorpay.com/app/dashboard"},
 }
 
 _BRAVE_STATE = {"ok": "LIVE", "quota_exhausted": "QUOTA_EXHAUSTED", "rate_limited": "RATE_LIMITED",
@@ -125,6 +129,17 @@ def _state(name: str, container: Any) -> dict[str, Any]:
         raw = fallbacks.get("google_cse")
         return {"state": "LIVE" if raw == "ok" else ("NEEDS_CONFIGURATION" if raw in (None, "not_configured")
                                                     else "CONFIGURED_NOT_VERIFIED" if raw == "unknown" else "ERROR")}
+    if name == "razorpay":
+        from app.services import payment_gateway_health
+
+        try:
+            g = payment_gateway_health.check(container)
+        except Exception as error:  # no payment layer in this process: say so, never guess
+            return {"state": "UNVERIFIED", "note": f"gateway state unavailable ({type(error).__name__})"}
+        return {"state": g["state"], "last_checked_at": g.get("checked_at"),
+                "last_success_at": g.get("checked_at") if g["key_check"] == "OK" else None,
+                "gateway": {k: g[k] for k in ("mode", "key_kind", "key_check", "webhook_signing", "webhooks",
+                                              "checkout_ready", "enabled_by", "reason")}}
     if name == "google_maps":
         return {"state": "UNVERIFIED", "note": "use Integrations -> Check now / /health/maps for a real probe"}
     observed = provider_health.snapshot()
@@ -210,6 +225,7 @@ def overview(container: Any, db_path: str, *, now: datetime | None = None,
             "timestamps": {"last_checked_at": live.get("last_checked_at"),
                            "last_success_at": live.get("last_success_at")},
             "http_status": live.get("http_status"),
+            **({"gateway": live["gateway"]} if live.get("gateway") else {}),
             "_history": usage["history"],
         })
     return {"generated_at": now.isoformat(), "providers": rows, "thresholds": list(THRESHOLDS),

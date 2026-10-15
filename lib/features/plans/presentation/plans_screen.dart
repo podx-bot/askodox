@@ -70,6 +70,13 @@ class AskodoxPlansScreen extends ConsumerWidget {
                 ),
             ],
           ),
+          if (_payNote(s, t) case final note?)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(note,
+                  key: const Key('askodoxPlansPayNote'),
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF475467))),
+            ),
           if (s.paymentMode == 'test' && s.payable.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -90,6 +97,23 @@ class AskodoxPlansScreen extends ConsumerWidget {
         ]),
       ),
     );
+  }
+
+  /// Why there is no Pay button, from the SERVER's answer (never guessed).
+  static String? _payNote(AskodoxPlansState s, String Function(String, String) t) {
+    if (s.paymentNeedsSignIn) {
+      return t('Sign in again to see payment options.', 'చెల్లింపు ఎంపికలు చూడడానికి మళ్లీ సైన్ ఇన్ చేయండి.');
+    }
+    if (s.payable.isNotEmpty) return null;
+    final reasons = s.payReasons.values.toSet();
+    if (reasons.contains('TEST_MODE_TESTERS_ONLY')) {
+      return t('Payments are in TEST mode: only billing testers chosen by staff can pay.',
+          'చెల్లింపులు టెస్ట్ మోడ్‌లో ఉన్నాయి: స్టాఫ్ ఎంచుకున్న బిల్లింగ్ టెస్టర్లు మాత్రమే చెల్లించగలరు.');
+    }
+    if (reasons.contains('NO_PAYMENT_GATEWAY')) {
+      return t('Online payment is not available yet.', 'ఆన్‌లైన్ చెల్లింపు ఇంకా అందుబాటులో లేదు.');
+    }
+    return null;
   }
 
   Future<void> _pay(BuildContext context, WidgetRef ref, AskodoxPlan p, String Function(String, String) t) async {
@@ -145,6 +169,8 @@ class _PaymentStatusDialogState extends State<_PaymentStatusDialog> {
       null => t('Finish the payment on the Razorpay page, then tap Check status.',
           'Razorpay పేజీలో చెల్లింపు పూర్తి చేసి, Check status నొక్కండి.'),
       'ACTIVE' => t('Paid. Your plan is active.', 'చెల్లింపు అయింది. మీ ప్లాన్ యాక్టివ్.'),
+      'TEST_PAID' => t('Test payment confirmed. TEST mode: no plan was activated.',
+          'టెస్ట్ చెల్లింపు నిర్ధారణ అయింది. టెస్ట్ మోడ్: ఏ ప్లాన్ యాక్టివ్ కాలేదు.'),
       'PENDING' => t('Not confirmed yet. If you paid, wait a moment and check again.',
           'ఇంకా నిర్ధారణ కాలేదు. చెల్లించి ఉంటే కొద్దిసేపు ఆగి మళ్లీ చూడండి.'),
       'CANCELLED' => t('Checkout was closed. No payment was confirmed.', 'చెక్‌అవుట్ మూసేశారు. చెల్లింపు నిర్ధారణ కాలేదు.'),

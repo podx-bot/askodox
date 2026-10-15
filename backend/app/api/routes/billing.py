@@ -258,13 +258,13 @@ const show=(s,extra)=>{const el=document.getElementById("status");if(el)el.inner
 async function post(path,body){const r=await fetch("/api/billing/pay/"+encodeURIComponent(ID)+path,{method:"POST",
   headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({t:T},body||{}))});return r.json().catch(()=>({}))}
 async function check(){const r=await fetch("/api/billing/pay/"+encodeURIComponent(ID)+"/status?t="+encodeURIComponent(T));
-  const d=await r.json().catch(()=>({}));if(d.purchase)show(d.purchase.status,d.purchase.status==="ACTIVE"?"Paid. Go back to the ASKODOX app.":"")}
+  const d=await r.json().catch(()=>({}));if(d.purchase)show(d.purchase.status,d.purchase.status==="ACTIVE"?"Paid. Go back to the ASKODOX app.":d.purchase.status==="TEST_PAID"?"Test payment confirmed. TEST mode: no plan was activated.":"")}
 const c=document.getElementById("check");if(c)c.onclick=check;
 const p=document.getElementById("pay");
 if(p&&CFG&&window.Razorpay){p.onclick=()=>{const rzp=new Razorpay({key:CFG.key,order_id:CFG.order_id,amount:CFG.amount,
   currency:CFG.currency,name:CFG.name,description:CFG.description,notes:{purchase_id:CFG.purchase_id},
   handler:async(resp)=>{show("VERIFYING");const d=await post("/verify",resp);
-    if(d.purchase)show(d.purchase.status,d.purchase.status==="ACTIVE"?"Paid. Go back to the ASKODOX app.":"");else show("NOT VERIFIED","Use Check status.")},
+    if(d.purchase)show(d.purchase.status,d.purchase.status==="ACTIVE"?"Paid. Go back to the ASKODOX app.":d.purchase.status==="TEST_PAID"?"Test payment confirmed. TEST mode: no plan was activated.":"");else show("NOT VERIFIED","Use Check status.")},
   modal:{ondismiss:async()=>{const d=await post("/cancel");if(d.purchase)show(d.purchase.status)}}});
   rzp.on("payment.failed",()=>show("PENDING","That attempt failed. You can try again."));rzp.open()}}
 else if(p){p.disabled=true;show("PENDING","Razorpay checkout could not load. Check your connection and reload.")}
@@ -334,14 +334,16 @@ class TesterBody(BaseModel):
 def add_tester(body: TesterBody, request: Request) -> dict:
     """A billing tester may pay in TEST (sandbox) mode only -- no real money."""
     principal = _require(request, "growth:manage")
-    billing.store(request.app.state.container).add_tester(body.user_id.strip(), str(principal.get("id")))
-    _audit(request, principal, "billing.tester.add", body.user_id.strip(), {})
-    return {"user_id": body.user_id.strip(), "tester": True}
+    user_id = billing.tester_user_id(body.user_id)
+    billing.store(request.app.state.container).add_tester(user_id, str(principal.get("id")))
+    _audit(request, principal, "billing.tester.add", user_id, {})
+    return {"user_id": user_id, "tester": True}
 
 
 @admin_router.delete("/testers/{user_id}")
 def remove_tester(user_id: str, request: Request) -> dict:
     principal = _require(request, "growth:manage")
+    user_id = billing.tester_user_id(user_id)
     removed = billing.store(request.app.state.container).remove_tester(user_id)
     _audit(request, principal, "billing.tester.remove", user_id, {"removed": removed})
     return {"user_id": user_id, "removed": removed}
@@ -363,8 +365,8 @@ def refund_purchase(purchase_id: str, body: RefundBody, request: Request) -> dic
         raise HTTPException(status_code=409, detail="Confirmation required to refund")
     container = request.app.state.container
     purchase = billing.store(container).get(purchase_id)
-    if not purchase or purchase["status"] != "ACTIVE":
-        raise HTTPException(status_code=409, detail="Only an active, paid purchase can be refunded")
+    if not purchase or purchase["status"] not in billing.PAID_STATES:
+        raise HTTPException(status_code=409, detail="Only a paid purchase can be refunded")
     pf = platform(container)
     payment = pf.repo.payment(purchase["payment_id"])
     amount = body.amount or float(payment["amount"]) - float(payment.get("refunded_amount") or 0)

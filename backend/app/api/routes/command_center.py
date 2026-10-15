@@ -2214,6 +2214,24 @@ def api_billing_settings(provider: str, body: ApiBillingSettingsBody, request: R
         raise HTTPException(status_code=422, detail=str(error)) from None
 
 
+@router.post("/api-billing/razorpay/check")
+def api_billing_razorpay_check(request: Request) -> dict[str, Any]:
+    """"Check with gateway": a fresh, authenticated READ-ONLY Razorpay call
+    (GET /v1/payments?count=1). Creates, captures and refunds nothing; returns
+    no key, secret or signature. At most one fresh call per minute."""
+    principal = _require(request, "integrations:manage")
+    from app.services import payment_gateway_health
+
+    result = payment_gateway_health.check(request.app.state.container, force=True)
+    try:
+        command_center(request.app.state.container).audit(
+            str(principal.get("id") or "staff"), "payments.gateway_check", "integration", "razorpay",
+            after={"state": result["state"], "key_check": result["key_check"]})
+    except Exception:
+        pass
+    return result
+
+
 @router.post("/api-billing/alerts/{alert_id}/{action}")
 def api_billing_alert_action(alert_id: int, action: str, request: Request) -> dict[str, Any]:
     principal = _require(request, "health:view")
