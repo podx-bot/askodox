@@ -367,7 +367,7 @@ def test_tester_matches_the_phone_however_it_was_typed_at_sign_in(env):
     opts = {i["plan_code"]: i for i in got["items"]}
     assert opts["plus"]["payable"] is True and opts["pro"]["payable"] is True
     assert opts["radio_7d"]["reason"] == "RADIO_BILLING_OFF"
-    assert got["account"] == {"phone_last4": "0001", "billing_tester": True}, "masked: last 4 digits only"
+    assert got["account"] == {"phone_last4": "0001", "billing_tester": True, "demo_account": False}, "masked: last 4 digits only"
     assert "9876500001" not in json.dumps(got)
     assert billing.store(container).is_tester("app-phone-919876500001")
     assert not billing.store(container).is_tester("app-phone-9876500002"), "a different number is not a tester"
@@ -376,3 +376,27 @@ def test_tester_matches_the_phone_however_it_was_typed_at_sign_in(env):
     assert not billing.store(container).is_tester("app-phone-9876500001")
     assert client.post("/api/billing/checkout", headers=me, json={"plan_code": "plus"}).json()["detail"] == \
         "TEST_MODE_TESTERS_ONLY"
+
+
+def test_shared_demo_login_is_never_a_tester_and_radio_testers_match_by_phone(env):
+    client, container, _ = env
+    from app.api.routes.radio import radio
+    from app.services import billing
+
+    demo = {"Authorization": f"Bearer {issue_token('app-phone-919999999999', container.settings.session_token_secret)}"}
+    for path in ("/admin/cc/billing/testers", "/admin/cc/radio/testers"):
+        r = client.post(path, headers=OWNER, json={"user_id": "9999999999"})
+        assert r.status_code == 409 and "DEMO_ACCOUNT_NOT_ALLOWED" in r.text
+    # Even a demo id stored some other way never counts.
+    billing.store(container).add_tester("app-phone-919999999999", "test")
+    got = client.get("/api/billing/options", headers=demo).json()
+    assert got["account"] == {"phone_last4": "9999", "billing_tester": False, "demo_account": True}
+    assert not any(i["payable"] for i in got["items"])
+    # Radio testers use the same phone rule as billing testers.
+    assert client.post("/admin/cc/radio/testers", headers=OWNER,
+                       json={"user_id": "+91 98765 00007", "note": "owner phone"}).json()["user_id"] == \
+        "app-phone-919876500007"
+    assert radio(container).is_tester("app-phone-9876500007"), "signed in with 10 digits still matches"
+    assert not radio(container).is_tester("app-phone-919999999999")
+    assert client.delete("/admin/cc/radio/testers/9876500007", headers=OWNER).json()["removed"] is True
+    assert not radio(container).is_tester("app-phone-919876500007")

@@ -200,8 +200,13 @@ class TravelRadio:
     # Staff-chosen internal testers hear Radio while the customer flag stays
     # OFF: no pass, no price, no billing (usage is still metered + capped).
     def is_tester(self, user_id: str) -> bool:
+        """Same account however the number was typed at sign-in; never the
+        public demo account (see tester_identity)."""
+        from app.services import tester_identity
+
         with self._connect() as conn:
-            return conn.execute("SELECT 1 FROM radio_testers WHERE user_id=?", (user_id,)).fetchone() is not None
+            ids = [r["user_id"] for r in conn.execute("SELECT user_id FROM radio_testers")]
+        return tester_identity.matches(ids, user_id)
 
     def add_tester(self, user_id: str, *, added_by: str, note: str = "") -> Dict[str, Any]:
         with self._connect() as conn:
@@ -211,8 +216,14 @@ class TravelRadio:
         return {"user_id": user_id, "tester": True}
 
     def remove_tester(self, user_id: str) -> bool:
+        from app.services import tester_identity
+
         with self._connect() as conn:
-            return conn.execute("DELETE FROM radio_testers WHERE user_id=?", (user_id,)).rowcount > 0
+            ids = tester_identity.same_person(
+                [r["user_id"] for r in conn.execute("SELECT user_id FROM radio_testers")], user_id)
+            for uid in ids:
+                conn.execute("DELETE FROM radio_testers WHERE user_id=?", (uid,))
+        return bool(ids)
 
     def testers(self) -> List[Dict[str, Any]]:
         with self._connect() as conn:

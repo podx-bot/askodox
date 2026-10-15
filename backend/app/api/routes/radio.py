@@ -213,16 +213,25 @@ class TesterRequest(BaseModel):
 def admin_add_tester(payload: TesterRequest, request: Request) -> dict:
     """Internal testing: this user hears Radio while customers stay off.
     No pass, no price, no billing."""
+    from app.services import tester_identity
+
     principal = _require(request, "growth:manage")
     actor = str(principal.get("id") or principal.get("name") or "staff")
-    out = radio(request.app.state.container).add_tester(payload.user_id.strip(), added_by=actor, note=payload.note)
-    _audit(request, principal, "radio.tester.add", payload.user_id.strip(), {"note": payload.note})
+    user_id = tester_identity.tester_user_id(payload.user_id)
+    if tester_identity.is_demo_account(user_id):
+        raise HTTPException(status_code=409, detail="DEMO_ACCOUNT_NOT_ALLOWED: the shared demo login cannot be a "
+                                                    "tester -- add the person's own number")
+    out = radio(request.app.state.container).add_tester(user_id, added_by=actor, note=payload.note)
+    _audit(request, principal, "radio.tester.add", user_id, {"note": payload.note})
     return out
 
 
 @admin_router.delete("/testers/{user_id}")
 def admin_remove_tester(user_id: str, request: Request) -> dict:
+    from app.services import tester_identity
+
     principal = _require(request, "growth:manage")
+    user_id = tester_identity.tester_user_id(user_id)
     removed = radio(request.app.state.container).remove_tester(user_id)
     _audit(request, principal, "radio.tester.remove", user_id, {"removed": removed})
     return {"user_id": user_id, "removed": removed}

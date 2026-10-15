@@ -38,6 +38,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.services import tester_identity
 from app.services.travel_radio import ADDON_AUDIENCE
 
 import logging
@@ -123,27 +124,21 @@ class BillingStore:
 
     # testers -----------------------------------------------------------
     def is_tester(self, user_id: str) -> bool:
-        """Exact id, or the same phone number however it was typed at sign-in:
-        the app id is "app-phone-<digits as typed>", so 9876543210 and
-        +91 98765 43210 are compared by their last 10 digits."""
-        key = phone_key(user_id)
+        """Same account however the number was typed at sign-in; never the
+        public demo account (see tester_identity)."""
         with self._connect() as conn:
-            if conn.execute("SELECT 1 FROM billing_testers WHERE user_id=?", (user_id,)).fetchone():
-                return True
-            if not key:
-                return False
-            return any(phone_key(r["user_id"]) == key for r in conn.execute("SELECT user_id FROM billing_testers"))
+            ids = [r["user_id"] for r in conn.execute("SELECT user_id FROM billing_testers")]
+        return tester_identity.matches(ids, user_id)
 
     def add_tester(self, user_id: str, added_by: str) -> None:
         with self._connect() as conn:
             conn.execute("INSERT OR IGNORE INTO billing_testers VALUES(?,?,?)", (user_id, added_by, _now()))
 
     def remove_tester(self, user_id: str) -> bool:
-        """Removes the id and every entry for the same phone number (access fully revoked)."""
-        key = phone_key(user_id)
+        """Removes every entry for the same account (access fully revoked)."""
         with self._connect() as conn:
-            ids = [r["user_id"] for r in conn.execute("SELECT user_id FROM billing_testers")
-                   if r["user_id"] == user_id or (key and phone_key(r["user_id"]) == key)]
+            ids = tester_identity.same_person(
+                [r["user_id"] for r in conn.execute("SELECT user_id FROM billing_testers")], user_id)
             for uid in ids:
                 conn.execute("DELETE FROM billing_testers WHERE user_id=?", (uid,))
         return bool(ids)
@@ -153,25 +148,8 @@ class BillingStore:
             return [dict(r) for r in conn.execute("SELECT * FROM billing_testers ORDER BY created_at DESC")]
 
 
-def phone_key(user_id: str) -> str:
-    """Last 10 digits of a phone-based id ("" when there are fewer)."""
-    digits = "".join(ch for ch in str(user_id or "") if ch.isdigit())
-    return digits[-10:] if len(digits) >= 10 else ""
-
-
-def tester_user_id(raw: str) -> str:
-    """Staff may type the tester's phone number: 10 digits / +91... -> the app
-    user id "app-phone-91XXXXXXXXXX" (see lib/core/auth/auth_controller.dart).
-    Anything else is kept as typed."""
-    text = str(raw or "").strip()
-    if text.lower().startswith("app-"):
-        return text
-    digits = "".join(ch for ch in text if ch.isdigit())
-    if len(digits) == 10:
-        return "app-phone-91" + digits
-    if len(digits) == 12 and digits.startswith("91"):
-        return "app-phone-" + digits
-    return text
+phone_key = tester_identity.phone_key
+tester_user_id = tester_identity.tester_user_id
 
 
 def store(container: Any) -> BillingStore:
@@ -270,11 +248,12 @@ def options(container: Any, user_id: str) -> Dict[str, Any]:
         items.append({"plan_code": plan["code"], "price": plan["price"], "payable": reason is None,
                       "reason": reason})
     key = phone_key(user_id)
-    account = {"phone_last4": key[-4:] if key else "", "billing_tester": store(container).is_tester(user_id)}
+    account = {"phone_last4": key[-4:] if key else "", "billing_tester": store(container).is_tester(user_id),
+               "demo_account": tester_identity.is_demo_account(user_id)}
     # One masked line per check (never the full number): lets staff see in the
     # deploy logs exactly why a tester has no Pay button.
-    _log.info("billing.options account=...%s tester=%s provider=%s mode=%s payable=%s reasons=%s",
-              account["phone_last4"] or "-", account["billing_tester"], provider, mode,
+    _log.info("billing.options account=...%s demo=%s tester=%s provider=%s mode=%s payable=%s reasons=%s",
+              account["phone_last4"] or "-", account["demo_account"], account["billing_tester"], provider, mode,
               ",".join(i["plan_code"] for i in items if i["payable"]) or "-",
               ",".join(sorted({str(i["reason"]) for i in items if i["reason"]})) or "-")
     return {"provider": provider, "mode": mode, "items": items, "account": account}
