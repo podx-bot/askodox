@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/auth/app_restart.dart';
+import 'core/auth/sign_out.dart';
 import 'core/flags/askodox_remote_flags.dart';
 import 'core/providers/backend_providers.dart';
 import 'core/update/askodox_update_service.dart';
@@ -15,7 +17,9 @@ import 'features/analytics/domain/analytics_models.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AskodoxStartupMetrics.markMain();
-  runApp(const ProviderScope(child: _AnalyticsBootstrap()));
+  // A restart scope around the ONE provider container: sign-out rebuilds the
+  // app with fresh state (no data of the previous account survives in memory).
+  runApp(const AskodoxAppRestart(child: _AnalyticsBootstrap()));
 }
 
 class _AnalyticsBootstrap extends ConsumerStatefulWidget {
@@ -27,7 +31,9 @@ class _AnalyticsBootstrap extends ConsumerStatefulWidget {
 
 class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
   Timer? _sessionTimer;
-  bool _updateChecked = false;
+  // Once per app process (a sign-out restart does not ask again).
+  static bool _updateChecked = false;
+  bool _sessionChecked = false;
 
   @override
   void initState() {
@@ -63,7 +69,10 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
   }
 
   Future<void> _restoreOnboardingIdentity() async {
-    if (_hasUsableSession()) return;
+    if (_hasUsableSession()) {
+      await _verifySession(ref.read(authSessionProvider).tokenPlaceholder);
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('askodox.onboarding.complete') != true) return;
     final mobile = prefs.getString('askodox.profile.mobile')?.trim() ?? '';
@@ -86,6 +95,23 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
           token: (token == null || token.isEmpty) ? null : token,
         );
     _sessionTimer?.cancel();
+    await _verifySession(token);
+  }
+
+  /// Never show an authenticated profile without a valid identity: the
+  /// stored session is checked with the server once per start. 401 (expired,
+  /// signed out, revoked) -> signed out on this phone and back to sign-in;
+  /// offline / server error -> kept (checked again on the next start).
+  Future<void> _verifySession(String? token) async {
+    if (_sessionChecked || token == null || token.isEmpty || token == 'DEMO_ONLY') return;
+    _sessionChecked = true;
+    final check = await askodoxCheckSession(ref.read(apiClientProvider), token);
+    if (check != AskodoxSessionCheck.invalid || !mounted) return;
+    final account = ref.read(authSessionProvider).user?.id;
+    final prefs = await SharedPreferences.getInstance();
+    await askodoxStashAccountData(prefs, account);
+    await ref.read(authSessionProvider.notifier).logout();
+    if (mounted) AskodoxAppRestart.restart(context);
   }
 
   Future<void> _checkForUpdate(BuildContext context) async {

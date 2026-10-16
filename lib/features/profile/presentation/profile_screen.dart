@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import '../../../core/auth/sign_out.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../companion/askodox_companion.dart';
@@ -21,6 +22,7 @@ import '../../location/application/location_controller.dart';
 import '../../staff/askodox_staff_access.dart';
 import '../data/user_profile_repository.dart';
 import 'profile_header.dart';
+import '../../settings/developer_diagnostics_screen.dart';
 import '../../guide/in_app_guide.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -572,6 +574,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               label: Text(t('Download & Install',
                                   'డౌన్‌లోడ్ & ఇన్‌స్టాల్'))),
                       ]))),
+          if (askodoxDiagnosticsAllowed)
+            AskodoxNavRow(
+                key: const Key('askodoxDeveloperDiagnosticsEntry'),
+                icon: Icons.developer_mode_rounded,
+                title: t('Developer Diagnostics', 'డెవలపర్ డయాగ్నస్టిక్స్'),
+                subtitle: t('FCM token and Installation ID (development builds only).',
+                    'FCM టోకెన్, ఇన్‌స్టాలేషన్ ID (డెవలప్‌మెంట్ బిల్డ్‌లలో మాత్రమే).'),
+                onTap: () => context.push('/settings/diagnostics')),
+          // Sign out: always the LAST item of Settings & Privacy (same flow as
+          // the side menu's Logout).
+          if (ref.watch(authSessionProvider).user != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: OutlinedButton.icon(
+                key: const Key('askodoxProfileSignOut'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB42318),
+                    side: const BorderSide(color: Color(0xFFB42318)),
+                    minimumSize: const Size.fromHeight(48)),
+                icon: const Icon(Icons.logout_rounded),
+                label: Text(t('Sign out', 'సైన్ అవుట్'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                onPressed: () async {
+                  if (await askodoxConfirmSignOut(context, te: te) && context.mounted) {
+                    await askodoxSignOut(ref, restartFrom: context);
+                  }
+                },
+              ),
+            ),
               ]),
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-help'),

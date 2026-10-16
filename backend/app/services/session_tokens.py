@@ -132,3 +132,13 @@ def verify_token(
         except Exception:
             pass  # a revocation lookup failure never blocks every user
     return user_id
+
+
+def token_issued_at(token: str, secret: str, **kwargs) -> tuple[str, int] | None:
+    """(app_user_id, issued_at) of a VALID token (same checks as verify_token),
+    so one session can be signed out without touching the account's others."""
+    user_id = verify_token(token, secret, **kwargs)
+    if user_id is None:
+        return None
+    payload = _b64decode(str(token).strip().partition(".")[0]).decode("utf-8")
+    return user_id, int(payload.rpartition(":")[2])

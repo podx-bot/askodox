@@ -21,8 +21,16 @@ from typing import Any, Dict, List
 
 
 def phone_key(value: str) -> str:
+    """The account key of a number. Indian spellings (9876543210, 09876543210,
+    919876543210, +91 98765 43210) share the 10-digit key; any other country's
+    number keeps its full international digits, so two different countries'
+    numbers that end in the same 10 digits never share an account."""
     digits = "".join(ch for ch in str(value or "") if ch.isdigit())
-    return digits[-10:] if len(digits) >= 10 else digits
+    if len(digits) == 11 and digits.startswith("0"):
+        return digits[1:]
+    if len(digits) == 12 and digits.startswith("91"):
+        return digits[2:]
+    return digits
 
 
 def same_number(a: str, b: str) -> bool:
@@ -31,7 +39,7 @@ def same_number(a: str, b: str) -> bool:
     if not (a.startswith("app-phone-") and b.startswith("app-phone-")):
         return False
     ka, kb = phone_key(a), phone_key(b)
-    return len(ka) == 10 and ka == kb
+    return len(ka) >= 10 and ka == kb
 
 
 def _connect(db_path: str) -> sqlite3.Connection:

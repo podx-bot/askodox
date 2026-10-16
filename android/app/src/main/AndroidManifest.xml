@@ -52,6 +52,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Push in the background / when closed: Android shows FCM
+             notifications on the existing "ASKODOX updates" channel. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="askodox_updates" />
+        <!-- In-App Messaging collects nothing until the person opts in
+             (Notifications -> Offer messages in the app). -->
+        <meta-data
+            android:name="firebase_inapp_messaging_auto_data_collection_enabled"
+            android:value="false" />
         <service
             android:name=".AskodoxFloatingCompanionService"
             android:exported="false"

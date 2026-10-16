@@ -97,7 +97,8 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
         current = _otps.get(mobile)
         if current and now - current.last_sent_at < _RESEND_SECONDS:
             wait = max(1, int(_RESEND_SECONDS - (now - current.last_sent_at)))
-            raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds before requesting another OTP.")
+            raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds before requesting another OTP.",
+                                headers={"Retry-After": str(wait)})
 
         otp = _TEST_OTP if is_test else f"{secrets.randbelow(1_000_000):06d}"
         entry = _OtpEntry(
@@ -110,7 +111,8 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
 
     if is_test:
         # The fixed OTP is only for explicit test/demo numbers; no message is sent.
-        return {"status": "sent", "channel": "test", "expires_in_seconds": _TTL_SECONDS}
+        return {"status": "sent", "channel": "test", "expires_in_seconds": _TTL_SECONDS,
+                "resend_after_seconds": _RESEND_SECONDS}
 
     from app.services import otp_delivery
 
@@ -126,7 +128,8 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
             "OTP delivery failed (" + ", ".join(tried) + ")" if tried
             else "OTP delivery is not configured (no WhatsApp or SMS provider is set up)"))
 
-    return {"status": "sent", "channel": result["channel"], "expires_in_seconds": _TTL_SECONDS}
+    return {"status": "sent", "channel": result["channel"], "expires_in_seconds": _TTL_SECONDS,
+            "resend_after_seconds": _RESEND_SECONDS}
 
 
 @router.post("/otp/verify")
@@ -162,12 +165,72 @@ def verify_otp(payload: VerifyOtpRequest, request: Request) -> dict:
     # session_tokens.py) that the Flutter app now stores and sends as
     # `Authorization: Bearer <token>` on every request that needs to know
     # who is really acting -- see orders.py's `_authenticated_app_user`.
-    settings = request.app.state.container.settings
+    return signed_in(request.app.state.container, mobile)
+
+
+def signed_in(container, mobile_digits: str) -> dict:
+    """The ONE place a verified number becomes a session (server OTP and
+    Firebase phone sign-in alike): one account per number, a signed session
+    token, and -- for a returning person -- the profile they already have, so
+    the app restores it instead of asking again (nothing is created twice)."""
     from app.services import account_identity
 
+    settings = container.settings
     # ONE account per number however it was typed (phase 5): the first id
     # issued for this number is reused; older profiles are adopted.
-    app_user_id = account_identity.resolve(settings.database_path, mobile)["user_id"]
+    resolved = account_identity.resolve(settings.database_path, mobile_digits)
+    app_user_id = resolved["user_id"]
     token = issue_token(app_user_id, settings.session_token_secret)
+    profile = _profile_summary(container, app_user_id)
+    returning = resolved["source"] != "new_account" or bool(profile.get("name"))
+    return {"status": "verified", "mobile": mobile_digits, "app_user_id": app_user_id, "token": token,
+            "returning": returning, "profile": profile}
 
-    return {"status": "verified", "mobile": mobile, "app_user_id": app_user_id, "token": token}
+
+def _profile_summary(container, user_id: str) -> dict:
+    try:
+        from app.api.routes.profile import profiles
+
+        data = profiles(container).get(user_id)
+    except Exception:
+        return {}
+    return {"name": (data.get("name") or "").strip(), "language": data.get("language") or "",
+            "roles": list(data.get("roles") or [])}
+
+
+@router.get("/methods")
+def sign_in_methods(request: Request) -> dict:
+    """How this server can prove a phone number right now (no secrets): the
+    app uses Firebase phone sign-in only when the Owner switched it on, else
+    the server's own code delivery (WhatsApp / SMS)."""
+    from app.services import firebase_id_token, otp_delivery
+
+    try:
+        server_channels = [c["channel"] for c in otp_delivery.channels(request.app.state.container) if c["ready"]]
+    except Exception:
+        server_channels = []
+    return {"firebase_phone_auth": firebase_id_token.phone_auth_enabled(),
+            "server_otp": bool(server_channels), "server_channels": server_channels,
+            "resend_seconds": _RESEND_SECONDS, "code_ttl_seconds": _TTL_SECONDS}
+
+
+class FirebaseVerifyRequest(BaseModel):
+    id_token: str
+
+
+@router.post("/firebase/verify")
+def verify_firebase(payload: FirebaseVerifyRequest, request: Request) -> dict:
+    """Firebase phone sign-in -> ASKODOX session. The ID token is verified
+    here (signature, project, times); the app's claim alone is never trusted."""
+    from app.services import firebase_id_token
+
+    project = firebase_id_token.project_id()
+    if not project:
+        raise HTTPException(status_code=503, detail="Firebase sign-in is not configured on the server")
+    try:
+        claims = firebase_id_token.verify(payload.id_token, project)
+    except firebase_id_token.InvalidIdToken as error:
+        raise HTTPException(status_code=401, detail=f"Sign-in could not be verified ({error})") from None
+    except Exception:
+        raise HTTPException(status_code=503, detail="Sign-in could not be checked right now. Try again.") from None
+    return signed_in(request.app.state.container, _mobile(claims["phone_number"]))

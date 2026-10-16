@@ -5,6 +5,11 @@ is built (`lib/services/push_registration.dart`) but switches on only in an APK 
 so phones cannot register for background push yet. While the app is open, it shows local,
 silent notifications. Nothing here claims push works until step 5 passes on a real phone.
 
+Update (auth + FCM round): one-phone self test (Profile -> Notifications -> Send a test notification to this
+phone), message de-duplication, background / closed-app notifications on `askodox_updates`, opt-in Firebase
+In-App Messaging and development-only Developer Diagnostics. Full owner steps and the phone checklist:
+`docs/auth-and-push.md`.
+
 ## Alerts sent (each obeys the user's notification switches, once per event)
 - Orders / booking requests and replies.
 - Demand opportunities for sellers.

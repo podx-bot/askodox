@@ -18,6 +18,9 @@ dependencies:
   crypto: ^3.0.6
   firebase_core: ^3.13.0
   firebase_messaging: ^15.2.5
+  firebase_auth: ^5.5.2
+  firebase_in_app_messaging: ^0.8.1+5
+  firebase_app_installations: ^0.3.2+5
   shared_preferences: ^2.3.5
   package_info_plus: ^10.2.1
   path_provider: ^2.1.5
