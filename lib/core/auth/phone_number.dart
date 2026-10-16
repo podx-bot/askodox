@@ -22,7 +22,7 @@ String? askodoxE164(String input) {
   return '+$digits';
 }
 
-/// "+91 98765 43210" for display (other countries: "+<digits>").
+/// "+91 98765 43210" for display (other countries: `+` and the digits).
 String askodoxDisplayPhone(String e164) {
   final d = e164.replaceAll(RegExp(r'\D'), '');
   if (d.length == 12 && d.startsWith('91')) return '+91 ${d.substring(2, 7)} ${d.substring(7)}';

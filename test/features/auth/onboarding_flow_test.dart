@@ -117,10 +117,10 @@ void main() {
 
   testWidgets('returning user: profile restored, nothing asked or overwritten', (tester) async {
     final api = _api()
-      ..on('POST /onboarding/otp/verify', (_) => const ApiSuccess<Object?>({
+      ..on('POST /onboarding/otp/verify', (_) => ApiSuccess<Object?>(<String, Object?>{
             ..._newUser,
             'returning': true,
-            'profile': {'name': 'Ravi', 'language': 'en', 'roles': ['buyer', 'seller']},
+            'profile': const {'name': 'Ravi', 'language': 'en', 'roles': ['buyer', 'seller']},
           }));
     await _pumpApp(tester, api);
     await _sendCode(tester, '+91 98765 43210');
