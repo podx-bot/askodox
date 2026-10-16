@@ -130,8 +130,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     unawaited(_loadMethods());
   }
 
+  /// Best effort: an older server (or the offline mock) without this route
+  /// keeps the server code as the way in.
   Future<void> _loadMethods() async {
-    final result = await ref.read(apiClientProvider).get<Map<String, dynamic>>('/onboarding/methods');
+    ApiResult<Map<String, dynamic>> result;
+    try {
+      result = await ref.read(apiClientProvider).get<Map<String, dynamic>>('/onboarding/methods');
+    } catch (_) {
+      return;
+    }
     if (!mounted || result is! ApiSuccess<Map<String, dynamic>>) return;
     final data = result.data;
     setState(() {
