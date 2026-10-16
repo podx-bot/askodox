@@ -614,7 +614,7 @@
       "api": [{"method": "POST", "path": "/api/me/push-test", "response_keys": ["status", "delivered", "detail"]}],
       "ui": {"keys": ["askodoxPushSelfTest", "askodoxInAppOffersSwitch"], "symbols": ["AskodoxInAppMessaging", "askodoxDiagnosticsAllowed", "askodoxPushBackgroundHandler"]},
       "flags": {},
-      "tests": {"backend": ["tests/test_auth_session.py"], "flutter": ["test/services/push_registration_test.dart", "test/services/in_app_messaging_test.dart"]},
+      "tests": {"backend": ["tests/test_auth_session.py", "tests/test_firebase_android_config.py"], "flutter": ["test/services/push_registration_test.dart", "test/services/in_app_messaging_test.dart"]},
       "dependencies": [],
       "status": "approved",
       "history": [{"pr": null, "change": "auth + sign-out round (branch claude/auth-signout-fcm)"}]

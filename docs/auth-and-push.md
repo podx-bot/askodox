@@ -19,6 +19,20 @@ Status labels follow the Integration Platform: **CODE READY** = built and tested
 | In-App Messaging | `lib/services/in_app_messaging.dart` | opt-in (Notifications -> Offer messages in the app); collects nothing until then (manifest); trigger `askodox_app_open` at most once per 20 h. Text / image only: video ads stay in the ASKODOX native content system. |
 | Developer Diagnostics | Profile -> Settings & Privacy (development builds only) | FCM token + Firebase Installation ID, masked until "Show full values", copy on tap, never logged. Not in production release builds (`APP_ENV=production`). |
 
+## How Firebase gets into the APK (CI)
+- The four GitHub **variables** `FIREBASE_PROJECT_ID`, `FIREBASE_SENDER_ID`, `FIREBASE_APP_ID`, `FIREBASE_API_KEY`
+  are read by `tool/firebase_android_config.py` in Android Live Build, the Flutter CI release job and the Android
+  APK CI compile check. It validates them (project id format, numeric project number, Android app id that belongs
+  to that project number, Google API key format; half-set or malformed = build error) and writes
+  `android/app/google-services.json` (package `com.askodox.askodox`, mode 600) plus a Dart define file. Values are
+  never printed; the file is git-ignored and never uploaded (artifacts carry only APKs and reports).
+- Gradle: `com.google.gms.google-services` 4.5.0 is declared in `android/settings.gradle.kts` and applied by
+  `android/app/build.gradle.kts` only when the generated file exists (local builds / forks build without Firebase).
+- main requires the config (`--require`); after the signed build, `check-apk` confirms the APK carries the native
+  `google_app_id` resource and the Flutter values -- it reports present / MISSING only.
+- Dart (`AskodoxFirebaseConfig.ensureInitialized`) uses the same values; when the native default app already exists
+  (google-services.json) it attaches to it instead of failing with duplicate-app.
+
 ## Owner steps (nothing is invented; each is CONFIGURATION REQUIRED until done)
 1. Firebase Console -> create / open the project -> Add app -> Android, package `com.askodox.askodox`.
 2. Add the release signing fingerprints (Project settings -> Your apps -> Add fingerprint):

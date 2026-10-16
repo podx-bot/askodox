@@ -28,3 +28,8 @@ ios/Flutter/ephemeral/
 # Local SQLite databases created by the server/tests
 *.db
 website/caddy.pid
+
+# Firebase Android config: generated in CI from GitHub variables, never committed.
+android/app/google-services.json
+**/google-services.json
+build/firebase-dart-defines.json
