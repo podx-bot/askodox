@@ -111,6 +111,8 @@ MODULES = tuple(dict.fromkeys([p.split(":", 1)[0] for p in _LEGACY_PERMISSIONS] 
     "tasks",       # staff tasks / demand-opportunity inbox
     "feedback",    # feedback & problem reports
     "early_access",  # Early Access programme
+    "kyc",         # AI-assisted KYC: review queue (never an identity "verification" by staff)
+    "commissions",  # commission engine: rules, payable / paid, reconciliation, fraud signals
 ]))
 PERMISSIONS = all_permissions(_LEGACY_PERMISSIONS, MODULES)
 

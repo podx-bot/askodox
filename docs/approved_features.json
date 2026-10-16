@@ -533,6 +533,21 @@
       "tests": {"backend": ["tests/test_integration_platform.py"], "flutter": []},
       "dependencies": [], "status": "approved",
       "history": [{"pr": null, "change": "phase 1 (branch claude/integration-platform-1)"}]
+    },
+    {
+      "id": "kyc_engine",
+      "name": "AI-assisted KYC engine: consent, extraction (never verification), masked storage, levels L1-L5, review queue, expiry",
+      "purpose": "Verify users only as far as an activity needs, with honest badges and minimal data.",
+      "expected_behavior": "POST /api/kyc/consent before any document; POST /api/kyc/documents reads a photo / PDF / text with the chat analysers, classifies (PAN, GST, bank, business document, professional licence, Aadhaar), extracts, prefills masked values, lists missing fields and issues (GSTIN check digit, PAN vs GSTIN, name vs profile, ID used by another account); full ID numbers never stored (masked + keyed hash), Aadhaar never stored; AI extraction never verifies -- identity / GST / bank need a provider adapter (container.kyc_providers; none configured -> AWAITING_PROVIDER), staff may verify only business documents and professional licences (kyc:approve, confirm, audited); verified checks expire; DELETE /api/kyc/consent wipes stored details; demo account refused; GET /api/kyc/me returns level, badges, requirements per activity; app screen /verification.",
+      "roles": ["buyer", "seller", "admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/kyc/me"}, {"method": "POST", "path": "/api/kyc/consent"},
+              {"method": "POST", "path": "/api/kyc/documents"}, {"method": "GET", "path": "/admin/cc/kyc/queue"},
+              {"method": "POST", "path": "/admin/cc/kyc/checks/{check_id}/review"}],
+      "ui": {"keys": ["askodoxKycLevel", "askodoxKycAccept", "askodoxKycAddDocument", "askodoxKycWithdraw"], "symbols": ["AskodoxKycScreen"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_kyc_engine.py"], "flutter": ["test/features/kyc/kyc_screen_test.dart"]},
+      "dependencies": ["integration_platform_catalog"], "status": "approved",
+      "history": [{"pr": null, "change": "phase 2 (branch claude/kyc-engine)"}]
     }
   ]
 }

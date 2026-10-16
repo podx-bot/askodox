@@ -82,7 +82,9 @@ APIs: `GET /admin/cc/integrations/catalog` and `GET /admin/cc/integrations/owner
 ## Phase plan (status)
 1. **Phase 1, done in code:** catalog + statuses + wizard + Owner checklist; OTP fallback; no demo bypass in
    production.
-2. **Phase 2, KYC engine:**
+2. **Phase 2, KYC engine (`kyc_engine.py`, `/api/kyc/*`, Command Center "KYC review queue", app
+   `/verification`), built.** Still needed: a licensed provider choice per kind, and its adapter.
+   Originally planned:
    - verification levels L1–L5;
    - consent records;
    - document AI extraction marked as "extracted, not verified";

@@ -90,8 +90,12 @@ def test_catalog_with_zero_credentials_is_honest_and_needs_admin(env):
     assert all(r["status"] in ic.STATUSES for r in rows.values())
     assert {r["category"] for r in rows.values()} == set(body["categories"]), "every area has entries"
     # Not built is named honestly, never "ready".
-    for key in ("kyc_pan", "kyc_digilocker", "google_sign_in", "passkeys", "phonepe"):
+    for key in ("kyc_face", "kyc_video", "google_sign_in", "passkeys", "phonepe"):
         assert rows[key]["status"] == ic.NOT_BUILT and rows[key]["adapter"] == "not_built"
+    # KYC engine built, vendor adapter not: waits for a provider, never "verified".
+    for key in ("kyc_pan", "kyc_digilocker", "kyc_gst", "kyc_bank"):
+        assert rows[key]["adapter"] == "interface_ready" and rows[key]["status"] == ic.APPROVAL_REQUIRED
+    assert rows["kyc_documents_review"]["status"] == ic.CODE_READY
     # Built adapters without credentials say what is missing.
     assert rows["razorpay"]["status"] == ic.APPROVAL_REQUIRED
     assert rows["gemini"]["status"] in (ic.ACCOUNT_REQUIRED, ic.CONFIG_REQUIRED)
@@ -100,8 +104,8 @@ def test_catalog_with_zero_credentials_is_honest_and_needs_admin(env):
     assert not any(r["status"] in ic.DONE_STATUSES for r in rows.values()), "nothing is verified without a real call"
     checklist = client.get("/admin/cc/integrations/owner-checklist", headers=OWNER).json()
     keys = [a["key"] for a in checklist["owner_actions"]]
-    assert "razorpay" in keys and "kyc_pan" not in keys, "NOT BUILT is development work, not an Owner task"
-    assert "kyc_pan" in [d["key"] for d in checklist["development_pending"]]
+    assert "razorpay" in keys and "kyc_face" not in keys, "NOT BUILT is development work, not an Owner task"
+    assert "kyc_face" in [d["key"] for d in checklist["development_pending"]]
     assert all(a["steps"] or a["how_to_test"] for a in checklist["owner_actions"] if a["status"] != ic.CODE_READY)
 
 

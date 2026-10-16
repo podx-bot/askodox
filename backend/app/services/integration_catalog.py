@@ -5,8 +5,10 @@ categories auth / kyc / communication / commerce / app_monetization / bfsi /
 payments / maps / ai / video. Each entry says, in the Owner's terms, what it
 does, whether an account / approval / money is needed, where to sign up, which
 secure field or deployment variable to fill, how to test, and -- honestly --
-whether ASKODOX already has the adapter code ("built"), only a staff manual
-link / report workflow ("manual_workflow"), or nothing yet ("not_built").
+whether ASKODOX already has the adapter code ("built"), the engine + adapter
+interface but no vendor adapter yet ("interface_ready", e.g. KYC providers), only
+a staff manual link / report workflow ("manual_workflow"), or nothing yet
+("not_built").
 
 Status is COMPUTED from live state (integration registry, the same real-call
 provider health the API Health page uses, the payment gateway check), never
@@ -117,20 +119,29 @@ CATALOG: List[Dict[str, Any]] = [
     _e("voice_otp", "Voice-call OTP", "auth", "not_built", "Reads the code out in a phone call.",
        notes="Needs a voice provider; not chosen."),
     # -------------------------------------------------------------- kyc --
-    _e("kyc_pan", "PAN verification", "kyc", "not_built", "Checks a PAN against the authoritative source.",
+    _e("kyc_pan", "PAN verification", "kyc", "interface_ready", "Checks a PAN against the authoritative source.",
        approval=True, costs="Per-check fee charged by the verification provider.",
-       notes="Needs a licensed verification provider (not chosen). AI-read PAN details are never 'verified'."),
-    _e("kyc_digilocker", "DigiLocker", "kyc", "not_built", "User-consented documents from DigiLocker.",
+       source=("kyc_provider", "pan"),
+       notes="KYC engine + adapter interface built; a licensed provider must be chosen (vendor adapter needed). "
+             "AI-read PAN details are never 'verified'."),
+    _e("kyc_digilocker", "DigiLocker", "kyc", "interface_ready", "User-consented documents from DigiLocker.",
        approval=True, signup="https://www.digilocker.gov.in/",
-       notes="Requires registration as a DigiLocker requester / partner; not built yet."),
+       source=("kyc_provider", "digilocker"),
+       notes="KYC engine built; DigiLocker requester registration + its adapter still needed."),
     _e("kyc_aadhaar", "Aadhaar-based verification (permitted modes)", "kyc", "not_built",
        "Only legally permitted modes (e.g. offline XML / DigiLocker) through an authorised provider.",
        approval=True, notes="Aadhaar numbers must never be stored or logged; not built yet."),
-    _e("kyc_gst", "GST verification", "kyc", "not_built", "Checks a GSTIN and the business name.",
-       approval=True, notes="Needs a GST verification provider; not built yet."),
-    _e("kyc_bank", "Bank account ownership", "kyc", "not_built",
+    _e("kyc_gst", "GST verification", "kyc", "interface_ready", "Checks a GSTIN and the business name.",
+       approval=True, source=("kyc_provider", "gst"),
+       notes="KYC engine reads GSTINs (check digit, PAN cross-check); a GST verification provider is needed."),
+    _e("kyc_bank", "Bank account ownership", "kyc", "interface_ready",
        "Penny-drop / name match to prove an account belongs to the person.", approval=True,
-       notes="Usually offered by payment gateways after merchant approval; not built yet."),
+       source=("kyc_provider", "bank_account"),
+       notes="KYC engine reads IFSC / account (masked); penny-drop needs a provider (often the payment gateway)."),
+    _e("kyc_documents_review", "Business & professional documents (staff review)", "kyc", "built",
+       "Users upload business registration / professional licences; AI extracts fields; staff verify.",
+       account=False, steps=["Command Center -> KYC review queue."],
+       test="Upload a business document from the app, approve it in the KYC review queue: level 3."),
     _e("kyc_face", "Face match & liveness", "kyc", "not_built", "Selfie matches the ID photo; a live person.",
        approval=True, notes="Needs a provider with consent + data-retention terms; not built yet."),
     _e("kyc_video", "Approved video KYC", "kyc", "not_built", "Regulated video KYC by an authorised partner.",
@@ -272,6 +283,11 @@ def evaluate(entry: Dict[str, Any], probe: Callable[[Any], Dict[str, Any]]) -> D
     """Status + reason for one entry; `probe(source)` returns the live facts."""
     if entry["adapter"] == "not_built":
         return {"status": NOT_BUILT, "reason": entry["notes"] or "No adapter in ASKODOX yet."}
+    if entry["adapter"] == "interface_ready":
+        facts = probe(entry["source"]) or {}
+        if facts.get("ready"):
+            return {"status": CODE_READY, "reason": "provider adapter configured; verify with a real document"}
+        return {"status": _missing(entry), "reason": entry["notes"]}
     try:
         facts = probe(entry["source"]) or {}
     except Exception as error:
@@ -344,6 +360,8 @@ def _prober(container: Any) -> Callable[[Any], Dict[str, Any]]:
             if len(have) < len(ref):
                 return {"kind": "missing", "reason": "not set: " + ", ".join(v for v in ref if v not in have)}
             return {"kind": "ready", "ready": True, "reason": "set; verify with a real test"}
+        if kind == "kyc_provider":
+            return {"kind": "ready", "ready": ref in dict(getattr(container, "kyc_providers", None) or {})}
         if kind == "partner_hub":
             return {"kind": "ready", "ready": True, "reason": "staff workflow in the Command Center"}
         return {"kind": "unknown"}
