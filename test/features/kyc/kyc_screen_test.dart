@@ -82,6 +82,8 @@ class _Picker implements AskodoxMediaPicker {
 void main() {
   testWidgets('consent first, document read (masked, not verified), withdraw deletes', (tester) async {
     final api = _Api();
+    await tester.binding.setSurfaceSize(const Size(800, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(ProviderScope(
       overrides: [
         kycRepositoryProvider.overrideWithValue(KycRepository(api, authToken: 't')),
@@ -104,6 +106,9 @@ void main() {
     expect(sent['filename'], 'pan.jpg');
     expect(sent['file_base64'], 'AQID');
     expect(find.textContaining('nothing more is needed now'), findsWidgets);
+    ScaffoldMessenger.of(tester.element(find.byType(ListView))).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('askodoxKycWithdraw')));
     await tester.tap(find.byKey(const Key('askodoxKycWithdraw')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxKycWithdrawConfirm')));
