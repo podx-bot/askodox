@@ -20,7 +20,7 @@ jobs:
           curl -s "$B/health/integrations" -o i.txt
           python3 -c "import json;r=[i for i in json.load(open('i.txt'))['items'] if i['integration'] in ('Razorpay','Sign-in OTP')];print('::notice title=Razorpay row::'+json.dumps(r))"
           python3 -c "import json;print('::notice title=integrations::'+json.dumps([(i['integration'],i['state']) for i in json.load(open('i.txt'))['items']]))"
-          for p in /admin/cc/api-billing /admin/cc/platform/readiness /api/billing/options; do
+          for p in /admin/cc/integrations/catalog /admin/cc/kyc/queue /admin/cc/commissions/summary /api/kyc/me /api/billing/options; do
             code=$(curl -s -o b.txt -w '%{http_code}' "$B$p"); echo "::notice title=GET $p (no sign-in)::HTTP $code $(head -c 120 b.txt)"
           done
           code=$(curl -s -o b.txt -w '%{http_code}' -X POST "$B/admin/cc/api-billing/razorpay/check"); echo "::notice title=POST gateway check (no sign-in)::HTTP $code $(head -c 120 b.txt)"
