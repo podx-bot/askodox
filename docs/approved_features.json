@@ -548,6 +548,46 @@
       "tests": {"backend": ["tests/test_kyc_engine.py"], "flutter": ["test/features/kyc/kyc_screen_test.dart"]},
       "dependencies": ["integration_platform_catalog"], "status": "approved",
       "history": [{"pr": null, "change": "phase 2 (branch claude/kyc-engine)"}]
+    },
+    {
+      "id": "commission_engine",
+      "name": "Commission engine on the Partner Hub: all models, partner-confirmed only, PENDING -> CONFIRMED -> PAYABLE -> PAID, reversals, fraud flags, reconciliation",
+      "purpose": "Track every affiliate / app-install / referral / BFSI commission honestly in one ledger.",
+      "expected_behavior": "Partner commission rules support cps / cpi / cpa / cpl / cpc / recurring / revenue_share / fixed / percentage, per_event and per_category amounts, attribution_days and hold_days (validated); signed postbacks accept order / install / action / signup / lead (CPL with an id) / subscription / renewal events; clicks never create conversions (CPC = expected from clicks only); duplicates impossible per (partner, id); flags: no_click_id, unknown_or_expired_click, outside_attribution_window, too_fast_after_click, repeat_conversion_for_click; re-sent reports never move a conversion backwards; staff transitions are forward-only with confirmation + audit; promote-payable moves unflagged CONFIRMED past hold to PAYABLE; reconciliation of a partner statement is read-only; GET /admin/cc/commissions/summary; console view commissions.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/commissions/summary"}, {"method": "POST", "path": "/admin/cc/commissions/conversions/{conversion_id}/transition"},
+              {"method": "POST", "path": "/admin/cc/commissions/promote-payable"}, {"method": "POST", "path": "/admin/cc/commissions/reconcile/{partner_id}"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_commission_engine.py", "tests/test_partner_hub_revenue.py"], "flutter": []},
+      "dependencies": ["integration_platform_catalog"], "status": "approved",
+      "history": [{"pr": null, "change": "phase 3 (branch claude/commission-engine)"}]
+    },
+    {
+      "id": "partner_campaign_items",
+      "name": "Partner campaigns in the item store: app installs, referral programmes, financial-services partner offers",
+      "purpose": "Show partner campaigns transparently, only when relevant.",
+      "expected_behavior": "Item types app_install / referral / financial_offer (staff grant offers:create) reach results only when LIVE and relevant (financial offers only when the need matches their own category); result rows carry partner_offer=true and a disclosure (may earn a commission; no reward promised; financial: partner decides eligibility / KYC / terms, no financial advice); conversions come only through the commission engine.",
+      "roles": ["admin", "buyer"], "domains": ["any"],
+      "api": [],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_partner_campaigns.py"], "flutter": []},
+      "dependencies": ["commission_engine"], "status": "approved",
+      "history": [{"pr": null, "change": "phase 4 (branch claude/platform-phase-4-5)"}]
+    },
+    {
+      "id": "one_account_per_phone",
+      "name": "One account per phone number however it is typed",
+      "purpose": "No duplicate profiles from typing the same number with or without +91.",
+      "expected_behavior": "POST /onboarding/otp/verify maps the last 10 digits through auth_accounts: the first id issued is reused; an existing user_profiles row for the number is adopted; the app stores the server's app_user_id digits as its identity; a request claiming another spelling of the SAME number is accepted (token wins), another number still gets 403.",
+      "roles": ["buyer", "seller"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/onboarding/otp/verify"}],
+      "ui": {"keys": [], "symbols": ["askodoxAccountDigits"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_account_identity.py"], "flutter": ["test/features/auth/account_identity_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "phase 5 (branch claude/platform-phase-4-5)"}]
     }
   ]
 }

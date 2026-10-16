@@ -44,6 +44,8 @@ TYPE_PERMISSION = {
     "product": "affiliate_products:create", "link": "affiliate_products:create", "service": "affiliate_products:create",
     "offer": "offers:create", "coupon": "offers:create",
     "news": "content:create", "video": "content:create", "content": "content:create",
+    # Partner campaigns are commercial: the same grant as other offers.
+    "app_install": "offers:create", "referral": "offers:create", "financial_offer": "offers:create",
 }
 REVIEW_ACTIONS = {
     # action: (allowed from, to, needs)

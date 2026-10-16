@@ -91,7 +91,8 @@ APIs: `GET /admin/cc/integrations/catalog` and `GET /admin/cc/integrations/owner
    - review queue;
    - expiry;
    - provider adapters once a provider is chosen.
-3. **Phase 3, commission engine:**
+3. **Phase 3, commission engine (`commission_engine.py`, `/admin/cc/commissions/*`, console "Commission
+   dashboard"), built.** Originally planned:
    - commission rule types (CPS / CPI / CPA / CPL / CPC / recurring / revenue share);
    - attribution windows;
    - reversals;
@@ -99,11 +100,13 @@ APIs: `GET /admin/cc/integrations/catalog` and `GET /admin/cc/integrations/owner
    - fraud signals.
 
    This extends Partner Hub, it does not replace it.
-4. **Phase 4, campaign types:**
+4. **Phase 4, campaign types, built:** item types app_install / referral / financial_offer (labelled,
+   relevance-first; financial offers only for their own category). Originally planned:
    - app install / referral / BFSI campaign types in the item store, with transparent "Sponsored" cards on the
      Result Board;
    - partner metadata (registration URL, docs, tracking method, commission model) in Partner Hub.
-5. **Phase 5, identity:**
+5. **Phase 5, identity, built:** `account_identity` gives one account per number. Existing profiles are
+   adopted; historical duplicates are reported, never merged silently. Originally planned:
    - one Master Profile per phone (normalise 10-digit vs 91-prefixed sign-ins, with a data migration);
    - roles on one account;
    - account recovery.

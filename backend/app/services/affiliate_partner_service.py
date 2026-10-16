@@ -107,17 +107,16 @@ def _matches(partner: Dict[str, Any], *, category: str, subject: str, country: s
     return any(cat in wanted or (category and category.casefold() in cat) for cat in cats)
 
 
-def expected_commission(partner: Dict[str, Any], order_value: float | None, category: str = "") -> Optional[float]:
-    """Commission from the admin's rule (an EXPECTATION, never confirmed)."""
+def expected_commission(partner: Dict[str, Any], order_value: float | None, category: str = "",
+                        event: str = "sale") -> Optional[float]:
+    """Commission from the admin's rule (an EXPECTATION, never confirmed).
+    One rule engine for every model (CPS / CPI / CPA / CPL / recurring / ...)."""
+    from app.services import commission_engine
+
     rule = partner.get("commission") or {}
-    if order_value is None:
+    if order_value is None and event == "sale" and not rule.get("model"):
         return None
-    rate = (rule.get("per_category") or {}).get(str(category or "").casefold(), rule.get("percent"))
-    if rate not in (None, ""):
-        return round(float(order_value) * float(rate) / 100.0, 2)
-    if rule.get("flat") not in (None, ""):
-        return round(float(rule["flat"]), 2)
-    return None
+    return commission_engine.expected(rule, event, order_value, category)
 
 
 class PartnerFeedError(RuntimeError):
@@ -316,11 +315,20 @@ def handle_postback(repo: PartnerRevenueRepository, partner: Dict[str, Any], par
     context = repo.impression_context(click_id) if click_id else None
     attrs = {k: (context or {}).get(k) or "" for k in ("category", "location", "language", "campaign")}
     event = str(params.get("event") or "order").casefold()
+    from app.services import commission_engine
+
+    model = str((partner.get("commission") or {}).get("model") or "")
+    if event == "lead" and model == "cpl" and (params.get("conversion_id") or params.get("lead_id")):
+        event = "lead_conversion"  # a CPL partner confirms a qualified lead with its own id
     if event == "lead":
         repo.record_event("lead", partner_id=partner["id"], click_id=click_id or None, detail={"source": "postback"},
                           **attrs)
         return {"recorded": "lead", "matched_click": bool(context)}
-    order_id = str(params.get("order_id") or params.get("transaction_id") or params.get("conversion_id") or "")
+    kind = "lead" if event == "lead_conversion" else commission_engine.conversion_event(event)
+    if kind is None:
+        raise ValueError(f"unknown event '{event}' (use order, install, action, signup, lead, subscription, renewal)")
+    order_id = str(params.get("order_id") or params.get("transaction_id") or params.get("conversion_id")
+                   or params.get("install_id") or params.get("lead_id") or "")
 
     def number(*keys: str) -> Optional[float]:
         for key in keys:
@@ -335,15 +343,19 @@ def handle_postback(repo: PartnerRevenueRepository, partner: Dict[str, Any], par
     commission = number("commission", "payout")
     source = "partner"
     if commission is None:
-        commission, source = expected_commission(partner, value, attrs["category"]), "rule"
+        commission, source = expected_commission(partner, value, attrs["category"], kind), "rule"
+    occurred = str(params.get("occurred_at") or "") or None
+    flags = commission_engine.flags_for(partner, context=context, click_id=click_id, event=kind,
+                                        occurred_at=occurred, repo=repo)
     conversion = repo.upsert_conversion(
         partner_id=partner["id"], external_id=order_id, source="postback", status=params.get("status") or "pending",
         click_id=click_id or None, order_value=value, commission=commission, commission_source=source,
         currency=str(params.get("currency") or "INR")[:3].upper(), raw={k: str(v)[:120] for k, v in params.items()
-                                                                        if k != "token"}, **attrs,
+                                                                        if k != "token"}, event=kind, flags=flags,
+        **attrs,
     )
-    return {"recorded": "order", "conversion_id": conversion["id"], "status": conversion["status"],
-            "matched_click": bool(context)}
+    return {"recorded": "order" if kind == "sale" else kind, "conversion_id": conversion["id"],
+            "status": conversion["status"], "matched_click": bool(context), "flags": flags}
 
 
 def _iso_date(value: Any) -> Optional[str]:

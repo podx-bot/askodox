@@ -342,6 +342,9 @@ def create_app() -> FastAPI:
 
     app.include_router(kyc_router)
     app.include_router(kyc_admin_router)
+    from app.api.routes.commissions import admin_router as commissions_admin_router
+
+    app.include_router(commissions_admin_router)
     _redact_access_log_tokens()
     from app.api.routes.attachments import router as attachments_router
     from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router

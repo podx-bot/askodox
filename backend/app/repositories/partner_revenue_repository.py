@@ -31,7 +31,10 @@ from zoneinfo import ZoneInfo
 
 from app.services.secret_box import SecretBox
 
-CONVERSION_STATES = ("PENDING", "CONFIRMED", "PAID", "REJECTED", "REVERSED")
+CONVERSION_STATES = ("PENDING", "CONFIRMED", "PAYABLE", "PAID", "REJECTED", "REVERSED")
+# A later partner report never moves a conversion backwards (PAYABLE / PAID
+# stay unless the partner rejects / reverses it).
+_PROGRESS = {"PENDING": 0, "CONFIRMED": 1, "PAYABLE": 2, "PAID": 3}
 FUNNEL_EVENTS = ("search", "impression", "card_view", "click", "partner_opened", "lead")
 # Offers & rewards (benefits) funnel: campaign = "benefit:<id>".
 BENEFIT_EVENTS = ("offer_impression", "offer_open", "offer_claim")
@@ -57,7 +60,7 @@ _JSON_FIELDS = {"categories": [], "countries": [], "locations": [], "campaign_pa
 _STATUS_WORDS = {
     "pending": "PENDING", "open": "PENDING", "new": "PENDING", "processing": "PENDING",
     "approved": "CONFIRMED", "confirmed": "CONFIRMED", "valid": "CONFIRMED", "accepted": "CONFIRMED",
-    "paid": "PAID", "settled": "PAID",
+    "paid": "PAID", "settled": "PAID", "payable": "PAYABLE",
     "rejected": "REJECTED", "declined": "REJECTED", "invalid": "REJECTED", "cancelled": "REJECTED",
     "canceled": "REJECTED",
     "reversed": "REVERSED", "returned": "REVERSED", "refunded": "REVERSED", "chargeback": "REVERSED",
@@ -188,6 +191,15 @@ class PartnerRevenueRepository:
                 CREATE TABLE IF NOT EXISTS revenue_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 """
             )
+            for column, ddl in (("event", "TEXT NOT NULL DEFAULT 'sale'"), ("flags_json", "TEXT NOT NULL DEFAULT '[]'"),
+                                ("state_changed_at", "TEXT")):
+                try:  # commission engine columns (migration for older databases)
+                    conn.execute(f"ALTER TABLE partner_conversions ADD COLUMN {column} {ddl}")
+                except sqlite3.OperationalError:
+                    pass
+            conn.execute("CREATE TABLE IF NOT EXISTS partner_conversion_events (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                         "conversion_id INTEGER NOT NULL, from_state TEXT, to_state TEXT NOT NULL, actor TEXT NOT NULL, "
+                         "note TEXT, created_at TEXT NOT NULL)")
             try:  # database-level guarantee on top of the app-level check
                 conn.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS uq_revenue_events_once ON revenue_events(click_id, event) "
@@ -407,7 +419,8 @@ class PartnerRevenueRepository:
                           commission: float | None = None, commission_source: str = "partner",
                           currency: str = "INR", category: str = "", location: str = "", campaign: str = "",
                           language: str = "", occurred_at: str | None = None,
-                          raw: Dict[str, Any] | None = None) -> Dict[str, Any]:
+                          raw: Dict[str, Any] | None = None, event: str = "sale",
+                          flags: List[str] | None = None) -> Dict[str, Any]:
         external_id = str(external_id or "").strip()[:120]
         if not external_id:
             raise ValueError("order/conversion id is required")
@@ -421,20 +434,33 @@ class PartnerRevenueRepository:
                 conn.execute(
                     "INSERT INTO partner_conversions (partner_id, external_id, click_id, order_value, currency, commission, "
                     "commission_source, status, category, location, campaign, language, source, occurred_at, updated_at, "
-                    "raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "raw_json, event, flags_json, state_changed_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (partner_id, external_id, click_id, order_value, currency or "INR", commission, commission_source,
                      state, category, location, campaign, language, source, occurred_at or now, now,
-                     json.dumps(raw or {})[:4000]),
+                     json.dumps(raw or {})[:4000], event or "sale", json.dumps(flags or []), now),
                 )
+                conn.execute("INSERT INTO partner_conversion_events (conversion_id, from_state, to_state, actor, note, "
+                             "created_at) VALUES ((SELECT id FROM partner_conversions WHERE partner_id=? AND "
+                             "external_id=?), NULL, ?, ?, ?, ?)", (partner_id, external_id, state, source, "reported", now))
             else:
+                if state in _PROGRESS and _PROGRESS.get(existing["status"], -1) > _PROGRESS[state]:
+                    state = existing["status"]  # never backwards on a re-sent report
+                if existing["status"] in ("REJECTED", "REVERSED"):
+                    state = existing["status"]  # final
                 # A later report updates status/amounts; unknown values keep the old ones.
                 conn.execute(
                     "UPDATE partner_conversions SET status = ?, order_value = COALESCE(?, order_value), "
                     "commission = COALESCE(?, commission), commission_source = CASE WHEN ? IS NULL THEN commission_source "
-                    "ELSE ? END, click_id = COALESCE(click_id, ?), updated_at = ?, raw_json = ? WHERE id = ?",
+                    "ELSE ? END, click_id = COALESCE(click_id, ?), updated_at = ?, raw_json = ?, "
+                    "state_changed_at = CASE WHEN status = ? THEN state_changed_at ELSE ? END WHERE id = ?",
                     (state, order_value, commission, commission, commission_source, click_id, now,
-                     json.dumps(raw or {})[:4000], existing["id"]),
+                     json.dumps(raw or {})[:4000], state, now, existing["id"]),
                 )
+                if state != existing["status"]:
+                    conn.execute("INSERT INTO partner_conversion_events (conversion_id, from_state, to_state, actor, "
+                                 "note, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                                 (existing["id"], existing["status"], state, source, "partner report", now))
             row = conn.execute(
                 "SELECT * FROM partner_conversions WHERE partner_id = ? AND external_id = ?", (partner_id, external_id)
             ).fetchone()
@@ -444,7 +470,25 @@ class PartnerRevenueRepository:
     def _conversion(row: sqlite3.Row) -> Dict[str, Any]:
         item = dict(row)
         item["raw"] = _loads(item.pop("raw_json", None), {})
+        item["flags"] = _loads(item.pop("flags_json", None), [])
         return item
+
+    def get_conversion(self, conversion_id: int) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM partner_conversions WHERE id = ?", (conversion_id,)).fetchone()
+        return self._conversion(row) if row else None
+
+    def add_conversion_event(self, conversion_id: int, from_state: str | None, to_state: str, actor: str,
+                             note: str = "") -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO partner_conversion_events (conversion_id, from_state, to_state, actor, note, "
+                         "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                         (conversion_id, from_state, to_state, actor, note[:200], _now()))
+
+    def conversion_events(self, conversion_id: int) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            return [dict(r) for r in conn.execute("SELECT * FROM partner_conversion_events WHERE conversion_id = ? "
+                                                  "ORDER BY id", (conversion_id,))]
 
     def set_conversion_status(self, conversion_id: int, status: str) -> Optional[Dict[str, Any]]:
         state = str(status or "").upper()
