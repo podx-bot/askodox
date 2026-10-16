@@ -562,6 +562,32 @@
       "tests": {"backend": ["tests/test_commission_engine.py", "tests/test_partner_hub_revenue.py"], "flutter": []},
       "dependencies": ["integration_platform_catalog"], "status": "approved",
       "history": [{"pr": null, "change": "phase 3 (branch claude/commission-engine)"}]
+    },
+    {
+      "id": "partner_campaign_items",
+      "name": "Partner campaigns in the item store: app installs, referral programmes, financial-services partner offers",
+      "purpose": "Show partner campaigns transparently, only when relevant.",
+      "expected_behavior": "Item types app_install / referral / financial_offer (staff grant offers:create) reach results only when LIVE and relevant (financial offers only when the need matches their own category); result rows carry partner_offer=true and a disclosure (may earn a commission; no reward promised; financial: partner decides eligibility / KYC / terms, no financial advice); conversions come only through the commission engine.",
+      "roles": ["admin", "buyer"], "domains": ["any"],
+      "api": [],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_partner_campaigns.py"], "flutter": []},
+      "dependencies": ["commission_engine"], "status": "approved",
+      "history": [{"pr": null, "change": "phase 4 (branch claude/platform-phase-4-5)"}]
+    },
+    {
+      "id": "one_account_per_phone",
+      "name": "One account per phone number however it is typed",
+      "purpose": "No duplicate profiles from typing the same number with or without +91.",
+      "expected_behavior": "POST /onboarding/otp/verify maps the last 10 digits through auth_accounts: the first id issued is reused; an existing user_profiles row for the number is adopted; the app stores the server's app_user_id digits as its identity; a request claiming another spelling of the SAME number is accepted (token wins), another number still gets 403.",
+      "roles": ["buyer", "seller"], "domains": ["any"],
+      "api": [{"method": "POST", "path": "/onboarding/otp/verify"}],
+      "ui": {"keys": [], "symbols": ["askodoxAccountDigits"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_account_identity.py"], "flutter": ["test/features/auth/account_identity_test.dart"]},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "phase 5 (branch claude/platform-phase-4-5)"}]
     }
   ]
 }

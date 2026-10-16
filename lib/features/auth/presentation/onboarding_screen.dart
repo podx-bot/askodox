@@ -12,6 +12,14 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../profile/data/user_profile_repository.dart';
 
+
+/// Digits of the server's account id ("app-phone-919876543210" ->
+/// "919876543210"); null when the server sent none (older backend).
+String? askodoxAccountDigits(String? appUserId) {
+  final m = RegExp(r'^app-phone-(\d{10,15})$').firstMatch((appUserId ?? '').trim());
+  return m?.group(1);
+}
+
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.signIn = false});
 
@@ -39,6 +47,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // Added 2026-09-16 (round 10): the real signed session token returned by
   // POST /onboarding/otp/verify, captured here and persisted in _finish().
   String? _verifiedToken;
+  // The server's ONE account id for this number ("app-phone-<digits>"); the
+  // number may have been typed differently before (phase 5, one account per
+  // phone). Its digits become the app's identity so both always agree.
+  String? _verifiedAccount;
 
   int _step = 0;
   bool _loading = true;
@@ -187,6 +199,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // can persist it -- this is what closes the identity-spoofing gap
       // from the full audit.
       _verifiedToken = result.data['token']?.toString();
+      _verifiedAccount = result.data['app_user_id']?.toString();
       FocusScope.of(context).unfocus();
       setState(() => _step = 3);
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -208,7 +221,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
     FocusScope.of(context).unfocus();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_mobileKey, _mobile.text.trim());
+    final account = askodoxAccountDigits(_verifiedAccount) ?? _mobile.text.trim();
+    await prefs.setString(_mobileKey, account);
     await prefs.setString(_nameKey, _name.text.trim());
     // Added 2026-09-16 (round 10). See main.dart's _restoreOnboardingIdentity
     // for where this is read back and AuthController.completeOnboarding for
@@ -220,7 +234,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await prefs.setBool(_completeKey, true);
     // The session is live at once (no restart needed to act).
     await ref.read(authSessionProvider.notifier).completeOnboarding(
-          mobile: _mobile.text.trim(),
+          mobile: account,
           displayName: _name.text.trim(),
           token: (token == null || token.isEmpty) ? null : token,
         );

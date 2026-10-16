@@ -38,8 +38,19 @@ CHECK_SOURCES = ("manual", "feed", "api", "page_metadata", "postback")
 # One reusable item store for everything staff curate (Staff Workspace):
 # shopping items appear in chat results; news / video / content items are
 # listed through /api/content. Rows created before items existed are LIVE.
-ITEM_TYPES = ("product", "offer", "coupon", "service", "link", "news", "video", "content")
-RESULT_ITEM_TYPES = ("product", "offer", "coupon", "service", "link")
+ITEM_TYPES = ("product", "offer", "coupon", "service", "link", "news", "video", "content",
+              "app_install", "referral", "financial_offer")
+RESULT_ITEM_TYPES = ("product", "offer", "coupon", "service", "link", "app_install", "referral", "financial_offer")
+# Partner campaigns (app installs, referral programs, financial-services partner
+# offers): always labelled as partner offers; they compete on relevance like any
+# other result and are never boosted for earning a commission.
+CAMPAIGN_ITEM_TYPES = ("app_install", "referral", "financial_offer")
+CAMPAIGN_DISCLOSURE = {
+    "app_install": "Partner app offer -- ASKODOX may earn a commission if you install. No reward is promised.",
+    "referral": "Referral programme -- ASKODOX may earn a commission. No reward is promised.",
+    "financial_offer": ("Offered by the partner, who decides eligibility, KYC and terms. ASKODOX may earn a "
+                        "commission and does not give financial advice."),
+}
 REVIEW_STATES = ("DRAFT", "NEEDS_REVIEW", "APPROVED", "LIVE", "PAUSED", "EXPIRED")
 
 # Platform id -> display name, hosts its URLs live on (incl. short links),
@@ -883,6 +894,11 @@ class AffiliateCatalog:
             text = " ".join(str(row.get(k) or "") for k in ("title", "subcategory", "category", "description"))
             if not relevant_to(subject, text):
                 continue
+            # A financial-services offer appears only when the need is about the
+            # offer's own category (never pushed into unrelated searches).
+            if row.get("item_type") == "financial_offer" and not relevant_to(
+                    subject, " ".join(str(row.get(k) or "") for k in ("category", "subcategory"))):
+                continue
             item = _public(row, sources)
             if item["eligibility"]["eligible"]:
                 out.append(item)
@@ -951,8 +967,9 @@ def result_row(item: dict[str, Any]) -> dict[str, Any]:
         "open_strategy": "web",
         "affiliate": affiliate,
         "routing": ev["routing"],
-        "disclosure": "Affiliate link" if affiliate else "",
+        "disclosure": CAMPAIGN_DISCLOSURE.get(str(item.get("item_type") or ""), "Affiliate link" if affiliate else ""),
         "sponsored": bool(item.get("sponsored")),
+        "partner_offer": str(item.get("item_type") or "") in CAMPAIGN_ITEM_TYPES,
         "stock_status": item.get("stock_status"),
         "last_checked": ev["last_checked"],
         "location": item.get("location") or item.get("availability") or None,

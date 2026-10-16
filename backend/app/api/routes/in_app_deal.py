@@ -96,7 +96,11 @@ def _matching_app_user(claimed_value: str, authenticated_user_id: str) -> str:
     longer trusted by itself.
     """
     claimed = str(claimed_value or "").strip()
-    if claimed and claimed != authenticated_user_id:
+    from app.services.account_identity import same_number
+
+    # The same number typed another way at sign-in is the same person (the
+    # token proves the number; phase 5 keeps ONE account per number).
+    if claimed and claimed != authenticated_user_id and not same_number(claimed, authenticated_user_id):
         raise HTTPException(status_code=403, detail="This session is not signed in as that user")
     return authenticated_user_id
 

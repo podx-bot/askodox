@@ -162,8 +162,12 @@ def verify_otp(payload: VerifyOtpRequest, request: Request) -> dict:
     # session_tokens.py) that the Flutter app now stores and sends as
     # `Authorization: Bearer <token>` on every request that needs to know
     # who is really acting -- see orders.py's `_authenticated_app_user`.
-    app_user_id = f"app-phone-{mobile}"
     settings = request.app.state.container.settings
+    from app.services import account_identity
+
+    # ONE account per number however it was typed (phase 5): the first id
+    # issued for this number is reused; older profiles are adopted.
+    app_user_id = account_identity.resolve(settings.database_path, mobile)["user_id"]
     token = issue_token(app_user_id, settings.session_token_secret)
 
     return {"status": "verified", "mobile": mobile, "app_user_id": app_user_id, "token": token}
