@@ -12,6 +12,7 @@ this file, don't trust it blindly.
   `session_logouts`, deletes nothing), Firebase phone sign-in (server-verified ID token, only with
   ASKODOX_FIREBASE_PHONE_AUTH), FCM client hardening + `POST /api/me/push-test`, opt-in In-App Messaging,
   dev-only Developer Diagnostics. Firebase is NOT configured anywhere yet (no GitHub vars, no service account).
+  Release APK 1331 (phone-test-1331, sha256 7d382ce1…ecacf, release cert 727b4a66…57cf, no Firebase values in it).
   See docs/auth-and-push.md. Before: #201-#204 (`af58f29` / `39d4150`, APK 1330), Integration Platform phases 1-5.
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
