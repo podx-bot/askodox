@@ -519,6 +519,20 @@
       "tests": {"backend": ["tests/test_razorpay_test_mode.py", "tests/test_billing.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
       "dependencies": ["razorpay_test_mode_checkout"], "status": "approved",
       "history": [{"pr": null, "change": "first version (branch claude/razorpay-gateway-health)"}]
+    },
+    {
+      "id": "integration_platform_catalog",
+      "name": "Universal Integration Catalog + Setup Wizard + Owner checklist; OTP fallback; no demo bypass in production",
+      "purpose": "One honest place for every external integration: what it needs, its real state, and what only the Owner must do.",
+      "expected_behavior": "GET /admin/cc/integrations/catalog lists integrations in 10 areas with statuses computed from live state (CODE READY / CONFIGURATION REQUIRED / ACCOUNT REQUIRED / PROVIDER APPROVAL REQUIRED / SANDBOX TESTED / LIVE VERIFIED / DISABLED / ERROR / NOT BUILT); mock mode never counts as tested; no secret value returned; GET /admin/cc/integrations/owner-checklist orders Owner actions and lists NOT BUILT as development work; console view wizard. Sign-in OTP goes through ASKODOX_OTP_CHANNELS (whatsapp_template, whatsapp, sms) with fallback, code never logged or returned; the demo number / test OTP mobiles work in production only with ASKODOX_DEMO_LOGIN=yes; /health/integrations shows a Sign-in OTP row.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/integrations/catalog"}, {"method": "GET", "path": "/admin/cc/integrations/owner-checklist"},
+              {"method": "POST", "path": "/onboarding/otp/send"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_integration_platform.py"], "flutter": []},
+      "dependencies": [], "status": "approved",
+      "history": [{"pr": null, "change": "phase 1 (branch claude/integration-platform-1)"}]
     }
   ]
 }

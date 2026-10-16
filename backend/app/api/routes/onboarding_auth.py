@@ -40,12 +40,31 @@ def _test_mobiles() -> set[str]:
     return {"".join(ch for ch in value if ch.isdigit()) for value in raw.split(",") if value.strip()}
 
 
-def _is_test_mobile(mobile: str) -> bool:
-    # Keep environment-controlled test mobiles available, and provide one isolated
-    # non-user demo number so live onboarding can be tested without an OTP provider.
-    if mobile == _DEMO_MOBILE:
+def _production() -> bool:
+    from app.services.commerce_finance import is_production
+
+    return is_production(dict(os.environ))
+
+
+def demo_login_allowed() -> bool:
+    """The shared demo number (fixed OTP) is a test convenience, never a
+    production bypass: off in production unless the Owner explicitly sets
+    ASKODOX_DEMO_LOGIN=yes for a test session. Elsewhere (local / staging /
+    CI) it stays available."""
+    if not _production():
         return True
+    return os.getenv("ASKODOX_DEMO_LOGIN", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_test_mobile(mobile: str) -> bool:
+    # Environment-controlled test mobiles (ASKODOX_TEST_OTP_MODE) and the isolated
+    # non-user demo number -- both fixed-OTP conveniences, so neither works in
+    # production without an explicit Owner switch.
+    if mobile == _DEMO_MOBILE:
+        return demo_login_allowed()
     allowed = _test_mobiles()
+    if _production() and not demo_login_allowed():
+        return False
     return _test_mode() and bool(allowed) and mobile in allowed
 
 
@@ -93,17 +112,21 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
         # The fixed OTP is only for explicit test/demo numbers; no message is sent.
         return {"status": "sent", "channel": "test", "expires_in_seconds": _TTL_SECONDS}
 
-    service = request.app.state.container.whatsapp_service
-    result = service.send_text_message(
-        mobile,
+    from app.services import otp_delivery
+
+    result = otp_delivery.deliver(
+        request.app.state.container, mobile,
         f"Your ASKODOX verification code is {otp}. It expires in 5 minutes. Do not share this code.",
     )
     if not result.get("success"):
         with _lock:
             _otps.pop(mobile, None)
-        raise HTTPException(status_code=503, detail=f"OTP delivery failed: {result.get('status', 'provider error')}")
+        tried = [a["channel"] for a in result["attempts"] if a["outcome"] == "failed"]
+        raise HTTPException(status_code=503, detail=(
+            "OTP delivery failed (" + ", ".join(tried) + ")" if tried
+            else "OTP delivery is not configured (no WhatsApp or SMS provider is set up)"))
 
-    return {"status": "sent", "channel": "whatsapp", "expires_in_seconds": _TTL_SECONDS}
+    return {"status": "sent", "channel": result["channel"], "expires_in_seconds": _TTL_SECONDS}
 
 
 @router.post("/otp/verify")

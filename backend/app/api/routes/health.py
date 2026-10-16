@@ -176,7 +176,27 @@ def integrations_health(request: Request) -> dict:
                                      "app" if push == "NOT_CONFIGURED" else "service account set; no device "
                                      "delivery verified yet"})
     rows.append(_razorpay_health(container))
+    rows.append(_otp_health(container))
     return {"items": rows}
+
+
+def _otp_health(container: Any) -> dict:
+    """Which sign-in code channels can send (names only) and whether the
+    fixed-code demo login is switched on. Configured != delivered: a real
+    sign-in proves it."""
+    try:
+        from app.api.routes.onboarding_auth import demo_login_allowed
+        from app.services import otp_delivery
+
+        chans = otp_delivery.channels(container)
+        ready = [c["channel"] for c in chans if c["ready"]]
+        return {"integration": "Sign-in OTP", "state": "CONFIGURED_NOT_VERIFIED" if ready else "NOT_CONFIGURED",
+                "reason": ("channels configured: " + ", ".join(ready)) if ready
+                else "no WhatsApp / SMS channel configured -- real numbers cannot sign in",
+                "channels": {c["channel"]: c["ready"] for c in chans},
+                "demo_login": "on" if demo_login_allowed() else "off"}
+    except Exception as error:
+        return {"integration": "Sign-in OTP", "state": "ERROR", "reason": type(error).__name__}
 
 
 from app.services import payment_gateway_health as _gateway_health
