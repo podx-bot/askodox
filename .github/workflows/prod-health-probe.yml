@@ -18,7 +18,7 @@ jobs:
             -H 'X-Razorpay-Event-Id: probe_invalid_sig' --data '{"event":"probe.invalid","payload":{}}')
           echo "::notice title=POST webhook (invalid signature)::HTTP $code $(head -c 200 b.txt)"
           curl -s "$B/health/integrations" -o i.txt
-          python3 -c "import json;r=[i for i in json.load(open('i.txt'))['items'] if i['integration'] in ('Razorpay','WhatsApp','WhatsApp OTP','WhatsApp Business')];print('::notice title=Razorpay row::'+json.dumps(r))"
+          python3 -c "import json;r=[i for i in json.load(open('i.txt'))['items'] if i['integration'] in ('Razorpay','Sign-in OTP')];print('::notice title=Razorpay row::'+json.dumps(r))"
           python3 -c "import json;print('::notice title=integrations::'+json.dumps([(i['integration'],i['state']) for i in json.load(open('i.txt'))['items']]))"
           for p in /admin/cc/api-billing /admin/cc/platform/readiness /api/billing/options; do
             code=$(curl -s -o b.txt -w '%{http_code}' "$B$p"); echo "::notice title=GET $p (no sign-in)::HTTP $code $(head -c 120 b.txt)"
