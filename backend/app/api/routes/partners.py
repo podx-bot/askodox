@@ -284,14 +284,14 @@ def _checked(payload: PartnerPayload) -> dict:
     feed_url = str((data.get("feed") or {}).get("url") or "")
     if feed_url and not feed_url.startswith("https://"):
         raise HTTPException(status_code=422, detail="feed url must start with https://")
-    commission = data.get("commission") or {}
-    for key in ("percent", "flat"):
-        if commission.get(key) not in (None, ""):
-            try:
-                if float(commission[key]) < 0 or (key == "percent" and float(commission[key]) > 100):
-                    raise ValueError
-            except (TypeError, ValueError):
-                raise HTTPException(status_code=422, detail=f"commission.{key} must be a valid number") from None
+    if data.get("commission"):
+        from app.services import commission_engine
+
+        try:
+            data["commission"] = commission_engine.validate_rule(data["commission"])
+        except (TypeError, ValueError) as error:
+            detail = str(error) if str(error).startswith("commission.") else "commission values must be valid numbers"
+            raise HTTPException(status_code=422, detail=detail) from None
     return data
 
 

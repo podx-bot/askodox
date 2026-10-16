@@ -548,6 +548,20 @@
       "tests": {"backend": ["tests/test_kyc_engine.py"], "flutter": ["test/features/kyc/kyc_screen_test.dart"]},
       "dependencies": ["integration_platform_catalog"], "status": "approved",
       "history": [{"pr": null, "change": "phase 2 (branch claude/kyc-engine)"}]
+    },
+    {
+      "id": "commission_engine",
+      "name": "Commission engine on the Partner Hub: all models, partner-confirmed only, PENDING -> CONFIRMED -> PAYABLE -> PAID, reversals, fraud flags, reconciliation",
+      "purpose": "Track every affiliate / app-install / referral / BFSI commission honestly in one ledger.",
+      "expected_behavior": "Partner commission rules support cps / cpi / cpa / cpl / cpc / recurring / revenue_share / fixed / percentage, per_event and per_category amounts, attribution_days and hold_days (validated); signed postbacks accept order / install / action / signup / lead (CPL with an id) / subscription / renewal events; clicks never create conversions (CPC = expected from clicks only); duplicates impossible per (partner, id); flags: no_click_id, unknown_or_expired_click, outside_attribution_window, too_fast_after_click, repeat_conversion_for_click; re-sent reports never move a conversion backwards; staff transitions are forward-only with confirmation + audit; promote-payable moves unflagged CONFIRMED past hold to PAYABLE; reconciliation of a partner statement is read-only; GET /admin/cc/commissions/summary; console view commissions.",
+      "roles": ["admin"], "domains": ["any"],
+      "api": [{"method": "GET", "path": "/admin/cc/commissions/summary"}, {"method": "POST", "path": "/admin/cc/commissions/conversions/{conversion_id}/transition"},
+              {"method": "POST", "path": "/admin/cc/commissions/promote-payable"}, {"method": "POST", "path": "/admin/cc/commissions/reconcile/{partner_id}"}],
+      "ui": {"keys": [], "symbols": []},
+      "flags": {},
+      "tests": {"backend": ["tests/test_commission_engine.py", "tests/test_partner_hub_revenue.py"], "flutter": []},
+      "dependencies": ["integration_platform_catalog"], "status": "approved",
+      "history": [{"pr": null, "change": "phase 3 (branch claude/commission-engine)"}]
     }
   ]
 }

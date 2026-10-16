@@ -91,7 +91,8 @@ APIs: `GET /admin/cc/integrations/catalog` and `GET /admin/cc/integrations/owner
    - review queue;
    - expiry;
    - provider adapters once a provider is chosen.
-3. **Phase 3, commission engine:**
+3. **Phase 3, commission engine (`commission_engine.py`, `/admin/cc/commissions/*`, console "Commission
+   dashboard"), built.** Originally planned:
    - commission rule types (CPS / CPI / CPA / CPL / CPC / recurring / revenue share);
    - attribution windows;
    - reversals;
