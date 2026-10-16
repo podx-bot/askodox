@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/localization/askodox_language_catalog.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/auth/app_restart.dart';
+import '../../../core/auth/auth_log.dart';
 import '../../../core/auth/phone_auth.dart';
 import '../../../core/auth/phone_number.dart';
 import '../../../core/auth/sign_out.dart' show askodoxRestoreAccountData;
@@ -82,6 +83,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _verificationId;
   int? _resendToken;
   String? _e164;
+  // How the last code was sent ("whatsapp", "sms", "firebase"); shown on the code step.
+  String? _channel;
   int _attempt = 0;
   int _resendIn = 0;
   Timer? _resendTimer;
@@ -232,6 +235,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'hi': 'अभी-अभी कोड भेजा गया। उसे दर्ज करें, या नए के लिए थोड़ा रुकें।',
       },
       'welcomeBack': {'en': 'Welcome back', 'te': 'మళ్లీ స్వాగతం', 'hi': 'फिर से स्वागत है'},
+      'sentWhatsapp': {'en': 'Code sent on WhatsApp.', 'te': 'WhatsAppలో కోడ్ పంపాం.', 'hi': 'WhatsApp पर कोड भेजा गया।'},
+      'sentSms': {'en': 'Code sent by SMS.', 'te': 'SMS ద్వారా కోడ్ పంపాం.', 'hi': 'SMS से कोड भेजा गया।'},
+      'sentFirebase': {'en': 'Code sent by SMS (Google).', 'te': 'SMS ద్వారా కోడ్ పంపాం (Google).', 'hi': 'SMS से कोड भेजा गया (Google)।'},
+      'unexpected': {
+        'en': 'Something went wrong while sending the code. Try again.',
+        'te': 'కోడ్ పంపుతున్నప్పుడు సమస్య వచ్చింది. మళ్లీ ప్రయత్నించండి.',
+        'hi': 'कोड भेजते समय समस्या हुई। फिर कोशिश करें।',
+      },
     };
     return values[key]?[_languageCode] ?? values[key]?['en'] ?? key;
   }
@@ -252,20 +263,37 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
   }
 
-  void _fail(ApiFailure failure) {
+  void _fail(ApiFailure failure, {required String stage}) {
     final network = failure.type == ApiFailureType.network || failure.type == ApiFailureType.timeout;
-    setState(() {
-      _error = network ? _t('network') : (failure.message ?? failure.localizedMessage(_languageCode));
-      _canRetry = network;
-    });
+    askodoxAuthLog('$stage.failed', {'http': failure.statusCode ?? 'none', 'type': failure.type.name});
+    _announce(network ? _t('network') : (failure.message ?? failure.localizedMessage(_languageCode)), retry: network);
   }
 
-  void _say(String code) {
+  void _say(String code, {required String stage}) {
     final (en, te) = askodoxPhoneAuthMessage(code);
+    askodoxAuthLog('$stage.firebase_failed', {'code': code});
+    // The Firebase error code is always shown so a problem can be reported exactly.
+    _announce('${_languageCode == 'te' ? te : en} (Firebase: $code)',
+        retry: code == 'network-request-failed' || code == 'timeout');
+  }
+
+  /// Every failure is visible: inline under the form AND as a snackbar above
+  /// the keyboard (the inline text alone can sit behind the keyboard).
+  void _announce(String message, {bool retry = false}) {
+    if (!mounted) return;
     setState(() {
-      _error = _languageCode == 'te' ? te : en;
-      _canRetry = code == 'network-request-failed' || code == 'timeout';
+      _busy = false;
+      _error = message;
+      _canRetry = retry;
     });
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(SnackBar(
+      key: const Key('askodoxSignInErrorSnack'),
+      content: Text(message),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 6),
+    ));
   }
 
   /// Back to the number: any code request still on its way is ignored.
@@ -282,10 +310,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
   }
 
+  /// Send OTP: never ends silently. Any exception becomes a visible error.
   Future<void> _sendOtp({bool resend = false}) async {
+    try {
+      await _sendOtpSteps(resend: resend);
+    } catch (error) {
+      askodoxAuthLog('send_otp.exception', {'type': error.runtimeType.toString()});
+      _announce('${_t('unexpected')} (${error.runtimeType})', retry: true);
+    }
+  }
+
+  Future<void> _sendOtpSteps({bool resend = false}) async {
     final e164 = askodoxE164(_mobile.text);
+    askodoxAuthLog('send_otp.tap', {
+      'valid': e164 != null,
+      'path': _useFirebase ? 'firebase' : 'server',
+      'resend': resend,
+      if (e164 != null) 'number': askodoxMaskedPhone(e164),
+    });
     if (e164 == null) {
-      setState(() => _error = _t('invalidMobile'));
+      _announce(_t('invalidMobile'));
       return;
     }
     final attempt = ++_attempt;
@@ -301,14 +345,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       setState(() => _busy = false);
       switch (started) {
         case AskodoxPhoneCodeSent(:final verificationId, :final resendToken):
+          askodoxAuthLog('send_otp.code_sent', {'path': 'firebase'});
           FocusScope.of(context).unfocus();
           setState(() {
             _verificationId = verificationId;
             _resendToken = resendToken;
+            _channel = 'firebase';
             _step = 2;
           });
           _startCountdown(_resendSeconds);
         case AskodoxPhoneAutoVerified(:final idToken):
+          askodoxAuthLog('send_otp.auto_verified', {'path': 'firebase'});
           await _completeWithFirebase(idToken);
         case AskodoxPhoneAuthFailed(:final code):
           const setupProblems = {
@@ -317,10 +364,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           };
           if (setupProblems.contains(code) && _serverOtp) {
             // Firebase is not ready for this app: the server's own code works.
+            askodoxAuthLog('send_otp.firebase_fallback', {'code': code});
             setState(() => _useFirebase = false);
-            return _sendOtp(resend: resend);
+            return _sendOtpSteps(resend: resend);
           }
-          _say(code);
+          _say(code, stage: 'send_otp');
       }
       return;
     }
@@ -331,13 +379,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted || attempt != _attempt) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
+      askodoxAuthLog('send_otp.sent', {'path': 'server', 'channel': '${result.data['channel']}'});
       FocusScope.of(context).unfocus();
-      setState(() => _step = 2);
+      setState(() {
+        _channel = result.data['channel']?.toString();
+        _step = 2;
+      });
       _startCountdown((result.data['resend_after_seconds'] as num?)?.toInt() ?? _resendSeconds);
     } else if (result is ApiError<Map<String, dynamic>>) {
       final wait = result.failure.statusCode == 429 ? askodoxRetryAfterSeconds(result.failure) : null;
       if (wait != null) {
         // A code is already on its way: enter it, resend when the timer ends.
+        askodoxAuthLog('send_otp.rate_limited', {'wait_s': wait});
         setState(() {
           _step = 2;
           _error = _t('waitResend');
@@ -345,16 +398,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         _startCountdown(wait);
         return;
       }
-      _fail(result.failure);
+      _fail(result.failure, stage: 'send_otp');
     }
   }
 
+  /// Verify: never ends silently either (the code itself is never logged).
   Future<void> _verifyOtp() async {
+    try {
+      await _verifyOtpSteps();
+    } catch (error) {
+      askodoxAuthLog('verify_otp.exception', {'type': error.runtimeType.toString()});
+      _announce('${_t('unexpected')} (${error.runtimeType})', retry: true);
+    }
+  }
+
+  Future<void> _verifyOtpSteps() async {
     final code = _otp.text.replaceAll(RegExp(r'\D'), '');
     if (code.length != 6) {
-      setState(() => _error = _t('invalidOtp'));
+      _announce(_t('invalidOtp'));
       return;
     }
+    askodoxAuthLog('verify_otp.tap', {'path': _useFirebase && _verificationId != null ? 'firebase' : 'server'});
     setState(() {
       _busy = true;
       _error = null;
@@ -369,7 +433,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         if (!mounted) return;
         setState(() => _busy = false);
         if (e.code == 'session-expired' || e.code == 'code-expired') _startCountdown(0);
-        _say(e.code);
+        _say(e.code, stage: 'verify_otp');
       }
       return;
     }
@@ -380,6 +444,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
+      askodoxAuthLog('verify_otp.ok', {'path': 'server'});
       await _onVerified(result.data);
     } else if (result is ApiError<Map<String, dynamic>>) {
       final message = (result.failure.message ?? '').toLowerCase();
@@ -388,7 +453,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         _otp.clear();
         _startCountdown(0);
       }
-      _fail(result.failure);
+      _fail(result.failure, stage: 'verify_otp');
     }
   }
 
@@ -403,7 +468,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (result is ApiSuccess<Map<String, dynamic>>) {
       await _onVerified(result.data);
     } else if (result is ApiError<Map<String, dynamic>>) {
-      _fail(result.failure);
+      _fail(result.failure, stage: 'firebase_verify');
     }
   }
 
@@ -645,6 +710,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         const SizedBox(height: 8),
         Text('${_t('codeSent')} ${_e164 == null ? _mobile.text.trim() : askodoxDisplayPhone(_e164!)}',
             key: const Key('askodoxOtpSentTo')),
+        if (_channel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+                switch (_channel) {
+                  'whatsapp' || 'whatsapp_template' => _t('sentWhatsapp'),
+                  'firebase' => _t('sentFirebase'),
+                  'sms' => _t('sentSms'),
+                  _ => '',
+                },
+                key: const Key('askodoxOtpChannel'),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF475467))),
+          ),
         const SizedBox(height: 18),
         TextField(
           key: const ValueKey('otp-input'),

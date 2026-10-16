@@ -244,3 +244,76 @@ def test_push_test_goes_only_to_my_own_devices(env):
         assert r == {"status": "SENT", "delivered": 1, "detail": "FCM accepted the message; check the phone."}
     assert c.post("/api/me/push-test", headers=_auth(me["token"])).status_code == 429
     assert {u for u, _ in fake.sent} == {me["app_user_id"]}, "never anybody else"
+
+
+# ------------------------------------------------- WhatsApp delivery truth --
+
+class _WaService:
+    def __init__(self):
+        self.sent = []
+
+    def is_configured(self):
+        return True
+
+    def send_text_message(self, mobile, text):
+        self.sent.append(mobile)
+        return {"success": True, "status": "SENT_TO_PROVIDER", "provider_message_id": f"wamid.{len(self.sent)}"}
+
+
+class _Statuses:
+    def __init__(self, status=None, error=None):
+        self.status, self.error = status, error
+
+    def latest_for_message(self, message_id):
+        return None if self.status is None else {"status": self.status, "error_message": self.error}
+
+
+def _otp_env(env, statuses):
+    client, mp, container = env
+    mp.setenv("RAILWAY_ENVIRONMENT_NAME", "production")  # real delivery, no test numbers
+    mp.setenv("ASKODOX_OTP_CHANNELS", "whatsapp")
+    mp.setenv("ASKODOX_OTP_DELIVERY_WAIT_SECONDS", "0.5")
+    mp.setattr(container, "whatsapp_service", _WaService(), raising=False)
+    mp.setattr(container, "delivery_log_repository", statuses, raising=False)
+    from app.api.routes import onboarding_auth
+
+    onboarding_auth._otps.clear()
+    return client
+
+
+def test_whatsapp_accepted_but_undelivered_is_an_error_not_sent(env, caplog):
+    client = _otp_env(env, _Statuses("failed", "META_CODE=131047 | TITLE=Re-engagement message"))
+    number = "+91 " + _number()
+    r = client.post("/onboarding/otp/send", json={"mobile": number})
+    assert r.status_code == 503, r.text
+    detail = r.json()["detail"]
+    assert "last 24 hours" in detail and "131047" in detail
+    digits = "".join(c for c in number if c.isdigit())
+    assert digits not in detail and digits not in caplog.text, "the number is never shown or logged"
+    # Nothing was stored as a valid pending code: a resend is allowed at once.
+    assert client.post("/onboarding/otp/send", json={"mobile": number}).status_code == 503
+
+
+def test_whatsapp_delivered_or_no_report_yet_counts_as_sent(env):
+    client = _otp_env(env, _Statuses("delivered"))
+    assert client.post("/onboarding/otp/send", json={"mobile": _number()}).json()["channel"] == "whatsapp"
+    client = _otp_env(env, _Statuses(None))
+    assert client.post("/onboarding/otp/send", json={"mobile": _number()}).status_code == 200, \
+        "no report within the wait -> treated as sent (honest: unconfirmed)"
+
+
+def test_delivery_confirmation_reads_meta_codes():
+    from app.services import otp_delivery
+
+    class C:
+        delivery_log_repository = _Statuses("failed", "META_CODE=131026 | TITLE=Message undeliverable")
+
+    out = otp_delivery.delivery_confirmation(C(), "wamid.x", wait=0)
+    assert out["state"] == "failed" and out["code"] == "131026" and "cannot receive WhatsApp" in out["reason"]
+    C.delivery_log_repository = _Statuses("failed", None)
+    assert otp_delivery.delivery_confirmation(C(), "wamid.x", wait=0)["reason"] == \
+        "WhatsApp could not deliver the message"
+    slept = []
+    C.delivery_log_repository = _Statuses(None)
+    assert otp_delivery.delivery_confirmation(C(), "wamid.x", wait=1, sleep=slept.append)["state"] == "unknown"
+    assert len(slept) == 4

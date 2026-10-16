@@ -59,7 +59,27 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
 
   @override
   Future<AskodoxPhoneAuthStart> start(String e164, {int? resendToken}) async {
-    if (!await AskodoxFirebaseConfig.ensureInitialized()) return const AskodoxPhoneAuthFailed('not-configured');
+    try {
+      if (!await AskodoxFirebaseConfig.ensureInitialized()) return const AskodoxPhoneAuthFailed('not-configured');
+    } on FirebaseException catch (e) {
+      return AskodoxPhoneAuthFailed('init-${e.code}');
+    } catch (_) {
+      return const AskodoxPhoneAuthFailed('init-failed');
+    }
+    try {
+      return await _start(e164, resendToken);
+    } on FirebaseAuthException catch (e) {
+      return AskodoxPhoneAuthFailed(e.code);
+    } on FirebaseException catch (e) {
+      return AskodoxPhoneAuthFailed(e.code);
+    } catch (e) {
+      // Platform errors (e.g. a missing native config) must never leave the
+      // button spinning silently.
+      return AskodoxPhoneAuthFailed('platform-${e.runtimeType}');
+    }
+  }
+
+  Future<AskodoxPhoneAuthStart> _start(String e164, int? resendToken) async {
     final done = Completer<AskodoxPhoneAuthStart>();
     void finish(AskodoxPhoneAuthStart value) {
       if (!done.isCompleted) done.complete(value);
@@ -96,6 +116,10 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
       return token;
     } on FirebaseAuthException catch (e) {
       throw AskodoxPhoneAuthError(e.code);
+    } on AskodoxPhoneAuthError {
+      rethrow;
+    } catch (e) {
+      throw AskodoxPhoneAuthError('platform-${e.runtimeType}');
     }
   }
 
@@ -123,5 +147,13 @@ final askodoxPhoneAuthProvider = Provider<AskodoxPhoneAuth>((ref) => const Fireb
           'కనెక్షన్ లేదు. ఇంటర్నెట్ చూసి మళ్లీ ప్రయత్నించండి.'
         ),
       'invalid-phone-number' => ('Enter a valid mobile number with country code.', 'కంట్రీ కోడ్‌తో సరైన మొబైల్ నంబర్ నమోదు చేయండి.'),
+      'app-not-authorized' || 'invalid-app-credential' || 'missing-client-identifier' => (
+          'This app is not yet authorised for phone sign-in in Firebase (release SHA fingerprints).',
+          'Firebaseలో ఈ యాప్‌కు ఫోన్ సైన్-ఇన్ అనుమతి ఇంకా లేదు (release SHA fingerprints).'
+        ),
+      'operation-not-allowed' => (
+          'Phone sign-in is not switched on in Firebase.',
+          'Firebaseలో ఫోన్ సైన్-ఇన్ ఆన్ చేయలేదు.'
+        ),
       _ => ('Verification failed. Try again.', 'ధృవీకరణ విఫలమైంది. మళ్లీ ప్రయత్నించండి.'),
     };

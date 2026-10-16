@@ -123,10 +123,16 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
     if not result.get("success"):
         with _lock:
             _otps.pop(mobile, None)
-        tried = [a["channel"] for a in result["attempts"] if a["outcome"] == "failed"]
-        raise HTTPException(status_code=503, detail=(
-            "OTP delivery failed (" + ", ".join(tried) + ")" if tried
-            else "OTP delivery is not configured (no WhatsApp or SMS provider is set up)"))
+        failed = [a for a in result["attempts"] if a["outcome"] == "failed"]
+        undelivered = [a["reason"][len("undelivered: "):] for a in failed
+                       if str(a.get("reason", "")).startswith("undelivered: ")]
+        if undelivered:
+            detail = "The code could not be delivered: " + undelivered[0] + "."
+        elif failed:
+            detail = "OTP delivery failed (" + ", ".join(a["channel"] for a in failed) + "). Try again in a minute."
+        else:
+            detail = "OTP delivery is not configured (no WhatsApp or SMS provider is set up)"
+        raise HTTPException(status_code=503, detail=detail)
 
     return {"status": "sent", "channel": result["channel"], "expires_in_seconds": _TTL_SECONDS,
             "resend_after_seconds": _RESEND_SECONDS}

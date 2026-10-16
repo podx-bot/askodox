@@ -81,21 +81,83 @@ def deliver(container: Any, mobile: str, text: str, *,
         if not item["ready"]:
             attempts.append({"channel": name, "outcome": "not_configured"})
             continue
+        mid = None
         try:
             if name == "whatsapp_template":
-                ok, _mid, err = comms.send_whatsapp(reg, http, mobile, "", text)
+                ok, mid, err = comms.send_whatsapp(reg, http, mobile, "", text)
             elif name == "whatsapp":
                 result = container.whatsapp_service.send_text_message(mobile, text)
                 ok, err = bool(result.get("success")), str(result.get("status") or "provider error")
+                mid = result.get("provider_message_id")
             else:
                 ok, _mid, err = comms.send_sms(reg, http, mobile, "", text)
         except Exception as error:  # one provider failing never blocks the next
             ok, err = False, type(error).__name__
+        if ok and name.startswith("whatsapp") and mid:
+            # Meta answers 200 when it ACCEPTS a message and reports a failed
+            # delivery a moment later on the webhook (e.g. 131047: outside the
+            # 24-hour window). Wait briefly for that status before saying "sent".
+            confirmed = delivery_confirmation(container, str(mid))
+            if confirmed["state"] == "failed":
+                ok, err = False, "undelivered: " + confirmed["reason"]
         attempts.append({"channel": name, "outcome": "sent" if ok else "failed",
-                         **({} if ok else {"reason": str(err)[:120]})})
+                         **({} if ok else {"reason": str(err)[:240]})})
         if ok:
             _log.info("otp.delivery channel=%s mobile=...%s", name, str(mobile)[-4:])
             return {"success": True, "channel": name, "attempts": attempts}
+        _log.warning("otp.delivery channel=%s failed mobile=...%s reason=%s", name, str(mobile)[-4:], str(err)[:120])
     _log.warning("otp.delivery failed mobile=...%s attempts=%s", str(mobile)[-4:],
                  ",".join(f"{a['channel']}:{a['outcome']}" for a in attempts))
     return {"success": False, "channel": None, "attempts": attempts}
+
+
+# Meta error codes worth explaining to the person (never shows the number).
+META_REASONS = {
+    "131047": "WhatsApp delivers this code only if you sent a message to the ASKODOX WhatsApp number in the last "
+              "24 hours",
+    "131026": "this number cannot receive WhatsApp messages",
+    "131049": "WhatsApp did not deliver the message (Meta limited delivery to this number)",
+    "130472": "WhatsApp did not deliver the message (this number is part of a Meta experiment)",
+    "131056": "too many messages were sent to this number; wait and try again",
+}
+
+
+def _wait_seconds(env: Dict[str, str] | None = None) -> float:
+    raw = (env if env is not None else os.environ).get("ASKODOX_OTP_DELIVERY_WAIT_SECONDS", "4")
+    try:
+        return max(0.0, min(float(raw), 10.0))
+    except ValueError:
+        return 4.0
+
+
+def delivery_confirmation(container: Any, message_id: str, *, wait: float | None = None,
+                          sleep: Callable[[float], None] | None = None) -> Dict[str, Any]:
+    """failed / delivered / unknown for a WhatsApp message id, from the webhook
+    statuses stored by /webhook (delivery_statuses). Waits up to ``wait`` s."""
+    import time
+
+    repo = getattr(container, "delivery_log_repository", None)
+    if repo is None or not message_id:
+        return {"state": "unknown", "reason": ""}
+    sleep = sleep or time.sleep
+    deadline = _wait_seconds() if wait is None else wait
+    waited = 0.0
+    while True:
+        try:
+            row = repo.latest_for_message(message_id)
+        except Exception:
+            row = None
+        status = str((row or {}).get("status") or "").lower()
+        if status in ("failed", "undelivered", "error"):
+            detail = str((row or {}).get("error_message") or "")
+            code = ""
+            if "META_CODE=" in detail:
+                code = detail.split("META_CODE=", 1)[1].split()[0].strip(" ;,|")
+            reason = META_REASONS.get(code, "WhatsApp could not deliver the message")
+            return {"state": "failed", "reason": reason + (f" (Meta error {code})" if code else ""), "code": code}
+        if status in ("sent", "delivered", "read"):
+            return {"state": "delivered", "reason": status}
+        if waited >= deadline:
+            return {"state": "unknown", "reason": "no delivery report yet"}
+        sleep(0.25)
+        waited += 0.25
