@@ -7,11 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `af58f29` -- 2026-10-16: Universal Integration Platform phases 1-5 merged + deployed (PR #201
-  catalog + Setup Wizard + Owner checklist + OTP fallback + no demo bypass in production; #202 KYC engine + app
-  /verification; #203 commission engine + partner campaign item types + one account per phone). /health healthy
-  on af58f29; Sign-in OTP row: only the legacy WhatsApp channel configured, demo login off. Release APK 1330
-  (phone-test-1330, sha256 d42c71c2…33b3). See docs/integration-platform.md. Before: PR #199 (`7016192`).
+- `main` @ `400f251` -- PR #205 merged + deployed 2026-10-16 (/health healthy on 400f251): sign-up / sign-in /
+  sign-out with server-checked sessions (`GET /api/me/session`, `POST /api/me/logout` revokes ONE session via
+  `session_logouts`, deletes nothing), Firebase phone sign-in (server-verified ID token, only with
+  ASKODOX_FIREBASE_PHONE_AUTH), FCM client hardening + `POST /api/me/push-test`, opt-in In-App Messaging,
+  dev-only Developer Diagnostics. Firebase is NOT configured anywhere yet (no GitHub vars, no service account).
+  Release APK 1331 (phone-test-1331, sha256 7d382ce1…ecacf, release cert 727b4a66…57cf, no Firebase values in it).
+  See docs/auth-and-push.md. Before: #201-#204 (`af58f29` / `39d4150`, APK 1330), Integration Platform phases 1-5.
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
@@ -484,6 +486,14 @@ this file, don't trust it blindly.
   business / professional docs); commissions = `commission_engine` on Partner Hub (forward-only lifecycle,
   clicks never conversions); identity = `account_identity` (auth_accounts, one id per 10-digit number; the app
   stores the server's app_user_id).
+- Sessions / sign-out: ONE place a verified number becomes a session (`onboarding_auth.signed_in`: returning +
+  saved profile -- the app never overwrites it). Sign-out = `lib/core/auth/sign_out.dart` (Profile Settings &
+  Privacy last item + header menu Logout): server revoke, FCM token delete, per-account phone data stash
+  (`askodoxAccountScopedKeys`, a new account-scoped prefs key must be added there), `AskodoxAppRestart` (fresh
+  ProviderScope). Start-up `askodoxCheckSession`: 401 -> signed out, offline -> kept. Firebase init only via
+  `AskodoxFirebaseConfig.ensureInitialized` (single flight). Diagnostics never in APP_ENV=production builds.
+- `flutter analyze` in `android-apk.yml` (build-apk) is FATAL on infos too; CI logs are not readable through the
+  proxy -- push a throwaway branch whose workflow echoes analyzer / test lines as `::warning::` annotations.
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
@@ -500,12 +510,10 @@ this file, don't trust it blindly.
   key; otherwise the app honestly keeps "Current location".
 - Provider leads (`/deals/leads`) are in-app only (home-screen inbox +
   Updates): WhatsApp-only providers are not targeted.
-- Background push: server side is built (`push_service.py`, FCM HTTP v1,
-  silent channel, once per event) but sends nothing until
-  `FIREBASE_SERVICE_ACCOUNT_JSON` is set in Railway; the Android FCM client
-  is added only once a Firebase app / google-services.json exists. Until
-  then notifications are local + silent while the app is open/resumed.
-  Exact steps: `docs/EXTERNAL_SETUP.md`.
+- Background push: server (`push_service.py`) + Android FCM client are built but inactive until the Firebase
+  project exists: GitHub variables FIREBASE_API_KEY / APP_ID / SENDER_ID / PROJECT_ID (APK build) and Railway
+  FIREBASE_SERVICE_ACCOUNT_JSON. Until then notifications are local + silent while the app is open.
+  Exact steps: `docs/auth-and-push.md`.
 - Maps (2026-10-04 11:09 probe): Geocoding, Places (New), Places nearby and
   Routes are all OK in production (`/health/maps` all_ok). Real nearby rows
   and the nearest junction now come back; real-phone check still pending.
