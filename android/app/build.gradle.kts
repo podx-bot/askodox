@@ -7,6 +7,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase: google-services.json is GENERATED in CI from the FIREBASE_* GitHub
+// variables (tool/firebase_android_config.py) and git-ignored -- never
+// committed. With it, the Google Services plugin creates the native default
+// Firebase app (FCM delivery while ASKODOX is closed, phone sign-in, In-App
+// Messaging). Without it (local builds, forks) the app builds without Firebase
+// and says push is not configured; main release builds require it (CI).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // ASKODOX release signing: ONLY the persistent ASKODOX release key (CI writes
 // android/key.properties + android/app/askodox-release.jks from the
 // ANDROID_KEYSTORE_* GitHub secrets; neither file is ever committed). Every

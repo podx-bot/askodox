@@ -43,7 +43,8 @@ class AskodoxFirebaseConfig {
   }
 
   static Future<bool> _initialize() async {
-    if (Firebase.apps.isEmpty) {
+    if (Firebase.apps.isNotEmpty) return true;
+    try {
       await Firebase.initializeApp(
         options: const FirebaseOptions(
           apiKey: apiKey,
@@ -52,6 +53,11 @@ class AskodoxFirebaseConfig {
           projectId: projectId,
         ),
       );
+    } on FirebaseException catch (e) {
+      // The Android build also carries google-services.json (same values,
+      // generated in CI), so the native default app may already exist: use it.
+      if (e.code != 'duplicate-app') rethrow;
+      await Firebase.initializeApp();
     }
     return true;
   }

@@ -492,6 +492,10 @@ this file, don't trust it blindly.
   (`askodoxAccountScopedKeys`, a new account-scoped prefs key must be added there), `AskodoxAppRestart` (fresh
   ProviderScope). Start-up `askodoxCheckSession`: 401 -> signed out, offline -> kept. Firebase init only via
   `AskodoxFirebaseConfig.ensureInitialized` (single flight). Diagnostics never in APP_ENV=production builds.
+- Firebase Android config is GENERATED in CI (`tool/firebase_android_config.py write`, required on main) from the
+  four FIREBASE_* GitHub variables -> git-ignored `android/app/google-services.json` + Dart define file; the Google
+  Services plugin (4.5.0, settings.gradle.kts) is applied only when that file exists; `check-apk` proves the APK
+  carries it. Never commit google-services.json or print the values.
 - `flutter analyze` in `android-apk.yml` (build-apk) is FATAL on infos too; CI logs are not readable through the
   proxy -- push a throwaway branch whose workflow echoes analyzer / test lines as `::warning::` annotations.
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
