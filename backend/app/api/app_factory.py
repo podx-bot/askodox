@@ -338,6 +338,10 @@ def create_app() -> FastAPI:
     from app.api.routes.integration_wizard import admin_router as integration_wizard_router
 
     app.include_router(integration_wizard_router)
+    from app.api.routes.kyc import admin_router as kyc_admin_router, router as kyc_router
+
+    app.include_router(kyc_router)
+    app.include_router(kyc_admin_router)
     _redact_access_log_tokens()
     from app.api.routes.attachments import router as attachments_router
     from app.api.routes.partners import admin_router as partners_admin_router, router as partners_router

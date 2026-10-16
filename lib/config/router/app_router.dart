@@ -8,6 +8,7 @@ import '../../features/home/presentation/chat_first_home_host.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/kyc/presentation/kyc_screen.dart';
 import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -220,6 +221,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
       GoRoute(path: '/radio', builder: (context, state) => const TravelRadioScreen()),
       GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
+      GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
       GoRoute(
           path: '/mobility',
           builder: (context, state) =>
