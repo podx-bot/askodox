@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/core/api/api_models.dart';
+import 'package:podx/core/auth/auth_log.dart';
 import 'package:podx/core/auth/phone_auth.dart';
 import 'package:podx/core/persistence/local_store.dart';
 import 'package:podx/core/providers/backend_providers.dart';
@@ -72,6 +73,8 @@ Future<void> _enterCode(WidgetTester tester, String code) async {
   await _settle(tester);
 }
 
+String? _inlineError(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('askodoxSignInError'))).data;
+
 TextButton _resend(WidgetTester tester) => tester.widget<TextButton>(find.byKey(const Key('askodoxResendOtp')));
 
 Future<void> _dispose(WidgetTester tester) async {
@@ -93,8 +96,10 @@ void main() {
     expect(find.text('Resend OTP in 0:45'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('Resend OTP in 0:42'), findsOneWidget);
+    expect(find.text('Code sent by SMS.'), findsOneWidget, reason: 'the code step says how it was sent');
     await _enterCode(tester, '000000');
-    expect(find.text('Incorrect OTP.'), findsOneWidget);
+    expect(_inlineError(tester), 'Incorrect OTP.');
+    expect(find.byKey(const Key('askodoxSignInErrorSnack')), findsOneWidget, reason: 'visible above the keyboard');
     await _enterCode(tester, '123456');
     expect(find.byKey(const ValueKey('name-input')), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('name-input')), 'Asha K');
@@ -135,7 +140,7 @@ void main() {
     await _pumpApp(tester, _api());
     await _sendCode(tester, '9876543210');
     await _enterCode(tester, '111111');
-    expect(find.text('OTP expired. Request a new OTP.'), findsOneWidget);
+    expect(_inlineError(tester), 'OTP expired. Request a new OTP.');
     expect(_resend(tester).onPressed, isNotNull);
     await _dispose(tester);
   });
@@ -156,7 +161,7 @@ void main() {
     final api = _api()..on('POST /onboarding/otp/send', (_) => networkError());
     await _pumpApp(tester, api);
     await _sendCode(tester, '9876543210');
-    expect(find.text('No connection. Check the internet and try again.'), findsOneWidget);
+    expect(_inlineError(tester), 'No connection. Check the internet and try again.');
     api.on('POST /onboarding/otp/send', (_) => const ApiSuccess<Object?>({'status': 'sent', 'resend_after_seconds': 45}));
     await tester.tap(find.byKey(const Key('askodoxSignInRetry')));
     await _settle(tester);
@@ -171,7 +176,7 @@ void main() {
     final api = _api();
     await _pumpApp(tester, api);
     await _sendCode(tester, '12345');
-    expect(find.text('Enter a valid mobile number with country code.'), findsOneWidget);
+    expect(_inlineError(tester), 'Enter a valid mobile number with country code.');
     expect(api.to('POST', '/onboarding/otp/send'), isEmpty);
     await _dispose(tester);
   });
@@ -185,7 +190,7 @@ void main() {
     expect(api.to('POST', '/onboarding/otp/send'), isEmpty);
     phone.confirmError = 'invalid-verification-code';
     await _enterCode(tester, '654321');
-    expect(find.text('Incorrect OTP.'), findsOneWidget);
+    expect(_inlineError(tester), 'Incorrect OTP. (Firebase: invalid-verification-code)');
     phone.confirmError = null;
     await _enterCode(tester, '123456');
     expect(phone.confirmed.last, ('vid-1', '123456'));
@@ -203,5 +208,54 @@ void main() {
     expect(api.to('POST', '/onboarding/otp/send').single.$3, {'mobile': '+919876543210'});
     expect(find.byKey(const ValueKey('otp-input')), findsOneWidget);
     await _dispose(tester);
+  });
+
+  testWidgets('Send OTP never fails silently: exception, undelivered WhatsApp, Firebase codes; logs stay clean',
+      (tester) async {
+    final lines = <String>[];
+    final previous = askodoxAuthLogSink;
+    askodoxAuthLogSink = lines.add;
+    addTearDown(() => askodoxAuthLogSink = previous);
+
+    // 1. The request itself throws: the button does not stay on "Sending...".
+    final api = _api()..on('POST /onboarding/otp/send', (_) => throw StateError('boom'));
+    await _pumpApp(tester, api);
+    await _sendCode(tester, '98765 43210');
+    expect(_inlineError(tester), contains('Something went wrong while sending the code'));
+    expect(find.text('Send OTP'), findsOneWidget, reason: 'button usable again');
+    expect(find.byKey(const Key('askodoxSignInRetry')), findsOneWidget);
+
+    // 2. WhatsApp accepted but did not deliver (server 503 with the reason).
+    api.on('POST /onboarding/otp/send', (_) => httpError(503,
+        'The code could not be delivered: WhatsApp delivers this code only if you sent a message to the ASKODOX '
+        'WhatsApp number in the last 24 hours (Meta error 131047).'));
+    await tester.tap(find.byKey(const Key('askodoxSendOtp')));
+    await _settle(tester);
+    expect(_inlineError(tester), contains('Meta error 131047'));
+    expect(find.byKey(const ValueKey('mobile-input')), findsOneWidget, reason: 'stays on the number, no false OTP step');
+    await _dispose(tester);
+
+    // 3. A Firebase error that is not a setup problem is shown with its code.
+    final phone = FakePhoneAuth(startResult: const AskodoxPhoneAuthFailed('too-many-requests'));
+    await _pumpApp(tester, _api(firebase: true), phoneAuth: phone);
+    await _sendCode(tester, '98765 43210');
+    expect(_inlineError(tester), 'Too many attempts. Please wait and try again. (Firebase: too-many-requests)');
+    await _dispose(tester);
+
+    expect(lines.where((l) => l.startsWith('askodox.auth send_otp.tap')), isNotEmpty);
+    expect(lines.any((l) => l.contains('send_otp.exception') && l.contains('StateError')), isTrue);
+    expect(lines.any((l) => l.contains('send_otp.failed') && l.contains('http=503')), isTrue);
+    expect(lines.any((l) => l.contains('firebase_failed') && l.contains('code=too-many-requests')), isTrue);
+    for (final l in lines) {
+      expect(l, isNot(contains('9876543210')), reason: 'no phone number in logs: $l');
+      expect(l, isNot(contains('98765')), reason: l);
+    }
+  });
+
+  test('log redaction removes numbers and codes even if passed by mistake', () {
+    expect(askodoxRedactDigits('+91 98765 43210'), '[redacted]');
+    expect(askodoxRedactDigits('otp 123456'), 'otp [redacted]');
+    expect(askodoxRedactDigits('••••3210'), '••••3210');
+    expect(askodoxRedactDigits('503'), '503');
   });
 }
