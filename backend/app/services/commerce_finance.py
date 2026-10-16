@@ -113,6 +113,8 @@ ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
     # Web-search fallback when Brave is out of credit / failing.
     "google_cse": {"api_key": ("GOOGLE_CSE_API_KEY", "GOOGLE_SEARCH_API_KEY"),
                    "cx": ("GOOGLE_CSE_ID", "GOOGLE_SEARCH_ENGINE_ID")},
+    # Firebase project for verifying phone sign-in ID tokens (public id, not a secret).
+    "firebase_auth": {"project_id": ("FIREBASE_PROJECT_ID",)},
 }
 
 

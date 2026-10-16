@@ -73,6 +73,11 @@ def _e(key: str, name: str, category: str, adapter: str, does: str, *, source: A
             "how_to_test": test, "notes": notes}
 
 
+# The ASKODOX release signing certificate (public fingerprints; Firebase needs them).
+RELEASE_CERT_SHA1 = "63:37:E1:1A:34:E7:55:31:20:77:EF:7D:52:B2:69:AA:A1:7B:19:0A"
+RELEASE_CERT_SHA256 = ("72:7B:4A:66:22:F0:F9:DF:A3:36:36:DA:4F:26:61:62:E9:CA:B7:50:FB:DF:24:00:04:E9:B2:1F:"
+                       "56:C9:57:CF")
+
 CC = "Command Center -> Integrations -> {name} -> Configure (encrypted, write-only)"
 
 CATALOG: List[Dict[str, Any]] = [
@@ -106,6 +111,25 @@ CATALOG: List[Dict[str, Any]] = [
               "Create the SMS account (MSG91 or Twilio) and an OTP flow with the approved DLT template.",
               CC.format(name="SMS gateway") + ".", "Order of channels: Railway variable ASKODOX_OTP_CHANNELS."],
        test="Request a code with WhatsApp unavailable: the SMS must arrive."),
+    _e("firebase_phone_auth", "Firebase phone sign-in", "auth", "built",
+       "Google sends the sign-in SMS and the app proves the number; the server verifies the Firebase ID token.",
+       source=("env", ("FIREBASE_PROJECT_ID", "ASKODOX_FIREBASE_PHONE_AUTH")), approval=False,
+       costs="Firebase Blaze plan; Google bills phone sign-in SMS beyond the free tier.",
+       signup="https://console.firebase.google.com/", docs="https://firebase.google.com/docs/auth/flutter/phone-auth",
+       auth="Firebase ID token (RS256, verified on the server against Google's public keys)",
+       credentials=["FIREBASE_PROJECT_ID (Railway + GitHub variable)", "ASKODOX_FIREBASE_PHONE_AUTH=yes (Railway)",
+                    "FIREBASE_API_KEY / APP_ID / SENDER_ID (GitHub variables, Android app)"],
+       steps=["Firebase Console -> create / open the project -> Add app -> Android, package com.askodox.askodox.",
+              "Project settings -> Your apps -> Add fingerprint: SHA-1 " + RELEASE_CERT_SHA1 + " and SHA-256 "
+              + RELEASE_CERT_SHA256 + " (the ASKODOX release key).",
+              "Build -> Authentication -> Sign-in method -> Phone -> Enable (upgrade to the Blaze plan when asked).",
+              "Optional for tests: Authentication -> Phone -> 'Phone numbers for testing' (your own test number only).",
+              "GitHub -> repository Settings -> Variables -> FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_SENDER_ID, "
+              "FIREBASE_PROJECT_ID (values from the Android app config), then a new APK build.",
+              "Railway -> production -> podx-ai-connect -> Variables: FIREBASE_PROJECT_ID and "
+              "ASKODOX_FIREBASE_PHONE_AUTH=yes."],
+       test="Sign out, then sign in with your own number: the SMS comes from Google and the app signs you in.",
+       notes="Off until the Owner sets ASKODOX_FIREBASE_PHONE_AUTH (SMS cost); the server OTP stays the fallback."),
     _e("otp_email", "E-mail OTP", "auth", "not_built", "Sign-in code by e-mail.", account=False,
        notes="The e-mail sender exists (Integrations -> Email); an e-mail sign-in flow is not built yet."),
     _e("google_sign_in", "Google Sign-In", "auth", "not_built", "Sign in with a Google account.",
@@ -172,6 +196,16 @@ CATALOG: List[Dict[str, Any]] = [
                     "FIREBASE_API_KEY / APP_ID / SENDER_ID / PROJECT_ID (GitHub repository variables)"],
        steps=["See docs/push-test-procedure.md (Firebase project, Android app com.askodox.askodox, variables)."],
        test="Command Center -> push readiness -> Test send to your own user."),
+    _e("firebase_in_app_messaging", "Firebase In-App Messaging", "communication", "built",
+       "Targeted banners / cards inside the app, designed in the Firebase Console (text + image only).",
+       source=("env", ("FIREBASE_PROJECT_ID",)), costs="Free.", signup="https://console.firebase.google.com/",
+       docs="https://firebase.google.com/docs/in-app-messaging",
+       credentials=["Same Firebase Android app values as push (GitHub variables)"],
+       steps=["Firebase Console -> Engage -> In-App Messaging -> New campaign; target ONE test device first "
+              "(Test on device, using the Installation ID from Developer Diagnostics)."],
+       test="Test on device -> open ASKODOX: the message shows once; switching off promotions hides it.",
+       notes="Shown only to people who allowed promotions (Profile -> Notifications). Video ads stay in the ASKODOX "
+             "native content system -- In-App Messaging is not a video ad platform."),
     # --------------------------------------------------------- commerce --
     _e("amazon_associates", "Amazon Associates (India)", "commerce", "built",
        "Product links + product data (PA-API) with your associate tag.", source=("registry", "amazon_associates"),

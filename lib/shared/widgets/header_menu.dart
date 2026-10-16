@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/sign_out.dart';
+import '../../core/providers/backend_providers.dart';
 import '../../features/guide/in_app_guide.dart';
 
 /// Header Menu: ONE list of the places that already exist (no new screens,
@@ -32,17 +35,21 @@ const askodoxHeaderMenuEntries = <AskodoxMenuEntry>[
   AskodoxMenuEntry('privacy', '/privacy', Icons.privacy_tip_outlined, 'Privacy & data', 'గోప్యత & డేటా'),
 ];
 
-class AskodoxHeaderMenuButton extends StatelessWidget {
+/// Menu value that is not a route: the ONE secure sign-out flow.
+const askodoxSignOutMenuValue = '__sign_out__';
+
+class AskodoxHeaderMenuButton extends ConsumerWidget {
   const AskodoxHeaderMenuButton({super.key, required this.te});
   final bool te;
 
   @override
-  Widget build(BuildContext context) => IconButton(
+  Widget build(BuildContext context, WidgetRef ref) => IconButton(
         key: const Key('askodoxHeaderMenu'),
         tooltip: te ? 'మెనూ' : 'Menu',
         visualDensity: VisualDensity.compact,
         icon: const Icon(Icons.menu_rounded, color: Color(0xFF10204A)),
         onPressed: () async {
+          final signedIn = ref.read(authSessionProvider).user != null;
           final route = await showModalBottomSheet<String>(
             context: context,
             showDragHandle: true,
@@ -59,11 +66,29 @@ class AskodoxHeaderMenuButton extends StatelessWidget {
                       title: Text(te ? e.te : e.en),
                       onTap: () => Navigator.pop(sheet, e.route),
                     ),
+                  if (signedIn) ...[
+                    const Divider(height: 8),
+                    ListTile(
+                      key: const ValueKey('askodoxMenu-signout'),
+                      dense: true,
+                      leading: const Icon(Icons.logout_rounded, color: Color(0xFFB42318)),
+                      title: Text(te ? 'లాగ్ అవుట్' : 'Logout',
+                          style: const TextStyle(color: Color(0xFFB42318), fontWeight: FontWeight.w700)),
+                      onTap: () => Navigator.pop(sheet, askodoxSignOutMenuValue),
+                    ),
+                  ],
                 ]),
               ),
             ),
           );
-          if (route != null && context.mounted) context.push(route);
+          if (route == null || !context.mounted) return;
+          if (route == askodoxSignOutMenuValue) {
+            if (await askodoxConfirmSignOut(context, te: te) && context.mounted) {
+              await askodoxSignOut(ref, restartFrom: context);
+            }
+            return;
+          }
+          context.push(route);
         },
       );
 }

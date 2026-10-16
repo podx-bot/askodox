@@ -164,7 +164,8 @@ def test_otp_falls_back_and_never_returns_the_code(env, monkeypatch):
     sms = [c for c in http.calls if "msg91.com" in c[1]][-1]
     code = sms[2]["json"]["recipients"][0]["var"]
     assert any(ch.isdigit() for ch in code)
-    assert not any(ch.isdigit() for ch in json.dumps(ok.json()).replace("300", "")), "the code is never returned"
+    shown = {k: v for k, v in ok.json().items() if k not in ("expires_in_seconds", "resend_after_seconds")}
+    assert not any(ch.isdigit() for ch in json.dumps(shown)), "the code is never returned"
     # Channel order is configurable.
     monkeypatch.setenv("ASKODOX_OTP_CHANNELS", "sms")
     onboarding_auth._otps.clear()

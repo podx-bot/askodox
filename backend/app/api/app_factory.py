@@ -316,7 +316,13 @@ def create_app() -> FastAPI:
     # ... and so do sessions of an account blocked in the Command Center.
     from app.api.routes.platform import revocation_check
 
-    session_tokens.set_revocation_check(revocation_check(container, deleted_before))
+    from app.api.routes.auth_session import logged_out, router as auth_session_router
+
+    app.include_router(auth_session_router)
+    # ... and a session the user signed out of (that session only).
+    session_tokens.set_revocation_check(revocation_check(
+        container, lambda db, user_id, issued_at: deleted_before(db, user_id, issued_at)
+        or logged_out(db, user_id, issued_at)))
     from app.api.routes.growth import admin_router as growth_admin_router, router as growth_router
 
     app.include_router(growth_router)

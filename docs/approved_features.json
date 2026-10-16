@@ -580,7 +580,7 @@
       "id": "one_account_per_phone",
       "name": "One account per phone number however it is typed",
       "purpose": "No duplicate profiles from typing the same number with or without +91.",
-      "expected_behavior": "POST /onboarding/otp/verify maps the last 10 digits through auth_accounts: the first id issued is reused; an existing user_profiles row for the number is adopted; the app stores the server's app_user_id digits as its identity; a request claiming another spelling of the SAME number is accepted (token wins), another number still gets 403.",
+      "expected_behavior": "POST /onboarding/otp/verify maps the number through auth_accounts (Indian spellings share the 10-digit key; other countries keep their full international digits): the first id issued is reused; an existing user_profiles row for the number is adopted; the app stores the server's app_user_id digits as its identity; a request claiming another spelling of the SAME number is accepted (token wins), another number still gets 403.",
       "roles": ["buyer", "seller"], "domains": ["any"],
       "api": [{"method": "POST", "path": "/onboarding/otp/verify"}],
       "ui": {"keys": [], "symbols": ["askodoxAccountDigits"]},
@@ -588,6 +588,36 @@
       "tests": {"backend": ["tests/test_account_identity.py"], "flutter": ["test/features/auth/account_identity_test.dart"]},
       "dependencies": [], "status": "approved",
       "history": [{"pr": null, "change": "phase 5 (branch claude/platform-phase-4-5)"}]
+    },
+    {
+      "id": "sign_in_sign_out_session",
+      "name": "Sign up / sign in / sign out with server-checked sessions",
+      "purpose": "Phone OTP sign-up and sign-in (server code or Firebase phone sign-in), persistent login checked with the server on start, and one secure sign-out from Profile and the side menu.",
+      "expected_behavior": "Numbers are sent as E.164 (+91 default). Resend waits for the server cooldown (Retry-After); wrong / expired / rate-limited / offline answers are explained. Returning users get their saved profile back (never overwritten, never a second account); new users add name + roles. On start GET /api/me/session: 401 signs the phone out, offline keeps the session. Sign-out asks first, POST /api/me/logout revokes only that session and unlinks this phone's push token, deletes nothing on the server, puts the account's phone-side data away (restored when the same account signs in) and restarts the app with fresh state on the sign-in screen. Firebase ID tokens are verified on the server (RS256, project, times); Firebase phone sign-in is offered only when ASKODOX_FIREBASE_PHONE_AUTH is on.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/me/session", "response_keys": ["valid", "app_user_id", "profile"]}, {"method": "POST", "path": "/api/me/logout", "response_keys": ["signed_out", "server_session", "push_token_removed"]}, {"method": "GET", "path": "/onboarding/methods", "response_keys": ["firebase_phone_auth", "server_otp", "resend_seconds"]}, {"method": "POST", "path": "/onboarding/firebase/verify"}],
+      "ui": {"keys": ["askodoxProfileSignOut", "askodoxMenu-signout", "askodoxSignOutConfirm", "askodoxSendOtp", "askodoxResendOtp", "askodoxChangeNumber"], "symbols": ["askodoxSignOut", "askodoxConfirmSignOut", "askodoxCheckSession", "askodoxE164", "AskodoxAppRestart", "askodoxStashAccountData"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_auth_session.py"], "flutter": ["test/core/auth/sign_out_test.dart", "test/core/auth/phone_number_test.dart", "test/features/auth/onboarding_flow_test.dart"]},
+      "dependencies": ["one_account_per_phone"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "auth + sign-out round (branch claude/auth-signout-fcm)"}]
+    },
+    {
+      "id": "push_fcm_client_diagnostics",
+      "name": "FCM push client, self test, in-app offer messages, developer diagnostics",
+      "purpose": "Background / closed-app notifications with tap navigation, a safe one-phone test, opt-in Firebase In-App Messaging, and a development-only diagnostics screen.",
+      "expected_behavior": "With Firebase build values the app registers its FCM token after sign-in (Android 13 permission asked then), re-registers on refresh, shows a foreground message once (deduplicated by message id), opens only in-app routes on tap. POST /api/me/push-test sends only to the caller's own devices (3 per 10 min). In-App Messaging is suppressed and collects nothing until opted in; the app trigger fires at most once per 20 h. Developer Diagnostics (token, Installation ID) exists only in non-production debug / ASKODOX_DEV_DIAGNOSTICS builds.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/me/push-test", "response_keys": ["status", "delivered", "detail"]}],
+      "ui": {"keys": ["askodoxPushSelfTest", "askodoxInAppOffersSwitch"], "symbols": ["AskodoxInAppMessaging", "askodoxDiagnosticsAllowed", "askodoxPushBackgroundHandler"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_auth_session.py"], "flutter": ["test/services/push_registration_test.dart", "test/services/in_app_messaging_test.dart"]},
+      "dependencies": [],
+      "status": "approved",
+      "history": [{"pr": null, "change": "auth + sign-out round (branch claude/auth-signout-fcm)"}]
     }
   ]
 }

@@ -175,6 +175,7 @@ jobs:
           flutter build apk --debug \
             --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=staging \
+            --dart-define=ASKODOX_DEV_DIAGNOSTICS=true \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \

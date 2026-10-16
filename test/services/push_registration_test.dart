@@ -53,6 +53,8 @@ class _Fcm implements AskodoxPushBackend {
   Future<AskodoxPushMessage?> initialMessage() async => null;
   @override
   Future<void> deleteToken() async => deleted++;
+  @override
+  Future<String?> installationId() async => 'fid-test';
 }
 
 void main() {
@@ -101,5 +103,30 @@ void main() {
     await push.unregister();
     expect(api.deletes.single, '/api/me/push-token');
     expect(fcm.deleted, 1);
+  });
+
+  test('a message delivered twice is shown once; sign-out deletes only this phone\'s token locally', () async {
+    final fcm = _Fcm(), api = _Api(), shown = <AskodoxPushMessage>[];
+    final push = make(fcm, api, shown: shown);
+    final routes = <String>[];
+    push.openedRoutes.listen(routes.add);
+    await push.sync();
+    expect(push.lastState, AskodoxPushState.registered);
+    expect(await push.currentToken(), 'fcm-token-0123456789-abcdef');
+    const m = AskodoxPushMessage(title: 'ASKODOX', body: 'Order accepted', route: '/updates', id: 'm-1');
+    fcm.foreground.add(m);
+    fcm.foreground.add(m);
+    fcm.opened.add(const AskodoxPushMessage(route: '/orders/mine', id: 'm-2'));
+    fcm.opened.add(const AskodoxPushMessage(route: '/orders/mine', id: 'm-2'));
+    await Future<void>.delayed(Duration.zero);
+    expect(shown.length, 1);
+    expect(routes, ['/orders/mine']);
+    await push.signOutDevice();
+    expect(fcm.deleted, 1);
+    expect(api.deletes, isEmpty, reason: 'the account\'s other phones keep their pushes');
+    expect(push.lastState, AskodoxPushState.signedOut);
+    fcm.foreground.add(const AskodoxPushMessage(title: 'x', body: 'after sign-out', id: 'm-3'));
+    await Future<void>.delayed(Duration.zero);
+    expect(shown.length, 1, reason: 'nothing is shown after sign-out');
   });
 }

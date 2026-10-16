@@ -32,6 +32,7 @@ import '../../features/admin/presentation/localized_admin_sections.dart';
 import '../../features/location/presentation/location_setup_screen.dart';
 import '../../features/auth/presentation/auth_status_screens.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
+import '../../features/settings/developer_diagnostics_screen.dart';
 import '../../features/developer/presentation/developer_settings_screen.dart';
 import '../../features/developer/presentation/sync_status_screen.dart';
 import '../../features/developer/presentation/storage_usage_screen.dart';
@@ -158,6 +159,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/settings/notifications',
           builder: (context, state) => const NotificationSettingsScreen()),
+      // Development builds only (never reachable in a production release).
+      GoRoute(
+          path: '/settings/diagnostics',
+          redirect: (context, state) => askodoxDiagnosticsAllowed ? null : '/',
+          builder: (context, state) => const AskodoxDeveloperDiagnosticsScreen()),
       GoRoute(path: '/companion/screen-guide', builder: (context, state) => const ScreenGuideScreen()),
       GoRoute(
           path: '/notification-preferences',

@@ -24,7 +24,9 @@ PHOTO_LIMIT = 600 * 1024
 
 def profiles(container: Any) -> UserProfileRepository:
     repo = getattr(container, "user_profile_repository", None)
-    if repo is None:
+    # One repository per database: a cached one for another database (a
+    # replaced settings object) is never reused.
+    if repo is None or getattr(repo, "db_path", container.settings.database_path) != container.settings.database_path:
         repo = UserProfileRepository(container.settings.database_path)
         container.user_profile_repository = repo
     return repo

@@ -10,6 +10,7 @@ import '../../features/home/presentation/question_mic.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import '../../services/in_app_messaging.dart';
 import '../../services/push_registration.dart';
 import 'header_menu.dart';
 import '../../features/staff/askodox_staff_access.dart';
@@ -100,6 +101,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     } catch (_) {
       // Push is best effort; the app never depends on it.
     }
+    try {
+      // In-app offer messages: only with the person's opt-in, at most daily.
+      await ref.read(askodoxInAppMessagingProvider).onAppOpen();
+    } catch (_) {}
   }
 
   /// "Share -> ASKODOX" from another app: staff add the link in the Staff
