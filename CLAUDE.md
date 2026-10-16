@@ -7,17 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `7016192` -- PR #199 merged + deployed 2026-10-16: `tester_identity` = ONE tester rule for billing AND
-  Radio testers (last 10 digits; the shared demo login 919999999999 is never a tester, adding it -> 409). Root
-  cause of "no Pay button" on APK 1328: the phone was signed in with the demo account (masked log ...9999).
-  Backend only; APK 1328 stays current. Before: PR #197 (`6a7ccc0`): /api/billing/options returns the caller's masked
-  account (phone_last4, billing_tester) and logs one masked `billing.options` line per check (Railway deploy logs);
-  payable plans say "Test payment available". Release APK 1328 (phone-test-1328, sha256 09b95b80…0f65). PR #195
-  (testers match by the last 10 phone digits). Before: PR #193 (Railway ddefa65f;
-  Razorpay row TEST_MODE_READY, key check OK, webhook signing set, invalid webhook signature -> 401; 0 verified
-  webhook deliveries so far). One gateway state (`payment_gateway_health`), API Health Razorpay row + Check with
-  gateway, readiness TEST_MODE_VERIFIED, TEST purchases -> TEST_PAID (no entitlement). Release APK 1327 from main
-  (phone-test-1327, sha256 ca929a9b…b57f). Earlier: PR #191 (`61f771b`, APK 1326), #189 (`d39bdab`, APK 1325).
+- `main` @ `af58f29` -- 2026-10-16: Universal Integration Platform phases 1-5 merged + deployed (PR #201
+  catalog + Setup Wizard + Owner checklist + OTP fallback + no demo bypass in production; #202 KYC engine + app
+  /verification; #203 commission engine + partner campaign item types + one account per phone). /health healthy
+  on af58f29; Sign-in OTP row: only the legacy WhatsApp channel configured, demo login off. Release APK 1330
+  (phone-test-1330, sha256 d42c71c2…33b3). See docs/integration-platform.md. Before: PR #199 (`7016192`).
   Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
@@ -483,6 +477,13 @@ this file, don't trust it blindly.
 - Gateway state = `payment_gateway_health.check` ONLY (public health row, readiness, API Health, Billing); only a
   Razorpay 401 records a failed check. TEST money -> purchase TEST_PAID, never a subscription / pass. Why a tester has no Pay
   button: Railway deploy logs, filter `billing.options` (masked last 4, tester, reasons).
+- Integration Platform (docs/integration-platform.md): `integration_catalog` statuses are COMPUTED (never
+  hand-set; mock never counts as tested; NOT BUILT / interface_ready named honestly); sign-in OTP =
+  `otp_delivery` (ASKODOX_OTP_CHANNELS); demo number works in production only with ASKODOX_DEMO_LOGIN=yes;
+  KYC = `kyc_engine` (consent first, masked + HMAC only, AI extraction never verifies, staff verify only
+  business / professional docs); commissions = `commission_engine` on Partner Hub (forward-only lifecycle,
+  clicks never conversions); identity = `account_identity` (auth_accounts, one id per 10-digit number; the app
+  stores the server's app_user_id).
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
