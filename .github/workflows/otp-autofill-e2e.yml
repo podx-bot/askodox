@@ -94,7 +94,6 @@ jobs:
           adb logcat -c
           adb shell am start -W -n $PKG/.MainActivity
           sleep 25
-          echo "::notice title=1 start::$(screen)"
           # Number step.
           tap_node 'class="android.widget.EditText"' 15 || fail "no number field"
           adb shell input keyevent KEYCODE_MOVE_END
@@ -119,7 +118,7 @@ jobs:
           sleep 15
           [ -n "$(alive)" ] || fail "APP CLOSED after Allow"
           echo "::notice title=5 alive::app still running after Allow (pid $(alive))"
-          adb logcat -d | grep -E "askodox.auth (sms_consent|verify_otp|firebase|firebase_verify)" | tail -15 | sed -E 's/^.*askodox\.auth/askodox.auth/' | cut -c1-200 | sed 's/^/::notice title=trail::/'
+          echo "::notice title=trail::$(adb logcat -d | grep -E "askodox.auth (sms_consent|verify_otp|firebase|firebase_verify)" | tail -15 | sed -E 's/^.*askodox\.auth //' | cut -c1-80 | tr '\n' ';')"
           adb logcat -d | grep -q "sms_consent.filled" || fail "code was not filled"
           adb logcat -d | grep -qE "askodox.auth verify_otp.tap path=firebase" || fail "verify did not run"
           echo "::notice title=6 screen after verify::$(screen)"
