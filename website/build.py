@@ -336,6 +336,7 @@ def render_page(cfg: dict, page: Page, assets: dict, locale: dict) -> str:
 <script>document.documentElement.classList.add("js")</script>
 {page.head_extra}
 {ld}
+<meta name="mitgo-verification" content="f37ceb12-4ffc-4621-9f83-9875b095c75b" />"
 </head>
 <body>
 <a class="skip-link" href="#main">{e(t("skip"))}</a>
