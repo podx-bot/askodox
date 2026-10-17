@@ -12,6 +12,8 @@ on:
       - 'lib/core/auth/sms_code_listener.dart'
       - 'integration_test/sms_consent_test.dart'
       - '.github/workflows/sms-consent-e2e.yml'
+  push:
+    branches: [claude/sms-e2e-probe]
   workflow_dispatch:
 
 permissions:
@@ -46,6 +48,12 @@ jobs:
           for i in $(seq 1 120); do grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt && break; sleep 5; done
           grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt || { echo "::error::listener never started"; tail -30 it.txt; exit 1; }
           sleep 3
+          adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ' | sed 's/^/::notice title=before SMS::/'
+          # The consent prompt is an activity started by the app: ASKODOX must be in front.
+          adb shell am start -n com.askodox.askodox/.MainActivity >/dev/null 2>&1 || true
+          sleep 3
+          adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ' | sed 's/^/::notice title=in front::/'
+          adb logcat -c
           adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
           tapped=no
           for i in $(seq 1 40); do
@@ -61,6 +69,9 @@ jobs:
             fi
             sleep 3
           done
+          adb shell content query --uri content://sms/inbox --projection address 2>/dev/null | head -3 | sed 's/^/::notice title=sms inbox::/'
+          adb logcat -d | grep -iE "SmsRetriever|SmsUserConsent|SMS_RETRIEVED|consent|ActivityTaskManager: START" | head -15 | cut -c1-220 | sed 's/^/::notice title=logcat::/'
+          adb shell dumpsys package com.google.android.gms | grep -m1 versionName | sed 's/^/::notice title=gms::/'
           [ "$tapped" = yes ] || adb shell cat /sdcard/ui.xml | grep -oE 'text="[^"]+"' | sort -u | head -20 | sed 's/^/::warning::screen /'
           wait $TEST; rc=$?
           grep -E "ASKODOX_SMS_CONSENT_EVENTS|All tests passed|Some tests failed|Expected|Actual" it.txt | head -10 | sed 's/^/::notice title=result::/'
