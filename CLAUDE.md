@@ -7,11 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `e96b4c4` -- PR #211 (2026-10-17): APK 1335 white screen = shared_preferences_android 2.5.0 (Pigeon JNI,
-  NoSuchMethodError SharedPreferencesApiRegistrar.getAll at start-up); pinned 2.4.28 in `dependency_overrides`
-  (no pubspec.lock -- deps float). Startup prefs go through `askodoxStartupPrefs` (8 s timeout -> "Try again",
-  nothing deleted). `phone-test-link.yml` runs an emulator startup gate before publishing (one bash script:
-  the emulator runner splits script lines). APK 1336 (phone-test-1336, sha256 1fd746e0...f80e6) passed it.
+- `main` @ `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
+  "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
+  RecaptchaActivity opened in a separate task and after the reCAPTCHA browser step ASKODOX stayed in the background
+  (emulator repro: browser stays in front on 1336, MainActivity resumes after the fix). Removed it (guard test
+  `test_android_manifest_firebase.py`); network-class Firebase failures named; sign-in trail -> POST
+  `/onboarding/diagnostics/trace` -> Railway log `signin.trace` (no numbers / codes / tokens).
+  Before: PR #211 (`e96b4c4`): APK 1335 white screen = shared_preferences_android 2.5.0 (Pigeon JNI); pinned 2.4.28 in
+  `dependency_overrides` (no pubspec.lock -- deps float); `askodoxStartupPrefs` (8 s -> "Try again"); publish
+  workflow runs an emulator startup gate (one bash script: the emulator runner splits script lines).
   Earlier: #205-#210 auth / Firebase SMS OTP / re-login (APK 1331-1335). Firebase project askodox-81252.
   See docs/auth-and-push.md, docs/implementation-status.md, docs/resume-instructions.md, docs/payments-setup.md.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
