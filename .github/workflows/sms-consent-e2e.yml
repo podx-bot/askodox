@@ -10,7 +10,7 @@ on:
       - 'android/app/src/main/kotlin/**'
       - 'android/app/build.gradle.kts'
       - 'lib/core/auth/sms_code_listener.dart'
-      - 'integration_test/sms_consent_test.dart'
+      - 'integration_test/sms_consent_probe_main.dart'
       - '.github/workflows/sms-consent-e2e.yml'
   push:
     branches: [claude/sms-e2e-probe]
@@ -38,47 +38,75 @@ jobs:
           flutter-version: 3.47.0
           channel: stable
           cache: true
-      - name: Prepare
+      - name: Build the probe app (the app's own native code + Dart listener)
         run: |
           flutter pub get
+          flutter build apk --debug -t integration_test/sms_consent_probe_main.dart
+          cp build/app/outputs/flutter-apk/app-debug.apk probe.apk
           cat > sms-e2e.sh <<'SH'
           set -u
-          flutter test integration_test/sms_consent_test.dart -d emulator-5554 > it.txt 2>&1 &
-          TEST=$!
-          for i in $(seq 1 120); do grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt && break; sleep 5; done
-          grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt || { echo "::error::listener never started"; tail -30 it.txt | sed 's/^/::warning::/'; exit 1; }
-          sleep 3
-          adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ' | sed 's/^/::notice title=before SMS::/'
-          # The consent prompt is an activity started by the app: ASKODOX must be in front.
-          adb shell dumpsys activity activities | grep -E "com.askodox|Task\{" | head -8 | tr -s ' ' | cut -c1-200 | sed 's/^/::notice title=tasks::/'
-          adb shell pidof com.askodox.askodox | sed 's/^/::notice title=pid::/'
-          adb shell am start -W -n com.askodox.askodox/.MainActivity 2>&1 | tr -s ' ' | head -6 | sed 's/^/::notice title=am start::/' || true
-          sleep 3
-          adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ' | sed 's/^/::notice title=in front::/'
+          ev() { adb logcat -d -s flutter:I | grep -o "ASKODOX_SMS_EVENT .*" ; }
+          wait_for() { for i in $(seq 1 "$2"); do ev | grep -q "$1" && return 0; sleep 2; done; return 1; }
+          tap_allow() {
+            for i in $(seq 1 30); do
+              adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+              node=$(adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -iE 'text="Allow"' | head -1)
+              if [ -n "$node" ]; then
+                set -- $(echo "$node" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '[0-9]+' | tr '\n' ' ')
+                adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
+                echo "::notice title=$3::Android consent prompt shown -> tapped Allow"
+                return 0
+              fi
+              sleep 2
+            done
+            adb shell cat /sdcard/ui.xml | grep -oE 'text="[^"]+"' | sort -u | head -12 | sed 's/^/::warning::screen /'
+            return 1
+          }
+          top() { adb shell dumpsys activity activities | grep -m1 topResumedActivity | tr -s ' '; }
+          adb install -r probe.apk
           adb logcat -c
+          adb shell am start -W -n com.askodox.askodox/.MainActivity
+          wait_for "listening" 60 || { echo "::error::listener never started"; ev | sed 's/^/::warning::/'; exit 1; }
+          echo "::notice title=1 in front::$(top)"
+
+          # 1. App in front: real SMS -> Android prompt -> Allow -> code.
           adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
-          tapped=no
-          for i in $(seq 1 40); do
+          tap_allow "1 foreground" || { echo "::error::no consent prompt (foreground)"; ev | sed 's/^/::warning::/'; exit 1; }
+          wait_for "code 482915" 30 || { echo "::error::code not delivered"; ev | sed 's/^/::warning::/'; exit 1; }
+          echo "::notice title=1 foreground::code 482915 delivered to Dart"
+
+          # 2. SMS arrives while the app is in the background (person opened another app):
+          #    the prompt must open when the app is back in front.
+          wait_for "ASKODOX_SMS_EVENT listening" 30
+          sleep 3
+          adb shell input keyevent KEYCODE_HOME
+          sleep 3
+          adb emu sms send 5551234 "135790 is your verification code for askodox-81252.firebaseapp.com."
+          sleep 8
+          adb shell am start -W -n com.askodox.askodox/.MainActivity
+          tap_allow "2 background" || { echo "::error::no consent prompt after returning"; ev | sed 's/^/::warning::/'; exit 1; }
+          wait_for "code 135790" 30 || { echo "::error::code not delivered (background case)"; ev | sed 's/^/::warning::/'; exit 1; }
+          echo "::notice title=2 background::code 135790 delivered after returning to the app"
+
+          # 3. Deny: nothing is read.
+          wait_for "ASKODOX_SMS_EVENT listening" 30
+          adb emu sms send 5551234 "246802 is your verification code."
+          for i in $(seq 1 30); do
             adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
-            node=$(adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -iE 'text="Allow"' | head -1)
+            node=$(adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -iE 'text="Deny"' | head -1)
             if [ -n "$node" ]; then
-              b=$(echo "$node" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '[0-9]+' | tr '\n' ' ')
-              set -- $b
-              adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
-              echo "::notice title=consent prompt::Android's own prompt shown; tapped Allow"
-              tapped=yes
-              break
+              set -- $(echo "$node" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '[0-9]+' | tr '\n' ' ')
+              adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )); break
             fi
-            sleep 3
+            sleep 2
           done
-          adb shell content query --uri content://sms/inbox --projection address 2>/dev/null | head -3 | sed 's/^/::notice title=sms inbox::/'
-          adb logcat -d | grep -iE "SmsRetriever|SmsUserConsent|SMS_RETRIEVED|consent|ActivityTaskManager: START" | head -15 | cut -c1-220 | sed 's/^/::notice title=logcat::/'
-          adb shell dumpsys package com.google.android.gms | grep -m1 versionName | sed 's/^/::notice title=gms::/'
-          [ "$tapped" = yes ] || adb shell cat /sdcard/ui.xml | grep -oE 'text="[^"]+"' | sort -u | head -20 | sed 's/^/::warning::screen /'
-          wait $TEST; rc=$?
-          grep -E "ASKODOX_SMS_CONSENT_EVENTS|All tests passed|Some tests failed|Expected|Actual" it.txt | head -10 | sed 's/^/::notice title=result::/'
-          adb shell dumpsys package com.askodox.askodox | grep -E "android.permission.(READ|RECEIVE)_SMS" && { echo "::error::SMS permission present"; exit 1; } || echo "::notice title=permissions::no READ_SMS / RECEIVE_SMS"
-          exit $rc
+          wait_for "denied" 30 && ! ev | grep -q "code 246802" && echo "::notice title=3 deny::denied, no code delivered" || { echo "::error::deny case"; ev | sed 's/^/::warning::/'; exit 1; }
+
+          echo "::notice title=events::$(ev | tr '\n' ';')"
+          if adb shell dumpsys package com.askodox.askodox | grep -qE "android.permission.(READ|RECEIVE)_SMS"; then
+            echo "::error::SMS permission present"; exit 1
+          fi
+          echo "::notice title=permissions::installed app has no READ_SMS / RECEIVE_SMS"
           SH
       - name: Emulator (Play services) - real SMS -> consent prompt -> code
         uses: reactivecircus/android-emulator-runner@v2
