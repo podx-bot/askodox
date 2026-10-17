@@ -274,4 +274,74 @@ void main() {
     expect(error, contains('Meta error 131047'));
     await _dispose(tester);
   });
+
+  // APK 1336: "Firebase: network-request-failed" and "Firebase: unknown -- An
+  // internal error has occurred. [ Software caused connection abort ]".
+  testWidgets('Firebase connection failures: named as network problems, never a sent code; trail reaches the server',
+      (tester) async {
+    final lines = <String>[];
+    final previous = askodoxAuthLogSink;
+    askodoxAuthLogSink = lines.add;
+    addTearDown(() => askodoxAuthLogSink = previous);
+
+    // 1. Send step, 'unknown' carrying the socket error.
+    final api = _api(firebase: true);
+    final phone = FakePhoneAuth(
+        startResult: const AskodoxPhoneAuthFailed('unknown', 'An internal error has occurred. [ Software caused connection abort ]'));
+    await _pumpApp(tester, api, phoneAuth: phone);
+    await _sendCode(tester, '9876543210');
+    expect(find.byKey(const ValueKey('mobile-input')), findsOneWidget, reason: 'no false code step');
+    expect(find.byKey(const ValueKey('otp-input')), findsNothing);
+    final error = _inlineError(tester)!;
+    expect(error, startsWith('The connection to Google broke while sending the code.'));
+    expect(error, contains('(Firebase: unknown – An internal error has occurred. [ Software caused connection abort ])'));
+    expect(find.byKey(const Key('askodoxSignInRetry')), findsOneWidget);
+    expect(api.to('POST', '/onboarding/otp/send'), isEmpty, reason: 'a network failure is not a setup problem');
+    final trace = api.to('POST', '/onboarding/diagnostics/trace').single.$3! as Map;
+    expect(trace['outcome'], 'failed');
+    expect(trace['stage'], 'send_otp');
+    expect(trace['code'], 'unknown');
+    final trail = (trace['lines'] as List).cast<String>();
+    expect(trail.first, matches(RegExp(r'^\+\d+ms send_otp\.tap ')));
+    expect(trail.any((l) => l.contains('send_otp.firebase_failed code=unknown network=true')), isTrue);
+    expect(trail.join(' '), isNot(contains('3210')), reason: 'not even the masked number');
+    await _dispose(tester);
+
+    // 2. Send step, network-request-failed.
+    final api2 = _api(firebase: true);
+    await _pumpApp(tester, api2, phoneAuth: FakePhoneAuth(startResult: const AskodoxPhoneAuthFailed('network-request-failed')));
+    await _sendCode(tester, '9876543210');
+    expect(_inlineError(tester), startsWith('The connection to Google broke'));
+    expect(_inlineError(tester), endsWith('(Firebase: network-request-failed)'));
+    expect(find.byKey(const ValueKey('otp-input')), findsNothing);
+    await _dispose(tester);
+
+    // 3. Code step: the SMS arrived, confirming it lost the connection.
+    final api3 = _api(firebase: true);
+    final phone3 = FakePhoneAuth()
+      ..confirmError = 'unknown'
+      ..confirmDetail = 'An internal error has occurred. [ Software caused connection abort ]';
+    await _pumpApp(tester, api3, phoneAuth: phone3);
+    await _sendCode(tester, '9876543210');
+    expect(api3.to('POST', '/onboarding/diagnostics/trace').single.$3, containsPair('outcome', 'code_sent'));
+    await _enterCode(tester, '123456');
+    expect(_inlineError(tester), startsWith('The connection to Google broke'));
+    expect(find.byKey(const ValueKey('otp-input')), findsOneWidget, reason: 'stays on the code; can retry');
+    expect(api3.to('POST', '/onboarding/firebase/verify'), isEmpty);
+    final verifyTrace = api3.to('POST', '/onboarding/diagnostics/trace').last.$3! as Map;
+    expect(verifyTrace['stage'], 'verify_otp');
+    expect((verifyTrace['lines'] as List).join(' '), isNot(contains('123456')));
+    await _dispose(tester);
+
+    expect(lines.join('\n'), isNot(contains('9876543210')));
+    expect(lines.join('\n'), isNot(contains('123456')));
+  });
+
+  test('network failure classification', () {
+    expect(askodoxPhoneAuthNetworkFailure('network-request-failed'), isTrue);
+    expect(askodoxPhoneAuthNetworkFailure('unknown', 'An internal error has occurred. [ Software caused connection abort ]'), isTrue);
+    expect(askodoxPhoneAuthNetworkFailure('unknown', 'An internal error has occurred. [ BILLING_NOT_ENABLED ]'), isFalse);
+    expect(askodoxPhoneAuthNetworkFailure('unknown'), isFalse);
+    expect(askodoxPhoneAuthNetworkFailure('invalid-verification-code', 'network'), isFalse);
+  });
 }

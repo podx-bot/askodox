@@ -1,12 +1,14 @@
 import hashlib
+import logging
 import os
+import re
 import secrets
 import threading
 import time
 from dataclasses import dataclass
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.session_tokens import issue_token
 
@@ -240,3 +242,56 @@ def verify_firebase(payload: FirebaseVerifyRequest, request: Request) -> dict:
     except Exception:
         raise HTTPException(status_code=503, detail="Sign-in could not be checked right now. Try again.") from None
     return signed_in(request.app.state.container, _mobile(claims["phone_number"]))
+
+
+# --- Sign-in diagnostics (no personal data) ---------------------------------
+# The app sends the ordered trail of ONE sign-in attempt (callback order,
+# app lifecycle, Firebase error codes, timings) so a phone-only failure such as
+# "network-request-failed" can be placed exactly: before / after the browser
+# check, before / after Firebase sent the SMS. Lines are event names and short
+# codes only; anything number-like is removed again here, and no phone number,
+# code, token or account id is accepted.
+_trace_log = logging.getLogger("uvicorn.error")
+_TRACE_LINE = re.compile(r"^\+\d{1,7}ms [a-z_]+(\.[a-z_]+)*( [a-z_]+=[^\s=]{0,120})*$")
+_TRACE_DROP_KEYS = re.compile(r"\b(number|mobile|phone|otp|code_value|token|id_token|verification_id)=\S*")
+
+
+class SignInTraceRequest(BaseModel):
+    outcome: str = Field(pattern="^(code_sent|auto_verified|signed_in|failed|late_code_sent|abandoned)$")
+    stage: str = Field(default="", max_length=40, pattern="^[a-z_]*$")
+    code: str = Field(default="", max_length=60, pattern="^[a-z0-9_-]*$")
+    app_version: str = Field(default="", max_length=40, pattern="^[0-9A-Za-z.+_-]*$")
+    lines: list[str] = Field(default_factory=list, max_length=80)
+
+
+def clean_trace_line(line: str) -> str | None:
+    from app.services.pii_mask import mask_sensitive
+
+    text = " ".join(_TRACE_DROP_KEYS.sub("", str(line or "")[:300]).split())
+    stamp, _, rest = text.partition(" ")
+    text = f"{stamp} {re.sub(r'[+]?\d{5,}', '[n]', rest)}".strip()
+    if not _TRACE_LINE.match(text):
+        return None
+    return mask_sensitive(text)[:200]
+
+
+@router.post("/diagnostics/trace")
+def sign_in_trace(payload: SignInTraceRequest, request: Request) -> dict:
+    """One sign-in attempt's trail -> Railway deploy logs (filter "signin.trace")
+    + an event for trends. Nothing personal is stored."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "signin_trace", limit=12)
+    lines = [clean for clean in (clean_trace_line(line) for line in payload.lines) if clean]
+    _trace_log.info("signin.trace outcome=%s stage=%s code=%s app=%s lines=%d | %s", payload.outcome,
+                    payload.stage or "-", payload.code or "-", payload.app_version or "-", len(lines),
+                    " ; ".join(lines)[:6000])
+    try:
+        from app.api.routes.platform import platform
+
+        platform(request.app.state.container).repo.record_event("signin_trace", detail={
+            "outcome": payload.outcome, "stage": payload.stage, "code": payload.code,
+            "app_version": payload.app_version, "lines": lines[:80]})
+    except Exception:
+        pass
+    return {"ok": True, "kept": len(lines)}
