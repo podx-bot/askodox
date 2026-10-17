@@ -13,6 +13,7 @@ import '../../../core/auth/auth_log.dart';
 import '../../../core/auth/phone_auth.dart';
 import '../../../core/auth/phone_number.dart';
 import '../../../core/auth/sign_out.dart' show askodoxRestoreAccountData;
+import '../../../core/persistence/startup_prefs.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../home/domain/active_role.dart';
@@ -94,6 +95,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   int _step = 0;
   bool _loading = true;
+  bool _storageFailed = false;
   bool _busy = false;
   bool _usingDeviceLanguage = true;
   String _languageCode = 'en';
@@ -107,12 +109,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _restore() async {
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs;
+    try {
+      prefs = await askodoxStartupPrefs();
+    } on AskodoxStorageUnavailable catch (e) {
+      askodoxAuthLog('startup.storage_unavailable', {'reason': e.reason});
+      if (mounted) {
+        setState(() {
+          _storageFailed = true;
+          _loading = false;
+        });
+      }
+      return;
+    }
     if (!mounted) return;
     if (prefs.getBool(_completeKey) == true && !widget.signIn) {
+      askodoxAuthLog('startup.onboarding', {'complete': true});
+      setState(() => _loading = false);
       context.go('/');
       return;
     }
+    askodoxAuthLog('startup.onboarding', {'complete': false, 'sign_in': widget.signIn});
     if (widget.signIn) {
       _name.text = prefs.getString(_nameKey)?.trim() ?? '';
       final mobile = prefs.getString(_mobileKey)?.trim() ?? '';
@@ -642,6 +659,39 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_storageFailed) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'ASKODOX could not open its storage on this phone. Your data is safe.',
+                    key: Key('askodoxStorageFailed'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const Key('askodoxStorageRetry'),
+                    onPressed: () {
+                      setState(() {
+                        _storageFailed = false;
+                        _loading = true;
+                      });
+                      _restore();
+                    },
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return Scaffold(
