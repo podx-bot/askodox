@@ -258,4 +258,20 @@ void main() {
     expect(askodoxRedactDigits('••••3210'), '••••3210');
     expect(askodoxRedactDigits('503'), '503');
   });
+
+  testWidgets('Firebase SMS first; when it is not allowed AND the fallback fails, both reasons are shown',
+      (tester) async {
+    final api = _api(firebase: true)
+      ..on('POST /onboarding/otp/send', (_) => httpError(503,
+          'The code could not be delivered: WhatsApp delivers this code only if you sent a message to the ASKODOX '
+          'WhatsApp number in the last 24 hours (Meta error 131047).'));
+    final phone = FakePhoneAuth(startResult: const AskodoxPhoneAuthFailed('operation-not-allowed'));
+    await _pumpApp(tester, api, phoneAuth: phone);
+    await _sendCode(tester, '98765 43210');
+    expect(phone.started, ['+919876543210'], reason: 'Firebase SMS is tried first');
+    final error = _inlineError(tester)!;
+    expect(error, contains('(Firebase: operation-not-allowed)'));
+    expect(error, contains('Meta error 131047'));
+    await _dispose(tester);
+  });
 }

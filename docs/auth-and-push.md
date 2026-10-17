@@ -43,7 +43,8 @@ Status labels follow the Integration Platform: **CODE READY** = built and tested
 4. Railway -> production -> podx-ai-connect -> Variables: `FIREBASE_SERVICE_ACCOUNT_JSON` (push sender; never in
    GitHub) and `FIREBASE_PROJECT_ID`.
 5. Only if you want Google to send the sign-in SMS: Firebase -> Authentication -> Sign-in method -> Phone ->
-   Enable (Blaze plan), then Railway `ASKODOX_FIREBASE_PHONE_AUTH=yes`. Otherwise sign-in keeps using the
+   Enable (Blaze plan) and allow the countries in Authentication -> Settings -> SMS region policy; Railway
+   `FIREBASE_PROJECT_ID` makes Firebase SMS the PRIMARY sign-in (`ASKODOX_FIREBASE_PHONE_AUTH=no` turns it off). Otherwise sign-in keeps using the
    server OTP (WhatsApp template / SMS -- see the Setup Wizard).
 
 ## Safe push test (ONE development device; never a campaign to all users)

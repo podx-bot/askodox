@@ -78,6 +78,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // server says it is switched on AND this build has Firebase) or the
   // server's own code (WhatsApp / SMS).
   bool _useFirebase = false;
+  Future<void>? _methodsLoaded;
+  // Firebase error that sent this attempt to the server code (shown with its result).
+  String? _firebaseFallbackCode;
   bool _serverOtp = true;
   int _resendSeconds = 45;
   String? _verificationId;
@@ -130,7 +133,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ref.read(appSettingsProvider.notifier).useSystemLocale();
     }
     setState(() => _loading = false);
-    unawaited(_loadMethods());
+    _methodsLoaded = _loadMethods();
   }
 
   /// Best effort: an older server (or the offline mock) without this route
@@ -312,6 +315,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   /// Send OTP: never ends silently. Any exception becomes a visible error.
   Future<void> _sendOtp({bool resend = false}) async {
+    _firebaseFallbackCode = null;
     try {
       await _sendOtpSteps(resend: resend);
     } catch (error) {
@@ -322,6 +326,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _sendOtpSteps({bool resend = false}) async {
     final e164 = askodoxE164(_mobile.text);
+    // Firebase SMS is the primary way in: never race into the fallback because
+    // the server's answer about sign-in methods has not arrived yet.
+    if (_methodsLoaded != null && !resend) {
+      await _methodsLoaded!.timeout(const Duration(seconds: 6), onTimeout: () {});
+    }
     askodoxAuthLog('send_otp.tap', {
       'valid': e164 != null,
       'path': _useFirebase ? 'firebase' : 'server',
@@ -365,6 +374,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           if (setupProblems.contains(code) && _serverOtp) {
             // Firebase is not ready for this app: the server's own code works.
             askodoxAuthLog('send_otp.firebase_fallback', {'code': code});
+            _firebaseFallbackCode = code;
             setState(() => _useFirebase = false);
             return _sendOtpSteps(resend: resend);
           }
@@ -396,6 +406,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _error = _t('waitResend');
         });
         _startCountdown(wait);
+        return;
+      }
+      if (_firebaseFallbackCode != null) {
+        // Both ways failed: say why Google SMS was not used, then why the fallback failed.
+        final (en, te) = askodoxPhoneAuthMessage(_firebaseFallbackCode!);
+        askodoxAuthLog('send_otp.fallback_failed', {'firebase': _firebaseFallbackCode, 'http': result.failure.statusCode ?? 'none'});
+        _announce('${_languageCode == 'te' ? te : en} (Firebase: $_firebaseFallbackCode)\n'
+            '${result.failure.message ?? result.failure.localizedMessage(_languageCode)}');
         return;
       }
       _fail(result.failure, stage: 'send_otp');
