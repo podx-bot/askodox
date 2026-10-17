@@ -22,6 +22,12 @@ jobs:
           r=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=$KEY" \
                -H 'Content-Type: application/json' --data '{"phoneNumber":"+15555550100"}')
           echo "::notice title=sendVerificationCode without Android identity::$(echo "$r" | jq -c '{error: .error.message, status: .error.status, reason: [.error.details[]?.reason]}')"
+      - name: India region check (no app proof -> no SMS can be sent)
+        run: |
+          AND=(-H "X-Android-Package: com.askodox.askodox" -H "X-Android-Cert: 6337E11A34E755312077EF7D52B269AAA17B190A")
+          r=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=$KEY" "${AND[@]}" \
+               -H 'Content-Type: application/json' --data '{"phoneNumber":"+919999999999"}')
+          echo "::notice title=sendVerificationCode +91 (no app proof)::$(echo "$r" | jq -c '{error: .error.message}')"
       - name: Production server Firebase verification
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
