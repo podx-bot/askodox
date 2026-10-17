@@ -7,14 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `400f251` -- PR #205 merged + deployed 2026-10-16 (/health healthy on 400f251): sign-up / sign-in /
-  sign-out with server-checked sessions (`GET /api/me/session`, `POST /api/me/logout` revokes ONE session via
-  `session_logouts`, deletes nothing), Firebase phone sign-in (server-verified ID token, only with
-  ASKODOX_FIREBASE_PHONE_AUTH), FCM client hardening + `POST /api/me/push-test`, opt-in In-App Messaging,
-  dev-only Developer Diagnostics. Firebase is NOT configured anywhere yet (no GitHub vars, no service account).
-  Release APK 1331 (phone-test-1331, sha256 7d382ce1…ecacf, release cert 727b4a66…57cf, no Firebase values in it).
-  See docs/auth-and-push.md. Before: #201-#204 (`af58f29` / `39d4150`, APK 1330), Integration Platform phases 1-5.
-  Progress / resume: `docs/implementation-status.md`, `docs/resume-instructions.md`, `docs/payments-setup.md`.
+- `main` @ `e96b4c4` -- PR #211 (2026-10-17): APK 1335 white screen = shared_preferences_android 2.5.0 (Pigeon JNI,
+  NoSuchMethodError SharedPreferencesApiRegistrar.getAll at start-up); pinned 2.4.28 in `dependency_overrides`
+  (no pubspec.lock -- deps float). Startup prefs go through `askodoxStartupPrefs` (8 s timeout -> "Try again",
+  nothing deleted). `phone-test-link.yml` runs an emulator startup gate before publishing (one bash script:
+  the emulator runner splits script lines). APK 1336 (phone-test-1336, sha256 1fd746e0...f80e6) passed it.
+  Earlier: #205-#210 auth / Firebase SMS OTP / re-login (APK 1331-1335). Firebase project askodox-81252.
+  See docs/auth-and-push.md, docs/implementation-status.md, docs/resume-instructions.md, docs/payments-setup.md.
 - Dev branch `claude/friendly-ramanujan-538sbj` (NOT merged, NOT in
   production, staging only) carries the post-1313 master round: voice one-audio
   lifecycle + pause / resume / mute / replay; message copy / select / share;
