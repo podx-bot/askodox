@@ -349,6 +349,41 @@ void main() {
     expect(askodoxPhoneAuthNetworkFailure('invalid-verification-code', 'network'), isFalse);
   });
 
+  testWidgets('a native crash from the last run is reported once (type + frames, nothing personal)', (tester) async {
+    final api = _api(firebase: true);
+    final sms = FakeSmsSource()
+      ..lastCrash = 'type=IllegalStateException root=IllegalStateException thread=main '
+          'at=AskodoxSmsConsent.handleResult:120;MainActivity.onActivityResult:812';
+    await _pumpApp(tester, api, phoneAuth: FakePhoneAuth(), sms: sms);
+    final trace = api.to('POST', '/onboarding/diagnostics/trace').single.$3! as Map;
+    expect(trace['outcome'], 'crash');
+    expect(trace['code'], 'illegalstateexception');
+    final line = (trace['lines'] as List).single as String;
+    expect(line, contains('native.crash type=IllegalStateException'));
+    expect(line, contains('frame_a=AskodoxSmsConsent.handleResult:120'));
+    expect(line, contains('frame_b=MainActivity.onActivityResult:812'));
+    await _dispose(tester);
+  });
+
+  testWidgets('each autofill step is reported at once; Firebase auto-verify + SMS autofill never sign in twice',
+      (tester) async {
+    final api = _api(firebase: true);
+    final sms = FakeSmsSource();
+    final phone = FakePhoneAuth();
+    await _pumpApp(tester, api, phoneAuth: phone, sms: sms);
+    await _sendCode(tester, '9876543210');
+    sms.emit('prompt');
+    await _settle(tester);
+    expect(api.to('POST', '/onboarding/diagnostics/trace').map((c) => (c.$3! as Map)['code']), contains('prompt'));
+    // Firebase verifies by itself (late auto-verification) while the SMS code also arrives.
+    phone.lastOnLate!(const AskodoxPhoneAutoVerified('firebase-id-token'));
+    sms.emit('code', '482915');
+    await _settle(tester);
+    expect(api.to('POST', '/onboarding/firebase/verify'), hasLength(1), reason: 'one sign-in only');
+    expect(find.byKey(const ValueKey('name-input')), findsOneWidget);
+    await _dispose(tester);
+  });
+
   group('OTP autofill (Android SMS User Consent)', () {
     String? focused() => FocusManager.instance.primaryFocus?.debugLabel;
 
