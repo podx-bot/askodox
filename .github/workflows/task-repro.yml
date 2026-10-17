@@ -1,0 +1,70 @@
+name: reCAPTCHA return task repro (emulator, temporary)
+on:
+  push:
+    branches: [claude/task-repro]
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        apk: ['published-1336', 'branch-fix']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Published APK 1336
+        if: matrix.apk == 'published-1336'
+        run: curl -sSL -o app.apk "https://github.com/podx-bot/askodox/releases/download/phone-test-1336/askodox-phone-test-1336.apk" && ls -l app.apk
+      - uses: actions/setup-java@v4
+        if: matrix.apk == 'branch-fix'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        if: matrix.apk == 'branch-fix'
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - name: Build this branch (debug APK; only the manifest / task behaviour matters here)
+        if: matrix.apk == 'branch-fix'
+        run: |
+          flutter pub get
+          flutter build apk --debug
+          cp build/app/outputs/flutter-apk/app-debug.apk app.apk
+          ls -l app.apk
+      - name: Write the repro script
+        run: |
+          cat > repro.sh <<'SH'
+          set -u
+          T=${{ matrix.apk }}
+          adb install -r app.apk
+          adb shell am start -W -n com.askodox.askodox/.MainActivity
+          sleep 30
+          # The browser step: another app comes in front (Settings stands in for the Custom Tab).
+          adb shell am start -W -a android.settings.SETTINGS
+          sleep 3
+          # The reCAPTCHA page hands back to the app exactly like the real redirect.
+          adb logcat -c
+          adb shell am start -W -a android.intent.action.VIEW -d "recaptcha://firebase.auth/?eventType=verifyApp"
+          sleep 5
+          resumed=$(adb shell dumpsys activity activities | grep -E "topResumedActivity|mResumedActivity|ResumedActivity:" | head -3 | tr -s ' ' | tr '\n' ';')
+          echo "::notice title=$T after the redirect::$resumed"
+          adb shell dumpsys activity activities | grep -E "^ *\* Task\{|affinity=|Hist  #|\* Hist" | head -20 | tr -s ' ' | cut -c1-220 | sed "s/^/::notice title=$T tasks::/"
+          adb shell dumpsys activity recents | grep -E "affinity|realActivity" | head -12 | tr -s ' ' | cut -c1-200 | sed "s/^/::notice title=$T recents::/"
+          adb logcat -d | grep -iE "RecaptchaActivity|FirebaseAuth|AndroidRuntime" | head -10 | cut -c1-240 | sed "s/^/::notice title=$T logcat::/"
+          pid=$(adb shell pidof com.askodox.askodox || true)
+          echo "::notice title=$T process::${pid:-not running}"
+          SH
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash repro.sh
