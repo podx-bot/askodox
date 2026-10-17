@@ -39,7 +39,7 @@ FakeAuthApi _api({bool firebase = false}) {
   return api;
 }
 
-Future<void> _pumpApp(WidgetTester tester, FakeAuthApi api, {FakePhoneAuth? phoneAuth, FakeSmsSource? sms}) async {
+Future<void> _pumpApp(WidgetTester tester, FakeAuthApi api, {AskodoxPhoneAuth? phoneAuth, FakeSmsSource? sms}) async {
   SharedPreferences.setMockInitialValues({'askodox.locale': 'en'});
   final router = GoRouter(initialLocation: '/onboarding', routes: [
     GoRoute(path: '/', builder: (_, __) => const Scaffold(body: Text('HOME'))),
