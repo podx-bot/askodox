@@ -15,7 +15,7 @@ void askodoxAuthLog(String event, [Map<String, Object?> fields = const {}]) {
   askodoxAuthTrail.add(event, fields);
 }
 
-/// The ordered trail of ONE sign-in attempt ("+<ms> event key=value"), reset
+/// The ordered trail of ONE sign-in attempt (`+<ms> event key=value`), reset
 /// on each Send OTP tap: callback order, app lifecycle (browser step), Firebase
 /// codes and timings. Sent to the server as a diagnostic when an attempt ends
 /// (`/onboarding/diagnostics/trace`). Number-like values are redacted and the
