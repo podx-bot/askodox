@@ -42,6 +42,34 @@ jobs:
           ls -la phone-test
           grep -q '^PASS' phone-test/VERIFICATION.txt || { echo "artifact is not verified"; exit 1; }
 
+      - name: Enable KVM (emulator startup gate)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          cp "$(ls phone-test/*.apk | head -n 1)" startup-gate.apk
+
+      # APK 1335 regression: a release APK whose startup throws (it stayed on a
+      # white screen) must never be published. Fresh install on an Android 14
+      # emulator, launch, 40 s, then: no unhandled Dart exception, no crash.
+      - name: Emulator startup gate (fresh install, launch, no unhandled exception)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r startup-gate.apk
+            adb logcat -c
+            adb shell am start -W -n com.askodox.askodox/.MainActivity
+            sleep 40
+            adb logcat -d > startup-logcat.txt || true
+            errors=$(grep -cE " E flutter |Unhandled Exception| F DEBUG|FATAL EXCEPTION" startup-logcat.txt || true)
+            echo "::notice title=startup gate::unhandled errors / crashes in the first 40 s: $errors"
+            grep -E "Unhandled Exception|FATAL EXCEPTION" startup-logcat.txt | sort | uniq -c | head -5 | cut -c1-300 | sed 's/^/::error::/' || true
+            test "$errors" = "0"
+
       - name: Publish test-only prerelease (never the update channel)
         env:
           GH_TOKEN: ${{ github.token }}
