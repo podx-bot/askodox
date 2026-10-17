@@ -46,11 +46,13 @@ jobs:
           flutter test integration_test/sms_consent_test.dart -d emulator-5554 > it.txt 2>&1 &
           TEST=$!
           for i in $(seq 1 120); do grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt && break; sleep 5; done
-          grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt || { echo "::error::listener never started"; tail -30 it.txt; exit 1; }
+          grep -q ASKODOX_SMS_CONSENT_LISTENING it.txt || { echo "::error::listener never started"; tail -30 it.txt | sed 's/^/::warning::/'; exit 1; }
           sleep 3
           adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ' | sed 's/^/::notice title=before SMS::/'
           # The consent prompt is an activity started by the app: ASKODOX must be in front.
-          adb shell am start -n com.askodox.askodox/.MainActivity >/dev/null 2>&1 || true
+          adb shell dumpsys activity activities | grep -E "com.askodox|Task\{" | head -8 | tr -s ' ' | cut -c1-200 | sed 's/^/::notice title=tasks::/'
+          adb shell pidof com.askodox.askodox | sed 's/^/::notice title=pid::/'
+          adb shell am start -W -n com.askodox.askodox/.MainActivity 2>&1 | tr -s ' ' | head -6 | sed 's/^/::notice title=am start::/' || true
           sleep 3
           adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ' | sed 's/^/::notice title=in front::/'
           adb logcat -c
