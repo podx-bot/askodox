@@ -113,11 +113,11 @@ CATALOG: List[Dict[str, Any]] = [
        test="Request a code with WhatsApp unavailable: the SMS must arrive."),
     _e("firebase_phone_auth", "Firebase phone sign-in", "auth", "built",
        "Google sends the sign-in SMS and the app proves the number; the server verifies the Firebase ID token.",
-       source=("env", ("FIREBASE_PROJECT_ID", "ASKODOX_FIREBASE_PHONE_AUTH")), approval=False,
+       source=("env", ("FIREBASE_PROJECT_ID",)), approval=False,
        costs="Firebase Blaze plan; Google bills phone sign-in SMS beyond the free tier.",
        signup="https://console.firebase.google.com/", docs="https://firebase.google.com/docs/auth/flutter/phone-auth",
        auth="Firebase ID token (RS256, verified on the server against Google's public keys)",
-       credentials=["FIREBASE_PROJECT_ID (Railway + GitHub variable)", "ASKODOX_FIREBASE_PHONE_AUTH=yes (Railway)",
+       credentials=["FIREBASE_PROJECT_ID (Railway + GitHub variable)", "ASKODOX_FIREBASE_PHONE_AUTH=no only to switch it off (Railway)",
                     "FIREBASE_API_KEY / APP_ID / SENDER_ID (GitHub variables, Android app)"],
        steps=["Firebase Console -> create / open the project -> Add app -> Android, package com.askodox.askodox.",
               "Project settings -> Your apps -> Add fingerprint: SHA-1 " + RELEASE_CERT_SHA1 + " and SHA-256 "
@@ -126,10 +126,11 @@ CATALOG: List[Dict[str, Any]] = [
               "Optional for tests: Authentication -> Phone -> 'Phone numbers for testing' (your own test number only).",
               "GitHub -> repository Settings -> Variables -> FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_SENDER_ID, "
               "FIREBASE_PROJECT_ID (values from the Android app config), then a new APK build.",
-              "Railway -> production -> podx-ai-connect -> Variables: FIREBASE_PROJECT_ID and "
-              "ASKODOX_FIREBASE_PHONE_AUTH=yes."],
+              "Railway -> production -> podx-ai-connect -> Variables: FIREBASE_PROJECT_ID (the server verifies "
+              "the Firebase ID token for this project).",
+              "Firebase -> Authentication -> Settings -> SMS region policy: allow India (and any other country)."],
        test="Sign out, then sign in with your own number: the SMS comes from Google and the app signs you in.",
-       notes="Off until the Owner sets ASKODOX_FIREBASE_PHONE_AUTH (SMS cost); the server OTP stays the fallback."),
+       notes="Primary sign-in once FIREBASE_PROJECT_ID is set on the server; ASKODOX_FIREBASE_PHONE_AUTH=no turns it off. The server OTP (WhatsApp / SMS) is the fallback."),
     _e("otp_email", "E-mail OTP", "auth", "not_built", "Sign-in code by e-mail.", account=False,
        notes="The e-mail sender exists (Integrations -> Email); an e-mail sign-in flow is not built yet."),
     _e("google_sign_in", "Google Sign-In", "auth", "not_built", "Sign in with a Google account.",

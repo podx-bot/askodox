@@ -202,11 +202,11 @@ def test_firebase_phone_sign_in_needs_a_real_token_for_this_project(env):
 def test_methods_say_which_sign_in_is_available(env):
     c, mp, _ = env
     m = c.get("/onboarding/methods").json()
-    assert m["firebase_phone_auth"] is False and m["resend_seconds"] == 45
+    assert m["firebase_phone_auth"] is False and m["resend_seconds"] == 45, "server cannot verify tokens yet"
     mp.setenv("FIREBASE_PROJECT_ID", PROJECT)
-    assert c.get("/onboarding/methods").json()["firebase_phone_auth"] is False, "Owner switch needed (SMS cost)"
-    mp.setenv("ASKODOX_FIREBASE_PHONE_AUTH", "yes")
-    assert c.get("/onboarding/methods").json()["firebase_phone_auth"] is True
+    assert c.get("/onboarding/methods").json()["firebase_phone_auth"] is True, "Firebase SMS is the primary sign-in"
+    mp.setenv("ASKODOX_FIREBASE_PHONE_AUTH", "no")
+    assert c.get("/onboarding/methods").json()["firebase_phone_auth"] is False, "explicit switch-off"
 
 
 class _FakePush:

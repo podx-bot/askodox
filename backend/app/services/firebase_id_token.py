@@ -9,9 +9,9 @@ certificates, ``aud`` = the Firebase project id, ``iss`` =
 
 No service-account secret is needed for this: the certificates are public.
 Configuration = the Firebase project id (``FIREBASE_PROJECT_ID``, or the
-project of the FCM service account). Firebase phone sign-in itself is billed
-per SMS by Google beyond the free tier, so the app is told to use it only when
-the Owner switches ``ASKODOX_FIREBASE_PHONE_AUTH`` on (``phone_auth_enabled``).
+project of the FCM service account). With it, Firebase phone sign-in is the
+primary sign-in (``phone_auth_enabled``); ``ASKODOX_FIREBASE_PHONE_AUTH=no``
+turns it off. Google bills phone sign-in SMS beyond the free tier.
 
 Never logs the token or the phone number.
 """
@@ -61,10 +61,13 @@ def project_id(env: Optional[Dict[str, str]] = None) -> str:
 
 
 def phone_auth_enabled(env: Optional[Dict[str, str]] = None) -> bool:
-    """Owner switch (Firebase bills phone sign-in SMS beyond its free tier)."""
+    """Firebase phone sign-in (Google sends the SMS) is the PRIMARY way to
+    sign in whenever the server can verify its ID tokens (project id known).
+    ASKODOX_FIREBASE_PHONE_AUTH=no switches it off (the server OTP -- WhatsApp
+    / SMS -- is then the only way in)."""
     env = dict(os.environ) if env is None else env
-    on = str(env.get("ASKODOX_FIREBASE_PHONE_AUTH") or "").strip().lower() in {"1", "true", "yes", "on"}
-    return on and bool(project_id(env))
+    off = str(env.get("ASKODOX_FIREBASE_PHONE_AUTH") or "").strip().lower() in {"0", "false", "no", "off"}
+    return not off and bool(project_id(env))
 
 
 def _fetch_certs() -> Tuple[Dict[str, str], float]:
