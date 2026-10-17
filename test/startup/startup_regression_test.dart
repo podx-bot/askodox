@@ -99,7 +99,7 @@ void main() {
   test('shared_preferences_android stays pinned to the version proven on devices', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final overrides = pubspec.split('dependency_overrides:').last;
-    expect(overrides, contains('shared_preferences_android: 2.4.29'),
+    expect(overrides, contains('shared_preferences_android: 2.4.28'),
         reason: '2.5.0 (Pigeon JNI) froze startup in APK 1335; change only after a device / emulator proof');
   });
 }
