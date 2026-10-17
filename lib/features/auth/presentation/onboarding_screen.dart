@@ -12,6 +12,7 @@ import '../../../core/auth/app_restart.dart';
 import '../../../core/auth/auth_log.dart';
 import '../../../core/auth/phone_auth.dart';
 import '../../../core/auth/phone_number.dart';
+import '../../../core/auth/sms_code_listener.dart';
 import '../../../core/auth/sign_out.dart' show askodoxRestoreAccountData;
 import '../../../core/persistence/startup_prefs.dart';
 import '../../../core/providers/app_settings_provider.dart';
@@ -107,12 +108,91 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // while ASKODOX was behind the browser check (paused) or in front.
   AppLifecycleListener? _lifecycle;
 
+  // OTP autofill (Android SMS User Consent): the code fills the field and is
+  // verified once; typing it and the Verify button always keep working.
+  final _otpFocus = FocusNode(debugLabel: 'askodox-otp-focus');
+  StreamSubscription<AskodoxSmsEvent>? _smsEvents;
+  AskodoxSmsCodeSource? _smsSource;
+  String? _smsCodeWaiting; // arrived before the code step opened
+  String? _autoSubmitted; // the attempt whose SMS code was already submitted
+
   @override
   void initState() {
     super.initState();
-    _lifecycle = AppLifecycleListener(
-        onStateChange: (state) => askodoxAuthLog('app.lifecycle', {'state': state.name, 'step': _step}));
+    _lifecycle = AppLifecycleListener(onStateChange: (state) {
+      askodoxAuthLog('app.lifecycle', {'state': state.name, 'step': _step});
+      // Back from the SMS app / consent prompt: the code field is ready to type or paste into.
+      if (state == AppLifecycleState.resumed && _step == 2 && !_busy && _otp.text.isEmpty) _focusOtp();
+    });
     _restore();
+  }
+
+  /// Listen for ONE OTP SMS before the code is requested (Android asks the
+  /// person "Allow ASKODOX to read this message?"; no SMS permission).
+  void _listenForSms() {
+    try {
+      final source = ref.read(askodoxSmsCodeSourceProvider);
+      if (!identical(source, _smsSource)) {
+        _smsEvents?.cancel();
+        _smsSource = source;
+        _smsEvents = source.events.listen(_onSmsEvent);
+      }
+      _smsCodeWaiting = null;
+      unawaited(source.start().then((ok) => askodoxAuthLog('sms_consent.start', {'ok': ok}), onError: (_) {}));
+    } catch (_) {}
+  }
+
+  void _stopSmsListener() {
+    _smsCodeWaiting = null;
+    try {
+      unawaited(_smsSource?.stop() ?? Future<void>.value());
+    } catch (_) {}
+  }
+
+  void _onSmsEvent(AskodoxSmsEvent event) {
+    askodoxAuthLog('sms_consent.${event.event}', {'step': _step}); // never the code itself
+    if (!mounted) return;
+    if (event.event == 'code' && askodoxValidOtp(event.code)) {
+      if (_step == 2) {
+        _useSmsCode(event.code!);
+      } else if (_step == 1 && _busy) {
+        _smsCodeWaiting = event.code; // Firebase has not answered "code sent" yet
+      }
+    } else if (_step == 2 && _otp.text.isEmpty) {
+      _focusOtp(); // denied / timeout / no code: type it in
+    }
+  }
+
+  /// Fill the field and verify ONCE per attempt; only a valid 6-digit code.
+  void _useSmsCode(String code) {
+    if (!askodoxValidOtp(code) || _step != 2 || _busy) return;
+    final attemptKey = '$_attempt:${_verificationId ?? _e164 ?? ''}';
+    if (_autoSubmitted == attemptKey) return;
+    _autoSubmitted = attemptKey;
+    _otp.value = TextEditingValue(text: code, selection: TextSelection.collapsed(offset: code.length));
+    askodoxAuthLog('sms_consent.filled', {'auto_submit': true});
+    unawaited(_verifyOtp());
+  }
+
+  /// The code step opened: focus the field (keyboard up, so Android / Gboard
+  /// can offer the SMS code) and use a code that already arrived.
+  void _onCodeStepOpened() {
+    final waiting = _smsCodeWaiting;
+    _smsCodeWaiting = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _step != 2) return;
+      if (waiting != null) {
+        _useSmsCode(waiting);
+      } else {
+        _focusOtp();
+      }
+    });
+  }
+
+  void _focusOtp() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _step == 2 && !_busy) _otpFocus.requestFocus();
+    });
   }
 
   /// The ordered trail of this sign-in attempt -> server diagnostics (Railway
@@ -208,6 +288,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   void dispose() {
     _lifecycle?.dispose();
+    _smsEvents?.cancel();
+    _stopSmsListener();
+    _otpFocus.dispose();
     _resendTimer?.cancel();
     _mobile.dispose();
     _otp.dispose();
@@ -344,7 +427,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         askodoxAuthLog('send_otp.late_code_sent', {'path': 'firebase'});
         _sendTrace('late_code_sent', stage: 'send_otp');
         ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
-        FocusScope.of(context).unfocus();
         setState(() {
           _busy = false;
           _error = null;
@@ -356,6 +438,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _step = 2;
         });
         _startCountdown(_resendSeconds);
+        _onCodeStepOpened();
       case AskodoxPhoneAutoVerified(:final idToken):
         askodoxAuthLog('send_otp.late_auto_verified', {'path': 'firebase'});
         unawaited(_completeWithFirebase(idToken));
@@ -386,6 +469,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// Back to the number: any code request still on its way is ignored.
   void _changeNumber() {
     _attempt++;
+    _stopSmsListener();
     _resendTimer?.cancel();
     setState(() {
       _otp.clear();
@@ -427,6 +511,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
     final attempt = ++_attempt;
+    _listenForSms(); // before the SMS can arrive
     setState(() {
       _e164 = e164;
       _busy = true;
@@ -442,7 +527,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         case AskodoxPhoneCodeSent(:final verificationId, :final resendToken):
           askodoxAuthLog('send_otp.code_sent', {'path': 'firebase'});
           _sendTrace('code_sent', stage: 'send_otp');
-          FocusScope.of(context).unfocus();
           setState(() {
             _verificationId = verificationId;
             _resendToken = resendToken;
@@ -450,6 +534,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             _step = 2;
           });
           _startCountdown(_resendSeconds);
+          _onCodeStepOpened();
         case AskodoxPhoneAutoVerified(:final idToken):
           askodoxAuthLog('send_otp.auto_verified', {'path': 'firebase'});
           _sendTrace('auto_verified', stage: 'send_otp');
@@ -478,12 +563,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
       askodoxAuthLog('send_otp.sent', {'path': 'server', 'channel': '${result.data['channel']}'});
-      FocusScope.of(context).unfocus();
       setState(() {
         _channel = result.data['channel']?.toString();
         _step = 2;
       });
       _startCountdown((result.data['resend_after_seconds'] as num?)?.toInt() ?? _resendSeconds);
+      _onCodeStepOpened();
     } else if (result is ApiError<Map<String, dynamic>>) {
       final wait = result.failure.statusCode == 429 ? askodoxRetryAfterSeconds(result.failure) : null;
       if (wait != null) {
@@ -494,6 +579,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _error = _t('waitResend');
         });
         _startCountdown(wait);
+        _onCodeStepOpened();
         return;
       }
       if (_firebaseFallbackCode != null) {
@@ -584,6 +670,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// (nothing is created twice); a new person adds a name and roles.
   Future<void> _onVerified(Map<String, dynamic> data) async {
     _resendTimer?.cancel();
+    _stopSmsListener();
     _verifiedToken = data['token']?.toString();
     _verifiedAccount = data['app_user_id']?.toString();
     final profile = data['profile'] is Map ? Map<String, dynamic>.from(data['profile'] as Map) : const <String, dynamic>{};
@@ -868,6 +955,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         TextField(
           key: const ValueKey('otp-input'),
           controller: _otp,
+          focusNode: _otpFocus,
           enabled: !_busy,
           keyboardType: TextInputType.number,
           autofillHints: const [AutofillHints.oneTimeCode],

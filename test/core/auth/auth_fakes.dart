@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/core/auth/phone_auth.dart';
+import 'package:podx/core/auth/sms_code_listener.dart';
 
 /// One recorded call: method, path, body, bearer token.
 typedef AuthCall = (String method, String path, Object? body, String? token);
@@ -98,4 +101,26 @@ class FakePhoneAuth implements AskodoxPhoneAuth {
 
   @override
   Future<void> signOut() async => signOuts++;
+}
+
+/// Stands in for Android SMS User Consent: a test "delivers" the SMS code.
+class FakeSmsSource implements AskodoxSmsCodeSource {
+  final _events = StreamController<AskodoxSmsEvent>.broadcast(sync: true);
+  int starts = 0;
+  int stops = 0;
+  bool available = true;
+
+  @override
+  Stream<AskodoxSmsEvent> get events => _events.stream;
+
+  @override
+  Future<bool> start() async {
+    starts++;
+    return available;
+  }
+
+  @override
+  Future<void> stop() async => stops++;
+
+  void emit(String event, [String? code]) => _events.add(AskodoxSmsEvent(event, code));
 }

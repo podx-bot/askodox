@@ -44,6 +44,12 @@ class MainActivity : FlutterActivity() {
     private val locationPermissionRequestCode = 4302
     private val microphonePermissionRequestCode = 4303
     private val notificationPermissionRequestCode = 4304
+    // OTP autofill (SMS User Consent; no SMS permission). Own channel so the
+    // device channel's Dart handler is untouched.
+    private val smsConsentRequestCode = 4305
+    private val smsChannelName = "com.askodox.app/sms"
+    private var smsChannel: MethodChannel? = null
+    private var smsConsent: AskodoxSmsConsent? = null
     private var pendingNotificationPermission: MethodChannel.Result? = null
     // Routine ASKODOX updates (seller replies, request status, price/stock)
     // are SILENT by default; "important" is reserved for time-critical ones.
@@ -115,6 +121,24 @@ class MainActivity : FlutterActivity() {
                     result.error("install_failed", e.message, null)
                 }
             }
+
+        val sms = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, smsChannelName)
+        smsChannel = sms
+        sms.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> {
+                    val consent = smsConsent ?: AskodoxSmsConsent(this, smsConsentRequestCode) { event, code ->
+                        runOnUiThread { smsChannel?.invokeMethod("event", mapOf("event" to event, "code" to code)) }
+                    }.also { smsConsent = it }
+                    result.success(consent.start())
+                }
+                "stop" -> {
+                    smsConsent?.stop()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
 
         val device = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceChannel)
         deviceMethods = device
@@ -748,6 +772,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (smsConsent?.handleResult(requestCode, resultCode, data) == true) return
         if (requestCode != voiceRequestCode) return
         val result = pendingVoiceResult ?: return
         pendingVoiceResult = null
@@ -1006,6 +1031,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        smsConsent?.stop()
+        smsConsent = null
+        smsChannel = null
         deviceMethods = null
         cancelVoiceRecording()
         try { mediaPlayer?.release() } catch (_: Exception) {}
