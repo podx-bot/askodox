@@ -42,16 +42,62 @@ jobs:
           ls -la phone-test
           grep -q '^PASS' phone-test/VERIFICATION.txt || { echo "artifact is not verified"; exit 1; }
 
+      - name: Independent verification BEFORE publishing (cert, package, backend, Firebase, SHA-256)
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+        run: |
+          set -euo pipefail
+          APK="$(ls phone-test/*.apk | head -n 1)"
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BT/apksigner" verify --print-certs "$APK" > certs.txt
+          CERT="$(sed -n 's/.*[Ss]igner[^:]*:\{0,1\} *certificate SHA-256 digest: *//p' certs.txt | head -n 1 | tr -d ': ' | tr 'A-F' 'a-f')"
+          EXPECTED="$(tr -d ' \n' < .github/askodox-release-cert.sha256)"
+          [ "$CERT" = "$EXPECTED" ] || { echo "::error::APK certificate $CERT is not the ASKODOX release key"; exit 1; }
+          echo "::notice title=apksigner::signed with the ASKODOX release key ($CERT)"
+          python3 tool/apk_guard.py "$APK" --cert "$EXPECTED" --package com.askodox.askodox | tail -n 5 | while IFS= read -r l; do echo "::notice title=apk_guard::$l"; done
+          python3 tool/firebase_android_config.py check-apk "$APK" || true
+          echo "::notice title=VERIFICATION.txt::$(tr '\n' ' ' < phone-test/VERIFICATION.txt)"
+          echo "::notice title=sha256::$(sha256sum "$APK" | cut -d' ' -f1) bytes=$(stat -c %s "$APK")"
+
       - name: Enable KVM (emulator startup gate)
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
           cp "$(ls phone-test/*.apk | head -n 1)" startup-gate.apk
+          # The emulator runner executes each script line in its own sh, so the
+          # whole gate lives in one bash file.
+          cat > startup-gate.sh <<'GATE'
+          set -u
+          adb install -r startup-gate.apk
+          adb logcat -c
+          adb shell am start -W -n com.askodox.askodox/.MainActivity
+          sleep 40
+          adb logcat -d > startup-logcat.txt || true
+          lines=$(wc -l < startup-logcat.txt)
+          flutter_lines=$(grep -c " flutter " startup-logcat.txt || true)
+          errors=$(grep -cE " E flutter |Unhandled Exception| F DEBUG|FATAL EXCEPTION" startup-logcat.txt || true)
+          running=$(adb shell pidof com.askodox.askodox || true)
+          echo "::notice title=startup gate::logcat lines $lines, flutter lines $flutter_lines, unhandled errors / crashes $errors, app process ${running:-NOT RUNNING}"
+          grep -E "Unhandled Exception|FATAL EXCEPTION" startup-logcat.txt | sort | uniq -c | head -5 | cut -c1-300 | sed 's/^/::error::/' || true
+          [ "$lines" -gt 50 ] && [ "$errors" = "0" ] && [ -n "$running" ] || exit 1
+          # Firebase reCAPTCHA return (APK 1336): another app in front (stands in for the
+          # browser), then the recaptcha:// redirect -> ASKODOX must come back to the front.
+          adb shell am start -W -a android.settings.SETTINGS
+          sleep 3
+          adb shell am start -W -a android.intent.action.VIEW -d "recaptcha://firebase.auth/?eventType=verifyApp"
+          sleep 5
+          top=$(adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ')
+          echo "::notice title=reCAPTCHA return::$top"
+          echo "$top" | grep -q "com.askodox.askodox/.MainActivity"
+          GATE
 
       # APK 1335 regression: a release APK whose startup throws (it stayed on a
       # white screen) must never be published. Fresh install on an Android 14
       # emulator, launch, 40 s, then: no unhandled Dart exception, no crash.
-      - name: Emulator startup gate (fresh install, launch, no unhandled exception)
+      - name: Emulator gate (fresh install, launch, no unhandled exception, reCAPTCHA return to the app)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -59,16 +105,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: |
-            adb install -r startup-gate.apk
-            adb logcat -c
-            adb shell am start -W -n com.askodox.askodox/.MainActivity
-            sleep 40
-            adb logcat -d > startup-logcat.txt || true
-            errors=$(grep -cE " E flutter |Unhandled Exception| F DEBUG|FATAL EXCEPTION" startup-logcat.txt || true)
-            echo "::notice title=startup gate::unhandled errors / crashes in the first 40 s: $errors"
-            grep -E "Unhandled Exception|FATAL EXCEPTION" startup-logcat.txt | sort | uniq -c | head -5 | cut -c1-300 | sed 's/^/::error::/' || true
-            test "$errors" = "0"
+          script: bash startup-gate.sh
 
       - name: Publish test-only prerelease (never the update channel)
         env:
@@ -80,12 +117,12 @@ jobs:
           APK="$(ls phone-test/*.apk | head -n 1)"
           cp "$APK" "askodox-phone-test-${BUILD}.apk"
           sha256sum "askodox-phone-test-${BUILD}.apk" | tee SHA256.txt
-          NOTES="STAGING phone-test build ${BUILD} (backend: $(cat phone-test/BACKEND.txt 2>/dev/null || echo staging)). Not a production release; the in-app update channel is unchanged. Source run: ${RUN_ID}."
+          NOTES="Phone-test build ${BUILD} (backend: $(cat phone-test/BACKEND.txt 2>/dev/null || echo unknown)), signed with the ASKODOX release key. Test-only prerelease; the in-app update channel is unchanged. Source run: ${RUN_ID}."
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "askodox-phone-test-${BUILD}.apk" SHA256.txt --clobber -R "$GITHUB_REPOSITORY"
           else
             gh release create "$TAG" "askodox-phone-test-${BUILD}.apk" SHA256.txt -R "$GITHUB_REPOSITORY" \
               --prerelease --latest=false --target "$GITHUB_SHA" \
-              --title "ASKODOX phone test ${BUILD} (staging)" --notes "$NOTES"
+              --title "ASKODOX phone test ${BUILD}" --notes "$NOTES"
           fi
           echo "Direct link: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-phone-test-${BUILD}.apk"
