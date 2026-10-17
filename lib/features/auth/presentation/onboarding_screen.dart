@@ -315,6 +315,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   /// Send OTP: never ends silently. Any exception becomes a visible error.
   Future<void> _sendOtp({bool resend = false}) async {
+    _firebaseFallbackCode = null;
     try {
       await _sendOtpSteps(resend: resend);
     } catch (error) {
@@ -330,7 +331,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (_methodsLoaded != null && !resend) {
       await _methodsLoaded!.timeout(const Duration(seconds: 6), onTimeout: () {});
     }
-    if (!resend) _firebaseFallbackCode = null;
     askodoxAuthLog('send_otp.tap', {
       'valid': e164 != null,
       'path': _useFirebase ? 'firebase' : 'server',
