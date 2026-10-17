@@ -1,0 +1,24 @@
+name: Test probe (temporary, diagnostics only)
+on:
+  push:
+    branches: [claude/analyze-probe-2]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Analyze + tests -> annotations
+        run: |
+          flutter analyze > an.txt 2>&1 || true
+          grep -E "^\s*(info|warning|error) " an.txt | head -20 | cut -c1-240 | while IFS= read -r l; do echo "::warning::AN $l"; done
+          tail -1 an.txt | while IFS= read -r l; do echo "::notice::AN $l"; done
+          flutter test test/features/auth test/core/auth test/startup > t.txt 2>&1 || true
+          grep -B3 -A14 "EXCEPTION CAUGHT\|Expected:" t.txt | grep -v "package:flutter_test\|dart:async\|package:stack_trace\|package:test_api\|<asynchronous" | head -70 | cut -c1-240 | while IFS= read -r l; do echo "::warning::$l"; done
+          tail -2 t.txt | while IFS= read -r l; do echo "::notice::T $l"; done
