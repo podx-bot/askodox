@@ -31,5 +31,6 @@ jobs:
       - name: Production server Firebase verification
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
+          echo "::notice title=/health::$(curl -s $B/health)"
           echo "::notice title=/onboarding/methods::$(curl -s $B/onboarding/methods)"
           echo "::notice title=firebase/verify forged::$(curl -s -o b.txt -w '%{http_code}' -X POST $B/onboarding/firebase/verify -H 'Content-Type: application/json' --data '{"id_token":"a.b.c"}') $(cat b.txt)"
