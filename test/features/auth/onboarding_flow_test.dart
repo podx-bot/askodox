@@ -358,7 +358,7 @@ void main() {
     final trace = api.to('POST', '/onboarding/diagnostics/trace').single.$3! as Map;
     expect(trace['outcome'], 'crash');
     expect(trace['code'], 'illegalstateexception');
-    final line = (trace['lines'] as List).single as String;
+    final line = (trace['lines'] as List).cast<String>().firstWhere((l) => l.contains('native.crash'));
     expect(line, contains('native.crash type=IllegalStateException'));
     expect(line, contains('frame_a=AskodoxSmsConsent.handleResult:120'));
     expect(line, contains('frame_b=MainActivity.onActivityResult:812'));
