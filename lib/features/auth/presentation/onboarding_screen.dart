@@ -199,9 +199,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!mounted || _step != 2) return;
       if (waiting != null) {
         _useSmsCode(waiting);
-      } else {
-        _focusOtp();
+        return;
       }
+      _focusOtp();
+      // Focusing the code field (autofill hint oneTimeCode) makes Google's own
+      // SMS-code autofill register for this app, which replaces an SMS request
+      // made earlier: ask again AFTER the field has focus so the consent
+      // prompt is the active one (emulator: no prompt without this).
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
+        if (mounted && _step == 2 && !_busy && _otp.text.isEmpty) _listenForSms();
+      });
     });
   }
 
