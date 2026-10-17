@@ -65,6 +65,7 @@ class FakePhoneAuth implements AskodoxPhoneAuth {
   final started = <String>[];
   final confirmed = <(String, String)>[];
   String? confirmError;
+  String? confirmDetail;
   int signOuts = 0;
 
   /// The late-event callback of the most recent start (a test fires a
@@ -91,7 +92,7 @@ class FakePhoneAuth implements AskodoxPhoneAuth {
   @override
   Future<String> confirm(String verificationId, String code) async {
     confirmed.add((verificationId, code));
-    if (confirmError != null) throw AskodoxPhoneAuthError(confirmError!);
+    if (confirmError != null) throw AskodoxPhoneAuthError(confirmError!, confirmDetail);
     return 'firebase-id-token';
   }
 

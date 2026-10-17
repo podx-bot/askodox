@@ -72,6 +72,13 @@ class AskodoxPhoneVerificationSession {
   void _settle(AskodoxPhoneAuthStart event) {
     if (!_done.isCompleted) {
       _graceTimer?.cancel();
+      askodoxAuthLog('firebase.settled', {
+        'result': switch (event) {
+          AskodoxPhoneCodeSent() => 'code_sent',
+          AskodoxPhoneAutoVerified() => 'auto_verified',
+          AskodoxPhoneAuthFailed(:final code) => 'failed_$code',
+        },
+      });
       _done.complete(event);
     } else if (event is! AskodoxPhoneAuthFailed) {
       askodoxAuthLog('firebase.late_event', {'event': event is AskodoxPhoneCodeSent ? 'code_sent' : 'auto_verified'});
@@ -84,7 +91,10 @@ class AskodoxPhoneVerificationSession {
     _settle(AskodoxPhoneCodeSent(verificationId, resendToken));
   }
 
-  void autoVerified(String idToken) => _settle(AskodoxPhoneAutoVerified(idToken));
+  void autoVerified(String idToken) {
+    askodoxAuthLog('firebase.auto_verified', {'after_failure': _pending != null || settled});
+    _settle(AskodoxPhoneAutoVerified(idToken));
+  }
 
   void failed(String code, [String? message]) {
     final detail = message == null ? null : askodoxRedactDigits(message).trim();
@@ -100,14 +110,20 @@ class AskodoxPhoneVerificationSession {
   }
 
   /// No answer at all in time: the pending soft failure, else 'timeout'.
-  void expire() => _settle(_pending ?? const AskodoxPhoneAuthFailed('timeout'));
+  void expire() {
+    askodoxAuthLog('firebase.expired', {'pending': _pending?.code ?? 'none', 'settled': settled});
+    _settle(_pending ?? const AskodoxPhoneAuthFailed('timeout'));
+  }
 
   void dispose() => _graceTimer?.cancel();
 }
 
 class AskodoxPhoneAuthError implements Exception {
-  const AskodoxPhoneAuthError(this.code);
+  const AskodoxPhoneAuthError(this.code, [this.detail]);
   final String code;
+
+  /// Firebase's own message (digits redacted) -- shown for 'unknown' errors.
+  final String? detail;
   @override
   String toString() => 'AskodoxPhoneAuthError($code)';
 }
@@ -162,6 +178,7 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
     // The callbacks stay registered after this method returns; the session
     // routes anything that arrives later to [onLate].
     final session = AskodoxPhoneVerificationSession(onLate: onLate);
+    askodoxAuthLog('firebase.verify_start', {'resend': resendToken != null});
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: e164,
       forceResendingToken: resendToken,
@@ -181,8 +198,9 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
       },
       verificationFailed: (e) => session.failed(e.code, e.message),
       codeSent: (verificationId, token) => session.codeSent(verificationId, token),
-      codeAutoRetrievalTimeout: (_) {},
+      codeAutoRetrievalTimeout: (_) => askodoxAuthLog('firebase.auto_retrieval_timeout'),
     );
+    askodoxAuthLog('firebase.verify_requested');
     // The reCAPTCHA browser step can take a while; the session itself waits.
     final expiry = Timer(const Duration(seconds: 120), session.expire);
     try {
@@ -201,7 +219,9 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
       if (token == null) throw const AskodoxPhoneAuthError('no-id-token');
       return token;
     } on FirebaseAuthException catch (e) {
-      throw AskodoxPhoneAuthError(e.code);
+      final detail = e.message == null ? null : askodoxRedactDigits(e.message!).trim();
+      askodoxAuthLog('firebase.confirm_failed', {'code': e.code, 'message': detail ?? ''});
+      throw AskodoxPhoneAuthError(e.code, detail);
     } on AskodoxPhoneAuthError {
       rethrow;
     } catch (e) {
@@ -229,8 +249,9 @@ final askodoxPhoneAuthProvider = Provider<AskodoxPhoneAuth>((ref) => const Fireb
           'చాలా ప్రయత్నాలు. కొద్దిసేపు ఆగి మళ్లీ ప్రయత్నించండి.'
         ),
       'network-request-failed' || 'timeout' => (
-          'No connection. Check the internet and try again.',
-          'కనెక్షన్ లేదు. ఇంటర్నెట్ చూసి మళ్లీ ప్రయత్నించండి.'
+          'The connection to Google broke while sending the code. Check the internet, stay in ASKODOX until the code '
+              'arrives, and try again.',
+          'కోడ్ పంపుతున్నప్పుడు Googleతో కనెక్షన్ తెగిపోయింది. ఇంటర్నెట్ చూసి, కోడ్ వచ్చే వరకు ASKODOXలోనే ఉండి, మళ్లీ ప్రయత్నించండి.'
         ),
       'invalid-phone-number' => ('Enter a valid mobile number with country code.', 'కంట్రీ కోడ్‌తో సరైన మొబైల్ నంబర్ నమోదు చేయండి.'),
       'app-not-authorized' || 'invalid-app-credential' || 'missing-client-identifier' => (
@@ -243,3 +264,19 @@ final askodoxPhoneAuthProvider = Provider<AskodoxPhoneAuth>((ref) => const Fireb
         ),
       _ => ('Verification failed. Try again.', 'ధృవీకరణ విఫలమైంది. మళ్లీ ప్రయత్నించండి.'),
     };
+
+/// A Firebase failure caused by the network connection itself (the request
+/// never got its answer) -- Firebase reports some of them as 'unknown' with the
+/// socket error in its message ("Software caused connection abort" = Android
+/// closed the app's connection, e.g. while the app was in the background
+/// during the browser check). Never a sent code: the person must retry.
+bool askodoxPhoneAuthNetworkFailure(String code, [String? detail]) {
+  if (code == 'network-request-failed' || code == 'timeout') return true;
+  if (code != 'unknown' && code != 'internal-error') return false;
+  final text = (detail ?? '').toLowerCase();
+  const signs = [
+    'connection abort', 'connection reset', 'network', 'timeout', 'timed out', 'unable to resolve host',
+    'failed to connect', 'unreachable', 'broken pipe', 'socket',
+  ];
+  return signs.any(text.contains);
+}

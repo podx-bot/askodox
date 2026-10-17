@@ -16,6 +16,7 @@ import '../../../core/auth/sign_out.dart' show askodoxRestoreAccountData;
 import '../../../core/persistence/startup_prefs.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/update/askodox_update_service.dart';
 import '../../home/domain/active_role.dart';
 import '../../profile/data/user_profile_repository.dart';
 
@@ -102,10 +103,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _error;
   bool _canRetry = false;
 
+  // App lifecycle in the sign-in trail: shows whether a Firebase answer came
+  // while ASKODOX was behind the browser check (paused) or in front.
+  AppLifecycleListener? _lifecycle;
+
   @override
   void initState() {
     super.initState();
+    _lifecycle = AppLifecycleListener(
+        onStateChange: (state) => askodoxAuthLog('app.lifecycle', {'state': state.name, 'step': _step}));
     _restore();
+  }
+
+  /// The ordered trail of this sign-in attempt -> server diagnostics (Railway
+  /// logs "signin.trace"). Event names, codes and timings only; best effort.
+  void _sendTrace(String outcome, {String stage = '', String code = ''}) {
+    final lines = askodoxAuthTrail.lines;
+    if (lines.isEmpty) return;
+    final safeCode = code.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]'), '-');
+    try {
+      unawaited(ref
+          .read(apiClientProvider)
+          .post<Map<String, dynamic>>('/onboarding/diagnostics/trace', body: {
+            'outcome': outcome,
+            'stage': stage,
+            'code': safeCode.length > 60 ? safeCode.substring(0, 60) : safeCode,
+            'app_version': '${AskodoxUpdateService.compiledBuildNumber}',
+            'lines': lines,
+          })
+          .then((_) {}, onError: (_) {}));
+    } catch (_) {}
   }
 
   Future<void> _restore() async {
@@ -180,6 +207,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _resendTimer?.cancel();
     _mobile.dispose();
     _otp.dispose();
@@ -286,17 +314,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _fail(ApiFailure failure, {required String stage}) {
     final network = failure.type == ApiFailureType.network || failure.type == ApiFailureType.timeout;
     askodoxAuthLog('$stage.failed', {'http': failure.statusCode ?? 'none', 'type': failure.type.name});
+    _sendTrace('failed', stage: stage, code: 'http-${failure.statusCode ?? failure.type.name}');
     _announce(network ? _t('network') : (failure.message ?? failure.localizedMessage(_languageCode)), retry: network);
   }
 
   void _say(String code, {required String stage, String? detail}) {
-    final (en, te) = askodoxPhoneAuthMessage(code);
-    askodoxAuthLog('$stage.firebase_failed', {'code': code});
+    // A broken connection is named as such even when Firebase calls it
+    // 'unknown' ("Software caused connection abort"): never a sent code.
+    final network = askodoxPhoneAuthNetworkFailure(code, detail);
+    final (en, te) = askodoxPhoneAuthMessage(network ? 'network-request-failed' : code);
+    askodoxAuthLog('$stage.firebase_failed', {'code': code, 'network': network});
+    _sendTrace('failed', stage: stage, code: code);
     // The Firebase error code is always shown so a problem can be reported
     // exactly; for 'unknown' Firebase's own (redacted) message is added.
     final extra = code == 'unknown' && detail != null && detail.isNotEmpty ? ' – $detail' : '';
     _announce('${_languageCode == 'te' ? te : en} (Firebase: $code$extra)',
-        retry: code == 'network-request-failed' || code == 'timeout' || code == 'unknown');
+        retry: network || code == 'unknown');
   }
 
   /// Firebase sent the code (or verified automatically) AFTER this attempt was
@@ -309,6 +342,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     switch (event) {
       case AskodoxPhoneCodeSent(:final verificationId, :final resendToken):
         askodoxAuthLog('send_otp.late_code_sent', {'path': 'firebase'});
+        _sendTrace('late_code_sent', stage: 'send_otp');
         ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
         FocusScope.of(context).unfocus();
         setState(() {
@@ -381,6 +415,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (_methodsLoaded != null && !resend) {
       await _methodsLoaded!.timeout(const Duration(seconds: 6), onTimeout: () {});
     }
+    askodoxAuthTrail.reset();
     askodoxAuthLog('send_otp.tap', {
       'valid': e164 != null,
       'path': _useFirebase ? 'firebase' : 'server',
@@ -406,6 +441,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       switch (started) {
         case AskodoxPhoneCodeSent(:final verificationId, :final resendToken):
           askodoxAuthLog('send_otp.code_sent', {'path': 'firebase'});
+          _sendTrace('code_sent', stage: 'send_otp');
           FocusScope.of(context).unfocus();
           setState(() {
             _verificationId = verificationId;
@@ -416,6 +452,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _startCountdown(_resendSeconds);
         case AskodoxPhoneAutoVerified(:final idToken):
           askodoxAuthLog('send_otp.auto_verified', {'path': 'firebase'});
+          _sendTrace('auto_verified', stage: 'send_otp');
           await _completeWithFirebase(idToken);
         case AskodoxPhoneAuthFailed(:final code, :final detail):
           const setupProblems = {
@@ -502,7 +539,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         if (!mounted) return;
         setState(() => _busy = false);
         if (e.code == 'session-expired' || e.code == 'code-expired') _startCountdown(0);
-        _say(e.code, stage: 'verify_otp');
+        _say(e.code, stage: 'verify_otp', detail: e.detail);
       }
       return;
     }
@@ -535,6 +572,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result is ApiSuccess<Map<String, dynamic>>) {
+      askodoxAuthLog('firebase_verify.ok');
+      _sendTrace('signed_in', stage: 'firebase_verify');
       await _onVerified(result.data);
     } else if (result is ApiError<Map<String, dynamic>>) {
       _fail(result.failure, stage: 'firebase_verify');
