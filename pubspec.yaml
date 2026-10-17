@@ -41,6 +41,14 @@ dependencies:
   latlong2: ^0.10.1
   video_player: ^2.14.1
 
+# shared_preferences_android 2.5.0 moved to Pigeon JNI; in the APK it fails at
+# start-up (NoSuchMethodError SharedPreferencesApiRegistrar.getAll -> endless
+# white spinner, APK 1335). 2.4.29 is the version proven on devices (APK 1334),
+# same storage file, so sessions / profiles are kept. Change only after an
+# emulator / device proof (phone-test-link "Emulator startup gate").
+dependency_overrides:
+  shared_preferences_android: 2.4.29
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

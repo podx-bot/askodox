@@ -31,7 +31,7 @@ Future<void> _pump(WidgetTester tester) async {
   ));
 }
 
-Future<void> _frames(WidgetTester tester, [int n = 6]) async {
+Future<void> _frames(WidgetTester tester, [int n = 12]) async {
   for (var i = 0; i < n; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
