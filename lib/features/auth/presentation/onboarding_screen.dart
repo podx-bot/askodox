@@ -115,6 +115,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   AskodoxSmsCodeSource? _smsSource;
   String? _smsCodeWaiting; // arrived before the code step opened
   String? _autoSubmitted; // the attempt whose SMS code was already submitted
+  Timer? _relisten;
 
   @override
   void initState() {
@@ -125,6 +126,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (state == AppLifecycleState.resumed && _step == 2 && !_busy && _otp.text.isEmpty) _focusOtp();
     });
     _restore();
+    unawaited(_reportLastCrash());
+  }
+
+  /// The app closed unexpectedly last time: send the native crash record
+  /// (exception type + top frames, no user data) with the sign-in trail.
+  Future<void> _reportLastCrash() async {
+    try {
+      final record = await ref.read(askodoxSmsCodeSourceProvider).takeLastCrash();
+      if (record == null || record.isEmpty || !mounted) return;
+      askodoxAuthTrail.reset();
+      askodoxAuthLog('native.crash', askodoxCrashFields(record));
+      _sendTrace('crash', stage: 'app', code: askodoxCrashFields(record)['type'] ?? 'unknown');
+    } catch (_) {}
   }
 
   /// Listen for ONE OTP SMS before the code is requested (Android asks the
@@ -150,8 +164,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _onSmsEvent(AskodoxSmsEvent event) {
-    askodoxAuthLog('sms_consent.${event.event}', {'step': _step}); // never the code itself
+    askodoxAuthLog('sms_consent.${event.event}', {'step': _step, 'busy': _busy}); // never the code itself
     if (!mounted) return;
+    // Each autofill step reaches the server at once: if the app closes right
+    // after, the trail still shows how far it got.
+    if (event.event != 'listening') _sendTrace('sms_consent', stage: 'sms_consent', code: event.event);
     if (event.event == 'code' && askodoxValidOtp(event.code)) {
       if (_step == 2) {
         _useSmsCode(event.code!);
@@ -165,7 +182,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   /// Fill the field and verify ONCE per attempt; only a valid 6-digit code.
   void _useSmsCode(String code) {
-    if (!askodoxValidOtp(code) || _step != 2 || _busy) return;
+    if (!askodoxValidOtp(code) || _step != 2 || _busy || _completing) return;
     final attemptKey = '$_attempt:${_verificationId ?? _e164 ?? ''}';
     if (_autoSubmitted == attemptKey) return;
     _autoSubmitted = attemptKey;
@@ -183,9 +200,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!mounted || _step != 2) return;
       if (waiting != null) {
         _useSmsCode(waiting);
-      } else {
-        _focusOtp();
+        return;
       }
+      _focusOtp();
+      // Focusing the code field (autofill hint oneTimeCode) makes Google's own
+      // SMS-code autofill register for this app, which replaces an SMS request
+      // made earlier: ask again AFTER the field has focus so the consent
+      // prompt is the active one (emulator: no prompt without this).
+      _relisten?.cancel();
+      _relisten = Timer(const Duration(milliseconds: 900), () {
+        if (mounted && _step == 2 && !_busy && _otp.text.isEmpty) _listenForSms();
+      });
     });
   }
 
@@ -289,6 +314,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void dispose() {
     _lifecycle?.dispose();
     _smsEvents?.cancel();
+    _relisten?.cancel();
     _stopSmsListener();
     _otpFocus.dispose();
     _resendTimer?.cancel();
@@ -649,7 +675,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  // One sign-in at a time: Firebase's own auto-verification and the SMS
+  // autofill can both arrive for the same code.
+  bool _completing = false;
+
   Future<void> _completeWithFirebase(String idToken) async {
+    if (_completing || _verifiedToken != null) {
+      askodoxAuthLog('firebase_verify.duplicate_ignored');
+      return;
+    }
+    _completing = true;
+    try {
+      await _completeWithFirebaseOnce(idToken);
+    } finally {
+      // A signed-in attempt stays "completing": nothing may sign in twice.
+      if (_verifiedToken == null) _completing = false;
+    }
+  }
+
+  Future<void> _completeWithFirebaseOnce(String idToken) async {
     setState(() => _busy = true);
     final result = await ref.read(apiClientProvider).post<Map<String, dynamic>>(
       '/onboarding/firebase/verify',

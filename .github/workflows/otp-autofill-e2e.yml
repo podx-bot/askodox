@@ -1,0 +1,138 @@
+name: OTP autofill full-app emulator test
+
+# The REAL app (debug build of this commit, production backend, real Firebase
+# config) on an emulator with Google Play services:
+#   number -> Send OTP (Firebase is NOT asked to send: ASKODOX_E2E_FAKE_SMS_SEND,
+#   the script delivers the SMS) -> code step -> real SMS -> Android consent
+#   prompt -> Allow -> code autofilled -> REAL Firebase confirm runs ->
+#   the app must still be running and show Firebase's answer (the fake
+#   verification id is rejected by Firebase -- no account is created).
+on:
+  pull_request:
+    paths:
+      - 'android/app/src/main/kotlin/**'
+      - 'lib/core/auth/**'
+      - 'lib/features/auth/**'
+      - '.github/workflows/otp-autofill-e2e.yml'
+  push:
+    branches: [claude/otp-e2e-probe]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL || 'https://podx-ai-connect-production-3279.up.railway.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - name: Firebase config (values never printed)
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+        run: python3 tool/firebase_android_config.py write --require
+      - name: "Build the app (debug, E2E - Firebase is not asked to send the SMS)"
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+        run: |
+          flutter pub get
+          flutter gen-l10n
+          flutter build apk --debug \
+            --dart-define=APP_ENV=staging \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_E2E_FAKE_SMS_SEND=true \
+            --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY}" \
+            --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \
+            --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
+            --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
+          cp build/app/outputs/flutter-apk/app-debug.apk app.apk
+          printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <string name="flutter.askodox.locale">en</string>\n</map>\n' > prefs.xml
+      - name: Write the scenario
+        run: |
+          cat > e2e.sh <<'SH'
+          set -u
+          PKG=com.askodox.askodox
+          dump() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb shell cat /sdcard/ui.xml | tr '>' '\n'; }
+          center() { set -- $(echo "$1" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '[0-9]+' | tr '\n' ' '); echo "$(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))"; }
+          tap_node() { # $1 = grep pattern, $2 = tries
+            for i in $(seq 1 "${2:-20}"); do
+              node=$(dump | grep -iE "$1" | head -1)
+              if [ -n "$node" ]; then adb shell input tap $(center "$node"); return 0; fi
+              sleep 2
+            done
+            return 1
+          }
+          screen() { dump | grep -oE '(text|content-desc)="[^"]+"' | sort -u | head -25 | tr '\n' ' '; }
+          alive() { adb shell pidof $PKG; }
+          fail() { echo "::error::$1"; echo "::warning title=screen::$(screen)"; adb logcat -d | grep -E "FATAL EXCEPTION|E AndroidRuntime|askodox.auth|SmsRetriever|ConsentPrompt" | tail -40 | cut -c1-240 | sed 's/^/::warning::/'; exit 1; }
+
+          adb install -r app.apk
+          adb shell "run-as $PKG sh -c 'mkdir -p shared_prefs && cat > shared_prefs/FlutterSharedPreferences.xml'" < prefs.xml
+          adb logcat -c
+          adb shell am start -W -n $PKG/.MainActivity
+          sleep 25
+          # Number step.
+          tap_node 'class="android.widget.EditText"' 15 || fail "no number field"
+          adb shell input keyevent KEYCODE_MOVE_END
+          adb shell input text 9876543210
+          adb shell input keyevent KEYCODE_BACK
+          sleep 1
+          tap_node '(text|content-desc)="Send OTP"' 10 || fail "no Send OTP button"
+          sleep 6
+          dump | grep -qE '6-digit OTP|Verify OTP' || fail "code step did not open"
+          echo "::notice title=2 code step::$(screen)"
+          adb logcat -d | grep -q "sms_consent.listening" && echo "::notice title=3 listener::listening before the SMS" || echo "::warning::no listening line"
+
+          # The SMS arrives -> Android prompt -> Allow.
+          sleep 3
+          adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
+          if ! tap_node 'text="Allow"' 30; then
+            adb shell content query --uri content://sms/inbox --projection address 2>/dev/null | head -3 | sed 's/^/::warning title=sms inbox::/'
+            adb logcat -d | grep -E "SmsRetriever|SmsCode|Consent|sms_consent|e2e_fake|code_sent|Autofill" | grep -v MmsSms | tail -60 | cut -c1-230 | sed 's/^/::warning title=sms log::/'
+            fail "no Android consent prompt"
+          fi
+          echo "::notice title=4 consent::Android prompt shown, tapped Allow"
+          sleep 15
+          [ -n "$(alive)" ] || fail "APP CLOSED after Allow"
+          echo "::notice title=5 alive::app still running after Allow (pid $(alive))"
+          echo "::notice title=trail::$(adb logcat -d | grep -E "askodox.auth (sms_consent|verify_otp|firebase|firebase_verify)" | tail -15 | sed -E 's/^.*askodox\.auth //' | cut -c1-80 | tr '\n' ';')"
+          adb logcat -d | grep -q "sms_consent.filled" || fail "code was not filled"
+          adb logcat -d | grep -qE "askodox.auth verify_otp.tap path=firebase" || fail "verify did not run"
+          echo "::notice title=6 screen after verify::$(screen)"
+          if adb logcat -d | grep -E "FATAL EXCEPTION|E AndroidRuntime" | grep -q .; then fail "crash in logcat"; fi
+          if adb shell run-as $PKG ls files/askodox_last_crash.txt >/dev/null 2>&1; then fail "native crash recorded"; fi
+          if adb shell dumpsys package $PKG | grep -qE "android.permission.(READ|RECEIVE)_SMS"; then fail "SMS permission present"; fi
+          echo "::notice title=7 result::autofill + real Firebase confirm ran; app alive; no crash; no SMS permission"
+          SH
+      - name: Emulator (Play services) full app
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash e2e.sh

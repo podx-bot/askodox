@@ -20,6 +20,10 @@ abstract class AskodoxSmsCodeSource {
   Future<bool> start();
   Future<void> stop();
   Stream<AskodoxSmsEvent> get events;
+
+  /// Why the app closed last time (native crash type + top frames; no user
+  /// data), read once. Null when there was none.
+  Future<String?> takeLastCrash();
 }
 
 /// Android SMS User Consent (native side: AskodoxSmsConsent.kt). No SMS
@@ -51,6 +55,16 @@ class AndroidSmsUserConsent implements AskodoxSmsCodeSource {
   }
 
   @override
+  Future<String?> takeLastCrash() async {
+    if (kIsWeb || !Platform.isAndroid) return null;
+    try {
+      return await _channel.invokeMethod<String>('takeLastCrash');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<void> stop() async {
     if (kIsWeb || !Platform.isAndroid) return;
     try {
@@ -63,3 +77,25 @@ final askodoxSmsCodeSourceProvider = Provider<AskodoxSmsCodeSource>((ref) => And
 
 /// A received code is used only when it is exactly 6 digits.
 bool askodoxValidOtp(String? code) => code != null && RegExp(r'^\d{6}$').hasMatch(code);
+
+/// A native crash record ("type=X root=Y thread=T at=A.b:1;C.d:2") as trail
+/// fields the diagnostics endpoint accepts (short values, letter keys).
+Map<String, String> askodoxCrashFields(String record) {
+  final out = <String, String>{};
+  const frameKeys = ['frame_a', 'frame_b', 'frame_c', 'frame_d', 'frame_e', 'frame_f', 'frame_g', 'frame_h'];
+  for (final part in record.split(' ')) {
+    final i = part.indexOf('=');
+    if (i <= 0) continue;
+    final key = part.substring(0, i);
+    final value = part.substring(i + 1);
+    if (key == 'at') {
+      final frames = value.split(';');
+      for (var f = 0; f < frames.length && f < frameKeys.length; f++) {
+        out[frameKeys[f]] = frames[f].length > 110 ? frames[f].substring(0, 110) : frames[f];
+      }
+    } else if (const {'type', 'root', 'thread'}.contains(key)) {
+      out[key] = value.length > 110 ? value.substring(0, 110) : value;
+    }
+  }
+  return out;
+}

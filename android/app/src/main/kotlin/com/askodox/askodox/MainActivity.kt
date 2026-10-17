@@ -139,6 +139,7 @@ class MainActivity : FlutterActivity() {
                     smsConsent?.stop()
                     result.success(true)
                 }
+                "takeLastCrash" -> result.success(AskodoxApplication.takeLastCrash(application))
                 else -> result.notImplemented()
             }
         }

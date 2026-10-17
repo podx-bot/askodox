@@ -122,5 +122,14 @@ class FakeSmsSource implements AskodoxSmsCodeSource {
   @override
   Future<void> stop() async => stops++;
 
+  String? lastCrash;
+
+  @override
+  Future<String?> takeLastCrash() async {
+    final value = lastCrash;
+    lastCrash = null;
+    return value;
+  }
+
   void emit(String event, [String? code]) => _events.add(AskodoxSmsEvent(event, code));
 }
