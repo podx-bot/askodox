@@ -272,12 +272,45 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _announce(network ? _t('network') : (failure.message ?? failure.localizedMessage(_languageCode)), retry: network);
   }
 
-  void _say(String code, {required String stage}) {
+  void _say(String code, {required String stage, String? detail}) {
     final (en, te) = askodoxPhoneAuthMessage(code);
     askodoxAuthLog('$stage.firebase_failed', {'code': code});
-    // The Firebase error code is always shown so a problem can be reported exactly.
-    _announce('${_languageCode == 'te' ? te : en} (Firebase: $code)',
-        retry: code == 'network-request-failed' || code == 'timeout');
+    // The Firebase error code is always shown so a problem can be reported
+    // exactly; for 'unknown' Firebase's own (redacted) message is added.
+    final extra = code == 'unknown' && detail != null && detail.isNotEmpty ? ' – $detail' : '';
+    _announce('${_languageCode == 'te' ? te : en} (Firebase: $code$extra)',
+        retry: code == 'network-request-failed' || code == 'timeout' || code == 'unknown');
+  }
+
+  /// Firebase sent the code (or verified automatically) AFTER this attempt was
+  /// already answered -- e.g. it reported 'unknown' around the reCAPTCHA step
+  /// and then sent the SMS anyway. The code step opens; nothing is reset and
+  /// the verification id from Firebase is kept. A newer attempt ("Change
+  /// number", another Send) makes this one stale.
+  void _onLateFirebaseEvent(AskodoxPhoneAuthStart event, int attempt) {
+    if (!mounted || attempt != _attempt || _step > 2) return;
+    switch (event) {
+      case AskodoxPhoneCodeSent(:final verificationId, :final resendToken):
+        askodoxAuthLog('send_otp.late_code_sent', {'path': 'firebase'});
+        ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+        FocusScope.of(context).unfocus();
+        setState(() {
+          _busy = false;
+          _error = null;
+          _canRetry = false;
+          _useFirebase = true;
+          _verificationId = verificationId;
+          _resendToken = resendToken;
+          _channel = 'firebase';
+          _step = 2;
+        });
+        _startCountdown(_resendSeconds);
+      case AskodoxPhoneAutoVerified(:final idToken):
+        askodoxAuthLog('send_otp.late_auto_verified', {'path': 'firebase'});
+        unawaited(_completeWithFirebase(idToken));
+      case AskodoxPhoneAuthFailed():
+        break; // failures never arrive late (the session drops them)
+    }
   }
 
   /// Every failure is visible: inline under the form AND as a snackbar above
@@ -349,7 +382,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _canRetry = false;
     });
     if (_useFirebase) {
-      final started = await ref.read(askodoxPhoneAuthProvider).start(e164, resendToken: resend ? _resendToken : null);
+      final started = await ref.read(askodoxPhoneAuthProvider).start(e164,
+          resendToken: resend ? _resendToken : null, onLate: (event) => _onLateFirebaseEvent(event, attempt));
       if (!mounted || attempt != _attempt) return;
       setState(() => _busy = false);
       switch (started) {
@@ -366,7 +400,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         case AskodoxPhoneAutoVerified(:final idToken):
           askodoxAuthLog('send_otp.auto_verified', {'path': 'firebase'});
           await _completeWithFirebase(idToken);
-        case AskodoxPhoneAuthFailed(:final code):
+        case AskodoxPhoneAuthFailed(:final code, :final detail):
           const setupProblems = {
             'not-configured', 'app-not-authorized', 'operation-not-allowed', 'missing-client-identifier',
             'invalid-app-credential', 'internal-error', 'no-id-token',
@@ -378,7 +412,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             setState(() => _useFirebase = false);
             return _sendOtpSteps(resend: resend);
           }
-          _say(code, stage: 'send_otp');
+          _say(code, stage: 'send_otp', detail: detail);
       }
       return;
     }

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/push_registration.dart' show AskodoxFirebaseConfig;
+import 'auth_log.dart';
 
 /// Firebase phone sign-in behind one seam (tests use a fake).
 ///
@@ -28,8 +29,80 @@ class AskodoxPhoneAutoVerified extends AskodoxPhoneAuthStart {
 }
 
 class AskodoxPhoneAuthFailed extends AskodoxPhoneAuthStart {
-  const AskodoxPhoneAuthFailed(this.code);
+  const AskodoxPhoneAuthFailed(this.code, [this.detail]);
   final String code;
+
+  /// Firebase's own message (digits redacted) -- shown for 'unknown' errors.
+  final String? detail;
+}
+
+/// ONE Firebase phone verification, whatever order its callbacks arrive in.
+///
+/// Firebase can call `verificationFailed` and still send the SMS and call
+/// `codeSent` afterwards (seen on APK 1334 after the reCAPTCHA browser step:
+/// "Firebase: unknown" while the SMS arrived). A one-shot "first callback
+/// wins" result then hides the code step forever. Here:
+/// * a SOFT failure (unknown / web-context / missing-activity ...) waits
+///   [grace] for a `codeSent` before it is reported;
+/// * `codeSent` / auto-verification arriving AFTER a reported failure are
+///   delivered to [onLate] (the screen then opens the code step);
+/// * a failure arriving after `codeSent` never overrides it (no false error,
+///   no false success: the code step still needs the real SMS code).
+class AskodoxPhoneVerificationSession {
+  AskodoxPhoneVerificationSession({this.grace = const Duration(seconds: 25), this.onLate});
+
+  static const softFailures = {
+    'unknown',
+    'web-context-cancelled',
+    'web-context-already-presented',
+    'web-internal-error',
+    'web-network-request-failed',
+    'missing-activity-for-recaptcha',
+  };
+
+  final Duration grace;
+  final void Function(AskodoxPhoneAuthStart event)? onLate;
+  final _done = Completer<AskodoxPhoneAuthStart>();
+  Timer? _graceTimer;
+  AskodoxPhoneAuthFailed? _pending;
+
+  Future<AskodoxPhoneAuthStart> get result => _done.future;
+  bool get settled => _done.isCompleted;
+
+  void _settle(AskodoxPhoneAuthStart event) {
+    if (!_done.isCompleted) {
+      _graceTimer?.cancel();
+      _done.complete(event);
+    } else if (event is! AskodoxPhoneAuthFailed) {
+      askodoxAuthLog('firebase.late_event', {'event': event is AskodoxPhoneCodeSent ? 'code_sent' : 'auto_verified'});
+      onLate?.call(event);
+    }
+  }
+
+  void codeSent(String verificationId, int? resendToken) {
+    askodoxAuthLog('firebase.code_sent', {'after_failure': _pending != null || settled});
+    _settle(AskodoxPhoneCodeSent(verificationId, resendToken));
+  }
+
+  void autoVerified(String idToken) => _settle(AskodoxPhoneAutoVerified(idToken));
+
+  void failed(String code, [String? message]) {
+    final detail = message == null ? null : askodoxRedactDigits(message).trim();
+    askodoxAuthLog('firebase.verification_failed', {'code': code, 'settled': settled, 'message': detail ?? ''});
+    if (_done.isCompleted) return; // never overrides a code that was already sent
+    final failure = AskodoxPhoneAuthFailed(code, detail);
+    if (softFailures.contains(code)) {
+      _pending ??= failure;
+      _graceTimer ??= Timer(grace, () => _settle(_pending!));
+      return;
+    }
+    _settle(failure);
+  }
+
+  /// No answer at all in time: the pending soft failure, else 'timeout'.
+  void expire() => _settle(_pending ?? const AskodoxPhoneAuthFailed('timeout'));
+
+  void dispose() => _graceTimer?.cancel();
 }
 
 class AskodoxPhoneAuthError implements Exception {
@@ -43,7 +116,10 @@ abstract class AskodoxPhoneAuth {
   /// This build can use Firebase phone sign-in (Firebase values present).
   bool get available;
 
-  Future<AskodoxPhoneAuthStart> start(String e164, {int? resendToken});
+  /// Starts verification. [onLate] receives a `codeSent` / auto-verification
+  /// that arrives after the returned result (see AskodoxPhoneVerificationSession).
+  Future<AskodoxPhoneAuthStart> start(String e164,
+      {int? resendToken, void Function(AskodoxPhoneAuthStart event)? onLate});
 
   /// The Firebase ID token for the typed code (throws [AskodoxPhoneAuthError]).
   Future<String> confirm(String verificationId, String code);
@@ -58,7 +134,8 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
   bool get available => AskodoxFirebaseConfig.configured;
 
   @override
-  Future<AskodoxPhoneAuthStart> start(String e164, {int? resendToken}) async {
+  Future<AskodoxPhoneAuthStart> start(String e164,
+      {int? resendToken, void Function(AskodoxPhoneAuthStart event)? onLate}) async {
     try {
       if (!await AskodoxFirebaseConfig.ensureInitialized()) return const AskodoxPhoneAuthFailed('not-configured');
     } on FirebaseException catch (e) {
@@ -67,9 +144,10 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
       return const AskodoxPhoneAuthFailed('init-failed');
     }
     try {
-      return await _start(e164, resendToken);
+      return await _start(e164, resendToken, onLate);
     } on FirebaseAuthException catch (e) {
-      return AskodoxPhoneAuthFailed(e.code);
+      askodoxAuthLog('firebase.start_exception', {'code': e.code});
+      return AskodoxPhoneAuthFailed(e.code, e.message == null ? null : askodoxRedactDigits(e.message!));
     } on FirebaseException catch (e) {
       return AskodoxPhoneAuthFailed(e.code);
     } catch (e) {
@@ -79,12 +157,11 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
     }
   }
 
-  Future<AskodoxPhoneAuthStart> _start(String e164, int? resendToken) async {
-    final done = Completer<AskodoxPhoneAuthStart>();
-    void finish(AskodoxPhoneAuthStart value) {
-      if (!done.isCompleted) done.complete(value);
-    }
-
+  Future<AskodoxPhoneAuthStart> _start(
+      String e164, int? resendToken, void Function(AskodoxPhoneAuthStart event)? onLate) async {
+    // The callbacks stay registered after this method returns; the session
+    // routes anything that arrives later to [onLate].
+    final session = AskodoxPhoneVerificationSession(onLate: onLate);
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: e164,
       forceResendingToken: resendToken,
@@ -93,17 +170,26 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
         try {
           final user = (await FirebaseAuth.instance.signInWithCredential(credential)).user;
           final token = await user?.getIdToken();
-          finish(token == null ? const AskodoxPhoneAuthFailed('no-id-token') : AskodoxPhoneAutoVerified(token));
+          if (token == null) {
+            session.failed('no-id-token');
+          } else {
+            session.autoVerified(token);
+          }
         } on FirebaseAuthException catch (e) {
-          finish(AskodoxPhoneAuthFailed(e.code));
+          session.failed(e.code, e.message);
         }
       },
-      verificationFailed: (e) => finish(AskodoxPhoneAuthFailed(e.code)),
-      codeSent: (verificationId, token) => finish(AskodoxPhoneCodeSent(verificationId, token)),
+      verificationFailed: (e) => session.failed(e.code, e.message),
+      codeSent: (verificationId, token) => session.codeSent(verificationId, token),
       codeAutoRetrievalTimeout: (_) {},
     );
-    return done.future.timeout(const Duration(seconds: 90),
-        onTimeout: () => const AskodoxPhoneAuthFailed('timeout'));
+    // The reCAPTCHA browser step can take a while; the session itself waits.
+    final expiry = Timer(const Duration(seconds: 120), session.expire);
+    try {
+      return await session.result;
+    } finally {
+      expiry.cancel();
+    }
   }
 
   @override

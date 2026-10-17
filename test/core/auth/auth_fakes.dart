@@ -67,10 +67,25 @@ class FakePhoneAuth implements AskodoxPhoneAuth {
   String? confirmError;
   int signOuts = 0;
 
+  /// The late-event callback of the most recent start (a test fires a
+  /// `codeSent` that arrives after the first answer, as after reCAPTCHA).
+  void Function(AskodoxPhoneAuthStart event)? lastOnLate;
+
+  /// When set, start() drives a REAL AskodoxPhoneVerificationSession through
+  /// these callbacks (same ordering logic as the Firebase build).
+  void Function(AskodoxPhoneVerificationSession session)? script;
+  Duration grace = const Duration(milliseconds: 200);
+
   @override
-  Future<AskodoxPhoneAuthStart> start(String e164, {int? resendToken}) async {
+  Future<AskodoxPhoneAuthStart> start(String e164,
+      {int? resendToken, void Function(AskodoxPhoneAuthStart event)? onLate}) async {
     started.add(e164);
-    return startResult;
+    lastOnLate = onLate;
+    final drive = script;
+    if (drive == null) return startResult;
+    final session = AskodoxPhoneVerificationSession(grace: grace, onLate: onLate);
+    drive(session);
+    return session.result;
   }
 
   @override
