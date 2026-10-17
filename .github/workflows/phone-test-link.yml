@@ -47,6 +47,23 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
           cp "$(ls phone-test/*.apk | head -n 1)" startup-gate.apk
+          # The emulator runner executes each script line in its own sh, so the
+          # whole gate lives in one bash file.
+          cat > startup-gate.sh <<'GATE'
+          set -u
+          adb install -r startup-gate.apk
+          adb logcat -c
+          adb shell am start -W -n com.askodox.askodox/.MainActivity
+          sleep 40
+          adb logcat -d > startup-logcat.txt || true
+          lines=$(wc -l < startup-logcat.txt)
+          flutter_lines=$(grep -c " flutter " startup-logcat.txt || true)
+          errors=$(grep -cE " E flutter |Unhandled Exception| F DEBUG|FATAL EXCEPTION" startup-logcat.txt || true)
+          running=$(adb shell pidof com.askodox.askodox || true)
+          echo "::notice title=startup gate::logcat lines $lines, flutter lines $flutter_lines, unhandled errors / crashes $errors, app process ${running:-NOT RUNNING}"
+          grep -E "Unhandled Exception|FATAL EXCEPTION" startup-logcat.txt | sort | uniq -c | head -5 | cut -c1-300 | sed 's/^/::error::/' || true
+          [ "$lines" -gt 50 ] && [ "$errors" = "0" ] && [ -n "$running" ]
+          GATE
 
       # APK 1335 regression: a release APK whose startup throws (it stayed on a
       # white screen) must never be published. Fresh install on an Android 14
@@ -59,16 +76,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: |
-            adb install -r startup-gate.apk
-            adb logcat -c
-            adb shell am start -W -n com.askodox.askodox/.MainActivity
-            sleep 40
-            adb logcat -d > startup-logcat.txt || true
-            errors=$(grep -cE " E flutter |Unhandled Exception| F DEBUG|FATAL EXCEPTION" startup-logcat.txt || true)
-            echo "::notice title=startup gate::unhandled errors / crashes in the first 40 s: $errors"
-            grep -E "Unhandled Exception|FATAL EXCEPTION" startup-logcat.txt | sort | uniq -c | head -5 | cut -c1-300 | sed 's/^/::error::/' || true
-            test "$errors" = "0"
+          script: bash startup-gate.sh
 
       - name: Publish test-only prerelease (never the update channel)
         env:
