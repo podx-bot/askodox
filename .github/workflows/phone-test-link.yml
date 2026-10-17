@@ -62,13 +62,22 @@ jobs:
           running=$(adb shell pidof com.askodox.askodox || true)
           echo "::notice title=startup gate::logcat lines $lines, flutter lines $flutter_lines, unhandled errors / crashes $errors, app process ${running:-NOT RUNNING}"
           grep -E "Unhandled Exception|FATAL EXCEPTION" startup-logcat.txt | sort | uniq -c | head -5 | cut -c1-300 | sed 's/^/::error::/' || true
-          [ "$lines" -gt 50 ] && [ "$errors" = "0" ] && [ -n "$running" ]
+          [ "$lines" -gt 50 ] && [ "$errors" = "0" ] && [ -n "$running" ] || exit 1
+          # Firebase reCAPTCHA return (APK 1336): another app in front (stands in for the
+          # browser), then the recaptcha:// redirect -> ASKODOX must come back to the front.
+          adb shell am start -W -a android.settings.SETTINGS
+          sleep 3
+          adb shell am start -W -a android.intent.action.VIEW -d "recaptcha://firebase.auth/?eventType=verifyApp"
+          sleep 5
+          top=$(adb shell dumpsys activity activities | grep -E "topResumedActivity" | head -1 | tr -s ' ')
+          echo "::notice title=reCAPTCHA return::$top"
+          echo "$top" | grep -q "com.askodox.askodox/.MainActivity"
           GATE
 
       # APK 1335 regression: a release APK whose startup throws (it stayed on a
       # white screen) must never be published. Fresh install on an Android 14
       # emulator, launch, 40 s, then: no unhandled Dart exception, no crash.
-      - name: Emulator startup gate (fresh install, launch, no unhandled exception)
+      - name: Emulator gate (fresh install, launch, no unhandled exception, reCAPTCHA return to the app)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
