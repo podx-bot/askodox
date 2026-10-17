@@ -55,3 +55,11 @@ flutter:
     - assets/mock/catalog.json
     - assets/companion/engine.html
     - assets/companion/human2d/
+
+# shared_preferences_android 2.5.0 (Pigeon JNI) broke startup in the release APK 1335:
+# SharedPreferences.getInstance() never completed, the app stayed on a white
+# screen and made no request. 2.4.29 (Kotlin Pigeon, used by APK 1334) works.
+# Keep this pin until a newer version is proven on a device / the emulator
+# startup smoke test. Same storage file (FlutterSharedPreferences): no data loss.
+dependency_overrides:
+  shared_preferences_android: 2.4.29

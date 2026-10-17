@@ -13,6 +13,7 @@ import '../../../core/auth/auth_log.dart';
 import '../../../core/auth/phone_auth.dart';
 import '../../../core/auth/phone_number.dart';
 import '../../../core/auth/sign_out.dart' show askodoxRestoreAccountData;
+import '../../../core/persistence/startup_prefs.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../home/domain/active_role.dart';
@@ -106,9 +107,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _restore();
   }
 
+  /// Startup can never hang on the spinner: a storage failure shows a clear
+  /// message with "Try again" (stored data is untouched).
+  bool _storageFailed = false;
+
   Future<void> _restore() async {
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs;
+    try {
+      prefs = await askodoxStartupPrefs();
+    } on AskodoxStorageUnavailable catch (e) {
+      askodoxAuthLog('startup.storage_unavailable', {'reason': e.reason});
+      if (mounted) {
+        setState(() {
+          _storageFailed = true;
+          _loading = false;
+        });
+      }
+      return;
+    }
     if (!mounted) return;
+    askodoxAuthLog('startup.onboarding', {'complete': prefs.getBool(_completeKey) == true, 'sign_in': widget.signIn});
     if (prefs.getBool(_completeKey) == true && !widget.signIn) {
       context.go('/');
       return;
@@ -642,6 +660,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_storageFailed) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.sd_card_alert_outlined, size: 48),
+              const SizedBox(height: 12),
+              const Text('ASKODOX could not open its storage on this phone. Your data is safe.',
+                  key: Key('askodoxStorageFailed'), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('askodoxStorageRetry'),
+                onPressed: () {
+                  setState(() {
+                    _storageFailed = false;
+                    _loading = true;
+                  });
+                  _restore();
+                },
+                child: const Text('Try again'),
+              ),
+            ]),
+          ),
+        ),
+      );
     }
 
     return Scaffold(

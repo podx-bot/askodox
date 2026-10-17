@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/auth/app_restart.dart';
 import 'core/auth/sign_out.dart';
+import 'core/persistence/startup_prefs.dart';
 import 'core/flags/askodox_remote_flags.dart';
 import 'core/providers/backend_providers.dart';
 import 'core/update/askodox_update_service.dart';
@@ -73,7 +74,12 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
       await _verifySession(ref.read(authSessionProvider).tokenPlaceholder);
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs;
+    try {
+      prefs = await askodoxStartupPrefs();
+    } on AskodoxStorageUnavailable {
+      return; // the sign-in screen shows "Try again"; nothing is lost
+    }
     if (prefs.getBool('askodox.onboarding.complete') != true) return;
     final mobile = prefs.getString('askodox.profile.mobile')?.trim() ?? '';
     final name = prefs.getString('askodox.profile.name')?.trim() ?? '';
@@ -108,7 +114,12 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
     final check = await askodoxCheckSession(ref.read(apiClientProvider), token);
     if (check != AskodoxSessionCheck.invalid || !mounted) return;
     final account = ref.read(authSessionProvider).user?.id;
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs;
+    try {
+      prefs = await askodoxStartupPrefs();
+    } on AskodoxStorageUnavailable {
+      return; // never sign anyone out because storage could not be opened
+    }
     await askodoxStashAccountData(prefs, account);
     await ref.read(authSessionProvider.notifier).logout();
     if (mounted) AskodoxAppRestart.restart(context);
