@@ -253,6 +253,7 @@ def verify_firebase(payload: FirebaseVerifyRequest, request: Request) -> dict:
 # code, token or account id is accepted.
 _trace_log = logging.getLogger("uvicorn.error")
 _TRACE_LINE = re.compile(r"^\+\d{1,7}ms [a-z_]+(\.[a-z_]+)*( [a-z_]+=[^\s=]{0,120})*$")
+_TRACE_NUMBER = re.compile(r"[+]?\d{5,}")
 _TRACE_DROP_KEYS = re.compile(r"\b(number|mobile|phone|otp|code_value|token|id_token|verification_id)=\S*")
 
 
@@ -269,7 +270,7 @@ def clean_trace_line(line: str) -> str | None:
 
     text = " ".join(_TRACE_DROP_KEYS.sub("", str(line or "")[:300]).split())
     stamp, _, rest = text.partition(" ")
-    text = f"{stamp} {re.sub(r'[+]?\d{5,}', '[n]', rest)}".strip()
+    text = (stamp + " " + _TRACE_NUMBER.sub("[n]", rest)).strip()
     if not _TRACE_LINE.match(text):
         return None
     return mask_sensitive(text)[:200]
