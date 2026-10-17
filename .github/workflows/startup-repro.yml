@@ -1,0 +1,42 @@
+name: Startup repro (emulator, temporary)
+on:
+  push:
+    branches: [claude/startup-repro]
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ['1334', '1335']
+    steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Download the published APK
+        run: curl -sSL -o app.apk "https://github.com/podx-bot/askodox/releases/download/phone-test-${{ matrix.build }}/askodox-phone-test-${{ matrix.build }}.apk" && ls -l app.apk
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r app.apk
+            adb logcat -c
+            adb shell am start -n com.askodox.askodox/.MainActivity
+            sleep 40
+            adb logcat -d > logcat.txt || true
+            adb exec-out screencap -p > screen.png || true
+            grep -E "flutter|AndroidRuntime|FATAL|shared_preferences|SharedPreferences|jni|Unhandled|Exception" logcat.txt | grep -v "^--------- " | tail -60 | sed 's/^/::warning::${{ matrix.build }} /' || true
+            echo "::notice::${{ matrix.build }} flutter lines: $(grep -c ' flutter' logcat.txt)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: startup-${{ matrix.build }}
+          path: |
+            logcat.txt
+            screen.png
