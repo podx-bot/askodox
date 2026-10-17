@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/core/auth/auth_log.dart';
 import 'package:podx/core/auth/phone_auth.dart';
+import 'package:podx/core/auth/sms_code_listener.dart';
 import 'package:podx/core/persistence/local_store.dart';
 import 'package:podx/core/providers/backend_providers.dart';
 import 'package:podx/features/auth/presentation/onboarding_screen.dart';
@@ -36,7 +39,7 @@ FakeAuthApi _api({bool firebase = false}) {
   return api;
 }
 
-Future<void> _pumpApp(WidgetTester tester, FakeAuthApi api, {FakePhoneAuth? phoneAuth}) async {
+Future<void> _pumpApp(WidgetTester tester, FakeAuthApi api, {AskodoxPhoneAuth? phoneAuth, FakeSmsSource? sms}) async {
   SharedPreferences.setMockInitialValues({'askodox.locale': 'en'});
   final router = GoRouter(initialLocation: '/onboarding', routes: [
     GoRoute(path: '/', builder: (_, __) => const Scaffold(body: Text('HOME'))),
@@ -49,6 +52,7 @@ Future<void> _pumpApp(WidgetTester tester, FakeAuthApi api, {FakePhoneAuth? phon
       apiClientProvider.overrideWithValue(api),
       localStoreProvider.overrideWithValue(MemoryLocalStore()),
       askodoxPhoneAuthProvider.overrideWithValue(phoneAuth ?? FakePhoneAuth(available: false)),
+      askodoxSmsCodeSourceProvider.overrideWithValue(sms ?? FakeSmsSource()),
     ],
     child: MaterialApp.router(routerConfig: router),
   ));
@@ -344,4 +348,145 @@ void main() {
     expect(askodoxPhoneAuthNetworkFailure('unknown'), isFalse);
     expect(askodoxPhoneAuthNetworkFailure('invalid-verification-code', 'network'), isFalse);
   });
+
+  group('OTP autofill (Android SMS User Consent)', () {
+    String? focused() => FocusManager.instance.primaryFocus?.debugLabel;
+
+    testWidgets('listener starts BEFORE the code is requested; the SMS code fills the field and verifies once',
+        (tester) async {
+      final api = _api(firebase: true);
+      final sms = FakeSmsSource();
+      late int startsWhenRequested;
+      final phone = FakePhoneAuth()..script = null;
+      final watching = _WatchingPhoneAuth(phone, () => startsWhenRequested = sms.starts);
+      await _pumpApp(tester, api, phoneAuth: watching, sms: sms);
+      await _sendCode(tester, '9876543210');
+      expect(startsWhenRequested, 1, reason: 'listening before Firebase can send the SMS');
+      expect(find.byKey(const ValueKey('otp-input')), findsOneWidget);
+      expect(focused(), 'askodox-otp-focus', reason: 'keyboard up for the code (Gboard SMS suggestion)');
+
+      sms.emit('prompt');
+      sms.emit('code', '482915');
+      await _settle(tester);
+      expect(phone.confirmed, [('vid-1', '482915')]);
+      expect(api.to('POST', '/onboarding/firebase/verify'), hasLength(1));
+      expect(find.byKey(const ValueKey('name-input')), findsOneWidget);
+      expect(sms.stops, greaterThanOrEqualTo(1), reason: 'listener stopped once verified');
+
+      sms.emit('code', '482915');
+      await _settle(tester);
+      expect(phone.confirmed, hasLength(1), reason: 'never submitted twice');
+      await _dispose(tester);
+    });
+
+    testWidgets('SMS code that arrives before "code sent" is used when the code step opens', (tester) async {
+      final api = _api(firebase: true);
+      final sms = FakeSmsSource();
+      final phone = FakePhoneAuth()
+        ..script = (session) {
+          sms.emit('code', '771204'); // SMS faster than Firebase's codeSent callback
+          Timer(const Duration(milliseconds: 100), () => session.codeSent('vid-2', 3));
+        };
+      await _pumpApp(tester, api, phoneAuth: phone, sms: sms);
+      await _sendCode(tester, '9876543210');
+      await _settle(tester);
+      expect(phone.confirmed, [('vid-2', '771204')]);
+      expect(find.byKey(const ValueKey('name-input')), findsOneWidget);
+      await _dispose(tester);
+    });
+
+    testWidgets('only a valid 6-digit code is used; denied / timeout keep manual entry + Verify', (tester) async {
+      final api = _api(firebase: true);
+      final sms = FakeSmsSource();
+      final phone = FakePhoneAuth();
+      await _pumpApp(tester, api, phoneAuth: phone, sms: sms);
+      await _sendCode(tester, '9876543210');
+      for (final bad in ['12345', '1234567', 'abcdef', '']) {
+        sms.emit('code', bad);
+      }
+      sms.emit('denied');
+      sms.emit('timeout');
+      await _settle(tester);
+      expect(phone.confirmed, isEmpty);
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('otp-input'))).controller!.text, isEmpty);
+      expect(focused(), 'askodox-otp-focus');
+
+      // Manual entry with the Verify button still works.
+      await tester.enterText(find.byKey(const ValueKey('otp-input')), '1234');
+      await tester.enterText(find.byKey(const ValueKey('otp-input')), '123456');
+      await _settle(tester);
+      expect(phone.confirmed, [('vid-1', '123456')]);
+      await _dispose(tester);
+    });
+
+    testWidgets('a wrong SMS code is shown as wrong, never retried in a loop; typing still works', (tester) async {
+      final api = _api(firebase: true);
+      final sms = FakeSmsSource();
+      final phone = FakePhoneAuth()..confirmError = 'invalid-verification-code';
+      await _pumpApp(tester, api, phoneAuth: phone, sms: sms);
+      await _sendCode(tester, '9876543210');
+      sms.emit('code', '111222');
+      await _settle(tester);
+      expect(_inlineError(tester), 'Incorrect OTP. (Firebase: invalid-verification-code)');
+      sms.emit('code', '111222');
+      await _settle(tester);
+      expect(phone.confirmed, hasLength(1));
+      phone.confirmError = null;
+      await tester.tap(find.byKey(const Key('askodoxVerifyOtp')));
+      await _settle(tester);
+      expect(phone.confirmed, hasLength(2));
+      expect(find.byKey(const ValueKey('name-input')), findsOneWidget);
+      await _dispose(tester);
+    });
+
+    testWidgets('back from another app (resume): the empty code field gets focus again', (tester) async {
+      final sms = FakeSmsSource();
+      await _pumpApp(tester, _api(firebase: true), phoneAuth: FakePhoneAuth(), sms: sms);
+      await _sendCode(tester, '9876543210');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await _settle(tester);
+      expect(focused(), isNot('askodox-otp-focus'));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _settle(tester);
+      expect(focused(), 'askodox-otp-focus');
+      await _dispose(tester);
+    });
+
+    testWidgets('server SMS path: the code step also autofills', (tester) async {
+      final api = _api();
+      final sms = FakeSmsSource();
+      await _pumpApp(tester, api, sms: sms);
+      await _sendCode(tester, '9876543210');
+      expect(sms.starts, 1);
+      sms.emit('code', '654321');
+      await _settle(tester);
+      expect((api.to('POST', '/onboarding/otp/verify').single.$3! as Map)['otp'], '654321');
+      await _dispose(tester);
+    });
+  });
+}
+
+/// Records the moment Firebase is asked to send the SMS.
+class _WatchingPhoneAuth implements AskodoxPhoneAuth {
+  _WatchingPhoneAuth(this.inner, this.onStart);
+  final FakePhoneAuth inner;
+  final void Function() onStart;
+  @override
+  bool get available => inner.available;
+  @override
+  Future<AskodoxPhoneAuthStart> start(String e164,
+      {int? resendToken, void Function(AskodoxPhoneAuthStart event)? onLate}) {
+    onStart();
+    return inner.start(e164, resendToken: resendToken, onLate: onLate);
+  }
+
+  @override
+  Future<String> confirm(String verificationId, String code) => inner.confirm(verificationId, code);
+  @override
+  Future<void> signOut() => inner.signOut();
 }

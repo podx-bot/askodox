@@ -85,6 +85,11 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    // OTP autofill: SMS User Consent API (no READ_SMS permission).
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
+}
+
 // Fail closed: a release APK/bundle without the ASKODOX release key is never built.
 gradle.taskGraph.whenReady {
     val releasePackaging = allTasks.any { task ->
