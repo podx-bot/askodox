@@ -115,6 +115,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   AskodoxSmsCodeSource? _smsSource;
   String? _smsCodeWaiting; // arrived before the code step opened
   String? _autoSubmitted; // the attempt whose SMS code was already submitted
+  Timer? _relisten;
 
   @override
   void initState() {
@@ -206,7 +207,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // SMS-code autofill register for this app, which replaces an SMS request
       // made earlier: ask again AFTER the field has focus so the consent
       // prompt is the active one (emulator: no prompt without this).
-      Future<void>.delayed(const Duration(milliseconds: 900), () {
+      _relisten?.cancel();
+      _relisten = Timer(const Duration(milliseconds: 900), () {
         if (mounted && _step == 2 && !_busy && _otp.text.isEmpty) _listenForSms();
       });
     });
@@ -312,6 +314,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void dispose() {
     _lifecycle?.dispose();
     _smsEvents?.cancel();
+    _relisten?.cancel();
     _stopSmsListener();
     _otpFocus.dispose();
     _resendTimer?.cancel();
