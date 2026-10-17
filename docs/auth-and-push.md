@@ -19,6 +19,18 @@ Status labels follow the Integration Platform: **CODE READY** = built and tested
 | In-App Messaging | `lib/services/in_app_messaging.dart` | opt-in (Notifications -> Offer messages in the app); collects nothing until then (manifest); trigger `askodox_app_open` at most once per 20 h. Text / image only: video ads stay in the ASKODOX native content system. |
 | Developer Diagnostics | Profile -> Settings & Privacy (development builds only) | FCM token + Firebase Installation ID, masked until "Show full values", copy on tap, never logged. Not in production release builds (`APP_ENV=production`). |
 
+## OTP autofill (Android)
+- **SMS User Consent API** (`AskodoxSmsConsent.kt`, Dart `lib/core/auth/sms_code_listener.dart`): started right before
+  the code is requested; when the SMS arrives Android shows its own "Allow ASKODOX to read this message?" prompt; on
+  Allow the 6-digit code fills the field and is verified once. No READ_SMS / RECEIVE_SMS permission, the message
+  text is never stored or logged. Denied / timeout / no Play services: the focused field + Verify button remain.
+- **SMS Retriever (hash) is not used**: Firebase sends its SMS in its own format, so the app hash cannot be added.
+  If the server's own SMS ever becomes the main way, its text must end with the app hash of the release key:
+  `Xrz71lARZcd` (computed from package `com.askodox.askodox` + release cert `727b4a66...57cf` with Google's algorithm;
+  not yet proven on a device).
+- The code field gets focus when the code step opens (keyboard up), so Gboard can also offer the code.
+- Emulator proof: `.github/workflows/sms-consent-e2e.yml` (real SMS -> Android prompt -> Allow -> code).
+
 ## How Firebase gets into the APK (CI)
 - The four GitHub **variables** `FIREBASE_PROJECT_ID`, `FIREBASE_SENDER_ID`, `FIREBASE_APP_ID`, `FIREBASE_API_KEY`
   are read by `tool/firebase_android_config.py` in Android Live Build, the Flutter CI release job and the Android
