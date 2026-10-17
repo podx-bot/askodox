@@ -238,7 +238,36 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
   }
 }
 
-final askodoxPhoneAuthProvider = Provider<AskodoxPhoneAuth>((ref) => const FirebasePhoneAuth());
+/// Emulator end-to-end tests only (CI `otp-autofill-e2e`): Firebase is not
+/// asked to SEND an SMS (the emulator gets one from the test script); the
+/// typed / autofilled code still goes through the REAL Firebase confirm. Never
+/// set for any build that is published.
+const askodoxE2eFakeSmsSend = bool.fromEnvironment('ASKODOX_E2E_FAKE_SMS_SEND');
+
+class AskodoxE2ePhoneAuth implements AskodoxPhoneAuth {
+  const AskodoxE2ePhoneAuth();
+  static const _real = FirebasePhoneAuth();
+
+  @override
+  bool get available => _real.available;
+
+  @override
+  Future<AskodoxPhoneAuthStart> start(String e164,
+      {int? resendToken, void Function(AskodoxPhoneAuthStart event)? onLate}) async {
+    askodoxAuthLog('firebase.e2e_fake_send');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return const AskodoxPhoneCodeSent('askodox-e2e-not-a-real-verification', null);
+  }
+
+  @override
+  Future<String> confirm(String verificationId, String code) => _real.confirm(verificationId, code);
+
+  @override
+  Future<void> signOut() => _real.signOut();
+}
+
+final askodoxPhoneAuthProvider =
+    Provider<AskodoxPhoneAuth>((ref) => askodoxE2eFakeSmsSend ? const AskodoxE2ePhoneAuth() : const FirebasePhoneAuth());
 
 /// What to tell the person for a Firebase error code (English, Telugu).
 (String, String) askodoxPhoneAuthMessage(String code) => switch (code) {

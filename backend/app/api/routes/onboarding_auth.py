@@ -258,7 +258,7 @@ _TRACE_DROP_KEYS = re.compile(r"\b(number|mobile|phone|otp|code_value|token|id_t
 
 
 class SignInTraceRequest(BaseModel):
-    outcome: str = Field(pattern="^(code_sent|auto_verified|signed_in|failed|late_code_sent|abandoned)$")
+    outcome: str = Field(pattern="^(code_sent|auto_verified|signed_in|failed|late_code_sent|abandoned|sms_consent|crash)$")
     stage: str = Field(default="", max_length=40, pattern="^[a-z_]*$")
     code: str = Field(default="", max_length=60, pattern="^[a-z0-9_-]*$")
     app_version: str = Field(default="", max_length=40, pattern="^[0-9A-Za-z.+_-]*$")
