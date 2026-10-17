@@ -29,6 +29,12 @@ class AskodoxSmsConsent(
     private val onEvent: (event: String, code: String?) -> Unit,
 ) {
     private var receiver: BroadcastReceiver? = null
+    // The SMS arrived while ASKODOX was in the background (e.g. the person
+    // opened the Messages app): Android blocks starting the prompt from the
+    // background, so it opens when ASKODOX is in front again.
+    private var pendingPrompt: Intent? = null
+    var resumed = false
+        private set
 
     fun start(): Boolean {
         stop()
@@ -83,12 +89,32 @@ class AskodoxSmsConsent(
             onEvent("error", "untrusted_consent_intent")
             return
         }
+        if (!resumed) {
+            pendingPrompt = consent
+            onEvent("waiting_for_app", null)
+            return
+        }
+        launch(consent)
+    }
+
+    private fun launch(consent: Intent) {
         try {
             activity.startActivityForResult(consent, requestCode)
             onEvent("prompt", null)
         } catch (error: Exception) {
             onEvent("error", error.javaClass.simpleName)
         }
+    }
+
+    fun onResume() {
+        resumed = true
+        val waiting = pendingPrompt ?: return
+        pendingPrompt = null
+        launch(waiting)
+    }
+
+    fun onPause() {
+        resumed = false
     }
 
     /** True when this was the consent screen's answer. */
@@ -105,6 +131,7 @@ class AskodoxSmsConsent(
     }
 
     fun stop() {
+        pendingPrompt = null
         val current = receiver ?: return
         receiver = null
         try { activity.unregisterReceiver(current) } catch (_: Exception) {}

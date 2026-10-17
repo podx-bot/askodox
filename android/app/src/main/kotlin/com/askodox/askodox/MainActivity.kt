@@ -129,7 +129,10 @@ class MainActivity : FlutterActivity() {
                 "start" -> {
                     val consent = smsConsent ?: AskodoxSmsConsent(this, smsConsentRequestCode) { event, code ->
                         runOnUiThread { smsChannel?.invokeMethod("event", mapOf("event" to event, "code" to code)) }
-                    }.also { smsConsent = it }
+                    }.also {
+                        smsConsent = it
+                        if (activityResumed) it.onResume()
+                    }
                     result.success(consent.start())
                 }
                 "stop" -> {
@@ -1023,7 +1026,17 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    private var activityResumed = false
+
+    override fun onResume() {
+        super.onResume()
+        activityResumed = true
+        smsConsent?.onResume()
+    }
+
     override fun onPause() {
+        activityResumed = false
+        smsConsent?.onPause()
         // Leaving the app (call, home button) cancels an in-flight recording
         // instead of silently recording in the background.
         if (recorder != null) cancelVoiceRecording()
