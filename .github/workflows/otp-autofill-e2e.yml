@@ -108,11 +108,11 @@ jobs:
           adb logcat -d | grep -q "sms_consent.listening" && echo "::notice title=3 listener::listening before the SMS" || echo "::warning::no listening line"
 
           # The SMS arrives -> Android prompt -> Allow.
-          adb logcat -c
+          sleep 3
           adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
           if ! tap_node 'text="Allow"' 30; then
             adb shell content query --uri content://sms/inbox --projection address 2>/dev/null | head -3 | sed 's/^/::warning title=sms inbox::/'
-            adb logcat -d | grep -iE "sms|consent|askodox.auth|autofill" | head -40 | cut -c1-230 | sed 's/^/::warning title=after SMS::/'
+            adb logcat -d | grep -E "SmsRetriever|SmsCode|Consent|sms_consent|e2e_fake|code_sent|Autofill" | grep -v MmsSms | tail -60 | cut -c1-230 | sed 's/^/::warning title=sms log::/'
             fail "no Android consent prompt"
           fi
           echo "::notice title=4 consent::Android prompt shown, tapped Allow"
