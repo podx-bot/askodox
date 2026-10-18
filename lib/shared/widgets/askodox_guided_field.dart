@@ -286,9 +286,8 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
   Future<void> _explain(String? problem) async {
     final te = _te;
     final line = problem ?? widget.guide.help(te);
-    unawaited(ref.read(askodoxGuideSpeakerProvider)(
-            problem == null ? '${widget.guide.help(te)} ${widget.guide.example(te)}' : problem, te ? 'te' : 'en')
-        .catchError((_) {}));
+    final spoken = problem ?? '${widget.guide.help(te)} ${widget.guide.example(te)}';
+    unawaited(ref.read(askodoxGuideSpeakerProvider)(spoken, te ? 'te' : 'en').catchError((_) {}));
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
