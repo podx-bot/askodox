@@ -175,7 +175,9 @@ void main() {
       for (final step in flow.steps) {
         final t = step.target.replaceAll('*', '');
         // Keys are written as literals: Key('x'), ValueKey('x') or a helper's 'x'.
-        expect(code.contains("'$t") || code.contains('"$t'), isTrue,
+        final dash = t.lastIndexOf('-');
+        final dynamicKey = dash > 0 && code.contains("'${t.substring(0, dash + 1)}\$"); // e.g. 'mobility-kind-$k'
+        expect(code.contains("'$t") || code.contains('"$t') || dynamicKey, isTrue,
             reason: '${flow.id}: no widget with key ${step.target}');
       }
     }
