@@ -378,3 +378,4 @@ class _RejectedProfiles extends _Profiles {
 
   @override
   Future<AskodoxUserProfile?> load() async => throw const AskodoxSessionInvalid();
+}

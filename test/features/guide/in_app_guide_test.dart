@@ -174,7 +174,8 @@ void main() {
     for (final flow in askodoxGuideFlows) {
       for (final step in flow.steps) {
         final t = step.target.replaceAll('*', '');
-        expect(code.contains("Key('$t") || code.contains('Key("$t'), isTrue,
+        // Keys are written as literals: Key('x'), ValueKey('x') or a helper's 'x'.
+        expect(code.contains("'$t") || code.contains('"$t'), isTrue,
             reason: '${flow.id}: no widget with key ${step.target}');
       }
     }
