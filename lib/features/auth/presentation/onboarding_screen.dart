@@ -126,6 +126,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (state == AppLifecycleState.resumed && _step == 2 && !_busy && _otp.text.isEmpty) _focusOtp();
     });
     _restore();
+    try {
+      _subscribeSms();
+    } catch (_) {}
     unawaited(_reportLastCrash());
   }
 
@@ -167,15 +170,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } catch (_) {}
     if (!mounted) return;
     try {
-      final source = ref.read(askodoxSmsCodeSourceProvider);
-      if (!identical(source, _smsSource)) {
-        _smsEvents?.cancel();
-        _smsSource = source;
-        _smsEvents = source.events.listen(_onSmsEvent);
-      }
+      final source = _subscribeSms();
       _smsCodeWaiting = null;
       unawaited(source.start().then((ok) => askodoxAuthLog('sms_consent.start', {'ok': ok}), onError: (_) {}));
     } catch (_) {}
+  }
+
+  /// The SMS answers are followed for the whole screen (independent of when
+  /// listening starts), so no answer is ever missed.
+  AskodoxSmsCodeSource _subscribeSms() {
+    final source = ref.read(askodoxSmsCodeSourceProvider);
+    if (!identical(source, _smsSource)) {
+      _smsEvents?.cancel();
+      _smsSource = source;
+      _smsEvents = source.events.listen(_onSmsEvent);
+    }
+    return source;
   }
 
   void _stopSmsListener() {
