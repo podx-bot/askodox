@@ -1036,7 +1036,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           focusNode: _otpFocus,
           enabled: !_busy,
           keyboardType: TextInputType.number,
-          autofillHints: const [AutofillHints.oneTimeCode],
+          // No autofillHints.oneTimeCode: that hint makes Google's own SMS-code
+          // autofill start a second SMS request for the app, which REPLACES the
+          // SMS User Consent request (one active request per app) -- emulator
+          // timeline: the consent prompt then never appears. The consent prompt
+          // (Allow) is the one way the code is filled; typing always works.
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           maxLength: 6,
           onChanged: (value) {
