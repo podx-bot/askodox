@@ -11,11 +11,13 @@ import 'package:http/testing.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
+import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/profile/presentation/profile_screen.dart';
 import 'package:podx/features/watchlist/presentation/watchlist_screen.dart';
 import 'package:podx/services/support_escalation_service.dart';
+import 'package:podx/shared/widgets/navigator_section.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Map<String, Object?> _snapshot(String id, String title, String status) => {
@@ -298,6 +300,28 @@ void main() {
 
     final failing = SupportEscalationService(client: MockClient((_) async => http.Response('', 500)));
     expect(await failing.escalate(issue: 'x', category: 'GENERAL', critical: false, conversation: const []), isNull);
+  });
+
+  testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
+    for (final id in ['screen_business', 'screen_listings', 'screen_enquiries', 'screen_videos', 'screen_mobility',
+        'screen_notifications', 'screen_feedback']) {
+      final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
+      await tester.ensureVisible(button);
+      await tester.pump();
+      await tester.tap(button);
+      await tester.pump();
+      expect(container.read(askodoxGuideProvider)?.flow.id, id);
+      container.read(askodoxGuideProvider.notifier).stop();
+      await tester.pump();
+    }
+    await tester.ensureVisible(find.byKey(const Key('askodoxProfileGuide')));
+    await tester.tap(find.byKey(const Key('askodoxProfileGuide')));
+    await tester.pump();
+    expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
+    container.read(askodoxGuideProvider.notifier).stop();
+    expect(find.byType(AskodoxNavTile), findsWidgets, reason: 'grid tiles, not long rows');
   });
 }
 

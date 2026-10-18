@@ -117,14 +117,16 @@ void main() {
     ));
     await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await tester.pumpAndSettle();
-    for (final key in ['business', 'listings', 'enquiries', 'roles']) {
-      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget);
-    }
-    for (final key in ['studio_videos', 'studio_creations', 'memory']) {
+    // Only the frequently used places; the rest lives in the Profile grid.
+    for (final key in ['business', 'listings', 'enquiries', 'orders', 'saved', 'mobility', 'more']) {
       await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxMenu-$key')), 120,
           scrollable: find.byType(Scrollable).last);
       expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget);
     }
+    for (final key in ['roles', 'verification', 'plans', 'radio', 'studio_videos', 'memory', 'privacy']) {
+      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key lives in Profile');
+    }
+    expect(askodoxHeaderMenuEntries.length, lessThanOrEqualTo(7));
     expect(find.byType(Drawer), findsNothing, reason: 'the menu is a sheet, never a drawer');
     expect(askodoxHeaderMenuEntries.map((e) => e.route).toSet().length, askodoxHeaderMenuEntries.length,
         reason: 'no duplicate entry points');

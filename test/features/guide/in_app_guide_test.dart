@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -133,5 +135,51 @@ void main() {
     await _tick(tester);
     await _tick(tester);
     expect(find.byKey(const Key('askodoxGuidePaused')), findsNothing);
+  });
+
+  testWidgets('screen guide: a face that talks; "write here" steps wait for "Done, next"', (tester) async {
+    final (router, container, spoken) = await _pump(tester);
+    router.go('/profile');
+    await _tick(tester);
+    container.read(askodoxGuideProvider.notifier).start(askodoxGuideById('screen_feedback')!);
+    await _tick(tester);
+    expect(find.byKey(const Key('askodoxGuideFace')), findsOneWidget, reason: 'the guide has eyes and a mouth');
+    expect(_text(tester), 'Tap "Report a problem / Send feedback".');
+    await tester.tap(find.byKey(const ValueKey('profile-feedback')));
+    await _tick(tester);
+    await _tick(tester);
+    expect(_text(tester), startsWith('Describe what happened'));
+    await tester.tap(find.byKey(const Key('askodoxFeedbackDescription')));
+    await tester.enterText(find.byKey(const Key('askodoxFeedbackDescription')), 'The map did not open');
+    await _tick(tester);
+    expect(_text(tester), startsWith('Describe what happened'), reason: 'typing does not skip the step');
+    expect(find.text('Done, next'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxGuideSkip')));
+    await _tick(tester);
+    expect(_text(tester), 'Tap "Submit feedback".');
+    expect(spoken, contains('Tap "Submit feedback".'));
+    await tester.tap(find.byKey(const Key('askodoxGuideStop')));
+    await tester.pump();
+  });
+
+  test('screen guides are not in the header list; every step points at a key that exists in the app', () {
+    final listed = askodoxGuideFlows.where((f) => f.listed).map((f) => f.id);
+    expect(listed, isNot(contains('screen_feedback')));
+    expect(askodoxGuideFlows.where((f) => f.id.startsWith('screen_')).length, greaterThanOrEqualTo(19));
+    final source = StringBuffer();
+    for (final f in Directory('lib').listSync(recursive: true)) {
+      if (f is File && f.path.endsWith('.dart') && !f.path.endsWith('in_app_guide.dart')) source.write(f.readAsStringSync());
+    }
+    final code = source.toString();
+    for (final flow in askodoxGuideFlows) {
+      for (final step in flow.steps) {
+        final t = step.target.replaceAll('*', '');
+        // Keys are written as literals: Key('x'), ValueKey('x') or a helper's 'x'.
+        final dash = t.lastIndexOf('-');
+        final dynamicKey = dash > 0 && code.contains("'${t.substring(0, dash + 1)}\$"); // e.g. 'mobility-kind-$k'
+        expect(code.contains("'$t") || code.contains('"$t') || dynamicKey, isTrue,
+            reason: '${flow.id}: no widget with key ${step.target}');
+      }
+    }
   });
 }
