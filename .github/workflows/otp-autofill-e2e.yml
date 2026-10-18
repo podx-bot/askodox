@@ -111,7 +111,7 @@ jobs:
           adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
           if ! tap_node 'text="Allow"' 30; then
             adb shell content query --uri content://sms/inbox --projection address 2>/dev/null | head -3 | sed 's/^/::warning title=sms inbox::/'
-            adb logcat -d | grep -E "SmsRetriever|SmsCode|Consent|sms_consent|e2e_fake|code_sent|Autofill" | grep -v MmsSms | tail -60 | cut -c1-230 | sed 's/^/::warning title=sms log::/'
+            echo "::warning title=timeline::$(adb logcat -d -v time | grep -E "askodox.auth|SmsRetriever|ConsentPrompt|BoundBrokerSvc.*SmsRetriever|onCreateInlineSuggestionsRequest|Bugle.*Received sms" | grep -v MmsSms | sed -E 's/^[0-9-]+ ([0-9:.]+) [A-Z]\/([A-Za-z]+).*(askodox\.auth |: )/\1 \2 /' | cut -c1-110 | tail -45 | tr '\n' '|')"
             fail "no Android consent prompt"
           fi
           echo "::notice title=4 consent::Android prompt shown, tapped Allow"
