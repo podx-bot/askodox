@@ -105,12 +105,12 @@ jobs:
           adb shell input keyevent KEYCODE_BACK
           sleep 1
           tap_node '(text|content-desc)="Send OTP"' 10 || fail "no Send OTP button"
-          sleep 6
-          dump | grep -qE '6-digit OTP|Verify OTP' || fail "code step did not open"
-          echo "::notice title=2 code step::$(screen)"
-          adb logcat -d | grep -q "sms_consent.listening" && echo "::notice title=3 listener::listening before the SMS" || echo "::warning::no listening line"
-
-          # The SMS arrives -> Android prompt -> Allow.
+          # From here until the SMS no screen reads (uiautomator): reading the
+          # screen through accessibility makes Google's autofill start its own
+          # SMS request, which replaces the app's. A person never does that.
+          for i in $(seq 1 30); do adb logcat -d | grep -q "sms_consent.listening step=2" && break; sleep 1; done
+          adb logcat -d | grep -q "send_otp.code_sent" || fail "code step did not open"
+          adb logcat -d | grep -q "sms_consent.listening step=2" || fail "not listening on the code step"
           sleep 3
           adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
           if ! tap_node 'text="Allow"' 30; then
