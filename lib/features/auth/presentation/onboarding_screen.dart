@@ -126,6 +126,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (state == AppLifecycleState.resumed && _step == 2 && !_busy && _otp.text.isEmpty) _focusOtp();
     });
     _restore();
+    try {
+      _subscribeSms();
+    } catch (_) {}
     unawaited(_reportLastCrash());
   }
 
@@ -137,23 +140,52 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (record == null || record.isEmpty || !mounted) return;
       askodoxAuthTrail.reset();
       askodoxAuthLog('native.crash', askodoxCrashFields(record));
+      if (askodoxCrashFromSmsReceiver(record)) {
+        // Never loop into the same crash: no SMS prompt for 7 days on this phone.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_consentOffKey, DateTime.now().add(const Duration(days: 7)).millisecondsSinceEpoch);
+        askodoxAuthLog('sms_consent.off_after_crash', {'days': 7});
+      }
       _sendTrace('crash', stage: 'app', code: askodoxCrashFields(record)['type'] ?? 'unknown');
     } catch (_) {}
   }
 
   /// Listen for ONE OTP SMS before the code is requested (Android asks the
   /// person "Allow ASKODOX to read this message?"; no SMS permission).
-  void _listenForSms() {
+  static const _consentOffKey = 'askodox.sms_consent.off_until';
+
+  void _listenForSms() => unawaited(_listenForSmsChecked());
+
+  Future<void> _listenForSmsChecked() async {
     try {
-      final source = ref.read(askodoxSmsCodeSourceProvider);
-      if (!identical(source, _smsSource)) {
-        _smsEvents?.cancel();
-        _smsSource = source;
-        _smsEvents = source.events.listen(_onSmsEvent);
+      final prefs = await SharedPreferences.getInstance();
+      final offUntil = prefs.getInt(_consentOffKey) ?? 0;
+      if (DateTime.now().millisecondsSinceEpoch < offUntil) {
+        // The app closed during an SMS prompt before: the keyboard / typing
+        // remain, the prompt is not used again for a while.
+        askodoxAuthLog('sms_consent.off_after_crash');
+        if (mounted && _step == 2) _focusOtp();
+        return;
       }
+    } catch (_) {}
+    if (!mounted) return;
+    try {
+      final source = _subscribeSms();
       _smsCodeWaiting = null;
       unawaited(source.start().then((ok) => askodoxAuthLog('sms_consent.start', {'ok': ok}), onError: (_) {}));
     } catch (_) {}
+  }
+
+  /// The SMS answers are followed for the whole screen (independent of when
+  /// listening starts), so no answer is ever missed.
+  AskodoxSmsCodeSource _subscribeSms() {
+    final source = ref.read(askodoxSmsCodeSourceProvider);
+    if (!identical(source, _smsSource)) {
+      _smsEvents?.cancel();
+      _smsSource = source;
+      _smsEvents = source.events.listen(_onSmsEvent);
+    }
+    return source;
   }
 
   void _stopSmsListener() {
@@ -537,7 +569,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
     final attempt = ++_attempt;
-    _listenForSms(); // before the SMS can arrive
+    // Server SMS: listen before it can arrive. Firebase SMS: only once the
+    // code step is open (after Firebase has answered), see _onCodeStepOpened.
+    if (!_useFirebase) _listenForSms();
     setState(() {
       _e164 = e164;
       _busy = true;
@@ -1002,7 +1036,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           focusNode: _otpFocus,
           enabled: !_busy,
           keyboardType: TextInputType.number,
-          autofillHints: const [AutofillHints.oneTimeCode],
+          // No autofillHints.oneTimeCode: that hint makes Google's own SMS-code
+          // autofill start a second SMS request for the app, which REPLACES the
+          // SMS User Consent request (one active request per app) -- emulator
+          // timeline: the consent prompt then never appears. The consent prompt
+          // (Allow) is the one way the code is filled; typing always works.
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           maxLength: 6,
           onChanged: (value) {
