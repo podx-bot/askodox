@@ -473,7 +473,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onTap: () => context.push('/privacy')),
           // How the ASKODOX friend looks (never assumes a gender) and
           // whether it moves (off = still image, saves battery).
-          KeyedSubtree(key: const Key('askodoxCompanionLook'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          KeyedSubtree(key: const Key('askodoxCompanionLook'), child: ExpansionTile(
+                key: const Key('askodoxCompanionSettingsGroup'),
+                leading: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
+                title: Text(t('ASKODOX friend & guide', 'ASKODOX ఫ్రెండ్ & గైడ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(t('Look, movement, floating bubble, screen guide.', 'రూపం, కదలిక, ఫ్లోటింగ్ బబుల్, స్క్రీన్ గైడ్.')),
+                childrenPadding: EdgeInsets.zero,
+                shape: const Border(),
+                collapsedShape: const Border(),
+                children: [Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 SwitchListTile(
                   key: const Key('askodoxCompanionEnabled'),
                   secondary: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
@@ -580,7 +588,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   onTap: () => context.push('/companion-performance'),
                 ),
                 ],
-              ])),
+              ])])),
           (Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
