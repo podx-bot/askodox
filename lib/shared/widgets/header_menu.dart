@@ -17,22 +17,17 @@ class AskodoxMenuEntry {
   final String te;
 }
 
+/// Only the places people open most often; everything else (roles, KYC,
+/// plans, Travel Radio, studio, memory, privacy, settings) lives in the
+/// Profile grid -- the last entry opens it.
 const askodoxHeaderMenuEntries = <AskodoxMenuEntry>[
   AskodoxMenuEntry('business', '/business', Icons.storefront_outlined, 'My Business', 'నా వ్యాపారం'),
   AskodoxMenuEntry('listings', '/listings/mine', Icons.inventory_2_outlined, 'Listings & catalog', 'లిస్టింగ్‌లు & కేటలాగ్'),
   AskodoxMenuEntry('enquiries', '/orders/incoming', Icons.mark_email_unread_outlined, 'Customer enquiries', 'కస్టమర్ ఎంక్వైరీలు'),
-  AskodoxMenuEntry('roles', '/profile/roles', Icons.badge_outlined, 'Business & roles', 'వ్యాపారం & పాత్రలు'),
-  AskodoxMenuEntry('opportunities', '/opportunities', Icons.work_outline_rounded, 'Services & opportunities', 'సేవలు & అవకాశాలు'),
-  AskodoxMenuEntry('verification', '/verification', Icons.verified_user_outlined, 'Verification (KYC)', 'ధృవీకరణ (KYC)'),
-  AskodoxMenuEntry('plans', '/plans', Icons.workspace_premium_outlined, 'Plans & subscription', 'ప్లాన్లు & సబ్‌స్క్రిప్షన్'),
-  AskodoxMenuEntry('radio', '/radio', Icons.radio_outlined, 'Travel Radio (add-on)', 'ట్రావెల్ రేడియో (యాడ్-ఆన్)'),
-  AskodoxMenuEntry('mobility', '/mobility', Icons.local_shipping_outlined, 'Rides, parcels & delivery', 'రైడ్స్, పార్సెల్స్ & డెలివరీ'),
-  AskodoxMenuEntry('studio_videos', '/videos/native', Icons.video_library_outlined, 'My Studio · My videos', 'నా స్టూడియో · నా వీడియోలు'),
-  AskodoxMenuEntry('studio_creations', '/business/creations', Icons.auto_awesome_outlined, 'My Studio · My creations', 'నా స్టూడియో · నా క్రియేషన్స్'),
   AskodoxMenuEntry('orders', '/orders/mine', Icons.receipt_long_outlined, 'My requests & orders', 'నా అభ్యర్థనలు & ఆర్డర్లు'),
   AskodoxMenuEntry('saved', '/watchlist', Icons.bookmark_border_rounded, 'Saved & history', 'సేవ్ చేసినవి & చరిత్ర'),
-  AskodoxMenuEntry('memory', '/profile/memory', Icons.psychology_outlined, 'Privacy · Memory & personalization', 'గోప్యత · మెమరీ & వ్యక్తిగతీకరణ'),
-  AskodoxMenuEntry('privacy', '/privacy', Icons.privacy_tip_outlined, 'Privacy & data', 'గోప్యత & డేటా'),
+  AskodoxMenuEntry('mobility', '/mobility', Icons.local_shipping_outlined, 'Rides, parcels & delivery', 'రైడ్స్, పార్సెల్స్ & డెలివరీ'),
+  AskodoxMenuEntry('more', '/profile', Icons.grid_view_rounded, 'Everything else · Profile', 'మిగతావన్నీ · ప్రొఫైల్'),
 ];
 
 /// Menu value that is not a route: the ONE secure sign-out flow.
@@ -88,7 +83,11 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
             }
             return;
           }
-          context.push(route);
+          if (route == '/profile') {
+            context.go(route); // a bottom-bar tab, not a page on top
+          } else {
+            context.push(route);
+          }
         },
       );
 }

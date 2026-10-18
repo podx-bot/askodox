@@ -23,7 +23,7 @@ import '../../services/reply_speech_service.dart';
 /// `ValueKey('x')`; a trailing `*` matches a key prefix), so screens need no
 /// guide-specific code.
 class AskodoxGuideStep {
-  const AskodoxGuideStep(this.target, this.en, this.te, {this.route});
+  const AskodoxGuideStep(this.target, this.en, this.te, {this.route, this.fill = false});
 
   final String target;
   final String en;
@@ -31,16 +31,24 @@ class AskodoxGuideStep {
 
   /// Where this step's button lives (used by "Take me there").
   final String? route;
+
+  /// A field to fill in ("write your name here"): tapping it does NOT move on
+  /// -- the person types, then taps "Next".
+  final bool fill;
 }
 
 class AskodoxGuideFlow {
-  const AskodoxGuideFlow(this.id, this.titleEn, this.titleTe, this.keywords, this.steps);
+  const AskodoxGuideFlow(this.id, this.titleEn, this.titleTe, this.keywords, this.steps, {this.listed = true});
 
   final String id;
   final String titleEn;
   final String titleTe;
   final List<String> keywords;
   final List<AskodoxGuideStep> steps;
+
+  /// Shown in the header Screen Guide list (screen guides started from a
+  /// Profile tile's Guide button are not).
+  final bool listed;
 
   String title(bool te) => te ? titleTe : titleEn;
 }
@@ -111,6 +119,112 @@ const askodoxGuideFlows = <AskodoxGuideFlow>[
     AskodoxGuideStep('askodoxFeedbackSubmit', 'Tap "Submit feedback".', '"ఫీడ్‌బ్యాక్ పంపండి" నొక్కండి.',
         route: '/beta-feedback'),
   ]),
+  ...askodoxScreenGuides,
+];
+
+/// "Guide" on every Profile tile: opens the screen and shows what each part
+/// is for and what to write where. Steps point at the screens' existing keys.
+const _p = '/profile';
+const askodoxScreenGuides = <AskodoxGuideFlow>[
+  AskodoxGuideFlow('screen_profile_details', 'Complete my profile', 'నా ప్రొఫైల్ పూర్తి చేయడం', ['complete my profile', 'edit profile', 'ప్రొఫైల్ ఎడిట్'], [
+    AskodoxGuideStep('askodoxProfileEdit', 'Tap the pencil to edit your details.', 'మీ వివరాలు మార్చడానికి పెన్సిల్ నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxEditName', 'Write your full name as customers should see it.', 'కస్టమర్లకు కనిపించాల్సిన మీ పూర్తి పేరు ఇక్కడ రాయండి.', fill: true),
+    AskodoxGuideStep('askodoxEditAddress', 'Write your town and area, for example "Vuyyuru, Krishna district".', 'మీ ఊరు, ప్రాంతం రాయండి. ఉదా: "ఉయ్యూరు, కృష్ణా జిల్లా".', fill: true),
+    AskodoxGuideStep('askodoxEditShop', 'If you sell: your business name and shop address.', 'మీరు అమ్మితే: మీ వ్యాపారం పేరు, షాప్ అడ్రస్ ఇక్కడ.', fill: true),
+    AskodoxGuideStep('askodoxEditSave', 'Tap Save.', 'సేవ్ నొక్కండి.'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_business', 'Business dashboard', 'వ్యాపార డాష్‌బోర్డ్', [], [
+    AskodoxGuideStep('profile-business-center', 'Tap "Business dashboard".', '"వ్యాపార డాష్‌బోర్డ్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxBusinessSection-analytics', 'Here: requests, details customers asked for and new demand. Open a section to act on it.', 'ఇక్కడ: అభ్యర్థనలు, కస్టమర్లు అడిగిన వివరాలు, కొత్త డిమాండ్. ఏ విభాగమైనా తెరిచి పని చేయండి.', route: '/business'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_listings', 'My listings & catalog', 'నా లిస్టింగ్‌లు & కేటలాగ్', [], [
+    AskodoxGuideStep('profile-my-listings', 'Tap "My listings & catalog".', '"నా లిస్టింగ్‌లు & కేటలాగ్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxAddListing', 'Tap "Sell something" and say what you sell, the price and the quantity.', '"ఏదైనా అమ్మండి" నొక్కి, ఏమి అమ్ముతారు, ధర, పరిమాణం చెప్పండి.', route: '/listings/mine'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_enquiries', 'Customer enquiries', 'కస్టమర్ ఎంక్వైరీలు', [], [
+    AskodoxGuideStep('profile-enquiries', 'Tap "Customer enquiries".', '"కస్టమర్ ఎంక్వైరీలు" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxOrderAccept', 'Read the request, then tap "Accept". The customer\'s contact appears only after you accept.', 'రిక్వెస్ట్ చదివి "ఆమోదించు" నొక్కండి. అంగీకరించాకే కస్టమర్ వివరాలు కనిపిస్తాయి.', route: '/orders/incoming'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_promotions', 'Offers & promotions', 'ఆఫర్లు & ప్రమోషన్లు', [], [
+    AskodoxGuideStep('profile-promotions', 'Tap "Offers & promotions".', '"ఆఫర్లు & ప్రమోషన్లు" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxOfferCreate', 'Tap to create a new offer.', 'కొత్త ఆఫర్ కోసం ఇక్కడ నొక్కండి.', route: '/business/promotions'),
+    AskodoxGuideStep('askodoxOfferTitle', 'Write the offer in a few words, for example "10% off on rice bags".', 'ఆఫర్‌ను కొన్ని మాటల్లో రాయండి. ఉదా: "బియ్యం బస్తాలపై 10% తగ్గింపు".', route: '/business/promotions', fill: true),
+    AskodoxGuideStep('askodoxOfferValue', 'Write the discount: an amount or a percent.', 'తగ్గింపు రాయండి: రూపాయలు లేదా శాతం.', route: '/business/promotions', fill: true),
+    AskodoxGuideStep('askodoxOfferSubmit', 'Tap to save the offer.', 'ఆఫర్ సేవ్ చేయడానికి నొక్కండి.', route: '/business/promotions'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_automation', 'Auto-replies', 'ఆటో-రిప్లైలు', [], [
+    AskodoxGuideStep('profile-automation', 'Tap "Auto-replies".', '"ఆటో-రిప్లైలు" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxAutoReplyEnabled', 'Switch auto-replies on.', 'ఆటో-రిప్లైలు ఆన్ చేయండి.', route: '/business/automation'),
+    AskodoxGuideStep('askodoxAutoHours', 'Set your working hours.', 'మీ పని వేళలు సెట్ చేయండి.', route: '/business/automation', fill: true),
+    AskodoxGuideStep('askodoxAutoFaqAdd', 'Add a question customers often ask.', 'కస్టమర్లు తరచూ అడిగే ప్రశ్న జోడించండి.', route: '/business/automation'),
+    AskodoxGuideStep('askodoxAutoFaqTopic', 'Write the question, for example "Do you deliver?".', 'ప్రశ్న రాయండి. ఉదా: "డెలివరీ చేస్తారా?".', route: '/business/automation', fill: true),
+    AskodoxGuideStep('askodoxAutoFaqAnswer', 'Write your answer exactly as it should be sent.', 'పంపాల్సిన సమాధానం ఉన్నది ఉన్నట్టు రాయండి.', route: '/business/automation', fill: true),
+    AskodoxGuideStep('askodoxAutoFaqSave', 'Tap Save.', 'సేవ్ నొక్కండి.', route: '/business/automation'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_videos', 'My videos', 'నా వీడియోలు', [], [
+    AskodoxGuideStep('profile-native-video', 'Tap "My videos".', '"నా వీడియోలు" నొక్కండి.', route: _p),
+    AskodoxGuideStep('video-pick-gallery', 'Tap "Choose video" and pick your video.', '"వీడియో ఎంచుకోండి" నొక్కి మీ వీడియో ఎంచుకోండి.', route: '/videos/native'),
+    AskodoxGuideStep('video-title', 'Give it a short title.', 'చిన్న టైటిల్ రాయండి.', route: '/videos/native', fill: true),
+    AskodoxGuideStep('video-upload', 'Tap "Upload for review". Staff check it before it is published.', '"రివ్యూకు అప్‌లోడ్" నొక్కండి. పబ్లిష్ ముందు స్టాఫ్ చూస్తారు.', route: '/videos/native'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_creations', 'My creations', 'నా క్రియేషన్స్', [], [
+    AskodoxGuideStep('profile-creations', 'Tap "My creations".', '"నా క్రియేషన్స్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxCreationAbout', 'Write the facts: what you sell, the price, any offer, your area.', 'వివరాలు రాయండి: ఏమి అమ్ముతారు, ధర, ఆఫర్, మీ ప్రాంతం.', route: '/business/creations', fill: true),
+    AskodoxGuideStep('askodoxCreationDraft', 'Tap to make a draft from your facts.', 'మీ వివరాలతో డ్రాఫ్ట్ తయారు చేయడానికి నొక్కండి.', route: '/business/creations'),
+    AskodoxGuideStep('askodoxCreationSave', 'Check the draft, then save it.', 'డ్రాఫ్ట్ చూసి సేవ్ చేయండి.', route: '/business/creations'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_roles', 'My roles', 'నా పాత్రలు', [], [
+    AskodoxGuideStep('askodoxMyRolesEntry', 'Tap "My roles".', '"నా పాత్రలు" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxRolesPersonal', 'Each role adds its own sections. Keep on only what you really do.', 'ప్రతి పాత్ర దాని విభాగాలు జోడిస్తుంది. మీరు నిజంగా చేసేవే ఉంచండి.', route: '/profile/roles'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_opportunities', 'Opportunities near you', 'మీ దగ్గరి అవకాశాలు', [], [
+    AskodoxGuideStep('profile-opportunities', 'Tap here to see what customers near you are asking for, matched to your roles.', 'మీ పాత్రలకు సరిపడే, మీ దగ్గరి కస్టమర్లు అడుగుతున్నవి చూడడానికి ఇక్కడ నొక్కండి.', route: _p),
+  ], listed: false),
+  AskodoxGuideFlow('screen_partner', 'Delivery & ride partner', 'డెలివరీ & రైడ్ పార్ట్‌నర్', [], [
+    AskodoxGuideStep('askodoxProfileDeliveryOpportunities', 'Tap "Delivery & ride partner".', '"డెలివరీ & రైడ్ పార్ట్‌నర్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('partner-name', 'Fill in your name, your vehicle and the services you give.', 'మీ పేరు, వాహనం, మీరు ఇచ్చే సేవలు నింపండి.', route: '/mobility?tab=3', fill: true),
+    AskodoxGuideStep('partner-apply', 'Tap Apply. Staff review it first.', 'అప్లై నొక్కండి. ముందు స్టాఫ్ రివ్యూ చేస్తారు.', route: '/mobility?tab=3'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_mobility', 'Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్', [], [
+    AskodoxGuideStep('profile-mobility', 'Tap "Rides, parcels & carpool".', '"రైడ్స్, పార్సెల్స్ & కార్‌పూల్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('mobility-from', 'Where from? Type it, use my location or pick on the map.', 'ఎక్కడి నుంచి? టైప్ చేయండి, నా లొకేషన్ లేదా మ్యాప్ వాడండి.', route: '/mobility', fill: true),
+    AskodoxGuideStep('mobility-to', 'Where to?', 'ఎక్కడికి?', route: '/mobility', fill: true),
+    AskodoxGuideStep('mobility-submit', 'Tap "Send request". It is confirmed only when a partner accepts.', '"రిక్వెస్ట్ పంపండి" నొక్కండి. పార్ట్‌నర్ అంగీకరించాకే కన్ఫర్మ్.', route: '/mobility'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_location', 'Location', 'లొకేషన్', [], [
+    AskodoxGuideStep('profile-location', 'Tap "Location".', '"లొకేషన్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxLocationSearch', 'Type your area or a landmark near you.', 'మీ ప్రాంతం లేదా దగ్గరి ల్యాండ్‌మార్క్ టైప్ చేయండి.', route: '/location', fill: true),
+    AskodoxGuideStep('askodoxLocationSearchGo', 'Search, then pick the right place in the list.', 'వెతికి, లిస్ట్‌లో సరైన ప్రాంతం ఎంచుకోండి.', route: '/location'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_notifications', 'Notifications', 'నోటిఫికేషన్స్', [], [
+    AskodoxGuideStep('profile-notifications', 'Tap "Notifications".', '"నోటిఫికేషన్స్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxNotificationsSwitch', 'Switch on to hear when someone replies to you.', 'ఎవరైనా మీకు స్పందించినప్పుడు తెలియడానికి ఆన్ చేయండి.', route: '/settings/notifications'),
+    AskodoxGuideStep('askodoxPushSelfTest', 'Send a test notification to this phone.', 'ఈ ఫోన్‌కు టెస్ట్ నోటిఫికేషన్ పంపండి.', route: '/settings/notifications'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_memory', 'Memory & personalization', 'మెమరీ & వ్యక్తిగతీకరణ', [], [
+    AskodoxGuideStep('askodoxProfileMemoryEntry', 'Tap "Memory & personalization".', '"మెమరీ & వ్యక్తిగతీకరణ" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxMemoryEnabled', 'Choose whether ASKODOX remembers your needs. You can correct or delete anything.', 'ASKODOX మీ అవసరాలు గుర్తుంచుకోవాలో వద్దో ఎంచుకోండి. ఏదైనా సరిచేయొచ్చు, తొలగించొచ్చు.', route: '/profile/memory'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_privacy', 'Privacy & data', 'గోప్యత & డేటా', [], [
+    AskodoxGuideStep('profile-privacy', 'Here you see what is stored, download it or delete your account.', 'ఇక్కడ ఏమి సేవ్ అయిందో చూడొచ్చు, డౌన్‌లోడ్ చేయొచ్చు లేదా ఖాతా తొలగించొచ్చు.', route: _p),
+  ], listed: false),
+  AskodoxGuideFlow('screen_kyc', 'Verification (KYC)', 'ధృవీకరణ (KYC)', [], [
+    AskodoxGuideStep('profile-verification', 'Tap "Verification".', '"ధృవీకరణ" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxKycConsent', 'Read what is checked and give consent first.', 'ఏమి చెక్ చేస్తారో చదివి ముందు అనుమతి ఇవ్వండి.', route: '/verification'),
+    AskodoxGuideStep('askodoxKycAddDocument', 'Add a clear photo of your document.', 'మీ డాక్యుమెంట్ స్పష్టమైన ఫోటో జోడించండి.', route: '/verification'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_plans', 'Plans & subscription', 'ప్లాన్లు & సబ్‌స్క్రిప్షన్', [], [
+    AskodoxGuideStep('profile-plans', 'Tap "Plans".', '"ప్లాన్లు" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxPlansCurrent', 'Your current plan is shown here; compare the others below it.', 'మీ ప్రస్తుత ప్లాన్ ఇక్కడ; కింద మిగతావి పోల్చి చూడండి.', route: '/plans'),
+  ], listed: false),
+  AskodoxGuideFlow('screen_radio', 'Travel Radio', 'ట్రావెల్ రేడియో', [], [
+    AskodoxGuideStep('profile-radio', 'Travel Radio tells you about places on your route. Tap to see the plans.', 'ట్రావెల్ రేడియో మీ దారిలోని ప్రాంతాల గురించి చెబుతుంది. ప్లాన్లు చూడడానికి నొక్కండి.', route: _p),
+  ], listed: false),
+  AskodoxGuideFlow('screen_feedback', 'Report a problem', 'సమస్య చెప్పడం', [], [
+    AskodoxGuideStep('profile-feedback', 'Tap "Report a problem / Send feedback".', '"సమస్య చెప్పండి / ఫీడ్‌బ్యాక్" నొక్కండి.', route: _p),
+    AskodoxGuideStep('askodoxFeedbackDescription', 'Describe what happened. Never type passwords, OTPs or card numbers.', 'ఏమైందో రాయండి. పాస్‌వర్డ్, OTP, కార్డ్ నంబర్లు వద్దు.', route: '/beta-feedback', fill: true),
+    AskodoxGuideStep('askodoxFeedbackSubmit', 'Tap "Submit feedback".', '"ఫీడ్‌బ్యాక్ పంపండి" నొక్కండి.', route: '/beta-feedback'),
+  ], listed: false),
 ];
 
 final _howTo = RegExp(
@@ -306,6 +420,21 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     });
   }
 
+  /// The face's mouth moves while the line is being said (about as long as
+  /// the sentence takes to speak).
+  DateTime _talkingUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  bool get _talking => DateTime.now().isBefore(_talkingUntil);
+
+  /// The face looks toward the highlighted field (unit vector, bubble -> target).
+  Offset _lookDirection(Size size, bool bubbleAtTop) {
+    final r = _rect;
+    if (r == null) return Offset.zero;
+    final from = Offset(40, bubbleAtTop ? 80 : size.height - 140);
+    final d = r.center - from;
+    final len = d.distance;
+    return len < 1 ? Offset.zero : d / len;
+  }
+
   void _speak(AskodoxGuideState s) {
     if (_private) return;
     final line = s.done
@@ -314,6 +443,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     final key = '${s.flow.id}:${s.index}:${s.done}';
     if (_spoken == key) return;
     _spoken = key;
+    _talkingUntil = DateTime.now().add(Duration(milliseconds: 600 + line.length * 70));
     unawaited(ref.read(askodoxGuideSpeakerProvider)(line, _te ? 'te' : 'en'));
   }
 
@@ -398,6 +528,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     final rect = _rect;
     final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (s == null || s.done || rect == null || stack == null || _private) return;
+    if (s.step.fill) return; // typing here: the person taps "Next" when done
     final local = stack.globalToLocal(event.position);
     if (rect.inflate(6).contains(local)) {
       // After the tap's own action runs.
@@ -495,7 +626,23 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 6, 6),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 10, top: 2),
+              child: AnimatedBuilder(
+                animation: _pulse,
+                builder: (context, _) => CustomPaint(
+                  key: const Key('askodoxGuideFace'),
+                  size: const Size(46, 46),
+                  painter: AskodoxGuideFacePainter(
+                    look: _lookDirection(size, atTop),
+                    mouth: _talking ? (0.25 + 0.75 * (_pulse.value * 3 % 1)) : 0.15,
+                    blink: _pulse.value > 0.96,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${s.flow.title(_te)} · ${s.index + 1}/${s.flow.steps.length}',
                 style: const TextStyle(fontSize: 12, color: Color(0xFF6C4DFF), fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
@@ -507,21 +654,63 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
                     key: const Key('askodoxGuideTakeMe'),
                     onPressed: () => _takeMeThere(step.route!),
                     child: Text(_te ? 'అక్కడికి తీసుకెళ్లు' : 'Take me there')),
-              if (!s.done && !s.last)
+              if (!s.done && (!s.last || step.fill))
                 TextButton(
                     key: const Key('askodoxGuideSkip'),
                     onPressed: () => ref.read(askodoxGuideProvider.notifier).advance(),
-                    child: Text(_te ? 'తర్వాతి దశ' : 'Skip step')),
+                    child: Text(step.fill ? (_te ? 'రాశాను, తర్వాత' : 'Done, next') : (_te ? 'తర్వాతి దశ' : 'Skip step'))),
               TextButton(
                   key: const Key('askodoxGuideStop'),
                   onPressed: () => ref.read(askodoxGuideProvider.notifier).stop(),
                   child: Text(s.done ? (_te ? 'మూసివేయండి' : 'Close') : (_te ? 'ఆపండి' : 'Stop'))),
             ]),
+          ])),
           ]),
         ),
       ),
     );
   }
+}
+
+/// The guide's face: eyes that look toward the field being explained and a
+/// mouth that moves while it speaks.
+class AskodoxGuideFacePainter extends CustomPainter {
+  AskodoxGuideFacePainter({required this.look, required this.mouth, required this.blink});
+
+  /// Unit direction the eyes look at.
+  final Offset look;
+
+  /// 0 = closed, 1 = wide open.
+  final double mouth;
+  final bool blink;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2;
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF6C4DFF));
+    canvas.drawCircle(c, r * .86, Paint()..color = const Color(0xFFF1ECFF));
+    for (final dx in [-r * .34, r * .34]) {
+      final eye = c + Offset(dx, -r * .18);
+      if (blink) {
+        canvas.drawLine(eye - Offset(r * .14, 0), eye + Offset(r * .14, 0),
+            Paint()
+              ..color = const Color(0xFF10204A)
+              ..strokeWidth = 2.2
+              ..strokeCap = StrokeCap.round);
+      } else {
+        canvas.drawCircle(eye, r * .17, Paint()..color = Colors.white);
+        canvas.drawCircle(eye + look * (r * .07), r * .095, Paint()..color = const Color(0xFF10204A));
+      }
+    }
+    final open = mouth.clamp(0.0, 1.0);
+    final mouthRect = Rect.fromCenter(center: c + Offset(0, r * .36), width: r * .62, height: r * (.06 + .32 * open));
+    canvas.drawRRect(RRect.fromRectAndRadius(mouthRect, Radius.circular(r * .2)),
+        Paint()..color = const Color(0xFF10204A));
+  }
+
+  @override
+  bool shouldRepaint(AskodoxGuideFacePainter old) => old.look != look || old.mouth != mouth || old.blink != blink;
 }
 
 class _SpotlightPainter extends CustomPainter {
@@ -557,7 +746,7 @@ class AskodoxGuideList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Column(mainAxisSize: MainAxisSize.min, children: [
-        for (final flow in askodoxGuideFlows)
+        for (final flow in askodoxGuideFlows.where((f) => f.listed))
           ListTile(
             key: ValueKey('askodoxGuideStart-${flow.id}'),
             leading: const Icon(Icons.assistant_navigation),
