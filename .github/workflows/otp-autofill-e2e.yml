@@ -113,6 +113,8 @@ jobs:
           adb logcat -d | grep -q "sms_consent.listening step=2" || fail "not listening on the code step"
           sleep 3
           adb emu sms send 5551234 "482915 is your verification code for askodox-81252.firebaseapp.com."
+          # Still no screen reads until the app says the prompt is open.
+          for i in $(seq 1 40); do adb logcat -d | grep -q "sms_consent.prompt" && break; sleep 1; done
           if ! tap_node 'text="Allow"' 30; then
             adb shell content query --uri content://sms/inbox --projection address 2>/dev/null | head -3 | sed 's/^/::warning title=sms inbox::/'
             echo "::warning title=timeline::$(adb logcat -d -v time | grep -E "askodox.auth|SmsRetriever|ConsentPrompt|BoundBrokerSvc.*SmsRetriever|onCreateInlineSuggestionsRequest|Bugle.*Received sms" | grep -v MmsSms | sed -E 's/^[0-9-]+ ([0-9:.]+) [A-Z]\/([A-Za-z]+).*(askodox\.auth |: )/\1 \2 /' | cut -c1-110 | tail -45 | tr '\n' '|')"
