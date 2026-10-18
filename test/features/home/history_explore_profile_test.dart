@@ -301,6 +301,28 @@ void main() {
     final failing = SupportEscalationService(client: MockClient((_) async => http.Response('', 500)));
     expect(await failing.escalate(issue: 'x', category: 'GENERAL', critical: false, conversation: const []), isNull);
   });
+
+  testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
+    for (final id in ['screen_business', 'screen_listings', 'screen_enquiries', 'screen_videos', 'screen_mobility',
+        'screen_notifications', 'screen_feedback']) {
+      final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
+      await tester.ensureVisible(button);
+      await tester.pump();
+      await tester.tap(button);
+      await tester.pump();
+      expect(container.read(askodoxGuideProvider)?.flow.id, id);
+      container.read(askodoxGuideProvider.notifier).stop();
+      await tester.pump();
+    }
+    await tester.ensureVisible(find.byKey(const Key('askodoxProfileGuide')));
+    await tester.tap(find.byKey(const Key('askodoxProfileGuide')));
+    await tester.pump();
+    expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
+    container.read(askodoxGuideProvider.notifier).stop();
+    expect(find.byType(AskodoxNavTile), findsWidgets, reason: 'grid tiles, not long rows');
+  });
 }
 
 
@@ -356,26 +378,3 @@ class _RejectedProfiles extends _Profiles {
 
   @override
   Future<AskodoxUserProfile?> load() async => throw const AskodoxSessionInvalid();
-
-  testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
-    for (final id in ['screen_business', 'screen_listings', 'screen_enquiries', 'screen_videos', 'screen_mobility',
-        'screen_notifications', 'screen_feedback']) {
-      final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
-      await tester.ensureVisible(button);
-      await tester.pump();
-      await tester.tap(button);
-      await tester.pump();
-      expect(container.read(askodoxGuideProvider)?.flow.id, id);
-      container.read(askodoxGuideProvider.notifier).stop();
-      await tester.pump();
-    }
-    await tester.ensureVisible(find.byKey(const Key('askodoxProfileGuide')));
-    await tester.tap(find.byKey(const Key('askodoxProfileGuide')));
-    await tester.pump();
-    expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
-    container.read(askodoxGuideProvider.notifier).stop();
-    expect(find.byType(AskodoxNavTile), findsWidgets, reason: 'grid tiles, not long rows');
-  });
-}
