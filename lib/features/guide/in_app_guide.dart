@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/flags/askodox_remote_flags.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../services/reply_speech_service.dart';
+import '../../shared/widgets/askodox_mascot.dart';
 
 /// ASKODOX Screen Guide INSIDE the app: it points at the real button on the
 /// real screen (dim + spotlight + pulse + arrow), says what to do in Telugu
@@ -420,21 +421,6 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     });
   }
 
-  /// The face's mouth moves while the line is being said (about as long as
-  /// the sentence takes to speak).
-  DateTime _talkingUntil = DateTime.fromMillisecondsSinceEpoch(0);
-  bool get _talking => DateTime.now().isBefore(_talkingUntil);
-
-  /// The face looks toward the highlighted field (unit vector, bubble -> target).
-  Offset _lookDirection(Size size, bool bubbleAtTop) {
-    final r = _rect;
-    if (r == null) return Offset.zero;
-    final from = Offset(40, bubbleAtTop ? 80 : size.height - 140);
-    final d = r.center - from;
-    final len = d.distance;
-    return len < 1 ? Offset.zero : d / len;
-  }
-
   void _speak(AskodoxGuideState s) {
     if (_private) return;
     final line = s.done
@@ -443,7 +429,6 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     final key = '${s.flow.id}:${s.index}:${s.done}';
     if (_spoken == key) return;
     _spoken = key;
-    _talkingUntil = DateTime.now().add(Duration(milliseconds: 600 + line.length * 70));
     unawaited(ref.read(askodoxGuideSpeakerProvider)(line, _te ? 'te' : 'en'));
   }
 
@@ -629,16 +614,19 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(
               padding: const EdgeInsets.only(right: 10, top: 2),
-              child: AnimatedBuilder(
-                animation: _pulse,
-                builder: (context, _) => CustomPaint(
-                  key: const Key('askodoxGuideFace'),
-                  size: const Size(46, 46),
-                  painter: AskodoxGuideFacePainter(
-                    look: _lookDirection(size, atTop),
-                    mouth: _talking ? (0.25 + 0.75 * (_pulse.value * 3 % 1)) : 0.15,
-                    blink: _pulse.value > 0.96,
-                  ),
+              // ASKO from the mascot team: the expression follows the step
+              // (explaining, waiting for typing, lost, done).
+              child: KeyedSubtree(
+                key: const Key('askodoxGuideFace'),
+                child: AskodoxMascot(
+                  mood: s.done
+                      ? AskodoxMascotMood.success
+                      : lost
+                          ? AskodoxMascotMood.confused
+                          : step.fill
+                              ? AskodoxMascotMood.typing
+                              : AskodoxMascotMood.happy,
+                  size: 52,
                 ),
               ),
             ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../shared/widgets/askodox_guided_field.dart';
 
 /// My Business -> Promotions & Coupons: the seller's own offers
 /// (/api/merchant/offers). Every new offer is reviewed by ASKODOX before
@@ -133,21 +134,23 @@ class _OfferFormState extends State<_OfferForm> {
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextField(
-            key: const Key('askodoxOfferTitle'),
+        AskodoxGuidedField(
+            fieldKey: const Key('askodoxOfferTitle'),
             controller: _title,
-            decoration: InputDecoration(labelText: t('Offer title', 'ఆఫర్ పేరు'))),
+            label: t('Offer title', 'ఆఫర్ పేరు'),
+            guide: AskodoxFieldGuides.offerTitle),
         DropdownButtonFormField<String>(
           initialValue: _kind,
           decoration: InputDecoration(labelText: t('Offer type', 'ఆఫర్ రకం')),
           items: [for (final k in BusinessPromotionsScreen.kinds) DropdownMenuItem(value: k, child: Text(k))],
           onChanged: (v) => setState(() => _kind = v ?? _kind),
         ),
-        TextField(
-            key: const Key('askodoxOfferValue'),
+        AskodoxGuidedField(
+            fieldKey: const Key('askodoxOfferValue'),
             controller: _value,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: t('Value (₹ or %)', 'విలువ (₹ లేదా %)'))),
+            keyboardType: TextInputType.text,
+            label: t('Value (₹ or %)', 'విలువ (₹ లేదా %)'),
+            guide: AskodoxFieldGuides.offerValue),
         TextField(
             controller: _description,
             decoration: InputDecoration(labelText: t('Description / terms', 'వివరణ / షరతులు'))),

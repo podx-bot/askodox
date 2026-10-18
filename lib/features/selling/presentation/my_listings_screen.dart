@@ -9,6 +9,7 @@ import '../../home/application/conversation_archive.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../data/catalogue_repository.dart';
 import 'catalogue_widgets.dart';
+import '../../../shared/widgets/askodox_guided_field.dart';
 
 final _listingQueryProvider = StateProvider.autoDispose<String>((ref) => '');
 
@@ -83,11 +84,12 @@ class MyListingsScreen extends ConsumerWidget {
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('${item['subject'] ?? ''}', style: Theme.of(sheet).textTheme.titleMedium),
               const SizedBox(height: 12),
-              TextField(
-                key: const Key('askodoxEditListingPrice'),
+              AskodoxGuidedField(
+                fieldKey: const Key('askodoxEditListingPrice'),
                 controller: price,
                 keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: t('Price (₹)', 'ధర (₹)')),
+                label: t('Price (₹)', 'ధర (₹)'),
+                guide: AskodoxFieldGuides.price,
               ),
               TextField(
                 key: const Key('askodoxEditListingVariant'),

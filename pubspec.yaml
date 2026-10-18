@@ -63,3 +63,4 @@ flutter:
     - assets/mock/catalog.json
     - assets/companion/engine.html
     - assets/companion/human2d/
+    - assets/mascots/

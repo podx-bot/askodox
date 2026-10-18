@@ -10,11 +10,6 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/auth/sign_out.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
-import '../../companion/askodox_companion.dart';
-import '../../companion/companion_floating.dart';
-import '../../companion/companion_hub.dart';
-import '../../companion/companion_picker.dart';
-import '../../companion/screen_guide.dart';
 import '../../home/application/conversation_archive.dart';
 import '../../home/application/saved_options.dart';
 import '../../home/domain/active_role.dart';
@@ -22,6 +17,7 @@ import '../../location/application/location_controller.dart';
 import '../../staff/askodox_staff_access.dart';
 import '../data/user_profile_repository.dart';
 import 'profile_header.dart';
+import '../../../shared/widgets/askodox_mascot.dart';
 import '../../settings/developer_diagnostics_screen.dart';
 import '../../guide/in_app_guide.dart';
 
@@ -193,6 +189,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ]),
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-business'),
+              mascot: AskodoxMascotRole.bizzo,
               grid: true,
               title: t('My Business', 'నా వ్యాపారం'),
               icon: Icons.storefront_rounded,
@@ -230,6 +227,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ]),
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-studio'),
+              mascot: AskodoxMascotRole.studio,
               grid: true,
               title: t('My Studio', 'నా స్టూడియో'),
               icon: Icons.auto_awesome_outlined,
@@ -283,30 +281,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ]),
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-roles'),
+              mascot: AskodoxMascotRole.entro,
               grid: true,
               title: t('Roles & Opportunities', 'పాత్రలు & అవకాశాలు'),
               icon: Icons.badge_outlined,
               children: [
           (Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t('Your roles', 'మీ పాత్రలు'),
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 6),
-                        Text(t(
-                            'One person can be a buyer, seller, service provider or more at the same time.',
-                            'ఒకే వ్యక్తి Buyer, Seller, Service Provider లేదా ఇతర పాత్రల్లో ఒకేసారి ఉండవచ్చు.')),
-                        const SizedBox(height: 12),
                         Builder(builder: (context) {
                           // Held roles are edited here only; the conversation
                           // moves the ACTIVE role, highlighted below.
                           final roles = ref.watch(askodoxRoleProvider);
                           return Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
+                              spacing: 6,
+                              runSpacing: 4,
                               children: [
                                 for (final role in {
                                   ...askodoxProfileRoles,
@@ -314,6 +305,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 })
                                   FilterChip(
                                       key: ValueKey('profileRole-${role.name}'),
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      labelStyle: const TextStyle(fontSize: 12.5),
+                                      padding: const EdgeInsets.symmetric(horizontal: 2),
                                       selected: roles.owned.contains(role),
                                       side: role == roles.active
                                           ? const BorderSide(
@@ -337,7 +332,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       }),
                               ]);
                         }),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 4),
                         // The ACTIVE role changes only when the person picks it
                         // here (or confirms a switch in chat) -- never silently.
                         Builder(builder: (context) {
@@ -402,6 +397,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (signedIn)
             AskodoxNavSection(
                 key: const Key('askodoxProfileSection-account'),
+              mascot: AskodoxMascotRole.entro,
                 grid: true,
                 title: t('Account & plans', 'ఖాతా & ప్లాన్లు'),
                 icon: Icons.verified_user_outlined,
@@ -471,202 +467,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: t('Privacy & data', 'గోప్యత & డేటా'),
                 subtitle: t('See, download or delete your data.', 'మీ డేటా చూడండి, డౌన్‌లోడ్ లేదా తొలగించండి.'),
                 onTap: () => context.push('/privacy')),
-          // How the ASKODOX friend looks (never assumes a gender) and
-          // whether it moves (off = still image, saves battery).
-          KeyedSubtree(key: const Key('askodoxCompanionLook'), child: ExpansionTile(
-                key: const Key('askodoxCompanionSettingsGroup'),
-                leading: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
-                title: Text(t('ASKODOX friend & guide', 'ASKODOX ఫ్రెండ్ & గైడ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(t('Look, movement, floating bubble, screen guide.', 'రూపం, కదలిక, ఫ్లోటింగ్ బబుల్, స్క్రీన్ గైడ్.')),
-                childrenPadding: EdgeInsets.zero,
-                shape: const Border(),
-                collapsedShape: const Border(),
-                children: [Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SwitchListTile(
-                  key: const Key('askodoxCompanionEnabled'),
-                  secondary: const Icon(Icons.smart_toy_outlined, color: Color(0xFF1769FF)),
-                  title: Text(t('ASKODOX friend', 'ASKODOX స్నేహితుడు'),
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(t('Off = plain mic button, no animation.', 'ఆఫ్ = సాధారణ మైక్ బటన్, యానిమేషన్ లేదు.')),
-                  value: ref.watch(askodoxCompanionSettingsProvider).enabled,
-                  onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(enabled: on),
-                ),
-                if (ref.watch(askodoxCompanionSettingsProvider).enabled) ...[
-                AskodoxCompanionPicker(telugu: te),
-                const SizedBox(height: 4),
-                SwitchListTile(
-                  key: const Key('askodoxCompanion3d'),
-                  title: Text(t('3D friend', '3D స్నేహితుడు')),
-                  subtitle: Text(t('Slow phones switch to the Lite robot, then the flat friend, automatically.',
-                      'నెమ్మదైన ఫోన్లలో ఆటోమేటిక్‌గా లైట్ రోబోట్, తర్వాత ఫ్లాట్ స్నేహితుడు.')),
-                  value: ref.watch(askodoxCompanionSettingsProvider).render3d,
-                  onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(render3d: on),
-                ),
-                SwitchListTile(
-                  key: const Key('askodoxCompanionMotion'),
-                  title: Text(t('Friend moves while it works', 'పని చేస్తున్నప్పుడు కదులుతుంది')),
-                  value: ref.watch(askodoxCompanionSettingsProvider).animate,
-                  onChanged: (on) => ref.read(askodoxCompanionSettingsProvider.notifier).update(animate: on),
-                ),
-                if (ref.watch(askodoxCompanionSettingsProvider).companion == AskodoxCompanionSettings.humanHd &&
-                    AskodoxCompanionPerformance.vrmFallback != null)
-                  Padding(
-                    key: const Key('askodoxHumanHdFallbackNotice'),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                        t('Human HD could not run smoothly on this phone (${AskodoxCompanionPerformance.vrmFallback}); '
-                            'the light human is shown this session.',
-                            'ఈ ఫోన్‌లో హ్యూమన్ HD సాఫీగా నడవలేదు (${AskodoxCompanionPerformance.vrmFallback}); '
-                            'ఈ సెషన్‌లో లైట్ హ్యూమన్ చూపిస్తున్నాం.'),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF9A5B00))),
-                  ),
-                SwitchListTile(
-                  key: const Key('askodoxInAppFloating'),
-                  title: Text(t('Floating companion in ASKODOX', 'ASKODOXలో తేలియాడే సహచరుడు')),
-                  subtitle: Text(t(
-                      'Keeps your companion on Explore, Orders and Profile. Drag it anywhere; it snaps to the side '
-                          'and remembers where you left it.',
-                      'ఎక్స్‌ప్లోర్, ఆర్డర్లు, ప్రొఫైల్‌లో కూడా మీ సహచరుడు ఉంటారు. ఎక్కడికైనా లాగండి; పక్కకు అతుక్కుంటారు, '
-                          'మీరు వదిలిన చోటు గుర్తుంచుకుంటారు.')),
-                  value: ref.watch(askodoxInAppFloatProvider).enabled,
-                  onChanged: (on) => ref.read(askodoxInAppFloatProvider.notifier).setEnabled(on),
-                ),
-                Builder(builder: (context) {
-                  final bubble = ref.watch(askodoxBubbleProvider);
-                  final caps = ref.watch(companionCapabilitiesProvider).valueOrNull ?? const <String, bool>{};
-                  if (!companionAllows(caps, 'floating_bubble')) {
-                    // Switched off by ASKODOX (e.g. a platform policy change): the bubble
-                    // stops; everything else keeps working.
-                    if (bubble == AskodoxBubbleState.enabled) {
-                      Future.microtask(() => ref.read(askodoxBubbleProvider.notifier).disable());
-                    }
-                    return ListTile(
-                      key: const Key('askodoxFloatingBubbleUnavailable'),
-                      leading: const Icon(Icons.bubble_chart_outlined),
-                      title: Text(t('Floating ASKODOX bubble', 'తేలియాడే ASKODOX బబుల్')),
-                      subtitle: Text(t('Not available right now. ASKODOX works normally.',
-                          'ప్రస్తుతం అందుబాటులో లేదు. ASKODOX యథావిధిగా పనిచేస్తుంది.')),
-                    );
-                  }
-                  return SwitchListTile(
-                    key: const Key('askodoxFloatingBubble'),
-                    title: Text(t('Floating ASKODOX bubble', 'తేలియాడే ASKODOX బబుల్')),
-                    subtitle: Text(switch (bubble) {
-                      AskodoxBubbleState.needsPermission => t(
-                          'Allow "Display over other apps" for ASKODOX, then come back.',
-                          'ASKODOX కి "ఇతర యాప్‌లపై చూపించు" అనుమతి ఇచ్చి తిరిగి రండి.'),
-                      AskodoxBubbleState.unsupported =>
-                        t('Not available on this Android version.', 'ఈ Android వెర్షన్‌లో అందుబాటులో లేదు.'),
-                      _ => t(
-                          'A small bubble over other apps -- tap it to come back to ASKODOX. It never listens or '
-                              'reads your screen. Android shows a notification while it is on.',
-                          'ఇతర యాప్‌లపై చిన్న బబుల్ -- నొక్కితే ASKODOX కి తిరిగి వస్తారు. ఇది వినదు, స్క్రీన్ చదవదు. '
-                              'ఆన్‌లో ఉన్నప్పుడు Android నోటిఫికేషన్ చూపిస్తుంది.'),
-                    }),
-                    value: bubble == AskodoxBubbleState.enabled || bubble == AskodoxBubbleState.needsPermission,
-                    onChanged: (on) => on
-                        ? ref.read(askodoxBubbleProvider.notifier).enable()
-                        : ref.read(askodoxBubbleProvider.notifier).disable(),
-                  );
-                }),
-                ListTile(
-                  key: const Key('askodoxScreenGuideEntry'),
-                  leading: const Icon(Icons.assistant_navigation),
-                  title: Text(t('Screen Guide (beta)', 'స్క్రీన్ గైడ్ (బీటా)')),
-                  subtitle: Text(t('Step-by-step help in other apps. You press every button; pauses on private screens.',
-                      'ఇతర యాప్‌లలో దశలవారీ సహాయం. ప్రతి బటన్ మీరే నొక్కుతారు; ప్రైవేట్ స్క్రీన్‌లలో ఆగుతుంది.')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/companion/screen-guide'),
-                ),
-                ListTile(
-                  key: const Key('askodoxCompanionPerformance'),
-                  leading: const Icon(Icons.speed_rounded),
-                  title: Text(t('Companion performance', 'సహచరుడి పనితీరు')),
-                  subtitle: Text(t('Frames, memory, battery and startup on this phone.',
-                      'ఈ ఫోన్‌లో ఫ్రేమ్‌లు, మెమరీ, బ్యాటరీ, స్టార్ట్‌అప్.')),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/companion-performance'),
-                ),
-                ],
-              ])])),
-          (Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(children: [
-                          const Icon(Icons.system_update_alt_rounded,
-                              color: Color(0xFF1769FF)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: Text(t('App Update', 'యాప్ అప్డేట్'),
-                                  style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900)))
-                        ]),
-                        const SizedBox(height: 8),
-                        Text(t(
-                            'Check and install the latest signed ASKODOX build without reinstalling manually.',
-                            'Manual reinstall లేకుండా తాజా signed ASKODOX buildని చెక్ చేసి install చేయండి.')),
-                        if (_message != null) ...[
-                          const SizedBox(height: 10),
-                          Text(_message!)
-                        ],
-                        if (_installing) ...[
-                          const SizedBox(height: 10),
-                          LinearProgressIndicator(value: _progress)
-                        ],
-                        const SizedBox(height: 12),
-                        if (_update == null)
-                          FilledButton.icon(
-                              onPressed: _checking ? null : _checkUpdate,
-                              icon: _checking
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2))
-                                  : const Icon(Icons.refresh_rounded),
-                              label: Text(
-                                  t('Check for Update', 'అప్డేట్ చెక్ చేయండి')))
-                        else
-                          FilledButton.icon(
-                              onPressed: _installing ? null : _install,
-                              icon: const Icon(Icons.download_rounded),
-                              label: Text(t('Download & Install',
-                                  'డౌన్‌లోడ్ & ఇన్‌స్టాల్'))),
-                      ]))),
-          if (askodoxDiagnosticsAllowed)
-            AskodoxNavRow(
-                key: const Key('askodoxDeveloperDiagnosticsEntry'),
-                icon: Icons.developer_mode_rounded,
-                title: t('Developer Diagnostics', 'డెవలపర్ డయాగ్నస్టిక్స్'),
-                subtitle: t('FCM token and Installation ID (development builds only).',
-                    'FCM టోకెన్, ఇన్‌స్టాలేషన్ ID (డెవలప్‌మెంట్ బిల్డ్‌లలో మాత్రమే).'),
-                onTap: () => context.push('/settings/diagnostics')),
-          // Sign out: always the LAST item of Settings & Privacy (same flow as
-          // the side menu's Logout).
-          if (ref.watch(authSessionProvider).user != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: OutlinedButton.icon(
-                key: const Key('askodoxProfileSignOut'),
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB42318),
-                    side: const BorderSide(color: Color(0xFFB42318)),
-                    minimumSize: const Size.fromHeight(48)),
-                icon: const Icon(Icons.logout_rounded),
-                label: Text(t('Sign out', 'సైన్ అవుట్'), style: const TextStyle(fontWeight: FontWeight.w800)),
-                onPressed: () async {
-                  if (await askodoxConfirmSignOut(context, te: te) && context.mounted) {
-                    await askodoxSignOut(ref, restartFrom: context);
-                  }
-                },
-              ),
-            ),
               ]),
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-help'),
+              mascot: AskodoxMascotRole.suppo,
               grid: true,
               title: t('Help & Support', 'సహాయం & సపోర్ట్'),
               icon: Icons.support_agent_rounded,
@@ -749,9 +553,89 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       }
                     })),
               ]),
+          AskodoxNavSection(
+              key: const Key('askodoxProfileSection-app'),
+              title: t('App', 'యాప్'),
+              icon: Icons.system_update_alt_rounded,
+              children: [
+          (Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(children: [
+                          const Icon(Icons.system_update_alt_rounded,
+                              color: Color(0xFF1769FF)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: Text(t('App Update', 'యాప్ అప్డేట్'),
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900)))
+                        ]),
+                        const SizedBox(height: 8),
+                        Text(t(
+                            'Check and install the latest signed ASKODOX build without reinstalling manually.',
+                            'Manual reinstall లేకుండా తాజా signed ASKODOX buildని చెక్ చేసి install చేయండి.')),
+                        if (_message != null) ...[
+                          const SizedBox(height: 10),
+                          Text(_message!)
+                        ],
+                        if (_installing) ...[
+                          const SizedBox(height: 10),
+                          LinearProgressIndicator(value: _progress)
+                        ],
+                        const SizedBox(height: 12),
+                        if (_update == null)
+                          FilledButton.icon(
+                              onPressed: _checking ? null : _checkUpdate,
+                              icon: _checking
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2))
+                                  : const Icon(Icons.refresh_rounded),
+                              label: Text(
+                                  t('Check for Update', 'అప్డేట్ చెక్ చేయండి')))
+                        else
+                          FilledButton.icon(
+                              onPressed: _installing ? null : _install,
+                              icon: const Icon(Icons.download_rounded),
+                              label: Text(t('Download & Install',
+                                  'డౌన్‌లోడ్ & ఇన్‌స్టాల్'))),
+                      ]))),
+          if (askodoxDiagnosticsAllowed)
+            AskodoxNavRow(
+                key: const Key('askodoxDeveloperDiagnosticsEntry'),
+                icon: Icons.developer_mode_rounded,
+                title: t('Developer Diagnostics', 'డెవలపర్ డయాగ్నస్టిక్స్'),
+                subtitle: t('FCM token and Installation ID (development builds only).',
+                    'FCM టోకెన్, ఇన్‌స్టాలేషన్ ID (డెవలప్‌మెంట్ బిల్డ్‌లలో మాత్రమే).'),
+                onTap: () => context.push('/settings/diagnostics')),
+          // Sign out: always the LAST item of Profile (same flow as the side
+          // menu's Logout).
+          if (ref.watch(authSessionProvider).user != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: OutlinedButton.icon(
+                key: const Key('askodoxProfileSignOut'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB42318),
+                    side: const BorderSide(color: Color(0xFFB42318)),
+                    minimumSize: const Size.fromHeight(48)),
+                icon: const Icon(Icons.logout_rounded),
+                label: Text(t('Sign out', 'సైన్ అవుట్'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                onPressed: () async {
+                  if (await askodoxConfirmSignOut(context, te: te) && context.mounted) {
+                    await askodoxSignOut(ref, restartFrom: context);
+                  }
+                },
+              ),
+            ),
+              ]),
         ]),
       ),
     );
   }
-
 }

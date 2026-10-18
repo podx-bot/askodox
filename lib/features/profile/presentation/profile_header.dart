@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
+import '../../../shared/widgets/askodox_guided_field.dart';
 import '../data/user_profile_repository.dart';
 
 /// The top of Profile: the signed-in user's OWN stored data (photo, name,
@@ -333,13 +334,13 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(_t('Edit profile', 'ప్రొఫైల్ మార్చండి'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              TextField(key: const Key('askodoxEditName'), controller: _name,
-                  decoration: InputDecoration(labelText: _t('Name', 'పేరు'))),
-              TextField(key: const Key('askodoxEditAddress'), controller: _address,
-                  decoration: InputDecoration(labelText: _t('Address', 'చిరునామా'))),
-              TextField(key: const Key('askodoxEditEmail'), controller: _email,
+              AskodoxGuidedField(fieldKey: const Key('askodoxEditName'), controller: _name,
+                  label: _t('Name', 'పేరు'), guide: AskodoxFieldGuides.name),
+              AskodoxGuidedField(fieldKey: const Key('askodoxEditAddress'), controller: _address,
+                  label: _t('Address (town, area)', 'చిరునామా (ఊరు, ప్రాంతం)'), guide: AskodoxFieldGuides.town),
+              AskodoxGuidedField(fieldKey: const Key('askodoxEditEmail'), controller: _email,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(labelText: _t('E-mail (optional)', 'ఈ-మెయిల్ (ఐచ్ఛికం)'))),
+                  label: _t('E-mail (optional)', 'ఈ-మెయిల్ (ఐచ్ఛికం)'), guide: AskodoxFieldGuides.email),
               for (final e in _links.entries)
                 TextField(key: ValueKey('askodoxEditLink-${e.key}'), controller: e.value,
                     decoration: InputDecoration(
@@ -349,13 +350,14 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
                           _ => 'Instagram (https://…)',
                         })),
               if (widget.business) ...[
-                TextField(key: const Key('askodoxEditShop'), controller: _shop,
-                    decoration: InputDecoration(labelText: _t('Business / shop name', 'వ్యాపారం / షాప్ పేరు'))),
-                TextField(controller: _shopAddress,
-                    decoration: InputDecoration(labelText: _t('Shop address', 'షాప్ చిరునామా'))),
-                TextField(controller: _category,
-                    decoration: InputDecoration(labelText: _t('Category / service', 'విభాగం / సర్వీస్'))),
-                TextField(controller: _gstin, decoration: const InputDecoration(labelText: 'GSTIN (optional)')),
+                AskodoxGuidedField(fieldKey: const Key('askodoxEditShop'), controller: _shop,
+                    label: _t('Business / shop name', 'వ్యాపారం / షాప్ పేరు'), guide: AskodoxFieldGuides.shopName),
+                AskodoxGuidedField(fieldKey: const Key('askodoxEditShopAddress'), controller: _shopAddress,
+                    label: _t('Shop address', 'షాప్ చిరునామా'), guide: AskodoxFieldGuides.shopAddress),
+                AskodoxGuidedField(fieldKey: const Key('askodoxEditCategory'), controller: _category,
+                    label: _t('Category / service', 'విభాగం / సర్వీస్'), guide: AskodoxFieldGuides.category),
+                AskodoxGuidedField(fieldKey: const Key('askodoxEditGstin'), controller: _gstin,
+                    label: 'GSTIN (optional)', guide: AskodoxFieldGuides.gstin),
               ],
               for (final r in _roleFields.entries) ...[
                 const SizedBox(height: 14),

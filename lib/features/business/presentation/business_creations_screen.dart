@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../shared/widgets/askodox_guided_field.dart';
 
 /// My Business -> My Creations: posts, descriptions, offer / catalogue /
 /// poster text and reel scripts -- written by the owner or drafted by AI from
@@ -256,12 +257,13 @@ class _ComposerState extends State<_Composer> {
             onChanged: (v) => setState(() => _kind = v ?? _kind),
           ),
           if (widget.ai) ...[
-            TextField(
-                key: const Key('askodoxCreationAbout'),
+            AskodoxGuidedField(
+                fieldKey: const Key('askodoxCreationAbout'),
                 controller: _about,
                 maxLines: 3,
-                decoration: InputDecoration(
-                    labelText: _t('Your facts (product, price, offer, place...)', 'మీ వివరాలు (ఉత్పత్తి, ధర, ఆఫర్...)'))),
+                minLines: 2,
+                label: _t('Your facts (product, price, offer, place...)', 'మీ వివరాలు (ఉత్పత్తి, ధర, ఆఫర్...)'),
+                guide: AskodoxFieldGuides.facts),
             const SizedBox(height: 8),
             OutlinedButton(
               key: const Key('askodoxCreationDraft'),
