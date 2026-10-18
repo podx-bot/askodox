@@ -384,10 +384,28 @@ void main() {
     await _dispose(tester);
   });
 
+  testWidgets('after a crash inside an SMS receiver the prompt is not used again (no crash loop); typing works',
+      (tester) async {
+    final api = _api(firebase: true);
+    final sms = FakeSmsSource()
+      ..lastCrash = 'type=RuntimeException root=NullPointerException thread=main '
+          'at=Matcher.reset:386;Matcher.<init>:210;Pattern.matcher:983;zzafu.zza:120;zzafy.onReceive:40';
+    final phone = FakePhoneAuth();
+    await _pumpApp(tester, api, phoneAuth: phone, sms: sms);
+    await _sendCode(tester, '9876543210');
+    await tester.pump(const Duration(seconds: 1));
+    await _settle(tester);
+    expect(sms.starts, 0, reason: 'SMS prompt switched off on this phone after that crash');
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'askodox-otp-focus');
+    await _enterCode(tester, '123456');
+    expect(phone.confirmed, [('vid-1', '123456')]);
+    await _dispose(tester);
+  });
+
   group('OTP autofill (Android SMS User Consent)', () {
     String? focused() => FocusManager.instance.primaryFocus?.debugLabel;
 
-    testWidgets('listener starts BEFORE the code is requested; the SMS code fills the field and verifies once',
+    testWidgets('Firebase path: prompt only once the code step is open; the SMS code fills the field and verifies once',
         (tester) async {
       final api = _api(firebase: true);
       final sms = FakeSmsSource();
@@ -396,9 +414,12 @@ void main() {
       final watching = _WatchingPhoneAuth(phone, () => startsWhenRequested = sms.starts);
       await _pumpApp(tester, api, phoneAuth: watching, sms: sms);
       await _sendCode(tester, '9876543210');
-      expect(startsWhenRequested, 1, reason: 'listening before Firebase can send the SMS');
+      expect(startsWhenRequested, 0, reason: 'not while Firebase is still working (its own SMS receiver crashed on the consent broadcast)');
       expect(find.byKey(const ValueKey('otp-input')), findsOneWidget);
       expect(focused(), 'askodox-otp-focus', reason: 'keyboard up for the code (Gboard SMS suggestion)');
+      await tester.pump(const Duration(seconds: 1));
+      await _settle(tester);
+      expect(sms.starts, 1, reason: 'listening once the code field has focus');
 
       sms.emit('prompt');
       sms.emit('code', '482915');

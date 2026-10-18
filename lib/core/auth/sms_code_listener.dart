@@ -99,3 +99,8 @@ Map<String, String> askodoxCrashFields(String record) {
   }
   return out;
 }
+
+/// A crash inside an SMS broadcast receiver (APK 1339: Firebase's own receiver,
+/// `Pattern.matcher` on a missing message in `onReceive`).
+bool askodoxCrashFromSmsReceiver(String record) =>
+    record.contains('Pattern.matcher') || record.contains('onReceive') || record.contains('AskodoxSmsConsent');

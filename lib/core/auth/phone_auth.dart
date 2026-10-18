@@ -182,7 +182,12 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: e164,
       forceResendingToken: resendToken,
-      timeout: const Duration(seconds: 60),
+      // 0 = Firebase's own SMS auto-retrieval OFF. Its internal SMS receiver
+      // crashed the app (APK 1339: NullPointerException in Pattern.matcher
+      // inside Firebase's onReceive) when Android delivered the SMS User
+      // Consent broadcast, which carries no message text. The code is read
+      // by ASKODOX's consent prompt / the keyboard instead.
+      timeout: Duration.zero,
       verificationCompleted: (credential) async {
         try {
           final user = (await FirebaseAuth.instance.signInWithCredential(credential)).user;
