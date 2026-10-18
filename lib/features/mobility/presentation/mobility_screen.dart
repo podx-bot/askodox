@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../application/mobility_draft.dart';
 import '../data/mobility_repository.dart';
 import 'place_field.dart';
+import '../../../shared/widgets/askodox_guided_field.dart';
 
 /// Rides, parcels, carpool and the partner (driver / delivery) workspace --
 /// one screen on top of ONE backend (`/api/delivery`). Every status shown is
@@ -900,7 +901,7 @@ class _PartnerTabState extends ConsumerState<_PartnerTab> {
   }
 
   Widget _form({bool update = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        TextField(key: const ValueKey('partner-name'), controller: _name, decoration: InputDecoration(labelText: t('Your name', 'మీ పేరు'))),
+        AskodoxGuidedField(fieldKey: const ValueKey('partner-name'), controller: _name, label: t('Your name', 'మీ పేరు'), guide: AskodoxFieldGuides.name),
         const SizedBox(height: 8),
         Text(t('Services you can do', 'మీరు చేయగల సర్వీసులు')),
         Wrap(spacing: 6, children: [

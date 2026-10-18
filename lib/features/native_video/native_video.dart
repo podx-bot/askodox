@@ -8,6 +8,7 @@ import '../../core/api/api_models.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../services/media_picker.dart';
 import 'video_commerce.dart';
+import '../../shared/widgets/askodox_guided_field.dart';
 
 /// ASKODOX-native videos: record or pick a video, add a title / caption /
 /// category / product, upload, and staff review it before anyone sees it.
@@ -298,8 +299,8 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
             if (_bytes != null)
               Text('${_fileName.isEmpty ? 'video' : _fileName} · ${(_bytes!.length / (1024 * 1024)).toStringAsFixed(1)} MB',
                   key: const ValueKey('video-picked')),
-            TextField(key: const ValueKey('video-title'), controller: _title, maxLength: 140,
-                decoration: InputDecoration(labelText: t('Title', 'టైటిల్'))),
+            AskodoxGuidedField(fieldKey: const ValueKey('video-title'), controller: _title, maxLength: 140,
+                label: t('Title', 'టైటిల్'), guide: AskodoxFieldGuides.videoTitle),
             TextField(controller: _caption, maxLines: 3, decoration: InputDecoration(labelText: t('Caption', 'క్యాప్షన్'))),
             TextField(controller: _category, decoration: InputDecoration(labelText: t('Category (e.g. kitchen)', 'కేటగిరీ'))),
             TextField(controller: _products,

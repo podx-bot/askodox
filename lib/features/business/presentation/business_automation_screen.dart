@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../shared/widgets/askodox_guided_field.dart';
 
 /// My Business -> Conversations & Automation (and Business settings): auto
 /// replies from the seller's APPROVED answers only, handover words, business
@@ -137,14 +138,18 @@ class _BusinessAutomationScreenState extends ConsumerState<BusinessAutomationScr
       builder: (dialog) => AlertDialog(
         title: Text(_t('Approved answer', 'ఆమోదించిన జవాబు')),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-              key: const Key('askodoxAutoFaqTopic'),
+          AskodoxGuidedField(
+              fieldKey: const Key('askodoxAutoFaqTopic'),
               controller: topic,
-              decoration: InputDecoration(labelText: _t('Customer asks about (e.g. delivery)', 'కస్టమర్ అడిగేది'))),
-          TextField(
-              key: const Key('askodoxAutoFaqAnswer'),
+              label: _t('Customer asks', 'కస్టమర్ అడిగేది'),
+              guide: AskodoxFieldGuides.faqTopic),
+          AskodoxGuidedField(
+              fieldKey: const Key('askodoxAutoFaqAnswer'),
               controller: answer,
-              decoration: InputDecoration(labelText: _t('Your answer', 'మీ జవాబు'))),
+              maxLines: 3,
+              minLines: 1,
+              label: _t('Your answer', 'మీ జవాబు'),
+              guide: AskodoxFieldGuides.faqAnswer),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(_t('Cancel', 'రద్దు'))),
