@@ -70,7 +70,7 @@ String askodoxCallName(AskodoxRelation relation, {required bool telugu}) {
 String askodoxGreeting(AskodoxRelation relation, {required bool telugu}) =>
     telugu ? 'హాయ్ ${askodoxCallName(relation, telugu: true)}!' : 'Hi ${askodoxCallName(relation, telugu: false)}!';
 
-/// A guide line addressed to the person: "అన్నయ్యా, <line>".
+/// A guide line addressed to the person: "అన్నయ్యా, `line`".
 String askodoxAddressed(String line, AskodoxRelation relation, {required bool telugu}) {
   var rest = line;
   // English: "Anna, the discount ..." (keep "I", "ASKO", "GSTIN" as written).

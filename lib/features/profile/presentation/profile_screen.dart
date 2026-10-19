@@ -15,7 +15,6 @@ import '../../home/application/saved_options.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
 import '../../staff/askodox_staff_access.dart';
-import '../data/user_profile_repository.dart';
 import 'profile_header.dart';
 import 'role_switcher.dart';
 import '../../../shared/widgets/askodox_mascot.dart';
