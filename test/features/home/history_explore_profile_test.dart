@@ -398,7 +398,10 @@ void main() {
   });
 
   testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    // Business tiles belong to the seller role (sections follow the active role).
+    SharedPreferences.setMockInitialValues({
+      'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'seller'], 'active': 'seller'}),
+    });
     final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
     for (final id in ['screen_business', 'screen_listings', 'screen_enquiries', 'screen_videos', 'screen_mobility',
         'screen_notifications', 'screen_feedback']) {
