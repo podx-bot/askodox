@@ -5,10 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
-import '../../home/application/conversation_archive.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../data/catalogue_repository.dart';
 import 'catalogue_widgets.dart';
+import 'sell_sheet.dart';
 import '../../../shared/widgets/askodox_guided_field.dart';
 
 final _listingQueryProvider = StateProvider.autoDispose<String>((ref) => '');
@@ -246,10 +246,18 @@ class MyListingsScreen extends ConsumerWidget {
       ]),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('askodoxAddListing'),
-        onPressed: () {
-          ref.read(askodoxChatRequestProvider.notifier).state =
-              AskodoxChatRequest.ask(t('I want to sell', 'నేను అమ్మాలి'));
-          context.go('/');
+        // In place: a draft sheet on this screen (never a jump to chat);
+        // a listing exists only after the seller's explicit "Yes, publish".
+        onPressed: () async {
+          final listingId = await showAskodoxSellSheet(context);
+          if (listingId != null) {
+            ref.invalidate(_myListingsProvider);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  key: const Key('askodoxSellPublished'),
+                  content: Text(t('Listed. Buyers can now find it.', 'లిస్ట్ అయింది. కొనుగోలుదారులకు కనిపిస్తుంది.'))));
+            }
+          }
         },
         icon: const Icon(Icons.add_rounded),
         label: Text(t('Sell something', 'ఏదైనా అమ్మండి')),

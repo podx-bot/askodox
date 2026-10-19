@@ -10,6 +10,8 @@ import '../../../core/providers/backend_providers.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
 import '../../../shared/widgets/askodox_guided_field.dart';
+import '../../../shared/widgets/askodox_mascot.dart';
+import '../../companion/relationship.dart';
 import '../data/user_profile_repository.dart';
 
 /// The top of Profile: the signed-in user's OWN stored data (photo, name,
@@ -170,39 +172,49 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
     final roles = ref.watch(askodoxRoleProvider).owned;
     final sells = roles.any(askodoxSupplyRoles.contains) || profile.businessName != null;
     final place = profile.address ?? ref.watch(locationControllerProvider).displayLocation;
+    final active = ref.watch(askodoxRoleProvider).active;
+    final relation = ref.watch(askodoxRelationProvider);
     return Card(
       key: const Key('askodoxProfileHeader'),
       elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Compact: photo, name, current role, verified phone.
           Row(children: [
             GestureDetector(
               key: const Key('askodoxProfilePhoto'),
               onTap: _changePhoto,
               child: Stack(children: [
                 CircleAvatar(
-                  radius: 38,
+                  radius: 28,
                   backgroundImage: photo,
-                  child: photo == null ? const Icon(Icons.person_rounded, size: 38) : null,
+                  child: photo == null ? const Icon(Icons.person_rounded, size: 28) : null,
                 ),
                 const Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: CircleAvatar(radius: 12, child: Icon(Icons.camera_alt_rounded, size: 14)),
+                  right: -2,
+                  bottom: -2,
+                  child: CircleAvatar(radius: 10, child: Icon(Icons.camera_alt_rounded, size: 12)),
                 ),
               ]),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(profile.name ?? _t('Add your name', 'మీ పేరు ఇవ్వండి'),
                     key: const Key('askodoxProfileName'),
-                    style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
-                if (profile.mobile != null)
-                  Text(profile.mobile!, key: const Key('askodoxProfileMobile'),
-                      style: const TextStyle(color: Color(0xFF64748B))),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 2),
+                Text(askodoxUserRoleLabel(active, telugu: widget.telugu),
+                    key: const Key('askodoxProfileActiveRole'),
+                    style: const TextStyle(color: Color(0xFF1769FF), fontWeight: FontWeight.w800, fontSize: 13)),
               ]),
+            ),
+            Tooltip(
+              message: askodoxGreeting(relation, telugu: widget.telugu),
+              child: const AskodoxMascot(size: 34),
             ),
             IconButton(
               key: const Key('askodoxProfileEdit'),
@@ -211,41 +223,186 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
               onPressed: () => _edit(profile),
             ),
           ]),
-          const SizedBox(height: 10),
-          _row(Icons.home_outlined, _t('Address', 'చిరునామా'), place, key: const Key('askodoxProfileAddress')),
-          _row(Icons.translate_rounded, _t('Language', 'భాష'), switch (profile.language) {
-            'te' => 'తెలుగు',
-            'hi' => 'हिन्दी',
-            'en' => 'English',
-            'or' => 'ଓଡ଼ିଆ',
-            _ => null,
-          }),
-          _row(Icons.badge_outlined, _t('Roles', 'పాత్రలు'),
-              roles.isEmpty ? null : roles.map((r) => askodoxUserRoleLabel(r, telugu: widget.telugu)).join(', ')),
-          if (sells) ...[
-            const Divider(),
-            _row(Icons.storefront_outlined, _t('Business', 'వ్యాపారం'), profile.businessName,
-                key: const Key('askodoxProfileBusiness')),
-            _row(Icons.place_outlined, _t('Shop address', 'షాప్ చిరునామా'), profile.businessAddress),
-            _row(Icons.category_outlined, _t('Category', 'విభాగం'), profile.businessCategory),
-            _row(
-              Icons.verified_outlined,
-              _t('Verification', 'ధృవీకరణ'),
-              switch (profile.verificationStatus) {
-                'business_verified' => _t('GSTIN on file (business)', 'GSTIN ఉంది (వ్యాపారం)'),
-                'unverified' => _t('Not verified yet', 'ఇంకా ధృవీకరించలేదు'),
-                _ => null,
-              },
-              key: const Key('askodoxProfileVerification'),
+          // Everything else only on demand.
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('askodoxPersonalDetails'),
+              tilePadding: const EdgeInsets.only(right: 8),
+              childrenPadding: const EdgeInsets.only(right: 8, bottom: 6),
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              title: Text(_t('Personal details', 'వ్యక్తిగత వివరాలు'),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              children: [
+                if (profile.mobile != null)
+                  _row(Icons.phone_iphone_rounded, _t('Phone', 'ఫోన్'), '${profile.mobile!}  ✓ ${_t('verified', 'ధృవీకరించబడింది')}',
+                      key: const Key('askodoxProfileMobile')),
+                _row(Icons.mail_outline_rounded, _t('E-mail', 'ఈ-మెయిల్'), profile.email),
+                _row(Icons.home_outlined, _t('Address', 'చిరునామా'), place, key: const Key('askodoxProfileAddress')),
+                for (final (i, d) in profile.deliveryAddresses.indexed)
+                  Row(key: ValueKey('askodoxDeliveryAddress-$i'), children: [
+                    Expanded(
+                      child: _row(Icons.local_shipping_outlined,
+                          d['label']!.isEmpty ? _t('Delivery', 'డెలివరీ') : d['label']!, d['address']),
+                    ),
+                    IconButton(
+                      key: ValueKey('askodoxDeliveryAddressRemove-$i'),
+                      tooltip: _t('Remove', 'తీసేయండి'),
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () => _removeDeliveryAddress(profile, i),
+                    ),
+                  ]),
+                if (profile.deliveryAddresses.length < 5)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('askodoxAddDeliveryAddress'),
+                      icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                      label: Text(_t('Add a delivery address', 'డెలివరీ చిరునామా జోడించండి')),
+                      onPressed: () => _addDeliveryAddress(profile),
+                    ),
+                  ),
+                _row(Icons.translate_rounded, _t('Language', 'భాష'), switch (profile.language) {
+                  'te' => 'తెలుగు',
+                  'hi' => 'हिन्दी',
+                  'en' => 'English',
+                  'or' => 'ଓଡ଼ିଆ',
+                  _ => null,
+                }),
+                InkWell(
+                  key: const Key('askodoxRelationPicker'),
+                  onTap: _pickRelation,
+                  child: _row(Icons.favorite_border_rounded, _t('ASKO calls you', 'ASKO మిమ్మల్ని పిలిచేది'),
+                      askodoxCallName(relation, telugu: widget.telugu)),
+                ),
+                if (sells) ...[
+                  const Divider(),
+                  _row(Icons.storefront_outlined, _t('Business', 'వ్యాపారం'), profile.businessName,
+                      key: const Key('askodoxProfileBusiness')),
+                  _row(Icons.place_outlined, _t('Shop address', 'షాప్ చిరునామా'), profile.businessAddress),
+                  _row(Icons.category_outlined, _t('Category', 'విభాగం'), profile.businessCategory),
+                  _row(
+                    Icons.verified_outlined,
+                    _t('Verification', 'ధృవీకరణ'),
+                    switch (profile.verificationStatus) {
+                      'business_verified' => _t('GSTIN on file (business)', 'GSTIN ఉంది (వ్యాపారం)'),
+                      'unverified' => _t('Not verified yet', 'ఇంకా ధృవీకరించలేదు'),
+                      _ => null,
+                    },
+                    key: const Key('askodoxProfileVerification'),
+                  ),
+                  if (profile.listings > 0)
+                    _row(Icons.inventory_2_outlined, _t('Listings', 'లిస్టింగ్‌లు'), '${profile.listings}'),
+                ],
+              ],
             ),
-            if (profile.listings > 0)
-              _row(Icons.inventory_2_outlined, _t('Listings', 'లిస్టింగ్‌లు'), '${profile.listings}'),
-          ],
+          ),
           if (_message != null)
             Text(_message!, style: const TextStyle(color: Color(0xFFB42318))),
         ]),
       ),
     );
+  }
+
+  /// ASKO's way of calling this person (one character; only the address changes).
+  Future<void> _pickRelation() async {
+    final current = ref.read(askodoxRelationProvider);
+    final picked = await showModalBottomSheet<AskodoxRelation>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const AskodoxMascot(size: 44),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(_t('How should ASKO call you?', 'ASKO మిమ్మల్ని ఎలా పిలవాలి?'),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final r in AskodoxRelation.values)
+                ChoiceChip(
+                  key: ValueKey('askodoxRelation-${r.name}'),
+                  selected: r == current,
+                  label: Text(widget.telugu ? askodoxRelations[r]!.labelTe : askodoxRelations[r]!.labelEn),
+                  onSelected: (_) => Navigator.pop(sheet, r),
+                ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+    if (picked != null) await ref.read(askodoxRelationProvider.notifier).choose(picked);
+  }
+
+  Future<bool> _confirm(String question) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          content: Text(question),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(_t('Cancel', 'రద్దు'))),
+            FilledButton(
+                key: const Key('askodoxConfirmYes'),
+                onPressed: () => Navigator.pop(dialog, true),
+                child: Text(_t('Yes, save', 'అవును, సేవ్ చేయండి'))),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _addDeliveryAddress(AskodoxUserProfile profile) async {
+    final label = TextEditingController();
+    final address = TextEditingController();
+    final add = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(sheet).bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(_t('Add a delivery address', 'డెలివరీ చిరునామా జోడించండి'),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          AskodoxGuidedField(
+              fieldKey: const Key('askodoxDeliveryLabel'),
+              controller: label,
+              label: _t('Name for it', 'దానికి పేరు'),
+              guide: AskodoxFieldGuides.addressLabel),
+          AskodoxGuidedField(
+              fieldKey: const Key('askodoxDeliveryAddressField'),
+              controller: address,
+              label: _t('Address', 'చిరునామా'),
+              maxLines: 2,
+              minLines: 1,
+              guide: AskodoxFieldGuides.shopAddress),
+          const SizedBox(height: 12),
+          FilledButton(
+              key: const Key('askodoxDeliveryAddressSave'),
+              onPressed: () => Navigator.pop(sheet, true),
+              child: Text(_t('Add', 'జోడించు'))),
+        ]),
+      ),
+    );
+    if (add != true || address.text.trim().length < 3 || !mounted) return;
+    final next = [
+      ...profile.deliveryAddresses,
+      {'label': label.text.trim(), 'address': address.text.trim()},
+    ];
+    final ok = await ref.read(askodoxUserProfileProvider.notifier).save({'delivery_addresses': next});
+    if (mounted && !ok) setState(() => _message = _t('Could not save. Try again.', 'సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి.'));
+  }
+
+  Future<void> _removeDeliveryAddress(AskodoxUserProfile profile, int index) async {
+    final item = profile.deliveryAddresses[index];
+    if (!await _confirm(_t('Remove "${item['address']}"?', '"${item['address']}" తీసేయాలా?')) || !mounted) return;
+    final next = [...profile.deliveryAddresses]..removeAt(index);
+    await ref.read(askodoxUserProfileProvider.notifier).save({'delivery_addresses': next});
   }
 }
 

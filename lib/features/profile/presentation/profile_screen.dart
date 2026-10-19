@@ -17,6 +17,7 @@ import '../../location/application/location_controller.dart';
 import '../../staff/askodox_staff_access.dart';
 import '../data/user_profile_repository.dart';
 import 'profile_header.dart';
+import 'role_switcher.dart';
 import '../../../shared/widgets/askodox_mascot.dart';
 import '../../settings/developer_diagnostics_screen.dart';
 import '../../guide/in_app_guide.dart';
@@ -150,6 +151,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     String t(String en, String telugu) => te ? telugu : en;
     final early = ref.watch(askodoxEarlyAccessProvider).valueOrNull ?? EarlyAccessInfo.inactive;
     final signedIn = ref.watch(authSessionProvider).user != null;
+    // Only the ACTIVE role's sections; every held role stays one tap away.
+    final active = ref.watch(askodoxRoleProvider).active;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
       // ASKODOX Navigator: grouped sections, every row opens its own
@@ -160,6 +163,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           // The user's own stored profile (photo, name, mobile, address,
           // language, roles, business) -- never placeholder data.
           AskodoxProfileHeader(telugu: te),
+          AskodoxRoleSwitcher(telugu: te),
           // Guide for the details above: what to write where.
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -187,6 +191,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       'అభ్యర్థనలు పంపడానికి, వాటి స్థితి చూడడానికి మాత్రమే అవసరం.'),
                   onTap: () => context.push('/onboarding?signin=1')),
             ]),
+          if (askodoxRoleShowsBusiness(active))
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-business'),
               mascot: AskodoxMascotRole.bizzo,
@@ -225,6 +230,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 subtitle: t('Answers sent for you when you are busy.', 'మీరు బిజీగా ఉన్నప్పుడు పంపే జవాబులు.'),
                 onTap: () => context.push('/business/automation')),
               ]),
+          if (askodoxRoleShowsStudio(active))
           AskodoxNavSection(
               key: const Key('askodoxProfileSection-studio'),
               mascot: AskodoxMascotRole.studio,
@@ -283,104 +289,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               key: const Key('askodoxProfileSection-roles'),
               mascot: AskodoxMascotRole.entro,
               grid: true,
-              title: t('Roles & Opportunities', 'పాత్రలు & అవకాశాలు'),
+              title: t('Roles, opportunities & rides', 'పాత్రలు, అవకాశాలు & రైడ్స్'),
               icon: Icons.badge_outlined,
               children: [
-          (Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Builder(builder: (context) {
-                          // Held roles are edited here only; the conversation
-                          // moves the ACTIVE role, highlighted below.
-                          final roles = ref.watch(askodoxRoleProvider);
-                          return Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: [
-                                for (final role in {
-                                  ...askodoxProfileRoles,
-                                  roles.active,
-                                })
-                                  FilterChip(
-                                      key: ValueKey('profileRole-${role.name}'),
-                                      visualDensity: VisualDensity.compact,
-                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      labelStyle: const TextStyle(fontSize: 12.5),
-                                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                                      selected: roles.owned.contains(role),
-                                      side: role == roles.active
-                                          ? const BorderSide(
-                                              color: Color(0xFF1769FF), width: 2)
-                                          : null,
-                                      avatar: role == roles.active
-                                          ? const Icon(Icons.bolt_rounded,
-                                              size: 18, color: Color(0xFF1769FF))
-                                          : null,
-                                      label: Text(role == roles.active
-                                          ? '${askodoxUserRoleLabel(role, telugu: _te)} · ${t('Active now', 'ఇప్పుడు యాక్టివ్')}'
-                                          : askodoxUserRoleLabel(role, telugu: _te)),
-                                      onSelected: (value) {
-                                        ref.read(askodoxRoleProvider.notifier).toggleOwned(role, value);
-                                        // Held roles are part of the one stored profile.
-                                        if (ref.read(authSessionProvider).user != null) {
-                                          final held = ref.read(askodoxRoleProvider).owned.map((r) => r.name).toList()
-                                            ..sort();
-                                          ref.read(askodoxUserProfileProvider.notifier).save({'roles': held});
-                                        }
-                                      }),
-                              ]);
-                        }),
-                        const SizedBox(height: 4),
-                        // The ACTIVE role changes only when the person picks it
-                        // here (or confirms a switch in chat) -- never silently.
-                        Builder(builder: (context) {
-                          final roles = ref.watch(askodoxRoleProvider);
-                          final held = [for (final r in AskodoxUserRole.values) if (roles.owned.contains(r)) r];
-                          if (held.length < 2) return const SizedBox.shrink();
-                          return Row(children: [
-                            Text(t('Acting as', 'ఇప్పుడు ఈ పాత్రలో'),
-                                style: const TextStyle(fontWeight: FontWeight.w800)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButton<AskodoxUserRole>(
-                                key: const Key('askodoxActiveRolePicker'),
-                                isExpanded: true,
-                                value: held.contains(roles.active) ? roles.active : held.first,
-                                items: [
-                                  for (final r in held)
-                                    DropdownMenuItem(value: r, child: Text(askodoxUserRoleLabel(r, telugu: _te))),
-                                ],
-                                onChanged: (role) {
-                                  if (role == null || role == roles.active) return;
-                                  ref.read(askodoxRoleProvider.notifier).setActive(role);
-                                  if (ref.read(authSessionProvider).user != null) {
-                                    ref.read(askodoxUserProfileProvider.notifier).save({'active_role': role.name});
-                                  }
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    key: const Key('askodoxActiveRoleChanged'),
-                                    content: Text(askodoxRoleChangedMessage(roles.active, role, telugu: _te)),
-                                  ));
-                                },
-                              ),
-                            ),
-                          ]);
-                        }),
-                      ]))),
             AskodoxNavRow(
                 key: const Key('askodoxMyRolesEntry'), guide: 'screen_roles',
                 icon: Icons.badge_outlined,
                 title: t('My roles', 'నా పాత్రలు'),
                 subtitle: t('What each role adds.', 'ప్రతి పాత్ర విభాగాలు.'),
                 onTap: () => context.push('/profile/roles')),
+            if (askodoxRoleShowsOpportunities(active))
             AskodoxNavRow(
                 key: const ValueKey('profile-opportunities'), guide: 'screen_opportunities',
                 icon: Icons.trending_up_rounded,
                 title: t('Opportunities near you', 'మీ దగ్గరి అవకాశాలు'),
                 subtitle: t('What nearby customers ask for.', 'దగ్గరి కస్టమర్లు అడుగుతున్నవి.'),
                 onTap: () => context.push('/opportunities')),
-            if (ref.watch(askodoxRoleProvider).owned.contains(AskodoxUserRole.deliveryPartner))
+            if (askodoxRoleShowsPartner(active))
             AskodoxNavRow(
                 key: const Key('askodoxProfileDeliveryOpportunities'), guide: 'screen_partner',
                 icon: Icons.delivery_dining_rounded,

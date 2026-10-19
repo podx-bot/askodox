@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/providers/backend_providers.dart';
+import 'package:podx/features/companion/relationship.dart';
 import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
@@ -133,7 +134,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxProfileName')), findsOneWidget);
     expect(find.text('Lakshmi'), findsOneWidget);
-    expect(find.text('+919876543210'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxProfileActiveRole')), findsOneWidget, reason: 'compact header: current role');
+    expect(find.text('Sri Lakshmi Kirana'), findsNothing, reason: 'details open only on demand');
+    await tester.tap(find.byKey(const Key('askodoxPersonalDetails')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('+919876543210'), findsOneWidget);
     expect(find.text('Sri Lakshmi Kirana'), findsOneWidget);
     expect(find.text('Not verified yet'), findsOneWidget, reason: 'verification comes from the server, never claimed');
     expect(find.text('12'), findsOneWidget);
@@ -150,7 +155,9 @@ void main() {
 
   testWidgets('Navigator Profile: five grouped sections; every row opens its own screen (never chat)',
       (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'seller'], 'active': 'seller'}),
+    });
     Widget page(String name) => Scaffold(body: Text('PAGE $name'));
     await _pumpRouted(tester, initial: '/profile', screens: {
       '/profile': const ProfileScreen(),
@@ -192,12 +199,103 @@ void main() {
     });
     await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
 
+    expect(tester.widget<ChoiceChip>(find.byKey(const ValueKey('askodoxRoleSwitch-seller'))).selected, isTrue);
+    expect(find.byKey(const Key('askodoxActiveRolePicker')), findsNothing, reason: 'no duplicate role panel');
+    await tester.tap(find.byKey(const Key('askodoxEditRoles')));
+    await tester.pumpAndSettle();
     expect(find.text('Seller · Active now'), findsOneWidget);
     final seller = tester.widget<FilterChip>(find.byKey(const ValueKey('profileRole-seller')));
     expect(seller.selected, isFalse, reason: 'active role is highlighted, not added to stored roles');
     final provider = tester.widget<FilterChip>(find.byKey(const ValueKey('profileRole-serviceProvider')));
     expect(provider.selected, isTrue);
     expect(find.widgetWithText(FilterChip, 'Buyer'), findsOneWidget);
+  });
+
+  testWidgets('Role switch: only the active role\'s sections; switching saves + announces, never navigates or '
+      'creates anything', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'seller', 'deliveryPartner'], 'active': 'buyer'}),
+    });
+    final profiles = _Profiles(const AskodoxUserProfile(userId: 'app-phone-919876543210', name: 'Lakshmi'));
+    await _pumpRouted(tester, initial: '/profile', screens: {
+      '/profile': const ProfileScreen(),
+      '/': const Scaffold(body: Text('PAGE HOME')),
+    }, overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      askodoxUserProfileRepositoryProvider.overrideWithValue(profiles),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileSection-business')), findsNothing, reason: 'buyer: no business');
+    expect(find.byKey(const Key('askodoxProfileDeliveryOpportunities')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('askodoxRoleSwitch-seller')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileSection-business')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
+    expect(profiles.saves.where((m) => m['active_role'] == 'seller'), hasLength(1));
+    expect(find.text('PAGE HOME'), findsNothing, reason: 'no navigation');
+    expect(profiles.saves.any((m) => m.containsKey('roles') && m.length > 1), isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('askodoxRoleSwitch-deliveryPartner')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileSection-business')), findsNothing);
+    expect(find.byKey(const Key('askodoxProfileDeliveryOpportunities')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxProfileHeader')), findsOneWidget, reason: 'one shared profile');
+  });
+
+  testWidgets('Personal details: alternate delivery address is added only after Add, removed only after Yes',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final profiles = _Profiles(const AskodoxUserProfile(userId: 'app-phone-919876543210', name: 'Lakshmi'));
+    await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()}, overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      askodoxUserProfileRepositoryProvider.overrideWithValue(profiles),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxPersonalDetails')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxAddDeliveryAddress')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxDeliveryLabel')), 'Office');
+    await tester.enterText(find.byKey(const Key('askodoxDeliveryAddressField')), 'Bandar Road, Vijayawada');
+    await tester.tap(find.byKey(const Key('askodoxDeliveryAddressSave')));
+    await tester.pumpAndSettle();
+    final saved = profiles.saves.lastWhere((m) => m.containsKey('delivery_addresses'));
+    expect(saved['delivery_addresses'], [{'label': 'Office', 'address': 'Bandar Road, Vijayawada'}]);
+    expect(find.byKey(const ValueKey('askodoxDeliveryAddress-0')), findsOneWidget);
+
+    final before = profiles.saves.length;
+    await tester.tap(find.byKey(const ValueKey('askodoxDeliveryAddressRemove-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(profiles.saves.length, before, reason: 'nothing removed without a Yes');
+    await tester.tap(find.byKey(const ValueKey('askodoxDeliveryAddressRemove-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxConfirmYes')));
+    await tester.pumpAndSettle();
+    expect(profiles.saves.last['delivery_addresses'], isEmpty);
+  });
+
+  testWidgets('ASKO relation: picked once, used in ASKO lines', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final profiles = _Profiles(const AskodoxUserProfile(userId: 'app-phone-919876543210', name: 'Lakshmi'));
+    final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()},
+        overrides: [
+          authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+          askodoxUserProfileRepositoryProvider.overrideWithValue(profiles),
+        ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxPersonalDetails')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxRelationPicker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxRelation-anna')));
+    await tester.pumpAndSettle();
+    expect(container.read(askodoxRelationProvider), AskodoxRelation.anna);
+    expect(find.text('Anna'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('askodox.companion.relation'), 'anna');
   });
 
   testWidgets('Master profile: e-mail, links and per-role details save to the ONE profile; active role switches '
@@ -251,11 +349,9 @@ void main() {
     expect((details['delivery_partner'] as Map)['vehicle_type'], 'two_wheeler');
 
     // Explicit switch of the ACTIVE role, announced, saved.
-    final picker = find.byKey(const Key('askodoxActiveRolePicker'));
-    await tester.ensureVisible(picker);
-    await tester.tap(picker);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Seller').last);
+    final chip = find.byKey(const ValueKey('askodoxRoleSwitch-seller'));
+    await tester.ensureVisible(chip);
+    await tester.tap(chip);
     await tester.pumpAndSettle();
     expect(profiles.saves.where((m) => m['active_role'] == 'seller'), hasLength(1));
     expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
@@ -364,6 +460,12 @@ class _Profiles implements AskodoxUserProfileRepository {
       email: (fields['email'] ?? stored.email) as String?,
       activeRole: (fields['active_role'] ?? stored.activeRole) as String?,
       roleDetails: stored.roleDetails,
+      deliveryAddresses: fields['delivery_addresses'] is List
+          ? [
+              for (final d in fields['delivery_addresses'] as List)
+                {for (final e in (d as Map).entries) '${e.key}': '${e.value}'},
+            ]
+          : stored.deliveryAddresses,
     );
     return stored;
   }
