@@ -425,7 +425,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
   void _speak(AskodoxGuideState s) {
     if (_private) return;
     final line = s.done
-        ? askodoxAddressed(_te ? 'పూర్తయింది!' : 'Done!', ref.read(askodoxRelationProvider), telugu: _te)
+        ? askodoxDoneLine(ref.read(askodoxRelationProvider), telugu: _te)
         : (_te ? s.step.te : s.step.en);
     final key = '${s.flow.id}:${s.index}:${s.done}';
     if (_spoken == key) return;
@@ -596,7 +596,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     final step = s.step;
     final lost = !s.done && r == null && _missing >= 6;
     final text = s.done
-        ? askodoxAddressed(_te ? 'పూర్తయింది! 🎉' : 'Done! 🎉', ref.watch(askodoxRelationProvider), telugu: _te)
+        ? '${askodoxDoneLine(ref.watch(askodoxRelationProvider), telugu: _te)} 🎉'
         : lost
             ? (_te ? 'ఈ బటన్ ఈ స్క్రీన్‌లో లేదు.' : 'That button is not on this screen.')
             : (_te ? step.te : step.en);

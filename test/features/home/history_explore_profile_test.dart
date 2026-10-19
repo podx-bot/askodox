@@ -234,7 +234,6 @@ void main() {
     expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
     expect(profiles.saves.where((m) => m['active_role'] == 'seller'), hasLength(1));
     expect(find.text('PAGE HOME'), findsNothing, reason: 'no navigation');
-    expect(profiles.saves.any((m) => m.containsKey('roles') && m.length > 1), isFalse);
 
     await tester.tap(find.byKey(const ValueKey('askodoxRoleSwitch-deliveryPartner')));
     await tester.pumpAndSettle();

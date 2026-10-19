@@ -288,7 +288,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               key: const Key('askodoxProfileSection-roles'),
               mascot: AskodoxMascotRole.entro,
               grid: true,
-              title: t('Roles, opportunities & rides', 'పాత్రలు, అవకాశాలు & రైడ్స్'),
+              title: t('Opportunities & rides', 'అవకాశాలు & రైడ్స్'),
               icon: Icons.badge_outlined,
               children: [
             AskodoxNavRow(

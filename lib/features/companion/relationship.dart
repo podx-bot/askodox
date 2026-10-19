@@ -79,3 +79,8 @@ String askodoxAddressed(String line, AskodoxRelation relation, {required bool te
   }
   return '${askodoxCallName(relation, telugu: telugu)}, $rest';
 }
+
+/// ASKO's "done" line: "Done, Anna!" / "పూర్తయింది అన్నయ్యా!".
+String askodoxDoneLine(AskodoxRelation relation, {required bool telugu}) => telugu
+    ? 'పూర్తయింది ${askodoxCallName(relation, telugu: true)}!'
+    : 'Done, ${askodoxCallName(relation, telugu: false)}!';
