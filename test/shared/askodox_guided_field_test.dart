@@ -60,7 +60,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('askodoxFieldHelp-f')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxFieldHelpText')), findsOneWidget);
-    expect(find.text('The discount: an amount in rupees, or a percent with %.'), findsOneWidget);
+    expect(find.text('friend, the discount: an amount in rupees, or a percent with %.'), findsOneWidget,
+        reason: 'ASKO addresses the person by the chosen relation (default friend)');
     expect(spoken.single, contains('The discount'));
   });
 

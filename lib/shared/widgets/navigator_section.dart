@@ -81,7 +81,12 @@ extension on AskodoxNavSection {
             else
               Icon(icon, size: 18, color: AskodoxNavSection.accent),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: AskodoxNavSection.ink, fontSize: 15, fontWeight: FontWeight.w900)),
+            Flexible(
+              child: Text(title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AskodoxNavSection.ink, fontSize: 15, fontWeight: FontWeight.w900)),
+            ),
           ]),
         ),
         if (others.isNotEmpty)

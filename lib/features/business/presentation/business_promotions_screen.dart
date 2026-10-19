@@ -151,9 +151,13 @@ class _OfferFormState extends State<_OfferForm> {
             keyboardType: TextInputType.text,
             label: t('Value (₹ or %)', 'విలువ (₹ లేదా %)'),
             guide: AskodoxFieldGuides.offerValue),
-        TextField(
+        AskodoxGuidedField(
+            fieldKey: const Key('askodoxOfferTerms'),
             controller: _description,
-            decoration: InputDecoration(labelText: t('Description / terms', 'వివరణ / షరతులు'))),
+            maxLines: 3,
+            minLines: 1,
+            label: t('Description / terms', 'వివరణ / షరతులు'),
+            guide: AskodoxFieldGuides.terms),
         const SizedBox(height: 12),
         FilledButton(
           key: const Key('askodoxOfferSubmit'),

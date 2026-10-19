@@ -16,10 +16,12 @@ from typing import Any, Dict, Optional
 EDITABLE = (
     "name", "address", "latitude", "longitude", "language", "roles",
     "business_name", "business_address", "business_category", "gstin", "upi_id",
-    "email", "active_role", "links", "role_details",
+    "email", "active_role", "links", "role_details", "delivery_addresses",
 )
 # Stored as JSON text (column name -> python type).
-JSON_FIELDS = {"roles": ("roles_json", list), "links": ("links_json", list), "role_details": ("role_details_json", dict)}
+JSON_FIELDS = {"roles": ("roles_json", list), "links": ("links_json", list), "role_details": ("role_details_json", dict),
+               # Extra places the person gets things delivered ({label, address}); the main address stays `address`.
+               "delivery_addresses": ("delivery_addresses_json", list)}
 
 # Universal Master Profile: the fields each role adds to the SAME profile.
 # New roles are new keys here (stored in role_details_json) -- no schema change.
@@ -87,7 +89,7 @@ class UserProfileRepository:
             columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profiles)")}
             if "upi_id" not in columns:  # the seller's own UPI ID (VPA) for direct payments
                 conn.execute("ALTER TABLE user_profiles ADD COLUMN upi_id TEXT")
-            for column in ("email", "active_role", "links_json", "role_details_json"):
+            for column in ("email", "active_role", "links_json", "role_details_json", "delivery_addresses_json"):
                 if column not in columns:
                     conn.execute(f"ALTER TABLE user_profiles ADD COLUMN {column} TEXT")
             conn.commit()
@@ -110,6 +112,7 @@ class UserProfileRepository:
         data["roles"] = []
         data["links"] = []
         data["role_details"] = {}
+        data["delivery_addresses"] = []
         data["has_photo"] = False
         data["photo_updated_at"] = None
         if row:

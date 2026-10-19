@@ -32,7 +32,11 @@ class AskodoxUserProfile {
     this.activeRole,
     this.links = const [],
     this.roleDetails = const {},
+    this.deliveryAddresses = const [],
   });
+
+  /// Extra delivery places ({label, address}); the main one is [address].
+  final List<Map<String, String>> deliveryAddresses;
 
   final String? email;
 
@@ -96,6 +100,10 @@ class AskodoxUserProfile {
       links: [
         for (final l in (json['links'] as List? ?? const []))
           if (l is Map) {'kind': '${l['kind'] ?? 'other'}', 'url': '${l['url'] ?? ''}'},
+      ],
+      deliveryAddresses: [
+        for (final d in (json['delivery_addresses'] as List? ?? const []))
+          if (d is Map) {'label': '${d['label'] ?? ''}', 'address': '${d['address'] ?? ''}'},
       ],
       roleDetails: {
         if (json['role_details'] is Map)

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/guide/in_app_guide.dart' show askodoxGuideSpeakerProvider;
+import '../../features/companion/relationship.dart';
 import 'askodox_mascot.dart';
 
 /// What a field is for, an example, and a check that says how to write it
@@ -16,6 +17,7 @@ class AskodoxFieldGuide {
     required this.helpTe,
     this.optional = false,
     this.check,
+    this.templates = const [],
   });
 
   final String exampleEn;
@@ -26,6 +28,10 @@ class AskodoxFieldGuide {
 
   /// Returns (en, te) "write it like this" when the value is not right.
   final (String, String)? Function(String value)? check;
+
+  /// Ready-made (en, te) starting texts. Tapping one puts it in the field,
+  /// where the person edits it -- it is never saved by itself.
+  final List<(String, String)> templates;
 
   String example(bool te) => te ? exampleTe : exampleEn;
   String help(bool te) => te ? helpTe : helpEn;
@@ -201,6 +207,62 @@ class AskodoxFieldGuides {
     optional: true,
   );
 
+  static const addressLabel = AskodoxFieldGuide(
+    exampleEn: 'e.g. Home, Office, Amma\'s house',
+    exampleTe: 'ఉదా: ఇల్లు, ఆఫీస్, అమ్మ ఇల్లు',
+    helpEn: 'Optional. A short name so you can pick this address quickly.',
+    helpTe: 'ఐచ్ఛికం. ఈ చిరునామాను త్వరగా ఎంచుకోవడానికి చిన్న పేరు.',
+    optional: true,
+    templates: [('Home', 'ఇల్లు'), ('Office', 'ఆఫీస్'), ('Shop', 'షాప్')],
+  );
+
+  static const description = AskodoxFieldGuide(
+    exampleEn: 'e.g. Cotton saree, 6.2 m with blouse piece, hand-woven',
+    exampleTe: 'ఉదా: కాటన్ చీర, 6.2 మీ, బ్లౌజ్ ముక్కతో, చేనేత',
+    helpEn: 'What it is, what it is made of, size and condition -- only what is true.',
+    helpTe: 'ఇది ఏమిటి, దేనితో చేసింది, సైజు, స్థితి -- నిజమైనవి మాత్రమే.',
+    check: _description,
+    templates: [
+      ('[Item], [material / brand], [size / weight], [new / used]', '[వస్తువు], [మెటీరియల్ / బ్రాండ్], [సైజు / బరువు], [కొత్తది / వాడినది]'),
+      ('[Service] at your home, [time taken], [what is included]', '[సర్వీస్] మీ ఇంటి దగ్గర, [పట్టే సమయం], [ఏమేమి కలిపి]'),
+    ],
+  );
+  static (String, String)? _description(String v) => v.contains('[')
+      ? ('Replace the [ ] parts with your real details', '[ ] భాగాలను మీ నిజమైన వివరాలతో మార్చండి')
+      : _minText(v, 8, 'Say a little more: what it is and its size', 'ఇంకొంచెం రాయండి: ఏమిటి, సైజు');
+
+  static const terms = AskodoxFieldGuide(
+    exampleEn: 'e.g. Valid till 31 Oct. One per customer. Not with other offers.',
+    exampleTe: 'ఉదా: అక్టోబర్ 31 వరకు. ఒక్కరికి ఒక్కసారి. ఇతర ఆఫర్లతో కలపరాదు.',
+    helpEn: 'Optional. The conditions: last date, limits, what it does not cover.',
+    helpTe: 'ఐచ్ఛికం. షరతులు: చివరి తేదీ, పరిమితులు, ఏది వర్తించదు.',
+    optional: true,
+    templates: [
+      ('Valid till [date]. One per customer.', '[తేదీ] వరకు. ఒక్కరికి ఒక్కసారి.'),
+      ('Not valid with other offers.', 'ఇతర ఆఫర్లతో కలపరాదు.'),
+    ],
+  );
+
+  static const stock = AskodoxFieldGuide(
+    exampleEn: 'e.g. 12',
+    exampleTe: 'ఉదా: 12',
+    helpEn: 'Optional. How many you have now -- numbers only. Leave empty if you do not count.',
+    helpTe: 'ఐచ్ఛికం. ఇప్పుడు ఎన్ని ఉన్నాయి -- అంకెలు మాత్రమే. లెక్క లేకపోతే ఖాళీగా ఉంచండి.',
+    optional: true,
+    check: _stock,
+  );
+  static (String, String)? _stock(String v) =>
+      int.tryParse(v.trim()) == null ? ('Only a number, like: 12', 'అంకె మాత్రమే, ఇలా: 12') : null;
+
+  static const unit = AskodoxFieldGuide(
+    exampleEn: 'e.g. per kg',
+    exampleTe: 'ఉదా: కిలోకి',
+    helpEn: 'Optional. What the price is for.',
+    helpTe: 'ఐచ్ఛికం. ధర దేనికి.',
+    optional: true,
+    templates: [('per piece', 'ఒక్కదానికి'), ('per kg', 'కిలోకి'), ('per visit', 'ఒక్కసారి వచ్చినందుకు')],
+  );
+
   static const facts = AskodoxFieldGuide(
     exampleEn: 'e.g. Basmati rice 25 kg, ₹1,800, free delivery in Vuyyuru',
     exampleTe: 'ఉదా: బాస్మతి బియ్యం 25 కిలోలు, ₹1,800, ఉయ్యూరులో ఉచిత డెలివరీ',
@@ -285,7 +347,8 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
 
   Future<void> _explain(String? problem) async {
     final te = _te;
-    final line = problem ?? widget.guide.help(te);
+    final relation = ref.read(askodoxRelationProvider);
+    final line = askodoxAddressed(problem ?? widget.guide.help(te), relation, telugu: te);
     final spoken = problem ?? '${widget.guide.help(te)} ${widget.guide.example(te)}';
     unawaited(ref.read(askodoxGuideSpeakerProvider)(spoken, te ? 'te' : 'en').catchError((_) {}));
     await showModalBottomSheet<void>(
@@ -305,6 +368,23 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
                 const SizedBox(height: 8),
                 Text(widget.guide.example(te),
                     style: const TextStyle(fontSize: 13.5, color: Color(0xFF6C4DFF), fontWeight: FontWeight.w700)),
+                if (widget.guide.templates.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(te ? 'రెడీ టెంప్లేట్ -- తట్టి, తర్వాత మార్చుకోండి:' : 'Ready templates -- tap, then edit:',
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085))),
+                  const SizedBox(height: 4),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    for (final (i, t) in widget.guide.templates.indexed)
+                      ActionChip(
+                        key: ValueKey('askodoxFieldTemplate-${_keyName(widget.fieldKey)}-$i'),
+                        label: Text(te ? t.$2 : t.$1),
+                        onPressed: () {
+                          _insert(te ? t.$2 : t.$1);
+                          Navigator.pop(sheet);
+                        },
+                      ),
+                  ]),
+                ],
                 if (widget.guide.optional) ...[
                   const SizedBox(height: 6),
                   Text(te ? 'ఇది ఐచ్ఛికం -- ఖాళీగా వదిలేయొచ్చు.' : 'This one is optional -- you may leave it empty.',
@@ -316,6 +396,16 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
         ),
       ),
     );
+  }
+
+  /// Puts a template in the field (cursor at the end) for the person to edit.
+  void _insert(String value) {
+    widget.controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    widget.onChanged?.call(value);
+    _focus.requestFocus();
   }
 
   @override

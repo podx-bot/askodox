@@ -73,6 +73,20 @@ class ProfileUpdate(BaseModel):
     active_role: str | None = Field(default=None, max_length=30)
     links: list[dict] | None = Field(default=None, max_length=10)
     role_details: dict | None = None
+    delivery_addresses: list[dict] | None = Field(default=None, max_length=5)
+
+
+def _clean_delivery_addresses(items: list) -> list:
+    """At most 5 extra delivery places: {label, address}, both short text."""
+    out = []
+    for item in items[:5]:
+        if not isinstance(item, dict):
+            continue
+        address = str(item.get("address") or "").strip()[:240]
+        if len(address) < 3:
+            continue
+        out.append({"label": str(item.get("label") or "").strip()[:40], "address": address})
+    return out
 
 
 @router.get("")
@@ -103,6 +117,8 @@ def update_my_profile(payload: ProfileUpdate, request: Request) -> dict:
             raise HTTPException(status_code=422, detail="Enter a valid e-mail address")
     if "links" in fields:
         fields["links"] = _clean_links(fields["links"] or [])
+    if "delivery_addresses" in fields:
+        fields["delivery_addresses"] = _clean_delivery_addresses(fields["delivery_addresses"] or [])
     if "role_details" in fields:
         fields["role_details"] = _clean_role_details(fields["role_details"] or {}, current.get("role_details") or {})
     if fields.get("active_role"):

@@ -61,3 +61,23 @@ def test_schema_lists_roles_and_fields(api):
                  "survey_taker"):
         assert role in schema["roles"]
     assert "vehicle_type" in schema["roles"]["delivery_partner"]
+
+
+def test_alternate_delivery_addresses_are_part_of_the_one_profile(api):
+    client, auth = api
+    r = client.put("/api/me/profile", headers=auth, json={"address": "Vuyyuru", "delivery_addresses": [
+        {"label": "Shop", "address": "Main Road, near Bus Stand, Vuyyuru"},
+        {"label": "x" * 80, "address": "Benz Circle, Vijayawada"},
+        {"label": "bad", "address": "  "},
+    ]})
+    assert r.status_code == 200, r.text
+    data = client.get("/api/me/profile", headers=auth).json()
+    assert data["address"] == "Vuyyuru", "the main address is untouched"
+    assert data["delivery_addresses"] == [
+        {"label": "Shop", "address": "Main Road, near Bus Stand, Vuyyuru"},
+        {"label": "x" * 40, "address": "Benz Circle, Vijayawada"},
+    ]
+    client.put("/api/me/profile", headers=auth, json={"name": "Asha"})
+    assert len(client.get("/api/me/profile", headers=auth).json()["delivery_addresses"]) == 2, "other edits keep them"
+    too_many = [{"label": str(i), "address": f"Street {i}, Vuyyuru"} for i in range(6)]
+    assert client.put("/api/me/profile", headers=auth, json={"delivery_addresses": too_many}).status_code == 422
