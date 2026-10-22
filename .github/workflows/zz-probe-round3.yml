@@ -1,0 +1,28 @@
+name: Probe round3 analyze (throwaway)
+on:
+  push:
+    branches: [claude/probe-round3-analyze]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - run: flutter pub get > pub.txt 2>&1 || true; grep -iE "error|flutter_blue_plus|sensors_plus" pub.txt | head -10 | sed 's/^/::warning title=pub::/' || true
+      - name: analyze
+        run: |
+          flutter analyze > analyze.txt 2>&1 || true
+          grep -E "•" analyze.txt | head -60 | sed 's/^/::warning title=analyze::/' || true
+          tail -2 analyze.txt | sed 's/^/::warning title=analyze-summary::/'
+      - name: tests
+        run: |
+          flutter test test/features/smart_tools test/features/intelligence test/features/devices test/features/home/history_explore_profile_test.dart test/core/auth -r expanded > t.txt 2>&1 || true
+          grep -E "\[E\]|Expected|Actual|Which|Error:|error:|Some tests failed|All tests passed" t.txt | head -80 | cut -c1-400 | sed 's/^/::warning title=test::/' || true
+          tail -2 t.txt | sed 's/^/::warning title=test-summary::/'
