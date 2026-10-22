@@ -14,6 +14,7 @@ class AskodoxSmartToolsHubScreen extends StatelessWidget {
         AskodoxToolGroup.measure => te ? 'కొలతలు & ప్లానింగ్' : 'Measure & plan',
         AskodoxToolGroup.construction => te ? 'నిర్మాణ మెటీరియల్ లెక్కలు' : 'Construction materials',
         AskodoxToolGroup.inspect => te ? 'ఫోటో పరిశీలన' : 'Photo inspection',
+        AskodoxToolGroup.money => te ? 'డబ్బు, పన్ను & మోసాల జాగ్రత్త' : 'Money, tax & scam safety',
         AskodoxToolGroup.sensors => te ? 'ఫోన్ సెన్సార్లు' : 'Phone sensors',
         AskodoxToolGroup.devices => te ? 'బయటి పరికరాలు' : 'External devices',
       };

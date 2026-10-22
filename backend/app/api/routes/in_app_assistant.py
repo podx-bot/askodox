@@ -83,6 +83,10 @@ class AssistantDecision(BaseModel):
     # send back next turn. None / [] for turns that raise no concern.
     advice: dict[str, Any] | None = None
     advice_ledger: list[dict[str, Any]] = Field(default_factory=list)
+    # Master command round 2: tax / GST, fraud & market reality and smart
+    # tricks attach here (intelligence_gate.py) -- deterministic, sourced,
+    # only when the user's own words ask; never a separate bot.
+    intelligence: dict[str, Any] | None = None
 
 
 @router.post("/assistant", response_model=AssistantDecision)
@@ -139,7 +143,26 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             subject, guide_context
         )
 
-    return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide)
+    intelligence = _intelligence(payload.message, payload.locale)
+    override = None
+    if intelligence is not None:
+        from app.services.intelligence_gate import override_reply
+
+        override = override_reply(intelligence, payload.locale)
+    if override:
+        decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
+    return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence)
+
+
+def _intelligence(message: str, locale: str) -> dict[str, Any] | None:
+    """Never lets the intelligence layer break the main conversation."""
+    try:
+        from app.services.intelligence_gate import build
+
+        return build(message, locale)
+    except Exception:
+        logging.getLogger(__name__).exception("intelligence gate failed")
+        return None
 
 
 class SpeakRequest(BaseModel):

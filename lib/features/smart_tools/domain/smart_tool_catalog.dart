@@ -32,7 +32,7 @@ enum AskodoxToolReadiness {
   comingSoon,
 }
 
-enum AskodoxToolGroup { measure, construction, inspect, sensors, devices }
+enum AskodoxToolGroup { measure, construction, inspect, money, sensors, devices }
 
 class AskodoxSmartTool {
   const AskodoxSmartTool({
@@ -160,6 +160,25 @@ const askodoxSmartTools = <AskodoxSmartTool>[
       group: AskodoxToolGroup.inspect, needs: {AskodoxToolNeed.camera, AskodoxToolNeed.cloudApi},
       readiness: AskodoxToolReadiness.hardwareUnverified, route: '/tools/inspect?domain=livestock',
       safetyNote: 'Experimental range only; confirm on a weighing scale.'),
+  AskodoxSmartTool(
+      id: 'income_tax', nameEn: 'Income tax estimate (new vs old)', nameTe: 'ఆదాయపు పన్ను అంచనా',
+      group: AskodoxToolGroup.money, needs: {AskodoxToolNeed.cloudApi, AskodoxToolNeed.manualInput},
+      readiness: AskodoxToolReadiness.ready, route: '/intel/tax',
+      safetyNote: 'Estimate from official rules; confirm with a chartered accountant for filing.'),
+  AskodoxSmartTool(
+      id: 'gst', nameEn: 'GST registration, composition & amount', nameTe: 'జీఎస్టీ టూల్',
+      group: AskodoxToolGroup.money, needs: {AskodoxToolNeed.cloudApi, AskodoxToolNeed.manualInput},
+      readiness: AskodoxToolReadiness.ready, route: '/intel/gst',
+      safetyNote: 'Check the exact HSN rate and your State limit on the GST portal.'),
+  AskodoxSmartTool(
+      id: 'fraud_check', nameEn: 'Scam checklists & where to report', nameTe: 'మోసాల చెక్‌లిస్టులు',
+      group: AskodoxToolGroup.money, needs: {AskodoxToolNeed.cloudApi},
+      readiness: AskodoxToolReadiness.ready, route: '/intel/fraud'),
+  AskodoxSmartTool(
+      id: 'smart_tricks', nameEn: 'Smart Tricks: buy vs rent, repair vs replace, bulk, unit price',
+      nameTe: 'స్మార్ట్ ట్రిక్స్ — ఆదా లెక్కలు', group: AskodoxToolGroup.money,
+      needs: {AskodoxToolNeed.cloudApi, AskodoxToolNeed.manualInput}, readiness: AskodoxToolReadiness.ready,
+      route: '/intel/tricks'),
   AskodoxSmartTool(
       id: 'bt_scale', nameEn: 'Bluetooth weighing scale', nameTe: 'బ్లూటూత్ తూకం యంత్రం', group: AskodoxToolGroup.devices,
       needs: {AskodoxToolNeed.bluetoothDevice}, readiness: AskodoxToolReadiness.needsExternalDevice),

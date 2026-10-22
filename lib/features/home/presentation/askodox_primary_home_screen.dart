@@ -63,6 +63,7 @@ import '../domain/need_state.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
 import '../../smart_tools/domain/tool_intent_router.dart';
+import '../../intelligence/presentation/intelligence_card.dart';
 import '../../companion/askodox_companion.dart';
 import '../../companion/companion_voice.dart';
 import 'deal_lifecycle_panel.dart';
@@ -1078,6 +1079,9 @@ class _AskodoxPrimaryHomeScreenState
 
   /// "Show me on screen" offered under an assistant turn.
   final Map<int, AskodoxGuideFlow> _guideByTurn = {};
+  /// Round 2 intelligence card (tax / GST, fraud, smart tricks) keyed by the
+  /// USER turn it answers; drawn under the next assistant turn.
+  final Map<int, Map<String, Object?>> _intelByTurn = {};
 
   void _clearConversationState() {
     _adviceLedger = const [];
@@ -1085,6 +1089,7 @@ class _AskodoxPrimaryHomeScreenState
     _videoFocus = false;
     _taxonomyByTurn.clear();
     _guideByTurn.clear();
+    _intelByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
     _resultsHiddenFor = null;
@@ -2102,6 +2107,7 @@ class _AskodoxPrimaryHomeScreenState
     // concern already explained is not repeated (an older backend returns
     // none -- keep what we have).
     if (aiUsable && decision!.adviceLedger != null) _adviceLedger = decision.adviceLedger!;
+    if (decision?.intelligence case final intel?) _intelByTurn[userTurnIndex] = intel;
     // APK 1305: the deterministic conversation-relation layer (backend)
     // classifies this turn against the ACTIVE need. A replaced subject or a
     // genuine new topic retires the previous active result deck NOW: those
@@ -4680,6 +4686,13 @@ class _AskodoxPrimaryHomeScreenState
                 ]),
               ),
             if (_taxonomyByTurn[index] case final match?) _taxonomyActions(te, match),
+            if (_intelByTurn[index - 1] case final intel? when !turn.isUser)
+              AskodoxIntelligenceCard(
+                key: ValueKey('askodoxIntelCard-$index'),
+                intelligence: intel,
+                te: te,
+                onOpen: (route) => context.push(route),
+              ),
             if (_guideByTurn[index] case final flow?)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),

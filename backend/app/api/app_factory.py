@@ -359,6 +359,9 @@ def create_app() -> FastAPI:
     from app.api.routes.vision_inspect import router as vision_inspect_router
 
     app.include_router(vision_inspect_router)
+    from app.api.routes.intelligence import router as intelligence_router
+
+    app.include_router(intelligence_router)
     from app.api.routes.screen_guide import admin_router as screen_guide_admin_router, router as screen_guide_router
 
     app.include_router(screen_guide_router)
