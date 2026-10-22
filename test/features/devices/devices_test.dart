@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,12 +15,12 @@ import 'package:podx/features/devices/presentation/ptt_screens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeBle implements AskodoxBleGateway {
-  _FakeBle({this.supported = true, this.on = true, this.scanError, this.devices = const []});
+  _FakeBle({this.supported = true, this.on = true, this.scanError, this.devices = const [], this.sends = const []});
+  final List<AskodoxReading> sends;
   final bool supported;
   final bool on;
   final String? scanError;
   final List<AskodoxBleDevice> devices;
-  final readingsCtl = StreamController<AskodoxReading>.broadcast();
   final connected = <String>[];
   final disconnected = <String>[];
 
@@ -42,7 +41,7 @@ class _FakeBle implements AskodoxBleGateway {
   @override
   Future<List<String>> discoverServices(String id) async => ['0000181d-0000-1000-8000-00805f9b34fb'];
   @override
-  Stream<AskodoxReading> readings(String id) => readingsCtl.stream;
+  Stream<AskodoxReading> readings(String id) => Stream.fromIterable(sends);
   @override
   Future<void> disconnect(String id) async => disconnected.add(id);
 }
@@ -181,24 +180,19 @@ void main() {
     expect(prefs.getString('askodox.devices.local.v1'), contains('dev_1'));
   });
 
-  testWidgets('no BLE / Bluetooth off / permission denied are said plainly', (tester) async {
-    await _pump(tester, const AskodoxAddDeviceScreen(), [askodoxBleGatewayProvider.overrideWithValue(_FakeBle(supported: false))]);
-    await tester.tap(find.byKey(const Key('askodoxBleScan')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('askodoxBleUnsupported')), findsOneWidget);
-
-    await _pump(tester, const AskodoxAddDeviceScreen(), [askodoxBleGatewayProvider.overrideWithValue(_FakeBle(on: false))]);
-    await tester.tap(find.byKey(const Key('askodoxBleScan')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('askodoxBleOff')), findsOneWidget);
-
-    await _pump(tester, const AskodoxAddDeviceScreen(),
-        [askodoxBleGatewayProvider.overrideWithValue(_FakeBle(scanError: 'permission_denied'))]);
-    await tester.tap(find.byKey(const Key('askodoxBleScan')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('askodoxPairingFailed')), findsOneWidget);
-    expect(find.textContaining('Nearby devices'), findsOneWidget);
-  });
+  for (final (label, fake, key) in [
+    ('no BLE', _FakeBle(supported: false), 'askodoxBleUnsupported'),
+    ('Bluetooth off', _FakeBle(on: false), 'askodoxBleOff'),
+    ('permission denied', _FakeBle(scanError: 'permission_denied'), 'askodoxPairingFailed'),
+  ]) {
+    testWidgets('$label is said plainly', (tester) async {
+      await _pump(tester, const AskodoxAddDeviceScreen(), [askodoxBleGatewayProvider.overrideWithValue(fake)]);
+      await tester.tap(find.byKey(const Key('askodoxBleScan')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key(key)), findsOneWidget);
+      if (key == 'askodoxPairingFailed') expect(find.textContaining('Nearby devices'), findsOneWidget);
+    });
+  }
 
   testWidgets('a non-standard device is not given made-up readings', (tester) async {
     final ble = _FakeBle(devices: const [AskodoxBleDevice(id: '11:22', name: 'Bulb', rssi: -60, serviceUuids: ['fff0'])]);
@@ -213,13 +207,11 @@ void main() {
   });
 
   testWidgets('live screen shows readings as sent and disconnects on exit', (tester) async {
-    final ble = _FakeBle();
+    final ble = _FakeBle(sends: const [AskodoxReading('weight', 70.0, 'kg')]);
     await _pump(tester, const AskodoxDeviceLiveScreen(localId: 'AA', name: 'Scale'), [
       askodoxBleGatewayProvider.overrideWithValue(ble),
       askodoxDeviceRepositoryProvider.overrideWithValue(AskodoxDeviceRepository(_Client((_, __) => {}))),
     ]);
-    ble.readingsCtl.add(const AskodoxReading('weight', 70.0, 'kg'));
-    await tester.pump();
     expect(find.text('70.00 kg'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     expect(ble.disconnected, ['AA']);
@@ -287,7 +279,7 @@ class _FakeAudio implements AskodoxPttAudio {
 }
 
 class _AudioRepo extends AskodoxPttRepository {
-  _AudioRepo(ApiClient client) : super(client, authToken: 't');
+  _AudioRepo(super.client) : super(authToken: 't');
   @override
   Future<Uint8List> audio(String clipId) async => Uint8List.fromList([1, 2, 3]);
 }
