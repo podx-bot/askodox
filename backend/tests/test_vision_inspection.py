@@ -147,6 +147,7 @@ def api(monkeypatch):
 
     rate_limit.reset_for_tests()
     external_call_budget.reset_for_tests()
+    vision_inspection.reset_budget_for_tests()
     brain = _Brain()
     monkeypatch.setattr(container, "universal_image_service", brain, raising=False)
     monkeypatch.setattr(container, "vision_inspection_service", None, raising=False)
@@ -173,14 +174,14 @@ def test_route_returns_evidence_report_and_strips_certification(api):
 @pytest.mark.parametrize("mode", list(MODES))
 def test_mode_bounds_images_and_model_fallback(api, mode):
     client, brain = api
-    response = client.post("/api/vision/inspect", json={"images": [_img()] * 6, "domain": "vehicle", "mode": mode})
+    response = client.post("/api/vision/inspect", json={"images": [_img()] * 4, "domain": "vehicle", "mode": mode})
     assert response.status_code == 200, response.text
     call = brain.calls[-1]
     assert call["images"] == MODES[mode]["max_images"]
     assert call["max_models"] == MODES[mode]["max_models"]
     assert call["second"] == MODES[mode]["second_provider"]
     cost = response.json()["report"]["cost"]
-    assert cost["images_sent"] == MODES[mode]["max_images"] and cost["images_dropped"] == 6 - MODES[mode]["max_images"]
+    assert cost["images_sent"] == MODES[mode]["max_images"] and cost["images_dropped"] == 4 - MODES[mode]["max_images"]
 
 
 def test_identical_request_is_cached_and_metered(api):
@@ -218,3 +219,19 @@ def test_profiles_endpoint_lists_every_domain_in_both_languages(api):
     assert {p["domain"] for p in en["profiles"]} == set(DOMAIN_PROFILES)
     food_te = next(p for p in te["profiles"] if p["domain"] == "food")
     assert food_te["label"] == "ఆహార నాణ్యత & తాజాదనం" and food_te["guidance"]
+
+
+def test_more_than_four_photos_rejected_before_any_decode(api):
+    client, brain = api
+    assert client.post("/api/vision/inspect", json={"images": [_img()] * 5}).status_code == 422
+    assert brain.calls == []
+
+
+def test_global_hourly_cap_holds_even_with_spoofed_client_ips(api, monkeypatch):
+    client, brain = api
+    monkeypatch.setenv("ASKODOX_VISION_INSPECT_HOURLY_CAP", "3")
+    codes = [client.post("/api/vision/inspect", json={"images": [_img()], "domain": "general",
+                                                      "user_text": f"q{i}"},
+                         headers={"x-forwarded-for": f"10.0.0.{i}"}).status_code for i in range(5)]
+    assert codes == [200, 200, 200, 429, 429]
+    assert len(brain.calls) == 3

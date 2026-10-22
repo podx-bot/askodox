@@ -27,7 +27,11 @@ Admin), and nothing here runs without a real image.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import threading
+import time
+from collections import deque
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 MODES: Dict[str, Dict[str, Any]] = {
@@ -457,6 +461,38 @@ def report_facts(report: Dict[str, Any]) -> str:
     if unknown:
         parts.append("Cannot confirm from photo: " + "; ".join(unknown))
     return " ".join(parts)[:1200]
+
+
+# ---------------------------------------------------------------- global budget
+
+_budget_lock = threading.Lock()
+_budget_hits: deque = deque()
+
+
+def hourly_cap() -> int:
+    """Process-wide inspections per hour (env ASKODOX_VISION_INSPECT_HOURLY_CAP,
+    default 120). Independent of the per-client limit, which keys on a
+    spoofable header."""
+    try:
+        return max(1, int(os.getenv("ASKODOX_VISION_INSPECT_HOURLY_CAP", "") or 120))
+    except ValueError:
+        return 120
+
+
+def global_budget_allows(now: float | None = None) -> bool:
+    now = time.monotonic() if now is None else now
+    with _budget_lock:
+        while _budget_hits and now - _budget_hits[0] > 3600:
+            _budget_hits.popleft()
+        if len(_budget_hits) >= hourly_cap():
+            return False
+        _budget_hits.append(now)
+        return True
+
+
+def reset_budget_for_tests() -> None:
+    with _budget_lock:
+        _budget_hits.clear()
 
 
 # ---------------------------------------------------------------- service

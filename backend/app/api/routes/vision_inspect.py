@@ -23,12 +23,12 @@ MAX_IMAGE_BYTES = 12 * 1024 * 1024
 
 
 class InspectImage(BaseModel):
-    image_base64: str = Field(min_length=1)
+    image_base64: str = Field(min_length=1, max_length=17_000_000)  # ~12 MB decoded
     mime_type: str = Field(default="image/jpeg", min_length=1, max_length=100)
 
 
 class InspectRequest(BaseModel):
-    images: List[InspectImage] = Field(min_length=1, max_length=8)
+    images: List[InspectImage] = Field(min_length=1, max_length=4)
     domain: str = Field(default="general", max_length=40)
     mode: str = Field(default="quick", max_length=16)
     user_text: str = Field(default="", max_length=2000)
@@ -66,6 +66,10 @@ def inspect(payload: InspectRequest, request: Request) -> dict:
     from app.services import assistant_health, rate_limit
 
     rate_limit.check(request, "vision_inspect", limit=10)
+    # The per-client key comes from X-Forwarded-For, which a caller can spoof:
+    # a process-wide hourly cap bounds the paid model calls regardless.
+    if not vision_inspection.global_budget_allows():
+        raise HTTPException(status_code=429, detail="Photo inspection is busy -- please try again later")
     images = []
     for item in payload.images:
         mime = item.mime_type.strip().lower()
