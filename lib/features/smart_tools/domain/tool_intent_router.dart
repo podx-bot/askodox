@@ -117,6 +117,11 @@ AskodoxToolIntent? askodoxToolIntent(String text) {
     return AskodoxToolIntent(tool('fraud_check')!, explicit: true);
   }
 
+  if (_has(q, ['measure from photo', 'measure from a photo', 'measure with photo', 'measure with a photo',
+    'photo measure', 'ఫోటోతో కొలత'])) {
+    return AskodoxToolIntent(tool('photo_measure')!, explicit: true);
+  }
+
   final commerce = _has(q, _commerce);
   final quantity = _has(q, _quantityAsk);
 

@@ -92,6 +92,11 @@ const askodoxSmartTools = <AskodoxSmartTool>[
       id: 'ar_tape', nameEn: 'AR measuring tape', nameTe: 'AR కొలత టేప్', group: AskodoxToolGroup.measure,
       needs: {AskodoxToolNeed.arCore, AskodoxToolNeed.camera}, readiness: AskodoxToolReadiness.comingSoon),
   AskodoxSmartTool(
+      id: 'photo_measure', nameEn: 'Measure from a photo (reference object)', nameTe: 'ఫోటోతో కొలత (రిఫరెన్స్ వస్తువు)',
+      group: AskodoxToolGroup.measure, needs: {AskodoxToolNeed.camera, AskodoxToolNeed.manualInput},
+      readiness: AskodoxToolReadiness.hardwareUnverified, route: '/tools/measure-photo',
+      safetyNote: 'Approximate; the reference and the object must be on the same flat surface.'),
+  AskodoxSmartTool(
       id: 'distance', nameEn: 'Distance meter', nameTe: 'దూరం కొలత', group: AskodoxToolGroup.measure,
       needs: {AskodoxToolNeed.arCore}, readiness: AskodoxToolReadiness.comingSoon),
   AskodoxSmartTool(
