@@ -38,6 +38,9 @@ void _nonNegative(double value, String en, String te) {
   }
 }
 
+/// Whole units to buy: floating-point noise (30.0000000004) must not add one.
+double _wholeUnits(double value) => (value - 1e-6).ceilToDouble();
+
 double _wastage(double percent) {
   _nonNegative(percent, 'Wastage', 'వేస్టేజ్');
   if (percent > 50) {
@@ -212,7 +215,7 @@ AskodoxCalcResult askodoxBricks({
   final dryMortar = wetMortar * _dryVolumeFactorMortar;
   final cementM3 = dryMortar / (1 + mortarSandParts);
   final sandM3 = dryMortar * mortarSandParts / (1 + mortarSandParts);
-  final units = (count * factor).ceilToDouble();
+  final units = _wholeUnits(count * factor);
   final bags = (cementM3 * factor / askodoxCementBagM3);
   return AskodoxCalcResult(lines: [
     AskodoxCalcLine('Bricks / blocks', 'ఇటుకలు / బ్లాక్‌లు', units, 'nos', decimals: 0),
@@ -303,11 +306,11 @@ AskodoxCalcResult askodoxTiles({
   }
   final factor = _wastage(wastagePercent);
   final tileArea = tileLengthMm * tileWidthMm / 1e6;
-  final tiles = (areaSqm * factor / tileArea).ceilToDouble();
+  final tiles = _wholeUnits(areaSqm * factor / tileArea);
   final sqft = askodoxSqmToSqft(areaSqm);
   return AskodoxCalcResult(lines: [
     AskodoxCalcLine('Tiles', 'టైల్స్', tiles, 'nos', decimals: 0),
-    if (tilesPerBox != null) AskodoxCalcLine('Boxes', 'బాక్సులు', (tiles / tilesPerBox).ceilToDouble(), 'boxes', decimals: 0),
+    if (tilesPerBox != null) AskodoxCalcLine('Boxes', 'బాక్సులు', _wholeUnits(tiles / tilesPerBox), 'boxes', decimals: 0),
     AskodoxCalcLine('Floor area', 'నేల వైశాల్యం', sqft, 'sq ft', decimals: 1),
     if (ratePerSqft != null)
       AskodoxCalcLine('Tile cost (your rate)', 'టైల్స్ ఖర్చు (మీ రేటు)', sqft * factor * ratePerSqft, '₹', decimals: 0),

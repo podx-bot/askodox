@@ -54,7 +54,7 @@ double? askodoxHeading(AskodoxVec3 gravity, AskodoxVec3 magnetic) {
   hx /= normH;
   hy /= normH;
   hz /= normH;
-  final nx = ax / normA, ny = ay / normA, nz = az / normA;
+  final nx = ax / normA, nz = az / normA;
   final my = nz * hx - nx * hz;
   final heading = _deg(math.atan2(hy, my));
   return (heading + 360) % 360;

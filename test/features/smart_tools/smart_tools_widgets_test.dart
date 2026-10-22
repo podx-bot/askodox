@@ -115,6 +115,8 @@ void main() {
     await tester.pumpAndSettle();
     final pairing = find.byKey(const ValueKey('askodoxTool-pairing'));
     await tester.scrollUntilVisible(pairing, 300);
+    await tester.ensureVisible(pairing);
+    await tester.pumpAndSettle();
     expect(find.descendant(of: pairing, matching: find.text('Coming soon')), findsOneWidget);
     await tester.tap(pairing);
     await tester.pumpAndSettle();
@@ -124,6 +126,8 @@ void main() {
     await tester.pumpAndSettle();
     final brick = find.byKey(const ValueKey('askodoxTool-brick'));
     await tester.scrollUntilVisible(brick, -300);
+    await tester.ensureVisible(brick);
+    await tester.pumpAndSettle();
     await tester.tap(brick);
     await tester.pumpAndSettle();
     expect(find.text('CALC brick'), findsOneWidget);
