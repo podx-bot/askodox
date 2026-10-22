@@ -1,0 +1,28 @@
+name: Probe smart-tools analyze (throwaway)
+on:
+  push:
+    branches: [claude/probe-smart-tools-analyze]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - run: flutter pub get 2>&1 | tail -20 | sed 's/^/::warning title=pub::/'
+      - name: analyze
+        run: |
+          flutter analyze > analyze.txt 2>&1 || true
+          grep -E "•" analyze.txt | head -60 | sed 's/^/::warning title=analyze::/' || true
+          tail -3 analyze.txt | sed 's/^/::warning title=analyze-summary::/'
+      - name: tests
+        run: |
+          flutter test test/features/smart_tools test/features/home/history_explore_profile_test.dart -r expanded > t.txt 2>&1 || true
+          grep -E "\[E\]|Expected|Actual|Which|Error|error:|FAILED|Some tests failed|All tests passed" t.txt | head -60 | cut -c1-400 | sed 's/^/::warning title=test::/' || true
+          tail -2 t.txt | sed 's/^/::warning title=test-summary::/'
