@@ -35,6 +35,7 @@ const askodoxAccountScopedKeys = <String>[
   'askodox.local.recentSearches',
   'askodox.local.sellerDrafts',
   'askodox.saved_options.v1',
+  'askodox.devices.local.v1',
   'askodox.roles.v1',
   'askodox.notifications.v1',
   'askodox.updates.seen.v1',

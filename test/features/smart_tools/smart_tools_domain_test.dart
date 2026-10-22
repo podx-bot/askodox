@@ -155,8 +155,11 @@ void main() {
       expect(askodoxToolIntent('open the compass')?.explicit, isTrue);
       expect(idOf('spirit level'), 'level');
       expect(idOf('దిక్సూచి చూపించు'), 'compass');
-      expect(idOf('connect my tv'), 'pairing');
-      expect(askodoxToolIntent('connect my tv')?.route, isNull, reason: 'pairing is not built: never opened');
+      expect(idOf('connect my tv'), 'smart_home');
+      expect(askodoxToolIntent('connect my tv')?.route, isNull, reason: 'smart-home control is not built: never opened');
+      expect(askodoxToolIntent('pair my weighing scale')?.route, '/devices/add');
+      expect(askodoxToolIntent('add a device')?.route, '/devices');
+      expect(askodoxToolIntent('walkie talkie')?.route, '/ptt');
     });
 
     test('photo inspection picks the domain from the words', () {

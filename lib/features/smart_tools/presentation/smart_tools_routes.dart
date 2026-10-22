@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../../devices/presentation/device_screens.dart';
+import '../../devices/presentation/ptt_screens.dart';
 import '../../intelligence/presentation/intelligence_screens.dart';
 
 import 'calculator_screens.dart';
@@ -33,10 +35,30 @@ final askodoxSmartToolRoutes = <GoRoute>[
   GoRoute(
       path: '/intel/tricks',
       builder: (context, state) => AskodoxSmartTricksScreen(initial: state.uri.queryParameters['calc'])),
+  // Round 3: connectivity, pairing, push-to-talk.
+  GoRoute(path: '/devices', builder: (context, state) => const AskodoxDevicesScreen()),
+  GoRoute(path: '/devices/add', builder: (context, state) => const AskodoxAddDeviceScreen()),
+  GoRoute(path: '/devices/compatibility', builder: (context, state) => const AskodoxDeviceCompatibilityScreen()),
+  GoRoute(
+      path: '/devices/live',
+      builder: (context, state) => AskodoxDeviceLiveScreen(
+            localId: state.uri.queryParameters['id'] ?? '',
+            name: state.uri.queryParameters['name'] ?? '',
+            deviceId: state.uri.queryParameters['device'],
+          )),
+  GoRoute(path: '/ptt', builder: (context, state) => const AskodoxPttHomeScreen()),
+  GoRoute(
+      path: '/ptt/:id',
+      builder: (context, state) => AskodoxPttChannelScreen(
+            channelId: state.pathParameters['id'] ?? '',
+            name: state.uri.queryParameters['name'] ?? '',
+            code: state.uri.queryParameters['code'] ?? '',
+          )),
 ];
 
 /// Paths the routes above serve (for the registry consistency test).
 const askodoxSmartToolPaths = [
   '/tools', '/tools/level', '/tools/compass', '/tools/inspect', '/tools/calc/',
   '/intel/tax', '/intel/gst', '/intel/fraud', '/intel/fraud/', '/intel/tricks',
+  '/devices', '/devices/add', '/devices/compatibility', '/devices/live', '/ptt', '/ptt/',
 ];
