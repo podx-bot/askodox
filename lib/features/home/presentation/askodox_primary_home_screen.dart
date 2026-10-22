@@ -62,6 +62,7 @@ import '../domain/need_clarification.dart';
 import '../domain/need_state.dart';
 import '../domain/home_request_routing.dart';
 import '../domain/semantic_deal_input.dart';
+import '../../smart_tools/domain/tool_intent_router.dart';
 import '../../companion/askodox_companion.dart';
 import '../../companion/companion_voice.dart';
 import 'deal_lifecycle_panel.dart';
@@ -1924,6 +1925,31 @@ class _AskodoxPrimaryHomeScreenState
       await _saveSnapshot();
       _scrollBottom();
       if (speakResponse) unawaited(_speakReply(text, userText: typed));
+      return;
+    }
+
+    // Smart Tools: "how many bricks for this wall", "open the compass", "check
+    // this chicken quality" open the tool itself (on-device maths or one
+    // bounded photo inspection) -- never a search, never an AI guess. Commerce
+    // asks ("buy bricks", "tile price") never match; an unbuilt tool says so.
+    // With results on screen, a quantity question may be about those options,
+    // so only an explicit tool name ("open the compass") interrupts then.
+    final toolIntent = attachments.isEmpty && _pendingAiContext == null && _pendingDraft == null
+        ? askodoxToolIntent(typed)
+        : null;
+    if (toolIntent != null && (toolIntent.explicit || _latestResults() == null)) {
+      final te = _te;
+      final route = toolIntent.route;
+      final name = toolIntent.tool.name(te);
+      final reply = route != null
+          ? (te ? '$name తెరుస్తున్నాను.' : 'Opening $name.')
+          : (te
+              ? '$name ఇంకా ASKODOX లో అందుబాటులో లేదు — పని చేస్తున్నట్లు చూపించను. ఇతర స్మార్ట్ టూల్స్ ప్రొఫైల్ > స్మార్ట్ టూల్స్‌లో ఉన్నాయి.'
+              : '$name is not available in ASKODOX yet, and I will not pretend it works. '
+                  'The tools that do work are under Profile > Smart Tools.');
+      await _replyAndSave(reply, speakResponse, typed);
+      if (!mounted) return;
+      if (route != null) unawaited(context.push(route));
       return;
     }
 

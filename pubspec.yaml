@@ -40,6 +40,10 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   video_player: ^2.14.1
+  # Smart Tools level / inclinometer / compass (accelerometer + magnetometer;
+  # no runtime permission). Backs lib/features/smart_tools/presentation/
+  # sensor_tools_screen.dart; tests inject askodoxMotionSensorsProvider.
+  sensors_plus: '>=6.1.0 <9.0.0'
 
 # shared_preferences_android 2.5.0 moved to Pigeon JNI; in the APK it fails at
 # start-up (NoSuchMethodError SharedPreferencesApiRegistrar.getAll -> endless
