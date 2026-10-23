@@ -34,6 +34,7 @@ no item is PHONE VERIFIED until a real-phone test with evidence.
 | Communication | Push-to-talk over the internet (groups by code, 60 s clips, 24 h expiry) | IMPLEMENTED BUT HARDWARE UNVERIFIED | needs two real phones to verify |
 | Communication | Offline long-range radio | BLOCKED BY EXTERNAL DEPENDENCY | phones lack the radio (stated in app) |
 | Communication | WebRTC calls, live group voice, screen sharing, nearby file transfer | NOT IMPLEMENTED | |
+| Business | Universal POS (GST billing, credit notes, customer credit, stock, day close, offline, BLE printer) | see `docs/POS_STATUS.md` | PR #224, stacked on round 4 |
 
 ## Owner actions
 1. Approve merge order #220 → #221 → #222 → round 4, then a production deploy (backend features are unreachable from
