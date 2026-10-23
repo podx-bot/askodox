@@ -66,7 +66,7 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Offline | Device series, queue, sync, rejected bills kept with reason | IMPLEMENTED AND VERIFIED | storage not encrypted (PARTIAL for "encrypted local DB") |
 | AI | en / te typed or dictated commands with confirmation | IMPLEMENTED AND VERIFIED | no in-screen mic button (keyboard dictation works) |
 | Hardware | BLE ESC/POS printer (scan, choose, 58 / 80 mm, test print, receipt print) | IMPLEMENTED, HARDWARE TEST PENDING | no printer model tested |
-| Hardware | Telugu receipt printing (raster) | PARTIALLY IMPLEMENTED | raster encoder + monochrome built and tested; text-to-image rendering not wired |
+| Hardware | Telugu receipt printing (raster image, bands ≤255 rows) | IMPLEMENTED, HARDWARE TEST PENDING | rendered with the phone font; no printer tested |
 | Hardware | Classic Bluetooth (SPP), USB, LAN printers, cash drawer, customer display, BT / USB scanners, scales | NOT IMPLEMENTED | |
 | Restaurant | Tables, KOT, KDS, modifiers, split / merge | NOT IMPLEMENTED | |
 | Shipping | Courier integrations | NOT IMPLEMENTED | |

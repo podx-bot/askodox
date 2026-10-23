@@ -73,7 +73,7 @@ int askodoxReceiptColumns(int paperMm) => paperMm >= 80 ? 48 : 32;
 
 /// A plain-ASCII receipt (English names) for printers without raster support;
 /// "Rs" replaces the rupee sign. Telugu receipts use the raster path.
-List<String> askodoxReceiptLines(Map<String, Object?> invoice, {int columns = 32}) {
+List<String> askodoxReceiptLines(Map<String, Object?> invoice, {int columns = 32, bool asciiOnly = true}) {
   String money(Object? paise) => askodoxPaise((paise as num? ?? 0).toInt(), symbol: false);
   String pair(String left, String right) {
     final space = columns - left.length - right.length;
@@ -81,7 +81,7 @@ List<String> askodoxReceiptLines(Map<String, Object?> invoice, {int columns = 32
     return '${left.substring(0, (columns - right.length - 1).clamp(0, left.length))} $right';
   }
 
-  String ascii(Object? v) => '${v ?? ''}'.replaceAll(RegExp(r'[^\x20-\x7E]'), '?');
+  String ascii(Object? v) => asciiOnly ? '${v ?? ''}'.replaceAll(RegExp(r'[^\x20-\x7E]'), '?') : '${v ?? ''}';
   final business = (invoice['business_snapshot'] as Map?) ?? const {};
   final customer = (invoice['customer_snapshot'] as Map?) ?? const {};
   final totals = (invoice['totals'] as Map?) ?? const {};

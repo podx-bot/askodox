@@ -590,7 +590,7 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
           if (snap.hasError) return AskodoxPosError(error: snap.error!, onRetry: _reload);
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final inv = snap.data!;
-          final receipt = askodoxReceiptLines(inv, columns: 32);
+          final receipt = askodoxReceiptLines(inv, columns: 32, asciiOnly: false);
           final isInvoice = inv['doc_kind'] == 'invoice' && inv['status'] == 'issued';
           return ListView(key: const Key('askodoxPosInvoice'), padding: const EdgeInsets.all(12), children: [
             if (inv['status'] == 'cancelled')
@@ -950,8 +950,8 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
       body: ListView(key: const Key('askodoxPosPrinter'), padding: const EdgeInsets.all(12), children: [
         Text(
           te
-              ? 'బ్లూటూత్ LE థర్మల్ ప్రింటర్లు (ESC/POS) మాత్రమే. క్లాసిక్ బ్లూటూత్, USB, Wi-Fi ప్రింటర్లు ఇంకా లేవు. ఏ మోడల్ ఇంకా నిజంగా పరీక్షించలేదు. తెలుగు ప్రింట్ ఇంకా లేదు (ఇంగ్లీష్ పేర్లు ప్రింట్ అవుతాయి).'
-              : 'Bluetooth LE thermal printers (ESC/POS) only. Classic Bluetooth, USB and Wi-Fi printers are not supported yet. No model has been tested yet. Telugu printing is not available yet (English names print).',
+              ? 'బ్లూటూత్ LE థర్మల్ ప్రింటర్లు (ESC/POS) మాత్రమే. క్లాసిక్ బ్లూటూత్, USB, Wi-Fi ప్రింటర్లు ఇంకా లేవు. ఏ మోడల్ ఇంకా నిజంగా పరీక్షించలేదు. తెలుగు పేర్లు చిత్రంగా ప్రింట్ అవుతాయి (ఇంకా ప్రింటర్‌పై పరీక్షించలేదు).'
+              : 'Bluetooth LE thermal printers (ESC/POS) only. Classic Bluetooth, USB and Wi-Fi printers are not supported yet. No model has been tested yet. Telugu names print as an image (not tested on a printer yet).',
           key: const Key('askodoxPosPrinterLimits'),
           style: const TextStyle(fontSize: 12.5),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/pos_printer.dart';
+import '../data/pos_raster.dart';
 import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_commands.dart';
@@ -627,7 +628,12 @@ Future<void> askodoxPrintInvoice(BuildContext context, WidgetRef ref, AskodoxJso
     return;
   }
   try {
-    await ref.read(askodoxPrinterTransportProvider).write(printer.id, askodoxReceiptBytes(invoice, paperMm: printer.paperMm));
+    final bytes = askodoxInvoiceNeedsRaster(invoice)
+        ? await askodoxRasterReceipt(
+            askodoxReceiptLines(invoice, columns: askodoxReceiptColumns(printer.paperMm), asciiOnly: false),
+            paperMm: printer.paperMm)
+        : askodoxReceiptBytes(invoice, paperMm: printer.paperMm);
+    await ref.read(askodoxPrinterTransportProvider).write(printer.id, bytes);
     messenger?.showSnackBar(SnackBar(content: Text(te ? 'ప్రింటర్‌కి పంపాం.' : 'Sent to the printer.')));
   } on AskodoxPrinterException catch (e) {
     messenger?.showSnackBar(SnackBar(content: Text(e.message(te))));

@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/pos/data/pos_printer.dart';
+import 'package:podx/features/pos/data/pos_raster.dart';
 import 'package:podx/features/pos/data/pos_repository.dart';
 import 'package:podx/features/pos/domain/escpos.dart';
 import 'package:podx/features/pos/domain/pos_commands.dart';
@@ -188,6 +189,22 @@ void main() {
       expect(lines.any((l) => l.startsWith('TOTAL Rs') && l.endsWith('236.00')), isTrue);
       expect(askodoxChunks(Uint8List(450), 180).map((c) => c.length), [180, 180, 90]);
     });
+  });
+
+  testWidgets('Telugu names go to the raster path (bands of at most 255 rows)', (tester) async {
+    final invoice = {
+      'number': 'A/2627/000001',
+      'lines': [
+        {'name': 'చికెన్', 'unit': 'kg', 'qty_milli': 1000, 'unit_price_paise': 24000, 'total_paise': 24000},
+      ],
+    };
+    expect(askodoxInvoiceNeedsRaster(invoice), isTrue);
+    expect(askodoxInvoiceNeedsRaster({'number': 'A/1', 'lines': const []}), isFalse);
+    final bytes = await tester.runAsync(() => askodoxRasterReceipt(askodoxReceiptLines(invoice, asciiOnly: false)));
+    expect(bytes!.sublist(0, 2), [0x1B, 0x40]);
+    expect(bytes.sublist(2, 6), [0x1D, 0x76, 0x30, 0x00]);
+    expect(bytes[6], 48, reason: '384 dots = 48 bytes per row on 58 mm paper');
+    expect(bytes[9], 0, reason: 'band height high byte: never more than 255 rows');
   });
 
   group('offline queue', () {
