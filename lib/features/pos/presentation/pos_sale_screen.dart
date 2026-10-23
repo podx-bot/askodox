@@ -1,0 +1,635 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../data/pos_printer.dart';
+import '../data/pos_repository.dart';
+import '../domain/escpos.dart';
+import '../domain/pos_commands.dart';
+import '../domain/pos_money.dart';
+import '../domain/pos_tax.dart';
+import 'pos_common.dart';
+
+class AskodoxCartLine {
+  AskodoxCartLine({required this.product, required this.qtyMilli, required this.pricePaise, this.override = false,
+      this.discountPaise = 0, this.grossMilli, this.tareMilli});
+  final AskodoxJson product;
+  int qtyMilli;
+  int pricePaise;
+  bool override;
+  int discountPaise;
+  int? grossMilli;
+  int? tareMilli;
+
+  String get unit => '${product['unit']}';
+
+  AskodoxLineInput get taxInput => AskodoxLineInput(
+        qtyMilli: qtyMilli,
+        unitPricePaise: pricePaise,
+        discountPaise: discountPaise,
+        rateBp: askodoxPosInt(product['rate_bp']),
+        cessBp: askodoxPosInt(product['cess_bp']),
+        priceIncludesTax: product['price_includes_tax'] == true,
+        category: '${product['category'] ?? 'taxable'}',
+      );
+
+  AskodoxJson toRequest() => {
+        'product_id': product['id'],
+        if (grossMilli != null) 'weight': {'gross_milli': grossMilli, 'tare_milli': tareMilli ?? 0, 'source': 'typed'}
+        else 'qty_milli': qtyMilli,
+        if (override) 'unit_price_paise': pricePaise,
+        if (discountPaise > 0) 'discount_paise': discountPaise,
+      };
+}
+
+const _weighed = {'kg', 'g', 'l', 'ml'};
+
+/// The counter: find items (name / barcode / Telugu name / typed command),
+/// build the bill, take payment, issue. The bill number and final amounts come
+/// from the server; without internet the sale is kept on this phone with this
+/// device's own bill number and sent later.
+class AskodoxPosSaleScreen extends ConsumerStatefulWidget {
+  const AskodoxPosSaleScreen({super.key, required this.businessId});
+  final String businessId;
+
+  @override
+  ConsumerState<AskodoxPosSaleScreen> createState() => _AskodoxPosSaleScreenState();
+}
+
+class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
+  final _search = TextEditingController();
+  final _command = TextEditingController();
+  List<AskodoxJson> _products = const [];
+  final List<AskodoxCartLine> _cart = [];
+  AskodoxJson? _customer;
+  Map<String, int> _customerPrices = const {};
+  bool _loading = true;
+  bool _issuing = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    ref.read(askodoxPosQueueProvider).ensureSeries(widget.businessId).catchError((_) => <String, Object?>{});
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _command.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await ref.read(askodoxPosRepositoryProvider).products(widget.businessId);
+      if (mounted) setState(() => _products = list);
+    } on AskodoxPosException catch (e) {
+      if (mounted) setState(() => _error = e.message(askodoxPosTe(context)));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  int _priceFor(AskodoxJson p) => _customerPrices['${p['id']}'] ?? askodoxPosInt(p['price_paise']);
+
+  List<AskodoxJson> get _visible {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _products;
+    return _products
+        .where((p) => '${p['name']}'.toLowerCase().contains(q) || '${p['name_te']}'.contains(q) || '${p['barcode']}' == q ||
+            '${p['sku']}'.toLowerCase() == q)
+        .toList();
+  }
+
+  void _addLine(AskodoxJson product, int qtyMilli, {int? price, int? gross, int? tare}) {
+    setState(() {
+      final listed = _priceFor(product);
+      final existing = _cart.where((l) => l.product['id'] == product['id'] && l.grossMilli == null && gross == null &&
+          (price == null || price == l.pricePaise));
+      if (existing.isNotEmpty) {
+        existing.first.qtyMilli += qtyMilli;
+      } else {
+        _cart.add(AskodoxCartLine(product: product, qtyMilli: qtyMilli, pricePaise: price ?? listed,
+            override: price != null && price != listed, grossMilli: gross, tareMilli: tare));
+      }
+    });
+  }
+
+  Future<void> _pickQty(AskodoxJson product) async {
+    final te = askodoxPosTe(context);
+    final weighed = _weighed.contains(product['unit']);
+    final qty = TextEditingController(text: weighed ? '' : '1');
+    final tare = TextEditingController();
+    final result = await showDialog<(int, int?, int?)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${product['name']}'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          AskodoxPosField(
+              controller: qty,
+              number: true,
+              label: weighed ? (te ? 'బరువు (${product['unit']})' : 'Weight (${product['unit']})') : (te ? 'సంఖ్య' : 'Quantity')),
+          if (weighed)
+            AskodoxPosField(controller: tare, number: true, label: te ? 'ట్రే / డబ్బా బరువు (తీసేస్తాం)' : 'Tare — container weight (subtracted)'),
+          if (weighed)
+            Text(te ? 'కెమెరా బరువు కొలవదు; తూకం యంత్రం చూపిన సంఖ్య టైప్ చేయండి.' : 'Type what the scale shows; the camera never measures weight.',
+                style: const TextStyle(fontSize: 11.5)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'రద్దు' : 'Cancel')),
+          FilledButton(
+            key: const Key('askodoxPosQtyOk'),
+            onPressed: () {
+              final q = askodoxParseMilli(qty.text);
+              final t = tare.text.trim().isEmpty ? 0 : askodoxParseMilli(tare.text);
+              if (q == null || q <= 0 || t == null || t >= q) return;
+              Navigator.pop(ctx, (q - t, weighed && t > 0 ? q : null, weighed && t > 0 ? t : null));
+            },
+            child: Text(te ? 'జోడించు' : 'Add'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) _addLine(product, result.$1, gross: result.$2, tare: result.$3);
+  }
+
+  Future<void> _runCommand() async {
+    final te = askodoxPosTe(context);
+    final items = [
+      for (final p in _products)
+        AskodoxPosItemRef(id: '${p['id']}', name: '${p['name']}', nameTe: '${p['name_te'] ?? ''}', unit: '${p['unit']}'),
+    ];
+    final cmd = askodoxParsePosCommand(_command.text, items);
+    if (cmd.kind == AskodoxPosCommandKind.unknown || cmd.needsChoice || (cmd.item == null && cmd.kind != AskodoxPosCommandKind.clear &&
+        cmd.kind != AskodoxPosCommandKind.checkout && cmd.kind != AskodoxPosCommandKind.discount)) {
+      askodoxPosSnack(context, cmd.needsChoice
+          ? (te ? 'ఒకటి కంటే ఎక్కువ సరుకులు సరిపోయాయి: ${cmd.candidates.map((c) => c.name).join(', ')}' : 'More than one item matches: ${cmd.candidates.map((c) => c.name).join(', ')}')
+          : (te ? 'అర్థం కాలేదు. ఉదా: "2 kg chicken" / "అర కిలో చికెన్"' : 'Not understood. Try "2 kg chicken" or "remove chicken".'));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('askodoxPosConfirmCommand'),
+        content: Text(cmd.describe(te)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'No')),
+          FilledButton(key: const Key('askodoxPosConfirmYes'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'అవును' : 'Yes')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    _command.clear();
+    switch (cmd.kind) {
+      case AskodoxPosCommandKind.add:
+        final product = _products.firstWhere((p) => p['id'] == cmd.item!.id);
+        _addLine(product, cmd.qtyMilli ?? 1000, price: cmd.pricePaise);
+      case AskodoxPosCommandKind.remove:
+        setState(() => _cart.removeWhere((l) => l.product['id'] == cmd.item!.id));
+      case AskodoxPosCommandKind.clear:
+        setState(_cart.clear);
+      case AskodoxPosCommandKind.discount:
+        _applyDiscount(cmd);
+      case AskodoxPosCommandKind.checkout:
+        await _pay();
+      case AskodoxPosCommandKind.unknown:
+        break;
+    }
+  }
+
+  void _applyDiscount(AskodoxPosCommand cmd) {
+    if (_cart.isEmpty) return;
+    setState(() {
+      if (cmd.discountBp != null) {
+        for (final l in _cart) {
+          final gross = askodoxRoundDiv(l.qtyMilli * l.pricePaise, 1000);
+          l.discountPaise = askodoxRoundDiv(gross * cmd.discountBp!, 10000);
+        }
+      } else {
+        // a rupee discount goes on the last line (never more than that line's value)
+        final l = _cart.last;
+        final gross = askodoxRoundDiv(l.qtyMilli * l.pricePaise, 1000);
+        l.discountPaise = (cmd.discountPaise ?? 0).clamp(0, gross);
+      }
+    });
+  }
+
+  AskodoxInvoicePreview? _preview(AskodoxJson business) {
+    if (_cart.isEmpty) return null;
+    try {
+      return askodoxInvoicePreview([for (final l in _cart) l.taxInput],
+          registrationType: '${business['registration_type']}', businessState: '${business['state_code']}');
+    } on AskodoxTaxException {
+      return null;
+    }
+  }
+
+  Future<void> _chooseCustomer() async {
+    final te = askodoxPosTe(context);
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    List<AskodoxJson> list;
+    try {
+      list = await repo.customers(widget.businessId);
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<AskodoxJson?>(
+      context: context,
+      builder: (ctx) => ListView(children: [
+        ListTile(title: Text(te ? 'వాక్-ఇన్ కస్టమర్' : 'Walk-in customer'), onTap: () => Navigator.pop(ctx, <String, Object?>{})),
+        for (final c in list)
+          ListTile(
+            title: Text('${c['name']}'),
+            subtitle: Text('${c['gstin'] ?? ''} ${te ? 'బాకీ' : 'due'} ${askodoxPaise(askodoxPosInt(c['balance_paise']))}'),
+            onTap: () => Navigator.pop(ctx, c),
+          ),
+      ]),
+    );
+    if (picked == null) return;
+    if (picked.isEmpty) {
+      setState(() {
+        _customer = null;
+        _customerPrices = const {};
+      });
+      return;
+    }
+    try {
+      final full = await repo.customer(widget.businessId, '${picked['id']}');
+      if (!mounted) return;
+      setState(() {
+        _customer = full;
+        _customerPrices = {for (final e in askodoxPosMap(full['prices']).entries) e.key: askodoxPosInt(e.value)};
+        for (final l in _cart) {
+          if (!l.override) l.pricePaise = _priceFor(l.product);
+        }
+      });
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
+  Future<void> _pay() async {
+    final business = ref.read(askodoxPosBusinessProvider(widget.businessId)).valueOrNull;
+    if (business == null) return;
+    final preview = _preview(business);
+    if (preview == null) return;
+    final te = askodoxPosTe(context);
+    final payments = await showModalBottomSheet<List<AskodoxJson>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _PaymentSheet(total: preview.totalPaise, allowCredit: _customer != null, te: te),
+    );
+    if (payments == null || !mounted) return;
+    await _issue(business, preview, payments);
+  }
+
+  Future<void> _issue(AskodoxJson business, AskodoxInvoicePreview preview, List<AskodoxJson> payments) async {
+    final te = askodoxPosTe(context);
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    final queue = ref.read(askodoxPosQueueProvider);
+    final body = <String, Object?>{
+      'client_txn_id': askodoxNewTxnId(),
+      'lines': [for (final l in _cart) l.toRequest()],
+      if (_customer != null) 'customer_id': _customer!['id'],
+      'payments': payments,
+    };
+    setState(() {
+      _issuing = true;
+      _error = null;
+    });
+    try {
+      final invoice = await repo.createInvoice(widget.businessId, body);
+      if (!mounted) return;
+      setState(_cart.clear);
+      context.push('/pos/${widget.businessId}/invoice/${invoice['id']}');
+    } on AskodoxPosException catch (e) {
+      if (!e.retryable) {
+        if (mounted) setState(() => _error = e.message(te));
+        return;
+      }
+      final now = DateTime.now();
+      final number = await queue.takeNumber(widget.businessId, askodoxFinancialYear(now));
+      if (number == null) {
+        if (mounted) {
+          setState(() => _error = te
+              ? 'ఇంటర్నెట్ లేదు, ఈ ఫోన్‌కి బిల్లు నంబర్ సిరీస్ ఇంకా లేదు. ఒకసారి ఇంటర్నెట్‌తో ఈ స్క్రీన్ తెరవండి.'
+              : 'No internet, and this phone has no bill-number series yet. Open this screen once while online.');
+        }
+        return;
+      }
+      final offset = now.timeZoneOffset;
+      final sign = offset.isNegative ? '-' : '+';
+      final hh = offset.inHours.abs().toString().padLeft(2, '0');
+      final mm = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+      await queue.add(widget.businessId, {
+        ...body,
+        'offline': true,
+        'issued_at': '${now.toIso8601String().split('.').first}$sign$hh:$mm',
+        'device_id': await queue.deviceId(),
+        'invoice_number': number,
+      });
+      if (!mounted) return;
+      final local = _localInvoice(business, preview, number, payments);
+      setState(_cart.clear);
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          key: const Key('askodoxPosOfflineIssued'),
+          title: Text(te ? 'ఆఫ్‌లైన్ బిల్లు $number' : 'Offline bill $number'),
+          content: Text(te
+              ? 'ఈ ఫోన్‌లో దాచాం; ఇంటర్నెట్ వచ్చాక సర్వర్‌కి పంపుతాం. UPI/కార్డ్ డబ్బు మీరు నిర్ధారించినది మాత్రమే — బ్యాంక్ నిర్ధారణ కాదు.'
+              : 'Kept on this phone and sent when the internet is back. UPI / card amounts are what you confirmed — not bank-verified.'),
+          actions: [
+            TextButton(onPressed: () => askodoxPrintInvoice(ctx, ref, local), child: Text(te ? 'ప్రింట్' : 'Print')),
+            FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _issuing = false);
+    }
+  }
+
+  AskodoxJson _localInvoice(AskodoxJson business, AskodoxInvoicePreview preview, String number, List<AskodoxJson> payments) => {
+        'number': number,
+        'local_date': askodoxPosToday(),
+        'title': switch (preview.documentType) {
+          'tax_invoice' => 'Tax Invoice',
+          'bill_of_supply' => 'Bill of Supply',
+          _ => 'Bill',
+        },
+        'business_snapshot': {'name': business['name'], 'address': business['address'], 'gstin': business['gstin']},
+        'customer_snapshot': {'name': _customer?['name'] ?? 'Walk-in customer', 'gstin': _customer?['gstin']},
+        'lines': [
+          for (var i = 0; i < _cart.length; i++)
+            {
+              'name': _cart[i].product['name'],
+              'unit': _cart[i].unit,
+              'qty_milli': _cart[i].qtyMilli,
+              'unit_price_paise': _cart[i].pricePaise,
+              'total_paise': preview.lines[i].totalPaise,
+              'hsn_sac': _cart[i].product['hsn_sac'],
+            },
+        ],
+        'totals': {
+          'taxable_paise': preview.taxablePaise,
+          'cgst_paise': preview.cgstPaise,
+          'sgst_paise': preview.sgstPaise,
+          'igst_paise': preview.igstPaise,
+          'cess_paise': preview.cessPaise,
+          'grand_total_paise': preview.totalPaise,
+          'state_tax_label': preview.stateTaxLabel,
+        },
+        'payments': payments,
+        'balance_paise': preview.totalPaise - payments.fold<int>(0, (a, p) => a + askodoxPosInt(p['amount_paise'])),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    final business = ref.watch(askodoxPosBusinessProvider(widget.businessId)).valueOrNull;
+    final preview = business == null ? null : _preview(business);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(te ? 'కొత్త బిల్లు' : 'New bill'),
+        actions: [
+          TextButton.icon(
+            key: const Key('askodoxPosCustomer'),
+            onPressed: _chooseCustomer,
+            icon: const Icon(Icons.person_outline),
+            label: Text(_customer == null ? (te ? 'వాక్-ఇన్' : 'Walk-in') : '${_customer!['name']}'),
+          ),
+        ],
+      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                key: const Key('askodoxPosCommand'),
+                controller: _command,
+                onSubmitted: (_) => _runCommand(),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.keyboard_voice_outlined),
+                  hintText: te ? '"అర కిలో చికెన్" / "2 kg rice"' : '"2 kg chicken" / "remove rice"',
+                ),
+              ),
+            ),
+            IconButton(key: const Key('askodoxPosCommandGo'), onPressed: _runCommand, icon: const Icon(Icons.send)),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: TextField(
+            key: const Key('askodoxPosSearch'),
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+                isDense: true,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                hintText: te ? 'పేరు / బార్‌కోడ్' : 'Name / barcode'),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _products.isEmpty
+                  ? Center(
+                      child: TextButton(
+                        onPressed: () => context.push('/pos/${widget.businessId}/items'),
+                        child: Text(te ? 'ముందు సరుకులు జోడించండి' : 'Add your items first'),
+                      ),
+                    )
+                  : ListView(key: const Key('askodoxPosProducts'), children: [
+                      for (final p in _visible)
+                        ListTile(
+                          key: ValueKey('askodoxPosProduct-${p['id']}'),
+                          dense: true,
+                          title: Text(te && '${p['name_te'] ?? ''}'.isNotEmpty ? '${p['name_te']}' : '${p['name']}'),
+                          subtitle: p['stock_milli'] == null
+                              ? null
+                              : Text('${te ? 'స్టాక్' : 'Stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}'),
+                          trailing: Text('${askodoxPaise(_priceFor(p))}/${p['unit']}'),
+                          onTap: () => _pickQty(p),
+                        ),
+                    ]),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          flex: 3,
+          child: ListView(key: const Key('askodoxPosCart'), children: [
+            for (var i = 0; i < _cart.length; i++)
+              ListTile(
+                key: ValueKey('askodoxPosCartLine-$i'),
+                dense: true,
+                title: Text('${_cart[i].product['name']}'),
+                subtitle: Text([
+                  '${askodoxQty(_cart[i].qtyMilli, _cart[i].unit)} × ${askodoxPaise(_cart[i].pricePaise)}',
+                  if (_cart[i].grossMilli != null)
+                    '(${askodoxQty(_cart[i].grossMilli!, '')} − ${askodoxQty(_cart[i].tareMilli ?? 0, '')} ${te ? 'ట్రే' : 'tare'})',
+                  if (_cart[i].discountPaise > 0) '− ${askodoxPaise(_cart[i].discountPaise)}',
+                  if (_cart[i].override) (te ? 'ధర మార్పు (మేనేజర్)' : 'price changed (manager)'),
+                ].join(' ')),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (preview != null && i < preview.lines.length) Text(askodoxPaise(preview.lines[i].totalPaise)),
+                  IconButton(
+                    key: ValueKey('askodoxPosRemove-$i'),
+                    onPressed: () => setState(() => _cart.removeAt(i)),
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+                ]),
+              ),
+          ]),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(_error!, key: const Key('askodoxPosSaleError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(preview == null ? '₹0.00' : askodoxPaise(preview.totalPaise),
+                      key: const Key('askodoxPosTotal'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                  if (preview != null && preview.taxPaise > 0)
+                    Text('${te ? 'పన్ను' : 'Tax'} ${askodoxPaise(preview.taxPaise)} · ${te ? 'అంచనా; సర్వర్ బిల్లు అంతిమం' : 'preview; the server bill is final'}',
+                        style: const TextStyle(fontSize: 11)),
+                ]),
+              ),
+              FilledButton.icon(
+                key: const Key('askodoxPosPay'),
+                onPressed: _cart.isEmpty || _issuing ? null : _pay,
+                icon: const Icon(Icons.payments_outlined),
+                label: Text(_issuing ? (te ? 'బిల్లు…' : 'Billing…') : (te ? 'చెల్లింపు' : 'Pay')),
+              ),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _PaymentSheet extends StatefulWidget {
+  const _PaymentSheet({required this.total, required this.allowCredit, required this.te});
+  final int total;
+  final bool allowCredit;
+  final bool te;
+
+  @override
+  State<_PaymentSheet> createState() => _PaymentSheetState();
+}
+
+class _PaymentSheetState extends State<_PaymentSheet> {
+  final List<AskodoxJson> _payments = [];
+  final _amount = TextEditingController();
+  final _reference = TextEditingController();
+  String _method = 'cash';
+
+  int get _paid => _payments.fold(0, (a, p) => a + askodoxPosInt(p['amount_paise']));
+  int get _left => widget.total - _paid;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount.text = askodoxPaise(widget.total, symbol: false).replaceAll(',', '');
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _reference.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    final paise = askodoxParsePaise(_amount.text);
+    if (paise == null || paise <= 0 || paise > _left) return;
+    setState(() {
+      _payments.add({'method': _method, 'amount_paise': paise, 'reference': _reference.text.trim()});
+      _amount.text = askodoxPaise(_left, symbol: false).replaceAll(',', '');
+      _reference.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = widget.te;
+    final labels = {
+      'cash': te ? 'నగదు' : 'Cash',
+      'upi': 'UPI',
+      'card': te ? 'కార్డ్' : 'Card',
+      'bank_transfer': te ? 'బ్యాంక్' : 'Bank',
+      'cheque': te ? 'చెక్' : 'Cheque',
+    };
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${te ? 'మొత్తం' : 'Total'} ${askodoxPaise(widget.total)} · ${te ? 'మిగిలింది' : 'left'} ${askodoxPaise(_left)}',
+            key: const Key('askodoxPosLeft'), style: const TextStyle(fontWeight: FontWeight.w800)),
+        Wrap(spacing: 6, children: [
+          for (final e in labels.entries)
+            ChoiceChip(label: Text(e.value), selected: _method == e.key, onSelected: (_) => setState(() => _method = e.key)),
+        ]),
+        AskodoxPosField(controller: _amount, number: true, label: te ? 'మొత్తం (₹)' : 'Amount (₹)'),
+        if (_method != 'cash') AskodoxPosField(controller: _reference, label: te ? 'రిఫరెన్స్ (UTR మొదలైనవి)' : 'Reference (UTR etc.)'),
+        if (_method == 'upi' || _method == 'card')
+          Text(
+            te
+                ? 'QR చూపించడం = డబ్బు అందినట్టు కాదు. మీ ఫోన్ / బ్యాంక్‌లో వచ్చిందని చూసి మాత్రమే జోడించండి.'
+                : 'Showing a QR is not payment. Add this only after you see the money arrive in your bank / UPI app.',
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309)),
+          ),
+        Row(children: [
+          OutlinedButton(key: const Key('askodoxPosAddPayment'), onPressed: _add, child: Text(te ? 'చెల్లింపు జోడించు' : 'Add payment')),
+          const Spacer(),
+          for (final p in _payments) Padding(padding: const EdgeInsets.only(left: 4), child: Chip(label: Text('${labels[p['method']]} ${askodoxPaise(askodoxPosInt(p['amount_paise']))}'))),
+        ]),
+        if (_left > 0 && widget.allowCredit)
+          Text(te ? 'మిగిలినది కస్టమర్ ఖాతాలో బాకీగా ఉంటుంది.' : 'The rest goes on the customer\'s credit account.', style: const TextStyle(fontSize: 12)),
+        if (_left > 0 && !widget.allowCredit)
+          Text(te ? 'బాకీ పెట్టాలంటే ముందు కస్టమర్‌ని ఎంచుకోండి.' : 'To leave a balance, choose a customer first.', style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            key: const Key('askodoxPosIssue'),
+            onPressed: _left == 0 || widget.allowCredit ? () => Navigator.pop(context, _payments) : null,
+            child: Text(te ? 'బిల్లు ఇవ్వు' : 'Issue bill'),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Prints [invoice] on the saved printer (plain-text ESC/POS). Hardware result is
+/// reported exactly as the printer link answered.
+Future<void> askodoxPrintInvoice(BuildContext context, WidgetRef ref, AskodoxJson invoice) async {
+  final te = askodoxPosTe(context);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final printer = await AskodoxSavedPrinter.load();
+  if (printer == null) {
+    messenger?.showSnackBar(SnackBar(content: Text(te ? 'ముందు ప్రింటర్ ఎంచుకోండి.' : 'Choose a printer first (Printer).')));
+    return;
+  }
+  try {
+    await ref.read(askodoxPrinterTransportProvider).write(printer.id, askodoxReceiptBytes(invoice, paperMm: printer.paperMm));
+    messenger?.showSnackBar(SnackBar(content: Text(te ? 'ప్రింటర్‌కి పంపాం.' : 'Sent to the printer.')));
+  } on AskodoxPrinterException catch (e) {
+    messenger?.showSnackBar(SnackBar(content: Text(e.message(te))));
+  }
+}

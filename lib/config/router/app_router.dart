@@ -11,6 +11,7 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/kyc/presentation/kyc_screen.dart';
 import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
+import '../../features/pos/presentation/pos_routes.dart';
 import '../../features/smart_tools/presentation/smart_tools_routes.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/selling/presentation/my_listings_screen.dart';
@@ -228,6 +229,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
       GoRoute(path: '/radio', builder: (context, state) => const TravelRadioScreen()),
       ...askodoxSmartToolRoutes,
+      ...askodoxPosRoutes,
       GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
       GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
       GoRoute(

@@ -1,0 +1,30 @@
+import 'package:go_router/go_router.dart';
+
+import 'pos_home_screen.dart';
+import 'pos_records_screens.dart';
+import 'pos_sale_screen.dart';
+
+/// Universal POS routes (entry: My Business -> Shop billing).
+final askodoxPosRoutes = <GoRoute>[
+  GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
+  GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/sale', builder: (context, state) => AskodoxPosSaleScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/items', builder: (context, state) => AskodoxPosItemsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/customers',
+      builder: (context, state) => AskodoxPosCustomersScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/customers/:cid',
+      builder: (context, state) =>
+          AskodoxPosCustomerScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)),
+  GoRoute(
+      path: '/pos/:id/invoices', builder: (context, state) => AskodoxPosInvoicesScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/invoice/:iid',
+      builder: (context, state) =>
+          AskodoxPosInvoiceScreen(businessId: state.pathParameters['id']!, invoiceId: state.pathParameters['iid']!)),
+  GoRoute(path: '/pos/:id/day', builder: (context, state) => AskodoxPosDayScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/gst', builder: (context, state) => AskodoxPosGstScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/staff', builder: (context, state) => AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
+];
