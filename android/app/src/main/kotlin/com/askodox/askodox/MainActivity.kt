@@ -144,6 +144,9 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        // Printers (Classic Bluetooth / USB) + light / sound meters: separate channel and file.
+        AskodoxHardware.register(this, flutterEngine.dartExecutor.binaryMessenger)
+
         val device = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceChannel)
         deviceMethods = device
         device

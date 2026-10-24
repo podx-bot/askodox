@@ -1005,6 +1005,7 @@ class AskodoxPosPrinterScreen extends ConsumerStatefulWidget {
 class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScreen> {
   AskodoxSavedPrinter? _saved;
   List<AskodoxBleDevice> _found = const [];
+  List<AskodoxNativePrinter> _native = const [];
   bool _scanning = false;
   int _paper = 58;
   String? _message;
@@ -1044,6 +1045,32 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
     }
   }
 
+  Future<void> _listNative(bool usb) async {
+    final te = askodoxPosTe(context);
+    final native = ref.read(askodoxNativePrintersProvider);
+    setState(() => _message = null);
+    try {
+      final rows = usb ? await native.usb() : await native.paired();
+      if (!mounted) return;
+      setState(() {
+        _native = rows;
+        if (rows.isEmpty) {
+          _message = usb
+              ? (te ? 'USB ప్రింటర్ కనిపించలేదు (OTG కేబుల్‌తో కనెక్ట్ చేయండి).' : 'No USB printer found (connect it with an OTG cable).')
+              : (te ? 'జత చేసిన పరికరాలు లేవు. ఫోన్ బ్లూటూత్ సెట్టింగ్స్‌లో ప్రింటర్‌ని జత చేయండి.' : 'No paired devices. Pair the printer in the phone\'s Bluetooth settings.');
+        }
+      });
+    } on AskodoxPrinterException catch (e) {
+      if (mounted) setState(() => _message = e.message(te));
+    }
+  }
+
+  Future<void> _chooseNative(AskodoxNativePrinter d) async {
+    final p = AskodoxSavedPrinter(id: d.id, name: d.name, paperMm: _paper);
+    await p.save();
+    if (mounted) setState(() => _saved = p);
+  }
+
   Future<void> _choose(AskodoxBleDevice d) async {
     final p = AskodoxSavedPrinter(id: d.id, name: d.name.isEmpty ? d.id : d.name, paperMm: _paper);
     await p.save();
@@ -1075,8 +1102,8 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
       body: ListView(key: const Key('askodoxPosPrinter'), padding: const EdgeInsets.all(12), children: [
         Text(
           te
-              ? 'బ్లూటూత్ LE థర్మల్ ప్రింటర్లు (ESC/POS) మాత్రమే. క్లాసిక్ బ్లూటూత్, USB, Wi-Fi ప్రింటర్లు ఇంకా లేవు. ఏ మోడల్ ఇంకా నిజంగా పరీక్షించలేదు. తెలుగు పేర్లు చిత్రంగా ప్రింట్ అవుతాయి (ఇంకా ప్రింటర్‌పై పరీక్షించలేదు).'
-              : 'Bluetooth LE thermal printers (ESC/POS) only. Classic Bluetooth, USB and Wi-Fi printers are not supported yet. No model has been tested yet. Telugu names print as an image (not tested on a printer yet).',
+              ? 'ESC/POS థర్మల్ ప్రింటర్లు: బ్లూటూత్ LE, క్లాసిక్ బ్లూటూత్ (ముందు ఫోన్ సెట్టింగ్స్‌లో జత చేయండి), USB (OTG). Wi-Fi ప్రింటర్లు ఇంకా లేవు. ఏ మోడల్ ఇంకా నిజంగా పరీక్షించలేదు. తెలుగు పేర్లు చిత్రంగా ప్రింట్ అవుతాయి (ఇంకా ప్రింటర్‌పై పరీక్షించలేదు).'
+              : 'ESC/POS thermal printers: Bluetooth LE, Classic Bluetooth (pair it in phone settings first) and USB (OTG). Wi-Fi printers are not supported yet. No model has been tested yet. Telugu names print as an image (not tested on a printer yet).',
           key: const Key('askodoxPosPrinterLimits'),
           style: const TextStyle(fontSize: 12.5),
         ),
@@ -1099,15 +1126,39 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
             key: const Key('askodoxPosSavedPrinter'),
             leading: const Icon(Icons.print),
             title: Text(_saved!.name),
-            subtitle: Text('${_saved!.paperMm} mm'),
+            subtitle: Text('${_saved!.paperMm} mm · ${switch (askodoxPrinterLink(_saved!.id)) {
+              'classic' => te ? 'క్లాసిక్ బ్లూటూత్' : 'Classic Bluetooth',
+              'usb' => 'USB',
+              _ => 'Bluetooth LE',
+            }}'),
             trailing: TextButton(onPressed: _test, child: Text(te ? 'టెస్ట్ ప్రింట్' : 'Test print')),
           ),
         FilledButton.icon(
           key: const Key('askodoxPosPrinterScan'),
           onPressed: _scanning ? null : _scan,
           icon: const Icon(Icons.bluetooth_searching),
-          label: Text(_scanning ? (te ? 'వెతుకుతోంది…' : 'Scanning…') : (te ? 'ప్రింటర్ వెతుకు' : 'Find printer')),
+          label: Text(_scanning ? (te ? 'వెతుకుతోంది…' : 'Scanning…') : (te ? 'BLE ప్రింటర్ వెతుకు' : 'Find BLE printer')),
         ),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('askodoxPosPrinterPaired'),
+              onPressed: () => _listNative(false),
+              icon: const Icon(Icons.bluetooth_connected),
+              label: Text(te ? 'జత చేసినవి' : 'Paired'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('askodoxPosPrinterUsb'),
+              onPressed: () => _listNative(true),
+              icon: const Icon(Icons.usb),
+              label: const Text('USB'),
+            ),
+          ),
+        ]),
         if (_message != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_message!)),
         for (final d in _found)
           ListTile(
@@ -1115,6 +1166,14 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
             title: Text(d.name.isEmpty ? (te ? 'పేరు లేని పరికరం' : 'Unnamed device') : d.name),
             subtitle: Text('RSSI ${d.rssi}'),
             onTap: () => _choose(d),
+          ),
+        for (final d in _native)
+          ListTile(
+            key: ValueKey('askodoxPosPrinterNative-${d.id}'),
+            leading: Icon(d.kind == 'usb' ? Icons.usb : Icons.bluetooth),
+            title: Text(d.name),
+            subtitle: Text(d.hint ? (te ? 'ప్రింటర్‌లా కనిపిస్తోంది' : 'Looks like a printer') : d.id.split(':').skip(1).join(':')),
+            onTap: () => _chooseNative(d),
           ),
       ]),
     );

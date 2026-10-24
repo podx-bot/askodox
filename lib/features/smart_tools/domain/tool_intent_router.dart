@@ -121,6 +121,22 @@ AskodoxToolIntent? askodoxToolIntent(String text) {
     'photo measure', 'ఫోటోతో కొలత'])) {
     return AskodoxToolIntent(tool('photo_measure')!, explicit: true);
   }
+  if (!_has(q, _commerce) && _has(q, ['protractor', 'ప్రొట్రాక్టర్'])) {
+    return AskodoxToolIntent(tool('protractor')!, explicit: true);
+  }
+  if (!_has(q, _commerce) && _has(q, ['magnifier', 'magnifying glass', 'zoom small text', 'భూతద్దం', 'మాగ్నిఫైయర్'])) {
+    return AskodoxToolIntent(tool('magnifier')!, explicit: true);
+  }
+  if (!_has(q, _commerce) && _has(q, ['light meter', 'lux meter', 'measure light', 'వెలుతురు కొలత'])) {
+    return AskodoxToolIntent(tool('light')!, explicit: true);
+  }
+  if (!_has(q, _commerce) && _has(q, ['sound meter', 'decibel meter', 'noise meter', 'sound level', 'noise level', 'శబ్ద స్థాయి'])) {
+    return AskodoxToolIntent(tool('sound')!, explicit: true);
+  }
+  if (!_has(q, _commerce) && _has(q, ['vehicle report', 'vehicle inspection report', 'car inspection report', 'walk-around report',
+    'walkaround report', 'వాహన పరిశీలన రిపోర్ట్'])) {
+    return AskodoxToolIntent(tool('vehicle_report')!, explicit: true);
+  }
 
   final commerce = _has(q, _commerce);
   final quantity = _has(q, _quantityAsk);

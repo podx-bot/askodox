@@ -10,8 +10,8 @@ void main() {
     expect(askodoxAmountInWords(10000000), 'Rupees One Lakh Only');
   });
 
-  test('the PDF is built from the issued record only', () async {
-    final bytes = await askodoxInvoicePdf({
+  testWidgets('the PDF is built from the issued record only; Telugu text goes in as an image', (tester) async {
+    final invoice = <String, Object?>{
       'number': 'SL/2627/000001',
       'local_date': '2026-10-24',
       'title': 'Tax Invoice',
@@ -30,8 +30,15 @@ void main() {
       'payments': [
         {'method': 'upi', 'amount_paise': 23600, 'verification': 'cashier_confirmed'},
       ],
-    }, compress: false);
+    };
+    final bytes = (await tester.runAsync(() => askodoxInvoicePdf(invoice, compress: false)))!;
     expect(String.fromCharCodes(bytes.sublist(0, 5)), '%PDF-');
     expect(bytes.length, greaterThan(1500));
+    final text = String.fromCharCodes(bytes);
+    expect(text.contains('/Subtype /Image') || text.contains('/Subtype/Image'), isTrue, reason: 'the Telugu buyer name is an image');
+    expect(await tester.runAsync(() => askodoxInvoicePdfImageCount(invoice)), 1);
+    expect(askodoxPdfNeedsImage('Biscuits'), isFalse);
+    expect(askodoxPdfNeedsImage('చికెన్'), isTrue);
+    expect(askodoxPdfNeedsImage('₹ 10'), isTrue);
   });
 }
