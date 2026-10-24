@@ -253,7 +253,7 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
                 final code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
                 if (code != null && mounted) setState(() => _barcode.text = askodoxCleanBarcode(code));
               } on AskodoxScanException catch (e) {
-                if (mounted) askodoxPosSnack(context, e.message(te));
+                if (context.mounted) askodoxPosSnack(context, e.message(te));
               }
             },
             icon: const Icon(Icons.qr_code_scanner),
