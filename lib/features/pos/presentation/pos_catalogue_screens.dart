@@ -490,7 +490,7 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
                       decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(10)),
                       child: Text(te
                           ? '${_missing.length} తప్పనిసరి వివరాలు లేవు — "కావాలి" అని ఉన్నవి నింపండి. ఏ వివరం పేరు నొక్కినా ఏం రాయాలో చెబుతుంది.'
-                          : '${_missing.length} required detail(s) missing — fill the ones marked "Needed". Tap a detail's name to see what to write.'),
+                          : '${_missing.length} required detail(s) missing — fill the ones marked "Needed". Tap the name of a detail to see what to write.'),
                     ),
                   const SizedBox(height: 12),
                   Card(
