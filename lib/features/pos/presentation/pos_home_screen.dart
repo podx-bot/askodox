@@ -290,6 +290,8 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
             ('printer', Icons.print_outlined, 'Printer', 'ప్రింటర్', '/pos/$id/printer'),
             if (askodoxPosCan(b, 'settings'))
               ('advance', Icons.savings_outlined, 'Shop advance', 'షాప్ అడ్వాన్స్', '/pos/$id/advance'),
+            if (askodoxPosCan(b, 'sell'))
+              ('selfshop', Icons.qr_code_2, 'Self-shopping', 'సెల్ఫ్ షాపింగ్', '/pos/$id/selfshop'),
           ];
           return RefreshIndicator(
             onRefresh: () async {

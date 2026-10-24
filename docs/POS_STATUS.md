@@ -88,6 +88,9 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Hardware | Bluetooth / USB barcode scanners that type like a keyboard | IMPLEMENTED, HARDWARE TEST PENDING | they type into the search box; not tested with a device |
 | Restaurant | Tables, open orders, item notes, KOT (daily numbers), kitchen screen (new → preparing → ready → served), move / merge tables, split bill by items, takeaway | IMPLEMENTED AND VERIFIED | roles waiter / kitchen; kitchen screen refreshes every 10 s (no push) |
 | Restaurant | Priced modifiers / add-ons, KOT printing to a kitchen printer, split by amount / seat | NOT IMPLEMENTED | notes are text only |
+| Self-shopping | Daily entry code / QR, customer scans barcodes on their own phone (photo), time-limited list, checkout exit code | IMPLEMENTED AND VERIFIED (backend + widget tests) | weighed and serial / IMEI items stay at the counter; not phone verified |
+| Self-shopping | Exit check: ONE photo of all items, every barcode decoded (zxing multi reader) and compared: matched / not seen / not billed | IMPLEMENTED, PHONE TEST PENDING | a photo shows each different barcode once -- quantities above one are counted by hand; decoding many small codes in one photo is untested on real phones |
+| Self-shopping | Customer pays inside the app | NOT IMPLEMENTED | payment is at the counter (cash / UPI / card = cashier confirmed); gateway not live |
 | Shipping | Courier integrations | NOT IMPLEMENTED | |
 | Accounting | Chart of accounts, P&L, Tally export | NOT IMPLEMENTED | |
 
