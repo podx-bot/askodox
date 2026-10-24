@@ -13,7 +13,8 @@ this file, don't trust it blindly.
   invoice PDF + native `shareFile`, suppliers / purchase bills / supplier ledger, batch + expiry FEFO, valuation, input
   tax as recorded), POS round 4 PR #227 (box <-> pieces packs, serial / IMEI, purchase orders, Classic Bluetooth + USB
   printers via `AskodoxHardware.kt` on channel `com.askodox.app/hardware`, Telugu PDF text as images, Smart Tools
-  protractor / magnifier / light / sound meters / vehicle walk-around report). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  protractor / magnifier / light / sound meters / vehicle walk-around report), then #228 shop advance, #229 guide on every screen + POS online channel, #230 ready catalogue + item
+  details, #231 guide offers help by itself + picture tiles + rates by quantity + spoken multi-item bill. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
