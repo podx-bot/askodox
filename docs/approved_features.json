@@ -723,6 +723,21 @@
       "dependencies": ["universal_pos_core"],
       "status": "approved",
       "history": [{"pr": null, "change": "POS round 3 (branch claude/pos-round3); camera / scale NOT HARDWARE VERIFIED"}]
+    },
+    {
+      "id": "pos_purchases_batches",
+      "name": "POS suppliers, purchase bills, supplier ledger, batch / expiry (FEFO), stock valuation, input tax as recorded",
+      "purpose": "Shops record what they buy and what they owe, pharmacies sell by batch with expiry control, and accountants see recorded input tax.",
+      "expected_behavior": "A purchase bill records the supplier's invoice (cost before GST; GST only from a GSTIN supplier; inter / intra by supplier State), adds stock per batch, and adds what is owed; the same supplier bill number cannot be recorded twice; a printed total that differs by more than Re 1 is refused; bills are cancelled (row kept, stock + ledger reversed), never deleted. Batch items sell first-expiry-first-out from non-expired batches; expired stock is never sold; returns go back to the batches sold from. Valuation = average purchase cost before GST (items without a cost are counted as unknown). Input tax is shown 'as recorded' -- eligibility is the accountant's decision.",
+      "roles": ["seller"],
+      "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/pos/businesses/{business_id}/suppliers", "response_keys": ["id", "owed_paise"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/purchases", "response_keys": ["id", "totals", "lines", "replayed"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/suppliers/{supplier_id}/payments", "response_keys": ["owed_paise"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/suppliers/{supplier_id}/statement", "response_keys": ["entries", "closing_paise"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/stock/{product_id}/batches", "response_keys": ["batches"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/expiry", "response_keys": ["items"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/valuation", "response_keys": ["items", "total_value_paise"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/input-tax", "response_keys": ["bills", "totals", "disclaimer"]}],
+      "ui": {"keys": ["askodoxPosSuppliers", "askodoxPosPurchaseForm", "askodoxPosPurchaseComputed", "askodoxPosPaySupplier", "askodoxPosStockReport", "askodoxPosTrackBatches"], "symbols": ["AskodoxPosSuppliersScreen", "AskodoxPosPurchaseScreen", "AskodoxPosStockReportScreen"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_pos_purchases.py"], "flutter": ["test/features/pos/pos_purchase_test.dart"]},
+      "dependencies": ["universal_pos_core"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "POS round 3 (branch claude/pos-round3); NOT PHONE VERIFIED"}]
     }
   ]
 }

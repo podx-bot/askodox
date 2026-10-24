@@ -143,6 +143,7 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
   String _category = 'taxable';
   bool _inclusive = true;
   bool _track = false;
+  bool _batches = false;
   bool _busy = false;
   String? _error;
 
@@ -179,8 +180,9 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
         'category': _category,
         'hsn_sac': _hsn.text.trim(),
         'barcode': _barcode.text.trim(),
-        'track_stock': _track,
-        if (_track) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
+        'track_stock': _track || _batches,
+        'track_batches': _batches,
+        if (_track && !_batches) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
       });
       if (mounted) Navigator.of(context).pop(true);
     } on AskodoxPosException catch (e) {
@@ -259,7 +261,15 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
           onChanged: (v) => setState(() => _track = v),
           title: Text(te ? 'స్టాక్ లెక్క పెట్టు' : 'Track stock'),
         ),
-        if (_track) AskodoxPosField(controller: _opening, number: true, label: te ? 'ప్రస్తుత స్టాక్' : 'Opening stock ($_unit)'),
+        SwitchListTile(
+          key: const Key('askodoxPosTrackBatches'),
+          contentPadding: EdgeInsets.zero,
+          value: _batches,
+          onChanged: (v) => setState(() => _batches = v),
+          title: Text(te ? 'బ్యాచ్ / ఎక్స్‌పైరీ లెక్క (మందులు మొదలైనవి)' : 'Track batch / expiry (medicines etc.)'),
+          subtitle: Text(te ? 'స్టాక్ కొనుగోలు బిల్లుతో బ్యాచ్ వారీగా వస్తుంది; ఎక్స్‌పైర్ అయినది అమ్మకానికి రాదు.' : 'Stock comes in per batch through purchase bills; expired stock is never sold.'),
+        ),
+        if (_track && !_batches) AskodoxPosField(controller: _opening, number: true, label: te ? 'ప్రస్తుత స్టాక్' : 'Opening stock ($_unit)'),
         if (_error != null) Text(_error!, key: const Key('askodoxPosItemError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
         FilledButton(key: const Key('askodoxPosSaveItem'), onPressed: _busy ? null : _save, child: Text(te ? 'సేవ్' : 'Save')),
       ]),

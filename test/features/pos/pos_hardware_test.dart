@@ -179,6 +179,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('askodoxPosProduct-p1')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('askodoxPosReadScale')));
+      // The read waits on async device / stream work; let fake time run (well under the 15 s timeout).
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       await tester.pumpAndSettle();
       final shown = [for (final t in tester.widgetList<Text>(find.descendant(of: find.byType(AlertDialog), matching: find.byType(Text)))) t.data];
       final fieldText = [for (final f in tester.widgetList<TextField>(find.byType(TextField))) f.controller?.text];

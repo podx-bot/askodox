@@ -278,6 +278,9 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
             if (askodoxPosCan(b, 'kitchen') && askodoxPosTableTemplates.contains(b['template']))
               ('kitchen', Icons.soup_kitchen_outlined, 'Kitchen screen', 'వంటగది స్క్రీన్', '/pos/$id/kitchen'),
             ('items', Icons.inventory_2_outlined, 'Items & stock', 'సరుకులు & స్టాక్', '/pos/$id/items'),
+            if (askodoxPosCan(b, 'purchases'))
+              ('suppliers', Icons.local_shipping_outlined, 'Suppliers & purchases', 'సప్లయర్లు & కొనుగోళ్లు', '/pos/$id/suppliers'),
+            if (askodoxPosCan(b, 'stock')) ('stock', Icons.event_busy_outlined, 'Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ', '/pos/$id/stock-report'),
             ('customers', Icons.people_alt_outlined, 'Customers & credit', 'కస్టమర్లు & ఖాతా', '/pos/$id/customers'),
             ('bills', Icons.receipt_long_outlined, 'Bills', 'బిల్లులు', '/pos/$id/invoices'),
             ('day', Icons.calculate_outlined, 'Day close', 'రోజు ముగింపు', '/pos/$id/day'),

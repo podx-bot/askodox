@@ -60,9 +60,12 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | GST | GST summary by rate / HSN / B2B / B2C, invoice register CSV | IMPLEMENTED AND VERIFIED | for accountant review, not a filed return |
 | GST | GSTR-1 JSON, e-invoice IRN, e-way bill | BLOCKED | needs a GSP / IRP account + owner approval |
 | Inventory | Stock tracking, purchase / wastage / count with reasons, low stock flag | IMPLEMENTED AND VERIFIED | |
-| Inventory | Units / conversions, variants, batch / expiry / serial / IMEI, multi-warehouse, POs, valuation | NOT IMPLEMENTED | |
+| Inventory | Batch / expiry: purchase per batch, first-expiry-first-out sales, expired never sold, returns to the same batch, expiry report | IMPLEMENTED AND VERIFIED | |
+| Inventory | Stock valuation at average purchase cost (before GST) | IMPLEMENTED AND VERIFIED | items never bought on a recorded bill have no cost |
+| Inventory | Unit conversions (box ↔ pcs), variants, serial / IMEI, multi-warehouse, purchase orders | NOT IMPLEMENTED | |
 | Customers | Ledger, running balance, monthly statement, money received | IMPLEMENTED AND VERIFIED | reminders NOT IMPLEMENTED |
-| Suppliers | Supplier ledger, purchase bills | NOT IMPLEMENTED | |
+| Suppliers | Suppliers, purchase bills (cost before GST, printed-total check, no duplicate bill numbers, cancel keeps the row), payments, monthly statements | IMPLEMENTED AND VERIFIED | |
+| GST | Input tax summary from recorded purchase bills | IMPLEMENTED AND VERIFIED | 'as recorded' only; ITC eligibility / GSTR-2B matching NOT IMPLEMENTED |
 | Cash | Day close (opening float, expected vs counted, final) | IMPLEMENTED AND VERIFIED | shifts NOT IMPLEMENTED |
 | Payments | Counter cash / UPI / card / bank / cheque (UPI / card = cashier-confirmed) | IMPLEMENTED AND VERIFIED | |
 | Payments | Gateway-verified UPI / card (provider API) | NOT IMPLEMENTED | payment layer exists in TEST mode; live needs owner approval |
