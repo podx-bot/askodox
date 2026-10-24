@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,7 +83,59 @@ class _Api implements ApiClient {
       throw UnimplementedError();
 }
 
+
+/// Draws an EAN-13 barcode (standard L / G / R patterns) as ARGB pixels.
+AskodoxScanImage _ean13(String digits, {int module = 3, int height = 80, bool rotate = false}) {
+  const l = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+  String r(String code) => code.split('').map((c) => c == '0' ? '1' : '0').join();
+  String g(String code) => r(code).split('').reversed.join();
+  const parity = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'];
+  final d = digits.split('').map(int.parse).toList();
+  final p = parity[d[0]];
+  var bits = '${'0' * 12}101';
+  for (var i = 1; i <= 6; i++) {
+    bits += p[i - 1] == 'L' ? l[d[i]] : g(l[d[i]]);
+  }
+  bits += '01010';
+  for (var i = 7; i <= 12; i++) {
+    bits += r(l[d[i]]);
+  }
+  bits += '101${'0' * 12}';
+  final w = bits.length * module;
+  final px = Int32List(w * height);
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < w; x++) {
+      px[y * w + x] = bits[x ~/ module] == '1' ? 0xFF000000 : 0xFFFFFFFF;
+    }
+  }
+  if (!rotate) return AskodoxScanImage(w, height, px);
+  // turn 90° counter-clockwise: the decoder must turn it back
+  final t = Int32List(w * height);
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < w; x++) {
+      t[(w - 1 - x) * height + y] = px[y * w + x];
+    }
+  }
+  return AskodoxScanImage(height, w, t);
+}
+
+String _withCheck(String twelve) {
+  var sum = 0;
+  for (var i = 0; i < 12; i++) {
+    sum += int.parse(twelve[i]) * (i.isEven ? 1 : 3);
+  }
+  return '$twelve${(10 - sum % 10) % 10}';
+}
+
 void main() {
+  test('a photographed EAN-13 decodes exactly (as taken and turned 90 degrees); a blank photo finds nothing', () {
+    final code = _withCheck('890123456789');
+    expect(askodoxDecodeBarcodePixels(_ean13(code)), code);
+    expect(askodoxDecodeBarcodePixels(_ean13(code, rotate: true)), code);
+    expect(askodoxDecodeBarcodePixels(AskodoxScanImage(50, 50, Int32List(2500)..fillRange(0, 2500, 0xFFFFFFFF))), isNull);
+    expect(askodoxRgbaToArgb(Uint8List.fromList([1, 2, 3, 255]))[0] & 0xFFFFFFFF, 0xFF010203);
+  });
+
   test('scale readings convert exactly into the item unit; only settled weights count', () {
     expect(askodoxScaleToItemMilli(1.235, 'kg', 'kg'), 1235);
     expect(askodoxScaleToItemMilli(1.235, 'kg', 'g'), 1235000);

@@ -233,7 +233,14 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   }
 
   Future<void> _scanBarcode() async {
-    final code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
+    final te = askodoxPosTe(context);
+    String? code;
+    try {
+      code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
+    } on AskodoxScanException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
     if (code == null || !mounted) return;
     await _handleBarcode(code);
   }

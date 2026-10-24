@@ -1,90 +1,121 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:zxing_lib/common.dart';
+import 'package:zxing_lib/zxing.dart';
 
+import '../../../services/chat_attachment_service.dart';
+import '../../../services/media_picker.dart';
 import '../../devices/data/ble_gateway.dart';
 import '../domain/pos_scale.dart';
 
-/// Camera barcode scanning (ML Kit through mobile_scanner). Injectable so the
-/// counter is tested without a camera; tests are NOT a hardware verification.
+/// Barcode scanning from a camera PHOTO, decoded on the phone in pure Dart
+/// (zxing_lib: EAN / UPC / Code 128 / QR ...). A live camera-preview scanner
+/// (mobile_scanner) was tried and dropped: adding it broke the OTP SMS-consent
+/// flow when the app returns from the background (emulator A/B, 2026-10-24).
+/// Injectable so the counter is tested without a camera.
 abstract interface class AskodoxBarcodeScanner {
-  /// The first barcode seen, or null if the person closed the scanner.
+  /// The barcode text, or null if the person cancelled. Throws
+  /// [AskodoxScanException] when a photo was taken but no barcode was found.
   Future<String?> scan(BuildContext context);
 }
 
-class CameraBarcodeScanner implements AskodoxBarcodeScanner {
-  const CameraBarcodeScanner();
+class AskodoxScanException implements Exception {
+  const AskodoxScanException(this.code);
 
-  @override
-  Future<String?> scan(BuildContext context) =>
-      Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const AskodoxBarcodeScanScreen()));
+  /// not_found | camera_failed
+  final String code;
+
+  String message(bool te) => code == 'not_found'
+      ? (te ? 'ఫోటోలో బార్‌కోడ్ కనబడలేదు. దగ్గరగా, వెలుతురులో, నేరుగా తీయండి — లేదా నంబర్ టైప్ చేయండి.'
+          : 'No barcode found in the photo. Shoot closer, in good light, straight on — or type the number.')
+      : (te ? 'కెమెరా తెరవలేకపోయాను.' : 'Could not open the camera.');
 }
 
-final askodoxBarcodeScannerProvider = Provider<AskodoxBarcodeScanner>((ref) => const CameraBarcodeScanner());
-
-class AskodoxBarcodeScanScreen extends StatefulWidget {
-  const AskodoxBarcodeScanScreen({super.key});
+class PhotoBarcodeScanner implements AskodoxBarcodeScanner {
+  const PhotoBarcodeScanner(this._picker);
+  final AskodoxMediaPicker _picker;
 
   @override
-  State<AskodoxBarcodeScanScreen> createState() => _AskodoxBarcodeScanScreenState();
+  Future<String?> scan(BuildContext context) async {
+    List<ChatAttachment> picked;
+    try {
+      picked = await _picker.pick('camera');
+    } catch (_) {
+      throw const AskodoxScanException('camera_failed');
+    }
+    final photo = picked.where((p) => p.isImage).firstOrNull;
+    if (photo == null) return null;
+    final image = await askodoxDecodeForScan(photo.bytes);
+    final code = await compute(askodoxDecodeBarcodePixels, image);
+    if (code == null) throw const AskodoxScanException('not_found');
+    return code;
+  }
 }
 
-class _AskodoxBarcodeScanScreenState extends State<AskodoxBarcodeScanScreen> {
-  final _controller = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
-  bool _done = false;
+final askodoxBarcodeScannerProvider =
+    Provider<AskodoxBarcodeScanner>((ref) => PhotoBarcodeScanner(ref.watch(askodoxMediaPickerProvider)));
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+/// Pixels of a photo, scaled so the long side is at most [maxSide] (speed), as ARGB ints.
+Future<AskodoxScanImage> askodoxDecodeForScan(Uint8List bytes, {int maxSide = 1400}) async {
+  final probe = await ui.instantiateImageCodec(bytes);
+  final first = (await probe.getNextFrame()).image;
+  final w = first.width, h = first.height;
+  first.dispose();
+  final scale = math.max(w, h) > maxSide ? maxSide / math.max(w, h) : 1.0;
+  final codec = await ui.instantiateImageCodec(bytes,
+      targetWidth: (w * scale).round(), targetHeight: (h * scale).round());
+  final image = (await codec.getNextFrame()).image;
+  final data = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+  final out = AskodoxScanImage(image.width, image.height, askodoxRgbaToArgb(data));
+  image.dispose();
+  return out;
+}
+
+class AskodoxScanImage {
+  const AskodoxScanImage(this.width, this.height, this.argb);
+  final int width;
+  final int height;
+  final Int32List argb;
+}
+
+Int32List askodoxRgbaToArgb(Uint8List rgba) {
+  final out = Int32List(rgba.length ~/ 4);
+  for (var i = 0, j = 0; i < out.length; i++, j += 4) {
+    out[i] = (rgba[j + 3] << 24) | (rgba[j] << 16) | (rgba[j + 1] << 8) | rgba[j + 2];
+  }
+  return out;
+}
+
+/// Decodes one barcode from ARGB pixels (tries the photo as taken, then turned 90°).
+/// Top-level so it can run in a background isolate.
+String? askodoxDecodeBarcodePixels(AskodoxScanImage image) {
+  String? attempt(int w, int h, List<int> px) {
+    try {
+      final bitmap = BinaryBitmap(HybridBinarizer(RGBLuminanceSource(w, h, px)));
+      final text = MultiFormatReader().decode(bitmap, const DecodeHint(tryHarder: true)).text.trim();
+      return text.isEmpty ? null : text;
+    } catch (_) {
+      return null; // NotFound / Checksum / Format: no barcode here
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final te = Localizations.localeOf(context).languageCode == 'te';
-    return Scaffold(
-      appBar: AppBar(title: Text(te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode')),
-      body: Stack(children: [
-        MobileScanner(
-          controller: _controller,
-          onDetect: (capture) {
-            if (_done) return;
-            for (final b in capture.barcodes) {
-              final value = b.rawValue;
-              if (value != null && value.trim().isNotEmpty) {
-                _done = true;
-                Navigator.of(context).pop(value.trim());
-                return;
-              }
-            }
-          },
-          errorBuilder: (context, error) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                error.errorCode == MobileScannerErrorCode.permissionDenied
-                    ? (te ? 'కెమెరా అనుమతి ఇవ్వలేదు. సెట్టింగ్స్‌లో ఇవ్వండి లేదా బార్‌కోడ్ టైప్ చేయండి.' : 'Camera permission was not given. Allow it in Settings or type the barcode.')
-                    : (te ? 'కెమెరా తెరవలేకపోయాను. బార్‌కోడ్ టైప్ చేయండి.' : 'Could not open the camera. Type the barcode instead.'),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 24,
-          child: Text(
-            te ? 'బార్‌కోడ్‌ను ఫ్రేమ్ మధ్యలో పెట్టండి.' : 'Hold the barcode in the middle of the frame.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, shadows: [Shadow(blurRadius: 4)]),
-          ),
-        ),
-      ]),
-    );
+  final direct = attempt(image.width, image.height, image.argb);
+  if (direct != null) return direct;
+  // Rotate 90° clockwise: new (x, y) = old (y, h - 1 - x).
+  final w = image.width, h = image.height;
+  final turned = Int32List(w * h);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      turned[x * h + (h - 1 - y)] = image.argb[y * w + x];
+    }
   }
+  return attempt(h, w, turned);
 }
 
 class AskodoxScaleException implements Exception {

@@ -249,8 +249,12 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
             key: const Key('askodoxPosItemScan'),
             tooltip: te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode',
             onPressed: () async {
-              final code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
-              if (code != null && mounted) setState(() => _barcode.text = askodoxCleanBarcode(code));
+              try {
+                final code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
+                if (code != null && mounted) setState(() => _barcode.text = askodoxCleanBarcode(code));
+              } on AskodoxScanException catch (e) {
+                if (mounted) askodoxPosSnack(context, e.message(te));
+              }
             },
             icon: const Icon(Icons.qr_code_scanner),
           ),

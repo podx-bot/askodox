@@ -44,7 +44,7 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Core | Shop setup (16 business types as templates), multi-shop per person | IMPLEMENTED AND VERIFIED | templates = configuration, one core |
 | Core | Roles owner / manager / cashier / accountant, staff by phone, isolation | IMPLEMENTED AND VERIFIED | |
 | Billing | Checkout: search by name / Telugu name / barcode text / SKU, cart, discounts, customer rates | IMPLEMENTED AND VERIFIED | |
-| Hardware | Camera barcode scan (counter + item form; exact match only) | IMPLEMENTED, HARDWARE TEST PENDING | mobile_scanner (ML Kit); camera permission asked when the scanner opens |
+| Hardware | Barcode from a camera photo (counter + item form; decoded on the phone, exact match only) | IMPLEMENTED, HARDWARE TEST PENDING | pure-Dart zxing_lib; a live preview scanner (mobile_scanner) broke OTP SMS consent in the emulator A/B and was removed |
 | Billing | Weighed items (gross − tare = net), meat / vegetable counters | IMPLEMENTED AND VERIFIED | camera never weighs |
 | Hardware | Read weight from a standard BLE weight scale (one settled reading, cashier checks it) | IMPLEMENTED, HARDWARE TEST PENDING | private-protocol / RS-232 / USB scales NOT supported; never legal-for-trade proof |
 | Billing | Split / partial payments, balance to customer credit, credit limit | IMPLEMENTED AND VERIFIED | |
