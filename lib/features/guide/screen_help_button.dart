@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/askodox_mascot.dart';
 import '../../core/startup/startup_hint.dart';
+import 'guide_sheet.dart';
 import 'guide_watch.dart';
 import 'in_app_guide.dart';
 import 'screen_help.dart';
@@ -86,6 +87,10 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
       body = te
           ? 'ఈ బాక్స్‌లో ${label.isEmpty ? 'అడిగిన వివరం' : '"$label"'} రాయండి. అర్థం కాకపోతే కింద "ఈ పేజీ వివరించు" నొక్కండి.'
           : 'Type ${label.isEmpty ? 'what is asked' : '"$label"'} in this box. Not sure what it means? Tap "Explain this page" below.';
+    }
+    if (askodoxGuideVoiceOn) {
+      final spoken = [title, body, if (example != null && example.isNotEmpty) '${te ? 'ఉదాహరణ' : 'Example'}: $example'].join('. ');
+      unawaited(ref.read(askodoxGuideSpeakerProvider)(spoken, te ? 'te' : 'en').catchError((_) {}));
     }
     final explain = await showModalBottomSheet<bool>(
       context: navContext,
@@ -178,86 +183,20 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     return (config.fullPath, config.uri.path);
   }
 
-  AskodoxGuideFlow? _flowFor(String path) {
-    for (final flow in askodoxGuideFlows) {
-      if (flow.steps.isNotEmpty && flow.steps.first.route == path) return flow;
-    }
-    for (final flow in askodoxGuideFlows) {
-      if (flow.steps.any((s) => s.route == path)) return flow;
-    }
-    return null;
-  }
 
   Future<void> _open(AskodoxScreenHelp help, String path, {bool welcome = false}) async {
     final navContext = widget.router?.routerDelegate.navigatorKey.currentContext;
     if (navContext == null) return;
     final te = Localizations.maybeLocaleOf(navContext)?.languageCode == 'te';
-    final flow = _flowFor(path);
-    final start = await showModalBottomSheet<bool>(
+    final flow = await showModalBottomSheet<AskodoxGuideFlow>(
       context: navContext,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          key: const Key('askodoxScreenHelpSheet'),
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const AskodoxMascot(size: 36),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(te ? 'ఇక్కడ ఏం చేయాలి' : 'What to do here',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
-                  Text(help.title(te), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                ]),
-              ),
-            ]),
-            if (welcome)
-              Container(
-                key: const Key('askodoxWelcomeGuide'),
-                margin: const EdgeInsets.only(top: 10),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
-                child: Text(
-                  te
-                      ? 'ASKODOX కి స్వాగతం! ఏ పేజీలోనైనా సందేహం వస్తే ఎడమ వైపు ఉన్న ఈ ASKO "గైడ్" బటన్ నొక్కండి — ఆ పేజీలో ఏం చేయాలో చెబుతుంది.'
-                      : 'Welcome to ASKODOX! Whenever you are unsure on any page, press the ASKO "Guide" button on the left — it tells you what to do there.',
-                  style: const TextStyle(fontSize: 13.5, height: 1.35),
-                ),
-              ),
-            const SizedBox(height: 12),
-            for (final (i, step) in help.steps(te).indexed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  CircleAvatar(
-                    radius: 12,
-                    backgroundColor: const Color(0xFFEAF1FF),
-                    child: Text('${i + 1}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1769FF))),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(step, style: const TextStyle(fontSize: 14.5, height: 1.35))),
-                ]),
-              ),
-            const SizedBox(height: 4),
-            Row(children: [
-              if (flow != null)
-                FilledButton.icon(
-                  key: const Key('askodoxScreenHelpShowMe'),
-                  onPressed: () => Navigator.pop(ctx, true),
-                  icon: const Icon(Icons.touch_app_outlined),
-                  label: Text(te ? 'స్క్రీన్‌పై చూపించు' : 'Show me on the screen'),
-                ),
-              const Spacer(),
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'సరే' : 'OK')),
-            ]),
-          ]),
-        ),
-      ),
+      builder: (ctx) => AskodoxGuideSheet(help: help, path: path, te: te, welcome: welcome),
     );
-    if (start == true && flow != null) ref.read(askodoxGuideProvider.notifier).start(flow);
+    if (flow == null) return;
+    // The walkthrough overlay points at each button (and offers "Take me there" when it is on another screen).
+    ref.read(askodoxGuideProvider.notifier).start(flow);
   }
 
   @override

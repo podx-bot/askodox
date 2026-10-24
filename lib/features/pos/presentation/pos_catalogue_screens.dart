@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/askodox_field_guide.dart';
+import '../../home/presentation/question_mic.dart';
+import '../../selling/data/catalogue_repository.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
@@ -289,6 +291,10 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
   List<String> _missing = const [];
   Object? _error;
   bool _busy = false;
+  String? _templateKey;
+  final _prefilled = <String>{};
+  final _describe = TextEditingController();
+  bool _filling = false;
 
   @override
   void initState() {
@@ -302,6 +308,7 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
       c.dispose();
     }
     _onlinePrice.dispose();
+    _describe.dispose();
     super.dispose();
   }
 
@@ -331,9 +338,54 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
             if (s['required'] == true && _visible(s) && '${saved[s['key']] ?? ''}'.isEmpty) '${s['key']}',
         ];
         _error = null;
+        _templateKey = catalogue['template_key'] == null ? null : '${catalogue['template_key']}';
       });
+      // Pre-fill: whatever the item's own name already says (size, weight, type ...) goes into EMPTY boxes.
+      await _smartFill('${product['name']} ${product['name_te'] ?? ''}', quiet: true);
     } catch (e) {
       if (mounted) setState(() => _error = e);
+    }
+  }
+
+  /// Fills only EMPTY details from the seller's own words (the item name, or what they typed / said).
+  /// Nothing is guessed: the server reads only what the words say; each filled box is marked "check".
+  Future<void> _smartFill(String text, {bool quiet = false}) async {
+    final key = _templateKey;
+    final te = askodoxPosTe(context);
+    if (key == null || text.trim().isEmpty) return;
+    setState(() => _filling = true);
+    try {
+      final out = await ref.read(askodoxCatalogueRepositoryProvider).smartFill(key, text);
+      if (!mounted || out == null) return;
+      var filled = 0;
+      setState(() {
+        for (final s in _specs) {
+          final k = '${s['key']}';
+          final value = out.values[k];
+          if (value == null || value.isEmpty) continue;
+          final isChoice = '${s['kind']}' == 'choice';
+          final current = isChoice ? '${_values[k] ?? ''}' : (_text[k]?.text ?? '');
+          if (current.trim().isNotEmpty) continue; // never overwrite what the seller wrote
+          if (isChoice) {
+            _values[k] = value;
+          } else {
+            _text.putIfAbsent(k, TextEditingController.new).text = value;
+          }
+          _prefilled.add(k);
+          filled++;
+        }
+      });
+      if (!quiet) {
+        askodoxPosSnack(
+            context,
+            filled == 0
+                ? (te ? 'కొత్తగా నింపేది ఏదీ దొరకలేదు.' : 'Nothing new to fill from that.')
+                : (te ? '$filled వివరాలు నింపాం — సరిచూసి సేవ్ చేయండి.' : 'Filled $filled detail(s) — check and save.'));
+      }
+    } catch (_) {
+      // Pre-fill is a convenience: the seller can always type.
+    } finally {
+      if (mounted) setState(() => _filling = false);
     }
   }
 
@@ -397,6 +449,15 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
                   fontWeight: FontWeight.w700, decoration: TextDecoration.underline, decorationStyle: TextDecorationStyle.dotted)),
         ),
       ),
+      if (_prefilled.contains(key))
+        Container(
+          key: ValueKey('askodoxPosAttrPrefilled-$key'),
+          margin: const EdgeInsets.only(left: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6)),
+          child: Text(te ? 'ఆటోగా నింపాం — సరిచూడండి' : 'Filled for you — check',
+              style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857))),
+        ),
       if (spec['required'] == true)
         Container(
           margin: const EdgeInsets.only(left: 6),
@@ -534,6 +595,43 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
                     product: p,
                     onSaved: _load,
                   ),
+                  if (_specs.isNotEmpty && _templateKey != null)
+                    Card(
+                      key: const Key('askodoxPosDescribeCard'),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 4, 4),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(te ? 'మాటల్లో చెప్పండి — మేమే నింపుతాం' : 'Say it in your words — we fill the boxes',
+                              style: const TextStyle(fontWeight: FontWeight.w800)),
+                          Row(children: [
+                            Expanded(
+                              child: AskodoxPosField(
+                                key: const Key('askodoxPosDescribe'),
+                                controller: _describe,
+                                label: te ? 'ఈ సరుకు గురించి (టైప్ లేదా మైక్)' : 'About this item (type or mic)',
+                                hint: te ? 'ఉదా: 1 కిలో ప్యాకెట్, బాస్మతి, 2 ఏళ్ల పాతది' : 'e.g. 1 kg packet, basmati, aged 2 years',
+                              ),
+                            ),
+                            AskodoxQuestionMic(
+                              lang: te ? 'te' : 'en',
+                              onText: (text) {
+                                _describe.text = text;
+                                _smartFill(text);
+                              },
+                            ),
+                          ]),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              key: const Key('askodoxPosSmartFill'),
+                              onPressed: _filling ? null : () => _smartFill(_describe.text),
+                              icon: const Icon(Icons.auto_fix_high),
+                              label: Text(te ? 'ఖాళీ బాక్సులు నింపు' : 'Fill the empty boxes'),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ),
                   if (_specs.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(8),

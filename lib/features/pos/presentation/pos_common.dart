@@ -36,6 +36,41 @@ String askodoxPosToday([DateTime? now]) {
   return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
+/// A sample answer for a box, by what the box asks (one table for every POS form, en + te), so the
+/// example always sits inside the box. Field TYPES, never categories; first match wins.
+const _askodoxPosExamples = <(List<String>, String, String)>[
+  (['gstin'], '36ABCDE1234F1Z5', '36ABCDE1234F1Z5'),
+  (['hsn'], 'the 4-8 digit code on your purchase bill', 'కొనుగోలు బిల్లుపై ఉన్న 4-8 అంకెల కోడ్'),
+  (['barcode', 'బార్‌కోడ్'], '8901234567890', '8901234567890'),
+  (['batch', 'బ్యాచ్'], 'B2410', 'B2410'),
+  (['expiry', 'ఎక్స్‌పైరీ'], '2027-03-31', '2027-03-31'),
+  (['phone', 'mobile', 'ఫోన్', 'మొబైల్'], '9876543210', '9876543210'),
+  (['utr', 'reference', 'రిఫరెన్స్'], '412345678901', '412345678901'),
+  (['bill number', 'బిల్లు నంబర్'], 'INV-2041', 'INV-2041'),
+  (['prefix', 'ముందు అక్షరాలు'], 'LK', 'LK'),
+  (['telugu name', 'తెలుగు పేరు'], 'కంది పప్పు', 'కంది పప్పు'),
+  (['shop name', 'షాపు పేరు'], 'Lakshmi Kirana', 'లక్ష్మీ కిరాణా'),
+  (['address', 'చిరునామా'], 'Main Road, near bus stand', 'మెయిన్ రోడ్, బస్టాండ్ దగ్గర'),
+  (['reason', 'కారణం'], 'packet was damaged', 'ప్యాకెట్ పగిలింది'),
+  (['note', 'నోట్'], 'less spicy', 'తక్కువ కారం'),
+  (['tare', 'ట్రే'], '0.150', '0.150'),
+  (['weight', 'బరువు'], '1.250', '1.250'),
+  (['how many', 'ఎన్ని'], '12', '12'),
+  (['stock', 'స్టాక్'], '25', '25'),
+  (['credit limit', 'బాకీ పరిమితి'], '5000', '5000'),
+  (['quantity', 'qty', 'సంఖ్య', 'పరిమాణం'], '2', '2'),
+  (['₹', 'price', 'amount', 'cash', 'cost', 'ధర', 'మొత్తం', 'నగదు'], '250', '250'),
+  (['name', 'పేరు'], 'Ramesh Stores', 'రమేష్ స్టోర్స్'),
+];
+
+(String, String)? askodoxPosFieldExample(String label) {
+  final l = label.toLowerCase();
+  for (final (keys, en, te) in _askodoxPosExamples) {
+    if (keys.any(l.contains)) return (en, te);
+  }
+  return null;
+}
+
 class AskodoxPosField extends StatelessWidget {
   const AskodoxPosField({
     super.key,
@@ -66,6 +101,15 @@ class AskodoxPosField extends StatelessWidget {
   final String? exampleEn;
   final String? exampleTe;
 
+  String? _example(BuildContext context) {
+    final te = askodoxPosTe(context);
+    final en = exampleEn;
+    if (en != null && en.isNotEmpty) return te ? 'ఉదా: ${exampleTe ?? en}' : 'e.g. $en';
+    final generic = askodoxPosFieldExample(label);
+    if (generic == null) return null;
+    return te ? 'ఉదా: ${generic.$2}' : 'e.g. ${generic.$1}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final field = Padding(
@@ -76,7 +120,13 @@ class AskodoxPosField extends StatelessWidget {
         onChanged: onChanged,
         keyboardType: number ? TextInputType.numberWithOptions(decimal: decimal) : TextInputType.text,
         inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.]' : r'[0-9]'))] : null,
-        decoration: InputDecoration(labelText: label, hintText: hint, border: const OutlineInputBorder(), isDense: true,
+        // The example sits INSIDE the box (grey) so nobody has to ask what to write.
+        decoration: InputDecoration(
+            labelText: label,
+            hintText: hint ?? _example(context),
+            floatingLabelBehavior: (hint ?? _example(context)) == null ? null : FloatingLabelBehavior.always,
+            border: const OutlineInputBorder(),
+            isDense: true,
             counterText: ''),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/pos/data/pos_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/features/pos/presentation/pos_catalogue_screens.dart';
+import 'package:podx/features/selling/data/catalogue_repository.dart';
 
 class _Api implements ApiClient {
   _Api(this.reply);
@@ -45,7 +46,7 @@ final _attrs = [
     'group': 'Pricing'},
 ];
 
-Future<void> _pump(WidgetTester tester, _Api api, String location) async {
+Future<void> _pump(WidgetTester tester, _Api api, String location, {bool smartFill = false}) async {
   tester.view.physicalSize = const Size(900, 2200);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -57,7 +58,10 @@ Future<void> _pump(WidgetTester tester, _Api api, String location) async {
         builder: (_, s) => AskodoxPosItemDetailsScreen(businessId: s.pathParameters['id']!, productId: s.pathParameters['pid']!)),
   ]);
   await tester.pumpWidget(ProviderScope(
-    overrides: [askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't'))],
+    overrides: [
+      askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't')),
+      askodoxCatalogueRepositoryProvider.overrideWithValue(AskodoxCatalogueRepository(api, authToken: smartFill ? 't' : null)),
+    ],
     child: MaterialApp.router(routerConfig: router),
   ));
   await tester.pumpAndSettle();
@@ -134,5 +138,30 @@ void main() {
     expect(api.calls['PUT /api/pos/businesses/b1/products/p1/attributes'], {'values': {'fabric': 'Cotton'}});
     expect(api.calls['PUT /api/pos/businesses/b1/products/p1/online-price'], {'online_price_paise': 52900});
     expect(find.byKey(const Key('askodoxPosItemMissing')), findsNothing);
+  });
+
+  testWidgets('item details pre-fill empty boxes from the item name and show examples inside boxes', (tester) async {
+    final api = _Api((method, path, body) {
+      if (path.endsWith('/products/p1')) {
+        return {'id': 'p1', 'name': 'Silk saree', 'unit': 'pcs', 'price_paise': 99900, 'attributes': <String, Object?>{},
+          'online_price_paise': null};
+      }
+      if (path.endsWith('/smart-fill')) {
+        final text = '${(body as Map)['text']}';
+        return {'values': text.contains('1200') ? {'mrp': 1200} : {'fabric': 'Silk'}, 'price': null};
+      }
+      return {'template_key': 'fashion', 'attributes': _attrs, 'categories': <Object>[]};
+    });
+    await _pump(tester, api, '/pos/b1/item/p1', smartFill: true);
+    expect(api.calls['POST /api/catalog/templates/fashion/smart-fill'], {'text': 'Silk saree'});
+    expect(find.byKey(const ValueKey('askodoxPosAttrPrefilled-fabric')), findsOneWidget, reason: 'filled from the name');
+    expect(tester.widget<FilterChip>(find.byKey(const ValueKey('askodoxPosAttrOption-fabric-Silk'))).selected, isTrue);
+    expect(find.textContaining('e.g.'), findsWidgets, reason: 'examples sit inside the boxes');
+    await tester.enterText(find.descendant(of: find.byKey(const Key('askodoxPosDescribe')), matching: find.byType(TextField)),
+        'MRP 1200');
+    await tester.tap(find.byKey(const Key('askodoxPosSmartFill')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxPosAttrPrefilled-mrp')), findsOneWidget);
+    expect(find.text('1200'), findsOneWidget);
   });
 }

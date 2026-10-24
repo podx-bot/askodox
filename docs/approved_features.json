@@ -1424,6 +1424,92 @@
           "change": "Owner request 2026-10-24 (branch claude/pos-self-shopping); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "guide_speaks_answers_history_backup",
+      "name": "Guide reads each screen's own help aloud and answers questions; examples inside boxes + pre-fill from the item's own words; chat History backed up to the account and used for personal answers",
+      "purpose": "People who cannot read well hear what to do on every screen, can ask the guide by voice, see an example in every box and get boxes filled for them; History is never lost on reinstall and makes answers personal.",
+      "expected_behavior": "The Guide button opens THIS screen's help and reads it aloud (speaker button stops / replays; Sarvam voice, device TTS fallback). 'Show me on the screen' lists only walkthroughs that END on this screen (the profile screen no longer offers the video upload guide); every other guide is under 'Learn something else'. A box + mic asks the guide anything; POST /api/in-app/guide/ask answers in simple en/te grounded ONLY on the screen help and guide list (empty answer -> said honestly), spoken aloud, plus 'Show me' when a guide matches. POS boxes show a grey example inside (field-type table, en/te). Item details pre-fill EMPTY details from the item's own name and from what the seller types or says (Smart Fill reads only the seller's words; each filled box is marked 'Filled for you - check'; nothing typed by the seller is overwritten). Every saved conversation is mirrored to /api/me/conversations (token-proven, per account, newer copy wins, <= 400 KB each, 200 per account, exported and deleted with the account) and restored after reinstall / sign-in. When the app sends a real session token, the brain gets the user's own earlier requests (profile memory when enabled + backed-up titles) to personalise answers; no token = nobody's history.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/conversations",
+          "response_keys": [
+            "conversations"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/me/conversations/{conversation_id}",
+          "response_keys": [
+            "saved",
+            "id"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/me/conversations/{conversation_id}",
+          "response_keys": [
+            "deleted"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/guide/ask",
+          "response_keys": [
+            "answer",
+            "source"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxScreenHelpSheet",
+          "askodoxGuideSpeak",
+          "askodoxGuideAskField",
+          "askodoxGuideAskGo",
+          "askodoxGuideAnswer",
+          "askodoxGuideMore",
+          "askodoxPosDescribe",
+          "askodoxPosSmartFill",
+          "askodoxPosDescribeCard"
+        ],
+        "symbols": [
+          "AskodoxGuideSheet",
+          "askodoxFlowsOwnedBy",
+          "askodoxGuideAnswererProvider",
+          "AskodoxHistoryBackup",
+          "ApiHistoryBackup",
+          "askodoxPosFieldExample"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_conversation_backup.py"
+        ],
+        "flutter": [
+          "test/features/guide/screen_help_test.dart",
+          "test/features/home/conversation_backup_test.dart",
+          "test/features/pos/pos_catalogue_test.dart"
+        ]
+      },
+      "dependencies": [
+        "pos_smart_counter"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-24 (branch claude/guide-fixes); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }
