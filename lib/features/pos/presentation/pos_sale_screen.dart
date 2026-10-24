@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../devices/data/device_repository.dart';
+import '../../guide/in_app_guide.dart' show askodoxGuideSpeakerProvider;
+import '../../home/presentation/question_mic.dart';
 import '../data/pos_hardware.dart';
 import '../data/pos_printer.dart';
 import '../data/pos_raster.dart';
@@ -11,10 +13,13 @@ import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_commands.dart';
 import '../domain/pos_money.dart';
+import '../domain/pos_pricing.dart';
 import '../domain/pos_scale.dart';
 import '../domain/pos_tax.dart';
 import 'pos_common.dart';
 import 'pos_restaurant_screens.dart' show AskodoxPosDraftsScreen;
+import 'pos_order_review.dart';
+import 'pos_tiles.dart';
 
 class AskodoxCartLine {
   AskodoxCartLine({required this.product, required this.qtyMilli, required this.pricePaise, this.override = false,
@@ -133,8 +138,32 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         .toList();
   }
 
+  /// Lines priced by the item (no typed price, no pack, no customer rate) follow the shop's rate by quantity.
+  void _repriceLines() {
+    for (final l in _cart) {
+      if (l.override || l.pack != null) continue;
+      final id = '${l.product['id']}';
+      l.pricePaise = _customerPrices[id] ?? askodoxTierPrice(l.product, l.qtyMilli) ?? askodoxPosInt(l.product['price_paise']);
+    }
+  }
+
   void _addLine(AskodoxJson product, int qtyMilli,
       {int? price, int? gross, int? tare, bool fromScale = false, AskodoxJson? pack, List<String> serials = const []}) {
+    final minimum = pack == null ? askodoxMinQty(product) : null;
+    if (minimum != null) {
+      final already = _cart
+          .where((l) => l.product['id'] == product['id'] && l.pack == null)
+          .fold<int>(0, (sum, l) => sum + l.qtyMilli);
+      if (already + qtyMilli < minimum) {
+        final te = askodoxPosTe(context);
+        askodoxPosSnack(
+            context,
+            te
+                ? '${product['name']}: కనీసం ${askodoxQty(minimum, '${product['unit']}')} అమ్ముతారు.'
+                : '${product['name']}: the least you sell is ${askodoxQty(minimum, '${product['unit']}')}.');
+        return;
+      }
+    }
     setState(() {
       final listed = pack != null ? askodoxPackPrice(product, pack) : _priceFor(product);
       final packName = pack == null ? null : '${pack['name']}';
@@ -148,6 +177,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
             override: price != null && price != listed, grossMilli: gross, tareMilli: tare, fromScale: fromScale,
             pack: packName, serials: serials));
       }
+      _repriceLines();
     });
   }
 
@@ -427,6 +457,11 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       for (final p in _products)
         AskodoxPosItemRef(id: '${p['id']}', name: '${p['name']}', nameTe: '${p['name_te'] ?? ''}', unit: '${p['unit']}'),
     ];
+    final order = askodoxParsePosOrder(_command.text, items);
+    if (order.length > 1) {
+      await _reviewOrder(order);
+      return;
+    }
     final cmd = askodoxParsePosCommand(_command.text, items);
     if (cmd.kind == AskodoxPosCommandKind.unknown || cmd.needsChoice || (cmd.item == null && cmd.kind != AskodoxPosCommandKind.clear &&
         cmd.kind != AskodoxPosCommandKind.checkout && cmd.kind != AskodoxPosCommandKind.discount)) {
@@ -463,6 +498,26 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       case AskodoxPosCommandKind.unknown:
         break;
     }
+  }
+
+  /// Several items in one sentence: review every line (rates by quantity applied), read back, then add.
+  Future<void> _reviewOrder(List<({String phrase, AskodoxPosCommand command})> order) async {
+    final result = await showModalBottomSheet<AskodoxPosOrderResult>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => AskodoxPosOrderReviewSheet(
+        order: order,
+        products: _products,
+        customerPrices: _customerPrices,
+        speak: ref.read(askodoxGuideSpeakerProvider),
+      ),
+    );
+    if (result == null || result.lines.isEmpty || !mounted) return;
+    _command.clear();
+    for (final line in result.lines) {
+      _addLine(line.product, line.qtyMilli, price: line.pricePaise);
+    }
+    if (result.pay && mounted) await _pay();
   }
 
   void _applyDiscount(AskodoxPosCommand cmd) {
@@ -520,6 +575,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       setState(() {
         _customer = null;
         _customerPrices = const {};
+        _repriceLines();
       });
       return;
     }
@@ -529,9 +585,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       setState(() {
         _customer = full;
         _customerPrices = {for (final e in askodoxPosMap(full['prices']).entries) e.key: askodoxPosInt(e.value)};
-        for (final l in _cart) {
-          if (!l.override) l.pricePaise = _priceFor(l.product);
-        }
+        _repriceLines();
       });
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
@@ -803,8 +857,14 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                 decoration: InputDecoration(
                   isDense: true,
                   border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.keyboard_voice_outlined),
-                  hintText: te ? '"అర కిలో చికెన్" / "2 kg rice"' : '"2 kg chicken" / "remove rice"',
+                  prefixIcon: AskodoxQuestionMic(
+                    lang: te ? 'te' : 'en',
+                    onText: (text) {
+                      _command.text = text;
+                      _runCommand();
+                    },
+                  ),
+                  hintText: te ? '"10 కిలో కంది పప్పు, పావు కిలో జీడిపప్పు"' : '"10 kg dal, 60 samosa, ¼ kg cashew"',
                 ),
               ),
             ),
@@ -850,19 +910,33 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                         child: Text(te ? 'ముందు సరుకులు జోడించండి' : 'Add your items first'),
                       ),
                     )
-                  : ListView(key: const Key('askodoxPosProducts'), children: [
-                      for (final p in _visible)
-                        ListTile(
-                          key: ValueKey('askodoxPosProduct-${p['id']}'),
-                          dense: true,
-                          title: Text(te && '${p['name_te'] ?? ''}'.isNotEmpty ? '${p['name_te']}' : '${p['name']}'),
-                          subtitle: p['stock_milli'] == null
-                              ? null
-                              : Text('${te ? 'స్టాక్' : 'Stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}'),
-                          trailing: Text('${askodoxPaise(_priceFor(p))}/${p['unit']}'),
-                          onTap: () => _choose(p),
-                        ),
-                    ]),
+                  : LayoutBuilder(builder: (context, box) {
+                      // Picture tiles, like a counter POS: wider screens get more columns.
+                      final columns = (box.maxWidth / 112).floor().clamp(3, 8);
+                      final visible = _visible;
+                      final inCart = <Object?, int>{};
+                      for (final l in _cart) {
+                        inCart[l.product['id']] = (inCart[l.product['id']] ?? 0) + l.qtyMilli;
+                      }
+                      return GridView.builder(
+                        key: const Key('askodoxPosProducts'),
+                        padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: columns, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.78),
+                        itemCount: visible.length,
+                        itemBuilder: (context, i) {
+                          final p = visible[i];
+                          return AskodoxPosProductTile(
+                            key: ValueKey('askodoxPosProduct-${p['id']}'),
+                            businessId: widget.businessId,
+                            product: p,
+                            priceText: '${askodoxPaise(_priceFor(p))}/${p['unit']}${askodoxPosList(p['tiers']).isEmpty ? '' : ' ▾'}',
+                            inCartMilli: inCart[p['id']] ?? 0,
+                            onTap: () => _choose(p),
+                          );
+                        },
+                      );
+                    }),
         ),
         const Divider(height: 1),
         Expanded(

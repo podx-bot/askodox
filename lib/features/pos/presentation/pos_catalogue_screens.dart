@@ -6,6 +6,7 @@ import '../../../shared/widgets/askodox_field_guide.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
+import 'pos_tiles.dart';
 
 String _n(Object? names, bool te) {
   final m = names is Map ? names : const {};
@@ -382,13 +383,20 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
     final title = '${(te ? label['te'] : null) ?? label['en'] ?? key}${spec['unit'] == null ? '' : ' (${spec['unit']})'}';
     final guide = askodoxAttributeGuide(spec);
     final missing = _missing.contains(key);
-    final guideButton = AskodoxFieldGuideButton(
-      key: ValueKey('askodoxPosAttrGuide-$key'),
-      titleEn: '${label['en'] ?? key}', titleTe: '${label['te'] ?? label['en'] ?? key}',
-      en: guide.en, te: guide.te, exampleEn: guide.exampleEn, exampleTe: guide.exampleTe,
-    );
+    // No "?" icon: tapping the name explains it; text boxes get help from the guide when the person stops.
     final header = Row(children: [
-      Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700))),
+      Expanded(
+        child: InkWell(
+          key: ValueKey('askodoxPosAttrGuide-$key'),
+          onTap: () => askodoxShowFieldGuide(context,
+              title: te ? '${label['te'] ?? label['en'] ?? key}' : '${label['en'] ?? key}',
+              text: te ? guide.te : guide.en,
+              example: te ? guide.exampleTe : guide.exampleEn),
+          child: Text(title,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, decoration: TextDecoration.underline, decorationStyle: TextDecorationStyle.dotted)),
+        ),
+      ),
       if (spec['required'] == true)
         Container(
           margin: const EdgeInsets.only(left: 6),
@@ -398,7 +406,6 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
           child: Text(missing ? (te ? 'కావాలి' : 'Needed') : (te ? 'తప్పనిసరి' : 'Required'),
               style: TextStyle(fontSize: 10.5, color: missing ? const Color(0xFFB91C1C) : const Color(0xFF1D4ED8))),
         ),
-      guideButton,
     ]);
     if ('${spec['kind']}' == 'choice') {
       final options = [for (final o in (spec['options'] as List? ?? const [])) '$o'];
@@ -433,7 +440,15 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         header,
-        AskodoxPosField(controller: _text.putIfAbsent(key, TextEditingController.new), number: '${spec['kind']}' == 'number', label: title),
+        AskodoxPosField(
+          controller: _text.putIfAbsent(key, TextEditingController.new),
+          number: '${spec['kind']}' == 'number',
+          label: title,
+          guideEn: guide.en,
+          guideTe: guide.te,
+          exampleEn: guide.exampleEn,
+          exampleTe: guide.exampleTe,
+        ),
       ]),
     );
   }
@@ -474,24 +489,27 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(10)),
                       child: Text(te
-                          ? '${_missing.length} తప్పనిసరి వివరాలు లేవు — "కావాలి" అని ఉన్నవి నింపండి. ప్రతి దాని పక్కన ? నొక్కితే ఏం రాయాలో చెబుతుంది.'
-                          : '${_missing.length} required detail(s) missing — fill the ones marked "Needed". Tap ? next to any field to see what to write.'),
+                          ? '${_missing.length} తప్పనిసరి వివరాలు లేవు — "కావాలి" అని ఉన్నవి నింపండి. ఏ వివరం పేరు నొక్కినా ఏం రాయాలో చెబుతుంది.'
+                          : '${_missing.length} required detail(s) missing — fill the ones marked "Needed". Tap the name of a detail to see what to write.'),
                     ),
                   const SizedBox(height: 12),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(
-                            child: Text(te ? 'ఆన్‌లైన్ ధర' : 'Online price', style: const TextStyle(fontWeight: FontWeight.w800)),
-                          ),
-                          const AskodoxFieldGuideButton(
-                            titleEn: 'Online price', titleTe: 'ఆన్‌లైన్ ధర',
-                            en: 'The price customers see in ASKODOX. Keep it the same as your shop price, or set a different one (for example to cover delivery). Only owners / managers can change it.',
-                            te: 'ASKODOX లో కస్టమర్లు చూసే ధర. షాప్ ధరకే ఉంచొచ్చు, లేదా వేరేది పెట్టొచ్చు (ఉదా: డెలివరీ ఖర్చు కోసం). ఓనర్ / మేనేజర్ మాత్రమే మార్చగలరు.',
-                          ),
-                        ]),
+                        InkWell(
+                          key: const Key('askodoxPosOnlinePriceGuide'),
+                          onTap: () => askodoxShowFieldGuide(context,
+                              title: te ? 'ఆన్‌లైన్ ధర' : 'Online price',
+                              text: te
+                                  ? 'ASKODOX లో కస్టమర్లు చూసే ధర. షాప్ ధరకే ఉంచొచ్చు, లేదా వేరేది పెట్టొచ్చు (ఉదా: డెలివరీ ఖర్చు కోసం). ఓనర్ / మేనేజర్ మాత్రమే మార్చగలరు.'
+                                  : 'The price customers see in ASKODOX. Keep it the same as your shop price, or set a different one (for example to cover delivery). Only owners / managers can change it.'),
+                          child: Text(te ? 'ఆన్‌లైన్ ధర' : 'Online price',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  decoration: TextDecoration.underline,
+                                  decorationStyle: TextDecorationStyle.dotted)),
+                        ),
                         SwitchListTile(
                           key: const Key('askodoxPosSamePrice'),
                           contentPadding: EdgeInsets.zero,
@@ -508,6 +526,13 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
                           ),
                       ]),
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  AskodoxPosRatesCard(
+                    key: ValueKey('rates-${p['updated_at']}-${p['photo_at']}-${askodoxPosList(p['tiers']).length}'),
+                    businessId: widget.businessId,
+                    product: p,
+                    onSaved: _load,
                   ),
                   if (_specs.isEmpty)
                     Padding(

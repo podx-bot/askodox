@@ -55,6 +55,7 @@ class AskodoxPosCommand {
 
 const _fractionWords = {
   'అర': 500, 'అరకిలో': 500, 'half': 500, 'పావు': 250, 'quarter': 250, 'ముప్పావు': 750, 'ఒకటిన్నర': 1500,
+  'pav': 250, 'paav': 250, 'pavu': 250, 'paavu': 250, 'ara': 500, 'muppavu': 750, 'pavukilo': 250,
   'ఒక': 1000, 'ఒకటి': 1000, 'రెండు': 2000, 'మూడు': 3000, 'నాలుగు': 4000, 'ఐదు': 5000, 'one': 1000, 'two': 2000,
   'three': 3000, 'four': 4000, 'five': 5000,
 };
@@ -67,6 +68,7 @@ const _unitWords = {
   'pcs': 'pcs', 'pc': 'pcs', 'piece': 'pcs', 'pieces': 'pcs', 'nos': 'pcs', 'ముక్కలు': 'pcs',
   'dozen': 'dozen', 'డజను': 'dozen', 'plate': 'plate', 'plates': 'plate', 'ప్లేట్': 'plate',
   'packet': 'pack', 'packets': 'pack', 'pack': 'pack',
+  'కిలోల': 'kg', 'కేజీలు': 'kg', 'గ్రాముల': 'g', 'లీటర్లు': 'l', 'లీటర్ల': 'l', 'ప్యాకెట్లు': 'pack', 'ప్యాకెట్': 'pack',
 };
 
 const _removeWords = {'remove', 'delete', 'cancel', 'తీసేయ్', 'తీసేయి', 'తీసేయండి', 'వద్దు', 'తొలగించు'};
@@ -167,19 +169,113 @@ AskodoxPosCommand askodoxParsePosCommand(String text, List<AskodoxPosItemRef> it
   return AskodoxPosCommand(kind, item: item, query: query, qtyMilli: itemQty, pricePaise: remove ? null : price);
 }
 
-/// Items whose English or Telugu name contains every word of [query] (or the
-/// query contains the whole name). Exact name matches win.
+/// A spoken plural back to its stem: "samosas" -> "samosa", "సమోసాలు" -> "సమోసా".
+String _stem(String word) {
+  if (word.endsWith('లు') && word.length > 3) return word.substring(0, word.length - 2);
+  if (word.endsWith('es') && word.length > 4 && RegExp(r'(ch|sh|x|o)es$').hasMatch(word)) {
+    return word.substring(0, word.length - 2);
+  }
+  if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) return word.substring(0, word.length - 1);
+  return word;
+}
+
+/// Items whose English or Telugu name contains every word of [query] (plurals
+/// allowed), else items whose whole name is inside the query (the longest such
+/// name wins, so "kandi pappu" picks "Kandi pappu" over "Pappu"). Exact names win.
 List<AskodoxPosItemRef> askodoxMatchItems(String query, List<AskodoxPosItemRef> items) {
   final q = query.toLowerCase().trim();
   if (q.isEmpty) return const [];
-  final exact = items.where((i) => i.name.toLowerCase() == q || i.nameTe == q).toList();
+  final stemQ = q.split(RegExp(r'\s+')).map(_stem).join(' ');
+  String stemName(String name) => name.toLowerCase().split(RegExp(r'\s+')).map(_stem).join(' ');
+  final exact = items
+      .where((i) => i.name.toLowerCase() == q || i.nameTe == q || stemName(i.name) == stemQ || (i.nameTe.isNotEmpty && stemName(i.nameTe) == stemQ))
+      .toList();
   if (exact.isNotEmpty) return exact;
-  final parts = q.split(RegExp(r'\s+'));
-  bool fits(String name) {
+  final parts = stemQ.split(' ');
+  bool every(String name) {
     final n = name.toLowerCase();
-    if (n.isEmpty) return false;
-    return parts.every(n.contains) || q.contains(n);
+    return n.isNotEmpty && parts.every(n.contains);
   }
 
-  return items.where((i) => fits(i.name) || fits(i.nameTe)).toList();
+  final all = items.where((i) => every(i.name) || every(i.nameTe)).toList();
+  if (all.isNotEmpty) return all;
+  int inside(String name) {
+    final n = stemName(name);
+    return n.isNotEmpty && (stemQ.contains(n) || q.contains(name.toLowerCase())) ? n.length : 0;
+  }
+
+  final scored = [for (final i in items) (item: i, score: inside(i.name) > inside(i.nameTe) ? inside(i.name) : inside(i.nameTe))]
+      .where((e) => e.score > 0)
+      .toList();
+  if (scored.isEmpty) return const [];
+  final best = scored.map((e) => e.score).reduce((a, b) => a > b ? a : b);
+  return [for (final e in scored) if (e.score == best) e.item];
 }
+
+bool _isQtyToken(String w) =>
+    RegExp(r'^\d+(?:\.\d{1,3})?[a-zఀ-౿]*$').hasMatch(w) || _fractionWords.containsKey(w) || w.startsWith('అరకిలో');
+
+bool _isUnitToken(String w) => _unitWords.containsKey(w);
+
+const _priceWords = {'at', '@', 'rate', 'ధర', 'rs', 'per'};
+
+/// Splits a spoken order of several items into one phrase per item:
+/// commas / "and" / "మరియు" / new lines, and — when the speaker gave none —
+/// a new quantity after an item name ("10 kg kandi pappu 20 samosa").
+List<String> askodoxSplitPosOrder(String text) {
+  final out = <String>[];
+  for (final chunk in text.split(RegExp(r'[,;\n]+|\s+and\s+|\s+మరియు\s+|\s+ఇంకా\s+|\s+plus\s+', caseSensitive: false))) {
+    final tokens = chunk.trim().toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (tokens.isEmpty) continue;
+    // Command words, fillers and a spoken price ("at 240", "240 per kg") belong to the item they are with.
+    bool neutral(int i) {
+      final w = tokens[i];
+      if (_addWords.contains(w) || _removeWords.contains(w) || _fillerWords.contains(w) || _priceWords.contains(w)) return true;
+      if (i > 0 && _priceWords.contains(tokens[i - 1])) return true;
+      if (i + 1 < tokens.length && (tokens[i + 1] == 'per' || tokens[i + 1] == '/')) return true;
+      return false;
+    }
+
+    final firstReal = [for (var i = 0; i < tokens.length; i++) if (!neutral(i)) i].firstOrNull;
+    final qtyFirst = firstReal != null && _isQtyToken(tokens[firstReal]);
+    var current = <String>[];
+    var hasName = false;
+    var hasQty = false;
+    void flush() {
+      if (current.isNotEmpty) out.add(current.join(' '));
+      current = [];
+      hasName = false;
+      hasQty = false;
+    }
+
+    for (var i = 0; i < tokens.length; i++) {
+      final w = tokens[i];
+      if (neutral(i)) {
+        current.add(w);
+        continue;
+      }
+      final qty = _isQtyToken(w);
+      final unit = _isUnitToken(w);
+      if (qtyFirst) {
+        // "10 kg dal 20 samosa": a quantity after a name starts the next item.
+        if (qty && hasName) flush();
+      } else {
+        // "dal 10 kg samosa 20": a name after the quantity (+unit) starts the next item.
+        if (!qty && !unit && hasName && hasQty) flush();
+      }
+      current.add(w);
+      if (qty) {
+        hasQty = true;
+      } else if (!unit) {
+        hasName = true;
+      }
+    }
+    flush();
+  }
+  return out;
+}
+
+/// Every item of a spoken / typed order, parsed on its own (see [askodoxSplitPosOrder]).
+List<({String phrase, AskodoxPosCommand command})> askodoxParsePosOrder(String text, List<AskodoxPosItemRef> items) => [
+      for (final phrase in askodoxSplitPosOrder(text)) (phrase: phrase, command: askodoxParsePosCommand(phrase, items)),
+    ];

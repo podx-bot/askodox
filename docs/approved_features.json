@@ -1204,6 +1204,94 @@
           "change": "Owner request 2026-10-24 (branch claude/pos-catalogue-guides); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_smart_counter",
+      "name": "POS counter: guide that offers help by itself, picture tiles with item photos, rates by quantity + least quantity, spoken multi-item bill with read-back",
+      "purpose": "Shop staff who are new to apps get help without hunting for '?' icons, find items by picture, sell at quarter-kilo / kilo / bulk rates, and speak a whole order that is checked before it enters the bill.",
+      "expected_behavior": "The guide tab on the left watches: an EMPTY focused box left for 5 s, or a refused action (POS 400/403/409/422), turns it into 'Need help?' (No = quiet for that box on that page; Yes = what to write there with an example, plus 'Explain this page'). Field '?' icons are gone (AskodoxFieldGuideInfo carries the text). The bill screen shows items as picture tiles (photo, else the first letter; amount already in the bill). Owners / managers set an item photo (PNG <= 300 KB, shrunk on the phone) and 'One rate' or 'Different rates by quantity' (rows of quantity + the price for that quantity, stored per base unit) and the least quantity; the server applies the same tier rule on every bill (a tier price sent on an offline bill is not a price change) and refuses less than the least quantity. A sentence with several items is split per item (commas / and / a new quantity), each matched (plurals, Telugu, longest name), shown in a review sheet with rates, problems (not found / which one / below least) and the total, read aloud on request, and added only on Add / Add & pay. Nothing is added, priced or billed silently.",
+      "roles": [
+        "seller",
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/pricing",
+          "response_keys": [
+            "id",
+            "tiers",
+            "min_qty_milli"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/photo",
+          "response_keys": [
+            "photo_at"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/photo",
+          "response_keys": [
+            "image_base64",
+            "mime"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxGuideNudge",
+          "askodoxGuideNudgeYes",
+          "askodoxGuideNudgeNo",
+          "askodoxGuideNudgeSheet",
+          "askodoxPosProducts",
+          "askodoxPosRatesCard",
+          "askodoxPosSameRate",
+          "askodoxPosTieredRate",
+          "askodoxPosMinQty",
+          "askodoxPosRatesSave",
+          "askodoxPosMultiReview",
+          "askodoxPosMultiAdd",
+          "askodoxPosMultiPay",
+          "askodoxPosMultiRead"
+        ],
+        "symbols": [
+          "AskodoxGuideNudges",
+          "AskodoxFieldGuideInfo",
+          "AskodoxPosProductTile",
+          "AskodoxPosRatesCard",
+          "AskodoxPosOrderReviewSheet",
+          "askodoxTierPrice",
+          "askodoxSplitPosOrder",
+          "askodoxParsePosOrder"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_pricing.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_smart_test.dart",
+          "test/features/guide/screen_help_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core",
+        "pos_ready_catalogue_details"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-24 (branch claude/pos-smart-guide); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

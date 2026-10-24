@@ -949,3 +949,45 @@ def set_online_price(business_id: str, product_id: str, body: OnlinePriceIn, req
     out = _call(_catalogue(request).set_online_price, business_id, _user(request), product_id, body.online_price_paise)
     _online_sync(request, business_id, [product_id])
     return out
+
+
+class TierIn(BaseModel):
+    min_qty_milli: int = Field(ge=1)
+    price_paise: int = Field(ge=1)
+
+
+class PricingIn(BaseModel):
+    tiers: List[TierIn] = Field(default_factory=list, max_length=12)
+    min_qty_milli: Optional[int] = Field(default=None, ge=0)
+
+
+class PhotoIn(BaseModel):
+    image_base64: str = Field(min_length=10, max_length=420_000)
+
+
+@router.put("/businesses/{business_id}/products/{product_id}/pricing")
+def set_product_pricing(business_id: str, product_id: str, body: PricingIn, request: Request) -> dict:
+    """Rates by quantity (per base unit) + the least a customer may buy; [] = one rate for any quantity."""
+    return _call(_catalogue(request).set_pricing, business_id, _user(request), product_id,
+                 {"tiers": [t.model_dump() for t in body.tiers], "min_qty_milli": body.min_qty_milli})
+
+
+@router.put("/businesses/{business_id}/products/{product_id}/photo")
+def set_product_photo(business_id: str, product_id: str, body: PhotoIn, request: Request) -> dict:
+    import base64
+    import binascii
+
+    try:
+        image = base64.b64decode(body.image_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail={"code": "photo", "message": "The photo could not be read."})
+    return _call(_catalogue(request).set_photo, business_id, _user(request), product_id, image)
+
+
+@router.get("/businesses/{business_id}/products/{product_id}/photo")
+def get_product_photo(business_id: str, product_id: str, request: Request) -> dict:
+    """JSON (the app's API client speaks JSON): base64 image + its type."""
+    import base64
+
+    image, mime = _call(_catalogue(request).photo, business_id, _user(request), product_id)
+    return {"image_base64": base64.b64encode(image).decode("ascii"), "mime": mime}

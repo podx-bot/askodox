@@ -76,7 +76,11 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Payments | Counter cash / UPI / card / bank / cheque (UPI / card = cashier-confirmed) | IMPLEMENTED AND VERIFIED | |
 | Payments | Gateway-verified UPI / card (provider API) | NOT IMPLEMENTED | payment layer exists in TEST mode; live needs owner approval |
 | Offline | Device series, queue, sync, rejected bills kept with reason | IMPLEMENTED AND VERIFIED | storage not encrypted (PARTIAL for "encrypted local DB") |
-| AI | en / te typed or dictated commands with confirmation | IMPLEMENTED AND VERIFIED | no in-screen mic button (keyboard dictation works) |
+| AI | en / te typed or dictated commands with confirmation | IMPLEMENTED AND VERIFIED | in-screen mic (same recorder + transcription as Main Chat) -- phone test pending |
+| AI | Several items in one sentence ("10 kg dal, 60 samosa, ¼ kg cashew"): split, matched, review sheet with rates / problems / total, read aloud, Add or Add & pay | IMPLEMENTED AND VERIFIED (widget tests) | splitting without commas is a heuristic; nothing is added without Add |
+| Pricing | Rates by quantity (¼ kg / kg / 10 kg ... stored per base unit) + least quantity, same rule on the server and the app | IMPLEMENTED AND VERIFIED | tiers do not apply to packs or to a customer's own price list (customer price wins) |
+| UI | Bill screen picture tiles with item photos (PNG, shrunk on the phone, <= 300 KB) | IMPLEMENTED AND VERIFIED (widget tests) | no camera photo tested on a phone |
+| Guide | Guide offers "Need help?" after 5 s on an empty box or after a refused action; field "?" icons removed | IMPLEMENTED AND VERIFIED (widget tests) | not phone verified |
 | Hardware | BLE ESC/POS printer (scan, choose, 58 / 80 mm, test print, receipt print) | IMPLEMENTED, HARDWARE TEST PENDING | no printer model tested |
 | Hardware | Telugu receipt printing (raster image, bands ≤255 rows) | IMPLEMENTED, HARDWARE TEST PENDING | rendered with the phone font; no printer tested |
 | Hardware | Classic Bluetooth (SPP / RFCOMM) printers paired in phone settings; USB printers (OTG, bulk OUT, permission per device) | IMPLEMENTED, HARDWARE TEST PENDING | native `AskodoxHardware.kt`; no printer model tested |

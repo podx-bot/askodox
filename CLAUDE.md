@@ -549,6 +549,12 @@ this file, don't trust it blindly.
 - Startup: `AskodoxStartupHint` (in memory, cleared on sign-out / account delete) -> the router (rebuilt on every
   session change) starts at '/' after onboarding; onboarding never un-hides the language step while leaving.
   `justOnboarded` -> Home opens the welcome guide once (screen_help_button).
+- Guide watching = `features/guide/guide_watch.dart` (`AskodoxGuideNudges` singleton; `AskodoxFieldGuideInfo` wraps a field
+  with its help text; `AskodoxPosField(guideEn: ...)` does it). The help layer turns an empty focused box (5 s) or a
+  reported error (POS `_fail` on 400/403/409/422) into "Need help?"; a page change clears it. Don't add "?" icons to fields.
+  POS rates by quantity = `pos_price_tiers` (per base unit, from a minimum) + `pos_products.min_qty_milli`, applied in
+  `PosStore._issue` and app `askodoxTierPrice` (keep both rules equal); photos = `pos_product_photos` (<= 300 KB PNG/JPEG).
+  Spoken orders = `askodoxSplitPosOrder` / `askodoxParsePosOrder` -> `AskodoxPosOrderReviewSheet` (never adds silently).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

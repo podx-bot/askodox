@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:podx/config/router/app_router.dart';
 import 'package:podx/core/startup/startup_hint.dart';
 import 'package:podx/features/guide/screen_help.dart';
+import 'package:podx/features/guide/guide_watch.dart';
 import 'package:podx/features/guide/screen_help_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -91,5 +92,94 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxWelcomeGuide')), findsNothing);
+  });
+
+  group('the guide watches', () {
+    tearDown(AskodoxGuideNudges.instance.clear);
+
+    Future<GoRouter> pumpForm(WidgetTester tester) async {
+      final router = GoRouter(initialLocation: '/pos/b1/items', routes: [
+        GoRoute(
+            path: '/pos/:id/items',
+            builder: (_, __) => const Scaffold(
+                  body: Column(children: [
+                    AskodoxFieldGuideInfo(
+                      titleEn: 'HSN code',
+                      titleTe: 'HSN కోడ్',
+                      en: 'The tax code printed on your purchase bill.',
+                      te: 'కొనుగోలు బిల్లుపై ఉండే పన్ను కోడ్.',
+                      exampleEn: '1006',
+                      child: TextField(key: Key('hsn'), decoration: InputDecoration(labelText: 'HSN code')),
+                    ),
+                  ]),
+                )),
+      ]);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => AskodoxScreenHelpLayer(router: router, child: child!),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    testWidgets('an empty box left for 5 s gets "need help?"; Yes explains the field, No stays quiet', (tester) async {
+      await pumpForm(tester);
+      await tester.tap(find.byKey(const Key('hsn')));
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing, reason: 'not before the pause');
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsOneWidget);
+      expect(find.byKey(const Key('askodoxScreenHelpButton')), findsNothing, reason: 'the tab turns into the question');
+      await tester.tap(find.byKey(const Key('askodoxGuideNudgeYes')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxGuideNudgeSheet')), findsOneWidget);
+      expect(find.text('The tax code printed on your purchase bill.'), findsOneWidget);
+      expect(find.textContaining('1006'), findsOneWidget);
+      await tester.tap(find.text('Got it'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing);
+    });
+
+    testWidgets('typing in time means no question; No is remembered for that box', (tester) async {
+      await pumpForm(tester);
+      await tester.enterText(find.byKey(const Key('hsn')), '1006');
+      await tester.pump(const Duration(seconds: 6));
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing);
+      await tester.enterText(find.byKey(const Key('hsn')), '');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('hsn')));
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxGuideNudgeNo')));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing);
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('hsn')));
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing, reason: 'declined for this box on this page');
+    });
+
+    testWidgets('a refused action asks "need help?" with the reason', (tester) async {
+      await pumpForm(tester);
+      AskodoxGuideNudges.instance.reportError('GST rate must be 0, 5, 12, 18 or 28.');
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('did not go through'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxGuideNudgeYes')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('GST rate must be'), findsOneWidget);
+      expect(find.byKey(const Key('askodoxGuideNudgeExplain')), findsOneWidget, reason: 'the page has a guide entry');
+      await tester.tap(find.byKey(const Key('askodoxGuideNudgeExplain')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxScreenHelpSheet')), findsOneWidget);
+    });
   });
 }

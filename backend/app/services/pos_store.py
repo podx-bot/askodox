@@ -179,10 +179,18 @@ MIGRATIONS = [
     ("pos_businesses", "catalogue_template", "TEXT"),
     ("pos_products", "attributes", "TEXT"),
     ("pos_products", "online_price_paise", "INTEGER"),
+    # Quantity pricing: the least a customer may buy (base units); rates by quantity live in pos_price_tiers.
+    ("pos_products", "min_qty_milli", "INTEGER"),
+    ("pos_products", "photo_at", "TEXT"),
 ]
 
 # Selling units beyond the item's base unit (box of 12 pcs, 25 kg bag ...).
 EXTRA_SCHEMA = [
+    # Rate by quantity: from min_qty_milli (base units) upward the price per base unit is price_paise.
+    "CREATE TABLE IF NOT EXISTS pos_price_tiers (business_id TEXT NOT NULL, product_id TEXT NOT NULL,"
+    " min_qty_milli INTEGER NOT NULL, price_paise INTEGER NOT NULL, PRIMARY KEY (product_id, min_qty_milli))",
+    "CREATE TABLE IF NOT EXISTS pos_product_photos (business_id TEXT NOT NULL, product_id TEXT PRIMARY KEY,"
+    " image BLOB NOT NULL, mime TEXT NOT NULL, updated_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS pos_product_packs (business_id TEXT NOT NULL, product_id TEXT NOT NULL, name TEXT NOT NULL,"
     " factor_milli INTEGER NOT NULL, price_paise INTEGER, barcode TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,"
     " PRIMARY KEY (business_id, product_id, name))",
@@ -527,6 +535,22 @@ class PosStore:
         out["low_stock"] = bool(out["track_stock"] and (stock or 0) <= out["low_stock_milli"])
         return out
 
+    def _tiers(self, conn: sqlite3.Connection, business_id: str) -> Dict[str, List[Dict[str, Any]]]:
+        out: Dict[str, List[Dict[str, Any]]] = {}
+        for r in conn.execute("SELECT product_id, min_qty_milli, price_paise FROM pos_price_tiers WHERE business_id = ?"
+                              " ORDER BY min_qty_milli", (business_id,)):
+            out.setdefault(r["product_id"], []).append({"min_qty_milli": r["min_qty_milli"], "price_paise": r["price_paise"]})
+        return out
+
+    @staticmethod
+    def tier_price(tiers: List[Dict[str, Any]], base_qty_milli: int) -> Optional[int]:
+        """Price per base unit for this quantity: the tier with the highest minimum not above it."""
+        best = None
+        for t in sorted(tiers or [], key=lambda t: t["min_qty_milli"]):
+            if base_qty_milli >= t["min_qty_milli"]:
+                best = t["price_paise"]
+        return best
+
     def _packs(self, conn: sqlite3.Connection, business_id: str) -> Dict[str, List[Dict[str, Any]]]:
         out: Dict[str, List[Dict[str, Any]]] = {}
         for r in conn.execute("SELECT product_id, name, factor_milli, price_paise, barcode FROM pos_product_packs WHERE"
@@ -605,7 +629,8 @@ class PosStore:
                 raise PosError(404, "product", "Item not found.")
             stock = self._stock_map(conn, business_id).get(product_id, 0)
             packs = self._packs(conn, business_id).get(product_id, [])
-        return {**self._product_out(row, stock), "packs": packs}
+            tiers = self._tiers(conn, business_id).get(product_id, [])
+        return {**self._product_out(row, stock), "packs": packs, "tiers": tiers}
 
     def products(self, business_id: str, user: str, query: str = "", include_inactive: bool = False) -> List[Dict[str, Any]]:
         with self._connect() as conn:
@@ -622,7 +647,9 @@ class PosStore:
             rows = conn.execute(sql + " ORDER BY name LIMIT 500", args).fetchall()
             stock = self._stock_map(conn, business_id)
             packs = self._packs(conn, business_id)
-        return [{**self._product_out(r, stock.get(r["id"], 0)), "packs": packs.get(r["id"], [])} for r in rows]
+            tiers = self._tiers(conn, business_id)
+        return [{**self._product_out(r, stock.get(r["id"], 0)), "packs": packs.get(r["id"], []),
+                 "tiers": tiers.get(r["id"], [])} for r in rows]
 
     def product_history(self, business_id: str, user: str, product_id: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
@@ -946,11 +973,6 @@ class PosStore:
             else:
                 listed = prices.get(product["id"], product["price_paise"])
                 source = "customer_rate" if product["id"] in prices else "item_price"
-            price = int(raw["unit_price_paise"]) if raw.get("unit_price_paise") is not None else listed
-            if price != listed:
-                if "price_override" not in PERMISSIONS[role]:
-                    raise PosError(403, "price_override", f"Line {index}: only a manager / owner can change the price.")
-                source = "manual_override"
             weight = raw.get("weight") if isinstance(raw.get("weight"), dict) else None
             qty = int(raw.get("qty_milli") or 0)
             if weight:
@@ -968,6 +990,20 @@ class PosStore:
                 if (qty * pack["factor_milli"]) % 1000:
                     raise PosError(400, "qty", f"Line {index}: that many {pack['name']} is not a whole {product['unit']} count.")
                 base_qty = qty * pack["factor_milli"] // 1000
+            if pack is None and source == "item_price":
+                # Rate by quantity (the shop's own tiers) is the listed price for this many.
+                tier = self.tier_price(self._tiers(conn, business_id).get(product["id"], []), base_qty)
+                if tier is not None and tier != listed:
+                    listed, source = tier, "quantity_rate"
+            price = int(raw["unit_price_paise"]) if raw.get("unit_price_paise") is not None else listed
+            if price != listed:
+                if "price_override" not in PERMISSIONS[role]:
+                    raise PosError(403, "price_override", f"Line {index}: only a manager / owner can change the price.")
+                source = "manual_override"
+            if product["min_qty_milli"] and base_qty < product["min_qty_milli"]:
+                raise PosError(400, "min_qty", f"Line {index}: the least you sell of {product['name']} is "
+                                               f"{product['min_qty_milli'] / 1000:g} {product['unit']}.",
+                               min_qty_milli=product["min_qty_milli"])
             serials: List[str] = []
             if product["track_serials"]:
                 serials = [_clean(x, 40).upper() for x in (raw.get("serials") or []) if _clean(x, 40)]
