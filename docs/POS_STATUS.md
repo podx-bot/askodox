@@ -1,6 +1,6 @@
 # ASKODOX Universal AI POS — audit, architecture and status
 
-Last updated: 2026-10-23 · branch `claude/pos-core` (PR #224, stacked on #220 → #221 → #222 → #223).
+Last updated: 2026-10-24 (round 4: units, serials, purchase orders, Classic / USB printers, Telugu PDF) · branch `claude/pos-core` (PR #224, stacked on #220 → #221 → #222 → #223).
 **Not merged, not deployed, not phone verified, no hardware tested.**
 
 ## Phase 0 audit (what existed before)
@@ -52,7 +52,7 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Billing | Credit notes (partial / full, restock, refund), same-day cancel keeping the record | IMPLEMENTED AND VERIFIED | debit notes NOT IMPLEMENTED |
 | Billing | Hold bill / resume, quotation shared as text (not an invoice) | IMPLEMENTED AND VERIFIED | resume uses today's prices; the customer is chosen again |
 | Billing | Receipt text, share as text (WhatsApp etc. — user chooses) | IMPLEMENTED AND VERIFIED | email NOT IMPLEMENTED |
-| Billing | A4 invoice / bill of supply / credit note PDF, shared via the Android share sheet | IMPLEMENTED AND VERIFIED | Telugu names print as ? in the PDF (no Telugu font embedded yet); native share needs this APK or later |
+| Billing | A4 invoice / bill of supply / credit note PDF, shared via the Android share sheet | IMPLEMENTED AND VERIFIED | Telugu / ₹ text (names, addresses, units) is drawn by the phone's text engine and embedded as an image (correct shaping, but not selectable / searchable); not yet checked on a real phone |
 | GST | CGST/SGST/UTGST/IGST/cess, inclusive / exclusive, exempt / nil / non-GST / zero-rated LUT | IMPLEMENTED AND VERIFIED | rates & HSN only from the shop's entry |
 | GST | Composition bill of supply heading, unregistered bill | IMPLEMENTED AND VERIFIED | |
 | GST | GSTIN checksum, HSN digits rule (4 / 6), B2C ≥ ₹50,000 recipient details | IMPLEMENTED AND VERIFIED | GSTIN *active status* not checked (needs GST portal / GSP) |
@@ -62,7 +62,10 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Inventory | Stock tracking, purchase / wastage / count with reasons, low stock flag | IMPLEMENTED AND VERIFIED | |
 | Inventory | Batch / expiry: purchase per batch, first-expiry-first-out sales, expired never sold, returns to the same batch, expiry report | IMPLEMENTED AND VERIFIED | |
 | Inventory | Stock valuation at average purchase cost (before GST) | IMPLEMENTED AND VERIFIED | items never bought on a recorded bill have no cost |
-| Inventory | Unit conversions (box ↔ pcs), variants, serial / IMEI, multi-warehouse, purchase orders | NOT IMPLEMENTED | |
+| Inventory | Selling units (box ↔ pcs): pack factor, pack price (or base × factor), pack barcode; stock always in the base unit | IMPLEMENTED AND VERIFIED | a pack quantity that is not a whole base quantity is refused |
+| Inventory | Serial / IMEI tracking: IMEI Luhn check, serials entered on the purchase bill, sold one per piece, returns need the sold serial, lookup by serial | IMPLEMENTED AND VERIFIED | IMEI not checked against any registry (CEIR) |
+| Inventory | Purchase orders: draft → sent (shared as text) → partially received / received (each receipt records a purchase bill) / cancelled | IMPLEMENTED AND VERIFIED | not emailed; no supplier portal |
+| Inventory | Variants (size / colour matrix), multi-warehouse / stock transfer | NOT IMPLEMENTED | |
 | Customers | Ledger, running balance, monthly statement, money received | IMPLEMENTED AND VERIFIED | reminders NOT IMPLEMENTED |
 | Suppliers | Suppliers, purchase bills (cost before GST, printed-total check, no duplicate bill numbers, cancel keeps the row), payments, monthly statements | IMPLEMENTED AND VERIFIED | |
 | GST | Input tax summary from recorded purchase bills | IMPLEMENTED AND VERIFIED | 'as recorded' only; ITC eligibility / GSTR-2B matching NOT IMPLEMENTED |
@@ -73,7 +76,8 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | AI | en / te typed or dictated commands with confirmation | IMPLEMENTED AND VERIFIED | no in-screen mic button (keyboard dictation works) |
 | Hardware | BLE ESC/POS printer (scan, choose, 58 / 80 mm, test print, receipt print) | IMPLEMENTED, HARDWARE TEST PENDING | no printer model tested |
 | Hardware | Telugu receipt printing (raster image, bands ≤255 rows) | IMPLEMENTED, HARDWARE TEST PENDING | rendered with the phone font; no printer tested |
-| Hardware | Classic Bluetooth (SPP), USB, LAN printers, cash drawer, customer display | NOT IMPLEMENTED | |
+| Hardware | Classic Bluetooth (SPP / RFCOMM) printers paired in phone settings; USB printers (OTG, bulk OUT, permission per device) | IMPLEMENTED, HARDWARE TEST PENDING | native `AskodoxHardware.kt`; no printer model tested |
+| Hardware | LAN / Wi-Fi printers, cash drawer, customer display | NOT IMPLEMENTED | |
 | Hardware | Bluetooth / USB barcode scanners that type like a keyboard | IMPLEMENTED, HARDWARE TEST PENDING | they type into the search box; not tested with a device |
 | Restaurant | Tables, open orders, item notes, KOT (daily numbers), kitchen screen (new → preparing → ready → served), move / merge tables, split bill by items, takeaway | IMPLEMENTED AND VERIFIED | roles waiter / kitchen; kitchen screen refreshes every 10 s (no push) |
 | Restaurant | Priced modifiers / add-ons, KOT printing to a kitchen printer, split by amount / seat | NOT IMPLEMENTED | notes are text only |

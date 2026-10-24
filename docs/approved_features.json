@@ -738,6 +738,149 @@
       "dependencies": ["universal_pos_core"],
       "status": "approved",
       "history": [{"pr": null, "change": "POS round 3 (branch claude/pos-round3); NOT PHONE VERIFIED"}]
+    },
+    {
+      "id": "pos_units_serials_purchase_orders",
+      "name": "POS selling units (box <-> pieces), serial / IMEI tracking, purchase orders, Classic Bluetooth + USB printers, Telugu text in invoice PDFs",
+      "purpose": "Shops sell by box or piece from one stock, phone / appliance shops track each serial or IMEI, owners order from suppliers and receive in parts, and receipts print on the common Classic Bluetooth and USB printers.",
+      "expected_behavior": "A pack has a factor in base units and its own price (or base price x factor) and barcode; stock moves are always in base units and a pack quantity that is not a whole base quantity is refused. Serial items get serials on the purchase bill (IMEI Luhn-checked, duplicates refused), are sold one serial per piece from in-stock serials only, and a credit note must name the sold serial. A purchase order goes draft -> sent -> partially received / received (each receipt records a normal purchase bill) or cancelled. Printers: saved ids classic:<MAC> / usb:<device> go to the native hardware channel, others to BLE; native errors are named, never reported as printed. Non-ASCII text in the invoice PDF is drawn by the phone's text engine as an image.",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/packs",
+          "response_keys": [
+            "packs"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/serials",
+          "response_keys": [
+            "serials"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/serials/{serial}",
+          "response_keys": [
+            "serial",
+            "status"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/purchase-orders",
+          "response_keys": [
+            "id",
+            "number",
+            "status"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/purchase-orders/{po_id}/receive",
+          "response_keys": [
+            "status",
+            "purchase"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosSavePack",
+          "askodoxPosTrackSerials",
+          "askodoxPosUnitOk",
+          "askodoxPosSerialsOk",
+          "askodoxPosPurchaseOrders",
+          "askodoxPosPoReceive",
+          "askodoxPosSerialLookup",
+          "askodoxPosPrinterPaired",
+          "askodoxPosPrinterUsb"
+        ],
+        "symbols": [
+          "AskodoxPosPurchaseOrdersScreen",
+          "AskodoxRoutingPrinterTransport",
+          "AskodoxNativePrinters",
+          "AskodoxPdfText"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_units_serials.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_units_test.dart",
+          "test/features/pos/pos_printer_links_test.dart",
+          "test/features/pos/pos_pdf_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core",
+        "pos_purchases_batches"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "POS round 4 (branch claude/pos-round4); NOT PHONE / HARDWARE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "smart_tools_meters_vehicle_report",
+      "name": "Smart Tools: protractor, magnifier, light meter, sound level, guided vehicle walk-around report (PDF)",
+      "purpose": "Everyday measuring helpers on the phone and a shareable visual vehicle report from four photos.",
+      "expected_behavior": "Protractor = angle at a tapped vertex between two tapped arm points on a photo, with an error band from tap accuracy. Magnifier = photo zoom up to 10x (no live preview). Light meter = phone light sensor lux with an approximate band. Sound = microphone dBFS; an approximate dB only after the user calibrates against a real meter; nothing recorded or sent. Vehicle report = front / rear / left / right photos -> one Expert /api/vision/inspect call (domain vehicle) -> on-screen evidence report + PDF with the photos and a 'not a roadworthiness certificate' disclaimer. Every tool is labelled hardware-unverified until a phone test.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxProtractorResult",
+          "askodoxMagnifierView",
+          "askodoxLightResult",
+          "askodoxSoundResult",
+          "askodoxSoundCalibrate",
+          "askodoxVehicleInspect",
+          "askodoxVehiclePdf"
+        ],
+        "symbols": [
+          "AskodoxProtractorScreen",
+          "AskodoxMagnifierScreen",
+          "AskodoxLightMeterScreen",
+          "AskodoxSoundMeterScreen",
+          "AskodoxVehicleReportScreen",
+          "askodoxVehicleReportPdf"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/smart_tools/extra_tools_test.dart"
+        ]
+      },
+      "dependencies": [
+        "smart_tools_vision_inspection"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Smart Tools round (branch claude/pos-round4); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }
