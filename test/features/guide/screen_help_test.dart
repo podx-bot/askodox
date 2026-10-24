@@ -157,6 +157,7 @@ void main() {
       expect(find.byKey(const Key('askodoxGuideNudge')), findsOneWidget);
       await tester.tap(find.byKey(const Key('askodoxGuideNudgeNo')));
       await tester.pump();
+      await tester.pump();
       expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing);
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pump();

@@ -261,6 +261,8 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
   @override
   Widget build(BuildContext context) {
     final (pattern, path) = _where();
+    // The page the layer first shows is not a "page change" (that would clear a fresh nudge).
+    if (_lastPath.isEmpty) _lastPath = path;
     final help = askodoxScreenHelpFor(pattern);
     final guiding = ref.watch(askodoxGuideProvider) != null;
     final keyboard = MediaQuery.maybeOf(context)?.viewInsets.bottom ?? 0;
