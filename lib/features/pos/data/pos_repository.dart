@@ -151,6 +151,26 @@ class AskodoxPosRepository {
   Future<AskodoxJson> saveDraft(String id, AskodoxJson body) => _send('POST', '${_b(id)}/drafts', body: body);
   Future<AskodoxJson> deleteDraft(String id, String draftId) => _send('DELETE', '${_b(id)}/drafts/$draftId');
 
+  // suppliers / purchases / batches
+  Future<List<AskodoxJson>> suppliers(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/suppliers'))['suppliers']);
+  Future<AskodoxJson> addSupplier(String id, AskodoxJson body) => _send('POST', '${_b(id)}/suppliers', body: body);
+  Future<AskodoxJson> supplier(String id, String supplierId) => _send('GET', '${_b(id)}/suppliers/$supplierId');
+  Future<AskodoxJson> paySupplier(String id, String supplierId, AskodoxJson body) =>
+      _send('POST', '${_b(id)}/suppliers/$supplierId/payments', body: body);
+  Future<AskodoxJson> supplierStatement(String id, String supplierId, String month) =>
+      _send('GET', '${_b(id)}/suppliers/$supplierId/statement', query: {'month': month});
+  Future<List<AskodoxJson>> purchases(String id, {String supplierId = ''}) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/purchases', query: {if (supplierId.isNotEmpty) 'supplier_id': supplierId}))['purchases']);
+  Future<AskodoxJson> recordPurchase(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchases', body: body);
+  Future<AskodoxJson> cancelPurchase(String id, String purchaseId, String reason) =>
+      _send('POST', '${_b(id)}/purchases/$purchaseId/cancel', body: {'reason': reason});
+  Future<List<AskodoxJson>> batches(String id, String productId) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/stock/$productId/batches'))['batches']);
+  Future<AskodoxJson> expiryReport(String id, {int days = 30}) => _send('GET', '${_b(id)}/reports/expiry', query: {'days': days});
+  Future<AskodoxJson> valuation(String id) => _send('GET', '${_b(id)}/reports/valuation');
+  Future<AskodoxJson> inputTax(String id, String from, String to) =>
+      _send('GET', '${_b(id)}/reports/input-tax', query: {'date_from': from, 'date_to': to});
+
   Future<AskodoxJson> deviceSeries(String id, String deviceId) =>
       _send('POST', '${_b(id)}/device-series', body: {'device_id': deviceId});
 }

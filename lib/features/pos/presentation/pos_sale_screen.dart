@@ -3,19 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../devices/data/device_repository.dart';
+import '../data/pos_hardware.dart';
 import '../data/pos_printer.dart';
 import '../data/pos_raster.dart';
 import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_commands.dart';
 import '../domain/pos_money.dart';
+import '../domain/pos_scale.dart';
 import '../domain/pos_tax.dart';
 import 'pos_common.dart';
 import 'pos_restaurant_screens.dart' show AskodoxPosDraftsScreen;
 
 class AskodoxCartLine {
   AskodoxCartLine({required this.product, required this.qtyMilli, required this.pricePaise, this.override = false,
-      this.discountPaise = 0, this.grossMilli, this.tareMilli});
+      this.discountPaise = 0, this.grossMilli, this.tareMilli, this.fromScale = false});
   final AskodoxJson product;
   int qtyMilli;
   int pricePaise;
@@ -23,6 +26,9 @@ class AskodoxCartLine {
   int discountPaise;
   int? grossMilli;
   int? tareMilli;
+
+  /// The weight came from a Bluetooth scale (still unverified for trade use).
+  bool fromScale;
 
   String get unit => '${product['unit']}';
 
@@ -38,8 +44,10 @@ class AskodoxCartLine {
 
   AskodoxJson toRequest() => {
         'product_id': product['id'],
-        if (grossMilli != null) 'weight': {'gross_milli': grossMilli, 'tare_milli': tareMilli ?? 0, 'source': 'typed'}
-        else 'qty_milli': qtyMilli,
+        if (grossMilli != null || fromScale)
+          'weight': {'gross_milli': grossMilli ?? qtyMilli, 'tare_milli': tareMilli ?? 0, 'source': fromScale ? 'scale' : 'typed'}
+        else
+          'qty_milli': qtyMilli,
         if (override) 'unit_price_paise': pricePaise,
         if (discountPaise > 0) 'discount_paise': discountPaise,
       };
@@ -106,56 +114,158 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         .toList();
   }
 
-  void _addLine(AskodoxJson product, int qtyMilli, {int? price, int? gross, int? tare}) {
+  void _addLine(AskodoxJson product, int qtyMilli, {int? price, int? gross, int? tare, bool fromScale = false}) {
     setState(() {
       final listed = _priceFor(product);
       final existing = _cart.where((l) => l.product['id'] == product['id'] && l.grossMilli == null && gross == null &&
-          (price == null || price == l.pricePaise));
+          !l.fromScale && !fromScale && (price == null || price == l.pricePaise));
       if (existing.isNotEmpty) {
         existing.first.qtyMilli += qtyMilli;
       } else {
         _cart.add(AskodoxCartLine(product: product, qtyMilli: qtyMilli, pricePaise: price ?? listed,
-            override: price != null && price != listed, grossMilli: gross, tareMilli: tare));
+            override: price != null && price != listed, grossMilli: gross, tareMilli: tare, fromScale: fromScale));
       }
     });
   }
 
   Future<void> _pickQty(AskodoxJson product) async {
     final te = askodoxPosTe(context);
-    final weighed = _weighed.contains(product['unit']);
+    final unit = '${product['unit']}';
+    final weighed = _weighed.contains(unit);
+    final scaleable = unit == 'kg' || unit == 'g';
     final qty = TextEditingController(text: weighed ? '' : '1');
     final tare = TextEditingController();
-    final result = await showDialog<(int, int?, int?)>(
+    var fromScale = false;
+    var reading = false;
+    String? scaleNote;
+    final result = await showDialog<(int, int?, int?, bool)>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${product['name']}'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          AskodoxPosField(
-              controller: qty,
-              number: true,
-              label: weighed ? (te ? 'బరువు (${product['unit']})' : 'Weight (${product['unit']})') : (te ? 'సంఖ్య' : 'Quantity')),
-          if (weighed)
-            AskodoxPosField(controller: tare, number: true, label: te ? 'ట్రే / డబ్బా బరువు (తీసేస్తాం)' : 'Tare — container weight (subtracted)'),
-          if (weighed)
-            Text(te ? 'కెమెరా బరువు కొలవదు; తూకం యంత్రం చూపిన సంఖ్య టైప్ చేయండి.' : 'Type what the scale shows; the camera never measures weight.',
-                style: const TextStyle(fontSize: 11.5)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'రద్దు' : 'Cancel')),
-          FilledButton(
-            key: const Key('askodoxPosQtyOk'),
-            onPressed: () {
-              final q = askodoxParseMilli(qty.text);
-              final t = tare.text.trim().isEmpty ? 0 : askodoxParseMilli(tare.text);
-              if (q == null || q <= 0 || t == null || t >= q) return;
-              Navigator.pop(ctx, (q - t, weighed && t > 0 ? q : null, weighed && t > 0 ? t : null));
-            },
-            child: Text(te ? 'జోడించు' : 'Add'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('${product['name']}'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            AskodoxPosField(
+                controller: qty,
+                number: true,
+                onChanged: (_) => setLocal(() => fromScale = false),
+                label: weighed ? (te ? 'బరువు ($unit)' : 'Weight ($unit)') : (te ? 'సంఖ్య' : 'Quantity')),
+            if (weighed)
+              AskodoxPosField(controller: tare, number: true, label: te ? 'ట్రే / డబ్బా బరువు (తీసేస్తాం)' : 'Tare — container weight (subtracted)'),
+            if (scaleable)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('askodoxPosReadScale'),
+                  onPressed: reading
+                      ? null
+                      : () async {
+                          setLocal(() {
+                            reading = true;
+                            scaleNote = null;
+                          });
+                          final outcome = await _readScale(unit);
+                          if (!ctx.mounted) return;
+                          setLocal(() {
+                            reading = false;
+                            if (outcome.$1 != null) {
+                              qty.text = askodoxQty(outcome.$1!, '');
+                              fromScale = true;
+                            }
+                            scaleNote = outcome.$2;
+                          });
+                        },
+                  icon: const Icon(Icons.scale_outlined),
+                  label: Text(reading ? (te ? 'చదువుతోంది…' : 'Reading…') : (te ? 'తూకం యంత్రం నుండి' : 'Read from scale')),
+                ),
+              ),
+            if (scaleNote != null) Text(scaleNote!, key: const Key('askodoxPosScaleNote'), style: const TextStyle(fontSize: 11.5)),
+            if (weighed)
+              Text(
+                  te
+                      ? 'కెమెరా బరువు కొలవదు. తూకం యంత్రం చూపిన సంఖ్య సరిచూసుకోండి.'
+                      : 'The camera never measures weight. Check the number against the scale display.',
+                  style: const TextStyle(fontSize: 11.5)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'రద్దు' : 'Cancel')),
+            FilledButton(
+              key: const Key('askodoxPosQtyOk'),
+              onPressed: () {
+                final q = askodoxParseMilli(qty.text);
+                final t = tare.text.trim().isEmpty ? 0 : askodoxParseMilli(tare.text);
+                if (q == null || q <= 0 || t == null || t >= q) return;
+                Navigator.pop(ctx, (q - t, weighed && t > 0 ? q : null, weighed && t > 0 ? t : null, fromScale));
+              },
+              child: Text(te ? 'జోడించు' : 'Add'),
+            ),
+          ],
+        ),
       ),
     );
-    if (result != null) _addLine(product, result.$1, gross: result.$2, tare: result.$3);
+    if (result != null) _addLine(product, result.$1, gross: result.$2, tare: result.$3, fromScale: result.$4);
+  }
+
+  /// One settled weight from the first paired standard BLE scale: (milli in the item's unit, note).
+  Future<(int?, String?)> _readScale(String itemUnit) async {
+    final te = askodoxPosTe(context);
+    List<AskodoxSavedDevice> devices;
+    try {
+      devices = await ref.read(askodoxDeviceRepositoryProvider).list();
+    } on AskodoxDeviceException catch (e) {
+      return (null, e.message(te));
+    } catch (e) {
+      debugPrint('askodox.pos.scale device list failed: $e');
+      return (null, te ? 'పరికరాల జాబితా రాలేదు.' : 'Could not load your devices.');
+    }
+    final scale = devices.where((d) => d.capabilities.contains('read_weight') && d.localId != null).firstOrNull;
+    if (scale == null) {
+      return (null, te ? 'ముందు Devices లో బ్లూటూత్ తూకం యంత్రం జోడించండి (ఈ ఫోన్‌లో).' : 'Add a Bluetooth scale in Devices first (on this phone).');
+    }
+    try {
+      final milli = await ref.read(askodoxScaleReaderProvider).readItemMilli(scale.localId!, itemUnit);
+      return (milli, te ? '${scale.name} నుండి — తూకం యంత్రంతో సరిచూడండి.' : 'From ${scale.name} — check it against the scale.');
+    } on AskodoxScaleException catch (e) {
+      return (null, e.message(te));
+    } catch (e) {
+      debugPrint('askodox.pos.scale read failed: $e');
+      return (null, te ? 'తూకం యంత్రం చదవలేకపోయాను. బరువు టైప్ చేయండి.' : 'Could not read the scale. Type the weight.');
+    }
+  }
+
+  Future<void> _scanBarcode() async {
+    final te = askodoxPosTe(context);
+    String? code;
+    try {
+      code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
+    } on AskodoxScanException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (code == null || !mounted) return;
+    await _handleBarcode(code);
+  }
+
+  /// A barcode from the camera, or typed by a keyboard-style scanner (ends with Enter).
+  Future<void> _handleBarcode(String code) async {
+    final te = askodoxPosTe(context);
+    final found = askodoxProductsByBarcode(code, _products);
+    if (found.length == 1) {
+      final p = found.single;
+      if (_weighed.contains(p['unit'])) {
+        await _pickQty(p);
+      } else {
+        _addLine(p, 1000);
+        askodoxPosSnack(context, te ? '${p['name']} జోడించాం.' : 'Added ${p['name']}.');
+      }
+      return;
+    }
+    _search.text = askodoxCleanBarcode(code);
+    setState(() {});
+    askodoxPosSnack(
+        context,
+        found.isEmpty
+            ? (te ? 'బార్‌కోడ్ $code ఉన్న సరుకు లేదు. Items లో జోడించండి.' : 'No item has barcode $code. Add it in Items.')
+            : (te ? 'ఒకే బార్‌కోడ్‌తో ${found.length} సరుకులు — ఒకటి ఎంచుకోండి.' : '${found.length} items share this barcode — pick one.'));
   }
 
   Future<void> _runCommand() async {
@@ -287,6 +397,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
               'discount_paise': l.discountPaise,
               'gross_milli': l.grossMilli,
               'tare_milli': l.tareMilli,
+              'from_scale': l.fromScale,
             },
         ],
       };
@@ -354,6 +465,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         discountPaise: askodoxPosInt(l['discount_paise']),
         grossMilli: l['gross_milli'] == null ? null : askodoxPosInt(l['gross_milli']),
         tareMilli: l['tare_milli'] == null ? null : askodoxPosInt(l['tare_milli']),
+        fromScale: l['from_scale'] == true,
       ));
     }
     setState(() {
@@ -548,10 +660,22 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
             key: const Key('askodoxPosSearch'),
             controller: _search,
             onChanged: (_) => setState(() {}),
+            onSubmitted: (text) {
+              if (askodoxProductsByBarcode(text, _products).length == 1) {
+                _search.clear();
+                _handleBarcode(text);
+              }
+            },
             decoration: InputDecoration(
                 isDense: true,
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  key: const Key('askodoxPosScan'),
+                  tooltip: te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode',
+                  onPressed: _scanBarcode,
+                  icon: const Icon(Icons.qr_code_scanner),
+                ),
                 hintText: te ? 'పేరు / బార్‌కోడ్' : 'Name / barcode'),
           ),
         ),
@@ -595,6 +719,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                     '(${askodoxQty(_cart[i].grossMilli!, '')} − ${askodoxQty(_cart[i].tareMilli ?? 0, '')} ${te ? 'ట్రే' : 'tare'})',
                   if (_cart[i].discountPaise > 0) '− ${askodoxPaise(_cart[i].discountPaise)}',
                   if (_cart[i].override) (te ? 'ధర మార్పు (మేనేజర్)' : 'price changed (manager)'),
+                  if (_cart[i].fromScale) (te ? '· తూకం యంత్రం' : '· from scale'),
                 ].join(' ')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (preview != null && i < preview.lines.length) Text(askodoxPaise(preview.lines[i].totalPaise)),

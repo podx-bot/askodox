@@ -214,6 +214,33 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                     }
+                    // Share a file the app wrote to its OWN cache (e.g. an invoice PDF);
+                    // anything outside the cache folder is refused.
+                    "shareFile" -> {
+                        val path = call.argument<String>("path").orEmpty()
+                        val file = java.io.File(path)
+                        val inCache = runCatching { file.canonicalPath.startsWith(cacheDir.canonicalPath + java.io.File.separator) }
+                            .getOrDefault(false)
+                        if (path.isBlank() || !inCache || !file.isFile || file.length() == 0L) {
+                            result.success(false)
+                        } else {
+                            try {
+                                val uri = FileProvider.getUriForFile(this, "$packageName.askodox.fileprovider", file)
+                                val send = Intent(Intent.ACTION_SEND).apply {
+                                    type = call.argument<String>("mime") ?: "application/pdf"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    call.argument<String>("text")?.let { putExtra(Intent.EXTRA_TEXT, it) }
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                startActivity(Intent.createChooser(send, call.argument<String>("title") ?: "Share").apply {
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                })
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("share_failed", e.message, null)
+                            }
+                        }
+                    }
                     "getCurrentLocation" -> getCurrentLocation(result)
                     "notificationsEnabled" -> result.success(NotificationManagerCompat.from(this).areNotificationsEnabled())
                     "requestNotificationPermission" -> requestNotificationPermission(result)

@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import 'pos_home_screen.dart';
+import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
@@ -33,5 +34,12 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) =>
           AskodoxPosOrderScreen(businessId: state.pathParameters['id']!, orderId: state.pathParameters['oid']!)),
   GoRoute(path: '/pos/:id/kitchen', builder: (context, state) => AskodoxPosKitchenScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/suppliers', builder: (context, state) => AskodoxPosSuppliersScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/suppliers/:sid',
+      builder: (context, state) =>
+          AskodoxPosSupplierScreen(businessId: state.pathParameters['id']!, supplierId: state.pathParameters['sid']!)),
+  GoRoute(path: '/pos/:id/purchase/new', builder: (context, state) => AskodoxPosPurchaseScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/stock-report', builder: (context, state) => AskodoxPosStockReportScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
 ];

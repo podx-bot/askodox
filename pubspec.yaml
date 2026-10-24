@@ -48,6 +48,8 @@ dependencies:
   # profiles (lib/features/devices/data/ble_gateway.dart). 1.x API (connect
   # without a licence argument); tests inject askodoxBleGatewayProvider.
   flutter_blue_plus: ^1.35.0
+  # POS barcode reading from a camera photo, pure Dart (no native plugin: mobile_scanner broke OTP SMS consent).
+  zxing_lib: ^1.1.4
 
 # shared_preferences_android 2.5.0 moved to Pigeon JNI; in the APK it fails at
 # start-up (NoSuchMethodError SharedPreferencesApiRegistrar.getAll -> endless

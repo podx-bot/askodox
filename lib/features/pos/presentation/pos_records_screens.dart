@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../devices/data/ble_gateway.dart';
+import '../data/pos_hardware.dart';
+import '../data/pos_invoice_pdf.dart';
 import '../data/pos_printer.dart';
 import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_money.dart';
+import '../domain/pos_scale.dart';
 import 'pos_common.dart';
 import 'pos_sale_screen.dart' show askodoxPrintInvoice;
 
@@ -140,6 +143,7 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
   String _category = 'taxable';
   bool _inclusive = true;
   bool _track = false;
+  bool _batches = false;
   bool _busy = false;
   String? _error;
 
@@ -176,8 +180,9 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
         'category': _category,
         'hsn_sac': _hsn.text.trim(),
         'barcode': _barcode.text.trim(),
-        'track_stock': _track,
-        if (_track) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
+        'track_stock': _track || _batches,
+        'track_batches': _batches,
+        if (_track && !_batches) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
       });
       if (mounted) Navigator.of(context).pop(true);
     } on AskodoxPosException catch (e) {
@@ -238,14 +243,37 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
         ),
         AskodoxPosField(controller: _hsn, number: true, decimal: false, label: 'HSN / SAC', maxLength: 8,
             hint: te ? 'మీ అకౌంటెంట్ ఇచ్చిన కోడ్' : 'Code from your own classification'),
-        AskodoxPosField(controller: _barcode, label: te ? 'బార్‌కోడ్ (ఐచ్ఛికం)' : 'Barcode (optional)', maxLength: 64),
+        Row(children: [
+          Expanded(child: AskodoxPosField(controller: _barcode, label: te ? 'బార్‌కోడ్ (ఐచ్ఛికం)' : 'Barcode (optional)', maxLength: 64)),
+          IconButton(
+            key: const Key('askodoxPosItemScan'),
+            tooltip: te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode',
+            onPressed: () async {
+              try {
+                final code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
+                if (code != null && mounted) setState(() => _barcode.text = askodoxCleanBarcode(code));
+              } on AskodoxScanException catch (e) {
+                if (context.mounted) askodoxPosSnack(context, e.message(te));
+              }
+            },
+            icon: const Icon(Icons.qr_code_scanner),
+          ),
+        ]),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: _track,
           onChanged: (v) => setState(() => _track = v),
           title: Text(te ? 'స్టాక్ లెక్క పెట్టు' : 'Track stock'),
         ),
-        if (_track) AskodoxPosField(controller: _opening, number: true, label: te ? 'ప్రస్తుత స్టాక్' : 'Opening stock ($_unit)'),
+        SwitchListTile(
+          key: const Key('askodoxPosTrackBatches'),
+          contentPadding: EdgeInsets.zero,
+          value: _batches,
+          onChanged: (v) => setState(() => _batches = v),
+          title: Text(te ? 'బ్యాచ్ / ఎక్స్‌పైరీ లెక్క (మందులు మొదలైనవి)' : 'Track batch / expiry (medicines etc.)'),
+          subtitle: Text(te ? 'స్టాక్ కొనుగోలు బిల్లుతో బ్యాచ్ వారీగా వస్తుంది; ఎక్స్‌పైర్ అయినది అమ్మకానికి రాదు.' : 'Stock comes in per batch through purchase bills; expired stock is never sold.'),
+        ),
+        if (_track && !_batches) AskodoxPosField(controller: _opening, number: true, label: te ? 'ప్రస్తుత స్టాక్' : 'Opening stock ($_unit)'),
         if (_error != null) Text(_error!, key: const Key('askodoxPosItemError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
         FilledButton(key: const Key('askodoxPosSaveItem'), onPressed: _busy ? null : _save, child: Text(te ? 'సేవ్' : 'Save')),
       ]),
@@ -611,6 +639,19 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
                 onPressed: () => askodoxPrintInvoice(context, ref, inv),
                 icon: const Icon(Icons.print_outlined),
                 label: Text(te ? 'ప్రింట్' : 'Print'),
+              ),
+              OutlinedButton.icon(
+                key: const Key('askodoxPosSharePdf'),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final ok = await askodoxShareInvoicePdf(inv);
+                  if (!ok) {
+                    messenger.showSnackBar(SnackBar(
+                        content: Text(te ? 'PDF పంపలేకపోయాను (యాప్ అప్‌డేట్ చేయండి).' : 'Could not share the PDF (update the app).')));
+                  }
+                },
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: const Text('PDF'),
               ),
               OutlinedButton.icon(
                 key: const Key('askodoxPosShare'),
