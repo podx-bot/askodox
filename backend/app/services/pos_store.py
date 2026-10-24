@@ -172,6 +172,9 @@ MIGRATIONS = [
     ("pos_invoice_lines", "pack", "TEXT"),
     ("pos_invoice_lines", "base_qty_milli", "INTEGER"),
     ("pos_invoice_lines", "serials", "TEXT"),
+    # Where items are offered (pos_online.py): shop default + per-item override (NULL = default).
+    ("pos_businesses", "online_default", "TEXT NOT NULL DEFAULT 'pos'"),
+    ("pos_products", "channel", "TEXT"),
 ]
 
 # Selling units beyond the item's base unit (box of 12 pcs, 25 kg bag ...).

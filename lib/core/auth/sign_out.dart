@@ -8,6 +8,7 @@ import '../api/api_models.dart';
 import '../providers/backend_providers.dart';
 import 'app_restart.dart';
 import 'phone_auth.dart';
+import '../startup/startup_hint.dart';
 
 /// Sign-out: ONE flow for Profile -> Settings & Privacy and the side menu.
 ///
@@ -95,6 +96,7 @@ Future<void> askodoxStashAccountData(SharedPreferences prefs, String? account) a
   for (final key in askodoxAccountScopedKeys) {
     await prefs.remove(key);
   }
+  AskodoxStartupHint.onboardingComplete = false;
 }
 
 /// Brings back what [askodoxStashAccountData] put away for this account.

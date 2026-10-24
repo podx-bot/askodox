@@ -108,7 +108,13 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   Future<void> _load() async {
     try {
       final list = await ref.read(askodoxPosRepositoryProvider).products(widget.businessId);
-      if (mounted) setState(() => _products = list);
+      Object? shopDefault;
+      try {
+        shopDefault = (await ref.read(askodoxPosRepositoryProvider).business(widget.businessId))['online_default'];
+      } catch (_) {}
+      // "Online only" items are offered in ASKODOX, not at the counter.
+      final counter = [for (final p in list) if (askodoxPosChannel(p, shopDefault) != 'online') p];
+      if (mounted) setState(() => _products = counter);
     } on AskodoxPosException catch (e) {
       if (mounted) setState(() => _error = e.message(askodoxPosTe(context)));
     } finally {

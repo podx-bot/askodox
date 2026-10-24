@@ -12,6 +12,21 @@ String askodoxPosT(BuildContext context, String en, String te) => askodoxPosTe(c
 final askodoxPosBusinessProvider = FutureProvider.autoDispose.family<AskodoxJson, String>(
     (ref, id) => ref.watch(askodoxPosRepositoryProvider).business(id));
 
+/// Where an item is offered: the item's own choice, else the shop default (pos / online / both).
+String askodoxPosChannel(AskodoxJson product, Object? shopDefault) {
+  const known = {'pos', 'online', 'both'};
+  final own = '${product['channel'] ?? ''}';
+  if (known.contains(own)) return own;
+  final fallback = '${shopDefault ?? ''}';
+  return known.contains(fallback) ? fallback : 'pos';
+}
+
+String askodoxPosChannelLabel(String channel, bool te) => switch (channel) {
+      'online' => te ? 'ఆన్‌లైన్ మాత్రమే' : 'Online only',
+      'both' => te ? 'రెండూ' : 'Both',
+      _ => te ? 'POS మాత్రమే' : 'POS only',
+    };
+
 bool askodoxPosCan(AskodoxJson business, String permission) =>
     (business['permissions'] as List? ?? const []).map((e) => '$e').contains(permission);
 

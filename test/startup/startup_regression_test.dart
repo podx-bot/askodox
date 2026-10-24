@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:podx/core/persistence/local_store.dart';
 import 'package:podx/core/persistence/startup_prefs.dart';
 import 'package:podx/core/providers/backend_providers.dart';
+import 'package:podx/core/startup/startup_hint.dart';
 import 'package:podx/features/auth/presentation/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,7 +39,30 @@ Future<void> _frames(WidgetTester tester, [int n = 12]) async {
 }
 
 void main() {
-  tearDown(() => askodoxPrefsLoader = SharedPreferences.getInstance);
+  tearDown(() {
+    askodoxPrefsLoader = SharedPreferences.getInstance;
+    AskodoxStartupHint.onboardingComplete = false;
+  });
+
+  testWidgets('finished onboarding: the language page never flashes on the way to Home', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'askodox.onboarding.complete': true,
+      'askodox.auth.token': 'tok',
+      'askodox.profile.mobile': '919876543210',
+      'askodox.profile.name': 'Asha',
+      'askodox.locale': 'te',
+    });
+    expect(AskodoxStartupHint.initialLocation, '/onboarding');
+    await _pump(tester);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('Language'), findsNothing, reason: 'frame $i showed the language step');
+      expect(find.text('భాష'), findsNothing, reason: 'frame $i showed the language step');
+      expect(find.byKey(const ValueKey('mobile-input')), findsNothing);
+    }
+    expect(find.text('HOME'), findsOneWidget);
+    expect(AskodoxStartupHint.initialLocation, '/', reason: 'a rebuilt router starts at Home');
+  });
 
   testWidgets('existing signed-in user: startup goes straight to Home', (tester) async {
     SharedPreferences.setMockInitialValues({
