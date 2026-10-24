@@ -41,8 +41,15 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     super.dispose();
   }
 
+  // The router notifies while the app is still building a frame: redraw after it.
+  bool _queued = false;
   void _changed() {
-    if (mounted) setState(() {});
+    if (_queued) return;
+    _queued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _queued = false;
+      if (mounted) setState(() {});
+    });
   }
 
   (String pattern, String path) _where() {
