@@ -105,6 +105,9 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             extra["advice_given"] = payload.advice_given
         if payload.capabilities:
             extra["capabilities"] = [str(c)[:30] for c in payload.capabilities]
+        memory = _user_memory(request)
+        if memory and _accepts(service.decide, "user_memory"):
+            extra["user_memory"] = memory
         decision = service.decide(
             payload.message,
             history=history,
@@ -152,6 +155,80 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence)
+
+
+def _accepts(fn: Any, name: str) -> bool:
+    import inspect
+
+    try:
+        return name in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def _user_memory(request: Request) -> list[str]:
+    """The signed-in caller's own earlier requests (profile memory, when they allow it, + backed-up chat titles).
+    No token / invalid token / memory off -> nothing (the assistant works the same, just less personal)."""
+    header = request.headers.get("authorization") or ""
+    token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    if not token:
+        return []
+    container: Any = request.app.state.container
+    try:
+        user_id = verify_token(token, container.settings.session_token_secret)
+        if not user_id:
+            return []
+        from app.services import conversation_backup, profile_memory
+
+        db = container.settings.database_path
+        if not profile_memory.enabled(db, user_id):
+            return []
+        lines = []
+        for item in profile_memory.items(db, user_id)[:8]:
+            details = ", ".join(f"{k}: {v}" for k, v in list((item.get("details") or {}).items())[:4])
+            lines.append(f"{item['role']} -- {item['subject']}" + (f" ({details})" if details else "") + f" [{item['status']}]")
+        lines += conversation_backup.recent_requests(db, user_id, 6)
+        return lines[:12]
+    except Exception:
+        logger.exception("in_app_assistant: user memory unavailable")
+        return []
+
+
+class GuideAskIn(BaseModel):
+    question: str = Field(min_length=1, max_length=600)
+    screen: str = Field(default="", max_length=120)
+    steps: list[str] = Field(default_factory=list, max_length=12)
+    guides: list[str] = Field(default_factory=list, max_length=60)
+    locale: str = Field(default="", max_length=10)
+
+
+@router.post("/guide/ask")
+def guide_ask(payload: GuideAskIn, request: Request) -> dict:
+    """The on-screen guide answers a question about using the app, grounded on the screen's own help text
+    and the list of guides. Plain text; "" when no model answered (the app says so honestly)."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "guide_ask", limit=20)
+    container: Any = request.app.state.container
+    service = container.universal_ai_assistant_service
+    te = payload.locale.lower().startswith("te")
+    prompt = (
+        "You are the friendly ASKODOX app guide talking to a shop owner or customer in India who may not read well. "
+        "Answer the question about USING THE ASKODOX APP in 2-4 very short, simple sentences, step by step, like "
+        "speaking to them. Use ONLY the screen help and guide list below; if they do not cover it, say you are not "
+        "sure and suggest asking in ASKODOX chat. Never invent buttons or features. No markdown, no lists symbols.\n"
+        + ("Reply in simple Telugu (Telugu script).\n" if te else "Reply in simple English.\n")
+        + f"Current screen: {payload.screen[:120]}\n"
+        + "What this screen does: " + " ".join(s[:300] for s in payload.steps[:12]) + "\n"
+        + "Guides the app has: " + "; ".join(g[:80] for g in payload.guides[:60]) + "\n"
+        + f"Question: {payload.question[:600]}"
+    )
+    try:
+        text = service.write_text(prompt, max_tokens=400) if hasattr(service, "write_text") else ""
+    except Exception:
+        logger.exception("guide_ask failed")
+        text = ""
+    return {"answer": text.strip(), "source": "ai" if text.strip() else "none"}
 
 
 def _intelligence(message: str, locale: str) -> dict[str, Any] | None:

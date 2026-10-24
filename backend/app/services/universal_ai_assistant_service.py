@@ -56,6 +56,17 @@ _LANGUAGE_NAMES = {
 }
 
 
+def _user_memory_block(lines: list[str] | None) -> str:
+    """What this signed-in user asked for / offered before (their own earlier requests, kept with consent)."""
+    clean = [str(l).strip()[:200] for l in (lines or []) if str(l).strip()][:12]
+    if not clean:
+        return ""
+    return ("This user's own earlier requests in ASKODOX (newest first; use them to personalise advice, suggestions "
+            "and defaults ONLY when relevant to the current message, mention them naturally like 'last time you "
+            "looked for ...', never assume an old need is still wanted, never invent history that is not listed):\n- "
+            + "\n- ".join(clean) + "\n")
+
+
 def _reply_language_rule(locale: str) -> str:
     """The app sends the CONVERSATION language (the user's Preferred Language,
     or the one they have been using). It is authoritative: a short reply
@@ -390,7 +401,7 @@ class UniversalAIAssistantService:
 
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
                 advice_ledger: list[dict[str, Any]] | None = None,
-                capabilities: list[str] | None = None) -> tuple[str, Any]:
+                capabilities: list[str] | None = None, user_memory: list[str] | None = None) -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
@@ -420,6 +431,7 @@ class UniversalAIAssistantService:
             "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
             + _reply_language_rule(locale)
             + (f"Known user location: {location}\n" if location else "")
+            + _user_memory_block(user_memory)
             + f"Conversation so far JSON: {json.dumps(history, ensure_ascii=False)}\n"
             + f"User's question: {user_text}"
         )
@@ -725,6 +737,7 @@ class UniversalAIAssistantService:
         searched_for: dict[str, Any] | None = None,
         advice_given: list[dict[str, Any]] | None = None,
         capabilities: list[str] | None = None,
+        user_memory: list[str] | None = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
@@ -794,6 +807,7 @@ class UniversalAIAssistantService:
             "known one. You may still copy the known location into entities.location when relevant.\n"
             + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
+            + _user_memory_block(user_memory) +
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
             + (f"Already searched for (the options now on screen): "
                f"{json.dumps(searched_for, ensure_ascii=False)[:1500]}\n" if searched_for else "")
@@ -882,7 +896,8 @@ class UniversalAIAssistantService:
                 mode = "advice"
                 transactional = False
                 action = "advise"
-                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities)
+                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities,
+                                                   user_memory=user_memory)
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta

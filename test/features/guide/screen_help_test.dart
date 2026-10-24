@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:podx/config/router/app_router.dart';
 import 'package:podx/core/startup/startup_hint.dart';
 import 'package:podx/features/guide/screen_help.dart';
+import 'package:podx/features/guide/guide_sheet.dart';
 import 'package:podx/features/guide/guide_watch.dart';
+import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:podx/features/guide/screen_help_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,8 +27,23 @@ List<String> _screenPaths(List<RouteBase> routes, [String parent = '']) {
   return out;
 }
 
+final _spoken = <String>[];
+final _asked = <String>[];
+final _quiet = [
+  askodoxGuideSpeakerProvider.overrideWithValue((text, language) async => _spoken.add(text)),
+  askodoxGuideAnswererProvider.overrideWithValue((q, screen, steps, guides, locale) async {
+    _asked.add('$screen|$q');
+    return 'Open Profile, tap My videos, then Upload for review.';
+  }),
+];
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    _spoken.clear();
+    _asked.clear();
+    askodoxGuideVoiceOn = true;
+  });
 
   test('EVERY screen has a guide entry (en + te steps) or a stated reason', () {
     SharedPreferences.setMockInitialValues({});
@@ -56,6 +73,7 @@ void main() {
       GoRoute(path: '/onboarding', builder: (_, __) => const Scaffold(body: Text('SIGN UP'))),
     ]);
     await tester.pumpWidget(ProviderScope(
+      overrides: _quiet,
       child: MaterialApp.router(
         routerConfig: router,
         builder: (context, child) => AskodoxScreenHelpLayer(router: router, child: child!),
@@ -80,6 +98,7 @@ void main() {
     addTearDown(() => AskodoxStartupHint.justOnboarded = false);
     final router = GoRouter(routes: [GoRoute(path: '/', builder: (_, __) => const Scaffold(body: Text('HOME')))]);
     await tester.pumpWidget(ProviderScope(
+      overrides: _quiet,
       child: MaterialApp.router(
         routerConfig: router,
         builder: (context, child) => AskodoxScreenHelpLayer(router: router, child: child!),
@@ -115,6 +134,7 @@ void main() {
                 )),
       ]);
       await tester.pumpWidget(ProviderScope(
+        overrides: _quiet,
         child: MaterialApp.router(
           routerConfig: router,
           builder: (context, child) => AskodoxScreenHelpLayer(router: router, child: child!),
@@ -181,5 +201,40 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('askodoxScreenHelpSheet')), findsOneWidget);
     });
+  });
+
+  testWidgets('each screen gets ITS OWN guide, read aloud; the guide answers questions', (tester) async {
+    final router = GoRouter(initialLocation: '/profile', routes: [
+      GoRoute(path: '/profile', builder: (_, __) => const Scaffold(body: Text('PROFILE'))),
+    ]);
+    await tester.pumpWidget(ProviderScope(
+      overrides: _quiet,
+      child: MaterialApp.router(
+        routerConfig: router,
+        builder: (context, child) => AskodoxScreenHelpLayer(router: router, child: child!),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxScreenHelpButton')));
+    await tester.pumpAndSettle();
+    expect(_spoken.single, startsWith('Profile'), reason: 'the guide reads the screen help aloud');
+    expect(find.textContaining('Complete my profile'), findsOneWidget, reason: "the profile screen's own walkthrough");
+    expect(find.textContaining('Upload a video'), findsNothing, reason: 'never the video guide on another screen');
+    await tester.enterText(find.byKey(const Key('askodoxGuideAskField')), 'how do I upload a video?');
+    await tester.tap(find.byKey(const Key('askodoxGuideAskGo')));
+    await tester.pumpAndSettle();
+    expect(_asked.single, 'Profile|how do I upload a video?');
+    expect(find.byKey(const Key('askodoxGuideAnswer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxGuideAnswerFlow-upload_video')), findsOneWidget);
+    expect(_spoken.last, contains('Upload for review'), reason: 'the answer is spoken too');
+    await tester.tap(find.byKey(const Key('askodoxGuideSpeak')));
+    await tester.pump();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+  });
+
+  test('a flow belongs to the screen it ends on', () {
+    expect(askodoxFlowsOwnedBy('/profile').map((f) => f.id), isNot(contains('upload_video')));
+    expect(askodoxFlowsOwnedBy('/videos/native').map((f) => f.id), contains('upload_video'));
   });
 }

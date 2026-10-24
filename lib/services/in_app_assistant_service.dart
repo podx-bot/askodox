@@ -230,8 +230,13 @@ class InAppAssistantService {
     String? location,
     Map<String, Object?>? searchedFor,
     List<Map<String, Object?>>? adviceGiven,
+    String? authToken,
   }) async {
     final clean = message.trim();
+    // A real session token lets the brain use THIS user's earlier requests (personal answers).
+    final token = authToken == null || authToken.isEmpty || authToken == 'OTP_VERIFIED' || authToken == 'DEMO_ONLY'
+        ? null
+        : authToken;
     if (clean.isEmpty) return null;
     final cleanLocation = location?.trim();
 
@@ -241,9 +246,10 @@ class InAppAssistantService {
       final response = await client
           .post(
             Uri.parse('$_baseUrl/api/in-app/assistant'),
-            headers: const {
+            headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
             },
             body: jsonEncode({
               'message': clean,

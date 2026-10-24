@@ -395,11 +395,13 @@ def create_app() -> FastAPI:
     from app.api.routes.catalogue import router as catalogue_router
     from app.api.routes.business_creations import router as business_creations_router
     from app.api.routes.profile_memory import router as profile_memory_router
+    from app.api.routes.conversation_backup import router as conversation_backup_router
     from app.api.routes.profile import router as profile_router
 
     app.include_router(catalogue_router)
     app.include_router(business_creations_router)
     app.include_router(profile_memory_router)  # before /api/me/profile: its own prefix
+    app.include_router(conversation_backup_router)  # chat history survives reinstall
     app.include_router(profile_router)
     from app.api.routes.benefits import admin_router as benefits_admin_router, router as benefits_router
 

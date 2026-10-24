@@ -2101,6 +2101,7 @@ class _AskodoxPrimaryHomeScreenState
       location: _saysNearMe(text) ? knownLocationLabel : (_requestedPlace?.label ?? knownLocationLabel),
       searchedFor: _searchedFor(),
       adviceGiven: _adviceLedger,
+      authToken: ref.read(authSessionProvider).user == null ? null : ref.read(authSessionProvider).tokenPlaceholder,
     );
     final aiUsable = decision?.usable == true;
     // One-time advice memory: keep the ledger the brain returned so a

@@ -561,6 +561,12 @@ this file, don't trust it blindly.
   OPEN -> CHECKOUT (4-digit exit code) -> BILLED via `PosStore.create_invoice` (client_txn_id `selfshop-<sid>`); weighed /
   serial items are refused to the counter. Exit check = `askodoxDecodeAllBarcodesPixels` (zxing GenericMultipleBarcodeReader,
   DISTINCT codes only -> quantities by hand). Payment stays at the counter; never mark a list paid without the cashier.
+- Guide sheet = `features/guide/guide_sheet.dart` (reads the screen help aloud, ask box + mic -> `/api/in-app/guide/ask`
+  grounded on the screen help only, "Show me" = `askodoxFlowsOwnedBy(path)`: flows whose last routed step is on this
+  screen -- never guess a flow from a step that merely passes through). POS boxes show an example inside
+  (`askodoxPosFieldExample`); item details pre-fill EMPTY details via Smart Fill from the item name / seller's words.
+  History = local archive + `/api/me/conversations` backup (`conversation_backup.py`, newer copy wins, deleted with the
+  account); `_user_memory` in in_app_assistant gives the brain the caller's own earlier requests (token only).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
