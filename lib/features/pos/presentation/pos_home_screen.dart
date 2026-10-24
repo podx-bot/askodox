@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/backend_providers.dart';
+import '../../../shared/widgets/askodox_tile_grid.dart';
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
 
@@ -320,31 +321,18 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
                   ),
                 ),
               const SizedBox(height: 8),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 2.2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                children: [
+              AskodoxTileGrid(
+                keyPrefix: 'askodoxPosTile',
+                tiles: [
                   for (final (key, icon, en, tel, route) in tiles)
-                    Card(
-                      child: InkWell(
-                        key: ValueKey('askodoxPosTile-$key'),
-                        onTap: () async {
-                          await context.push(route);
-                          if (mounted) await _refreshQueue();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Row(children: [
-                            Icon(icon),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(te ? tel : en, style: const TextStyle(fontWeight: FontWeight.w700))),
-                          ]),
-                        ),
-                      ),
+                    AskodoxTile(
+                      id: key,
+                      icon: icon,
+                      title: te ? tel : en,
+                      onTap: () async {
+                        await context.push(route);
+                        if (mounted) await _refreshQueue();
+                      },
                     ),
                 ],
               ),

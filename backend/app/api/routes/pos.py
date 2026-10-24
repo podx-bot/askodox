@@ -260,12 +260,16 @@ def products(business_id: str, request: Request, q: str = "", include_inactive: 
 
 @router.post("/businesses/{business_id}/products")
 def add_product(business_id: str, body: ProductIn, request: Request) -> dict:
-    return _call(_store(request).add_product, business_id, _user(request), _dump(body))
+    out = _call(_store(request).add_product, business_id, _user(request), _dump(body))
+    _online_sync(request, business_id, [out.get("id")])
+    return out
 
 
 @router.patch("/businesses/{business_id}/products/{product_id}")
 def update_product(business_id: str, product_id: str, body: ProductIn, request: Request) -> dict:
-    return _call(_store(request).update_product, business_id, _user(request), product_id, _dump(body))
+    out = _call(_store(request).update_product, business_id, _user(request), product_id, _dump(body))
+    _online_sync(request, business_id, [product_id])
+    return out
 
 
 @router.get("/businesses/{business_id}/products/{product_id}/history")
@@ -275,7 +279,9 @@ def product_history(business_id: str, product_id: str, request: Request) -> dict
 
 @router.post("/businesses/{business_id}/stock")
 def stock(business_id: str, body: StockIn, request: Request) -> dict:
-    return _call(_store(request).stock_move, business_id, _user(request), _dump(body))
+    out = _call(_store(request).stock_move, business_id, _user(request), _dump(body))
+    _online_sync(request, business_id, [body.product_id])
+    return out
 
 
 @router.get("/businesses/{business_id}/stock/{product_id}")
@@ -321,7 +327,9 @@ def statement(business_id: str, customer_id: str, month: str, request: Request) 
 def create_invoice(business_id: str, body: InvoiceIn, request: Request) -> dict:
     data = body.model_dump()
     data["lines"] = [{k: v for k, v in line.items() if v is not None} for line in data["lines"]]
-    return _call(_store(request).create_invoice, business_id, _user(request), data)
+    out = _call(_store(request).create_invoice, business_id, _user(request), data)
+    _online_sync(request, business_id, [line.get("product_id") for line in data["lines"]])
+    return out
 
 
 @router.get("/businesses/{business_id}/invoices")
@@ -338,12 +346,16 @@ def invoice(business_id: str, invoice_id: str, request: Request) -> dict:
 
 @router.post("/businesses/{business_id}/invoices/{invoice_id}/credit-notes")
 def credit_note(business_id: str, invoice_id: str, body: CreditIn, request: Request) -> dict:
-    return _call(_store(request).create_credit_note, business_id, _user(request), invoice_id, body.model_dump())
+    out = _call(_store(request).create_credit_note, business_id, _user(request), invoice_id, body.model_dump())
+    _online_sync(request, business_id, None)
+    return out
 
 
 @router.post("/businesses/{business_id}/invoices/{invoice_id}/cancel")
 def cancel(business_id: str, invoice_id: str, body: CancelIn, request: Request) -> dict:
-    return _call(_store(request).cancel_invoice, business_id, _user(request), invoice_id, body.reason)
+    out = _call(_store(request).cancel_invoice, business_id, _user(request), invoice_id, body.reason)
+    _online_sync(request, business_id, None)
+    return out
 
 
 @router.get("/businesses/{business_id}/day/{local_date}")
@@ -614,7 +626,9 @@ def purchases(business_id: str, request: Request, supplier_id: str = "") -> dict
 def record_purchase(business_id: str, body: PurchaseIn, request: Request) -> dict:
     data = body.model_dump()
     data["lines"] = [{k: v for k, v in line.items() if v is not None} for line in data["lines"]]
-    return _call(_purchases(request).record_purchase, business_id, _user(request), data)
+    out = _call(_purchases(request).record_purchase, business_id, _user(request), data)
+    _online_sync(request, business_id, [line.get("product_id") for line in data["lines"]])
+    return out
 
 
 @router.get("/businesses/{business_id}/purchases/{purchase_id}")
@@ -624,7 +638,9 @@ def purchase(business_id: str, purchase_id: str, request: Request) -> dict:
 
 @router.post("/businesses/{business_id}/purchases/{purchase_id}/cancel")
 def cancel_purchase(business_id: str, purchase_id: str, body: CancelIn, request: Request) -> dict:
-    return _call(_purchases(request).cancel_purchase, business_id, _user(request), purchase_id, body.reason)
+    out = _call(_purchases(request).cancel_purchase, business_id, _user(request), purchase_id, body.reason)
+    _online_sync(request, business_id, None)
+    return out
 
 
 @router.get("/businesses/{business_id}/reports/valuation")
@@ -723,7 +739,9 @@ def po_status(business_id: str, po_id: str, body: PoStatusIn, request: Request) 
 def po_receive(business_id: str, po_id: str, body: PoReceiveIn, request: Request) -> dict:
     data = body.model_dump()
     data["lines"] = [{k: v for k, v in l.items() if v is not None} for l in data["lines"]]
-    return _call(_purchases(request).receive_po, business_id, _user(request), po_id, data)
+    out = _call(_purchases(request).receive_po, business_id, _user(request), po_id, data)
+    _online_sync(request, business_id, [line.get("product_id") for line in data["lines"]])
+    return out
 
 
 # ------------------------------------------------------------ shop advance (store credit)
@@ -796,3 +814,68 @@ def my_advances(request: Request) -> dict:
 @router.post("/me/advances/{entry_id}/decision")
 def decide_advance(entry_id: str, body: AdvanceDecisionIn, request: Request) -> dict:
     return _call(_advances(request).decide, _user(request), entry_id, body.approve, body.accept_terms_version)
+
+
+# ------------------------------------------------------------ online (POS only / Online / Both)
+def _online(request: Request):
+    from app.services.pos_online import PosOnline
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_online", None)
+    if existing is None or existing.store is not store:
+        def screen(seller: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+            from app.api.routes.platform import platform
+            from app.services import listing_quality, platform_settings
+
+            pf = platform(container)
+            return listing_quality.check(store.db_path, seller, fields,
+                                         prohibited=listing_quality.prohibited_terms(pf.repo),
+                                         max_per_hour=int(platform_settings.get("listings.max_per_hour")),
+                                         cross_seller_limit=int(platform_settings.get("listings.cross_seller_limit")))
+
+        def queue_review(listing_id: int, seller: str, subject: str, reasons: List[str]) -> None:
+            from app.api.routes.platform import platform, user_ref
+
+            platform(container).resources.create(
+                "listing_reviews", {"product_id": int(listing_id), "seller_ref": user_ref(seller),
+                                    "subject": subject[:300], "reasons": reasons}, actor="pos_online")
+
+        existing = PosOnline(store, screen=screen, queue_review=queue_review)
+        try:
+            container.pos_online = existing
+        except Exception:
+            pass
+    return existing
+
+
+def _online_sync(request: Request, business_id: str, product_ids) -> None:
+    """Best effort: a listing sync problem never fails the sale / edit that caused it."""
+    try:
+        ids = None if product_ids is None else [str(i) for i in product_ids if i]
+        if ids == []:
+            return
+        _online(request).sync(business_id, ids)
+    except Exception:  # pragma: no cover - logged by the platform, never surfaced as a POS failure
+        pass
+
+
+class OnlineChannelIn(BaseModel):
+    channel: Optional[str] = Field(default=None, pattern="^(pos|online|both)$")
+
+
+@router.get("/businesses/{business_id}/online")
+def online_status(business_id: str, request: Request) -> dict:
+    return _call(_online(request).status, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/online")
+def online_default(business_id: str, body: OnlineChannelIn, request: Request) -> dict:
+    """Shop default: pos (counter only) / online (ASKODOX only) / both."""
+    return _call(_online(request).set_default, business_id, _user(request), body.channel or "pos")
+
+
+@router.put("/businesses/{business_id}/products/{product_id}/online")
+def online_channel(business_id: str, product_id: str, body: OnlineChannelIn, request: Request) -> dict:
+    """One item: pos / online / both, or null to follow the shop default."""
+    return _call(_online(request).set_channel, business_id, _user(request), product_id, body.channel)

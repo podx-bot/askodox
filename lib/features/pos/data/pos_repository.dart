@@ -181,6 +181,13 @@ class AskodoxPosRepository {
   Future<AskodoxJson> createPurchaseOrder(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchase-orders', body: body);
   Future<AskodoxJson> purchaseOrder(String id, String poId) => _send('GET', '${_b(id)}/purchase-orders/$poId');
 
+  // Where items are offered: pos / online / both (shop default + per item; null = follow the shop).
+  Future<AskodoxJson> onlineStatus(String id) => _send('GET', '${_b(id)}/online');
+  Future<AskodoxJson> setOnlineDefault(String id, String channel) =>
+      _send('PUT', '${_b(id)}/online', body: {'channel': channel});
+  Future<AskodoxJson> setOnlineChannel(String id, String productId, String? channel) =>
+      _send('PUT', '${_b(id)}/products/$productId/online', body: {'channel': channel});
+
   // Shop advance (store credit): every change waits for the customer's approval in their own app.
   Future<AskodoxJson> advanceSettings(String id) => _send('GET', '${_b(id)}/advance/settings');
   Future<AskodoxJson> updateAdvanceSettings(String id, AskodoxJson body) =>

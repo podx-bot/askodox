@@ -11,6 +11,7 @@ import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../services/push_registration.dart';
 import '../../location/application/location_controller.dart';
+import '../../../core/startup/startup_hint.dart';
 
 /// "Your privacy" in plain words, with only actions that really work:
 /// download my data, forget saved places, delete my account. Details sit
@@ -121,6 +122,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
     for (final key in ['askodox.auth.token', 'askodox.onboarding.complete', 'askodox.profile.mobile', 'askodox.profile.name']) {
       await prefs.remove(key);
     }
+    AskodoxStartupHint.onboardingComplete = false;
     await ref.read(locationControllerProvider.notifier).clearSaved();
     // This phone stops receiving pushes (the server already removed the tokens).
     await ref.read(askodoxPushRegistrationProvider).unregister();

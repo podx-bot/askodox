@@ -28,14 +28,102 @@ class AskodoxPosItemsScreen extends ConsumerStatefulWidget {
 
 class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
   late Future<List<AskodoxJson>> _items;
+  AskodoxJson? _online;
 
   @override
   void initState() {
     super.initState();
     _items = ref.read(askodoxPosRepositoryProvider).products(widget.businessId);
+    _loadOnline();
   }
 
-  void _reload() => setState(() => _items = ref.read(askodoxPosRepositoryProvider).products(widget.businessId));
+  void _reload() {
+    setState(() => _items = ref.read(askodoxPosRepositoryProvider).products(widget.businessId));
+    _loadOnline();
+  }
+
+  Future<void> _loadOnline() async {
+    try {
+      final s = await ref.read(askodoxPosRepositoryProvider).onlineStatus(widget.businessId);
+      if (mounted) setState(() => _online = s);
+    } catch (_) {
+      // Older server / offline: the channel controls simply stay hidden.
+    }
+  }
+
+  AskodoxJson? _onlineItem(Object? id) {
+    for (final i in askodoxPosList(_online?['items'])) {
+      if (i['product_id'] == id) return i;
+    }
+    return null;
+  }
+
+  String _stateText(String state, bool te) => switch (state) {
+        'live' => te ? 'ASKODOX లో కనిపిస్తోంది' : 'Showing in ASKODOX',
+        'needs_review' => te ? 'స్టాఫ్ పరిశీలన తర్వాత కనిపిస్తుంది' : 'Shows after staff review',
+        'blocked' => te ? 'ఆన్‌లైన్‌లో పెట్టలేం' : 'Cannot be listed online',
+        'hidden' => te ? 'ఆన్‌లైన్‌లో దాచాం' : 'Hidden online',
+        _ => te ? 'ఆన్‌లైన్‌లో లేదు' : 'Not online',
+      };
+
+  Future<void> _setDefault(String channel) async {
+    final te = askodoxPosTe(context);
+    try {
+      final s = await ref.read(askodoxPosRepositoryProvider).setOnlineDefault(widget.businessId, channel);
+      if (mounted) setState(() => _online = s);
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
+  /// Where one item is offered: shop default / POS only / Online only / Both.
+  Future<void> _channel(AskodoxJson p) async {
+    final te = askodoxPosTe(context);
+    final info = _onlineItem(p['id']);
+    final current = '${p['channel'] ?? 'default'}';
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text('${p['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          ),
+          if (info != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text([
+                _stateText('${info['state']}', te),
+                ...askodoxPosList(info['reasons']).map((r) => '$r'),
+              ].join(' · '), key: const Key('askodoxPosChannelState')),
+            ),
+          for (final (value, label) in [
+            ('default', '${te ? 'షాప్ డిఫాల్ట్' : 'Shop default'} (${askodoxPosChannelLabel('${_online?['default'] ?? 'pos'}', te)})'),
+            ('pos', askodoxPosChannelLabel('pos', te)),
+            ('online', askodoxPosChannelLabel('online', te)),
+            ('both', askodoxPosChannelLabel('both', te)),
+          ])
+            ListTile(
+              key: ValueKey('askodoxPosChannelPick-$value'),
+              leading: Icon(value == current ? Icons.radio_button_checked : Icons.radio_button_off),
+              title: Text(label),
+              onTap: () => Navigator.pop(ctx, value),
+            ),
+        ]),
+      ),
+    );
+    if (picked == null || picked == current || !mounted) return;
+    try {
+      final s = await ref
+          .read(askodoxPosRepositoryProvider)
+          .setOnlineChannel(widget.businessId, '${p['id']}', picked == 'default' ? null : picked);
+      if (mounted) setState(() => _online = s);
+      _reload();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
 
   /// Selling / buying units of an item: e.g. 1 box = 12 pcs at its own price and barcode.
   Future<void> _units(AskodoxJson p) async {
@@ -162,7 +250,39 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final items = snap.data!;
           if (items.isEmpty) return Center(child: Text(te ? 'ఇంకా సరుకులు లేవు.' : 'No items yet.'));
+          final online = _online;
+          final business = ref.watch(askodoxPosBusinessProvider(widget.businessId)).valueOrNull;
+          final canSettings = business != null && askodoxPosCan(business, 'settings');
           return ListView(key: const Key('askodoxPosItems'), children: [
+            if (online != null)
+              Card(
+                key: const Key('askodoxPosOnlineCard'),
+                margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(te ? 'సరుకులు ఎక్కడ అమ్మాలి?' : 'Where do you sell these items?',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(
+                      te
+                          ? 'POS మాత్రమే = షాప్ కౌంటర్‌లో. ఆన్‌లైన్ = ASKODOX లో కస్టమర్లకు కనిపిస్తుంది. రెండూ = రెండింటిలో. ప్రతి సరుకుకీ విడిగా కూడా మార్చవచ్చు.'
+                          : 'POS only = at your counter. Online = customers see it in ASKODOX. Both = both. You can change any single item too.',
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      key: const Key('askodoxPosOnlineDefault'),
+                      segments: [
+                        for (final c in const ['pos', 'online', 'both'])
+                          ButtonSegment(value: c, label: Text(askodoxPosChannelLabel(c, te))),
+                      ],
+                      selected: {'${online['default'] ?? 'pos'}'},
+                      onSelectionChanged: canSettings ? (v) => _setDefault(v.first) : null,
+                    ),
+                  ]),
+                ),
+              ),
             for (final p in items)
               ListTile(
                 key: ValueKey('askodoxPosItem-${p['id']}'),
@@ -174,9 +294,24 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
                   if (p['stock_milli'] != null) '${te ? 'స్టాక్' : 'stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}',
                   if (p['low_stock'] == true) (te ? 'తక్కువ స్టాక్' : 'LOW'),
                 ].join(' · ')),
-                trailing: p['track_stock'] == true && p['track_serials'] != true
-                    ? IconButton(onPressed: () => _stock(p), icon: const Icon(Icons.inventory_outlined))
-                    : null,
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (online != null)
+                    ActionChip(
+                      key: ValueKey('askodoxPosItemChannel-${p['id']}'),
+                      avatar: Icon(
+                          askodoxPosChannel(p, online['default']) == 'pos'
+                              ? Icons.storefront_outlined
+                              : '${_onlineItem(p['id'])?['state']}' == 'live'
+                                  ? Icons.public
+                                  : Icons.public_off_outlined,
+                          size: 16),
+                      label: Text(askodoxPosChannelLabel(askodoxPosChannel(p, online['default']), te),
+                          style: const TextStyle(fontSize: 11.5)),
+                      onPressed: () => _channel(p),
+                    ),
+                  if (p['track_stock'] == true && p['track_serials'] != true)
+                    IconButton(onPressed: () => _stock(p), icon: const Icon(Icons.inventory_outlined)),
+                ]),
                 onTap: () => _units(p),
               ),
           ]);

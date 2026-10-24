@@ -14,6 +14,7 @@ import 'core/update/askodox_update_service.dart';
 import 'features/companion/companion_performance_panel.dart';
 import 'features/analytics/application/analytics_providers.dart';
 import 'features/analytics/domain/analytics_models.dart';
+import 'core/startup/startup_hint.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,6 +82,7 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
       return; // storage unreadable right now: change nothing, never block start-up
     }
     if (prefs.getBool('askodox.onboarding.complete') != true) return;
+    AskodoxStartupHint.onboardingComplete = true;
     final mobile = prefs.getString('askodox.profile.mobile')?.trim() ?? '';
     final name = prefs.getString('askodox.profile.name')?.trim() ?? '';
     if (mobile.isEmpty || name.isEmpty) return;

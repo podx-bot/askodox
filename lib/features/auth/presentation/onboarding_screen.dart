@@ -21,6 +21,7 @@ import '../../../core/update/askodox_update_service.dart';
 import '../../../shared/widgets/askodox_mascot.dart';
 import '../../home/domain/active_role.dart';
 import '../../profile/data/user_profile_repository.dart';
+import '../../../core/startup/startup_hint.dart';
 
 
 /// Digits of the server's account id ("app-phone-919876543210" ->
@@ -290,7 +291,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted) return;
     if (prefs.getBool(_completeKey) == true && !widget.signIn) {
       askodoxAuthLog('startup.onboarding', {'complete': true});
-      setState(() => _loading = false);
+      AskodoxStartupHint.onboardingComplete = true;
+      // Keep the spinner up while leaving: un-hiding first flashed the language page.
       context.go('/');
       return;
     }
@@ -810,6 +812,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await prefs.setString(_tokenKey, token);
     }
     await prefs.setBool(_completeKey, true);
+    AskodoxStartupHint.onboardingComplete = true;
     // The session is live at once (no restart needed to act).
     await ref.read(authSessionProvider.notifier).completeOnboarding(
           mobile: account,

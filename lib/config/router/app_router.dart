@@ -49,6 +49,7 @@ import '../../features/native_video/native_video.dart';
 import '../../features/companion/companion_performance_panel.dart';
 import '../../features/companion/companion_vrm_engine.dart';
 import '../../features/companion/screen_guide.dart';
+import '../../core/startup/startup_hint.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -64,7 +65,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (path == '/seller' || path.startsWith('/seller/')) return '/listings/mine';
       return const RouteGuard().redirect(session, state.matchedLocation);
     },
-    initialLocation: '/onboarding',
+    // A rebuilt router (session changes) never re-opens onboarding for someone who finished it.
+    initialLocation: AskodoxStartupHint.initialLocation,
     routes: [
       GoRoute(
           path: '/onboarding',

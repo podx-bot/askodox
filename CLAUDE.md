@@ -533,6 +533,16 @@ this file, don't trust it blindly.
   phone) can approve via `/api/pos/me/advances/{id}/decision`; the shop can only withdraw a pending row. Terms en/te
   (`TERMS_VERSION`) must be accepted by the owner (settings) and by each customer on first approval. Never let staff
   approve, never pay out across shops, never call it a wallet (no RBI licence).
+- POS online channel = `pos_online.py`: shop default `pos_businesses.online_default` + item `pos_products.channel`
+  (NULL = default); Online / Both = ONE `seller_products` row per item via `pos_online_links` (screened by
+  `listing_quality`; review -> hidden + `listing_reviews`); routes call `_online_sync` after sales / stock / purchases
+  (best effort, never fails the sale). Online-only items are filtered out of the sale screen picker only.
+- Guide button on every screen = `features/guide/screen_help.dart` (`askodoxScreenHelp` by router path pattern, en+te)
+  + `screen_help_button.dart` (mounted in app.dart). A NEW SCREEN ROUTE NEEDS AN ENTRY (or an exempt reason) or
+  `test/features/guide/screen_help_test.dart` fails. Hub tiles = `shared/widgets/askodox_tile_grid.dart`;
+  `AskodoxNavSection` rows without a trailing control are drawn as the same tiles.
+- Startup: `AskodoxStartupHint` (in memory, cleared on sign-out / account delete) -> the router (rebuilt on every
+  session change) starts at '/' after onboarding; onboarding never un-hides the language step while leaving.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

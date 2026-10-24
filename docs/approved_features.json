@@ -991,6 +991,117 @@
           "change": "Shop advance (branch claude/pos-shop-advance), approved by the owner on 2026-10-24 (method 1: record only, customer approval); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_online_channel",
+      "name": "POS item channel: POS only / Online only / Both (publishes to the shop's ASKODOX listings)",
+      "purpose": "A shop decides which items customers can find in ASKODOX search, without typing them twice.",
+      "expected_behavior": "Shop default (pos_businesses.online_default, default 'pos') + per-item override (pos_products.channel, null = default). Online / Both publish ONE seller_products listing per item under the owner (linked in pos_online_links; renames update it), after the same listing_quality screening (block -> not published; review -> hidden + listing_reviews, only staff make it live). Price, unit, in/out of stock, shop name / address / phone follow every sale, stock move, purchase and edit (best effort; a sync problem never fails a sale). POS only or a deactivated item hides the listing (never deleted). Online-only items are left out of the counter's item picker.",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/online",
+          "response_keys": [
+            "default",
+            "items"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/online",
+          "response_keys": [
+            "default",
+            "items"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/online",
+          "response_keys": [
+            "default",
+            "items"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosOnlineCard",
+          "askodoxPosOnlineDefault",
+          "askodoxPosChannelState"
+        ],
+        "symbols": [
+          "askodoxPosChannel",
+          "askodoxPosChannelLabel"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_online.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_online_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-24 (branch claude/ui-guide-online); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "screen_guide_everywhere",
+      "name": "Guide button on every screen + shared POS-style tiles + no language flash at start",
+      "purpose": "Anyone can press one button on any screen to learn what to do there; hub pages share one neat tile look; returning users open straight to Home.",
+      "expected_behavior": "AskodoxScreenHelpLayer (mounted in the app builder) shows a small ASKO tab on every screen that has an entry in askodoxScreenHelp (keyed by router path pattern, en + te steps); one press opens what-to-do steps and 'Show me on the screen' when a walkthrough flow targets that route. Hidden during a walkthrough, with the keyboard open, on private routes and on askodoxScreenHelpExempt screens (sign-up, message screens, developer / staff tools). A guard test fails when a screen route has neither. AskodoxNavSection rows and the Smart Tools hub render as the shared POS-dashboard tiles (AskodoxTileGrid). AskodoxStartupHint makes a rebuilt router start at Home after onboarding; the onboarding screen no longer shows the language step while leaving.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxScreenHelpButton",
+          "askodoxScreenHelpSheet",
+          "askodoxScreenHelpShowMe"
+        ],
+        "symbols": [
+          "AskodoxScreenHelpLayer",
+          "askodoxScreenHelp",
+          "askodoxScreenHelpExempt",
+          "AskodoxTileGrid",
+          "AskodoxStartupHint"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/guide/screen_help_test.dart",
+          "test/startup/startup_regression_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-24 (branch claude/ui-guide-online); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

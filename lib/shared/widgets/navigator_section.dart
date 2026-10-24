@@ -8,9 +8,11 @@ import 'askodox_mascot.dart';
 /// Business, Listings and every nested page -- a small heading with an icon,
 /// then one rounded card of rows (no card per row, no tall empty gaps).
 ///
-/// [grid]: the [AskodoxNavRow]s become a neat 2-column grid of tiles (3 on
-/// wide screens); any other child (switches, chips) stays a full-width list
-/// above the grid.
+/// Every [AskodoxNavRow] without a trailing control is drawn as a tile of the
+/// shared POS-dashboard look (2 columns, 3 on wide screens: icon + bold title +
+/// one line); any other child (switches, chips, rows with a value) stays a
+/// full-width list above the tiles. [grid] is kept for callers; both modes now
+/// draw the same tiles.
 class AskodoxNavSection extends StatelessWidget {
   const AskodoxNavSection(
       {super.key, required this.title, required this.icon, required this.children, this.grid = false, this.mascot});
@@ -30,7 +32,7 @@ class AskodoxNavSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = [for (final c in children) if (c is! SizedBox || c.child != null) c];
     if (rows.isEmpty) return const SizedBox.shrink();
-    if (grid) return _gridSection(rows);
+    if (grid || rows.any((r) => r is AskodoxNavRow && r.trailing == null)) return _gridSection(rows);
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -68,8 +70,8 @@ class AskodoxNavSection extends StatelessWidget {
 
 extension on AskodoxNavSection {
   Widget _gridSection(List<Widget> rows) {
-    final tiles = [for (final r in rows) if (r is AskodoxNavRow) r];
-    final others = [for (final r in rows) if (r is! AskodoxNavRow) r];
+    final tiles = [for (final r in rows) if (r is AskodoxNavRow && r.trailing == null) r];
+    final others = [for (final r in rows) if (r is! AskodoxNavRow || r.trailing != null) r];
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -101,8 +103,8 @@ extension on AskodoxNavSection {
           ),
         if (tiles.isNotEmpty)
           LayoutBuilder(builder: (context, box) {
-            final columns = box.maxWidth >= 600 ? 4 : (box.maxWidth >= 300 ? 3 : 2);
-            const gap = 8.0;
+            final columns = box.maxWidth >= 720 ? 3 : 2;
+            const gap = 10.0;
             final width = (box.maxWidth - gap * (columns - 1)) / columns;
             return Wrap(spacing: gap, runSpacing: gap, children: [
               for (final t in tiles) SizedBox(width: width, child: AskodoxNavTile(row: t)),
@@ -131,47 +133,44 @@ class AskodoxNavTile extends ConsumerWidget {
         triggerMode: TooltipTriggerMode.longPress,
         child: Material(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFFE3E9F3)),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
             onTap: row.onTap,
             child: Container(
               constraints: const BoxConstraints(minHeight: 96),
-              padding: const EdgeInsets.fromLTRB(8, 10, 6, 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE3E9F3)),
-              ),
-              child: Stack(clipBehavior: Clip.none, children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(color: const Color(0xFFEAF1FF), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(row.icon, color: AskodoxNavSection.accent, size: 22),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(row.title,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: AskodoxNavSection.ink, fontWeight: FontWeight.w800, fontSize: 12.5, height: 1.2)),
-                ]),
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: Row(children: [
+                Icon(row.icon, color: AskodoxNavSection.ink, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(row.title,
+                        style: const TextStyle(
+                            color: AskodoxNavSection.ink, fontWeight: FontWeight.w700, fontSize: 15, height: 1.25)),
+                    if (row.subtitle != null && row.subtitle!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(row.subtitle!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085))),
+                      ),
+                  ]),
+                ),
                 if (flow != null)
-                  Positioned(
-                    top: -6,
-                    right: -2,
-                    child: Tooltip(
-                      message: te ? 'గైడ్: ఇక్కడ ఏం చేయాలి' : 'Guide: what to do here',
-                      child: InkResponse(
-                        key: ValueKey('askodoxTileGuide-${row.guide}'),
-                        radius: 20,
-                        onTap: () => ref.read(askodoxGuideProvider.notifier).start(flow),
-                        child: const Padding(
-                          padding: EdgeInsets.all(2),
-                          child: AskodoxMascot(size: 24),
-                        ),
+                  Tooltip(
+                    message: te ? 'గైడ్: ఇక్కడ ఏం చేయాలి' : 'Guide: what to do here',
+                    child: InkResponse(
+                      key: ValueKey('askodoxTileGuide-${row.guide}'),
+                      radius: 20,
+                      onTap: () => ref.read(askodoxGuideProvider.notifier).start(flow),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: AskodoxMascot(size: 24),
                       ),
                     ),
                   ),
