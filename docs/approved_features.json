@@ -618,6 +618,21 @@
       "dependencies": [],
       "status": "approved",
       "history": [{"pr": null, "change": "auth + sign-out round (branch claude/auth-signout-fcm)"}]
+    },
+    {
+      "id": "smart_tools_vision_inspection",
+      "name": "Smart Tools hub, on-device calculators / sensors, evidence-tiered AI photo inspection",
+      "purpose": "One registry of Smart Tools with honest readiness (ready / not yet phone-verified / needs external device / coming soon); deterministic construction, area, volume and load calculators; phone-sensor level, inclinometer and compass; and photo inspection for any domain that separates seen / inferred / not verifiable from a photo.",
+      "expected_behavior": "Profile > Smart Tools lists every tool; only built tools open, the rest explain what they need. Calculators run on the phone, list their assumptions and show a cost only from the user's own rate. Chat opens a tool for an explicit tool ask or a material-quantity question with no results on screen; commerce asks (buy / price / near me / hire) never match; an unbuilt tool is reported as unavailable. POST /api/vision/inspect takes 1-4 photos (quick 1, deep 2, expert 4), down-scales them, makes at most one bounded model call per mode (cached + metered as vision_inspect) and returns report.observed / inferred / not_verifiable / recommended_checks / safety_warnings; a photo never certifies food safety, roadworthiness, tyre pressure, exact animal weight, structural safety, confirmed disease or authenticity.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/vision/inspect", "response_keys": ["status", "report", "facts"]}, {"method": "GET", "path": "/api/vision/profiles", "response_keys": ["status", "profiles", "modes"]}],
+      "ui": {"keys": ["askodoxSmartToolsHub", "askodoxInspectionReport", "askodoxInspectRun", "askodoxLevelReading", "askodoxCompassReading", "askodoxSensorUnavailable", "askodoxToolResult", "profile-smart-tools"], "symbols": ["askodoxSmartTools", "askodoxToolIntent", "askodoxCalcSpecs", "askodoxPlanLoad", "askodoxHeading", "AskodoxVisionInspectionRepository", "askodoxSmartToolRoutes"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_vision_inspection.py"], "flutter": ["test/features/smart_tools/smart_tools_domain_test.dart", "test/features/smart_tools/smart_tools_widgets_test.dart"]},
+      "dependencies": [],
+      "status": "approved",
+      "history": [{"pr": null, "change": "Master command phase 1-2 + vision contract (branch claude/smart-tools-vision-foundation); merge needs owner approval"}]
     }
   ]
 }

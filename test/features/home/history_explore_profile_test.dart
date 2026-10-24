@@ -156,7 +156,7 @@ void main() {
       '/profile': const ProfileScreen(),
       '/': page('HOME'),
       for (final r in ['/business', '/listings/mine', '/orders/incoming', '/business/promotions', '/business/automation',
-          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy'])
+          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools'])
         r: page(r),
     });
     for (final section in ['business', 'studio', 'roles', 'settings', 'help']) {
@@ -169,6 +169,7 @@ void main() {
       ('profile-enquiries', '/orders/incoming'),
       ('profile-native-video', '/videos/native'),
       ('profile-mobility', '/mobility'),
+      ('profile-smart-tools', '/tools'),
     ]) {
       final row = find.byKey(ValueKey(key));
       await tester.ensureVisible(row);

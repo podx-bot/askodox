@@ -393,6 +393,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: t('Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్'),
                 subtitle: t('Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.'),
                 onTap: () => context.push('/mobility')),
+            AskodoxNavRow(
+                key: const ValueKey('profile-smart-tools'),
+                icon: Icons.handyman_outlined,
+                title: t('Smart Tools', 'స్మార్ట్ టూల్స్'),
+                subtitle: t('Level, compass, material calculators, photo inspection.',
+                    'లెవెల్, దిక్సూచి, మెటీరియల్ లెక్కలు, ఫోటో పరిశీలన.'),
+                onTap: () => context.push('/tools')),
               ]),
           if (signedIn)
             AskodoxNavSection(

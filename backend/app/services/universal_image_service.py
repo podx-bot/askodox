@@ -315,6 +315,56 @@ class UniversalImageService:
             return best
         return None
 
+    def analyze_with_prompt(
+        self,
+        images: list[tuple[bytes, str]] | tuple[tuple[bytes, str], ...],
+        prompt: str,
+        max_models: int = 1,
+        allow_second_provider: bool = False,
+    ) -> tuple[Dict[str, Any], int]:
+        """One bounded JSON call over 1..n images with a caller's prompt
+        (Vision Inspection). Returns (payload, model_calls). Tries at most
+        ``max_models`` Gemini models, then OpenAI only when allowed. Never
+        raises for a provider failure: an empty payload means no answer."""
+        parts = [(data, str(mime or "image/jpeg").lower()) for data, mime in images if data]
+        if not parts:
+            return {}, 0
+        calls = 0
+        if self.client is not None:
+            for model in self.GEMINI_IMAGE_MODELS[: max(1, int(max_models))]:
+                calls += 1
+                try:
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=[*(types.Part.from_bytes(data=d, mime_type=m) for d, m in parts), prompt],
+                        config=types.GenerateContentConfig(response_mime_type="application/json"),
+                    )
+                    payload = self._parse_json(str(getattr(response, "text", "") or ""))
+                    print(f"ASKODOX INSPECT BRAIN: provider=gemini model={model} images={len(parts)} status=success",
+                          flush=True)
+                    return payload, calls
+                except Exception as error:
+                    print(f"ASKODOX INSPECT BRAIN: provider=gemini model={model} status=failed "
+                          f"error={type(error).__name__}", flush=True)
+        if allow_second_provider and self.openai_api_key:
+            calls += 1
+            try:
+                content: list[Dict[str, Any]] = [{"type": "input_text", "text": prompt}]
+                for data, mime in parts:
+                    encoded = base64.b64encode(data).decode("ascii")
+                    content.append({"type": "input_image", "image_url": f"data:{mime};base64,{encoded}",
+                                    "detail": "high"})
+                response = self.http.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"},
+                    json={"model": self.openai_model, "input": [{"role": "user", "content": content}]},
+                )
+                response.raise_for_status()
+                return self._parse_json(self._openai_output_text(response.json())), calls
+            except Exception as error:
+                print(f"ASKODOX INSPECT BRAIN: provider=openai status=failed error={type(error).__name__}", flush=True)
+        return {}, calls
+
     def _analyze_gemini(self, model: str, prompt: str, image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
         response = self.client.models.generate_content(
             model=model,
