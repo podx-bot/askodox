@@ -11,6 +11,7 @@ import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_scale.dart';
+import 'pos_advance_screens.dart';
 import 'pos_common.dart';
 import 'pos_sale_screen.dart' show askodoxPrintInvoice;
 
@@ -553,6 +554,7 @@ class _AskodoxPosCustomerScreenState extends ConsumerState<AskodoxPosCustomerScr
           final st = snap.data!;
           return ListView(key: const Key('askodoxPosStatement'), padding: const EdgeInsets.all(12), children: [
             Text('${askodoxPosMap(st['customer'])['name']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            AskodoxPosCustomerAdvanceCard(businessId: widget.businessId, customerId: widget.customerId),
             Row(children: [
               IconButton(onPressed: () => _shiftMonth(-1), icon: const Icon(Icons.chevron_left)),
               Text(_month, style: const TextStyle(fontWeight: FontWeight.w700)),

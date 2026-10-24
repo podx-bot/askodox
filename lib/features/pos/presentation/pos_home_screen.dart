@@ -287,6 +287,8 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
             if (askodoxPosCan(b, 'reports')) ('gst', Icons.summarize_outlined, 'GST summary', 'GST సారాంశం', '/pos/$id/gst'),
             if (askodoxPosCan(b, 'members')) ('staff', Icons.badge_outlined, 'Staff & roles', 'సిబ్బంది', '/pos/$id/staff'),
             ('printer', Icons.print_outlined, 'Printer', 'ప్రింటర్', '/pos/$id/printer'),
+            if (askodoxPosCan(b, 'settings'))
+              ('advance', Icons.savings_outlined, 'Shop advance', 'షాప్ అడ్వాన్స్', '/pos/$id/advance'),
           ];
           return RefreshIndicator(
             onRefresh: () async {

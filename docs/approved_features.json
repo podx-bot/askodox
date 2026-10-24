@@ -881,6 +881,116 @@
           "change": "Smart Tools round (branch claude/pos-round4); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_shop_advance",
+      "name": "POS shop advance (store credit) that only the customer can spend",
+      "purpose": "A small shop records money a customer paid in advance and uses it for later bills, with the customer approving every change in their own ASKODOX app.",
+      "expected_behavior": "ASKODOX keeps only the record; the money is with the shop, and the terms (en/te, TERMS_VERSION) say ASKODOX is not responsible for it. The owner turns it on after accepting the terms and sets a per-customer limit (default Rs 2,000, never above Rs 10,000). A deposit, a deduction (paying dues from the advance) or a refund is a pending request that counts only after the signed-in number matching the customer's phone approves it (first approval also accepts the terms); the shop can withdraw a pending request but can never approve or lower the balance itself. Requests expire (deposit 7 days, deduction 15 minutes, refund 1 day). The balance never goes below zero or above the limit; a deduction never exceeds what the customer owes. Approved deposits / refunds appear in the day close by method; a deduction is a 'customer_approved' collection with method 'advance'. Entries are append-only.",
+      "roles": [
+        "seller",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/advance/settings",
+          "response_keys": [
+            "enabled",
+            "max_balance_paise",
+            "terms",
+            "terms_version"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/advance/settings",
+          "response_keys": [
+            "enabled",
+            "max_balance_paise"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/advance",
+          "response_keys": [
+            "balance_paise",
+            "due_paise",
+            "entries"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/advance/{kind}",
+          "response_keys": [
+            "id",
+            "status",
+            "replayed"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/advance/{entry_id}/withdraw",
+          "response_keys": [
+            "status"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/me/advances",
+          "response_keys": [
+            "shops",
+            "terms",
+            "terms_version"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/me/advances/{entry_id}/decision",
+          "response_keys": [
+            "status",
+            "balance_paise"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxAdvanceSettings",
+          "askodoxAdvanceAccept",
+          "askodoxAdvanceTurnOn",
+          "askodoxAdvanceTerms",
+          "askodoxPosAdvanceCard",
+          "askodoxPosAdvanceDeposit",
+          "askodoxMyAdvances"
+        ],
+        "symbols": [
+          "AskodoxPosAdvanceSettingsScreen",
+          "AskodoxPosCustomerAdvanceCard",
+          "AskodoxMyShopAdvancesScreen"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_advance.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_advance_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Shop advance (branch claude/pos-shop-advance), approved by the owner on 2026-10-24 (method 1: record only, customer approval); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

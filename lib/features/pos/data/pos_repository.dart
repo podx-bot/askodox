@@ -180,6 +180,22 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> purchaseOrders(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/purchase-orders'))['orders']);
   Future<AskodoxJson> createPurchaseOrder(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchase-orders', body: body);
   Future<AskodoxJson> purchaseOrder(String id, String poId) => _send('GET', '${_b(id)}/purchase-orders/$poId');
+
+  // Shop advance (store credit): every change waits for the customer's approval in their own app.
+  Future<AskodoxJson> advanceSettings(String id) => _send('GET', '${_b(id)}/advance/settings');
+  Future<AskodoxJson> updateAdvanceSettings(String id, AskodoxJson body) =>
+      _send('PUT', '${_b(id)}/advance/settings', body: body);
+  Future<AskodoxJson> customerAdvance(String id, String customerId) =>
+      _send('GET', '${_b(id)}/customers/$customerId/advance');
+
+  /// kind = deposit | redeem | refund
+  Future<AskodoxJson> requestAdvance(String id, String customerId, String kind, AskodoxJson body) =>
+      _send('POST', '${_b(id)}/customers/$customerId/advance/$kind', body: body);
+  Future<AskodoxJson> withdrawAdvance(String id, String entryId) => _send('POST', '${_b(id)}/advance/$entryId/withdraw');
+  Future<AskodoxJson> myAdvances() => _send('GET', '/api/pos/me/advances');
+  Future<AskodoxJson> decideAdvance(String entryId, {required bool approve, String? acceptTermsVersion}) =>
+      _send('POST', '/api/pos/me/advances/$entryId/decision',
+          body: {'approve': approve, if (acceptTermsVersion != null) 'accept_terms_version': acceptTermsVersion});
   Future<AskodoxJson> setPurchaseOrderStatus(String id, String poId, String status) =>
       _send('POST', '${_b(id)}/purchase-orders/$poId/status', body: {'status': status});
   Future<AskodoxJson> receivePurchaseOrder(String id, String poId, AskodoxJson body) =>
