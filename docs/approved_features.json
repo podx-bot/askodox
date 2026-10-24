@@ -693,6 +693,21 @@
       "dependencies": [],
       "status": "approved",
       "history": [{"pr": null, "change": "POS master command phase 0-2 (branch claude/pos-core); NOT HARDWARE VERIFIED, NOT PHONE VERIFIED"}]
+    },
+    {
+      "id": "pos_restaurant_tables_kot",
+      "name": "POS restaurant: tables, orders, KOT, kitchen screen, move / merge, split bill; held bills and quotations",
+      "purpose": "Restaurants and bakeries run table orders and kitchen tickets on the same POS core and bill through the same GST invoice engine.",
+      "expected_behavior": "One open order per table; item notes; resent items are not doubled (client_txn_id); KOT numbers count per business per day; kitchen states new -> preparing -> ready -> served only; an item already sent is voided with a reason by a manager / owner, never deleted; move to a busy table merges; billing all or chosen items (split bill) issues a normal invoice at today's prices and frees the table when nothing is left; waiters cannot bill, kitchen staff only see tickets. Held bills / quotations are drafts, never invoices.",
+      "roles": ["seller", "service_provider"],
+      "domains": ["restaurant", "bakery"],
+      "api": [{"method": "GET", "path": "/api/pos/businesses/{business_id}/tables", "response_keys": ["tables"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders", "response_keys": ["id", "items", "kots", "status"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders/{order_id}/items", "response_keys": ["items", "pending"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders/{order_id}/kot", "response_keys": ["kot"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders/{order_id}/bill", "response_keys": ["number", "totals", "order", "replayed"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/kitchen", "response_keys": ["kots"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/drafts", "response_keys": ["id", "kind"]}],
+      "ui": {"keys": ["askodoxPosTables", "askodoxPosSendKot", "askodoxPosBillOrder", "askodoxPosKitchen", "askodoxPosHold", "askodoxPosHeld", "askodoxPosQuote"], "symbols": ["AskodoxPosTablesScreen", "AskodoxPosOrderScreen", "AskodoxPosKitchenScreen", "AskodoxPosDraftsScreen"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_pos_restaurant.py"], "flutter": ["test/features/pos/pos_restaurant_test.dart"]},
+      "dependencies": ["universal_pos_core"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "POS round 2 (branch claude/pos-round2); NOT PHONE VERIFIED"}]
     }
   ]
 }

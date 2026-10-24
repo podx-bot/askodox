@@ -7,7 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
+- `main` @ `5336cb3` (2026-10-24): master command rounds 1-4 + Universal POS core merged in order #220 (Smart Tools,
+  vision inspection), #221 (income tax / GST / fraud / smart tricks), #222 (BLE devices, push-to-talk), #223 (photo
+  measurement), #224 (POS core). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Phone-test APK 1347
+  SHA-256 26210c49...6725. Nothing phone / hardware verified.
+  Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
   RecaptchaActivity opened in a separate task and after the reCAPTCHA browser step ASKODOX stayed in the background
   (emulator repro: browser stays in front on 1336, MainActivity resumes after the fix). Removed it (guard test
@@ -502,6 +506,13 @@ this file, don't trust it blindly.
 - `flutter analyze` in `android-apk.yml` (build-apk) is FATAL on infos too; CI logs are not readable through the
   proxy -- push a throwaway branch whose workflow echoes analyzer / test lines as `::warning::` annotations.
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
+- Universal POS = `pos_tax.py` (pure GST arithmetic, versioned `RULES_VERSION`, sourced) + `pos_store.py` (tables `pos_*`)
+  + `routes/pos.py` (`/api/pos/*`); app `lib/features/pos` (entry My Business -> `/pos`). Money = integer paise, qty =
+  milli-units, rates = basis points; issued invoices / payments / ledger / stock moves / audit are append-only (fix with a
+  credit note or same-day cancel that keeps the row). Every write is idempotent on `client_txn_id`. Non-members get 404.
+  Counter UPI / card = `cashier_confirmed`, never bank-verified. HSN / GST rate only from the shop's own entry. Shared
+  vectors `test/fixtures/pos_tax_vectors.json` must pass in BOTH pytest and flutter test -- change both engines together.
+  Offline bills use a per-device series (`<P>D<n>/<FY>/<6>`, <=16 chars). Invoice prefix max 3 chars.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

@@ -123,6 +123,34 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> members(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/members'))['members']);
   Future<AskodoxJson> setMember(String id, String phone, String role) =>
       _send('POST', '${_b(id)}/members', body: {'phone': phone, 'role': role});
+  // restaurant
+  Future<List<AskodoxJson>> tables(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/tables'))['tables']);
+  Future<AskodoxJson> addTable(String id, String name, {String area = '', int seats = 4}) =>
+      _send('POST', '${_b(id)}/tables', body: {'name': name, 'area': area, 'seats': seats});
+  Future<AskodoxJson> openOrder(String id, {String? tableId, String kind = 'dine_in', int guests = 0}) =>
+      _send('POST', '${_b(id)}/orders', body: {'kind': kind, if (tableId != null) 'table_id': tableId, 'guests': guests});
+  Future<List<AskodoxJson>> openOrders(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/orders'))['orders']);
+  Future<AskodoxJson> order(String id, String orderId) => _send('GET', '${_b(id)}/orders/$orderId');
+  Future<AskodoxJson> addOrderItems(String id, String orderId, List<AskodoxJson> items) =>
+      _send('POST', '${_b(id)}/orders/$orderId/items', body: {'items': items});
+  Future<AskodoxJson> removeOrderItem(String id, String orderId, String itemId, {String reason = ''}) =>
+      _send('POST', '${_b(id)}/orders/$orderId/items/$itemId/remove', body: {'reason': reason});
+  Future<AskodoxJson> sendKot(String id, String orderId) => _send('POST', '${_b(id)}/orders/$orderId/kot');
+  Future<AskodoxJson> moveOrder(String id, String orderId, String tableId) =>
+      _send('POST', '${_b(id)}/orders/$orderId/move', body: {'table_id': tableId});
+  Future<AskodoxJson> billOrder(String id, String orderId, AskodoxJson body) =>
+      _send('POST', '${_b(id)}/orders/$orderId/bill', body: body);
+  Future<AskodoxJson> voidOrder(String id, String orderId, String reason) =>
+      _send('POST', '${_b(id)}/orders/$orderId/void', body: {'reason': reason});
+  Future<List<AskodoxJson>> kitchen(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/kitchen'))['kots']);
+  Future<AskodoxJson> setKotStatus(String id, String kotId, String status) =>
+      _send('POST', '${_b(id)}/kitchen/$kotId', body: {'status': status});
+  // held bills / quotations (not financial records)
+  Future<List<AskodoxJson>> drafts(String id, {String kind = ''}) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/drafts', query: {if (kind.isNotEmpty) 'kind': kind}))['drafts']);
+  Future<AskodoxJson> saveDraft(String id, AskodoxJson body) => _send('POST', '${_b(id)}/drafts', body: body);
+  Future<AskodoxJson> deleteDraft(String id, String draftId) => _send('DELETE', '${_b(id)}/drafts/$draftId');
+
   Future<AskodoxJson> deviceSeries(String id, String deviceId) =>
       _send('POST', '${_b(id)}/device-series', body: {'device_id': deviceId});
 }

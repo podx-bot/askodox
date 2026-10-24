@@ -25,6 +25,9 @@ const askodoxPosTemplates = <String, (String, String)>{
   'stationery': ('Stationery / books', 'స్టేషనరీ'),
 };
 
+/// Business types that work with tables + kitchen tickets (configuration, not separate code).
+const askodoxPosTableTemplates = {'restaurant', 'bakery'};
+
 final _businessesProvider = FutureProvider.autoDispose<List<AskodoxJson>>(
     (ref) => ref.watch(askodoxPosRepositoryProvider).businesses());
 
@@ -270,6 +273,10 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
           final reg = '${b['registration_type']}';
           final tiles = <(String, IconData, String, String, String)>[
             if (askodoxPosCan(b, 'sell')) ('sale', Icons.point_of_sale, 'New bill', 'కొత్త బిల్లు', '/pos/$id/sale'),
+            if (askodoxPosCan(b, 'tables') && askodoxPosTableTemplates.contains(b['template']))
+              ('tables', Icons.table_restaurant_outlined, 'Tables & KOT', 'టేబుల్స్ & KOT', '/pos/$id/tables'),
+            if (askodoxPosCan(b, 'kitchen') && askodoxPosTableTemplates.contains(b['template']))
+              ('kitchen', Icons.soup_kitchen_outlined, 'Kitchen screen', 'వంటగది స్క్రీన్', '/pos/$id/kitchen'),
             ('items', Icons.inventory_2_outlined, 'Items & stock', 'సరుకులు & స్టాక్', '/pos/$id/items'),
             ('customers', Icons.people_alt_outlined, 'Customers & credit', 'కస్టమర్లు & ఖాతా', '/pos/$id/customers'),
             ('bills', Icons.receipt_long_outlined, 'Bills', 'బిల్లులు', '/pos/$id/invoices'),
