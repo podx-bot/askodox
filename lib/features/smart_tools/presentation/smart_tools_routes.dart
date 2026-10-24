@@ -7,6 +7,7 @@ import '../../intelligence/presentation/intelligence_screens.dart';
 import 'calculator_screens.dart';
 import 'inspection_screen.dart';
 import 'load_planner_screen.dart';
+import 'photo_measure_screen.dart';
 import 'sensor_tools_screen.dart';
 import 'smart_tools_hub_screen.dart';
 
@@ -16,6 +17,7 @@ final askodoxSmartToolRoutes = <GoRoute>[
   GoRoute(path: '/tools', builder: (context, state) => const AskodoxSmartToolsHubScreen()),
   GoRoute(path: '/tools/level', builder: (context, state) => const AskodoxLevelScreen()),
   GoRoute(path: '/tools/compass', builder: (context, state) => const AskodoxCompassScreen()),
+  GoRoute(path: '/tools/measure-photo', builder: (context, state) => const AskodoxPhotoMeasureScreen()),
   GoRoute(
       path: '/tools/inspect',
       builder: (context, state) => AskodoxInspectionScreen(initialDomain: state.uri.queryParameters['domain'])),
@@ -58,7 +60,7 @@ final askodoxSmartToolRoutes = <GoRoute>[
 
 /// Paths the routes above serve (for the registry consistency test).
 const askodoxSmartToolPaths = [
-  '/tools', '/tools/level', '/tools/compass', '/tools/inspect', '/tools/calc/',
+  '/tools', '/tools/level', '/tools/compass', '/tools/inspect', '/tools/calc/', '/tools/measure-photo',
   '/intel/tax', '/intel/gst', '/intel/fraud', '/intel/fraud/', '/intel/tricks',
   '/devices', '/devices/add', '/devices/compatibility', '/devices/live', '/ptt', '/ptt/',
 ];

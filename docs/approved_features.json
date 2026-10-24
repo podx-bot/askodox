@@ -663,6 +663,21 @@
       "dependencies": ["smart_tools_vision_inspection"],
       "status": "approved",
       "history": [{"pr": null, "change": "Master command round 3 (branch claude/master-round3-connectivity); NOT HARDWARE VERIFIED; merge needs owner approval"}]
+    },
+    {
+      "id": "photo_reference_measurement",
+      "name": "Measure from a photo with a reference object (A4 / bank card / typed size)",
+      "purpose": "Approximate lengths without AR: the user marks a known-size reference and the object in one photo.",
+      "expected_behavior": "Four taps (reference ends, object ends) give a length with a low-high range from tap uncertainty and a quality grade; the same-flat-surface condition is always shown; too-small references are refused instead of guessed; never presented as survey-grade. AR / ARCore measuring stays 'coming soon'.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [],
+      "ui": {"keys": ["askodoxPhotoMeasure", "askodoxMeasureImage", "askodoxMeasureResult", "askodoxMeasureError"], "symbols": ["askodoxMeasureFromPhoto", "askodoxReferenceObjects", "AskodoxPhotoMeasureScreen"]},
+      "flags": {},
+      "tests": {"backend": [], "flutter": ["test/features/smart_tools/photo_measure_test.dart"]},
+      "dependencies": ["smart_tools_vision_inspection"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "Master command round 4 (branch claude/master-round4-photo-measure); NOT HARDWARE VERIFIED"}]
     }
   ]
 }
