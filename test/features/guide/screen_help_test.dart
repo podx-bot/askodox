@@ -85,6 +85,8 @@ void main() {
     expect(find.byKey(const Key('askodoxScreenHelpSheet')), findsOneWidget);
     expect(find.text('Items & stock'), findsOneWidget);
     expect(find.textContaining('POS / Online / Both'), findsOneWidget);
+    await tester.ensureVisible(find.text('OK'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     router.go('/onboarding');
@@ -108,6 +110,8 @@ void main() {
     expect(find.byKey(const Key('askodoxWelcomeGuide')), findsOneWidget);
     expect(find.textContaining('Examples:'), findsOneWidget);
     expect(AskodoxStartupHint.justOnboarded, isFalse);
+    await tester.ensureVisible(find.text('OK'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxWelcomeGuide')), findsNothing);
@@ -229,6 +233,8 @@ void main() {
     expect(_spoken.last, contains('Upload for review'), reason: 'the answer is spoken too');
     await tester.tap(find.byKey(const Key('askodoxGuideSpeak')));
     await tester.pump();
+    await tester.ensureVisible(find.text('OK'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
   });
