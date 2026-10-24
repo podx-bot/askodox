@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -118,16 +120,24 @@ class AskodoxScaleReader {
     var unit = 'kg';
     double? value;
     try {
-      final stream = _ble
-          .readings(deviceId)
-          .where((r) => r.kind == 'weight')
-          .timeout(timeout, onTimeout: (sink) => sink.close());
-      await for (final r in stream) {
+      // Own timer + listen (no awaited cancel): a settled weight or the deadline ends the read.
+      final done = Completer<double?>();
+      final deadline = Timer(timeout, () {
+        if (!done.isCompleted) done.complete(null);
+      });
+      final sub = _ble.readings(deviceId).where((r) => r.kind == 'weight').listen((r) {
         unit = r.unit;
         values.add(r.value);
-        value = askodoxSettledWeight(values);
-        if (value != null) break;
-      }
+        final settled = askodoxSettledWeight(values);
+        if (settled != null && !done.isCompleted) done.complete(settled);
+      }, onError: (Object _) {
+        if (!done.isCompleted) done.complete(null);
+      }, onDone: () {
+        if (!done.isCompleted) done.complete(null);
+      });
+      value = await done.future;
+      deadline.cancel();
+      unawaited(sub.cancel());
       if (value == null) throw const AskodoxScaleException('no_reading');
       final milli = askodoxScaleToItemMilli(value, unit, itemUnit);
       if (milli == null) throw const AskodoxScaleException('not_weighable');
