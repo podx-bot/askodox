@@ -813,6 +813,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
     await prefs.setBool(_completeKey, true);
     AskodoxStartupHint.onboardingComplete = true;
+    AskodoxStartupHint.justOnboarded = true;
     // The session is live at once (no restart needed to act).
     await ref.read(authSessionProvider.notifier).completeOnboarding(
           mobile: account,

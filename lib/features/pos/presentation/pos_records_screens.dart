@@ -11,6 +11,7 @@ import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_scale.dart';
+import '../../../shared/widgets/askodox_field_guide.dart';
 import 'pos_advance_screens.dart';
 import 'pos_common.dart';
 import 'pos_sale_screen.dart' show askodoxPrintInvoice;
@@ -234,7 +235,17 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'సరుకులు' : 'Items')),
+      appBar: AppBar(title: Text(te ? 'సరుకులు' : 'Items'), actions: [
+        TextButton.icon(
+          key: const Key('askodoxPosOpenCatalogue'),
+          onPressed: () async {
+            final added = await context.push<bool>('/pos/${widget.businessId}/catalogue');
+            if (added == true) _reload();
+          },
+          icon: const Icon(Icons.playlist_add_check),
+          label: Text(te ? 'రెడీ లిస్ట్' : 'Ready list'),
+        ),
+      ]),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('askodoxPosAddItem'),
         onPressed: () async {
@@ -314,7 +325,14 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
                   if (p['track_stock'] == true && p['track_serials'] != true)
                     IconButton(onPressed: () => _stock(p), icon: const Icon(Icons.inventory_outlined)),
                 ]),
-                onTap: () => _units(p),
+                onTap: () async {
+                  final next = await context.push<String>('/pos/${widget.businessId}/item/${p['id']}');
+                  if (next == 'units') {
+                    await _units(p);
+                  } else {
+                    _reload();
+                  }
+                },
               ),
           ]);
         },
@@ -409,10 +427,20 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'కొత్త సరుకు' : 'New item')),
       body: ListView(key: const Key('askodoxPosItemForm'), padding: const EdgeInsets.all(16), children: [
-        AskodoxPosField(controller: _name, label: te ? 'పేరు (ఇంగ్లీష్)' : 'Name', maxLength: 80),
-        AskodoxPosField(controller: _nameTe, label: te ? 'తెలుగు పేరు' : 'Telugu name (optional)', maxLength: 80),
+        AskodoxPosField(controller: _name, label: te ? 'పేరు (ఇంగ్లీష్)' : 'Name', maxLength: 80,
+            guideEn: 'The item name customers know, with the size if it matters. It is printed on the bill and shown online.',
+            guideTe: 'కస్టమర్లకు తెలిసిన సరుకు పేరు, అవసరమైతే సైజుతో. ఇది బిల్లులో, ఆన్‌లైన్‌లో కనిపిస్తుంది.',
+            exampleEn: 'Sona Masoori rice 25 kg', exampleTe: 'Sona Masoori rice 25 kg'),
+        AskodoxPosField(controller: _nameTe, label: te ? 'తెలుగు పేరు' : 'Telugu name (optional)', maxLength: 80,
+            guideEn: 'The same name in Telugu, so you can search it in Telugu at the counter. Optional.',
+            guideTe: 'అదే పేరు తెలుగులో — కౌంటర్‌లో తెలుగులో వెతకడానికి. ఐచ్ఛికం.',
+            exampleEn: 'సోనా మసూరి బియ్యం 25 కిలో', exampleTe: 'సోనా మసూరి బియ్యం 25 కిలో'),
         Row(children: [
-          Expanded(child: AskodoxPosField(controller: _price, number: true, label: te ? 'అమ్మకం ధర (₹)' : 'Selling price (₹)')),
+          Expanded(
+              child: AskodoxPosField(controller: _price, number: true, label: te ? 'అమ్మకం ధర (₹)' : 'Selling price (₹)',
+                  guideEn: 'Your selling price for ONE unit (the unit next to it). You can set a different online price later.',
+                  guideTe: 'ఒక్క యూనిట్‌కి మీ అమ్మకం ధర (పక్కన ఉన్న యూనిట్). ఆన్‌లైన్ ధర తర్వాత విడిగా పెట్టొచ్చు.',
+                  exampleEn: '1450', exampleTe: '1450')),
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButtonFormField<String>(
@@ -435,7 +463,14 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
           DropdownButtonFormField<int>(
             key: const Key('askodoxPosRate'),
             initialValue: _rate,
-            decoration: InputDecoration(labelText: te ? 'GST రేటు (మీ వర్గీకరణ)' : 'GST rate (your classification)', border: const OutlineInputBorder(), isDense: true),
+            decoration: InputDecoration(
+                labelText: te ? 'GST రేటు (మీ వర్గీకరణ)' : 'GST rate (your classification)',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                suffixIcon: const AskodoxFieldGuideButton(
+                    titleEn: 'GST rate', titleTe: 'GST రేటు',
+                    en: 'The GST % for this item from your own classification (your accountant / supplier bill). ASKODOX never chooses it for you.',
+                    te: 'మీ వర్గీకరణ ప్రకారం ఈ సరుకు GST % (మీ అకౌంటెంట్ / సప్లయర్ బిల్లు). ASKODOX మీ తరఫున ఎంచుకోదు.')),
             items: [for (final r in _rates) DropdownMenuItem(value: r, child: Text(askodoxRate(r)))],
             onChanged: (v) => setState(() => _rate = v ?? _rate),
           ),
@@ -446,9 +481,14 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
           title: Text(te ? 'ధరలో GST కలిసి ఉంది' : 'Price includes GST'),
         ),
         AskodoxPosField(controller: _hsn, number: true, decimal: false, label: 'HSN / SAC', maxLength: 8,
-            hint: te ? 'మీ అకౌంటెంట్ ఇచ్చిన కోడ్' : 'Code from your own classification'),
+            hint: te ? 'మీ అకౌంటెంట్ ఇచ్చిన కోడ్' : 'Code from your own classification',
+            guideEn: 'The 4, 6 or 8 digit tax code for this item. Take it from your accountant or your supplier\'s bill — ASKODOX never guesses it. Not needed if you are not GST registered.',
+            guideTe: 'ఈ సరుకు 4, 6 లేదా 8 అంకెల పన్ను కోడ్. మీ అకౌంటెంట్ నుండి లేదా సప్లయర్ బిల్లు నుండి తీసుకోండి — ASKODOX ఊహించదు. GST లేనివారికి అవసరం లేదు.'),
         Row(children: [
-          Expanded(child: AskodoxPosField(controller: _barcode, label: te ? 'బార్‌కోడ్ (ఐచ్ఛికం)' : 'Barcode (optional)', maxLength: 64)),
+          Expanded(
+              child: AskodoxPosField(controller: _barcode, label: te ? 'బార్‌కోడ్ (ఐచ్ఛికం)' : 'Barcode (optional)', maxLength: 64,
+                  guideEn: 'The number under the bars on the pack. Tap the scan button to read it from a photo. Optional.',
+                  guideTe: 'ప్యాక్‌పై గీతల కింద ఉన్న నంబర్. ఫోటో నుండి చదవడానికి స్కాన్ బటన్ నొక్కండి. ఐచ్ఛికం.')),
           IconButton(
             key: const Key('askodoxPosItemScan'),
             tooltip: te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode',

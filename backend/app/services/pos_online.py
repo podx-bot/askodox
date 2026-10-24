@@ -124,6 +124,11 @@ class PosOnline:
                 continue  # never published, still not wanted: nothing to do
             try:
                 state = self._sync_one(business, product, stock.get(product["id"], 0))
+                if state in ("live", "needs_review"):
+                    with self.store._connect() as conn2:
+                        link = conn2.execute("SELECT listing_id FROM pos_online_links WHERE business_id = ? AND"
+                                             " product_id = ?", (business_id, product["id"])).fetchone()
+                    self._attributes(product, link["listing_id"] if link else None)
             except Exception:  # one item's problem never stops the others
                 continue
             counts[state] = counts.get(state, 0) + 1
@@ -160,7 +165,8 @@ class PosOnline:
             fields = {
                 "subject": " ".join(str(product["name"]).split()),
                 "unit": product["unit"],
-                "price": product["price_paise"] / 100.0,
+                "price": (product["online_price_paise"] if "online_price_paise" in product.keys() and
+                          product["online_price_paise"] else product["price_paise"]) / 100.0,
                 "stock_status": ("IN_STOCK" if stock_milli > 0 else "OUT_OF_STOCK") if product["track_stock"] else "UNKNOWN",
                 "seller_name": business["name"],
                 "location_label": business["address"] or None,
@@ -204,6 +210,16 @@ class PosOnline:
                 return save("live", listing_id, [])
             self._update_listing(conn, int(listing["id"]), fields, now, activate=True)
             return save("live", int(listing["id"]), [])
+
+    def _attributes(self, product: sqlite3.Row, listing_id: Optional[int]) -> None:
+        """The item's details (size, colour, brand ...) become the listing's filterable attributes."""
+        if not listing_id or "attributes" not in product.keys():
+            return
+        try:
+            values = json.loads(product["attributes"] or "{}")
+        except (TypeError, ValueError):
+            values = {}
+        ProductCatalogRepository(self.store.db_path).set_attributes(int(listing_id), values)
 
     @staticmethod
     def _update_listing(conn: sqlite3.Connection, listing_id: int, fields: Dict[str, Any], now: str,

@@ -265,6 +265,11 @@ def add_product(business_id: str, body: ProductIn, request: Request) -> dict:
     return out
 
 
+@router.get("/businesses/{business_id}/products/{product_id}")
+def get_product(business_id: str, product_id: str, request: Request) -> dict:
+    return _call(_store(request).product, business_id, _user(request), product_id)
+
+
 @router.patch("/businesses/{business_id}/products/{product_id}")
 def update_product(business_id: str, product_id: str, body: ProductIn, request: Request) -> dict:
     out = _call(_store(request).update_product, business_id, _user(request), product_id, _dump(body))
@@ -879,3 +884,68 @@ def online_default(business_id: str, body: OnlineChannelIn, request: Request) ->
 def online_channel(business_id: str, product_id: str, body: OnlineChannelIn, request: Request) -> dict:
     """One item: pos / online / both, or null to follow the shop default."""
     return _call(_online(request).set_channel, business_id, _user(request), product_id, body.channel)
+
+
+# ------------------------------------------------------------ ready-made catalogue + item details
+def _catalogue(request: Request):
+    from app.services.pos_catalogue import PosCatalogue
+
+    return PosCatalogue(_store(request))
+
+
+class CatalogueTemplateIn(BaseModel):
+    template_key: Optional[str] = Field(default=None, max_length=40)
+
+
+class AttributesIn(BaseModel):
+    values: Dict[str, Any] = Field(default_factory=dict)
+
+
+class OnlinePriceIn(BaseModel):
+    online_price_paise: Optional[int] = Field(default=None, ge=1)
+
+
+class CatalogueImportLine(BaseModel):
+    item_key: str = Field(min_length=1, max_length=80)
+    size: Optional[str] = Field(default=None, max_length=40)
+    price_paise: Optional[int] = Field(default=None, ge=1)
+    rate_bp: Optional[int] = Field(default=None, ge=0)
+    track_stock: bool = False
+
+
+class CatalogueImportIn(BaseModel):
+    items: List[CatalogueImportLine] = Field(min_length=1, max_length=200)
+
+
+@router.get("/businesses/{business_id}/catalogue")
+def shop_catalogue(business_id: str, request: Request) -> dict:
+    """The shop's ready-made catalogue: details to fill (attributes) + generic items to pick (no prices)."""
+    return _call(_catalogue(request).catalogue, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/catalogue")
+def set_shop_catalogue(business_id: str, body: CatalogueTemplateIn, request: Request) -> dict:
+    return _call(_catalogue(request).set_template, business_id, _user(request), body.template_key)
+
+
+@router.post("/businesses/{business_id}/catalogue/import")
+def import_catalogue(business_id: str, body: CatalogueImportIn, request: Request) -> dict:
+    out = _call(_catalogue(request).import_items, business_id, _user(request),
+                {"items": [line.model_dump() for line in body.items]})
+    _online_sync(request, business_id, [a["id"] for a in out["added"]])
+    return out
+
+
+@router.put("/businesses/{business_id}/products/{product_id}/attributes")
+def set_product_attributes(business_id: str, product_id: str, body: AttributesIn, request: Request) -> dict:
+    out = _call(_catalogue(request).set_attributes, business_id, _user(request), product_id, body.values)
+    _online_sync(request, business_id, [product_id])
+    return out
+
+
+@router.put("/businesses/{business_id}/products/{product_id}/online-price")
+def set_online_price(business_id: str, product_id: str, body: OnlinePriceIn, request: Request) -> dict:
+    """Online price (ASKODOX listing) = this, or null = the same as the shop price."""
+    out = _call(_catalogue(request).set_online_price, business_id, _user(request), product_id, body.online_price_paise)
+    _online_sync(request, business_id, [product_id])
+    return out

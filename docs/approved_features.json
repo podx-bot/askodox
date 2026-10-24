@@ -1102,6 +1102,108 @@
           "change": "Owner request 2026-10-24 (branch claude/ui-guide-online); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_ready_catalogue_details",
+      "name": "POS ready-made catalogue per business type, item details (attributes) with field guides, separate online price, welcome guide",
+      "purpose": "A shop gets a ready list of items for its kind of business, fills each item's details easily with a guide next to every field, sets an online price, and new users get a welcome guide right after sign-up.",
+      "expected_behavior": "POS uses the ONE catalogue engine (catalogue_templates): the shop's template defaults from its business type (owner can change it). Ready items carry no brands / prices: the owner ticks, picks a size and types their price (and GST % when GST-registered) -- nothing is added without them; names already in the shop are skipped. Item details are cleaned by the template (options only, numbers in range, no contact details) and missing REQUIRED ones are reported and marked 'Needed'. Every field has a '?' guide (attribute guides generated from the spec, no per-category scripts). Online price (owner / manager) = the listing price, null = the shop price; details become the listing's filterable attributes. Right after sign-up Home opens the welcome guide once.",
+      "roles": [
+        "seller",
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/catalogue",
+          "response_keys": [
+            "template_key",
+            "attributes",
+            "categories",
+            "choices"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/catalogue",
+          "response_keys": [
+            "template_key"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/catalogue/import",
+          "response_keys": [
+            "added",
+            "skipped"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/attributes",
+          "response_keys": [
+            "attributes",
+            "missing"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}/online-price",
+          "response_keys": [
+            "online_price_paise"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/products/{product_id}",
+          "response_keys": [
+            "id",
+            "attributes",
+            "online_price_paise"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosOpenCatalogue",
+          "askodoxPosCatalogueAdd",
+          "askodoxPosItemDetailsSave",
+          "askodoxPosItemMissing",
+          "askodoxPosSamePrice",
+          "askodoxFieldGuideSheet",
+          "askodoxWelcomeGuide"
+        ],
+        "symbols": [
+          "AskodoxPosCatalogueScreen",
+          "AskodoxPosItemDetailsScreen",
+          "AskodoxFieldGuideButton",
+          "askodoxAttributeGuide"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_catalogue.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_catalogue_test.dart",
+          "test/features/guide/screen_help_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core",
+        "pos_online_channel"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-24 (branch claude/pos-catalogue-guides); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

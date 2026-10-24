@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/askodox_mascot.dart';
+import '../../core/startup/startup_hint.dart';
 import 'in_app_guide.dart';
 import 'screen_help.dart';
 
@@ -68,7 +69,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     return null;
   }
 
-  Future<void> _open(AskodoxScreenHelp help, String path) async {
+  Future<void> _open(AskodoxScreenHelp help, String path, {bool welcome = false}) async {
     final navContext = widget.router?.routerDelegate.navigatorKey.currentContext;
     if (navContext == null) return;
     final te = Localizations.maybeLocaleOf(navContext)?.languageCode == 'te';
@@ -93,6 +94,19 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
                 ]),
               ),
             ]),
+            if (welcome)
+              Container(
+                key: const Key('askodoxWelcomeGuide'),
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  te
+                      ? 'ASKODOX కి స్వాగతం! ఏ పేజీలోనైనా సందేహం వస్తే ఎడమ వైపు ఉన్న ఈ ASKO "గైడ్" బటన్ నొక్కండి — ఆ పేజీలో ఏం చేయాలో చెబుతుంది.'
+                      : 'Welcome to ASKODOX! Whenever you are unsure on any page, press the ASKO "Guide" button on the left — it tells you what to do there.',
+                  style: const TextStyle(fontSize: 13.5, height: 1.35),
+                ),
+              ),
             const SizedBox(height: 12),
             for (final (i, step) in help.steps(te).indexed)
               Padding(
@@ -135,6 +149,13 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     final keyboard = MediaQuery.maybeOf(context)?.viewInsets.bottom ?? 0;
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
     final show = help != null && !guiding && keyboard == 0 && !askodoxGuideIsPrivate(path);
+    if (show && AskodoxStartupHint.justOnboarded && pattern == '/') {
+      // First time on Home after sign-up: open the welcome guide once.
+      AskodoxStartupHint.justOnboarded = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _open(help, path, welcome: true);
+      });
+    }
     return Stack(children: [
       widget.child,
       if (show)
@@ -158,10 +179,10 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
                   onTap: () => _open(help, path),
                   child: const Padding(
                     padding: EdgeInsets.fromLTRB(4, 4, 6, 4),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
                       AskodoxMascot(size: 30),
-                      SizedBox(width: 2),
-                      Icon(Icons.help_outline, size: 18, color: Color(0xFF1769FF)),
+                      SizedBox(height: 1),
+                      _GuideLabel(),
                     ]),
                   ),
                 ),
@@ -170,5 +191,16 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
           ),
         ),
     ]);
+  }
+}
+
+class _GuideLabel extends StatelessWidget {
+  const _GuideLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
+    return Text(te ? 'గైడ్' : 'Guide',
+        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1769FF)));
   }
 }

@@ -541,8 +541,14 @@ this file, don't trust it blindly.
   + `screen_help_button.dart` (mounted in app.dart). A NEW SCREEN ROUTE NEEDS AN ENTRY (or an exempt reason) or
   `test/features/guide/screen_help_test.dart` fails. Hub tiles = `shared/widgets/askodox_tile_grid.dart`;
   `AskodoxNavSection` rows without a trailing control are drawn as the same tiles.
+- POS catalogue = `pos_catalogue.py` on the ONE `catalogue_templates` engine (shop template = `catalogue_template`
+  or `DEFAULT_TEMPLATE[business type]`; `UNIT_MAP` to POS units; import needs the owner's price + GST % when
+  regular; details via `clean_attributes` into `pos_products.attributes` -> listing attributes; `online_price_paise`
+  (owner / manager) = listing price). Field "?" guides = `shared/widgets/askodox_field_guide.dart`
+  (`askodoxAttributeGuide` is generated from the spec -- never per-category text); `AskodoxPosField(guideEn: ...)`.
 - Startup: `AskodoxStartupHint` (in memory, cleared on sign-out / account delete) -> the router (rebuilt on every
   session change) starts at '/' after onboarding; onboarding never un-hides the language step while leaving.
+  `justOnboarded` -> Home opens the welcome guide once (screen_help_button).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
