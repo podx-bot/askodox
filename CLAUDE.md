@@ -7,10 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` @ `5336cb3` (2026-10-24): master command rounds 1-4 + Universal POS core merged in order #220 (Smart Tools,
-  vision inspection), #221 (income tax / GST / fraud / smart tricks), #222 (BLE devices, push-to-talk), #223 (photo
-  measurement), #224 (POS core). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Phone-test APK 1347
-  SHA-256 26210c49...6725. Nothing phone / hardware verified.
+- `main` (2026-10-24): master command rounds 1-4 + Universal POS merged in order #220 (Smart Tools, vision inspection),
+  #221 (income tax / GST / fraud / smart tricks), #222 (BLE devices, push-to-talk), #223 (photo measurement), #224 (POS
+  core), #225 (restaurant tables / KOT / kitchen, held bills), POS round 3 PR (camera barcode scan, BLE scale reading,
+  invoice PDF + native `shareFile`, suppliers / purchase bills / supplier ledger, batch + expiry FEFO, valuation, input
+  tax as recorded). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
   RecaptchaActivity opened in a separate task and after the reCAPTCHA browser step ASKODOX stayed in the background
@@ -513,6 +515,10 @@ this file, don't trust it blindly.
   Counter UPI / card = `cashier_confirmed`, never bank-verified. HSN / GST rate only from the shop's own entry. Shared
   vectors `test/fixtures/pos_tax_vectors.json` must pass in BOTH pytest and flutter test -- change both engines together.
   Offline bills use a per-device series (`<P>D<n>/<FY>/<6>`, <=16 chars). Invoice prefix max 3 chars.
+  Restaurant = `pos_restaurant.py` (bills via `PosStore._issue` in the same tx); purchases / suppliers / batches =
+  `pos_purchases.py` + FEFO in `PosStore._allocate_batches` (expired stock is never sold). New columns go in
+  `pos_store.MIGRATIONS` (ALTER TABLE ADD COLUMN), never by recreating a table. Widget tests: never `await` a stream
+  subscription `cancel()` / `Future.timeout` in code a fake-async test drives (they hung; see `AskodoxScaleReader`).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
