@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../shared/widgets/askodox_field_guide.dart';
+import '../../guide/guide_watch.dart';
 import '../data/pos_repository.dart';
 
 bool askodoxPosTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
@@ -67,23 +67,27 @@ class AskodoxPosField extends StatelessWidget {
   final String? exampleTe;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          controller: controller,
-          maxLength: maxLength,
-          onChanged: onChanged,
-          keyboardType: number ? TextInputType.numberWithOptions(decimal: decimal) : TextInputType.text,
-          inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.]' : r'[0-9]'))] : null,
-          decoration: InputDecoration(labelText: label, hintText: hint, border: const OutlineInputBorder(), isDense: true,
-              counterText: '',
-              suffixIcon: guideEn == null
-                  ? null
-                  : AskodoxFieldGuideButton(
-                      titleEn: label, titleTe: label, en: guideEn!, te: guideTe ?? guideEn!,
-                      exampleEn: exampleEn, exampleTe: exampleTe ?? exampleEn)),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final field = Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        maxLength: maxLength,
+        onChanged: onChanged,
+        keyboardType: number ? TextInputType.numberWithOptions(decimal: decimal) : TextInputType.text,
+        inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.]' : r'[0-9]'))] : null,
+        decoration: InputDecoration(labelText: label, hintText: hint, border: const OutlineInputBorder(), isDense: true,
+            counterText: ''),
+      ),
+    );
+    // No "?" icon: the guide on the left offers this text when the person stops on the empty box.
+    if (guideEn == null) return field;
+    return AskodoxFieldGuideInfo(
+      titleEn: label, titleTe: label, en: guideEn!, te: guideTe ?? guideEn!,
+      exampleEn: exampleEn, exampleTe: exampleTe ?? exampleEn,
+      child: field,
+    );
+  }
 }
 
 class AskodoxPosError extends StatelessWidget {

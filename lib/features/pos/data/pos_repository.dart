@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../guide/guide_watch.dart';
 
 typedef AskodoxJson = Map<String, Object?>;
 
@@ -55,6 +56,13 @@ class AskodoxPosRepository {
       final body = jsonDecode('${error.failure.cause}');
       if (body is Map && body['detail'] is Map) code = '${(body['detail'] as Map)['code'] ?? ''}';
     } catch (_) {}
+    // A refused action (not a network blip): the guide on the left offers help with it.
+    if (status == 400 || status == 409 || status == 422 || status == 403) {
+      final reason = (error.failure.message ?? '').trim();
+      AskodoxGuideNudges.instance.reportError(
+          reason.isEmpty ? 'The server did not accept this.' : reason,
+          reason.isEmpty ? 'సర్వర్ దీన్ని అంగీకరించలేదు.' : reason);
+    }
     throw AskodoxPosException(
         switch (status) {
           401 => 'sign_in',
@@ -192,6 +200,13 @@ class AskodoxPosRepository {
       _send('PUT', '${_b(id)}/products/$productId/attributes', body: {'values': values});
   Future<AskodoxJson> setOnlinePrice(String id, String productId, int? paise) =>
       _send('PUT', '${_b(id)}/products/$productId/online-price', body: {'online_price_paise': paise});
+
+  /// Rates by quantity [{min_qty_milli, price_paise per base unit}] + the least quantity (null = none).
+  Future<AskodoxJson> setPricing(String id, String productId, List<AskodoxJson> tiers, int? minQtyMilli) =>
+      _send('PUT', '${_b(id)}/products/$productId/pricing', body: {'tiers': tiers, 'min_qty_milli': minQtyMilli});
+  Future<AskodoxJson> setPhoto(String id, String productId, String base64Image) =>
+      _send('PUT', '${_b(id)}/products/$productId/photo', body: {'image_base64': base64Image});
+  Future<AskodoxJson> photo(String id, String productId) => _send('GET', '${_b(id)}/products/$productId/photo');
 
   // Where items are offered: pos / online / both (shop default + per item; null = follow the shop).
   Future<AskodoxJson> onlineStatus(String id) => _send('GET', '${_b(id)}/online');

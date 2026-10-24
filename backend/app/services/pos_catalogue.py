@@ -166,3 +166,70 @@ class PosCatalogue:
             existing.add(name.casefold())
             added.append({"id": product["id"], "name": product["name"]})
         return {"added": added, "skipped": skipped}
+
+
+    # ----------------------------------------------------------- quantity pricing
+    def set_pricing(self, business_id: str, user: str, product_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Rates by quantity (per base unit, from a minimum quantity upward) and the least a customer may buy.
+        An empty list = one rate for any quantity (the item price)."""
+        tiers = []
+        for t in list(data.get("tiers") or [])[:12]:
+            qty, price = int(t.get("min_qty_milli") or 0), int(t.get("price_paise") or 0)
+            if qty <= 0 or price <= 0 or price > 10_00_00_000_00:
+                raise PosError(400, "tiers", "Each rate needs a quantity and a price above zero.")
+            tiers.append((qty, price))
+        if len({q for q, _ in tiers}) != len(tiers):
+            raise PosError(400, "tiers", "Two rates start at the same quantity.")
+        minimum = data.get("min_qty_milli")
+        minimum = int(minimum) if minimum not in (None, "", 0) else None
+        if minimum is not None and minimum < 0:
+            raise PosError(400, "min_qty", "The least quantity cannot be negative.")
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "price_override")
+            if conn.execute("SELECT 1 FROM pos_products WHERE id = ? AND business_id = ?",
+                            (product_id, business_id)).fetchone() is None:
+                raise PosError(404, "product", "Item not found.")
+            conn.execute("DELETE FROM pos_price_tiers WHERE product_id = ? AND business_id = ?", (product_id, business_id))
+            for qty, price in tiers:
+                conn.execute("INSERT INTO pos_price_tiers (business_id, product_id, min_qty_milli, price_paise)"
+                             " VALUES (?, ?, ?, ?)", (business_id, product_id, qty, price))
+            now = self.store.clock().isoformat()
+            conn.execute("UPDATE pos_products SET min_qty_milli = ?, updated_at = ? WHERE id = ?", (minimum, now, product_id))
+            self.store._audit(conn, business_id, user, "product.pricing", product_id,
+                              {"tiers": tiers, "min_qty_milli": minimum}, now)
+        return self.store.product(business_id, user, product_id)
+
+    # ----------------------------------------------------------------- photos
+    MAX_PHOTO = 300 * 1024
+
+    def set_photo(self, business_id: str, user: str, product_id: str, image: bytes) -> Dict[str, Any]:
+        if not image or len(image) > self.MAX_PHOTO:
+            raise PosError(413 if image else 400, "photo", "The photo must be smaller than 300 KB.")
+        if image[:8] == b"\x89PNG\r\n\x1a\n":
+            mime = "image/png"
+        elif image[:3] == b"\xff\xd8\xff":
+            mime = "image/jpeg"
+        else:
+            raise PosError(400, "photo", "Send a JPEG or PNG photo.")
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "products")
+            if conn.execute("SELECT 1 FROM pos_products WHERE id = ? AND business_id = ?",
+                            (product_id, business_id)).fetchone() is None:
+                raise PosError(404, "product", "Item not found.")
+            now = self.store.clock().isoformat()
+            conn.execute("INSERT INTO pos_product_photos (business_id, product_id, image, mime, updated_at) VALUES"
+                         " (?, ?, ?, ?, ?) ON CONFLICT(product_id) DO UPDATE SET image = excluded.image,"
+                         " mime = excluded.mime, updated_at = excluded.updated_at",
+                         (business_id, product_id, image, mime, now))
+            conn.execute("UPDATE pos_products SET photo_at = ? WHERE id = ?", (now, product_id))
+            self.store._audit(conn, business_id, user, "product.photo", product_id, {"bytes": len(image)}, now)
+        return {"photo_at": now}
+
+    def photo(self, business_id: str, user: str, product_id: str) -> tuple:
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "view")
+            row = conn.execute("SELECT image, mime FROM pos_product_photos WHERE product_id = ? AND business_id = ?",
+                               (product_id, business_id)).fetchone()
+        if row is None:
+            raise PosError(404, "photo", "No photo.")
+        return bytes(row["image"]), row["mime"]
