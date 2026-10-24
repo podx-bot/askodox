@@ -180,24 +180,36 @@ const askodoxSmartTools = <AskodoxSmartTool>[
       needs: {AskodoxToolNeed.cloudApi, AskodoxToolNeed.manualInput}, readiness: AskodoxToolReadiness.ready,
       route: '/intel/tricks'),
   AskodoxSmartTool(
-      id: 'bt_scale', nameEn: 'Bluetooth weighing scale', nameTe: 'బ్లూటూత్ తూకం యంత్రం', group: AskodoxToolGroup.devices,
-      needs: {AskodoxToolNeed.bluetoothDevice}, readiness: AskodoxToolReadiness.needsExternalDevice),
+      id: 'bt_scale', nameEn: 'Bluetooth weighing scale (standard BLE)', nameTe: 'బ్లూటూత్ తూకం యంత్రం',
+      group: AskodoxToolGroup.devices, needs: {AskodoxToolNeed.bluetoothDevice},
+      readiness: AskodoxToolReadiness.hardwareUnverified, route: '/devices/add',
+      safetyNote: 'Works only with scales that use the Bluetooth standard weight profile.'),
   AskodoxSmartTool(
       id: 'moisture', nameEn: 'Moisture sensor', nameTe: 'తేమ సెన్సార్', group: AskodoxToolGroup.devices,
       needs: {AskodoxToolNeed.externalSensor, AskodoxToolNeed.bluetoothDevice},
       readiness: AskodoxToolReadiness.needsExternalDevice),
   AskodoxSmartTool(
-      id: 'temperature', nameEn: 'Temperature sensor', nameTe: 'ఉష్ణోగ్రత సెన్సార్', group: AskodoxToolGroup.devices,
-      needs: {AskodoxToolNeed.externalSensor, AskodoxToolNeed.bluetoothDevice},
-      readiness: AskodoxToolReadiness.needsExternalDevice),
+      id: 'temperature', nameEn: 'Temperature / humidity sensor (standard BLE)', nameTe: 'ఉష్ణోగ్రత / తేమ సెన్సార్',
+      group: AskodoxToolGroup.devices, needs: {AskodoxToolNeed.externalSensor, AskodoxToolNeed.bluetoothDevice},
+      readiness: AskodoxToolReadiness.hardwareUnverified, route: '/devices/add'),
   AskodoxSmartTool(
       id: 'electrical', nameEn: 'Electrical tester', nameTe: 'ఎలక్ట్రికల్ టెస్టర్', group: AskodoxToolGroup.devices,
       needs: {AskodoxToolNeed.externalSensor, AskodoxToolNeed.bluetoothDevice},
       readiness: AskodoxToolReadiness.needsExternalDevice, safetyNote: _electricalNote),
   AskodoxSmartTool(
-      id: 'pairing', nameEn: 'Add device / smart home', nameTe: 'డివైస్ జత చేయడం / స్మార్ట్ హోమ్',
+      id: 'pairing', nameEn: 'My devices / add a Bluetooth device', nameTe: 'నా పరికరాలు / బ్లూటూత్ పరికరం చేర్చు',
       group: AskodoxToolGroup.devices, needs: {AskodoxToolNeed.bluetoothDevice},
-      readiness: AskodoxToolReadiness.comingSoon),
+      readiness: AskodoxToolReadiness.hardwareUnverified, route: '/devices'),
+  AskodoxSmartTool(
+      id: 'smart_home', nameEn: 'Smart home & universal remote (TV, AC, lights)', nameTe: 'స్మార్ట్ హోమ్ & యూనివర్సల్ రిమోట్',
+      group: AskodoxToolGroup.devices, needs: {AskodoxToolNeed.cloudApi, AskodoxToolNeed.bluetoothDevice},
+      readiness: AskodoxToolReadiness.comingSoon,
+      safetyNote: 'Needs each brand\'s official API or a hub; ASKODOX never simulates a remote.'),
+  AskodoxSmartTool(
+      id: 'walkie', nameEn: 'Push-to-talk (internet walkie-talkie)', nameTe: 'వాకీ-టాకీ (ఇంటర్నెట్)',
+      group: AskodoxToolGroup.devices, needs: {AskodoxToolNeed.cloudApi},
+      readiness: AskodoxToolReadiness.hardwareUnverified, route: '/ptt',
+      safetyNote: 'Needs internet on both phones; not an offline radio.'),
   AskodoxSmartTool(
       id: 'laser', nameEn: 'Laser distance meter', nameTe: 'లేజర్ దూరం మీటర్', group: AskodoxToolGroup.devices,
       needs: {AskodoxToolNeed.bluetoothDevice}, readiness: AskodoxToolReadiness.needsExternalDevice),

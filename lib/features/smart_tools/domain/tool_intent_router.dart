@@ -92,9 +92,15 @@ AskodoxToolIntent? askodoxToolIntent(String text) {
   if (_has(q, ['bluetooth scale', 'weighing scale', 'తూకం యంత్రం'])) {
     return AskodoxToolIntent(tool('bt_scale')!, explicit: true);
   }
-  if (_has(q, ['pair my', 'pair the', 'pair with', 'connect my tv', 'connect my ac', 'connect my speaker',
-    'connect my light', 'add device', 'smart home', 'universal remote', 'bluetooth device', 'బ్లూటూత్',
-    'కనెక్ట్ చేయి'])) {
+  if (_has(q, ['connect my tv', 'connect my ac', 'connect my speaker', 'connect my light', 'smart home',
+    'universal remote', 'tv remote', 'ac remote'])) {
+    return AskodoxToolIntent(tool('smart_home')!, explicit: true);
+  }
+  if (_has(q, ['walkie talkie', 'walkie-talkie', 'push to talk', 'push-to-talk', 'వాకీ టాకీ', 'వాకీ-టాకీ'])) {
+    return AskodoxToolIntent(tool('walkie')!, explicit: true);
+  }
+  if (_has(q, ['pair my', 'pair the', 'pair with', 'add device', 'add a device', 'my devices', 'bluetooth device',
+    'బ్లూటూత్', 'కనెక్ట్ చేయి'])) {
     return AskodoxToolIntent(tool('pairing')!, explicit: true);
   }
 

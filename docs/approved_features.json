@@ -648,6 +648,21 @@
       "dependencies": ["smart_tools_vision_inspection"],
       "status": "approved",
       "history": [{"pr": null, "change": "Master command round 2 (branch claude/master-round2-intelligence); merge needs owner approval"}]
+    },
+    {
+      "id": "round3_connectivity_pairing_ptt",
+      "name": "Device registry + compatibility catalog, Bluetooth LE Add-Device flow with standard GATT profiles, internet push-to-talk",
+      "purpose": "One Add-Device experience and device dashboard for standard Bluetooth LE devices, an honest catalog of what ASKODOX can and cannot connect to, and walkie-talkie style voice groups over the internet.",
+      "expected_behavior": "Bluetooth permission is requested only when the user taps Scan; unsupported phones, Bluetooth off and denied permission are said plainly. Devices exposing Bluetooth SIG standard services (weight scale 181D, environmental sensing 181A, health thermometer 1809, heart rate 180D, battery 180F) show decoded readings exactly as sent; other devices get no made-up readings. The server stores only a keyed hash of the Bluetooth address (token-proven, per user, deleted with the account). The compatibility catalog marks BLE profiles standard_profile_untested until a real device is tested and lists Matter, Zigbee, Z-Wave, IR, UHF RFID, LoRa, UWB, OBD-II, IP cameras and offline radio with the reason they are not supported. Push-to-talk groups are joined by code only, members only, clips <= 60 s, deleted after 24 h; it needs internet and is not an offline radio.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/devices/compatibility", "response_keys": ["devices"]}, {"method": "POST", "path": "/api/devices/match", "response_keys": ["matches"]}, {"method": "GET", "path": "/api/devices", "response_keys": ["devices"]}, {"method": "POST", "path": "/api/devices", "response_keys": ["device"]}, {"method": "PATCH", "path": "/api/devices/{device_id}", "response_keys": ["device"]}, {"method": "DELETE", "path": "/api/devices/{device_id}", "response_keys": ["removed"]}, {"method": "POST", "path": "/api/ptt/channels", "response_keys": ["channel"]}, {"method": "POST", "path": "/api/ptt/join", "response_keys": ["channel"]}, {"method": "GET", "path": "/api/ptt/channels", "response_keys": ["channels"]}, {"method": "POST", "path": "/api/ptt/channels/{channel_id}/clips", "response_keys": ["clip"]}, {"method": "GET", "path": "/api/ptt/channels/{channel_id}/clips", "response_keys": ["clips"]}, {"method": "GET", "path": "/api/ptt/clips/{clip_id}/audio", "response_keys": []}],
+      "ui": {"keys": ["askodoxDevices", "askodoxAddDevice", "askodoxAddDeviceFlow", "askodoxBleScan", "askodoxBleNoProfile", "askodoxCompatibilityList", "askodoxPttHome", "askodoxPttTalk"], "symbols": ["askodoxPairingNext", "askodoxDecodeWeight", "askodoxBleGatewayProvider", "FlutterBluePlusGateway", "AskodoxPttRepository", "DevicePttAudio"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_devices_ptt.py"], "flutter": ["test/features/devices/devices_test.dart"]},
+      "dependencies": ["smart_tools_vision_inspection"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "Master command round 3 (branch claude/master-round3-connectivity); NOT HARDWARE VERIFIED; merge needs owner approval"}]
     }
   ]
 }

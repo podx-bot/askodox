@@ -44,6 +44,10 @@ dependencies:
   # no runtime permission). Backs lib/features/smart_tools/presentation/
   # sensor_tools_screen.dart; tests inject askodoxMotionSensorsProvider.
   sensors_plus: '>=6.1.0 <9.0.0'
+  # Smart Tools > My devices: Bluetooth LE scan / connect / standard GATT
+  # profiles (lib/features/devices/data/ble_gateway.dart). 1.x API (connect
+  # without a licence argument); tests inject askodoxBleGatewayProvider.
+  flutter_blue_plus: ^1.35.0
 
 # shared_preferences_android 2.5.0 moved to Pigeon JNI; in the APK it fails at
 # start-up (NoSuchMethodError SharedPreferencesApiRegistrar.getAll -> endless
