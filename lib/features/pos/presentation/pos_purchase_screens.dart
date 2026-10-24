@@ -26,7 +26,9 @@ class _AskodoxPosSuppliersScreenState extends ConsumerState<AskodoxPosSuppliersS
     _list = ref.read(askodoxPosRepositoryProvider).suppliers(widget.businessId);
   }
 
-  void _reload() => setState(() => _list = ref.read(askodoxPosRepositoryProvider).suppliers(widget.businessId));
+  void _reload() => setState(() {
+    _list = ref.read(askodoxPosRepositoryProvider).suppliers(widget.businessId);
+  });
 
   Future<void> _add() async {
     final te = askodoxPosTe(context);
@@ -557,7 +559,9 @@ class _AskodoxPosPurchaseOrdersScreenState extends ConsumerState<AskodoxPosPurch
     _orders = ref.read(askodoxPosRepositoryProvider).purchaseOrders(widget.businessId);
   }
 
-  void _reload() => setState(() => _orders = ref.read(askodoxPosRepositoryProvider).purchaseOrders(widget.businessId));
+  void _reload() => setState(() {
+    _orders = ref.read(askodoxPosRepositoryProvider).purchaseOrders(widget.businessId);
+  });
 
   Future<void> _create() async {
     final te = askodoxPosTe(context);

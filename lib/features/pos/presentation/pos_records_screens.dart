@@ -38,7 +38,9 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
   }
 
   void _reload() {
-    setState(() => _items = ref.read(askodoxPosRepositoryProvider).products(widget.businessId));
+    setState(() {
+      _items = ref.read(askodoxPosRepositoryProvider).products(widget.businessId);
+    });
     _loadOnline();
   }
 
@@ -517,7 +519,9 @@ class _AskodoxPosCustomersScreenState extends ConsumerState<AskodoxPosCustomersS
     _list = ref.read(askodoxPosRepositoryProvider).customers(widget.businessId);
   }
 
-  void _reload() => setState(() => _list = ref.read(askodoxPosRepositoryProvider).customers(widget.businessId));
+  void _reload() => setState(() {
+    _list = ref.read(askodoxPosRepositoryProvider).customers(widget.businessId);
+  });
 
   Future<void> _add() async {
     final te = askodoxPosTe(context);
@@ -771,7 +775,9 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
     _invoice = ref.read(askodoxPosRepositoryProvider).invoice(widget.businessId, widget.invoiceId);
   }
 
-  void _reload() => setState(() => _invoice = ref.read(askodoxPosRepositoryProvider).invoice(widget.businessId, widget.invoiceId));
+  void _reload() => setState(() {
+    _invoice = ref.read(askodoxPosRepositoryProvider).invoice(widget.businessId, widget.invoiceId);
+  });
 
   Future<String?> _reason(String title) async {
     final te = askodoxPosTe(context);
@@ -1083,7 +1089,11 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
     try {
       await ref.read(askodoxPosRepositoryProvider).setMember(widget.businessId, _phone.text.trim(), _role);
       _phone.clear();
-      if (mounted) setState(() => _members = ref.read(askodoxPosRepositoryProvider).members(widget.businessId));
+      if (mounted) {
+        setState(() {
+          _members = ref.read(askodoxPosRepositoryProvider).members(widget.businessId);
+        });
+      }
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
     }

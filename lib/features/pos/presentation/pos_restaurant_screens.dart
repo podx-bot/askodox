@@ -622,7 +622,11 @@ class _AskodoxPosDraftsScreenState extends ConsumerState<AskodoxPosDraftsScreen>
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () async {
                     await ref.read(askodoxPosRepositoryProvider).deleteDraft(widget.businessId, '${d['id']}');
-                    if (mounted) setState(() => _drafts = ref.read(askodoxPosRepositoryProvider).drafts(widget.businessId));
+                    if (mounted) {
+                      setState(() {
+                        _drafts = ref.read(askodoxPosRepositoryProvider).drafts(widget.businessId);
+                      });
+                    }
                   },
                 ),
               ),
