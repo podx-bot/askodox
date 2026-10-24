@@ -43,13 +43,16 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 |---|---|---|---|
 | Core | Shop setup (16 business types as templates), multi-shop per person | IMPLEMENTED AND VERIFIED | templates = configuration, one core |
 | Core | Roles owner / manager / cashier / accountant, staff by phone, isolation | IMPLEMENTED AND VERIFIED | |
-| Billing | Checkout: search by name / Telugu name / barcode text / SKU, cart, discounts, customer rates | IMPLEMENTED AND VERIFIED | camera barcode scanning NOT IMPLEMENTED |
-| Billing | Weighed items (gross − tare = net), meat / vegetable counters | IMPLEMENTED AND VERIFIED | weight typed; scale input NOT IMPLEMENTED; camera never weighs |
+| Billing | Checkout: search by name / Telugu name / barcode text / SKU, cart, discounts, customer rates | IMPLEMENTED AND VERIFIED | |
+| Hardware | Camera barcode scan (counter + item form; exact match only) | IMPLEMENTED, HARDWARE TEST PENDING | mobile_scanner (ML Kit); camera permission asked when the scanner opens |
+| Billing | Weighed items (gross − tare = net), meat / vegetable counters | IMPLEMENTED AND VERIFIED | camera never weighs |
+| Hardware | Read weight from a standard BLE weight scale (one settled reading, cashier checks it) | IMPLEMENTED, HARDWARE TEST PENDING | private-protocol / RS-232 / USB scales NOT supported; never legal-for-trade proof |
 | Billing | Split / partial payments, balance to customer credit, credit limit | IMPLEMENTED AND VERIFIED | |
 | Billing | Idempotent issue, immutable invoices, numbering ≤16 chars unique per FY | IMPLEMENTED AND VERIFIED | |
 | Billing | Credit notes (partial / full, restock, refund), same-day cancel keeping the record | IMPLEMENTED AND VERIFIED | debit notes NOT IMPLEMENTED |
 | Billing | Hold bill / resume, quotation shared as text (not an invoice) | IMPLEMENTED AND VERIFIED | resume uses today's prices; the customer is chosen again |
-| Billing | Receipt text, share as text (WhatsApp etc. — user chooses) | IMPLEMENTED AND VERIFIED | PDF invoice NOT IMPLEMENTED; email NOT IMPLEMENTED |
+| Billing | Receipt text, share as text (WhatsApp etc. — user chooses) | IMPLEMENTED AND VERIFIED | email NOT IMPLEMENTED |
+| Billing | A4 invoice / bill of supply / credit note PDF, shared via the Android share sheet | IMPLEMENTED AND VERIFIED | Telugu names print as ? in the PDF (no Telugu font embedded yet); native share needs this APK or later |
 | GST | CGST/SGST/UTGST/IGST/cess, inclusive / exclusive, exempt / nil / non-GST / zero-rated LUT | IMPLEMENTED AND VERIFIED | rates & HSN only from the shop's entry |
 | GST | Composition bill of supply heading, unregistered bill | IMPLEMENTED AND VERIFIED | |
 | GST | GSTIN checksum, HSN digits rule (4 / 6), B2C ≥ ₹50,000 recipient details | IMPLEMENTED AND VERIFIED | GSTIN *active status* not checked (needs GST portal / GSP) |
@@ -67,7 +70,8 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | AI | en / te typed or dictated commands with confirmation | IMPLEMENTED AND VERIFIED | no in-screen mic button (keyboard dictation works) |
 | Hardware | BLE ESC/POS printer (scan, choose, 58 / 80 mm, test print, receipt print) | IMPLEMENTED, HARDWARE TEST PENDING | no printer model tested |
 | Hardware | Telugu receipt printing (raster image, bands ≤255 rows) | IMPLEMENTED, HARDWARE TEST PENDING | rendered with the phone font; no printer tested |
-| Hardware | Classic Bluetooth (SPP), USB, LAN printers, cash drawer, customer display, BT / USB scanners, scales | NOT IMPLEMENTED | |
+| Hardware | Classic Bluetooth (SPP), USB, LAN printers, cash drawer, customer display | NOT IMPLEMENTED | |
+| Hardware | Bluetooth / USB barcode scanners that type like a keyboard | IMPLEMENTED, HARDWARE TEST PENDING | they type into the search box; not tested with a device |
 | Restaurant | Tables, open orders, item notes, KOT (daily numbers), kitchen screen (new → preparing → ready → served), move / merge tables, split bill by items, takeaway | IMPLEMENTED AND VERIFIED | roles waiter / kitchen; kitchen screen refreshes every 10 s (no push) |
 | Restaurant | Priced modifiers / add-ons, KOT printing to a kitchen printer, split by amount / seat | NOT IMPLEMENTED | notes are text only |
 | Shipping | Courier integrations | NOT IMPLEMENTED | |
