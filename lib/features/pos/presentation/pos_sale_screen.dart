@@ -213,6 +213,9 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       devices = await ref.read(askodoxDeviceRepositoryProvider).list();
     } on AskodoxDeviceException catch (e) {
       return (null, e.message(te));
+    } catch (e) {
+      debugPrint('askodox.pos.scale device list failed: $e');
+      return (null, te ? 'పరికరాల జాబితా రాలేదు.' : 'Could not load your devices.');
     }
     final scale = devices.where((d) => d.capabilities.contains('read_weight') && d.localId != null).firstOrNull;
     if (scale == null) {
@@ -223,6 +226,9 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       return (milli, te ? '${scale.name} నుండి — తూకం యంత్రంతో సరిచూడండి.' : 'From ${scale.name} — check it against the scale.');
     } on AskodoxScaleException catch (e) {
       return (null, e.message(te));
+    } catch (e) {
+      debugPrint('askodox.pos.scale read failed: $e');
+      return (null, te ? 'తూకం యంత్రం చదవలేకపోయాను. బరువు టైప్ చేయండి.' : 'Could not read the scale. Type the weight.');
     }
   }
 
