@@ -91,11 +91,6 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఒక్కో రకం నోటిఫికేషన్‌ని ఆన్ / ఆఫ్ చేయండి.',
     'మార్పులు వెంటనే సేవ్ అవుతాయి.',
   ]),
-  '/notification-preferences': _H('Notifications', 'నోటిఫికేషన్లు', [
-    'Turn each kind of notification on or off.',
-  ], [
-    'ఒక్కో రకం నోటిఫికేషన్‌ని ఆన్ / ఆఫ్ చేయండి.',
-  ]),
   '/companion/screen-guide': _H('Screen guide', 'స్క్రీన్ గైడ్', [
     'Pick a task; ASKODOX points at each button on the real screen.',
   ], [
