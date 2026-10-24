@@ -66,6 +66,7 @@ class InAppAssistantDecision {
     this.subjectChanged = false,
     this.advice,
     this.adviceLedger,
+    this.intelligence,
   });
 
   /// One-time advice memory: the concern raised in THIS reply (key,
@@ -138,6 +139,11 @@ class InAppAssistantDecision {
   /// subject -- see buyer_guide_gate.py on the backend. Null otherwise.
   final BuyingGuide? buyingGuide;
 
+  /// Master command round 2 (backend intelligence_gate.py): a sourced tax /
+  /// GST, fraud & market reality or smart-trick card for THIS turn, only when
+  /// the user's own words asked. Null otherwise and from older backends.
+  final Map<String, Object?>? intelligence;
+
   bool get usable => source == 'universal_ai' && reply.trim().isNotEmpty;
 
   factory InAppAssistantDecision.fromJson(Map<String, dynamic> json) {
@@ -184,6 +190,9 @@ class InAppAssistantDecision {
               for (final entry in json['advice_ledger'] as List)
                 if (entry is Map) Map<String, Object?>.unmodifiable(Map<String, Object?>.from(entry)),
             ])
+          : null,
+      intelligence: json['intelligence'] is Map
+          ? Map<String, Object?>.unmodifiable(Map<String, Object?>.from(json['intelligence'] as Map))
           : null,
     );
   }

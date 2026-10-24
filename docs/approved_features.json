@@ -633,6 +633,21 @@
       "dependencies": [],
       "status": "approved",
       "history": [{"pr": null, "change": "Master command phase 1-2 + vision contract (branch claude/smart-tools-vision-foundation); merge needs owner approval"}]
+    },
+    {
+      "id": "round2_tax_fraud_tricks_intelligence",
+      "name": "Tax & GST intelligence, Fraud & Market Reality checklists, Smart Tricks savings calculators",
+      "purpose": "Sourced, deterministic India tax / GST estimates, scam recognition and reporting checklists, and savings maths, attached to the ONE conversation brain and reachable as Smart Tools.",
+      "expected_behavior": "The assistant reply carries `intelligence` only when the user's own words ask (income tax, GST, scam / fraud, buy vs rent, repair vs replace, bulk, unit price, save money); every card lists official sources and the date they were checked. How-to-evade-tax and how-to-commit-fraud asks replace the model reply with an awareness answer (detection, consequences, lawful alternatives) and never search. /api/intel/* compute income tax (new vs old, rebate with marginal relief, surcharge relief, cess) only for verified years, GST registration by State, composition eligibility and GST splits; scam checklists name official channels (1930, cybercrime.gov.in, NCH 1915, Sanchar Saathi, VAHAN, RERA, BIS Care). Smart tricks use only the user's numbers.",
+      "roles": ["buyer", "seller"],
+      "domains": ["any"],
+      "api": [{"method": "POST", "path": "/api/in-app/assistant", "response_model": "app.api.routes.in_app_assistant:AssistantDecision", "response_keys": ["intelligence"]}, {"method": "GET", "path": "/api/intel/tax", "response_keys": ["current_tax_year", "sources"]}, {"method": "POST", "path": "/api/intel/tax/income", "response_keys": ["comparison", "result"]}, {"method": "POST", "path": "/api/intel/gst/registration", "response_keys": ["result"]}, {"method": "POST", "path": "/api/intel/gst/composition", "response_keys": ["result"]}, {"method": "POST", "path": "/api/intel/gst/amount", "response_keys": ["result"]}, {"method": "GET", "path": "/api/intel/fraud", "response_keys": ["schemes"]}, {"method": "GET", "path": "/api/intel/fraud/{scheme_id}", "response_keys": ["scheme"]}, {"method": "POST", "path": "/api/intel/tricks/{calculator}", "response_keys": ["result"]}],
+      "ui": {"keys": ["askodoxIncomeTax", "askodoxTaxCalculate", "askodoxGstTool", "askodoxFraudList", "askodoxFraudDetail", "askodoxSmartTricks", "askodoxTrickResult"], "symbols": ["AskodoxIntelligenceCard", "askodoxIntelligenceRepositoryProvider", "askodoxRupees"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_round2_intelligence.py"], "flutter": ["test/features/intelligence/intelligence_test.dart"]},
+      "dependencies": ["smart_tools_vision_inspection"],
+      "status": "approved",
+      "history": [{"pr": null, "change": "Master command round 2 (branch claude/master-round2-intelligence); merge needs owner approval"}]
     }
   ]
 }

@@ -98,6 +98,19 @@ AskodoxToolIntent? askodoxToolIntent(String text) {
     return AskodoxToolIntent(tool('pairing')!, explicit: true);
   }
 
+  // Round 2 tools named explicitly. General tax / scam QUESTIONS are left to
+  // the conversation brain, which attaches its sourced card.
+  if (_has(q, ['income tax calculator', 'tax calculator', 'calculate my income tax', 'calculate income tax',
+    'పన్ను లెక్కించు', 'ట్యాక్స్ క్యాలిక్యులేటర్'])) {
+    return AskodoxToolIntent(tool('income_tax')!, explicit: true);
+  }
+  if (_has(q, ['gst calculator', 'gst tool', 'calculate gst', 'జీఎస్టీ లెక్క'])) {
+    return AskodoxToolIntent(tool('gst')!, explicit: true);
+  }
+  if (_has(q, ['scam checklist', 'scam checklists', 'fraud checklist', 'మోసాల చెక్‌లిస్ట్'])) {
+    return AskodoxToolIntent(tool('fraud_check')!, explicit: true);
+  }
+
   final commerce = _has(q, _commerce);
   final quantity = _has(q, _quantityAsk);
 
