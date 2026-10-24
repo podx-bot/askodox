@@ -18,8 +18,14 @@ import 'pos_restaurant_screens.dart' show AskodoxPosDraftsScreen;
 
 class AskodoxCartLine {
   AskodoxCartLine({required this.product, required this.qtyMilli, required this.pricePaise, this.override = false,
-      this.discountPaise = 0, this.grossMilli, this.tareMilli, this.fromScale = false});
+      this.discountPaise = 0, this.grossMilli, this.tareMilli, this.fromScale = false, this.pack, this.serials = const []});
   final AskodoxJson product;
+
+  /// A selling unit other than the base unit (e.g. 'box'); [qtyMilli] and [pricePaise] are per pack.
+  final String? pack;
+
+  /// Serial / IMEI numbers of the pieces sold (one per piece).
+  final List<String> serials;
   int qtyMilli;
   int pricePaise;
   bool override;
@@ -30,7 +36,7 @@ class AskodoxCartLine {
   /// The weight came from a Bluetooth scale (still unverified for trade use).
   bool fromScale;
 
-  String get unit => '${product['unit']}';
+  String get unit => pack ?? '${product['unit']}';
 
   AskodoxLineInput get taxInput => AskodoxLineInput(
         qtyMilli: qtyMilli,
@@ -50,8 +56,15 @@ class AskodoxCartLine {
           'qty_milli': qtyMilli,
         if (override) 'unit_price_paise': pricePaise,
         if (discountPaise > 0) 'discount_paise': discountPaise,
+        if (pack != null) 'pack': pack,
+        if (serials.isNotEmpty) 'serials': serials,
       };
 }
+
+/// Price of one [pack] of [product]: the pack's own price, else base price x factor.
+int askodoxPackPrice(AskodoxJson product, AskodoxJson pack) => pack['price_paise'] != null
+    ? askodoxPosInt(pack['price_paise'])
+    : askodoxRoundDiv(askodoxPosInt(product['price_paise']) * askodoxPosInt(pack['factor_milli']), 1000);
 
 const _weighed = {'kg', 'g', 'l', 'ml'};
 
@@ -114,18 +127,142 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         .toList();
   }
 
-  void _addLine(AskodoxJson product, int qtyMilli, {int? price, int? gross, int? tare, bool fromScale = false}) {
+  void _addLine(AskodoxJson product, int qtyMilli,
+      {int? price, int? gross, int? tare, bool fromScale = false, AskodoxJson? pack, List<String> serials = const []}) {
     setState(() {
-      final listed = _priceFor(product);
+      final listed = pack != null ? askodoxPackPrice(product, pack) : _priceFor(product);
+      final packName = pack == null ? null : '${pack['name']}';
       final existing = _cart.where((l) => l.product['id'] == product['id'] && l.grossMilli == null && gross == null &&
-          !l.fromScale && !fromScale && (price == null || price == l.pricePaise));
+          !l.fromScale && !fromScale && l.pack == packName && l.serials.isEmpty && serials.isEmpty &&
+          (price == null || price == l.pricePaise));
       if (existing.isNotEmpty) {
         existing.first.qtyMilli += qtyMilli;
       } else {
         _cart.add(AskodoxCartLine(product: product, qtyMilli: qtyMilli, pricePaise: price ?? listed,
-            override: price != null && price != listed, grossMilli: gross, tareMilli: tare, fromScale: fromScale));
+            override: price != null && price != listed, grossMilli: gross, tareMilli: tare, fromScale: fromScale,
+            pack: packName, serials: serials));
       }
     });
+  }
+
+  /// Opens the right picker: serial items -> choose serials; items with packs -> unit + qty; else qty / weight.
+  Future<void> _choose(AskodoxJson product) async {
+    if (product['track_serials'] == true) return _pickSerials(product);
+    final packs = askodoxPosList(product['packs']);
+    if (packs.isNotEmpty && !_weighed.contains(product['unit'])) return _pickUnit(product, packs);
+    return _pickQty(product);
+  }
+
+  Future<void> _pickUnit(AskodoxJson product, List<AskodoxJson> packs, {String? initial}) async {
+    final te = askodoxPosTe(context);
+    final qty = TextEditingController(text: '1');
+    String chosen = initial ?? '${product['unit']}';
+    final result = await showDialog<(int, String)>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('${product['name']}'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Wrap(spacing: 6, children: [
+              ChoiceChip(
+                  label: Text('${product['unit']} · ${askodoxPaise(_priceFor(product))}'),
+                  selected: chosen == product['unit'],
+                  onSelected: (_) => setLocal(() => chosen = '${product['unit']}')),
+              for (final p in packs)
+                ChoiceChip(
+                  key: ValueKey('askodoxPosPack-${p['name']}'),
+                  label: Text('${p['name']} (${askodoxQty(askodoxPosInt(p['factor_milli']), '${product['unit']}')}) · ${askodoxPaise(askodoxPackPrice(product, p))}'),
+                  selected: chosen == p['name'],
+                  onSelected: (_) => setLocal(() => chosen = '${p['name']}'),
+                ),
+            ]),
+            AskodoxPosField(controller: qty, number: true, label: te ? 'సంఖ్య' : 'Quantity'),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'రద్దు' : 'Cancel')),
+            FilledButton(
+              key: const Key('askodoxPosUnitOk'),
+              onPressed: () {
+                final q = askodoxParseMilli(qty.text);
+                if (q == null || q <= 0) return;
+                Navigator.pop(ctx, (q, chosen));
+              },
+              child: Text(te ? 'జోడించు' : 'Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    final pack = packs.where((p) => p['name'] == result.$2).firstOrNull;
+    _addLine(product, result.$1, pack: pack);
+  }
+
+  /// Serial / IMEI items: pick the exact pieces sold (from stock, or typed / scanned).
+  Future<void> _pickSerials(AskodoxJson product) async {
+    final te = askodoxPosTe(context);
+    List<String> inStock;
+    try {
+      inStock = await ref.read(askodoxPosRepositoryProvider).serialsInStock(widget.businessId, '${product['id']}');
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (!mounted) return;
+    final taken = {for (final l in _cart) ...l.serials};
+    final available = inStock.where((s) => !taken.contains(s)).toList();
+    final chosen = <String>{};
+    final typed = TextEditingController();
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('${product['name']} · ${product['serial_kind'] == 'imei' ? 'IMEI' : (te ? 'సీరియల్' : 'serial')}'),
+          content: SizedBox(
+            width: 360,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                Expanded(child: AskodoxPosField(controller: typed, label: te ? 'టైప్ / స్కాన్' : 'Type / scan')),
+                IconButton(
+                  onPressed: () {
+                    final v = typed.text.trim().toUpperCase();
+                    if (v.isEmpty) return;
+                    setLocal(() {
+                      if (available.contains(v)) chosen.add(v);
+                      typed.clear();
+                    });
+                  },
+                  icon: const Icon(Icons.add),
+                ),
+              ]),
+              if (available.isEmpty) Text(te ? 'స్టాక్‌లో సీరియల్స్ లేవు (కొనుగోలు బిల్లుతో నమోదు చేయండి).' : 'No serials in stock (record them on a purchase bill).'),
+              Flexible(
+                child: ListView(shrinkWrap: true, children: [
+                  for (final s in available)
+                    CheckboxListTile(
+                      key: ValueKey('askodoxPosSerial-$s'),
+                      dense: true,
+                      value: chosen.contains(s),
+                      title: Text(s),
+                      onChanged: (v) => setLocal(() => v == true ? chosen.add(s) : chosen.remove(s)),
+                    ),
+                ]),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'రద్దు' : 'Cancel')),
+            FilledButton(
+              key: const Key('askodoxPosSerialsOk'),
+              onPressed: chosen.isEmpty ? null : () => Navigator.pop(ctx, chosen.toList()),
+              child: Text(te ? '${chosen.length} జోడించు' : 'Add ${chosen.length}'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    _addLine(product, result.length * 1000, serials: result);
   }
 
   Future<void> _pickQty(AskodoxJson product) async {
@@ -248,11 +385,21 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   /// A barcode from the camera, or typed by a keyboard-style scanner (ends with Enter).
   Future<void> _handleBarcode(String code) async {
     final te = askodoxPosTe(context);
+    final clean = askodoxCleanBarcode(code);
+    for (final p in _products) {
+      for (final pack in askodoxPosList(p['packs'])) {
+        if (askodoxCleanBarcode('${pack['barcode'] ?? ''}') == clean && clean.isNotEmpty) {
+          _addLine(p, 1000, pack: pack);
+          askodoxPosSnack(context, te ? '${p['name']} (${pack['name']}) జోడించాం.' : 'Added ${p['name']} (${pack['name']}).');
+          return;
+        }
+      }
+    }
     final found = askodoxProductsByBarcode(code, _products);
     if (found.length == 1) {
       final p = found.single;
-      if (_weighed.contains(p['unit'])) {
-        await _pickQty(p);
+      if (_weighed.contains(p['unit']) || p['track_serials'] == true || askodoxPosList(p['packs']).isNotEmpty) {
+        await _choose(p);
       } else {
         _addLine(p, 1000);
         askodoxPosSnack(context, te ? '${p['name']} జోడించాం.' : 'Added ${p['name']}.');
@@ -398,6 +545,8 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
               'gross_milli': l.grossMilli,
               'tare_milli': l.tareMilli,
               'from_scale': l.fromScale,
+              'pack': l.pack,
+              'serials': l.serials,
             },
         ],
       };
@@ -466,6 +615,8 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         grossMilli: l['gross_milli'] == null ? null : askodoxPosInt(l['gross_milli']),
         tareMilli: l['tare_milli'] == null ? null : askodoxPosInt(l['tare_milli']),
         fromScale: l['from_scale'] == true,
+        pack: l['pack'] == null ? null : '${l['pack']}',
+        serials: [for (final s in (l['serials'] as List? ?? const [])) '$s'],
       ));
     }
     setState(() {
@@ -661,7 +812,10 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
             controller: _search,
             onChanged: (_) => setState(() {}),
             onSubmitted: (text) {
-              if (askodoxProductsByBarcode(text, _products).length == 1) {
+              final code = askodoxCleanBarcode(text);
+              final packHit = code.isNotEmpty &&
+                  _products.any((p) => askodoxPosList(p['packs']).any((k) => askodoxCleanBarcode('${k['barcode'] ?? ''}') == code));
+              if (packHit || askodoxProductsByBarcode(text, _products).length == 1) {
                 _search.clear();
                 _handleBarcode(text);
               }
@@ -700,7 +854,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                               ? null
                               : Text('${te ? 'స్టాక్' : 'Stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}'),
                           trailing: Text('${askodoxPaise(_priceFor(p))}/${p['unit']}'),
-                          onTap: () => _pickQty(p),
+                          onTap: () => _choose(p),
                         ),
                     ]),
         ),
@@ -720,6 +874,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                   if (_cart[i].discountPaise > 0) '− ${askodoxPaise(_cart[i].discountPaise)}',
                   if (_cart[i].override) (te ? 'ధర మార్పు (మేనేజర్)' : 'price changed (manager)'),
                   if (_cart[i].fromScale) (te ? '· తూకం యంత్రం' : '· from scale'),
+                  if (_cart[i].serials.isNotEmpty) '· ${_cart[i].serials.join(', ')}',
                 ].join(' ')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (preview != null && i < preview.lines.length) Text(askodoxPaise(preview.lines[i].totalPaise)),

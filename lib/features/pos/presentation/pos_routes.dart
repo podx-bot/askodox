@@ -40,6 +40,8 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) =>
           AskodoxPosSupplierScreen(businessId: state.pathParameters['id']!, supplierId: state.pathParameters['sid']!)),
   GoRoute(path: '/pos/:id/purchase/new', builder: (context, state) => AskodoxPosPurchaseScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/purchase-orders', builder: (context, state) => AskodoxPosPurchaseOrdersScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/stock-report', builder: (context, state) => AskodoxPosStockReportScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
 ];
