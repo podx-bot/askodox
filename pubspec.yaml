@@ -48,6 +48,7 @@ dependencies:
   # profiles (lib/features/devices/data/ble_gateway.dart). 1.x API (connect
   # without a licence argument); tests inject askodoxBleGatewayProvider.
   flutter_blue_plus: ^1.35.0
+  mobile_scanner: '>=7.1.0 <8.0.0'
 
 # shared_preferences_android 2.5.0 moved to Pigeon JNI; in the APK it fails at
 # start-up (NoSuchMethodError SharedPreferencesApiRegistrar.getAll -> endless
