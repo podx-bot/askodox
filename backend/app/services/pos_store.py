@@ -51,7 +51,9 @@ TEMPLATES = ("general", "kirana", "supermarket", "meat_fish", "restaurant", "pha
 UNITS = ("pcs", "kg", "g", "l", "ml", "m", "dozen", "box", "plate", "hour", "service", "pack")
 PAY_METHODS = ("cash", "upi", "card", "bank_transfer", "cheque")
 VERIFICATION = {"cash": "cash_counted", "upi": "cashier_confirmed", "card": "cashier_confirmed",
-                "bank_transfer": "cashier_confirmed", "cheque": "cashier_confirmed"}
+                "bank_transfer": "cashier_confirmed", "cheque": "cashier_confirmed",
+                # Paid from a shop advance: approved by the customer in their own app (pos_advance.py).
+                "advance": "customer_approved"}
 MAX_OFFLINE_AGE = timedelta(days=7)
 DISCLAIMER = ("Prepared from invoices recorded in ASKODOX for accountant review. It is not a filed GST return; "
               "check every figure and classification with your accountant before filing.")

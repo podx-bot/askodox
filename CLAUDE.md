@@ -528,6 +528,11 @@ this file, don't trust it blindly.
   register line in MainActivity); saved printer ids `classic:<MAC>` / `usb:<device>` route native, others BLE
   (`AskodoxRoutingPrinterTransport`). PDFs draw non-ASCII text via `lib/core/pdf/askodox_pdf_text.dart` (await `want`
   before building). POS packs: stock + FEFO always in base units (`base_qty_milli`); serials in `pos_serials`.
+- Shop advance = `pos_advance.py` (record only; money stays with the shop): every deposit / deduction / refund is a
+  pending `pos_advance_entries` row that ONLY the customer's own OTP-proven number (`app-phone-*`, phone_key = customer
+  phone) can approve via `/api/pos/me/advances/{id}/decision`; the shop can only withdraw a pending row. Terms en/te
+  (`TERMS_VERSION`) must be accepted by the owner (settings) and by each customer on first approval. Never let staff
+  approve, never pay out across shops, never call it a wallet (no RBI licence).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

@@ -724,3 +724,75 @@ def po_receive(business_id: str, po_id: str, body: PoReceiveIn, request: Request
     data = body.model_dump()
     data["lines"] = [{k: v for k, v in l.items() if v is not None} for l in data["lines"]]
     return _call(_purchases(request).receive_po, business_id, _user(request), po_id, data)
+
+
+# ------------------------------------------------------------ shop advance (store credit)
+def _advances(request: Request):
+    from app.services.pos_advance import PosAdvances
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_advances", None)
+    if existing is None or existing.store is not store:
+        existing = PosAdvances(store)
+        try:
+            container.pos_advances = existing
+        except Exception:
+            pass
+    return existing
+
+
+class AdvanceSettingsIn(BaseModel):
+    enabled: bool
+    max_balance_paise: Optional[int] = Field(default=None, ge=1)
+    accept_terms_version: Optional[str] = Field(default=None, max_length=20)
+
+
+class AdvanceRequestIn(BaseModel):
+    amount_paise: int = Field(ge=1)
+    method: Optional[str] = Field(default=None, max_length=20)
+    reference: Optional[str] = Field(default=None, max_length=60)
+    note: Optional[str] = Field(default=None, max_length=160)
+    client_txn_id: str = Field(min_length=8, max_length=64)
+
+
+class AdvanceDecisionIn(BaseModel):
+    approve: bool
+    accept_terms_version: Optional[str] = Field(default=None, max_length=20)
+
+
+@router.get("/businesses/{business_id}/advance/settings")
+def advance_settings(business_id: str, request: Request) -> dict:
+    return _call(_advances(request).settings, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/advance/settings")
+def update_advance_settings(business_id: str, body: AdvanceSettingsIn, request: Request) -> dict:
+    return _call(_advances(request).update_settings, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/customers/{customer_id}/advance")
+def customer_advance(business_id: str, customer_id: str, request: Request) -> dict:
+    return _call(_advances(request).customer_view, business_id, _user(request), customer_id)
+
+
+@router.post("/businesses/{business_id}/customers/{customer_id}/advance/{kind}")
+def request_advance(business_id: str, customer_id: str, kind: str, body: AdvanceRequestIn, request: Request) -> dict:
+    """kind = deposit | redeem | refund. Nothing counts until the customer approves in their own app."""
+    return _call(_advances(request).request, business_id, _user(request), customer_id, kind, _dump(body))
+
+
+@router.post("/businesses/{business_id}/advance/{entry_id}/withdraw")
+def withdraw_advance(business_id: str, entry_id: str, request: Request) -> dict:
+    return _call(_advances(request).withdraw, business_id, _user(request), entry_id)
+
+
+@router.get("/me/advances")
+def my_advances(request: Request) -> dict:
+    """The signed-in customer's shop advances: balances, requests waiting for them, history, terms."""
+    return _call(_advances(request).mine, _user(request))
+
+
+@router.post("/me/advances/{entry_id}/decision")
+def decide_advance(entry_id: str, body: AdvanceDecisionIn, request: Request) -> dict:
+    return _call(_advances(request).decide, _user(request), entry_id, body.approve, body.accept_terms_version)

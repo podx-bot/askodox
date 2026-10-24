@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import 'pos_advance_screens.dart';
 import 'pos_home_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
@@ -44,4 +45,8 @@ final askodoxPosRoutes = <GoRoute>[
       path: '/pos/:id/purchase-orders', builder: (context, state) => AskodoxPosPurchaseOrdersScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/stock-report', builder: (context, state) => AskodoxPosStockReportScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
+  GoRoute(
+      path: '/pos/:id/advance', builder: (context, state) => AskodoxPosAdvanceSettingsScreen(businessId: state.pathParameters['id']!)),
+  // Customer side: approve / reject what shops recorded against your number.
+  GoRoute(path: '/me/shop-advances', builder: (context, state) => const AskodoxMyShopAdvancesScreen()),
 ];

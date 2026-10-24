@@ -531,6 +531,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
                       ))),
+          // Advances shops recorded against this number: the customer approves every change here.
+          AskodoxNavRow(
+              key: const ValueKey('profile-shop-advances'),
+              icon: Icons.savings_outlined,
+              title: t('Shop advances', 'షాప్ అడ్వాన్సులు'),
+              subtitle: t('Approve what a shop recorded for you.', 'షాప్ మీ పేరు మీద నమోదు చేసినవి ఆమోదించండి.'),
+              onTap: () => context.push('/me/shop-advances')),
           // Early Access label + feedback (Command Center decides who sees it).
           AskodoxNavRow(
               key: const ValueKey('profile-feedback'), guide: 'screen_feedback',
