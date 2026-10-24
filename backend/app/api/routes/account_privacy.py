@@ -148,6 +148,9 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
         for owned_table in ("user_devices", "ptt_members"):
             if owned_table in tables:  # paired devices / push-to-talk memberships go with the account
                 conn.execute(f"DELETE FROM {owned_table} WHERE app_user_id=?", (user_id,))
+        if "pos_members" in tables:  # POS staff access ends; the shop's issued invoices stay (tax records)
+            done["pos_memberships_ended"] = conn.execute(
+                "UPDATE pos_members SET active=0, app_user_id=NULL WHERE app_user_id=?", (user_id,)).rowcount
         for memory_table in ("profile_memory_items", "profile_memory_history", "profile_memory_settings"):
             if memory_table in tables:  # conversation memory goes with the account
                 conn.execute(f"DELETE FROM {memory_table} WHERE user_id=?", (user_id,))

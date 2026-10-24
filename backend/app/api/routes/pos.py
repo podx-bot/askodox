@@ -1,0 +1,381 @@
+"""ASKODOX Universal POS APIs (``/api/pos/...``).
+
+Every route is token-proven (``_authenticated_app_user``) and the store checks
+the caller's membership + role in that business on every call (owner /
+manager / cashier / accountant). A business the caller does not belong to
+answers 404, exactly like a missing one.
+
+Public: GET /api/pos/meta  -- templates, units, GST rates, State codes, rule sources.
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, HTTPException, Request, Response
+from pydantic import BaseModel, Field
+
+from app.api.routes.in_app_deal import _authenticated_app_user
+from app.services import pos_tax, rate_limit
+from app.services.pos_store import PAY_METHODS, PERMISSIONS, ROLES, TEMPLATES, UNITS, PosError, PosStore
+
+router = APIRouter(prefix="/api/pos", tags=["POS"])
+
+
+def _store(request: Request) -> PosStore:
+    container: Any = request.app.state.container
+    existing = getattr(container, "pos_store", None)
+    if existing is None:
+        existing = PosStore(container.settings.database_path)
+        try:
+            container.pos_store = existing
+        except Exception:
+            pass
+    return existing
+
+
+def _user(request: Request, bucket: str = "pos", limit: int = 240) -> str:
+    user = _authenticated_app_user(request)
+    rate_limit.check(request, f"{bucket}:{user}", limit=limit)
+    return user
+
+
+def _call(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except PosError as error:
+        raise HTTPException(status_code=error.status,
+                            detail={"code": error.code, "message": error.message, **error.extra})
+
+
+class BusinessIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    address: str = Field(default="", max_length=240)
+    phone: str = Field(default="", max_length=20)
+    registration_type: str = Field(default="unregistered", pattern="^(regular|composition|unregistered)$")
+    gstin: Optional[str] = Field(default=None, max_length=15)
+    state_code: Optional[str] = Field(default=None, max_length=2)
+    template: str = Field(default="general", max_length=20)
+    invoice_prefix: str = Field(default="INV", max_length=3)
+    turnover_above_5cr: bool = False
+    round_off: bool = False
+
+
+class SettingsIn(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=80)
+    address: Optional[str] = Field(default=None, max_length=240)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    round_off: Optional[bool] = None
+    turnover_above_5cr: Optional[bool] = None
+
+
+class MemberIn(BaseModel):
+    phone: str = Field(min_length=10, max_length=16)
+    role: str = Field(pattern="^(manager|cashier|accountant|removed)$")
+
+
+class ProductIn(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=80)
+    name_te: Optional[str] = Field(default=None, max_length=80)
+    sku: Optional[str] = Field(default=None, max_length=40)
+    barcode: Optional[str] = Field(default=None, max_length=64)
+    hsn_sac: Optional[str] = Field(default=None, max_length=10)
+    is_service: Optional[bool] = None
+    unit: Optional[str] = Field(default=None, max_length=10)
+    price_paise: Optional[int] = Field(default=None, ge=0)
+    price_includes_tax: Optional[bool] = None
+    rate_bp: Optional[int] = Field(default=None, ge=0)
+    cess_bp: Optional[int] = Field(default=None, ge=0, le=30000)
+    category: Optional[str] = Field(default=None, max_length=20)
+    track_stock: Optional[bool] = None
+    low_stock_milli: Optional[int] = Field(default=None, ge=0)
+    opening_stock_milli: Optional[int] = None
+    active: Optional[bool] = None
+
+
+class StockIn(BaseModel):
+    product_id: str = Field(max_length=40)
+    kind: str = Field(pattern="^(purchase|adjustment|count|wastage)$")
+    qty_milli: int
+    reason: str = Field(default="", max_length=160)
+    client_txn_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class CustomerIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    phone: str = Field(default="", max_length=20)
+    gstin: Optional[str] = Field(default=None, max_length=15)
+    address: str = Field(default="", max_length=240)
+    state_code: Optional[str] = Field(default=None, max_length=2)
+    credit_limit_paise: int = Field(default=0, ge=0)
+
+
+class PriceIn(BaseModel):
+    price_paise: Optional[int] = Field(default=None, ge=0)
+
+
+class WeightIn(BaseModel):
+    gross_milli: int = Field(gt=0)
+    tare_milli: int = Field(default=0, ge=0)
+    live_weight_milli: Optional[int] = Field(default=None, ge=0)
+    source: str = Field(default="typed", pattern="^(typed|scale)$")
+
+
+class LineIn(BaseModel):
+    product_id: str = Field(max_length=40)
+    qty_milli: int = Field(default=0, ge=0, le=10_000_000_000)
+    unit_price_paise: Optional[int] = Field(default=None, ge=0)
+    discount_paise: int = Field(default=0, ge=0)
+    weight: Optional[WeightIn] = None
+
+
+class PaymentIn(BaseModel):
+    method: str = Field(max_length=20)
+    amount_paise: int = Field(gt=0)
+    reference: str = Field(default="", max_length=60)
+
+
+class InvoiceIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    lines: List[LineIn] = Field(min_length=1, max_length=300)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    place_of_supply: Optional[str] = Field(default=None, max_length=2)
+    payments: List[PaymentIn] = Field(default_factory=list, max_length=6)
+    notes: str = Field(default="", max_length=240)
+    offline: bool = False
+    issued_at: Optional[str] = Field(default=None, max_length=40)
+    device_id: Optional[str] = Field(default=None, max_length=64)
+    invoice_number: Optional[str] = Field(default=None, max_length=16)
+
+
+class CreditLineIn(BaseModel):
+    line_no: int = Field(ge=1)
+    qty_milli: int = Field(gt=0)
+    restock: bool = True
+
+
+class CreditIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    lines: List[CreditLineIn] = Field(min_length=1, max_length=300)
+    reason: str = Field(min_length=1, max_length=160)
+    refund: Optional[PaymentIn] = None
+
+
+class CancelIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=160)
+
+
+class CollectIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    method: str = Field(max_length=20)
+    amount_paise: int = Field(gt=0)
+    reference: str = Field(default="", max_length=60)
+
+
+class DayCloseIn(BaseModel):
+    local_date: str = Field(max_length=10)
+    opening_float_paise: int = Field(default=0, ge=0)
+    counted_cash_paise: int = Field(ge=0)
+    note: str = Field(default="", max_length=240)
+
+
+class DraftIn(BaseModel):
+    id: Optional[str] = Field(default=None, max_length=40)
+    kind: str = Field(pattern="^(hold|quotation)$")
+    title: str = Field(default="", max_length=80)
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DeviceSeriesIn(BaseModel):
+    device_id: str = Field(min_length=6, max_length=64)
+
+
+def _dump(model: BaseModel) -> Dict[str, Any]:
+    return model.model_dump(exclude_none=True)
+
+
+@router.get("/meta")
+def meta() -> dict:
+    return {"templates": list(TEMPLATES), "units": list(UNITS), "payment_methods": list(PAY_METHODS),
+            "roles": {r: sorted(PERMISSIONS[r]) for r in ROLES}, "gst_rates_bp": sorted(pos_tax.ALLOWED_RATES_BP),
+            "tax_categories": list(pos_tax.TAX_CATEGORIES), "states": pos_tax.STATE_CODES,
+            "utgst_codes": sorted(pos_tax.UTGST_CODES), "rules": pos_tax.RULES,
+            "payment_note": "UPI / card entered at the counter is cashier-confirmed, not bank-verified."}
+
+
+@router.get("/gstin/{gstin}")
+def check_gstin(gstin: str, request: Request) -> dict:
+    _user(request)
+    return pos_tax.validate_gstin(gstin)
+
+
+@router.get("/businesses")
+def my_businesses(request: Request) -> dict:
+    user = _user(request)
+    return {"businesses": _store(request).my_businesses(user)}
+
+
+@router.post("/businesses")
+def create_business(body: BusinessIn, request: Request) -> dict:
+    user = _user(request, "pos-create", 20)
+    return _call(_store(request).create_business, user, _dump(body))
+
+
+@router.get("/businesses/{business_id}")
+def business(business_id: str, request: Request) -> dict:
+    return _call(_store(request).business, business_id, _user(request))
+
+
+@router.patch("/businesses/{business_id}")
+def update_business(business_id: str, body: SettingsIn, request: Request) -> dict:
+    return _call(_store(request).update_settings, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/members")
+def members(business_id: str, request: Request) -> dict:
+    return {"members": _call(_store(request).members, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/members")
+def set_member(business_id: str, body: MemberIn, request: Request) -> dict:
+    return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role)
+
+
+@router.post("/businesses/{business_id}/device-series")
+def device_series(business_id: str, body: DeviceSeriesIn, request: Request) -> dict:
+    return _call(_store(request).register_device_series, business_id, _user(request), body.device_id)
+
+
+@router.get("/businesses/{business_id}/products")
+def products(business_id: str, request: Request, q: str = "", include_inactive: bool = False) -> dict:
+    return {"products": _call(_store(request).products, business_id, _user(request), q, include_inactive)}
+
+
+@router.post("/businesses/{business_id}/products")
+def add_product(business_id: str, body: ProductIn, request: Request) -> dict:
+    return _call(_store(request).add_product, business_id, _user(request), _dump(body))
+
+
+@router.patch("/businesses/{business_id}/products/{product_id}")
+def update_product(business_id: str, product_id: str, body: ProductIn, request: Request) -> dict:
+    return _call(_store(request).update_product, business_id, _user(request), product_id, _dump(body))
+
+
+@router.get("/businesses/{business_id}/products/{product_id}/history")
+def product_history(business_id: str, product_id: str, request: Request) -> dict:
+    return {"history": _call(_store(request).product_history, business_id, _user(request), product_id)}
+
+
+@router.post("/businesses/{business_id}/stock")
+def stock(business_id: str, body: StockIn, request: Request) -> dict:
+    return _call(_store(request).stock_move, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/stock/{product_id}")
+def stock_moves(business_id: str, product_id: str, request: Request) -> dict:
+    return {"moves": _call(_store(request).stock_moves, business_id, _user(request), product_id)}
+
+
+@router.get("/businesses/{business_id}/customers")
+def customers(business_id: str, request: Request, q: str = "") -> dict:
+    return {"customers": _call(_store(request).customers, business_id, _user(request), q)}
+
+
+@router.post("/businesses/{business_id}/customers")
+def add_customer(business_id: str, body: CustomerIn, request: Request) -> dict:
+    return _call(_store(request).add_customer, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/customers/{customer_id}")
+def customer(business_id: str, customer_id: str, request: Request) -> dict:
+    store, user = _store(request), _user(request)
+    out = _call(store.customer, business_id, user, customer_id)
+    out["prices"] = _call(store.customer_prices, business_id, user, customer_id)
+    return out
+
+
+@router.put("/businesses/{business_id}/customers/{customer_id}/prices/{product_id}")
+def customer_price(business_id: str, customer_id: str, product_id: str, body: PriceIn, request: Request) -> dict:
+    return _call(_store(request).set_customer_price, business_id, _user(request), customer_id, product_id,
+                 body.price_paise)
+
+
+@router.post("/businesses/{business_id}/customers/{customer_id}/payments")
+def collect(business_id: str, customer_id: str, body: CollectIn, request: Request) -> dict:
+    return _call(_store(request).collect, business_id, _user(request), customer_id, _dump(body))
+
+
+@router.get("/businesses/{business_id}/customers/{customer_id}/statement")
+def statement(business_id: str, customer_id: str, month: str, request: Request) -> dict:
+    return _call(_store(request).statement, business_id, _user(request), customer_id, month)
+
+
+@router.post("/businesses/{business_id}/invoices")
+def create_invoice(business_id: str, body: InvoiceIn, request: Request) -> dict:
+    data = body.model_dump()
+    data["lines"] = [{k: v for k, v in line.items() if v is not None} for line in data["lines"]]
+    return _call(_store(request).create_invoice, business_id, _user(request), data)
+
+
+@router.get("/businesses/{business_id}/invoices")
+def invoices(business_id: str, request: Request, date_from: str = "", date_to: str = "", customer_id: str = "",
+             limit: int = 200) -> dict:
+    return {"invoices": _call(_store(request).invoices, business_id, _user(request), date_from=date_from,
+                              date_to=date_to, customer_id=customer_id, limit=limit)}
+
+
+@router.get("/businesses/{business_id}/invoices/{invoice_id}")
+def invoice(business_id: str, invoice_id: str, request: Request) -> dict:
+    return _call(_store(request).invoice, business_id, _user(request), invoice_id)
+
+
+@router.post("/businesses/{business_id}/invoices/{invoice_id}/credit-notes")
+def credit_note(business_id: str, invoice_id: str, body: CreditIn, request: Request) -> dict:
+    return _call(_store(request).create_credit_note, business_id, _user(request), invoice_id, body.model_dump())
+
+
+@router.post("/businesses/{business_id}/invoices/{invoice_id}/cancel")
+def cancel(business_id: str, invoice_id: str, body: CancelIn, request: Request) -> dict:
+    return _call(_store(request).cancel_invoice, business_id, _user(request), invoice_id, body.reason)
+
+
+@router.get("/businesses/{business_id}/day/{local_date}")
+def day(business_id: str, local_date: str, request: Request) -> dict:
+    return _call(_store(request).day_summary, business_id, _user(request), local_date)
+
+
+@router.post("/businesses/{business_id}/day-close")
+def day_close(business_id: str, body: DayCloseIn, request: Request) -> dict:
+    return _call(_store(request).close_day, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/reports/gst")
+def gst_report(business_id: str, date_from: str, date_to: str, request: Request) -> dict:
+    return _call(_store(request).gst_summary, business_id, _user(request), date_from, date_to)
+
+
+@router.get("/businesses/{business_id}/reports/register.csv")
+def register_csv(business_id: str, date_from: str, date_to: str, request: Request) -> Response:
+    text = _call(_store(request).register_csv, business_id, _user(request), date_from, date_to)
+    return Response(content=text, media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="register-{date_from}-{date_to}.csv"'})
+
+
+@router.get("/businesses/{business_id}/drafts")
+def drafts(business_id: str, request: Request, kind: str = "") -> dict:
+    return {"drafts": _call(_store(request).drafts, business_id, _user(request), kind)}
+
+
+@router.post("/businesses/{business_id}/drafts")
+def save_draft(business_id: str, body: DraftIn, request: Request) -> dict:
+    return _call(_store(request).save_draft, business_id, _user(request), _dump(body))
+
+
+@router.delete("/businesses/{business_id}/drafts/{draft_id}")
+def delete_draft(business_id: str, draft_id: str, request: Request) -> dict:
+    _call(_store(request).delete_draft, business_id, _user(request), draft_id)
+    return {"deleted": True}
+
+
+@router.get("/businesses/{business_id}/audit")
+def audit(business_id: str, request: Request, limit: int = 200) -> dict:
+    return {"audit": _call(_store(request).audit, business_id, _user(request), limit)}

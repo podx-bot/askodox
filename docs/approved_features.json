@@ -678,6 +678,21 @@
       "dependencies": ["smart_tools_vision_inspection"],
       "status": "approved",
       "history": [{"pr": null, "change": "Master command round 4 (branch claude/master-round4-photo-measure); NOT HARDWARE VERIFIED"}]
+    },
+    {
+      "id": "universal_pos_core",
+      "name": "Universal AI POS core (billing, GST invoices, credit notes, customer credit, stock, day close, offline queue, ESC/POS)",
+      "purpose": "One configurable POS for every kind of shop inside ASKODOX My Business, starting with India GST billing and meat / kirana counters.",
+      "expected_behavior": "Integer-paise decimal-safe GST (CGST+SGST/UTGST intra, IGST inter, composition = bill of supply with the Rule 5(1)(f) heading, unregistered = plain bill); HSN / rates only from the shop's own entry; issued invoices never edited or deleted (credit note, or same-day cancel that keeps the row); idempotent client transaction ids; owner / manager / cashier / accountant roles checked on the server and shops isolated (404 for non-members); UPI / card entered at the counter stored as cashier_confirmed, never bank-verified; offline sales use the device's own series and are never dropped; typed / spoken commands are proposals confirmed by the cashier; printers are BLE ESC/POS only and unverified.",
+      "roles": ["seller", "service_provider"],
+      "domains": ["any"],
+      "api": [{"method": "GET", "path": "/api/pos/meta", "response_keys": ["states", "rules", "gst_rates_bp"]}, {"method": "GET", "path": "/api/pos/businesses", "response_keys": ["businesses"]}, {"method": "POST", "path": "/api/pos/businesses", "response_keys": ["id", "my_role", "permissions"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}", "response_keys": ["registration_type", "state_code", "my_role", "permissions"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/products", "response_keys": ["id", "price_paise", "rate_bp"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/products", "response_keys": ["products"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/invoices", "response_keys": ["id", "number", "totals", "lines", "payments", "replayed"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}", "response_keys": ["number", "status", "totals", "lines"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}/credit-notes", "response_keys": ["number", "original_invoice"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}/cancel", "response_keys": ["status"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/payments", "response_keys": ["balance_paise", "verification"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/statement", "response_keys": ["opening_paise", "entries", "closing_paise"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/day-close", "response_keys": ["closed"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/gst", "response_keys": ["by_rate", "hsn", "b2b", "b2c", "disclaimer"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/device-series", "response_keys": ["prefix", "fy", "next_number"]}],
+      "ui": {"keys": ["askodoxPosSetup", "askodoxPosDashboard", "askodoxPosCommand", "askodoxPosConfirmCommand", "askodoxPosPay", "askodoxPosIssue", "askodoxPosOfflineIssued", "askodoxPosReceipt", "askodoxPosGstDisclaimer", "askodoxPosPrinterLimits"], "symbols": ["askodoxInvoicePreview", "askodoxParsePosCommand", "AskodoxEscPos", "askodoxReceiptBytes", "AskodoxPosOfflineQueue", "askodoxPosRoutes", "BlePrinterTransport"]},
+      "flags": {},
+      "tests": {"backend": ["tests/test_pos.py"], "flutter": ["test/features/pos/pos_test.dart"]},
+      "dependencies": [],
+      "status": "approved",
+      "history": [{"pr": null, "change": "POS master command phase 0-2 (branch claude/pos-core); NOT HARDWARE VERIFIED, NOT PHONE VERIFIED"}]
     }
   ]
 }
