@@ -14,9 +14,12 @@ no item is PHONE VERIFIED until a real-phone test with evidence.
 | Smart Toolbox | Level / inclinometer / plumb, compass | IMPLEMENTED BUT HARDWARE UNVERIFIED | sensors_plus |
 | Measurement | Measure from a photo with a reference object (A4 / card / typed) | IMPLEMENTED BUT HARDWARE UNVERIFIED | range + quality; same-plane condition |
 | Measurement | AR measuring tape, distance / height meter, room / wall AR | BLOCKED BY EXTERNAL DEPENDENCY | needs native ARCore integration + an ARCore-capable test phone |
-| Smart Toolbox | Protractor, magnifier, colour picker, light / sound / vibration / RPM, object counter | NOT IMPLEMENTED | |
+| Smart Toolbox | Protractor (3 taps on a photo, ± from tap accuracy), magnifier (photo, pinch zoom ≤10x, contrast) | IMPLEMENTED BUT HARDWARE UNVERIFIED | no live camera preview (a camera plugin broke the OTP SMS-consent test) |
+| Smart Toolbox | Light meter (phone light sensor, lux + band) and sound level (mic dBFS; ≈ dB only after the user calibrates against a real meter) | IMPLEMENTED BUT HARDWARE UNVERIFIED | sensors uncalibrated; sound is not for legal / occupational checks; nothing recorded |
+| Smart Toolbox | Colour picker, vibration / RPM, object counter | NOT IMPLEMENTED | |
 | Vision | Evidence-tiered photo inspection (food, dish, vehicle, tyre, livestock, crop, construction, product, general), quick/deep/expert, cache, metering, caps | IMPLEMENTED BUT HARDWARE UNVERIFIED | real Gemini output not yet observed |
-| Vision | Guided 4-side vehicle inspection + PDF report, OBD-II | NOT IMPLEMENTED | OBD needs a tested adapter |
+| Vision | Guided 4-side vehicle walk-around (front / rear / left / right → one Expert inspection) + PDF report with photos and disclaimer | IMPLEMENTED BUT HARDWARE UNVERIFIED | real Gemini output not yet observed; never a roadworthiness / fitness certificate |
+| Vision | OBD-II | NOT IMPLEMENTED | needs a tested adapter |
 | Vision | Livestock weight | PARTIALLY IMPLEMENTED | experimental range only with a reference object; no validated model |
 | Vision | Reverse recipe → shopping list → sellers | PARTIALLY IMPLEMENTED | dish inspection only |
 | Agriculture | Leaf / crop symptoms (suspected only) | PARTIALLY IMPLEMENTED | weather / soil lab / market not integrated |

@@ -74,6 +74,10 @@ def _id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:20]}"
 
 
+def _round_div(numerator: int, denominator: int) -> int:
+    return (2 * numerator + denominator) // (2 * denominator)
+
+
 def _clean(value: Any, limit: int = 120) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:limit]
 
@@ -161,7 +165,38 @@ MIGRATIONS = [
     ("pos_stock_moves", "batch_no", "TEXT"),
     ("pos_stock_moves", "expiry_date", "TEXT"),
     ("pos_invoice_lines", "batches", "TEXT"),
+    ("pos_products", "track_serials", "INTEGER NOT NULL DEFAULT 0"),
+    ("pos_products", "serial_kind", "TEXT NOT NULL DEFAULT ''"),
+    ("pos_invoice_lines", "pack", "TEXT"),
+    ("pos_invoice_lines", "base_qty_milli", "INTEGER"),
+    ("pos_invoice_lines", "serials", "TEXT"),
 ]
+
+# Selling units beyond the item's base unit (box of 12 pcs, 25 kg bag ...).
+EXTRA_SCHEMA = [
+    "CREATE TABLE IF NOT EXISTS pos_product_packs (business_id TEXT NOT NULL, product_id TEXT NOT NULL, name TEXT NOT NULL,"
+    " factor_milli INTEGER NOT NULL, price_paise INTEGER, barcode TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,"
+    " PRIMARY KEY (business_id, product_id, name))",
+    "CREATE TABLE IF NOT EXISTS pos_serials (business_id TEXT NOT NULL, product_id TEXT NOT NULL, serial TEXT NOT NULL,"
+    " status TEXT NOT NULL, purchase_id TEXT, invoice_id TEXT, updated_at TEXT NOT NULL,"
+    " PRIMARY KEY (business_id, product_id, serial))",
+    "CREATE INDEX IF NOT EXISTS idx_pos_serials_lookup ON pos_serials(business_id, serial)",
+]
+
+
+def imei_valid(value: str) -> bool:
+    """15-digit IMEI with a correct Luhn check digit."""
+    if not re.fullmatch(r"\d{15}", value or ""):
+        return False
+    total = 0
+    for i, ch in enumerate(value[:14]):
+        d = int(ch)
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return (10 - total % 10) % 10 == int(value[14])
 
 
 class PosStore:
@@ -170,6 +205,8 @@ class PosStore:
         self.clock = clock
         with self._connect() as conn:
             for statement in SCHEMA:
+                conn.execute(statement)
+            for statement in EXTRA_SCHEMA:
                 conn.execute(statement)
             for table, column, decl in MIGRATIONS:
                 have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
@@ -375,11 +412,13 @@ class PosStore:
             if price < 0 or price > 10_00_00_000_00:
                 raise PosError(400, "price", "Enter the selling price.")
             out["price_paise"] = price
-        for key in ("price_includes_tax", "track_stock", "is_service", "track_batches"):
+        for key in ("price_includes_tax", "track_stock", "is_service", "track_batches", "track_serials"):
             if key in data or not partial:
                 out[key] = 1 if data.get(key, key == "price_includes_tax") else 0
-        if out.get("track_batches"):
-            out["track_stock"] = 1  # batches are stock
+        if out.get("track_batches") or out.get("track_serials"):
+            out["track_stock"] = 1  # batches / serials are stock
+        if "serial_kind" in data:
+            out["serial_kind"] = "imei" if data.get("serial_kind") == "imei" else ""
         if "low_stock_milli" in data:
             out["low_stock_milli"] = max(0, int(data.get("low_stock_milli") or 0))
         if "category" in data or not partial:
@@ -460,11 +499,80 @@ class PosStore:
     @staticmethod
     def _product_out(row: sqlite3.Row, stock: Optional[int]) -> Dict[str, Any]:
         out = dict(row)
-        for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches"):
+        for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches", "track_serials"):
             out[key] = bool(out.get(key))
         out["stock_milli"] = stock if out["track_stock"] else None
         out["low_stock"] = bool(out["track_stock"] and (stock or 0) <= out["low_stock_milli"])
         return out
+
+    def _packs(self, conn: sqlite3.Connection, business_id: str) -> Dict[str, List[Dict[str, Any]]]:
+        out: Dict[str, List[Dict[str, Any]]] = {}
+        for r in conn.execute("SELECT product_id, name, factor_milli, price_paise, barcode FROM pos_product_packs WHERE"
+                              " business_id = ? ORDER BY factor_milli", (business_id,)):
+            out.setdefault(r["product_id"], []).append({k: r[k] for k in ("name", "factor_milli", "price_paise", "barcode")})
+        return out
+
+    def set_pack(self, business_id: str, user: str, product_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """A selling / buying unit of an item: e.g. 'box' = 12 pcs. ``factor_milli`` = base units per pack
+        (x1000). ``remove`` deletes the unit (issued bills keep their own copy)."""
+        name = _clean(data.get("name"), 20).lower()
+        if not re.fullmatch(r"[a-z0-9 \-]{1,20}", name):
+            raise PosError(400, "name", "Unit name: 1-20 letters / digits (e.g. box, bag, case).")
+        with self._tx() as conn:
+            self._require(conn, business_id, user, "products")
+            product = conn.execute("SELECT * FROM pos_products WHERE id = ? AND business_id = ?",
+                                   (product_id, business_id)).fetchone()
+            if product is None:
+                raise PosError(404, "product", "Item not found.")
+            now = self.clock().isoformat()
+            if data.get("remove"):
+                conn.execute("DELETE FROM pos_product_packs WHERE business_id = ? AND product_id = ? AND name = ?",
+                             (business_id, product_id, name))
+                self._audit(conn, business_id, user, "pack.remove", product_id, {"name": name}, now)
+            else:
+                if name == product["unit"]:
+                    raise PosError(400, "name", "That is already the item's base unit.")
+                factor = int(data.get("factor_milli") or 0)
+                if factor <= 0 or factor > 1_000_000_000:
+                    raise PosError(400, "factor", f"How many {product['unit']} are in one {name}?")
+                price = data.get("price_paise")
+                if price is not None and int(price) < 0:
+                    raise PosError(400, "price", "Price cannot be negative.")
+                conn.execute("INSERT INTO pos_product_packs (business_id, product_id, name, factor_milli, price_paise, barcode,"
+                             " created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(business_id, product_id, name) DO UPDATE"
+                             " SET factor_milli = excluded.factor_milli, price_paise = excluded.price_paise,"
+                             " barcode = excluded.barcode",
+                             (business_id, product_id, name, factor, None if price is None else int(price),
+                              _clean(data.get("barcode"), 64), now))
+                self._audit(conn, business_id, user, "pack.set", product_id,
+                            {"name": name, "factor_milli": factor, "price_paise": price}, now)
+        return self.product(business_id, user, product_id)
+
+    def serial_lookup(self, business_id: str, user: str, serial: str) -> Dict[str, Any]:
+        """Warranty / theft check: where a serial or IMEI is in this shop's records."""
+        sn = _clean(serial, 40).upper()
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "view")
+            rows = conn.execute("SELECT s.*, p.name FROM pos_serials s JOIN pos_products p ON p.id = s.product_id WHERE"
+                                " s.business_id = ? AND s.serial = ?", (business_id, sn)).fetchall()
+            out = []
+            for r in rows:
+                inv = None
+                if r["invoice_id"]:
+                    i = conn.execute("SELECT number, local_date FROM pos_invoices WHERE id = ?", (r["invoice_id"],)).fetchone()
+                    inv = {"id": r["invoice_id"], "number": i["number"], "date": i["local_date"]} if i else None
+                out.append({"product_id": r["product_id"], "name": r["name"], "status": r["status"], "invoice": inv,
+                            "purchase_id": r["purchase_id"]})
+        if not out:
+            raise PosError(404, "serial", "This serial / IMEI is not in this shop's records.")
+        return {"serial": sn, "records": out}
+
+    def serials_in_stock(self, business_id: str, user: str, product_id: str) -> List[str]:
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "view")
+            return [r["serial"] for r in conn.execute(
+                "SELECT serial FROM pos_serials WHERE business_id = ? AND product_id = ? AND status = 'in_stock' ORDER BY"
+                " updated_at, serial", (business_id, product_id))]
 
     def product(self, business_id: str, user: str, product_id: str) -> Dict[str, Any]:
         with self._connect() as conn:
@@ -474,7 +582,8 @@ class PosStore:
             if row is None:
                 raise PosError(404, "product", "Item not found.")
             stock = self._stock_map(conn, business_id).get(product_id, 0)
-        return self._product_out(row, stock)
+            packs = self._packs(conn, business_id).get(product_id, [])
+        return {**self._product_out(row, stock), "packs": packs}
 
     def products(self, business_id: str, user: str, query: str = "", include_inactive: bool = False) -> List[Dict[str, Any]]:
         with self._connect() as conn:
@@ -485,11 +594,13 @@ class PosStore:
                 sql += " AND active = 1"
             q = _clean(query, 60)
             if q:
-                sql += " AND (name LIKE ? OR name_te LIKE ? OR sku = ? OR barcode = ?)"
-                args += [f"%{q}%", f"%{q}%", q, q]
+                sql += (" AND (name LIKE ? OR name_te LIKE ? OR sku = ? OR barcode = ? OR id IN (SELECT product_id FROM"
+                        " pos_product_packs WHERE business_id = ? AND barcode = ?))")
+                args += [f"%{q}%", f"%{q}%", q, q, business_id, q]
             rows = conn.execute(sql + " ORDER BY name LIMIT 500", args).fetchall()
             stock = self._stock_map(conn, business_id)
-        return [self._product_out(r, stock.get(r["id"], 0)) for r in rows]
+            packs = self._packs(conn, business_id)
+        return [{**self._product_out(r, stock.get(r["id"], 0)), "packs": packs.get(r["id"], [])} for r in rows]
 
     def product_history(self, business_id: str, user: str, product_id: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
@@ -800,8 +911,19 @@ class PosStore:
                                    (raw.get("product_id"), business_id)).fetchone()
             if product is None:
                 raise PosError(400, "product", f"Item on line {index} is not in this shop's active list.")
-            listed = prices.get(product["id"], product["price_paise"])
-            source = "customer_rate" if product["id"] in prices else "item_price"
+            pack = None
+            if raw.get("pack"):
+                pack = conn.execute("SELECT * FROM pos_product_packs WHERE business_id = ? AND product_id = ? AND name = ?",
+                                    (business_id, product["id"], str(raw["pack"]))).fetchone()
+                if pack is None:
+                    raise PosError(400, "pack", f"Line {index}: {product['name']} has no '{raw['pack']}' unit.")
+            if pack is not None:
+                listed = pack["price_paise"] if pack["price_paise"] is not None else \
+                    _round_div(product["price_paise"] * pack["factor_milli"], 1000)
+                source = "pack_price"
+            else:
+                listed = prices.get(product["id"], product["price_paise"])
+                source = "customer_rate" if product["id"] in prices else "item_price"
             price = int(raw["unit_price_paise"]) if raw.get("unit_price_paise") is not None else listed
             if price != listed:
                 if "price_override" not in PERMISSIONS[role]:
@@ -817,8 +939,28 @@ class PosStore:
                 weight = {"gross_milli": gross, "tare_milli": tare, "net_milli": qty,
                           "source": "scale_unverified" if weight.get("source") == "scale" else "typed",
                           "live_weight_milli": int(weight.get("live_weight_milli") or 0) or None}
+            if qty <= 0 and not weight:
+                raise PosError(400, "qty", f"Line {index}: quantity must be more than zero.")
+            base_qty = qty
+            if pack is not None:
+                if (qty * pack["factor_milli"]) % 1000:
+                    raise PosError(400, "qty", f"Line {index}: that many {pack['name']} is not a whole {product['unit']} count.")
+                base_qty = qty * pack["factor_milli"] // 1000
+            serials: List[str] = []
+            if product["track_serials"]:
+                serials = [_clean(x, 40).upper() for x in (raw.get("serials") or []) if _clean(x, 40)]
+                if base_qty % 1000 or len(serials) != base_qty // 1000 or len(set(serials)) != len(serials):
+                    raise PosError(400, "serials", f"Line {index}: {product['name']} needs one serial / IMEI per piece "
+                                                   f"({base_qty // 1000} expected).")
+                for sn in serials:
+                    row = conn.execute("SELECT status FROM pos_serials WHERE business_id = ? AND product_id = ? AND serial = ?",
+                                       (business_id, product["id"], sn)).fetchone()
+                    if row is None or row["status"] != "in_stock":
+                        raise PosError(409, "serial_not_in_stock", f"Line {index}: {sn} is not in stock for {product['name']}.")
             lines.append({"line_no": index, "product_id": product["id"], "name": product["name"],
-                          "hsn_sac": product["hsn_sac"], "unit": product["unit"], "qty_milli": qty,
+                          "hsn_sac": product["hsn_sac"], "unit": pack["name"] if pack is not None else product["unit"],
+                          "qty_milli": qty, "pack": pack["name"] if pack is not None else None, "base_qty_milli": base_qty,
+                          "serials": serials,
                           "unit_price_paise": price, "price_source": source,
                           "discount_paise": int(raw.get("discount_paise") or 0), "rate_bp": product["rate_bp"],
                           "cess_bp": product["cess_bp"], "category": product["category"],
@@ -907,7 +1049,11 @@ class PosStore:
             elif line["track_stock"]:
                 conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
                              " created_by) VALUES (?, ?, ?, 'sale', ?, ?, ?, ?)",
-                             (business_id, line["product_id"], -line["qty_milli"], invoice_id, number, now, user))
+                             (business_id, line["product_id"], -line.get("base_qty_milli", line["qty_milli"]), invoice_id,
+                              number, now, user))
+            for sn in line.get("serials") or []:
+                conn.execute("UPDATE pos_serials SET status = 'sold', invoice_id = ?, updated_at = ? WHERE business_id = ?"
+                             " AND product_id = ? AND serial = ?", (invoice_id, now, business_id, line["product_id"], sn))
         for p in payments:
             self._insert_payment(conn, business_id, invoice_id, customer["id"] if customer else None, p["method"],
                                  int(p["amount_paise"]), p.get("reference"), "sale", user, at)
@@ -938,7 +1084,7 @@ class PosStore:
         date is the last day it may be sold). Expired stock is never sold; when only expired stock
         is left the sale is refused. No batch stock at all -> no allocation (the line is still
         sold and the stock goes negative, as for any tracked item)."""
-        need = int(line["qty_milli"])
+        need = int(line.get("base_qty_milli") or line["qty_milli"])
         batches = self.batch_balances(conn, business_id, line["product_id"])
         usable = [b for b in batches if not b["expiry_date"] or b["expiry_date"] >= local_date]
         expired = [b for b in batches if b["expiry_date"] and b["expiry_date"] < local_date]
@@ -1004,6 +1150,11 @@ class PosStore:
         if line.get("batches"):
             conn.execute("UPDATE pos_invoice_lines SET batches = ? WHERE invoice_id = ? AND line_no = ?",
                          (json.dumps(line["batches"]), invoice_id, line["line_no"]))
+        if line.get("pack") or line.get("serials") or line.get("base_qty_milli") not in (None, line["qty_milli"]):
+            conn.execute("UPDATE pos_invoice_lines SET pack = ?, base_qty_milli = ?, serials = ? WHERE invoice_id = ? AND"
+                         " line_no = ?", (line.get("pack"), line.get("base_qty_milli"),
+                                          json.dumps(line["serials"]) if line.get("serials") else None, invoice_id,
+                                          line["line_no"]))
 
     def _insert_payment(self, conn: sqlite3.Connection, business_id: str, invoice_id: Optional[str],
                         customer_id: Optional[str], method: str, amount: int, reference: Any, kind: str, user: str,
@@ -1051,6 +1202,7 @@ class PosStore:
             item["price_includes_tax"] = bool(item["price_includes_tax"])
             item["weight"] = json.loads(item["weight"]) if item["weight"] else None
             item["batches"] = json.loads(item["batches"]) if item.get("batches") else None
+            item["serials"] = json.loads(item["serials"]) if item.get("serials") else None
             out["lines"].append(item)
         out["payments"] = [dict(p) for p in payments]
         out["credit_notes"] = [dict(c) for c in credits]
@@ -1136,7 +1288,23 @@ class PosStore:
             if qty <= 0 or qty > left:
                 raise PosError(400, "qty", f"Line {src['line_no']}: at most {left / 1000:g} {src['unit']} can be credited.")
             discount = int(round(src["discount_paise"] * qty / src["qty_milli"]))
+            src_base = src["base_qty_milli"] if src["base_qty_milli"] is not None else src["qty_milli"]
+            if (qty * src_base) % src["qty_milli"]:
+                raise PosError(400, "qty", f"Line {src['line_no']}: return a whole number of {src['unit']}.")
+            base_qty = qty * src_base // src["qty_milli"]
+            sold_serials = json.loads(src["serials"]) if src["serials"] else []
+            back_serials: List[str] = []
+            if sold_serials:
+                back_serials = [_clean(x, 40).upper() for x in (raw.get("serials") or [])]
+                still_sold = {r["serial"] for r in conn.execute(
+                    "SELECT serial FROM pos_serials WHERE business_id = ? AND product_id = ? AND status = 'sold' AND"
+                    " invoice_id = ?", (business_id, src["product_id"], invoice_id))}
+                if len(back_serials) != base_qty // 1000 or len(set(back_serials)) != len(back_serials) or \
+                        any(sn not in sold_serials or sn not in still_sold for sn in back_serials):
+                    raise PosError(400, "serials", f"Line {src['line_no']}: choose which serial / IMEI numbers came back "
+                                                   f"({base_qty // 1000} from this bill).")
             lines.append({"line_no": n, "original_line_no": src["line_no"], "product_id": src["product_id"],
+                          "pack": src["pack"], "base_qty_milli": base_qty, "serials": back_serials,
                           "name": src["name"], "hsn_sac": src["hsn_sac"], "unit": src["unit"], "qty_milli": qty,
                           "unit_price_paise": src["unit_price_paise"], "price_source": "original_invoice",
                           "discount_paise": discount, "rate_bp": src["rate_bp"], "cess_bp": src["cess_bp"],
@@ -1183,7 +1351,7 @@ class PosStore:
             product = conn.execute("SELECT track_stock FROM pos_products WHERE id = ?", (line["product_id"],)).fetchone()
             if line["restock"] and product is not None and product["track_stock"]:
                 # Returned goods go back to the batches they were sold from (same order).
-                left = line["qty_milli"]
+                left = line.get("base_qty_milli") or line["qty_milli"]
                 for b in line.get("source_batches") or []:
                     if left <= 0:
                         break
@@ -1197,6 +1365,11 @@ class PosStore:
                     conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
                                  " created_by) VALUES (?, ?, ?, 'return', ?, ?, ?, ?)",
                                  (business_id, line["product_id"], left, note_id, number, now, user))
+            # A returned serial goes back on the shelf only when the goods are restocked.
+            for sn in line.get("serials") or []:
+                conn.execute("UPDATE pos_serials SET status = ?, updated_at = ? WHERE business_id = ? AND product_id = ?"
+                             " AND serial = ?", ("in_stock" if line["restock"] else "returned", now, business_id,
+                                                 line["product_id"], sn))
         if refund_amount:
             self._insert_payment(conn, business_id, note_id, original["customer_id"], refund["method"], -refund_amount,
                                  refund.get("reference"), "refund", user, at)
@@ -1242,6 +1415,8 @@ class PosStore:
                              " created_by, batch_no, expiry_date) VALUES (?, ?, ?, 'cancel', ?, ?, ?, ?, ?, ?)",
                              (business_id, move["product_id"], -move["qty_milli"], invoice_id, reason, now, user,
                               move["batch_no"], move["expiry_date"]))
+            conn.execute("UPDATE pos_serials SET status = 'in_stock', invoice_id = NULL, updated_at = ? WHERE business_id = ?"
+                         " AND invoice_id = ? AND status = 'sold'", (now, business_id, invoice_id))
             for pay in conn.execute("SELECT method, amount_paise, customer_id FROM pos_payments WHERE invoice_id = ? AND"
                                     " kind = 'sale'", (invoice_id,)).fetchall():
                 self._insert_payment(conn, business_id, invoice_id, pay["customer_id"], pay["method"],

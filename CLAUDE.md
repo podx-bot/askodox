@@ -11,7 +11,9 @@ this file, don't trust it blindly.
   #221 (income tax / GST / fraud / smart tricks), #222 (BLE devices, push-to-talk), #223 (photo measurement), #224 (POS
   core), #225 (restaurant tables / KOT / kitchen, held bills), POS round 3 PR (barcode from a camera photo, BLE scale reading,
   invoice PDF + native `shareFile`, suppliers / purchase bills / supplier ledger, batch + expiry FEFO, valuation, input
-  tax as recorded). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  tax as recorded), POS round 4 PR #227 (box <-> pieces packs, serial / IMEI, purchase orders, Classic Bluetooth + USB
+  printers via `AskodoxHardware.kt` on channel `com.askodox.app/hardware`, Telugu PDF text as images, Smart Tools
+  protractor / magnifier / light / sound meters / vehicle walk-around report). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -522,6 +524,10 @@ this file, don't trust it blindly.
   NEVER add `mobile_scanner`: it broke the OTP SMS-consent background case (`sms-consent-e2e.yml`, A/B on 2026-10-24);
   barcodes are read from a photo with pure-Dart `zxing_lib` (`askodoxDecodeBarcodePixels`). Any new native plugin must
   pass `sms-consent-e2e.yml` (it only runs on Kotlin / gradle changes -- dispatch it by hand for a pubspec change).
+- Printers / meters native code lives ONLY in `AskodoxHardware.kt` (own channel `com.askodox.app/hardware`, one
+  register line in MainActivity); saved printer ids `classic:<MAC>` / `usb:<device>` route native, others BLE
+  (`AskodoxRoutingPrinterTransport`). PDFs draw non-ASCII text via `lib/core/pdf/askodox_pdf_text.dart` (await `want`
+  before building). POS packs: stock + FEFO always in base units (`base_qty_milli`); serials in `pos_serials`.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

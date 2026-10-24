@@ -88,6 +88,8 @@ class ProductIn(BaseModel):
     category: Optional[str] = Field(default=None, max_length=20)
     track_stock: Optional[bool] = None
     track_batches: Optional[bool] = None
+    track_serials: Optional[bool] = None
+    serial_kind: Optional[str] = Field(default=None, pattern="^(|imei)$")
     low_stock_milli: Optional[int] = Field(default=None, ge=0)
     opening_stock_milli: Optional[int] = None
     active: Optional[bool] = None
@@ -129,6 +131,8 @@ class LineIn(BaseModel):
     unit_price_paise: Optional[int] = Field(default=None, ge=0)
     discount_paise: int = Field(default=0, ge=0)
     weight: Optional[WeightIn] = None
+    pack: Optional[str] = Field(default=None, max_length=20)
+    serials: Optional[List[str]] = Field(default=None, max_length=500)
 
 
 class PaymentIn(BaseModel):
@@ -154,6 +158,7 @@ class CreditLineIn(BaseModel):
     line_no: int = Field(ge=1)
     qty_milli: int = Field(gt=0)
     restock: bool = True
+    serials: Optional[List[str]] = Field(default=None, max_length=500)
 
 
 class CreditIn(BaseModel):
@@ -554,6 +559,8 @@ class PurchaseLineIn(BaseModel):
     discount_paise: int = Field(default=0, ge=0)
     batch_no: Optional[str] = Field(default=None, max_length=40)
     expiry_date: Optional[str] = Field(default=None, max_length=10)
+    pack: Optional[str] = Field(default=None, max_length=20)
+    serials: Optional[List[str]] = Field(default=None, max_length=500)
 
 
 class PurchaseIn(BaseModel):
@@ -628,3 +635,92 @@ def valuation(business_id: str, request: Request) -> dict:
 @router.get("/businesses/{business_id}/reports/input-tax")
 def input_tax(business_id: str, date_from: str, date_to: str, request: Request) -> dict:
     return _call(_purchases(request).input_tax, business_id, _user(request), date_from, date_to)
+
+
+# ------------------------------------------------------------ packs / serials / purchase orders
+class PackIn(BaseModel):
+    name: str = Field(min_length=1, max_length=20)
+    factor_milli: Optional[int] = Field(default=None, gt=0)
+    price_paise: Optional[int] = Field(default=None, ge=0)
+    barcode: str = Field(default="", max_length=64)
+    remove: bool = False
+
+
+@router.put("/businesses/{business_id}/products/{product_id}/packs")
+def set_pack(business_id: str, product_id: str, body: PackIn, request: Request) -> dict:
+    return _call(_store(request).set_pack, business_id, _user(request), product_id, body.model_dump())
+
+
+@router.get("/businesses/{business_id}/products/{product_id}/serials")
+def serials_in_stock(business_id: str, product_id: str, request: Request) -> dict:
+    return {"serials": _call(_store(request).serials_in_stock, business_id, _user(request), product_id)}
+
+
+@router.get("/businesses/{business_id}/serials/{serial}")
+def serial_lookup(business_id: str, serial: str, request: Request) -> dict:
+    return _call(_store(request).serial_lookup, business_id, _user(request), serial)
+
+
+class PoLineIn(BaseModel):
+    product_id: str = Field(max_length=40)
+    qty_milli: int = Field(gt=0, le=10_000_000_000)
+    pack: Optional[str] = Field(default=None, max_length=20)
+    cost_paise: Optional[int] = Field(default=None, ge=0)
+
+
+class PoIn(BaseModel):
+    supplier_id: str = Field(max_length=40)
+    lines: List[PoLineIn] = Field(min_length=1, max_length=200)
+    expected_date: Optional[str] = Field(default=None, max_length=10)
+    notes: str = Field(default="", max_length=240)
+
+
+class PoStatusIn(BaseModel):
+    status: str = Field(pattern="^(sent|cancelled)$")
+
+
+class PoReceiveLineIn(BaseModel):
+    line_no: int = Field(ge=1)
+    qty_milli: int = Field(gt=0)
+    cost_paise: Optional[int] = Field(default=None, ge=0)
+    rate_bp: Optional[int] = Field(default=None, ge=0)
+    batch_no: Optional[str] = Field(default=None, max_length=40)
+    expiry_date: Optional[str] = Field(default=None, max_length=10)
+    serials: Optional[List[str]] = Field(default=None, max_length=500)
+
+
+class PoReceiveIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    supplier_bill_no: str = Field(min_length=1, max_length=40)
+    bill_date: Optional[str] = Field(default=None, max_length=10)
+    lines: List[PoReceiveLineIn] = Field(min_length=1, max_length=200)
+    supplier_total_paise: Optional[int] = Field(default=None, ge=0)
+
+
+@router.get("/businesses/{business_id}/purchase-orders")
+def purchase_orders(business_id: str, request: Request, status: str = "") -> dict:
+    return {"orders": _call(_purchases(request).pos_list, business_id, _user(request), status)}
+
+
+@router.post("/businesses/{business_id}/purchase-orders")
+def create_po(business_id: str, body: PoIn, request: Request) -> dict:
+    data = body.model_dump()
+    data["lines"] = [{k: v for k, v in l.items() if v is not None} for l in data["lines"]]
+    return _call(_purchases(request).create_po, business_id, _user(request), data)
+
+
+@router.get("/businesses/{business_id}/purchase-orders/{po_id}")
+def purchase_order(business_id: str, po_id: str, request: Request) -> dict:
+    return _call(_purchases(request).po, business_id, _user(request), po_id)
+
+
+@router.post("/businesses/{business_id}/purchase-orders/{po_id}/status")
+def po_status(business_id: str, po_id: str, body: PoStatusIn, request: Request) -> dict:
+    return _call(_purchases(request).set_po_status, business_id, _user(request), po_id, body.status)
+
+
+@router.post("/businesses/{business_id}/purchase-orders/{po_id}/receive")
+def po_receive(business_id: str, po_id: str, body: PoReceiveIn, request: Request) -> dict:
+    data = body.model_dump()
+    data["lines"] = [{k: v for k, v in l.items() if v is not None} for l in data["lines"]]
+    return _call(_purchases(request).receive_po, business_id, _user(request), po_id, data)

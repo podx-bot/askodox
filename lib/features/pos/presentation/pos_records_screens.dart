@@ -36,6 +36,67 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
 
   void _reload() => setState(() => _items = ref.read(askodoxPosRepositoryProvider).products(widget.businessId));
 
+  /// Selling / buying units of an item: e.g. 1 box = 12 pcs at its own price and barcode.
+  Future<void> _units(AskodoxJson p) async {
+    final te = askodoxPosTe(context);
+    final name = TextEditingController();
+    final factor = TextEditingController();
+    final price = TextEditingController();
+    final barcode = TextEditingController();
+    final packs = askodoxPosList(p['packs']);
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${p['name']} · ${te ? 'యూనిట్లు' : 'units'}'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${te ? 'ప్రాథమిక యూనిట్' : 'Base unit'}: ${p['unit']}'),
+            for (final k in packs)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text('1 ${k['name']} = ${askodoxQty(askodoxPosInt(k['factor_milli']), '${p['unit']}')}'),
+                subtitle: Text(k['price_paise'] == null ? (te ? 'ధర: లెక్క ప్రకారం' : 'price: computed') : askodoxPaise(askodoxPosInt(k['price_paise']))),
+                trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => Navigator.pop(ctx, 'remove:${k['name']}')),
+              ),
+            const Divider(),
+            Text(te ? 'కొత్త యూనిట్' : 'Add a unit', style: const TextStyle(fontWeight: FontWeight.w700)),
+            AskodoxPosField(controller: name, label: te ? 'పేరు (box, bag, case)' : 'Name (box, bag, case)', maxLength: 20),
+            AskodoxPosField(controller: factor, number: true, label: te ? 'ఒక దానిలో ఎన్ని ${p['unit']}' : 'How many ${p['unit']} in one'),
+            AskodoxPosField(controller: price, number: true, label: te ? 'దాని ధర ₹ (ఖాళీ = లెక్క)' : 'Its price ₹ (empty = computed)'),
+            AskodoxPosField(controller: barcode, label: te ? 'దాని బార్‌కోడ్ (ఐచ్ఛికం)' : 'Its barcode (optional)', maxLength: 64),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'మూసివేయి' : 'Close')),
+          FilledButton(key: const Key('askodoxPosSavePack'), onPressed: () => Navigator.pop(ctx, 'add'), child: Text(te ? 'సేవ్' : 'Save')),
+        ],
+      ),
+    );
+    if (action == null || !mounted) return;
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    try {
+      if (action.startsWith('remove:')) {
+        await repo.setPack(widget.businessId, '${p['id']}', {'name': action.substring(7), 'remove': true});
+      } else {
+        final f = askodoxParseMilli(factor.text);
+        if (name.text.trim().isEmpty || f == null || f <= 0) {
+          askodoxPosSnack(context, te ? 'పేరు, సంఖ్య నమోదు చేయండి.' : 'Enter the name and how many.');
+          return;
+        }
+        await repo.setPack(widget.businessId, '${p['id']}', {
+          'name': name.text.trim().toLowerCase(),
+          'factor_milli': f,
+          if (askodoxParsePaise(price.text) != null) 'price_paise': askodoxParsePaise(price.text),
+          'barcode': barcode.text.trim(),
+        });
+      }
+      _reload();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
   Future<void> _stock(AskodoxJson p) async {
     final te = askodoxPosTe(context);
     final qty = TextEditingController();
@@ -112,9 +173,10 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
                   if (p['stock_milli'] != null) '${te ? 'స్టాక్' : 'stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}',
                   if (p['low_stock'] == true) (te ? 'తక్కువ స్టాక్' : 'LOW'),
                 ].join(' · ')),
-                trailing: p['track_stock'] == true
+                trailing: p['track_stock'] == true && p['track_serials'] != true
                     ? IconButton(onPressed: () => _stock(p), icon: const Icon(Icons.inventory_outlined))
                     : null,
+                onTap: () => _units(p),
               ),
           ]);
         },
@@ -144,6 +206,8 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
   bool _inclusive = true;
   bool _track = false;
   bool _batches = false;
+  bool _serials = false;
+  bool _imei = false;
   bool _busy = false;
   String? _error;
 
@@ -180,9 +244,11 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
         'category': _category,
         'hsn_sac': _hsn.text.trim(),
         'barcode': _barcode.text.trim(),
-        'track_stock': _track || _batches,
+        'track_stock': _track || _batches || _serials,
         'track_batches': _batches,
-        if (_track && !_batches) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
+        'track_serials': _serials,
+        if (_serials) 'serial_kind': _imei ? 'imei' : '',
+        if (_track && !_batches && !_serials) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
       });
       if (mounted) Navigator.of(context).pop(true);
     } on AskodoxPosException catch (e) {
@@ -273,7 +339,23 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
           title: Text(te ? 'బ్యాచ్ / ఎక్స్‌పైరీ లెక్క (మందులు మొదలైనవి)' : 'Track batch / expiry (medicines etc.)'),
           subtitle: Text(te ? 'స్టాక్ కొనుగోలు బిల్లుతో బ్యాచ్ వారీగా వస్తుంది; ఎక్స్‌పైర్ అయినది అమ్మకానికి రాదు.' : 'Stock comes in per batch through purchase bills; expired stock is never sold.'),
         ),
-        if (_track && !_batches) AskodoxPosField(controller: _opening, number: true, label: te ? 'ప్రస్తుత స్టాక్' : 'Opening stock ($_unit)'),
+        SwitchListTile(
+          key: const Key('askodoxPosTrackSerials'),
+          contentPadding: EdgeInsets.zero,
+          value: _serials,
+          onChanged: (v) => setState(() => _serials = v),
+          title: Text(te ? 'సీరియల్ / IMEI ప్రతి పీస్‌కి (మొబైల్స్, ఎలక్ట్రానిక్స్)' : 'Serial / IMEI per piece (mobiles, electronics)'),
+          subtitle: Text(te ? 'కొనుగోలు బిల్లుతో నంబర్లు వస్తాయి; అమ్మేటప్పుడు ఏ పీస్ అమ్మారో ఎంచుకోవాలి.' : 'Numbers come in on purchase bills; each sale picks the exact pieces.'),
+        ),
+        if (_serials)
+          CheckboxListTile(
+            key: const Key('askodoxPosImei'),
+            contentPadding: EdgeInsets.zero,
+            value: _imei,
+            onChanged: (v) => setState(() => _imei = v ?? false),
+            title: Text(te ? 'ఇవి IMEI నంబర్లు (15 అంకెలు, చెక్ అంకెతో పరీక్ష)' : 'These are IMEIs (15 digits, check digit verified)'),
+          ),
+        if (_track && !_batches && !_serials) AskodoxPosField(controller: _opening, number: true, label: te ? 'ప్రస్తుత స్టాక్' : 'Opening stock ($_unit)'),
         if (_error != null) Text(_error!, key: const Key('askodoxPosItemError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
         FilledButton(key: const Key('askodoxPosSaveItem'), onPressed: _busy ? null : _save, child: Text(te ? 'సేవ్' : 'Save')),
       ]),
@@ -923,6 +1005,7 @@ class AskodoxPosPrinterScreen extends ConsumerStatefulWidget {
 class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScreen> {
   AskodoxSavedPrinter? _saved;
   List<AskodoxBleDevice> _found = const [];
+  List<AskodoxNativePrinter> _native = const [];
   bool _scanning = false;
   int _paper = 58;
   String? _message;
@@ -962,6 +1045,32 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
     }
   }
 
+  Future<void> _listNative(bool usb) async {
+    final te = askodoxPosTe(context);
+    final native = ref.read(askodoxNativePrintersProvider);
+    setState(() => _message = null);
+    try {
+      final rows = usb ? await native.usb() : await native.paired();
+      if (!mounted) return;
+      setState(() {
+        _native = rows;
+        if (rows.isEmpty) {
+          _message = usb
+              ? (te ? 'USB ప్రింటర్ కనిపించలేదు (OTG కేబుల్‌తో కనెక్ట్ చేయండి).' : 'No USB printer found (connect it with an OTG cable).')
+              : (te ? 'జత చేసిన పరికరాలు లేవు. ఫోన్ బ్లూటూత్ సెట్టింగ్స్‌లో ప్రింటర్‌ని జత చేయండి.' : 'No paired devices. Pair the printer in the phone\'s Bluetooth settings.');
+        }
+      });
+    } on AskodoxPrinterException catch (e) {
+      if (mounted) setState(() => _message = e.message(te));
+    }
+  }
+
+  Future<void> _chooseNative(AskodoxNativePrinter d) async {
+    final p = AskodoxSavedPrinter(id: d.id, name: d.name, paperMm: _paper);
+    await p.save();
+    if (mounted) setState(() => _saved = p);
+  }
+
   Future<void> _choose(AskodoxBleDevice d) async {
     final p = AskodoxSavedPrinter(id: d.id, name: d.name.isEmpty ? d.id : d.name, paperMm: _paper);
     await p.save();
@@ -993,8 +1102,8 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
       body: ListView(key: const Key('askodoxPosPrinter'), padding: const EdgeInsets.all(12), children: [
         Text(
           te
-              ? 'బ్లూటూత్ LE థర్మల్ ప్రింటర్లు (ESC/POS) మాత్రమే. క్లాసిక్ బ్లూటూత్, USB, Wi-Fi ప్రింటర్లు ఇంకా లేవు. ఏ మోడల్ ఇంకా నిజంగా పరీక్షించలేదు. తెలుగు పేర్లు చిత్రంగా ప్రింట్ అవుతాయి (ఇంకా ప్రింటర్‌పై పరీక్షించలేదు).'
-              : 'Bluetooth LE thermal printers (ESC/POS) only. Classic Bluetooth, USB and Wi-Fi printers are not supported yet. No model has been tested yet. Telugu names print as an image (not tested on a printer yet).',
+              ? 'ESC/POS థర్మల్ ప్రింటర్లు: బ్లూటూత్ LE, క్లాసిక్ బ్లూటూత్ (ముందు ఫోన్ సెట్టింగ్స్‌లో జత చేయండి), USB (OTG). Wi-Fi ప్రింటర్లు ఇంకా లేవు. ఏ మోడల్ ఇంకా నిజంగా పరీక్షించలేదు. తెలుగు పేర్లు చిత్రంగా ప్రింట్ అవుతాయి (ఇంకా ప్రింటర్‌పై పరీక్షించలేదు).'
+              : 'ESC/POS thermal printers: Bluetooth LE, Classic Bluetooth (pair it in phone settings first) and USB (OTG). Wi-Fi printers are not supported yet. No model has been tested yet. Telugu names print as an image (not tested on a printer yet).',
           key: const Key('askodoxPosPrinterLimits'),
           style: const TextStyle(fontSize: 12.5),
         ),
@@ -1017,15 +1126,39 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
             key: const Key('askodoxPosSavedPrinter'),
             leading: const Icon(Icons.print),
             title: Text(_saved!.name),
-            subtitle: Text('${_saved!.paperMm} mm'),
+            subtitle: Text('${_saved!.paperMm} mm · ${switch (askodoxPrinterLink(_saved!.id)) {
+              'classic' => te ? 'క్లాసిక్ బ్లూటూత్' : 'Classic Bluetooth',
+              'usb' => 'USB',
+              _ => 'Bluetooth LE',
+            }}'),
             trailing: TextButton(onPressed: _test, child: Text(te ? 'టెస్ట్ ప్రింట్' : 'Test print')),
           ),
         FilledButton.icon(
           key: const Key('askodoxPosPrinterScan'),
           onPressed: _scanning ? null : _scan,
           icon: const Icon(Icons.bluetooth_searching),
-          label: Text(_scanning ? (te ? 'వెతుకుతోంది…' : 'Scanning…') : (te ? 'ప్రింటర్ వెతుకు' : 'Find printer')),
+          label: Text(_scanning ? (te ? 'వెతుకుతోంది…' : 'Scanning…') : (te ? 'BLE ప్రింటర్ వెతుకు' : 'Find BLE printer')),
         ),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('askodoxPosPrinterPaired'),
+              onPressed: () => _listNative(false),
+              icon: const Icon(Icons.bluetooth_connected),
+              label: Text(te ? 'జత చేసినవి' : 'Paired'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('askodoxPosPrinterUsb'),
+              onPressed: () => _listNative(true),
+              icon: const Icon(Icons.usb),
+              label: const Text('USB'),
+            ),
+          ),
+        ]),
         if (_message != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_message!)),
         for (final d in _found)
           ListTile(
@@ -1033,6 +1166,14 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
             title: Text(d.name.isEmpty ? (te ? 'పేరు లేని పరికరం' : 'Unnamed device') : d.name),
             subtitle: Text('RSSI ${d.rssi}'),
             onTap: () => _choose(d),
+          ),
+        for (final d in _native)
+          ListTile(
+            key: ValueKey('askodoxPosPrinterNative-${d.id}'),
+            leading: Icon(d.kind == 'usb' ? Icons.usb : Icons.bluetooth),
+            title: Text(d.name),
+            subtitle: Text(d.hint ? (te ? 'ప్రింటర్‌లా కనిపిస్తోంది' : 'Looks like a printer') : d.id.split(':').skip(1).join(':')),
+            onTap: () => _chooseNative(d),
           ),
       ]),
     );

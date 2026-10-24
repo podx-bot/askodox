@@ -82,8 +82,9 @@ const askodoxSmartTools = <AskodoxSmartTool>[
       needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.hardwareUnverified,
       route: '/tools/level', safetyNote: _notCertified),
   AskodoxSmartTool(
-      id: 'protractor', nameEn: 'Protractor', nameTe: 'ప్రొట్రాక్టర్', group: AskodoxToolGroup.measure,
-      needs: {AskodoxToolNeed.camera}, readiness: AskodoxToolReadiness.comingSoon),
+      id: 'protractor', nameEn: 'Protractor (from a photo)', nameTe: 'ప్రొట్రాక్టర్ (ఫోటోతో)', group: AskodoxToolGroup.measure,
+      needs: {AskodoxToolNeed.camera}, readiness: AskodoxToolReadiness.hardwareUnverified,
+      route: '/tools/protractor', safetyNote: _notCertified),
   AskodoxSmartTool(
       id: 'plumb', nameEn: 'Plumb-line assistant', nameTe: 'ప్లంబ్ లైన్', group: AskodoxToolGroup.measure,
       needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.hardwareUnverified,
@@ -113,17 +114,19 @@ const askodoxSmartTools = <AskodoxSmartTool>[
       needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.hardwareUnverified,
       route: '/tools/compass', safetyNote: 'Metal and electronics nearby disturb the reading.'),
   AskodoxSmartTool(
-      id: 'magnifier', nameEn: 'Magnifier', nameTe: 'మాగ్నిఫైయర్', group: AskodoxToolGroup.inspect,
-      needs: {AskodoxToolNeed.camera}, readiness: AskodoxToolReadiness.comingSoon),
+      id: 'magnifier', nameEn: 'Magnifier (photo zoom)', nameTe: 'మాగ్నిఫైయర్ (ఫోటో జూమ్)', group: AskodoxToolGroup.inspect,
+      needs: {AskodoxToolNeed.camera}, readiness: AskodoxToolReadiness.hardwareUnverified, route: '/tools/magnifier'),
   AskodoxSmartTool(
       id: 'colour', nameEn: 'Colour picker', nameTe: 'రంగు గుర్తింపు', group: AskodoxToolGroup.inspect,
       needs: {AskodoxToolNeed.camera}, readiness: AskodoxToolReadiness.comingSoon),
   AskodoxSmartTool(
       id: 'light', nameEn: 'Light meter', nameTe: 'వెలుతురు కొలత', group: AskodoxToolGroup.sensors,
-      needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.comingSoon),
+      needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.hardwareUnverified, route: '/tools/light',
+      safetyNote: 'Phone light sensors are not calibrated; approximate lux only.'),
   AskodoxSmartTool(
       id: 'sound', nameEn: 'Sound-level estimator', nameTe: 'శబ్ద స్థాయి', group: AskodoxToolGroup.sensors,
-      needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.comingSoon),
+      needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.hardwareUnverified, route: '/tools/sound',
+      safetyNote: 'Relative microphone level unless calibrated; not for legal or occupational noise checks.'),
   AskodoxSmartTool(
       id: 'vibration', nameEn: 'Vibration monitor', nameTe: 'కంపనాల పరిశీలన', group: AskodoxToolGroup.sensors,
       needs: {AskodoxToolNeed.phoneSensor}, readiness: AskodoxToolReadiness.comingSoon),
@@ -138,6 +141,11 @@ const askodoxSmartTools = <AskodoxSmartTool>[
       needs: {AskodoxToolNeed.camera, AskodoxToolNeed.cloudApi}, readiness: AskodoxToolReadiness.hardwareUnverified,
       route: '/tools/inspect',
       safetyNote: 'A photo cannot certify food safety, roadworthiness, health or structural safety.'),
+  AskodoxSmartTool(
+      id: 'vehicle_report', nameEn: 'Vehicle walk-around report (4 photos + PDF)', nameTe: 'వాహన పరిశీలన రిపోర్ట్ (4 ఫోటోలు + PDF)',
+      group: AskodoxToolGroup.inspect, needs: {AskodoxToolNeed.camera, AskodoxToolNeed.cloudApi},
+      readiness: AskodoxToolReadiness.hardwareUnverified, route: '/tools/vehicle-report',
+      safetyNote: 'Visual observation only; not a roadworthiness, fitness or insurance certificate.'),
   AskodoxSmartTool(
       id: 'crack', nameEn: 'Crack inspector', nameTe: 'పగుళ్ల పరిశీలన', group: AskodoxToolGroup.inspect,
       needs: {AskodoxToolNeed.camera, AskodoxToolNeed.cloudApi}, readiness: AskodoxToolReadiness.hardwareUnverified,

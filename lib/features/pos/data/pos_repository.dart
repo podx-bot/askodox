@@ -171,6 +171,20 @@ class AskodoxPosRepository {
   Future<AskodoxJson> inputTax(String id, String from, String to) =>
       _send('GET', '${_b(id)}/reports/input-tax', query: {'date_from': from, 'date_to': to});
 
+  // selling units / serials / purchase orders
+  Future<AskodoxJson> setPack(String id, String productId, AskodoxJson body) =>
+      _send('PUT', '${_b(id)}/products/$productId/packs', body: body);
+  Future<List<String>> serialsInStock(String id, String productId) async =>
+      [for (final s in ((await _send('GET', '${_b(id)}/products/$productId/serials'))['serials'] as List? ?? const [])) '$s'];
+  Future<AskodoxJson> serialLookup(String id, String serial) => _send('GET', '${_b(id)}/serials/${Uri.encodeComponent(serial)}');
+  Future<List<AskodoxJson>> purchaseOrders(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/purchase-orders'))['orders']);
+  Future<AskodoxJson> createPurchaseOrder(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchase-orders', body: body);
+  Future<AskodoxJson> purchaseOrder(String id, String poId) => _send('GET', '${_b(id)}/purchase-orders/$poId');
+  Future<AskodoxJson> setPurchaseOrderStatus(String id, String poId, String status) =>
+      _send('POST', '${_b(id)}/purchase-orders/$poId/status', body: {'status': status});
+  Future<AskodoxJson> receivePurchaseOrder(String id, String poId, AskodoxJson body) =>
+      _send('POST', '${_b(id)}/purchase-orders/$poId/receive', body: body);
+
   Future<AskodoxJson> deviceSeries(String id, String deviceId) =>
       _send('POST', '${_b(id)}/device-series', body: {'device_id': deviceId});
 }

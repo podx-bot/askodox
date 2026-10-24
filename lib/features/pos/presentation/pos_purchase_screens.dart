@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -68,7 +69,14 @@ class _AskodoxPosSuppliersScreenState extends ConsumerState<AskodoxPosSuppliersS
     return Scaffold(
       appBar: AppBar(
         title: Text(te ? 'సప్లయర్లు & కొనుగోళ్లు' : 'Suppliers & purchases'),
-        actions: [IconButton(key: const Key('askodoxPosAddSupplier'), onPressed: _add, icon: const Icon(Icons.person_add_alt))],
+        actions: [
+          IconButton(
+              key: const Key('askodoxPosOpenPos'),
+              tooltip: te ? 'కొనుగోలు ఆర్డర్లు' : 'Purchase orders',
+              onPressed: () => context.push('/pos/${widget.businessId}/purchase-orders'),
+              icon: const Icon(Icons.assignment_outlined)),
+          IconButton(key: const Key('askodoxPosAddSupplier'), onPressed: _add, icon: const Icon(Icons.person_add_alt)),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('askodoxPosNewPurchase'),
@@ -235,7 +243,12 @@ class _PurchaseLine {
   final cost = TextEditingController();
   final batch = TextEditingController();
   final expiry = TextEditingController();
+  final serials = TextEditingController();
   late int rateBp = askodoxPosInt(product['rate_bp']);
+  String? pack;
+
+  List<String> get serialList =>
+      [for (final s in serials.text.split(RegExp(r'[\s,]+'))) if (s.trim().isNotEmpty) s.trim().toUpperCase()];
 }
 
 /// Record a supplier's bill: lines with cost BEFORE GST, batch / expiry for batch items,
@@ -279,7 +292,7 @@ class _AskodoxPosPurchaseScreenState extends ConsumerState<AskodoxPosPurchaseScr
     _billNo.dispose();
     _total.dispose();
     for (final l in _created) {
-      for (final c in [l.qty, l.cost, l.batch, l.expiry]) {
+      for (final c in [l.qty, l.cost, l.batch, l.expiry, l.serials]) {
         c.dispose();
       }
     }
@@ -340,6 +353,8 @@ class _AskodoxPosPurchaseScreenState extends ConsumerState<AskodoxPosPurchaseScr
         'rate_bp': l.rateBp,
         if (l.batch.text.trim().isNotEmpty) 'batch_no': l.batch.text.trim(),
         if (l.expiry.text.trim().isNotEmpty) 'expiry_date': l.expiry.text.trim(),
+        if (l.pack != null) 'pack': l.pack,
+        if (l.product['track_serials'] == true) 'serials': l.serialList,
       });
     }
     setState(() {
@@ -402,6 +417,33 @@ class _AskodoxPosPurchaseScreenState extends ConsumerState<AskodoxPosPurchaseScr
                     onChanged: (v) => setState(() => _lines[i].rateBp = v ?? _lines[i].rateBp),
                   ),
                 ]),
+                if (askodoxPosList(_lines[i].product['packs']).isNotEmpty)
+                  Wrap(spacing: 6, children: [
+                    ChoiceChip(
+                        label: Text('${_lines[i].product['unit']}'),
+                        selected: _lines[i].pack == null,
+                        onSelected: (_) => setState(() => _lines[i].pack = null)),
+                    for (final k in askodoxPosList(_lines[i].product['packs']))
+                      ChoiceChip(
+                          label: Text('${k['name']}'),
+                          selected: _lines[i].pack == k['name'],
+                          onSelected: (_) => setState(() => _lines[i].pack = '${k['name']}')),
+                  ]),
+                if (_lines[i].product['track_serials'] == true)
+                  TextField(
+                    key: ValueKey('askodoxPosPurchaseSerials-$i'),
+                    controller: _lines[i].serials,
+                    minLines: 2,
+                    maxLines: 6,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      labelText: _lines[i].product['serial_kind'] == 'imei'
+                          ? (te ? 'IMEI లు (ఒక్కో లైన్‌కి ఒకటి) — ${_lines[i].serialList.length}' : 'IMEIs (one per line) — ${_lines[i].serialList.length}')
+                          : (te ? 'సీరియల్స్ (ఒక్కో లైన్‌కి ఒకటి) — ${_lines[i].serialList.length}' : 'Serials (one per line) — ${_lines[i].serialList.length}'),
+                    ),
+                  ),
                 if (_lines[i].product['track_batches'] == true)
                   Row(children: [
                     Expanded(child: AskodoxPosField(controller: _lines[i].batch, label: te ? 'బ్యాచ్ నంబర్' : 'Batch no.', maxLength: 40)),
@@ -445,7 +487,14 @@ class AskodoxPosStockReportScreen extends ConsumerWidget {
     final te = askodoxPosTe(context);
     final repo = ref.read(askodoxPosRepositoryProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'ఎక్స్‌పైరీ & స్టాక్ విలువ' : 'Expiry & stock value')),
+      appBar: AppBar(title: Text(te ? 'ఎక్స్‌పైరీ & స్టాక్ విలువ' : 'Expiry & stock value'), actions: [
+        IconButton(
+          key: const Key('askodoxPosSerialLookup'),
+          tooltip: te ? 'సీరియల్ / IMEI వెతుకు' : 'Find serial / IMEI',
+          onPressed: () => askodoxSerialLookup(context, ref, businessId),
+          icon: const Icon(Icons.manage_search),
+        ),
+      ]),
       body: FutureBuilder<(AskodoxJson, AskodoxJson?)>(
         future: () async {
           final expiry = await repo.expiryReport(businessId, days: 60);
@@ -486,4 +535,307 @@ class AskodoxPosStockReportScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+
+/// Purchase orders: what the shop asks a supplier for. Not stock and not money owed
+/// until the supplier's bill is recorded against the order.
+class AskodoxPosPurchaseOrdersScreen extends ConsumerStatefulWidget {
+  const AskodoxPosPurchaseOrdersScreen({super.key, required this.businessId});
+  final String businessId;
+
+  @override
+  ConsumerState<AskodoxPosPurchaseOrdersScreen> createState() => _AskodoxPosPurchaseOrdersScreenState();
+}
+
+class _AskodoxPosPurchaseOrdersScreenState extends ConsumerState<AskodoxPosPurchaseOrdersScreen> {
+  late Future<List<AskodoxJson>> _orders;
+
+  @override
+  void initState() {
+    super.initState();
+    _orders = ref.read(askodoxPosRepositoryProvider).purchaseOrders(widget.businessId);
+  }
+
+  void _reload() => setState(() => _orders = ref.read(askodoxPosRepositoryProvider).purchaseOrders(widget.businessId));
+
+  Future<void> _create() async {
+    final te = askodoxPosTe(context);
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    List<AskodoxJson> suppliers;
+    List<AskodoxJson> products;
+    try {
+      suppliers = await repo.suppliers(widget.businessId);
+      products = await repo.products(widget.businessId);
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (!mounted) return;
+    if (suppliers.isEmpty || products.isEmpty) {
+      askodoxPosSnack(context, te ? 'ముందు సప్లయర్, సరుకులు జోడించండి.' : 'Add a supplier and items first.');
+      return;
+    }
+    String supplierId = '${suppliers.first['id']}';
+    final lines = <(AskodoxJson, TextEditingController, String?)>[];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(te ? 'కొత్త కొనుగోలు ఆర్డర్' : 'New purchase order'),
+          content: SizedBox(
+            width: 380,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                DropdownButtonFormField<String>(
+                  initialValue: supplierId,
+                  isExpanded: true,
+                  items: [for (final s in suppliers) DropdownMenuItem(value: '${s['id']}', child: Text('${s['name']}'))],
+                  onChanged: (v) => setLocal(() => supplierId = v ?? supplierId),
+                ),
+                for (var i = 0; i < lines.length; i++)
+                  Row(children: [
+                    Expanded(child: Text('${lines[i].$1['name']}')),
+                    SizedBox(width: 90, child: AskodoxPosField(controller: lines[i].$2, number: true, label: lines[i].$3 ?? '${lines[i].$1['unit']}')),
+                  ]),
+                DropdownButton<String>(
+                  key: const Key('askodoxPosPoAddItem'),
+                  hint: Text(te ? 'సరుకు జోడించు' : 'Add item'),
+                  isExpanded: true,
+                  items: [
+                    for (final p in products) ...[
+                      DropdownMenuItem(value: '${p['id']}|', child: Text('${p['name']} (${p['unit']})')),
+                      for (final k in askodoxPosList(p['packs']))
+                        DropdownMenuItem(value: '${p['id']}|${k['name']}', child: Text('${p['name']} (${k['name']})')),
+                    ],
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    final parts = v.split('|');
+                    final product = products.firstWhere((p) => p['id'] == parts[0]);
+                    setLocal(() => lines.add((product, TextEditingController(text: '1'), parts[1].isEmpty ? null : parts[1])));
+                  },
+                ),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'రద్దు' : 'Cancel')),
+            FilledButton(key: const Key('askodoxPosPoSave'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || lines.isEmpty || !mounted) return;
+    try {
+      await repo.createPurchaseOrder(widget.businessId, {
+        'supplier_id': supplierId,
+        'lines': [
+          for (final l in lines)
+            if ((askodoxParseMilli(l.$2.text) ?? 0) > 0)
+              {'product_id': l.$1['id'], 'qty_milli': askodoxParseMilli(l.$2.text), if (l.$3 != null) 'pack': l.$3},
+        ],
+      });
+      _reload();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(te ? 'కొనుగోలు ఆర్డర్లు' : 'Purchase orders')),
+      floatingActionButton: FloatingActionButton.extended(
+          key: const Key('askodoxPosNewPo'), onPressed: _create, icon: const Icon(Icons.add), label: Text(te ? 'ఆర్డర్' : 'Order')),
+      body: FutureBuilder<List<AskodoxJson>>(
+        future: _orders,
+        builder: (context, snap) {
+          if (snap.hasError) return AskodoxPosError(error: snap.error!, onRetry: _reload);
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          if (snap.data!.isEmpty) return Center(child: Text(te ? 'ఆర్డర్లు లేవు.' : 'No orders yet.'));
+          return ListView(key: const Key('askodoxPosPurchaseOrders'), children: [
+            for (final o in snap.data!)
+              ListTile(
+                key: ValueKey('askodoxPosPo-${o['id']}'),
+                title: Text('${o['number']} · ${o['supplier_name']}'),
+                subtitle: Text('${o['status']}${o['expected_date'] == null ? '' : ' · ${o['expected_date']}'}'),
+                onTap: () async {
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => AskodoxPosPurchaseOrderScreen(businessId: widget.businessId, poId: '${o['id']}')));
+                  if (mounted) _reload();
+                },
+              ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class AskodoxPosPurchaseOrderScreen extends ConsumerStatefulWidget {
+  const AskodoxPosPurchaseOrderScreen({super.key, required this.businessId, required this.poId});
+  final String businessId;
+  final String poId;
+
+  @override
+  ConsumerState<AskodoxPosPurchaseOrderScreen> createState() => _AskodoxPosPurchaseOrderScreenState();
+}
+
+class _AskodoxPosPurchaseOrderScreenState extends ConsumerState<AskodoxPosPurchaseOrderScreen> {
+  late Future<AskodoxJson> _po;
+
+  @override
+  void initState() {
+    super.initState();
+    _po = ref.read(askodoxPosRepositoryProvider).purchaseOrder(widget.businessId, widget.poId);
+  }
+
+  Future<void> _status(String status) async {
+    final te = askodoxPosTe(context);
+    try {
+      final po = await ref.read(askodoxPosRepositoryProvider).setPurchaseOrderStatus(widget.businessId, widget.poId, status);
+      if (mounted) setState(() => _po = Future.value(po));
+      if (status == 'sent') {
+        try {
+          await const MethodChannel('com.askodox.app/device')
+              .invokeMethod<bool>('shareText', <String, Object?>{'text': '${po['text']}', 'title': '${po['number']}'});
+        } catch (_) {}
+      }
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
+  Future<void> _receive(AskodoxJson po) async {
+    final te = askodoxPosTe(context);
+    final billNo = TextEditingController();
+    final open = [for (final l in askodoxPosList(po['lines'])) if (askodoxPosInt(l['received_milli']) < askodoxPosInt(l['qty_milli'])) l];
+    final qty = {for (final l in open) l['line_no']: TextEditingController(text: askodoxQty(askodoxPosInt(l['qty_milli']) - askodoxPosInt(l['received_milli']), ''))};
+    final cost = {for (final l in open) l['line_no']: TextEditingController(text: l['cost_paise'] == null ? '' : askodoxPaise(askodoxPosInt(l['cost_paise']), symbol: false).replaceAll(',', ''))};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? 'సరుకు వచ్చింది — బిల్లు నమోదు' : 'Goods arrived — record the bill'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            AskodoxPosField(controller: billNo, label: te ? 'సప్లయర్ బిల్లు నంబర్' : 'Supplier bill number'),
+            for (final l in open)
+              Row(children: [
+                Expanded(child: Text('${l['name']} (${l['unit']})')),
+                SizedBox(width: 70, child: AskodoxPosField(controller: qty[l['line_no']]!, number: true, label: te ? 'వచ్చింది' : 'Got')),
+                const SizedBox(width: 6),
+                SizedBox(width: 90, child: AskodoxPosField(controller: cost[l['line_no']]!, number: true, label: te ? 'ధర (GST ముందు)' : 'Cost ex-GST')),
+              ]),
+            Text(te ? 'బ్యాచ్ / సీరియల్ ఉన్న సరుకులకు కొనుగోలు బిల్లు స్క్రీన్ వాడండి.' : 'For batch / serial items use the purchase bill screen.',
+                style: const TextStyle(fontSize: 11.5)),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'రద్దు' : 'Cancel')),
+          FilledButton(key: const Key('askodoxPosPoReceiveOk'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'నమోదు' : 'Record')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).receivePurchaseOrder(widget.businessId, widget.poId, {
+        'client_txn_id': askodoxNewTxnId(),
+        'supplier_bill_no': billNo.text.trim(),
+        'lines': [
+          for (final l in open)
+            if ((askodoxParseMilli(qty[l['line_no']]!.text) ?? 0) > 0)
+              {
+                'line_no': l['line_no'],
+                'qty_milli': askodoxParseMilli(qty[l['line_no']]!.text),
+                if (askodoxParsePaise(cost[l['line_no']]!.text) != null) 'cost_paise': askodoxParsePaise(cost[l['line_no']]!.text),
+              },
+        ],
+      });
+      if (mounted) setState(() => _po = Future.value(askodoxPosMap(out['order'])));
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(te ? 'కొనుగోలు ఆర్డర్' : 'Purchase order')),
+      body: FutureBuilder<AskodoxJson>(
+        future: _po,
+        builder: (context, snap) {
+          if (snap.hasError) return AskodoxPosError(error: snap.error!);
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final po = snap.data!;
+          final status = '${po['status']}';
+          return ListView(key: const Key('askodoxPosPurchaseOrder'), padding: const EdgeInsets.all(12), children: [
+            Text('${po['number']} · ${po['supplier_name']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text('${te ? 'స్థితి' : 'Status'}: $status'),
+            for (final l in askodoxPosList(po['lines']))
+              ListTile(
+                dense: true,
+                title: Text('${l['name']}'),
+                trailing: Text('${askodoxQty(askodoxPosInt(l['received_milli']), '')} / ${askodoxQty(askodoxPosInt(l['qty_milli']), '${l['unit']}')}'),
+              ),
+            for (final b in askodoxPosList(po['bills'])) Text('${te ? 'బిల్లు' : 'Bill'} ${b['supplier_bill_no']} · ${b['bill_date']}'),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, children: [
+              if (status == 'draft')
+                FilledButton.icon(
+                    key: const Key('askodoxPosPoSend'),
+                    onPressed: () => _status('sent'),
+                    icon: const Icon(Icons.send),
+                    label: Text(te ? 'సప్లయర్‌కి పంపు' : 'Send to supplier')),
+              if (status == 'draft' || status == 'sent' || status == 'partially_received')
+                OutlinedButton(key: const Key('askodoxPosPoReceive'), onPressed: () => _receive(po), child: Text(te ? 'సరుకు వచ్చింది' : 'Goods arrived')),
+              if (status == 'draft' || status == 'sent' || status == 'partially_received')
+                TextButton(onPressed: () => _status('cancelled'), child: Text(te ? 'రద్దు' : 'Cancel order')),
+            ]),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+
+/// Warranty / theft check: where a serial or IMEI appears in this shop's records.
+Future<void> askodoxSerialLookup(BuildContext context, WidgetRef ref, String businessId) async {
+  final te = askodoxPosTe(context);
+  final c = TextEditingController();
+  final query = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(te ? 'సీరియల్ / IMEI' : 'Serial / IMEI'),
+      content: AskodoxPosField(controller: c, label: te ? 'నంబర్' : 'Number', maxLength: 40),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'రద్దు' : 'Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(te ? 'వెతుకు' : 'Find')),
+      ],
+    ),
+  );
+  if (query == null || query.isEmpty || !context.mounted) return;
+  String text;
+  try {
+    final r = await ref.read(askodoxPosRepositoryProvider).serialLookup(businessId, query);
+    text = [
+      for (final rec in askodoxPosList(r['records']))
+        '${rec['name']}: ${rec['status']}${rec['invoice'] is Map ? ' · ${askodoxPosMap(rec['invoice'])['number']} (${askodoxPosMap(rec['invoice'])['date']})' : ''}',
+    ].join('\n');
+  } on AskodoxPosException catch (e) {
+    text = e.message(te);
+  }
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      key: const Key('askodoxPosSerialResult'),
+      title: Text(query),
+      content: Text(text),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+    ),
+  );
 }
