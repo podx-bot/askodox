@@ -45,7 +45,12 @@ class _AskodoxPosSelfShopScreenState extends ConsumerState<AskodoxPosSelfShopScr
   Future<void> _load() async {
     try {
       final data = await ref.read(askodoxPosRepositoryProvider).selfShopSettings(widget.businessId);
-      if (mounted) setState(() => (_data, _error) = (data, null));
+      if (mounted) {
+        setState(() {
+          _data = data;
+          _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -198,7 +203,12 @@ class _AskodoxPosSelfShopCheckScreenState extends ConsumerState<AskodoxPosSelfSh
   Future<void> _load() async {
     try {
       final s = await ref.read(askodoxPosRepositoryProvider).selfShopSession(widget.businessId, widget.sessionId);
-      if (mounted) setState(() => (_session, _error) = (s, null));
+      if (mounted) {
+        setState(() {
+          _session = s;
+          _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -239,7 +249,12 @@ class _AskodoxPosSelfShopCheckScreenState extends ConsumerState<AskodoxPosSelfSh
       final s = await ref
           .read(askodoxPosRepositoryProvider)
           .selfShopStaffQty(widget.businessId, widget.sessionId, '${item['product_id']}', '${item['pack'] ?? ''}', 0);
-      if (mounted) setState(() => (_session, _check) = (s, null));
+      if (mounted) {
+        setState(() {
+          _session = s;
+          _check = null;
+        });
+      }
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
     }
