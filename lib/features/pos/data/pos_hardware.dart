@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zxing_lib/common.dart';
+import 'package:zxing_lib/multi.dart';
 import 'package:zxing_lib/zxing.dart';
 
 import '../../../services/chat_attachment_service.dart';
@@ -55,6 +56,64 @@ class PhotoBarcodeScanner implements AskodoxBarcodeScanner {
     if (code == null) throw const AskodoxScanException('not_found');
     return code;
   }
+}
+
+/// Every barcode in ONE photo (the exit check of a self-shopping list).
+abstract interface class AskodoxMultiBarcodeScanner {
+  /// The distinct barcodes seen; null when cancelled; empty when none was found.
+  Future<List<String>?> scanAll(BuildContext context);
+}
+
+class PhotoMultiBarcodeScanner implements AskodoxMultiBarcodeScanner {
+  const PhotoMultiBarcodeScanner(this._picker);
+  final AskodoxMediaPicker _picker;
+
+  @override
+  Future<List<String>?> scanAll(BuildContext context) async {
+    List<ChatAttachment> picked;
+    try {
+      picked = await _picker.pick('camera');
+    } catch (_) {
+      throw const AskodoxScanException('camera_failed');
+    }
+    final photo = picked.where((p) => p.isImage).firstOrNull;
+    if (photo == null) return null;
+    // Bigger than a single scan: many small barcodes in one picture.
+    final image = await askodoxDecodeForScan(photo.bytes, maxSide: 2400);
+    return compute(askodoxDecodeAllBarcodesPixels, image);
+  }
+}
+
+final askodoxMultiBarcodeScannerProvider =
+    Provider<AskodoxMultiBarcodeScanner>((ref) => PhotoMultiBarcodeScanner(ref.watch(askodoxMediaPickerProvider)));
+
+/// All DIFFERENT barcodes in the pixels (as taken, then turned 90° for codes lying the other way).
+/// The same barcode on two packets is reported once -- quantities are counted by hand.
+List<String> askodoxDecodeAllBarcodesPixels(AskodoxScanImage image) {
+  final found = <String>[];
+  void attempt(int w, int h, List<int> px) {
+    try {
+      final bitmap = BinaryBitmap(HybridBinarizer(RGBLuminanceSource(w, h, px)));
+      final results = GenericMultipleBarcodeReader(MultiFormatReader()).decodeMultiple(bitmap, const DecodeHint(tryHarder: true));
+      for (final r in results) {
+        final text = r.text.trim();
+        if (text.isNotEmpty && !found.contains(text)) found.add(text);
+      }
+    } catch (_) {
+      // nothing readable in this orientation
+    }
+  }
+
+  attempt(image.width, image.height, image.argb);
+  final w = image.width, h = image.height;
+  final turned = Int32List(w * h);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      turned[x * h + (h - 1 - y)] = image.argb[y * w + x];
+    }
+  }
+  attempt(h, w, turned);
+  return found;
 }
 
 final askodoxBarcodeScannerProvider =

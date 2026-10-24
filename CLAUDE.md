@@ -555,6 +555,11 @@ this file, don't trust it blindly.
   POS rates by quantity = `pos_price_tiers` (per base unit, from a minimum) + `pos_products.min_qty_milli`, applied in
   `PosStore._issue` and app `askodoxTierPrice` (keep both rules equal); photos = `pos_product_photos` (<= 300 KB PNG/JPEG).
   Spoken orders = `askodoxSplitPosOrder` / `askodoxParsePosOrder` -> `AskodoxPosOrderReviewSheet` (never adds silently).
+- Self-shopping = `pos_selfshop.py` (tables `pos_selfshop_*`) + `/api/pos/selfshop/*` (customer, any signed-in user, join
+  rate-limited) + `/api/pos/businesses/{id}/selfshop*` (staff). Daily 6-digit code (QR `ASKODOX-SHOP:<code>`); sessions
+  OPEN -> CHECKOUT (4-digit exit code) -> BILLED via `PosStore.create_invoice` (client_txn_id `selfshop-<sid>`); weighed /
+  serial items are refused to the counter. Exit check = `askodoxDecodeAllBarcodesPixels` (zxing GenericMultipleBarcodeReader,
+  DISTINCT codes only -> quantities by hand). Payment stays at the counter; never mark a list paid without the cashier.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

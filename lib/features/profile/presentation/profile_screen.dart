@@ -531,6 +531,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
                       ))),
+          // Scan & shop in a store that turned self-shopping on (pay at the counter).
+          AskodoxNavRow(
+              key: const ValueKey('profile-shop-scan'),
+              icon: Icons.qr_code_scanner,
+              title: t('Scan & shop in a store', 'షాప్‌లో స్కాన్ చేసి కొనండి'),
+              subtitle: t('Scan items with your phone; show the exit code at the counter.',
+                  'మీ ఫోన్‌తో సరుకులు స్కాన్ చేయండి; కౌంటర్‌లో ఎగ్జిట్ కోడ్ చూపించండి.'),
+              onTap: () => context.push('/shop-scan')),
           // Advances shops recorded against this number: the customer approves every change here.
           AskodoxNavRow(
               key: const ValueKey('profile-shop-advances'),

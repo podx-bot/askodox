@@ -1292,6 +1292,138 @@
           "change": "Owner request 2026-10-24 (branch claude/pos-smart-guide); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_self_shopping",
+      "name": "Self-shopping (scan & go): daily entry code, customer scans on own phone, one-photo exit check, bill at the counter",
+      "purpose": "Supermarket customers scan items with their own phone; at the exit staff check everything with one photo and bill it, with no double work.",
+      "expected_behavior": "Owner / manager turn it on; the POS shows today's 6-digit code + QR (new every day). A signed-in customer types or photographs it and gets a time-limited list (15-240 min, default 90) in that shop only. Each barcode photo adds the item (or its box) at the shop's own price; items sold by weight or with a serial / IMEI are refused to the counter. Checkout locks the list and shows a 4-digit exit code. Staff open the list by that code (or the list of shoppers), take ONE photo of all items with barcodes up; the phone decodes every DIFFERENT barcode and the server reports matched / not seen / not billed, and lines above one to count by hand. Staff may remove lines, then bill as a normal invoice (same tax, numbering, stock, append-only, idempotent client_txn_id selfshop-<id>). Payment is the counter's (cash / UPI / card cashier-confirmed); nothing is ever marked paid by itself. The customer can ask ASKODOX about an item (the shop's own details are shown; anything more goes to Main Chat).",
+      "roles": [
+        "seller",
+        "buyer",
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/selfshop",
+          "response_keys": [
+            "enabled",
+            "minutes",
+            "code",
+            "qr",
+            "sessions"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/selfshop",
+          "response_keys": [
+            "enabled",
+            "code"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/selfshop/exit/{code}",
+          "response_keys": [
+            "id",
+            "items",
+            "exit_code"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/selfshop/sessions/{session_id}/verify",
+          "response_keys": [
+            "matched",
+            "not_seen",
+            "not_billed",
+            "count_by_hand",
+            "all_clear"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/selfshop/sessions/{session_id}/bill",
+          "response_keys": [
+            "invoice"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/selfshop/join",
+          "response_keys": [
+            "id",
+            "shop",
+            "status",
+            "items",
+            "total_paise"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/selfshop/{session_id}/scan",
+          "response_keys": [
+            "added",
+            "item",
+            "session"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/selfshop/{session_id}/checkout",
+          "response_keys": [
+            "status",
+            "exit_code"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosSelfShop",
+          "askodoxPosSelfShopEnabled",
+          "askodoxPosSelfShopCode",
+          "askodoxPosSelfShopQr",
+          "askodoxPosSelfShopExit",
+          "askodoxPosSelfShopPhoto",
+          "askodoxPosSelfShopNotBilled",
+          "askodoxPosSelfShopBill",
+          "askodoxSelfShopJoin",
+          "askodoxSelfShopScanItem",
+          "askodoxSelfShopCheckout",
+          "askodoxSelfShopExitCode"
+        ],
+        "symbols": [
+          "AskodoxPosSelfShopScreen",
+          "AskodoxPosSelfShopCheckScreen",
+          "AskodoxSelfShopScreen",
+          "askodoxDecodeAllBarcodesPixels",
+          "AskodoxMultiBarcodeScanner"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_selfshop.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_selfshop_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-24 (branch claude/pos-self-shopping); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

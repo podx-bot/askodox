@@ -223,6 +223,33 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఏం తప్పు జరిగిందో రాయండి; కావాలంటే స్క్రీన్‌షాట్ చేర్చండి.',
     'మీరు అనుమతిస్తేనే డయాగ్నస్టిక్స్ పంపుతాం.',
   ]),
+  '/pos/:id/selfshop': _H('Self-shopping', 'సెల్ఫ్ షాపింగ్', [
+    'Turn it on to let customers scan items with their own phone.',
+    "Show today's code / QR at the entrance — it changes every day.",
+    'At the exit, type the 4-digit exit code from the customer\'s phone to open their list.',
+  ], [
+    'కస్టమర్లు తమ ఫోన్‌తో సరుకులు స్కాన్ చేయడానికి ఇది ఆన్ చేయండి.',
+    'ఈ రోజు కోడ్ / QR ద్వారం దగ్గర చూపించండి — అది రోజూ మారుతుంది.',
+    'బయటకు వెళ్లేటప్పుడు కస్టమర్ ఫోన్‌లోని 4 అంకెల ఎగ్జిట్ కోడ్ రాసి వారి లిస్ట్ తెరవండి.',
+  ]),
+  '/pos/:id/selfshop/:sid': _H('Exit check', 'ఎగ్జిట్ చెక్', [
+    'Ask the customer to lay all items with barcodes facing up.',
+    'Take ONE photo: every barcode is read and compared with the list.',
+    'Check "not seen" items and quantities above one by hand, then bill and take payment.',
+  ], [
+    'కస్టమర్‌ని అన్ని సరుకులు బార్‌కోడ్‌లు పైకి కనిపించేలా పెట్టమనండి.',
+    'ఒకే ఫోటో తీయండి: ప్రతి బార్‌కోడ్ చదివి లిస్ట్‌తో పోలుస్తుంది.',
+    '"కనబడలేదు" అన్నవి, ఒకటి కంటే ఎక్కువ ఉన్నవి చేతితో చూసి, బిల్లు చేసి డబ్బు తీసుకోండి.',
+  ]),
+  '/shop-scan': _H('Scan & shop', 'స్కాన్ చేసి కొనండి', [
+    'Photograph the QR at the shop entrance or type its 6-digit code.',
+    'Pick an item and photograph its barcode — it joins your list with the shop\'s price.',
+    'Tap Checkout, show the exit code at the counter, and pay there.',
+  ], [
+    'షాప్ ద్వారం దగ్గర QR ఫోటో తీయండి లేదా 6 అంకెల కోడ్ రాయండి.',
+    'సరుకు తీసుకుని దాని బార్‌కోడ్ ఫోటో తీయండి — షాప్ ధరతో మీ లిస్ట్‌లో చేరుతుంది.',
+    '"చెకౌట్" నొక్కి, కౌంటర్‌లో ఎగ్జిట్ కోడ్ చూపించి, అక్కడ డబ్బు ఇవ్వండి.',
+  ]),
   '/me/shop-advances': _H('Shop advances', 'షాప్ అడ్వాన్సులు', [
     'Advances shops recorded for your number are listed here.',
     'Approve only what you really paid or agreed; tap "No" otherwise.',

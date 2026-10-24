@@ -7,6 +7,7 @@ import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
+import 'pos_selfshop_screens.dart';
 
 /// Universal POS routes (entry: My Business -> Shop billing).
 final askodoxPosRoutes = <GoRoute>[
@@ -54,6 +55,14 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
   GoRoute(
       path: '/pos/:id/advance', builder: (context, state) => AskodoxPosAdvanceSettingsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/selfshop', builder: (context, state) => AskodoxPosSelfShopScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/selfshop/:sid',
+      builder: (context, state) =>
+          AskodoxPosSelfShopCheckScreen(businessId: state.pathParameters['id']!, sessionId: state.pathParameters['sid']!)),
+  // Customer side: scan & shop in a store that turned self-shopping on.
+  GoRoute(path: '/shop-scan', builder: (context, state) => const AskodoxSelfShopScreen()),
   // Customer side: approve / reject what shops recorded against your number.
   GoRoute(path: '/me/shop-advances', builder: (context, state) => const AskodoxMyShopAdvancesScreen()),
 ];

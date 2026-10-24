@@ -991,3 +991,129 @@ def get_product_photo(business_id: str, product_id: str, request: Request) -> di
 
     image, mime = _call(_catalogue(request).photo, business_id, _user(request), product_id)
     return {"image_base64": base64.b64encode(image).decode("ascii"), "mime": mime}
+
+
+# ------------------------------------------------------------ self-shopping (scan & go)
+def _selfshop(request: Request):
+    from app.services.pos_selfshop import PosSelfShop
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_selfshop", None)
+    if existing is None or existing.store is not store:
+        existing = PosSelfShop(store)
+        try:
+            container.pos_selfshop = existing
+        except Exception:
+            pass
+    return existing
+
+
+class SelfShopSettingsIn(BaseModel):
+    enabled: bool
+    minutes: int = Field(default=90, ge=15, le=240)
+
+
+class SelfShopJoinIn(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+
+
+class SelfShopScanIn(BaseModel):
+    barcode: str = Field(min_length=1, max_length=64)
+
+
+class SelfShopQtyIn(BaseModel):
+    product_id: str = Field(min_length=1, max_length=64)
+    pack: str = Field(default="", max_length=30)
+    qty_milli: int = Field(ge=0)
+
+
+class SelfShopVerifyIn(BaseModel):
+    barcodes: List[str] = Field(default_factory=list, max_length=200)
+
+
+class SelfShopBillIn(BaseModel):
+    payments: List[Dict[str, Any]] = Field(default_factory=list, max_length=10)
+    customer_id: Optional[str] = Field(default=None, max_length=64)
+
+
+@router.get("/businesses/{business_id}/selfshop")
+def selfshop_settings(business_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).settings, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/selfshop")
+def update_selfshop_settings(business_id: str, body: SelfShopSettingsIn, request: Request) -> dict:
+    return _call(_selfshop(request).update_settings, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/selfshop/exit/{code}")
+def selfshop_by_exit_code(business_id: str, code: str, request: Request) -> dict:
+    return _call(_selfshop(request).by_exit_code, business_id, _user(request, "selfshop_exit", 60), code)
+
+
+@router.get("/businesses/{business_id}/selfshop/sessions/{session_id}")
+def selfshop_staff_view(business_id: str, session_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).staff_view, business_id, _user(request), session_id)
+
+
+@router.put("/businesses/{business_id}/selfshop/sessions/{session_id}/items")
+def selfshop_staff_qty(business_id: str, session_id: str, body: SelfShopQtyIn, request: Request) -> dict:
+    return _call(_selfshop(request).set_qty, _user(request), session_id, body.product_id, body.pack, body.qty_milli,
+                 staff_business=business_id)
+
+
+@router.post("/businesses/{business_id}/selfshop/sessions/{session_id}/verify")
+def selfshop_verify(business_id: str, session_id: str, body: SelfShopVerifyIn, request: Request) -> dict:
+    return _call(_selfshop(request).verify, business_id, _user(request), session_id, body.barcodes)
+
+
+@router.post("/businesses/{business_id}/selfshop/sessions/{session_id}/bill")
+def selfshop_bill(business_id: str, session_id: str, body: SelfShopBillIn, request: Request) -> dict:
+    return _call(_selfshop(request).bill, business_id, _user(request), session_id, _dump(body))
+
+
+@router.post("/businesses/{business_id}/selfshop/sessions/{session_id}/cancel")
+def selfshop_staff_cancel(business_id: str, session_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).staff_cancel, business_id, _user(request), session_id)
+
+
+@router.post("/selfshop/join")
+def selfshop_join(body: SelfShopJoinIn, request: Request) -> dict:
+    # Few tries per minute: a 6-digit daily code must not be guessable by trying.
+    return _call(_selfshop(request).join, _user(request, "selfshop_join", 10), body.code)
+
+
+@router.get("/selfshop/mine")
+def selfshop_mine(request: Request) -> dict:
+    return _call(_selfshop(request).mine, _user(request))
+
+
+@router.get("/selfshop/{session_id}")
+def selfshop_view(session_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).view, _user(request), session_id)
+
+
+@router.post("/selfshop/{session_id}/scan")
+def selfshop_scan(session_id: str, body: SelfShopScanIn, request: Request) -> dict:
+    return _call(_selfshop(request).scan, _user(request, "selfshop_scan", 120), session_id, body.barcode)
+
+
+@router.put("/selfshop/{session_id}/items")
+def selfshop_qty(session_id: str, body: SelfShopQtyIn, request: Request) -> dict:
+    return _call(_selfshop(request).set_qty, _user(request), session_id, body.product_id, body.pack, body.qty_milli)
+
+
+@router.post("/selfshop/{session_id}/checkout")
+def selfshop_checkout(session_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).checkout, _user(request), session_id)
+
+
+@router.post("/selfshop/{session_id}/reopen")
+def selfshop_reopen(session_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).checkout, _user(request), session_id, True)
+
+
+@router.post("/selfshop/{session_id}/cancel")
+def selfshop_cancel(session_id: str, request: Request) -> dict:
+    return _call(_selfshop(request).cancel, _user(request), session_id)

@@ -237,6 +237,34 @@ class AskodoxPosRepository {
 
   Future<AskodoxJson> deviceSeries(String id, String deviceId) =>
       _send('POST', '${_b(id)}/device-series', body: {'device_id': deviceId});
+
+  // Self-shopping (scan & go). Staff side:
+  Future<AskodoxJson> selfShopSettings(String id) => _send('GET', '${_b(id)}/selfshop');
+  Future<AskodoxJson> setSelfShop(String id, {required bool enabled, int minutes = 90}) =>
+      _send('PUT', '${_b(id)}/selfshop', body: {'enabled': enabled, 'minutes': minutes});
+  Future<AskodoxJson> selfShopByExitCode(String id, String code) => _send('GET', '${_b(id)}/selfshop/exit/$code');
+  Future<AskodoxJson> selfShopSession(String id, String sessionId) => _send('GET', '${_b(id)}/selfshop/sessions/$sessionId');
+  Future<AskodoxJson> selfShopStaffQty(String id, String sessionId, String productId, String pack, int qtyMilli) =>
+      _send('PUT', '${_b(id)}/selfshop/sessions/$sessionId/items',
+          body: {'product_id': productId, 'pack': pack, 'qty_milli': qtyMilli});
+  Future<AskodoxJson> selfShopVerify(String id, String sessionId, List<String> barcodes) =>
+      _send('POST', '${_b(id)}/selfshop/sessions/$sessionId/verify', body: {'barcodes': barcodes});
+  Future<AskodoxJson> selfShopBill(String id, String sessionId, List<AskodoxJson> payments) =>
+      _send('POST', '${_b(id)}/selfshop/sessions/$sessionId/bill', body: {'payments': payments});
+  Future<AskodoxJson> selfShopStaffCancel(String id, String sessionId) =>
+      _send('POST', '${_b(id)}/selfshop/sessions/$sessionId/cancel');
+
+  // Customer side (the shopper's own phone):
+  Future<AskodoxJson> selfShopJoin(String code) => _send('POST', '/api/pos/selfshop/join', body: {'code': code});
+  Future<AskodoxJson> selfShopMine() => _send('GET', '/api/pos/selfshop/mine');
+  Future<AskodoxJson> selfShopView(String sessionId) => _send('GET', '/api/pos/selfshop/$sessionId');
+  Future<AskodoxJson> selfShopScan(String sessionId, String barcode) =>
+      _send('POST', '/api/pos/selfshop/$sessionId/scan', body: {'barcode': barcode});
+  Future<AskodoxJson> selfShopQty(String sessionId, String productId, String pack, int qtyMilli) =>
+      _send('PUT', '/api/pos/selfshop/$sessionId/items', body: {'product_id': productId, 'pack': pack, 'qty_milli': qtyMilli});
+  Future<AskodoxJson> selfShopCheckout(String sessionId) => _send('POST', '/api/pos/selfshop/$sessionId/checkout');
+  Future<AskodoxJson> selfShopReopen(String sessionId) => _send('POST', '/api/pos/selfshop/$sessionId/reopen');
+  Future<AskodoxJson> selfShopCancel(String sessionId) => _send('POST', '/api/pos/selfshop/$sessionId/cancel');
 }
 
 final askodoxPosRepositoryProvider = Provider<AskodoxPosRepository>((ref) {
