@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/widgets/askodox_field_guide.dart';
 import '../data/pos_repository.dart';
 
 bool askodoxPosTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
@@ -45,6 +46,10 @@ class AskodoxPosField extends StatelessWidget {
     this.hint,
     this.maxLength,
     this.onChanged,
+    this.guideEn,
+    this.guideTe,
+    this.exampleEn,
+    this.exampleTe,
   });
 
   final TextEditingController controller;
@@ -54,6 +59,12 @@ class AskodoxPosField extends StatelessWidget {
   final String? hint;
   final int? maxLength;
   final ValueChanged<String>? onChanged;
+
+  /// The "?" guide for this field (what to type + example).
+  final String? guideEn;
+  final String? guideTe;
+  final String? exampleEn;
+  final String? exampleTe;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -65,7 +76,12 @@ class AskodoxPosField extends StatelessWidget {
           keyboardType: number ? TextInputType.numberWithOptions(decimal: decimal) : TextInputType.text,
           inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(decimal ? r'[0-9.]' : r'[0-9]'))] : null,
           decoration: InputDecoration(labelText: label, hintText: hint, border: const OutlineInputBorder(), isDense: true,
-              counterText: ''),
+              counterText: '',
+              suffixIcon: guideEn == null
+                  ? null
+                  : AskodoxFieldGuideButton(
+                      titleEn: label, titleTe: label, en: guideEn!, te: guideTe ?? guideEn!,
+                      exampleEn: exampleEn, exampleTe: exampleTe ?? exampleEn)),
         ),
       );
 }

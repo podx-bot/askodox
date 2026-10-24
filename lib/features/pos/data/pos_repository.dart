@@ -181,6 +181,18 @@ class AskodoxPosRepository {
   Future<AskodoxJson> createPurchaseOrder(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchase-orders', body: body);
   Future<AskodoxJson> purchaseOrder(String id, String poId) => _send('GET', '${_b(id)}/purchase-orders/$poId');
 
+  // Ready-made catalogue (shop's template), item details (attributes) and online price.
+  Future<AskodoxJson> product(String id, String productId) => _send('GET', '${_b(id)}/products/$productId');
+  Future<AskodoxJson> catalogue(String id) => _send('GET', '${_b(id)}/catalogue');
+  Future<AskodoxJson> setCatalogueTemplate(String id, String? key) =>
+      _send('PUT', '${_b(id)}/catalogue', body: {'template_key': key});
+  Future<AskodoxJson> importCatalogue(String id, List<AskodoxJson> items) =>
+      _send('POST', '${_b(id)}/catalogue/import', body: {'items': items});
+  Future<AskodoxJson> setAttributes(String id, String productId, AskodoxJson values) =>
+      _send('PUT', '${_b(id)}/products/$productId/attributes', body: {'values': values});
+  Future<AskodoxJson> setOnlinePrice(String id, String productId, int? paise) =>
+      _send('PUT', '${_b(id)}/products/$productId/online-price', body: {'online_price_paise': paise});
+
   // Where items are offered: pos / online / both (shop default + per item; null = follow the shop).
   Future<AskodoxJson> onlineStatus(String id) => _send('GET', '${_b(id)}/online');
   Future<AskodoxJson> setOnlineDefault(String id, String channel) =>

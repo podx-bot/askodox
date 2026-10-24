@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/config/router/app_router.dart';
+import 'package:podx/core/startup/startup_hint.dart';
 import 'package:podx/features/guide/screen_help.dart';
 import 'package:podx/features/guide/screen_help_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,5 +72,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SIGN UP'), findsOneWidget);
     expect(find.byKey(const Key('askodoxScreenHelpButton')), findsNothing);
+  });
+
+  testWidgets('right after sign-up, Home opens the welcome guide once', (tester) async {
+    AskodoxStartupHint.justOnboarded = true;
+    addTearDown(() => AskodoxStartupHint.justOnboarded = false);
+    final router = GoRouter(routes: [GoRoute(path: '/', builder: (_, __) => const Scaffold(body: Text('HOME')))]);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        routerConfig: router,
+        builder: (context, child) => AskodoxScreenHelpLayer(router: router, child: child!),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxWelcomeGuide')), findsOneWidget);
+    expect(find.textContaining('Examples:'), findsOneWidget);
+    expect(AskodoxStartupHint.justOnboarded, isFalse);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxWelcomeGuide')), findsNothing);
   });
 }

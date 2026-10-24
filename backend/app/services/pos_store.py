@@ -175,6 +175,10 @@ MIGRATIONS = [
     # Where items are offered (pos_online.py): shop default + per-item override (NULL = default).
     ("pos_businesses", "online_default", "TEXT NOT NULL DEFAULT 'pos'"),
     ("pos_products", "channel", "TEXT"),
+    # Ready-made catalogue (pos_catalogue.py): the shop's catalogue template + an item's details / online price.
+    ("pos_businesses", "catalogue_template", "TEXT"),
+    ("pos_products", "attributes", "TEXT"),
+    ("pos_products", "online_price_paise", "INTEGER"),
 ]
 
 # Selling units beyond the item's base unit (box of 12 pcs, 25 kg bag ...).
@@ -435,6 +439,15 @@ class PosStore:
             if rate not in pos_tax.ALLOWED_RATES_BP:
                 raise PosError(400, "rate", "Choose a GST rate from the list (from your own classification).")
             out["rate_bp"] = rate
+        if "online_price_paise" in data:
+            online = data.get("online_price_paise")
+            if online is None:
+                out["online_price_paise"] = None  # same as the shop price
+            else:
+                online = int(online)
+                if online <= 0 or online > 10_00_00_000_00:
+                    raise PosError(400, "online_price", "Enter the online price, or leave it the same as the shop price.")
+                out["online_price_paise"] = online
         if "cess_bp" in data:
             out["cess_bp"] = int(data.get("cess_bp") or 0)
         if "hsn_sac" in data or not partial:
@@ -507,6 +520,10 @@ class PosStore:
         for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches", "track_serials"):
             out[key] = bool(out.get(key))
         out["stock_milli"] = stock if out["track_stock"] else None
+        try:
+            out["attributes"] = json.loads(out.get("attributes") or "{}")
+        except (TypeError, ValueError):
+            out["attributes"] = {}
         out["low_stock"] = bool(out["track_stock"] and (stock or 0) <= out["low_stock_milli"])
         return out
 

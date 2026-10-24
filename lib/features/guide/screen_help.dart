@@ -44,10 +44,12 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'Type or speak what you need (buy, sell, a service, a job, a ride).',
     'Answer the one question ASKODOX asks, or say "show me".',
     'Results appear above the chat: tap a card to send a request or open it.',
+    'Examples: "Sona masoori rice 25 kg under 1500 near me" · "AC repair at home tomorrow" · "I want to sell my old scooter".',
   ], [
     'మీకు ఏం కావాలో టైప్ చేయండి లేదా మాట్లాడండి (కొనడం, అమ్మడం, సర్వీస్, ఉద్యోగం, రైడ్).',
     'ASKODOX అడిగే ఒక్క ప్రశ్నకు జవాబు ఇవ్వండి, లేదా "చూపించు" అనండి.',
     'ఫలితాలు చాట్ పైన వస్తాయి: కార్డ్ నొక్కి రిక్వెస్ట్ పంపండి లేదా తెరవండి.',
+    'ఉదాహరణలు: "దగ్గరలో 1500 లోపు సోనా మసూరి బియ్యం 25 కిలో" · "రేపు ఇంటికి AC రిపేర్" · "నా పాత స్కూటర్ అమ్మాలి".',
   ]),
   '/watchlist': _H('History', 'చరిత్ర', [
     'Your earlier conversations and saved options are here.',
@@ -395,6 +397,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ], [
     'ధర, GST తో సరుకు చేర్చండి; ఎక్కడ అమ్మాలో ఎంచుకోండి (POS / ఆన్‌లైన్ / రెండూ).',
     'బాక్స్ / పీస్ యూనిట్లకు సరుకు నొక్కండి; స్టాక్ చేర్చడానికి బాక్స్ ఐకాన్.',
+  ]),
+  '/pos/:id/catalogue': _H('Ready list', 'రెడీ లిస్ట్', [
+    'Choose your kind of business at the top.',
+    'Tick the items you sell, pick the size and type YOUR price (and GST % if registered).',
+    'Tap "Add" — items already in your shop are skipped.',
+  ], [
+    'పైన మీ వ్యాపార రకం ఎంచుకోండి.',
+    'మీరు అమ్మే సరుకులను టిక్ చేసి, సైజు ఎంచుకుని, మీ ధర రాయండి (GST ఉంటే GST % కూడా).',
+    '"చేర్చు" నొక్కండి — మీ షాప్‌లో ఇప్పటికే ఉన్నవి వదిలేస్తాం.',
+  ]),
+  '/pos/:id/item/:pid': _H('Item details', 'సరుకు వివరాలు', [
+    'Fill the details customers look for (size, colour, brand …). Ones marked "Needed" are required.',
+    'Tap ? next to any field to see what to write, with an example.',
+    'Set an online price if it differs from the shop price, then Save.',
+  ], [
+    'కస్టమర్లు చూసే వివరాలు నింపండి (సైజు, రంగు, బ్రాండ్ …). "కావాలి" అని ఉన్నవి తప్పనిసరి.',
+    'ఏ ఫీల్డ్ పక్కనైనా ? నొక్కితే ఏం రాయాలో ఉదాహరణతో చెబుతుంది.',
+    'ఆన్‌లైన్ ధర వేరుగా కావాలంటే పెట్టి, సేవ్ నొక్కండి.',
   ]),
   '/pos/:id/customers': _H('Customers & credit', 'కస్టమర్లు & ఖాతా', [
     'Add customers; tap one to see dues, statement and shop advance.',
