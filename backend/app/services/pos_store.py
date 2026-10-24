@@ -36,9 +36,10 @@ IST = timezone(timedelta(hours=5, minutes=30))
 ROLES = ("owner", "manager", "cashier", "accountant", "waiter", "kitchen")
 PERMISSIONS: Dict[str, frozenset] = {
     "owner": frozenset({"view", "sell", "price_override", "return", "cancel", "products", "stock", "customers",
-                        "collect", "reports", "day_close", "drafts", "members", "settings", "tables", "kitchen"}),
+                        "collect", "reports", "day_close", "drafts", "members", "settings", "tables", "kitchen",
+                        "purchases"}),
     "manager": frozenset({"view", "sell", "price_override", "return", "cancel", "products", "stock", "customers",
-                          "collect", "reports", "day_close", "drafts", "tables", "kitchen"}),
+                          "collect", "reports", "day_close", "drafts", "tables", "kitchen", "purchases"}),
     "cashier": frozenset({"view", "sell", "customers", "collect", "drafts", "tables", "kitchen"}),
     "accountant": frozenset({"view", "reports"}),
     # Restaurant floor staff: take orders / send KOTs (waiter), or work the kitchen screen. Neither can bill.
@@ -154,6 +155,14 @@ SCHEMA = [
     " updated_at TEXT NOT NULL)",
 ]
 
+# Columns added after the first release (added in place, never by recreating a table).
+MIGRATIONS = [
+    ("pos_products", "track_batches", "INTEGER NOT NULL DEFAULT 0"),
+    ("pos_stock_moves", "batch_no", "TEXT"),
+    ("pos_stock_moves", "expiry_date", "TEXT"),
+    ("pos_invoice_lines", "batches", "TEXT"),
+]
+
 
 class PosStore:
     def __init__(self, db_path: str, clock: Callable[[], datetime] = _now) -> None:
@@ -162,6 +171,10 @@ class PosStore:
         with self._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            for table, column, decl in MIGRATIONS:
+                have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+                if column not in have:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
     # ------------------------------------------------------------------ basics
     def _connect(self) -> sqlite3.Connection:
@@ -362,9 +375,11 @@ class PosStore:
             if price < 0 or price > 10_00_00_000_00:
                 raise PosError(400, "price", "Enter the selling price.")
             out["price_paise"] = price
-        for key in ("price_includes_tax", "track_stock", "is_service"):
+        for key in ("price_includes_tax", "track_stock", "is_service", "track_batches"):
             if key in data or not partial:
                 out[key] = 1 if data.get(key, key == "price_includes_tax") else 0
+        if out.get("track_batches"):
+            out["track_stock"] = 1  # batches are stock
         if "low_stock_milli" in data:
             out["low_stock_milli"] = max(0, int(data.get("low_stock_milli") or 0))
         if "category" in data or not partial:
@@ -445,8 +460,8 @@ class PosStore:
     @staticmethod
     def _product_out(row: sqlite3.Row, stock: Optional[int]) -> Dict[str, Any]:
         out = dict(row)
-        for key in ("price_includes_tax", "track_stock", "is_service", "active"):
-            out[key] = bool(out[key])
+        for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches"):
+            out[key] = bool(out.get(key))
         out["stock_milli"] = stock if out["track_stock"] else None
         out["low_stock"] = bool(out["track_stock"] and (stock or 0) <= out["low_stock_milli"])
         return out
@@ -505,6 +520,15 @@ class PosStore:
                 raise PosError(404, "product", "Item not found or stock is not tracked for it.")
             current = self._stock_map(conn, business_id).get(product["id"], 0)
             qty = int(data.get("qty_milli") or 0)
+            batch_no = _clean(data.get("batch_no"), 40) or None
+            expiry = str(data.get("expiry_date") or "") or None
+            if expiry and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", expiry):
+                raise PosError(400, "expiry_date", "Expiry date must be YYYY-MM-DD.")
+            if product["track_batches"] and kind in ("purchase", "wastage") and not batch_no:
+                raise PosError(400, "batch_no", "This item is tracked by batch: enter the batch number.")
+            if product["track_batches"] and kind == "count" and batch_no:
+                current = sum(b["qty_milli"] for b in self.batch_balances(conn, business_id, product["id"])
+                              if b["batch_no"] == batch_no)
             if kind == "count":
                 delta = qty - current
             elif kind == "wastage":
@@ -516,17 +540,47 @@ class PosStore:
             if kind != "count" and delta == 0:
                 raise PosError(400, "qty", "Quantity must not be zero.")
             now = self.clock().isoformat()
+            if batch_no and not expiry:
+                known = conn.execute("SELECT expiry_date FROM pos_stock_moves WHERE business_id = ? AND product_id = ? AND"
+                                     " batch_no = ? AND expiry_date IS NOT NULL LIMIT 1",
+                                     (business_id, product["id"], batch_no)).fetchone()
+                expiry = known["expiry_date"] if known else None
             cur = conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, reason, at,"
-                               " created_by, client_txn_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                               (business_id, product["id"], delta, kind, reason or kind, now, user, txn))
+                               " created_by, client_txn_id, batch_no, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                               (business_id, product["id"], delta, kind, reason or kind, now, user, txn, batch_no, expiry))
             self._audit(conn, business_id, user, f"stock.{kind}", product["id"],
                         {"delta_milli": delta, "before_milli": current, "reason": reason}, now)
         return {"move_id": cur.lastrowid, "delta_milli": delta, "stock_milli": current + delta}
 
+    def batches(self, business_id: str, user: str, product_id: str) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "view")
+            today = self._local(self.clock())
+            return [{**b, "expired": bool(b["expiry_date"] and b["expiry_date"] < today)}
+                    for b in self.batch_balances(conn, business_id, product_id)]
+
+    def expiry_report(self, business_id: str, user: str, days: int = 30) -> Dict[str, Any]:
+        """Batches in stock that are expired or expire within ``days``."""
+        days = max(0, min(int(days), 365))
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "stock")
+            today = self._local(self.clock())
+            until = (datetime.fromisoformat(today) + timedelta(days=days)).date().isoformat()
+            rows = conn.execute(
+                "SELECT m.product_id, p.name, p.unit, m.batch_no, m.expiry_date, SUM(m.qty_milli) AS qty FROM pos_stock_moves m"
+                " JOIN pos_products p ON p.id = m.product_id WHERE m.business_id = ? AND m.batch_no IS NOT NULL AND"
+                " m.expiry_date IS NOT NULL GROUP BY m.product_id, m.batch_no, m.expiry_date HAVING SUM(m.qty_milli) > 0"
+                " AND m.expiry_date <= ? ORDER BY m.expiry_date", (business_id, until)).fetchall()
+        items = [{"product_id": r["product_id"], "name": r["name"], "unit": r["unit"], "batch_no": r["batch_no"],
+                  "expiry_date": r["expiry_date"], "qty_milli": int(r["qty"]), "expired": r["expiry_date"] < today}
+                 for r in rows]
+        return {"today": today, "until": until, "items": items}
+
     def stock_moves(self, business_id: str, user: str, product_id: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             self._require(conn, business_id, user, "stock")
-            rows = conn.execute("SELECT qty_milli, kind, ref_id, reason, at FROM pos_stock_moves WHERE business_id = ?"
+            rows = conn.execute("SELECT qty_milli, kind, ref_id, reason, at, batch_no, expiry_date FROM pos_stock_moves"
+                                " WHERE business_id = ?"
                                 " AND product_id = ? ORDER BY id", (business_id, product_id)).fetchall()
         balance = 0
         out = []
@@ -769,7 +823,7 @@ class PosStore:
                           "discount_paise": int(raw.get("discount_paise") or 0), "rate_bp": product["rate_bp"],
                           "cess_bp": product["cess_bp"], "category": product["category"],
                           "price_includes_tax": bool(product["price_includes_tax"]), "weight": weight,
-                          "track_stock": bool(product["track_stock"])})
+                          "track_stock": bool(product["track_stock"]), "track_batches": bool(product["track_batches"])})
         place = data.get("place_of_supply")
         if place:
             place = str(place).zfill(2)
@@ -841,8 +895,16 @@ class PosStore:
              json.dumps(pos_tax.rate_summary(computed["lines"])), computed["rules_version"], txn, digest, user,
              device, 1 if data.get("offline") else 0, now, paid, balance, _clean(data.get("notes"), 240)))
         for line in computed["lines"]:
+            if line.get("track_batches"):
+                line["batches"] = self._allocate_batches(conn, business_id, line, local_date)
             self._insert_line(conn, invoice_id, line)
-            if line["track_stock"]:
+            if line.get("batches"):
+                for b in line["batches"]:
+                    conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
+                                 " created_by, batch_no, expiry_date) VALUES (?, ?, ?, 'sale', ?, ?, ?, ?, ?, ?)",
+                                 (business_id, line["product_id"], -b["qty_milli"], invoice_id, number, now, user,
+                                  b["batch_no"], b["expiry_date"]))
+            elif line["track_stock"]:
                 conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
                              " created_by) VALUES (?, ?, ?, 'sale', ?, ?, ?, ?)",
                              (business_id, line["product_id"], -line["qty_milli"], invoice_id, number, now, user))
@@ -862,6 +924,37 @@ class PosStore:
                      "after_day_close": bool(closed), "price_overrides": [l["line_no"] for l in lines
                                                                          if l["price_source"] == "manual_override"]}, now)
         return invoice_id
+
+    def batch_balances(self, conn: sqlite3.Connection, business_id: str, product_id: str) -> List[Dict[str, Any]]:
+        rows = conn.execute("SELECT batch_no, expiry_date, SUM(qty_milli) AS qty FROM pos_stock_moves WHERE business_id = ?"
+                            " AND product_id = ? AND batch_no IS NOT NULL GROUP BY batch_no, expiry_date"
+                            " HAVING SUM(qty_milli) > 0 ORDER BY COALESCE(expiry_date, '9999-12-31'), batch_no",
+                            (business_id, product_id)).fetchall()
+        return [{"batch_no": r["batch_no"], "expiry_date": r["expiry_date"], "qty_milli": int(r["qty"])} for r in rows]
+
+    def _allocate_batches(self, conn: sqlite3.Connection, business_id: str, line: Dict[str, Any],
+                          local_date: str) -> List[Dict[str, Any]]:
+        """First-expiry-first-out from batches that are NOT expired on the sale date (an expiry
+        date is the last day it may be sold). Expired stock is never sold; when only expired stock
+        is left the sale is refused. No batch stock at all -> no allocation (the line is still
+        sold and the stock goes negative, as for any tracked item)."""
+        need = int(line["qty_milli"])
+        batches = self.batch_balances(conn, business_id, line["product_id"])
+        usable = [b for b in batches if not b["expiry_date"] or b["expiry_date"] >= local_date]
+        expired = [b for b in batches if b["expiry_date"] and b["expiry_date"] < local_date]
+        out: List[Dict[str, Any]] = []
+        for b in usable:
+            if need <= 0:
+                break
+            take = min(need, b["qty_milli"])
+            out.append({"batch_no": b["batch_no"], "expiry_date": b["expiry_date"], "qty_milli": take})
+            need -= take
+        if need > 0 and expired and sum(b["qty_milli"] for b in usable) == 0:
+            raise PosError(409, "expired_stock", f"{line['name']}: only expired stock is left (batch "
+                           f"{expired[0]['batch_no']}, expired {expired[0]['expiry_date']}). It cannot be sold.")
+        if need > 0 and out:
+            out.append({"batch_no": None, "expiry_date": None, "qty_milli": need})
+        return out
 
     @staticmethod
     def _hsn_problems(business: sqlite3.Row, customer: Optional[sqlite3.Row], computed: Dict[str, Any]) -> List[str]:
@@ -908,6 +1001,9 @@ class PosStore:
              1 if line["price_includes_tax"] else 0, line["taxable_paise"], line["cgst_paise"], line["sgst_paise"],
              line["igst_paise"], line["cess_paise"], line["total_paise"],
              json.dumps(line["weight"]) if line.get("weight") else None, line.get("original_line_no")))
+        if line.get("batches"):
+            conn.execute("UPDATE pos_invoice_lines SET batches = ? WHERE invoice_id = ? AND line_no = ?",
+                         (json.dumps(line["batches"]), invoice_id, line["line_no"]))
 
     def _insert_payment(self, conn: sqlite3.Connection, business_id: str, invoice_id: Optional[str],
                         customer_id: Optional[str], method: str, amount: int, reference: Any, kind: str, user: str,
@@ -954,6 +1050,7 @@ class PosStore:
             item = dict(line)
             item["price_includes_tax"] = bool(item["price_includes_tax"])
             item["weight"] = json.loads(item["weight"]) if item["weight"] else None
+            item["batches"] = json.loads(item["batches"]) if item.get("batches") else None
             out["lines"].append(item)
         out["payments"] = [dict(p) for p in payments]
         out["credit_notes"] = [dict(c) for c in credits]
@@ -1044,7 +1141,8 @@ class PosStore:
                           "unit_price_paise": src["unit_price_paise"], "price_source": "original_invoice",
                           "discount_paise": discount, "rate_bp": src["rate_bp"], "cess_bp": src["cess_bp"],
                           "category": src["category"], "price_includes_tax": bool(src["price_includes_tax"]),
-                          "weight": None, "restock": bool(raw.get("restock", True))})
+                          "weight": None, "restock": bool(raw.get("restock", True)),
+                          "source_batches": json.loads(src["batches"]) if src["batches"] else []})
         if not lines:
             raise PosError(400, "lines", "Choose the items to credit.")
         snap_business = json.loads(original["business_snapshot"])
@@ -1084,9 +1182,21 @@ class PosStore:
             self._insert_line(conn, note_id, line)
             product = conn.execute("SELECT track_stock FROM pos_products WHERE id = ?", (line["product_id"],)).fetchone()
             if line["restock"] and product is not None and product["track_stock"]:
-                conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
-                             " created_by) VALUES (?, ?, ?, 'return', ?, ?, ?, ?)",
-                             (business_id, line["product_id"], line["qty_milli"], note_id, number, now, user))
+                # Returned goods go back to the batches they were sold from (same order).
+                left = line["qty_milli"]
+                for b in line.get("source_batches") or []:
+                    if left <= 0:
+                        break
+                    take = min(left, int(b["qty_milli"]))
+                    conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
+                                 " created_by, batch_no, expiry_date) VALUES (?, ?, ?, 'return', ?, ?, ?, ?, ?, ?)",
+                                 (business_id, line["product_id"], take, note_id, number, now, user, b.get("batch_no"),
+                                  b.get("expiry_date")))
+                    left -= take
+                if left > 0:
+                    conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
+                                 " created_by) VALUES (?, ?, ?, 'return', ?, ?, ?, ?)",
+                                 (business_id, line["product_id"], left, note_id, number, now, user))
         if refund_amount:
             self._insert_payment(conn, business_id, note_id, original["customer_id"], refund["method"], -refund_amount,
                                  refund.get("reference"), "refund", user, at)
@@ -1126,11 +1236,12 @@ class PosStore:
             now = at.isoformat()
             conn.execute("UPDATE pos_invoices SET status = 'cancelled', cancel_reason = ?, cancelled_by = ?,"
                          " cancelled_at = ? WHERE id = ?", (reason, user, now, invoice_id))
-            for move in conn.execute("SELECT product_id, qty_milli FROM pos_stock_moves WHERE ref_id = ? AND kind = 'sale'",
-                                     (invoice_id,)).fetchall():
+            for move in conn.execute("SELECT product_id, qty_milli, batch_no, expiry_date FROM pos_stock_moves WHERE"
+                                     " ref_id = ? AND kind = 'sale'", (invoice_id,)).fetchall():
                 conn.execute("INSERT INTO pos_stock_moves (business_id, product_id, qty_milli, kind, ref_id, reason, at,"
-                             " created_by) VALUES (?, ?, ?, 'cancel', ?, ?, ?, ?)",
-                             (business_id, move["product_id"], -move["qty_milli"], invoice_id, reason, now, user))
+                             " created_by, batch_no, expiry_date) VALUES (?, ?, ?, 'cancel', ?, ?, ?, ?, ?, ?)",
+                             (business_id, move["product_id"], -move["qty_milli"], invoice_id, reason, now, user,
+                              move["batch_no"], move["expiry_date"]))
             for pay in conn.execute("SELECT method, amount_paise, customer_id FROM pos_payments WHERE invoice_id = ? AND"
                                     " kind = 'sale'", (invoice_id,)).fetchall():
                 self._insert_payment(conn, business_id, invoice_id, pay["customer_id"], pay["method"],

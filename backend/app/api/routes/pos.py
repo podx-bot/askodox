@@ -87,6 +87,7 @@ class ProductIn(BaseModel):
     cess_bp: Optional[int] = Field(default=None, ge=0, le=30000)
     category: Optional[str] = Field(default=None, max_length=20)
     track_stock: Optional[bool] = None
+    track_batches: Optional[bool] = None
     low_stock_milli: Optional[int] = Field(default=None, ge=0)
     opening_stock_milli: Optional[int] = None
     active: Optional[bool] = None
@@ -98,6 +99,8 @@ class StockIn(BaseModel):
     qty_milli: int
     reason: str = Field(default="", max_length=160)
     client_txn_id: Optional[str] = Field(default=None, max_length=64)
+    batch_no: Optional[str] = Field(default=None, max_length=40)
+    expiry_date: Optional[str] = Field(default=None, max_length=10)
 
 
 class CustomerIn(BaseModel):
@@ -505,3 +508,123 @@ def kitchen(business_id: str, request: Request) -> dict:
 @router.post("/businesses/{business_id}/kitchen/{kot_id}")
 def kot_status(business_id: str, kot_id: str, body: KotStatusIn, request: Request) -> dict:
     return _call(_restaurant(request).set_kot_status, business_id, _user(request), kot_id, body.status)
+
+
+# ------------------------------------------------------------ stock batches / expiry
+@router.get("/businesses/{business_id}/stock/{product_id}/batches")
+def batches(business_id: str, product_id: str, request: Request) -> dict:
+    return {"batches": _call(_store(request).batches, business_id, _user(request), product_id)}
+
+
+@router.get("/businesses/{business_id}/reports/expiry")
+def expiry_report(business_id: str, request: Request, days: int = 30) -> dict:
+    return _call(_store(request).expiry_report, business_id, _user(request), days)
+
+
+# ------------------------------------------------------------ suppliers / purchases
+def _purchases(request: Request):
+    from app.services.pos_purchases import PosPurchases
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_purchases", None)
+    if existing is None or existing.store is not store:
+        existing = PosPurchases(store)
+        try:
+            container.pos_purchases = existing
+        except Exception:
+            pass
+    return existing
+
+
+class SupplierIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    phone: str = Field(default="", max_length=20)
+    gstin: Optional[str] = Field(default=None, max_length=15)
+    address: str = Field(default="", max_length=240)
+    state_code: Optional[str] = Field(default=None, max_length=2)
+
+
+class PurchaseLineIn(BaseModel):
+    product_id: str = Field(max_length=40)
+    qty_milli: int = Field(gt=0, le=10_000_000_000)
+    cost_paise: int = Field(ge=0)
+    rate_bp: Optional[int] = Field(default=None, ge=0)
+    cess_bp: int = Field(default=0, ge=0, le=30000)
+    discount_paise: int = Field(default=0, ge=0)
+    batch_no: Optional[str] = Field(default=None, max_length=40)
+    expiry_date: Optional[str] = Field(default=None, max_length=10)
+
+
+class PurchaseIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    supplier_id: str = Field(max_length=40)
+    supplier_bill_no: str = Field(min_length=1, max_length=40)
+    bill_date: Optional[str] = Field(default=None, max_length=10)
+    lines: List[PurchaseLineIn] = Field(min_length=1, max_length=300)
+    supplier_total_paise: Optional[int] = Field(default=None, ge=0)
+    notes: str = Field(default="", max_length=240)
+
+
+class SupplierPayIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    method: str = Field(max_length=20)
+    amount_paise: int = Field(gt=0)
+    reference: str = Field(default="", max_length=60)
+
+
+@router.get("/businesses/{business_id}/suppliers")
+def suppliers(business_id: str, request: Request) -> dict:
+    return {"suppliers": _call(_purchases(request).suppliers, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/suppliers")
+def add_supplier(business_id: str, body: SupplierIn, request: Request) -> dict:
+    return _call(_purchases(request).add_supplier, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/suppliers/{supplier_id}")
+def supplier(business_id: str, supplier_id: str, request: Request) -> dict:
+    return _call(_purchases(request).supplier, business_id, _user(request), supplier_id)
+
+
+@router.post("/businesses/{business_id}/suppliers/{supplier_id}/payments")
+def pay_supplier(business_id: str, supplier_id: str, body: SupplierPayIn, request: Request) -> dict:
+    return _call(_purchases(request).pay_supplier, business_id, _user(request), supplier_id, _dump(body))
+
+
+@router.get("/businesses/{business_id}/suppliers/{supplier_id}/statement")
+def supplier_statement(business_id: str, supplier_id: str, month: str, request: Request) -> dict:
+    return _call(_purchases(request).supplier_statement, business_id, _user(request), supplier_id, month)
+
+
+@router.get("/businesses/{business_id}/purchases")
+def purchases(business_id: str, request: Request, supplier_id: str = "") -> dict:
+    return {"purchases": _call(_purchases(request).purchases, business_id, _user(request), supplier_id)}
+
+
+@router.post("/businesses/{business_id}/purchases")
+def record_purchase(business_id: str, body: PurchaseIn, request: Request) -> dict:
+    data = body.model_dump()
+    data["lines"] = [{k: v for k, v in line.items() if v is not None} for line in data["lines"]]
+    return _call(_purchases(request).record_purchase, business_id, _user(request), data)
+
+
+@router.get("/businesses/{business_id}/purchases/{purchase_id}")
+def purchase(business_id: str, purchase_id: str, request: Request) -> dict:
+    return _call(_purchases(request).purchase, business_id, _user(request), purchase_id)
+
+
+@router.post("/businesses/{business_id}/purchases/{purchase_id}/cancel")
+def cancel_purchase(business_id: str, purchase_id: str, body: CancelIn, request: Request) -> dict:
+    return _call(_purchases(request).cancel_purchase, business_id, _user(request), purchase_id, body.reason)
+
+
+@router.get("/businesses/{business_id}/reports/valuation")
+def valuation(business_id: str, request: Request) -> dict:
+    return _call(_purchases(request).valuation, business_id, _user(request))
+
+
+@router.get("/businesses/{business_id}/reports/input-tax")
+def input_tax(business_id: str, date_from: str, date_to: str, request: Request) -> dict:
+    return _call(_purchases(request).input_tax, business_id, _user(request), date_from, date_to)

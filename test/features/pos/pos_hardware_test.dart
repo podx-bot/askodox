@@ -180,7 +180,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('askodoxPosReadScale')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('From Shop scale'), findsOneWidget);
+      final shown = [for (final t in tester.widgetList<Text>(find.descendant(of: find.byType(AlertDialog), matching: find.byType(Text)))) t.data];
+      final fieldText = [for (final f in tester.widgetList<TextField>(find.byType(TextField))) f.controller?.text];
+      expect(find.textContaining('From Shop scale'), findsOneWidget, reason: 'dialog texts: $shown fields: $fieldText');
       await tester.tap(find.byKey(const Key('askodoxPosQtyOk')));
       await tester.pumpAndSettle();
       expect(find.textContaining('from scale'), findsOneWidget);
