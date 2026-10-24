@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +11,7 @@ import '../domain/pos_commands.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_tax.dart';
 import 'pos_common.dart';
+import 'pos_restaurant_screens.dart' show AskodoxPosDraftsScreen;
 
 class AskodoxCartLine {
   AskodoxCartLine({required this.product, required this.qtyMilli, required this.pricePaise, this.override = false,
@@ -273,6 +275,102 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     }
   }
 
+  AskodoxJson _cartPayload() => {
+        'customer_id': _customer?['id'],
+        'lines': [
+          for (final l in _cart)
+            {
+              'product_id': l.product['id'],
+              'qty_milli': l.qtyMilli,
+              'price_paise': l.pricePaise,
+              'override': l.override,
+              'discount_paise': l.discountPaise,
+              'gross_milli': l.grossMilli,
+              'tare_milli': l.tareMilli,
+            },
+        ],
+      };
+
+  /// Hold = park this cart to finish later; quotation = the same, plus a text the
+  /// customer can receive. Neither is an invoice (no number, no stock, no tax record).
+  Future<void> _saveDraft(String kind) async {
+    final te = askodoxPosTe(context);
+    final business = ref.read(askodoxPosBusinessProvider(widget.businessId)).valueOrNull;
+    final preview = business == null ? null : _preview(business);
+    final title = '${_customer?['name'] ?? (te ? 'వాక్-ఇన్' : 'Walk-in')} · ${_cart.length} ${te ? 'ఐటమ్స్' : 'items'}'
+        '${preview == null ? '' : ' · ${askodoxPaise(preview.totalPaise)}'}';
+    try {
+      await ref.read(askodoxPosRepositoryProvider).saveDraft(widget.businessId, {'kind': kind, 'title': title, 'payload': _cartPayload()});
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (!mounted) return;
+    if (kind == 'hold') {
+      setState(() {
+        _cart.clear();
+        _customer = null;
+        _customerPrices = const {};
+      });
+      askodoxPosSnack(context, te ? 'బిల్లు ఆపాం.' : 'Bill held.');
+      return;
+    }
+    if (preview == null || business == null) return;
+    final text = [
+      '${business['name']}',
+      'QUOTATION (not a tax invoice) · ${askodoxPosToday()}',
+      for (var i = 0; i < _cart.length; i++)
+        '${_cart[i].product['name']}  ${askodoxQty(_cart[i].qtyMilli, _cart[i].unit)} x ${askodoxPaise(_cart[i].pricePaise)} = ${askodoxPaise(preview.lines[i].totalPaise)}',
+      if (preview.taxPaise > 0) 'GST ${askodoxPaise(preview.taxPaise)}',
+      'Total ${askodoxPaise(preview.totalPaise)}',
+      'Prices may change; the bill at purchase is final.',
+    ].join('\n');
+    try {
+      await const MethodChannel('com.askodox.app/device').invokeMethod<bool>('shareText', <String, Object?>{'text': text, 'title': 'Quotation'});
+    } catch (_) {}
+  }
+
+  Future<void> _resume() async {
+    final draft = await Navigator.of(context).push<AskodoxJson>(
+        MaterialPageRoute(builder: (_) => AskodoxPosDraftsScreen(businessId: widget.businessId)));
+    if (draft == null || !mounted) return;
+    final payload = askodoxPosMap(draft['payload']);
+    final byId = {for (final p in _products) '${p['id']}': p};
+    final restored = <AskodoxCartLine>[];
+    var missing = 0;
+    for (final l in askodoxPosList(payload['lines'])) {
+      final product = byId['${l['product_id']}'];
+      if (product == null) {
+        missing += 1;
+        continue;
+      }
+      // Today's price unless a manager had changed it on purpose (the server re-checks the role).
+      final override = l['override'] == true;
+      restored.add(AskodoxCartLine(
+        product: product,
+        qtyMilli: askodoxPosInt(l['qty_milli']),
+        pricePaise: override ? askodoxPosInt(l['price_paise']) : askodoxPosInt(product['price_paise']),
+        override: override,
+        discountPaise: askodoxPosInt(l['discount_paise']),
+        grossMilli: l['gross_milli'] == null ? null : askodoxPosInt(l['gross_milli']),
+        tareMilli: l['tare_milli'] == null ? null : askodoxPosInt(l['tare_milli']),
+      ));
+    }
+    setState(() {
+      _cart
+        ..clear()
+        ..addAll(restored);
+    });
+    if (draft['kind'] == 'hold') {
+      try {
+        await ref.read(askodoxPosRepositoryProvider).deleteDraft(widget.businessId, '${draft['id']}');
+      } catch (_) {}
+    }
+    if (missing > 0 && mounted) {
+      askodoxPosSnack(context, askodoxPosTe(context) ? '$missing ఐటమ్స్ ఇప్పుడు మెనూలో లేవు.' : '$missing items are no longer active.');
+    }
+  }
+
   Future<void> _pay() async {
     final business = ref.read(askodoxPosBusinessProvider(widget.businessId)).valueOrNull;
     if (business == null) return;
@@ -282,7 +380,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     final payments = await showModalBottomSheet<List<AskodoxJson>>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _PaymentSheet(total: preview.totalPaise, allowCredit: _customer != null, te: te),
+      builder: (ctx) => AskodoxPosPaymentSheet(total: preview.totalPaise, allowCredit: _customer != null, te: te),
     );
     if (payments == null || !mounted) return;
     await _issue(business, preview, payments);
@@ -398,6 +496,24 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       appBar: AppBar(
         title: Text(te ? 'కొత్త బిల్లు' : 'New bill'),
         actions: [
+          IconButton(
+            key: const Key('askodoxPosHold'),
+            tooltip: te ? 'బిల్లు ఆపు' : 'Hold bill',
+            onPressed: _cart.isEmpty ? null : () => _saveDraft('hold'),
+            icon: const Icon(Icons.pause_circle_outline),
+          ),
+          IconButton(
+            key: const Key('askodoxPosQuote'),
+            tooltip: te ? 'కొటేషన్' : 'Quotation',
+            onPressed: _cart.isEmpty ? null : () => _saveDraft('quotation'),
+            icon: const Icon(Icons.request_quote_outlined),
+          ),
+          IconButton(
+            key: const Key('askodoxPosHeld'),
+            tooltip: te ? 'ఆపిన బిల్లులు' : 'Held bills',
+            onPressed: _resume,
+            icon: const Icon(Icons.history),
+          ),
           TextButton.icon(
             key: const Key('askodoxPosCustomer'),
             onPressed: _chooseCustomer,
@@ -524,17 +640,17 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   }
 }
 
-class _PaymentSheet extends StatefulWidget {
-  const _PaymentSheet({required this.total, required this.allowCredit, required this.te});
+class AskodoxPosPaymentSheet extends StatefulWidget {
+  const AskodoxPosPaymentSheet({super.key, required this.total, required this.allowCredit, required this.te});
   final int total;
   final bool allowCredit;
   final bool te;
 
   @override
-  State<_PaymentSheet> createState() => _PaymentSheetState();
+  State<AskodoxPosPaymentSheet> createState() => AskodoxPosPaymentSheetState();
 }
 
-class _PaymentSheetState extends State<_PaymentSheet> {
+class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
   final List<AskodoxJson> _payments = [];
   final _amount = TextEditingController();
   final _reference = TextEditingController();

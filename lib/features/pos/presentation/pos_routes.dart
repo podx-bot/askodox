@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import 'pos_home_screen.dart';
 import 'pos_records_screens.dart';
+import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
 
 /// Universal POS routes (entry: My Business -> Shop billing).
@@ -26,5 +27,11 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/pos/:id/day', builder: (context, state) => AskodoxPosDayScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/gst', builder: (context, state) => AskodoxPosGstScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/staff', builder: (context, state) => AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/tables', builder: (context, state) => AskodoxPosTablesScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/order/:oid',
+      builder: (context, state) =>
+          AskodoxPosOrderScreen(businessId: state.pathParameters['id']!, orderId: state.pathParameters['oid']!)),
+  GoRoute(path: '/pos/:id/kitchen', builder: (context, state) => AskodoxPosKitchenScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
 ];

@@ -48,7 +48,7 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Billing | Split / partial payments, balance to customer credit, credit limit | IMPLEMENTED AND VERIFIED | |
 | Billing | Idempotent issue, immutable invoices, numbering ≤16 chars unique per FY | IMPLEMENTED AND VERIFIED | |
 | Billing | Credit notes (partial / full, restock, refund), same-day cancel keeping the record | IMPLEMENTED AND VERIFIED | debit notes NOT IMPLEMENTED |
-| Billing | Hold / quotation drafts (API) | PARTIALLY IMPLEMENTED | API + tests; no app screen yet |
+| Billing | Hold bill / resume, quotation shared as text (not an invoice) | IMPLEMENTED AND VERIFIED | resume uses today's prices; the customer is chosen again |
 | Billing | Receipt text, share as text (WhatsApp etc. — user chooses) | IMPLEMENTED AND VERIFIED | PDF invoice NOT IMPLEMENTED; email NOT IMPLEMENTED |
 | GST | CGST/SGST/UTGST/IGST/cess, inclusive / exclusive, exempt / nil / non-GST / zero-rated LUT | IMPLEMENTED AND VERIFIED | rates & HSN only from the shop's entry |
 | GST | Composition bill of supply heading, unregistered bill | IMPLEMENTED AND VERIFIED | |
@@ -68,7 +68,8 @@ NOT IMPLEMENTED. "Verified" here means automated tests in CI only — nothing is
 | Hardware | BLE ESC/POS printer (scan, choose, 58 / 80 mm, test print, receipt print) | IMPLEMENTED, HARDWARE TEST PENDING | no printer model tested |
 | Hardware | Telugu receipt printing (raster image, bands ≤255 rows) | IMPLEMENTED, HARDWARE TEST PENDING | rendered with the phone font; no printer tested |
 | Hardware | Classic Bluetooth (SPP), USB, LAN printers, cash drawer, customer display, BT / USB scanners, scales | NOT IMPLEMENTED | |
-| Restaurant | Tables, KOT, KDS, modifiers, split / merge | NOT IMPLEMENTED | |
+| Restaurant | Tables, open orders, item notes, KOT (daily numbers), kitchen screen (new → preparing → ready → served), move / merge tables, split bill by items, takeaway | IMPLEMENTED AND VERIFIED | roles waiter / kitchen; kitchen screen refreshes every 10 s (no push) |
+| Restaurant | Priced modifiers / add-ons, KOT printing to a kitchen printer, split by amount / seat | NOT IMPLEMENTED | notes are text only |
 | Shipping | Courier integrations | NOT IMPLEMENTED | |
 | Accounting | Chart of accounts, P&L, Tally export | NOT IMPLEMENTED | |
 

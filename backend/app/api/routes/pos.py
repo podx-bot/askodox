@@ -70,7 +70,7 @@ class SettingsIn(BaseModel):
 
 class MemberIn(BaseModel):
     phone: str = Field(min_length=10, max_length=16)
-    role: str = Field(pattern="^(manager|cashier|accountant|removed)$")
+    role: str = Field(pattern="^(manager|cashier|accountant|waiter|kitchen|removed)$")
 
 
 class ProductIn(BaseModel):
@@ -379,3 +379,129 @@ def delete_draft(business_id: str, draft_id: str, request: Request) -> dict:
 @router.get("/businesses/{business_id}/audit")
 def audit(business_id: str, request: Request, limit: int = 200) -> dict:
     return {"audit": _call(_store(request).audit, business_id, _user(request), limit)}
+
+
+# ------------------------------------------------------------------ restaurant
+def _restaurant(request: Request):
+    from app.services.pos_restaurant import PosRestaurant
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_restaurant", None)
+    if existing is None or existing.store is not store:
+        existing = PosRestaurant(store)
+        try:
+            container.pos_restaurant = existing
+        except Exception:
+            pass
+    return existing
+
+
+class TableIn(BaseModel):
+    name: str = Field(min_length=1, max_length=30)
+    area: str = Field(default="", max_length=30)
+    seats: int = Field(default=4, ge=1, le=50)
+
+
+class OrderIn(BaseModel):
+    kind: str = Field(default="dine_in", pattern="^(dine_in|takeaway|delivery)$")
+    table_id: Optional[str] = Field(default=None, max_length=40)
+    guests: int = Field(default=0, ge=0, le=200)
+    notes: str = Field(default="", max_length=160)
+
+
+class OrderItemIn(BaseModel):
+    product_id: str = Field(max_length=40)
+    qty_milli: int = Field(default=1000, gt=0, le=1_000_000_000)
+    note: str = Field(default="", max_length=120)
+    client_txn_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class OrderItemsIn(BaseModel):
+    items: List[OrderItemIn] = Field(min_length=1, max_length=100)
+
+
+class ReasonIn(BaseModel):
+    reason: str = Field(default="", max_length=160)
+
+
+class MoveIn(BaseModel):
+    table_id: str = Field(max_length=40)
+
+
+class KotStatusIn(BaseModel):
+    status: str = Field(pattern="^(preparing|ready|served)$")
+
+
+class OrderBillIn(BaseModel):
+    client_txn_id: str = Field(min_length=8, max_length=64)
+    item_ids: List[str] = Field(default_factory=list, max_length=300)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    payments: List[PaymentIn] = Field(default_factory=list, max_length=6)
+    include_unsent: bool = False
+
+
+@router.get("/businesses/{business_id}/tables")
+def tables(business_id: str, request: Request) -> dict:
+    return {"tables": _call(_restaurant(request).tables, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/tables")
+def add_table(business_id: str, body: TableIn, request: Request) -> dict:
+    return _call(_restaurant(request).add_table, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/orders")
+def open_orders(business_id: str, request: Request) -> dict:
+    return {"orders": _call(_restaurant(request).open_orders, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/orders")
+def open_order(business_id: str, body: OrderIn, request: Request) -> dict:
+    return _call(_restaurant(request).open_order, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/orders/{order_id}")
+def order(business_id: str, order_id: str, request: Request) -> dict:
+    return _call(_restaurant(request).order, business_id, _user(request), order_id)
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/items")
+def add_order_items(business_id: str, order_id: str, body: OrderItemsIn, request: Request) -> dict:
+    return _call(_restaurant(request).add_items, business_id, _user(request), order_id,
+                 [_dump(i) for i in body.items])
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/items/{item_id}/remove")
+def remove_order_item(business_id: str, order_id: str, item_id: str, body: ReasonIn, request: Request) -> dict:
+    return _call(_restaurant(request).remove_item, business_id, _user(request), order_id, item_id, body.reason)
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/kot")
+def send_kot(business_id: str, order_id: str, request: Request) -> dict:
+    return _call(_restaurant(request).send_kot, business_id, _user(request), order_id)
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/move")
+def move_order(business_id: str, order_id: str, body: MoveIn, request: Request) -> dict:
+    return _call(_restaurant(request).move, business_id, _user(request), order_id, body.table_id)
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/bill")
+def bill_order(business_id: str, order_id: str, body: OrderBillIn, request: Request) -> dict:
+    return _call(_restaurant(request).bill, business_id, _user(request), order_id, body.model_dump())
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/void")
+def void_order(business_id: str, order_id: str, body: ReasonIn, request: Request) -> dict:
+    return _call(_restaurant(request).void_order, business_id, _user(request), order_id, body.reason)
+
+
+@router.get("/businesses/{business_id}/kitchen")
+def kitchen(business_id: str, request: Request) -> dict:
+    return {"kots": _call(_restaurant(request).kitchen, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/kitchen/{kot_id}")
+def kot_status(business_id: str, kot_id: str, body: KotStatusIn, request: Request) -> dict:
+    return _call(_restaurant(request).set_kot_status, business_id, _user(request), kot_id, body.status)

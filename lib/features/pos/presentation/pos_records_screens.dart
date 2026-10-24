@@ -836,6 +836,8 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
       'manager': te ? 'మేనేజర్ (ధర మార్పు, రిటర్న్, రద్దు)' : 'Manager (price change, returns, cancel)',
       'cashier': te ? 'క్యాషియర్ (బిల్లింగ్ మాత్రమే)' : 'Cashier (billing only)',
       'accountant': te ? 'అకౌంటెంట్ (నివేదికలు మాత్రమే)' : 'Accountant (reports only)',
+      'waiter': te ? 'వెయిటర్ (ఆర్డర్లు, KOT)' : 'Waiter (orders, KOT)',
+      'kitchen': te ? 'వంటగది (KOT స్క్రీన్)' : 'Kitchen (KOT screen)',
       'removed': te ? 'తొలగించు' : 'Remove access',
     };
     return Scaffold(
