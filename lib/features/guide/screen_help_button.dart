@@ -168,6 +168,8 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
       _queued = false;
       if (mounted) setState(() {});
     });
+    // A nudge can arrive while nothing is animating: make sure a frame comes.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   (String pattern, String path) _where() {
