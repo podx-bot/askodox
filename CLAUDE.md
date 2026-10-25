@@ -14,7 +14,8 @@ this file, don't trust it blindly.
   tax as recorded), POS round 4 PR #227 (box <-> pieces packs, serial / IMEI, purchase orders, Classic Bluetooth + USB
   printers via `AskodoxHardware.kt` on channel `com.askodox.app/hardware`, Telugu PDF text as images, Smart Tools
   protractor / magnifier / light / sound meters / vehicle walk-around report), then #228 shop advance, #229 guide on every screen + POS online channel, #230 ready catalogue + item
-  details, #231 guide offers help by itself + picture tiles + rates by quantity + spoken multi-item bill. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  details, #231 guide offers help by itself + picture tiles + rates by quantity + spoken multi-item bill, #232 self-shopping,
+  #233 guide speaks + answers, examples / pre-fill, History backup. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -567,6 +568,9 @@ this file, don't trust it blindly.
   (`askodoxPosFieldExample`); item details pre-fill EMPTY details via Smart Fill from the item name / seller's words.
   History = local archive + `/api/me/conversations` backup (`conversation_backup.py`, newer copy wins, deleted with the
   account); `_user_memory` in in_app_assistant gives the brain the caller's own earlier requests (token only).
+- Profile = search / talk bar (`askodoxProfileSearch` + mic; one spoken match opens it) + three tabs `askodoxProfileTab-me|
+  business|settings` + recent chips (`askodox.profile.recent.v1`). Rows go through the local `row(...)` helper so they are
+  indexed for search; a running walkthrough switches to the tab holding its target key. Keep every row key when moving rows.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
