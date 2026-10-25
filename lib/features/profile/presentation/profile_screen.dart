@@ -670,7 +670,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final results = query.isEmpty ? const <_ProfileEntry>[] : entries.where((e) => _matches(e, query)).toList();
     final recent = [for (final id in _recent) ...entries.where((e) => e.id == id)];
 
-    Widget tabButton(String id, String label, IconData icon) {
+    Widget tabButton(Key key, String id, String label, IconData icon) {
       final on = _tab == id;
       return Expanded(
         child: Material(
@@ -678,7 +678,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           elevation: on ? 1 : 0,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            key: Key('askodoxProfileTab-$id'),
+            key: key,
             borderRadius: BorderRadius.circular(12),
             onTap: () => setState(() => _tab = id),
             child: SizedBox(
@@ -828,9 +828,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(color: const Color(0xFFE4E9F2), borderRadius: BorderRadius.circular(14)),
               child: Row(children: [
-                tabButton('me', t('Me', 'నేను'), Icons.person_outline_rounded),
-                tabButton('business', t('Business', 'వ్యాపారం'), Icons.storefront_outlined),
-                tabButton('settings', t('Settings', 'సెట్టింగ్స్'), Icons.settings_outlined),
+                tabButton(const Key('askodoxProfileTab-me'), 'me', t('Me', 'నేను'), Icons.person_outline_rounded),
+                tabButton(const Key('askodoxProfileTab-business'), 'business', t('Business', 'వ్యాపారం'), Icons.storefront_outlined),
+                tabButton(const Key('askodoxProfileTab-settings'), 'settings', t('Settings', 'సెట్టింగ్స్'), Icons.settings_outlined),
               ]),
             ),
             ...switch (_tab) {
