@@ -1510,6 +1510,49 @@
           "change": "Owner request 2026-10-24 (branch claude/guide-fixes); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "profile_tabs_search",
+      "name": "Profile redesign: talk / search bar, three tabs (Me / Business / Settings), recent rows",
+      "purpose": "Profile was one long list of ~30 rows; people could not find things. Now they say or type what they need, or pick one of three short tabs.",
+      "expected_behavior": "Top: the user's own profile header + 'fill my profile' guide. A search box with a mic finds any row in any tab by its English / Telugu name or common words; one clear spoken match opens it at once; nothing found -> 'ask ASKODOX' sends the words to Main Chat. Up to 4 recently opened rows show as chips. Tabs: Me (shopping & daily use, roles & opportunities; sellers get a 'My Business' button), Business (My Business, My Studio), Settings (account & plans, settings & privacy, help, app update, sign out last). A running walkthrough switches to the tab that holds its next button. Every earlier row key is kept.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxProfileSearch",
+          "askodoxProfileAsk",
+          "askodoxProfileTab-me",
+          "askodoxProfileTab-business",
+          "askodoxProfileTab-settings",
+          "askodoxProfileSearchNone",
+          "askodoxProfileSearchResults",
+          "askodoxProfileGoBusiness"
+        ],
+        "symbols": [
+          "ProfileScreen"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/home/history_explore_profile_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-25 (branch claude/profile-redesign); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }
