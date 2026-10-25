@@ -1,4 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ASKODOX splash: committed here; tool/apply_android_askodox_branding.sh must not overwrite it. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-  <item><shape android:shape="rectangle"><gradient android:angle="315" android:startColor="#05060A" android:centerColor="#100A20" android:endColor="#24104E"/></shape></item>
-  <item android:drawable="@drawable/askodox_launcher_foreground" android:gravity="center" android:width="156dp" android:height="156dp"/>
+  <item><shape android:shape="rectangle"><gradient android:angle="315" android:startColor="#05060A" android:centerColor="#120A24" android:endColor="#2A1652"/></shape></item>
+  <item android:drawable="@drawable/askodox_splash_mark" android:gravity="center" android:width="160dp" android:height="160dp"/>
 </layer-list>

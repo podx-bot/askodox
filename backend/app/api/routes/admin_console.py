@@ -8,14 +8,18 @@ platform resource gets the same controls: add, edit, view, delete, lifecycle
 actions, duplicate, archive/restore, search, filter, sort, export and audit
 history. The older /admin page stays available.
 """
+import json
+
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
+
+from app.api.routes.admin_console_nav import NAV
 
 router = APIRouter(tags=["admin-console"])
 
 PAGE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASKODOX Console</title><link rel="icon" href="data:,">
+<title>ASKODOX Console</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 108 108%22%3E%3Crect width=%22108%22 height=%22108%22 rx=%2224%22 fill=%22%23120A24%22/%3E%3Cpath fill=%22%239B6BFF%22 d=%22M57.5,26.5 L66,26.5 L86,54 L66,81.5 L57.5,81.5 Z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23fff%22 stroke-width=%225%22 d=%22M52,27 C40,22 22,32 21,46 C16,54 20,70 28,73 C32,80 44,84 52,80 Z%22/%3E%3C/svg%3E">
 <style>
 :root{--bg:#f4f6fb;--panel:#fff;--ink:#101828;--muted:#667085;--line:#e4e7ec;--brand:#5b3df5;--brand2:#7a5af8;
 --side:#0f1629;--side2:#1a2340;--ok:#067647;--okbg:#dcfae6;--warn:#b54708;--warnbg:#fef0c7;--bad:#b42318;--badbg:#fee4e2;
@@ -70,31 +74,47 @@ td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}tr.r:hove
 .hist{font-size:12.5px;border-left:2px solid var(--line);padding-left:12px}.hist div{margin-bottom:10px}
 .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}.muted{color:var(--muted)}.right{margin-left:auto}
 .menu{display:none}
+.logo svg{flex:none}.te{color:var(--muted);font-weight:500;font-size:.86em}h1 .te{font-size:.7em}
+aside a small{color:#8f9ab8;font-size:12.5px}aside a.on small{color:#e9e4ff}aside a.sec{font-weight:600;margin-top:2px}aside a.sec.open{background:var(--side2)}
+.sub-nav{margin:2px 0 8px 10px;border-left:1px solid #2a3558;padding-left:6px}.sub-nav .grp{padding:10px 8px 4px;font-size:10.5px}.sub-nav a{font-size:13px;padding:6px 8px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-bottom:10px}.crumbs a{cursor:pointer;color:var(--brand)}.crumbs .gbtn{margin-left:auto;font-size:12px;padding:5px 10px;background:var(--infobg);color:var(--info);border-color:transparent}
+.guide{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px}.guide .muted{grid-column:1/-1;font-size:12px}
+.errx{border-left:4px solid var(--bad);font-size:13px}.errx .te{margin-top:2px}
+.stiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:24px}
+.stile{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:16px;padding:16px;cursor:pointer;transition:transform .12s,box-shadow .12s}
+.stile:hover,.tile:hover{transform:translateY(-2px);box-shadow:0 10px 28px #10182818}.stile .si{font-size:28px}.stile .st b{font-size:16px}.stile .sm{margin-top:auto;font-size:12px;color:var(--muted)}
+.tw{font-size:12.5px;margin-top:4px;line-height:1.35}
+.sechead{display:flex;gap:14px;align-items:flex-start;margin-bottom:8px}.sechead .si{font-size:34px;background:color-mix(in srgb,var(--c) 14%,transparent);border-radius:14px;padding:8px 10px;line-height:1}
+.cath{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:22px 0 10px}.cath .te{text-transform:none;letter-spacing:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;transition:transform .12s,box-shadow .12s}.tile .tt{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
+.todo{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:8px}.tcard{border-left:4px solid var(--warn);font-size:13px}.tcard.lvl-red{border-left-color:var(--bad)}.okcard{border-left:4px solid var(--ok)}
+@media(max-width:700px){.stiles{grid-template-columns:1fr 1fr;gap:10px}.stile{padding:12px}.stile .si{font-size:22px}.stile .tw{display:none}.tiles{grid-template-columns:1fr}.guide{grid-template-columns:1fr}.top .search{min-width:0}}
 @media(max-width:900px){#env,.who{display:none}.hits{width:92vw}.app{grid-template-columns:1fr}aside{position:fixed;left:-260px;width:248px;z-index:30;transition:left .2s}aside.open{left:0}.menu{display:inline-block}.page{padding:14px}}
 </style></head><body>
 <div id="login" class="login" style="display:none">
-  <h2>ASKODOX Console</h2><div class="muted">Sign in with the owner admin key or your staff token.</div>
+  <h2>ASKODOX Console</h2><div class="muted">Sign in with the owner admin key or your staff token.<br>Owner admin key లేదా మీ staff token తో sign in చేయండి.</div>
   <input id="cred" type="password" placeholder="Admin key or staff token (stf_...)" autocomplete="off">
-  <button class="p" onclick="signIn()">Sign in</button> <span id="lerr" class="err"></span>
+  <button class="p" onclick="signIn()">Sign in · లోపలికి</button> <span id="lerr" class="err"></span>
 </div>
 <div id="app" class="app" style="display:none">
   <aside id="side"></aside>
   <main>
     <div class="top">
       <button class="menu" onclick="document.querySelector('#side').classList.toggle('open')">☰</button>
-      <div class="search"><input class="q" id="q" placeholder="Search programs, links, offers, videos, payments…" oninput="globalSearch(this.value)"><div class="hits" id="hits"></div></div>
-      <span id="env"></span><span class="who" id="who"></span><button onclick="signOut()">Sign out</button>
+      <div class="search"><input class="q" id="q" placeholder="Search pages & records · పేజీలు, రికార్డులు వెతకండి…" oninput="globalSearch(this.value)"><div class="hits" id="hits"></div></div>
+      <span id="env"></span><span class="who" id="who"></span><button onclick="signOut()">Sign out · బయటకు</button>
     </div>
-    <div class="page" id="page"></div>
+    <div class="page"><div id="crumbs"></div><div id="page"></div></div>
   </main>
 </div>
 <div class="drawer" id="drawer"><div class="dh"><b id="dt"></b><button onclick="closeDrawer()">✕</button></div><div class="db" id="db"></div><div class="df" id="df"></div></div>
 <script>
-let CRED=sessionStorage.getItem("askodox_console")||"", ME=null, SCHEMA=null, VIEW="dashboard", STATE={};
+let CRED=sessionStorage.getItem("askodox_console")||"", ME=null, SCHEMA=null, VIEW="home", STATE={};
 const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const hdr=()=>CRED.startsWith("stf_")?{"X-ASKODOX-Staff-Token":CRED}:{"X-ASKODOX-Admin-Key":CRED};
 async function call(path,method="GET",body){const r=await fetch(path.startsWith("/")?path:"/admin/cc/"+path,{method,headers:{...hdr(),...(body!==undefined?{"Content-Type":"application/json"}:{})},body:body===undefined?undefined:JSON.stringify(body)});
-  const t=await r.text();let d;try{d=t?JSON.parse(t):{}}catch(e){d=t}if(!r.ok)throw new Error(typeof d==="object"&&d.detail?(typeof d.detail==="string"?d.detail:JSON.stringify(d.detail)):(t||r.status));return d}
+  const t=await r.text();let d;try{d=t?JSON.parse(t):{}}catch(e){d=t}if(!r.ok){const er=new Error(typeof d==="object"&&d.detail?(typeof d.detail==="string"?d.detail:JSON.stringify(d.detail)):(t||r.status));er.status=r.status;throw er}return d}
 const can=p=>ME&&ME.permissions.includes(p);
 function badge(s){s=String(s??"");const u=s.toUpperCase();let c="";
   if(["IN_STOCK","AFFILIATE","ACTIVE","LIVE","APPROVED","PAID","CONFIRMED","SETTLED","REDEEMED","RESOLVED","MET","OK","SENT","ENABLED","VERIFIED","ON_TRACK","GREEN","EXECUTED","ON","TEST_MODE_VERIFIED","TEST_VERIFIED","TEST_PAID"].includes(u))c="b-ok";
@@ -106,25 +126,79 @@ const money=v=>{if(v==null)return "—";const n=Number(v);return "₹"+n.toLocal
 const when=v=>v?new Date(v).toLocaleString():"—";
 
 /* ------------------------------------------------------------ navigation -- */
-function navModel(){const r=n=>({id:"r:"+n,label:(SCHEMA.resources.find(x=>x.name===n)||{}).label||n,perm:(SCHEMA.resources.find(x=>x.name===n)||{}).permission+":view"});
-  return [["Overview",[{id:"dashboard",label:"Dashboard",perm:"overview:view"},{id:"analytics",label:"Analytics",perm:"analytics:view"},{id:"outcomes",label:"Outcomes & gaps",perm:"analytics:view"},{id:"insights",label:"AI insights",perm:"insights:view"},{id:"revcmd",label:"Revenue command center",perm:"revenue:view"}]],
-  ["Growth & ads",[{id:"sponsored",label:"Sponsored campaigns",perm:"sponsored:view"},r("affiliate_programs"),r("affiliate_links"),r("smart_links"),{id:"benefits",label:"Offers & coupons",perm:"growth:view"},r("merchant_offers"),{id:"referrals",label:"Referrals",perm:"growth:view"},{id:"radioadmin",label:"Travel Radio (testing)",perm:"growth:view"},{id:"plansadmin",label:"Plans & pricing",perm:"growth:view"},{id:"billingadmin",label:"Billing, gateways & push",perm:"growth:view"},r("promotion_campaigns")]],
-  ["Advisor & demand",[{id:"demand",label:"Demand intelligence",perm:"demand:view"},r("demand_alert_rules"),r("advisor_categories"),r("advisor_questions"),r("advisor_rules"),{id:"assistant",label:"Admin assistant",perm:"overview:view"},{id:"workqueue",label:"My work queue",perm:"overview:view"}]],
-  ["Affiliate catalog",[{id:"smartentry",label:"Smart Entry (paste links)",perm:"overview:view"},{id:"affhub",label:"Affiliate Product Hub",perm:"affiliate_products:create"},{id:"affproducts",label:"Affiliate products",perm:"affiliate_products:view"},{id:"affsources",label:"Affiliate sources",perm:"affiliate_products:view"}]],
-  ["Content",[r("videos"),{id:"videoreports",label:"Video reports",perm:"content:view"},{id:"discovered",label:"Discovered videos",perm:"content:view"},r("creators"),r("video_sources"),r("reviews")]],
-  ["Money",[{id:"commissions",label:"Commission dashboard",perm:"commissions:view"},{id:"payments",label:"Payments",perm:"payments:view"},{id:"ledger",label:"Revenue ledger",perm:"finance:view"},{id:"rewards",label:"Rewards ledger",perm:"rewards:view"},{id:"transactions",label:"Transactions",perm:"finance:view"},r("subscription_promos")]],
-  ["Customers",[{id:"support",label:"Support tickets",perm:"support:view"},{id:"accounts",label:"Users & accounts",perm:"users:view"},r("listing_reviews"),r("prohibited_terms"),r("notification_templates"),r("notification_rules")]],
-  ["System",[{id:"wizard",label:"Integration Setup Wizard",perm:"integrations:view"},{id:"kycqueue",label:"KYC review queue",perm:"kyc:view"},{id:"readiness",label:"Integration readiness",perm:"integrations:view"},{id:"apibilling",label:"API Health & Billing",perm:"health:view"},{id:"incidents",label:"Incidents & actions (AI)",perm:"health:view"},{id:"integrations",label:"Integrations",perm:"integrations:view"},{id:"outbox",label:"Message deliveries",perm:"integrations:view"},{id:"flags",label:"Feature flags",perm:"config:view"},r("flag_rollouts"),{id:"cfgbundle",label:"Config import / export",perm:"config:view"},{id:"staff",label:"Staff & roles",perm:"staff:manage"},{id:"approvals",label:"Approvals",perm:"approvals:view"},{id:"selfheal",label:"Self-healing",perm:"selfheal:view"},{id:"audit",label:"Audit log",perm:"audit:view"},{id:"events",label:"Event stream",perm:"analytics:view"}]],
-  ["Staff & sources",[{id:"workspace",label:"Open Staff Workspace",perm:"workspace:view"},r("sources"),{id:"sourcehealth",label:"Source health",perm:"sources:view"},r("result_orchestration"),{id:"resultdiag",label:"Result diagnostics",perm:"requests:view"},r("staff_tasks"),r("feedback_reports"),r("early_access"),{id:"eadash",label:"Early Access dashboard",perm:"early_access:view"}]],
-  ["Mobility & delivery",[{id:"mobility",label:"Mobility overview",perm:"delivery:view"},r("delivery_partners"),r("mobility_services")]],
-  ["Owner setup",[{id:"setup",label:"ASKODOX setup",perm:"config:view"},r("qa_checks"),r("email_roles"),r("referral_credit_rules"),r("greeting_templates"),r("platform_settings"),r("auto_response_rules"),{id:"socialdm",label:"Social auto-DM",perm:"autoresponse:view"},r("social_dm_accounts")]],
-  ["AI Companion",[{id:"screenguide",label:"Screen Guide",perm:"companion:view"}]]]}
-function renderNav(){const counts=STATE.pending||{};document.querySelector("#side").innerHTML='<div class="logo"><i></i>ASKODOX</div>'+navModel().map(([g,items])=>{const vis=items.filter(i=>can(i.perm));
-  return vis.length?'<div class="grp">'+g+'</div>'+vis.map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')">'+esc(i.label)+(counts[i.id]?'<span class="n">'+counts[i.id]+'</span>':'')+'</a>').join(""):""}).join("")+'<div class="grp">Legacy</div><a href="/admin">Classic admin</a>'}
+/* ONE map (admin_console_nav.py): main heading -> category -> page, each page once. */
+const NAV=__NAV_JSON__;
+const ITEMS={};NAV.forEach(s=>s.cats.forEach(c=>c.items.forEach(i=>{ITEMS[i.id]={i,s,c}})));
+const resOf=n=>(SCHEMA&&SCHEMA.resources||[]).find(x=>x.name===n);
+function itemOk(i){if(i.res){const r=resOf(i.res);return !!r&&can(r.permission+":view")}return can(i.perm)}
+const visItems=c=>c.items.filter(itemOk);
+const visCats=s=>s.cats.filter(c=>visItems(c).length);
+const visSecs=()=>NAV.filter(s=>visCats(s).length);
+const pend=id=>(STATE.pending||{})[id]||0;
+const secPend=s=>s.cats.reduce((a,c)=>a+visItems(c).reduce((b,i)=>b+pend(i.id),0),0);
+const secOf=v=>v.startsWith("sec:")?NAV.find(s=>s.id===v.slice(4)):(ITEMS[v]||{}).s;
+const teOf=v=>(ITEMS[v]||{}).i?ITEMS[v].i.te:"";
+const LOGO='<svg viewBox="0 0 108 108" width="30" height="30" aria-hidden="true"><defs><linearGradient id="lgb" x1="22" y1="24" x2="54" y2="84" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#A98BFF"/></linearGradient><linearGradient id="lga" x1="58" y1="26" x2="88" y2="82" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#D4BCFF"/><stop offset=".45" stop-color="#9B6BFF"/><stop offset="1" stop-color="#5B2EE6"/></linearGradient></defs><rect width="108" height="108" rx="24" fill="#120A24"/><g fill="none" stroke="url(#lgb)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M52,26.5 C48.5,23.5 42.5,23 39,26.5 C33.5,24.5 27.5,28 27,33.5 C21.5,35 19,40.5 21,45.5 C17,49.5 17,56.5 21,60 C18.5,65.5 21.5,71.5 27.5,72.5 C29,78.5 35,82 41,80 C44.5,82.5 49.5,82.5 52,80 L52,26.5"/><path stroke-width="3" d="M52,42 L38,42 L33,37 M52,57 L36,57 L31,52 M52,34 L44,34 M52,65 L45,65 L40,70"/></g><path fill="url(#lga)" fill-rule="evenodd" d="M57.5,26.5 L66,26.5 Q69,26.5 70.8,29 L86,51 Q88,54 86,57 L70.8,79 Q69,81.5 66,81.5 L57.5,81.5 Z M64,36.5 L64,71.5 L76.5,54 Z"/></svg>';
+function renderNav(){const cur=secOf(VIEW);
+  document.querySelector("#side").innerHTML='<div class="logo">'+LOGO+'<span>ASKO<b style="color:#b794ff">DOX</b></span></div>'+
+   '<a class="'+(VIEW==="home"?"on":"")+'" onclick="go(\'home\')"><span>🏠 Home <small>· హోమ్</small></span></a>'+
+   visSecs().map(s=>{const open=cur&&cur.id===s.id,n=secPend(s);
+     return '<a class="sec'+(VIEW==="sec:"+s.id?" on":"")+(open?" open":"")+'" onclick="go(\'sec:'+s.id+'\')"><span>'+s.icon+' '+esc(s.en)+' <small>· '+esc(s.te)+'</small></span>'+(n?'<span class="n">'+n+'</span>':'')+'</a>'+
+      (open?'<div class="sub-nav">'+visCats(s).map(c=>'<div class="grp">'+esc(c.en)+' · '+esc(c.te)+'</div>'+visItems(c).map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')"><span>'+esc(i.en)+'</span>'+(pend(i.id)?'<span class="n">'+pend(i.id)+'</span>':'')+'</a>').join("")).join("")+'</div>':'')}).join("")+
+   '<div class="grp">Old screens · పాతవి</div><a href="/admin"><span>Classic admin <small>· being retired</small></span></a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
-async function render(){const p=document.querySelector("#page");p.innerHTML='<div class="muted">Loading…</div>';
-  try{if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={commissions,wizard,kycqueue,dashboard,analytics,insights,sponsored,benefits,referrals,radioadmin,plansadmin,billingadmin,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,affhub,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports,apibilling,incidents}[VIEW];await (f||dashboard)()}
-  catch(e){p.innerHTML='<div class="card err">Could not load: '+esc(e.message)+'</div>'}}
+let GUIDE_OPEN=true;try{GUIDE_OPEN=localStorage.getItem("askodox_console_guide")!=="0"}catch(e){}
+function toggleGuide(){GUIDE_OPEN=!GUIDE_OPEN;try{localStorage.setItem("askodox_console_guide",GUIDE_OPEN?"1":"0")}catch(e){}renderCrumbs()}
+function renderCrumbs(){const el=document.querySelector("#crumbs");if(!el)return;if(VIEW==="home"){el.innerHTML="";return}
+  const s=secOf(VIEW),x=ITEMS[VIEW];let h='<div class="crumbs"><a onclick="go(\'home\')">🏠 Home</a>';
+  if(s)h+=' › <a onclick="go(\'sec:'+s.id+'\')">'+s.icon+' '+esc(s.en)+' · '+esc(s.te)+'</a>';
+  if(x)h+=' › <span>'+esc(x.c.en)+' · '+esc(x.c.te)+'</span>';
+  h+=(x?'<button class="gbtn" id="guide_btn" onclick="toggleGuide()">📘 Guide · గైడ్ '+(GUIDE_OPEN?"▲":"▼")+'</button>':'')+'</div>';
+  if(x&&GUIDE_OPEN){const i=x.i;h+='<div class="guide" id="page_guide"><div><b>What is this?</b> '+esc(i.what_en)+'<div class="te">ఇది ఏమిటి? '+esc(i.what_te)+'</div></div>'+
+    '<div><b>What to do</b> '+esc(i.do_en)+'<div class="te">ఏం చేయాలి? '+esc(i.do_te)+'</div></div>'+
+    '<div class="muted">If something fails, a red box below says why and what to do · ఏదైనా fail అయితే, కింద ఎరుపు బాక్స్ ఎందుకో, ఏం చేయాలో చెబుతుంది.</div></div>'}
+  el.innerHTML=h}
+/* Why did this error come / what to do -- from the HTTP answer, en + te. */
+const ERR_T={0:["The server could not be reached (internet or server down).","సర్వర్ అందలేదు (ఇంటర్నెట్ లేదా సర్వర్ ఆగిపోయింది).","Check your internet and reload. If it continues, open System › Incidents.","ఇంటర్నెట్ చూసి reload చేయండి. ఇంకా వస్తే System › Incidents చూడండి."],
+   400:["Some entered value is not accepted.","నమోదు చేసిన ఒక విలువ సరిగ్గా లేదు.","Read the message, correct that field and try again.","మెసేజ్ చదివి, ఆ field సరిచేసి మళ్ళీ ప్రయత్నించండి."],
+   401:["Your sign-in expired or the key is wrong.","మీ sign-in గడువు అయిపోయింది లేదా key తప్పు.","Sign out and sign in again with your key / staff token.","Sign out చేసి మీ key / staff token తో మళ్ళీ sign in చేయండి."],
+   403:["Your role is not allowed to do this.","మీ role కి ఈ పని చేసే అనుమతి లేదు.","Ask the owner to give this permission in People › Staff & roles.","People › Staff & roles లో ఈ అనుమతి ఇవ్వమని owner ని అడగండి."],
+   404:["This item or feature is not on this server (deleted, or not deployed yet).","ఈ item / feature ఈ సర్వర్‌లో లేదు (delete అయింది లేదా ఇంకా deploy కాలేదు).","Reload the list. If a whole page says this, the server is on an older version.","లిస్ట్ reload చేయండి. పూర్తి పేజీ ఇలా చెప్తే, సర్వర్ పాత version లో ఉంది."],
+   409:["It conflicts with the current state (already done or changed by someone else).","ఇప్పటి స్థితికి సరిపోలడం లేదు (ఇప్పటికే అయింది లేదా వేరెవరో మార్చారు).","Reload, check the latest state, then try again.","Reload చేసి, తాజా స్థితి చూసి మళ్ళీ ప్రయత్నించండి."],
+   422:["A required field is missing or in the wrong format.","అవసరమైన field లేదు లేదా format తప్పు.","Fill the fields marked * in the right format.","* ఉన్న fields సరైన format లో నింపండి."],
+   429:["Too many tries in a short time; the server is protecting itself.","తక్కువ సమయంలో ఎక్కువ ప్రయత్నాలు; సర్వర్ తనను కాపాడుకుంటోంది.","Wait a minute, then try again.","ఒక నిమిషం ఆగి మళ్ళీ ప్రయత్నించండి."],
+   500:["The server hit an error while doing this.","ఈ పని చేస్తుండగా సర్వర్‌లో error వచ్చింది.","Try once more. If it repeats, open System › Incidents - it is recorded there.","ఒకసారి మళ్ళీ ప్రయత్నించండి. మళ్ళీ వస్తే System › Incidents చూడండి - అక్కడ నమోదవుతుంది."],
+   503:["An outside service (or this feature) is not set up or is down.","ఒక బయటి సర్వీస్ (లేదా ఈ feature) సెటప్ కాలేదు లేదా ఆగిపోయింది.","Open System › Integration readiness and run its check.","System › Integration readiness ఓపెన్ చేసి check చేయండి."]};
+function errWhy(e){const st=e&&e.status||0;return ERR_T[st]||ERR_T[st>=500?500:st>=400?400:0]}
+function errText(e){const t=errWhy(e);return String(e&&e.message||e)+"\n\nWhy: "+t[0]+"\nఎందుకు: "+t[1]+"\n\nWhat to do: "+t[2]+"\nఏం చేయాలి: "+t[3]}
+function explainError(e){const st=e&&e.status||0,m=String(e&&e.message||""),t=errWhy(e);
+  return '<div class="card errx"><b>⚠️ Could not complete · పూర్తి కాలేదు</b>'+(m?'<div class="mono muted" style="margin:6px 0">'+esc(m)+(st?' (HTTP '+st+')':'')+'</div>':'')+
+   '<div><b>Why?</b> '+t[0]+'<div class="te">ఎందుకు? '+t[1]+'</div></div><div style="margin-top:6px"><b>What to do</b> '+t[2]+'<div class="te">ఏం చేయాలి? '+t[3]+'</div></div></div>'}
+async function render(){const p=document.querySelector("#page");renderCrumbs();p.innerHTML='<div class="muted">Loading… · లోడ్ అవుతోంది…</div>';
+  try{if(VIEW==="home")return await home();if(VIEW.startsWith("sec:"))return sectionPage(VIEW.slice(4));
+    if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={commissions,wizard,kycqueue,dashboard,analytics,insights,sponsored,benefits,referrals,radioadmin,plansadmin,billingadmin,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,affhub,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports,apibilling,incidents}[VIEW];await (f||home)()}
+  catch(e){p.innerHTML=explainError(e)}}
+function tile(i){return '<div class="tile" data-id="'+esc(i.id)+'" onclick="go(\''+i.id+'\')"><div class="tt"><b>'+esc(i.en)+'</b>'+(pend(i.id)?'<span class="badge b-warn">'+pend(i.id)+' to review</span>':'')+'</div><div class="te">'+esc(i.te)+'</div><div class="muted tw">'+esc(i.what_en)+'</div><div class="muted tw te2">'+esc(i.what_te)+'</div></div>'}
+function sectionPage(id){const s=NAV.find(x=>x.id===id);if(!s)return home();
+  document.querySelector("#page").innerHTML='<div class="sechead" style="--c:'+s.color+'"><span class="si">'+s.icon+'</span><div><h1>'+esc(s.en)+' <span class="te">· '+esc(s.te)+'</span></h1><div class="sub">'+esc(s.what_en)+'<br>'+esc(s.what_te)+'</div></div></div>'+
+   visCats(s).map(c=>'<h3 class="cath">'+esc(c.en)+' <span class="te">· '+esc(c.te)+'</span></h3><div class="tiles">'+visItems(c).map(tile).join("")+'</div>').join("")}
+async function home(){const pg=document.querySelector("#page");
+  const secs=visSecs().map(s=>{const n=secPend(s),cnt=visCats(s).reduce((a,c)=>a+visItems(c).length,0);
+    return '<div class="stile" data-sec="'+s.id+'" style="--c:'+s.color+'" onclick="go(\'sec:'+s.id+'\')"><div class="si">'+s.icon+'</div><div class="st"><b>'+esc(s.en)+'</b><div class="te">'+esc(s.te)+'</div><div class="muted tw">'+esc(s.what_en)+'</div><div class="muted tw">'+esc(s.what_te)+'</div></div><div class="sm">'+cnt+' pages'+(n?' · <span class="badge b-warn">'+n+' to review</span>':'')+'</div></div>'}).join("");
+  pg.innerHTML='<h1>Command Center <span class="te">· కమాండ్ సెంటర్</span></h1><div class="sub">Namaste '+esc(ME.name||"")+' 👋 Pick a heading below, or read what needs you today. · కింద ఒక heading ఎంచుకోండి, లేదా ఈరోజు చూడాల్సినవి చదవండి.</div>'+
+   '<h3 class="cath">Today · ఈరోజు ఏమి చూడాలి</h3><div id="home_today"><div class="muted">Checking… · చెక్ చేస్తున్నాం…</div></div>'+
+   '<h3 class="cath">Everything · అన్నీ ఒకే చోట</h3><div class="stiles">'+secs+'</div>';
+  const out=[];const add=(lvl,en,te,why_en,why_te,view,btn)=>out.push({lvl,en,te,why_en,why_te,view,btn});
+  try{if(can("overview:view")){const w=await call("staff/work-queue");(w.items||[]).filter(i=>i.count).slice(0,6).forEach(i=>{const en=(i.explain||{}).en||{},te=(i.explain||{}).te||{};
+      const v=String(i.where||"").includes("#")?String(i.where).split("#")[1]:"workqueue";add(i.severity||"orange",(i.icon||"")+" "+(en.what||i.title)+" · "+i.count,te.what||"",en.action||i.what_to_do||"",te.action||"",v,en.button||"Open")})}}catch(e){}
+  try{if(can("health:view")){const [en,te]=await Promise.all([call("incidents?language=en"),call("incidents?language=te")]);const tk={};(te.incidents||[]).forEach(x=>tk[x.key]=x);
+      (en.incidents||[]).filter(x=>x.severity!=="green").slice(0,4).forEach(x=>{const t=tk[x.key]||{};add(x.severity==="red"?"red":"orange","🚨 "+x.problem,t.problem||"","Why: "+x.reason+" — Do: "+x.solution,t.reason?"ఎందుకు: "+t.reason+" — ఏం చేయాలి: "+t.solution:"","incidents","Open incidents")})}}catch(e){}
+  try{const d=STATE.dash||await call("platform/dashboard");const ig=d.integrations||{};
+    if(ig.NEEDS_CONFIGURATION)add("orange","🔌 "+ig.NEEDS_CONFIGURATION+" connection(s) need setup",ig.NEEDS_CONFIGURATION+" కనెక్షన్(లు) సెటప్ కావాలి","Those features stay off until a key is added.","Key చేర్చేవరకు ఆ features పని చేయవు.","readiness","Open readiness");
+    (d.alerts||[]).slice(0,3).forEach(a=>add(a.severity==="HIGH"||a.severity==="CRITICAL"?"red":"orange","⚠️ "+a.title,"",a.suggestion||"","","dashboard","Open dashboard"))}catch(e){}
+  const el=document.querySelector("#home_today");if(!el)return;
+  el.innerHTML=out.length?'<div class="todo">'+out.map(t=>'<div class="card tcard lvl-'+esc(t.lvl)+'"><b>'+esc(t.en)+'</b>'+(t.te?'<div class="te">'+esc(t.te)+'</div>':'')+(t.why_en?'<div style="margin-top:6px"><b>Do:</b> '+esc(t.why_en)+'</div>':'')+(t.why_te?'<div class="te">చేయండి: '+esc(t.why_te)+'</div>':'')+'<button style="margin-top:8px" onclick="go(\''+esc(t.view)+'\')">'+esc(t.btn)+' →</button></div>').join("")+'</div>'
+   :'<div class="card okcard">✅ Nothing urgent right now. · ఇప్పుడు అత్యవసరం ఏమీ లేదు.</div>'}
 
 /* ---------------------------------------------------------------- auth -- */
 async function signIn(){CRED=document.querySelector("#cred").value.trim()||CRED;try{await boot();sessionStorage.setItem("askodox_console",CRED)}catch(e){document.querySelector("#lerr").textContent="Sign-in failed: "+e.message;document.querySelector("#login").style.display="block";document.querySelector("#app").style.display="none"}}
@@ -136,11 +210,13 @@ async function boot(){ME=await call("me");SCHEMA=(await call("platform/schema"))
       document.querySelector("#env").innerHTML=live?badge("Gateways LIVE"):test?badge("Gateways TEST"):'<span title="Only direct payments (COD / cash / direct UPI) work until a gateway is configured">'+badge("NEEDS CONFIGURATION")+'</span>'}
     const d=await call("platform/dashboard");STATE.dash=d;
     STATE.pending={};for(const [res,by] of Object.entries(d.resources))if(by.PENDING_REVIEW)STATE.pending["r:"+res]=by.PENDING_REVIEW}catch(e){}
-  VIEW=(location.hash||"#dashboard").slice(1);renderNav();render()}
+  VIEW=(location.hash||"#home").slice(1);renderNav();render()}
 
 /* ------------------------------------------------------------ search -- */
 let st;function globalSearch(q){clearTimeout(st);const h=document.querySelector("#hits");if(q.trim().length<2){h.style.display="none";return}
-  st=setTimeout(async()=>{try{const d=await call("platform/search?q="+encodeURIComponent(q));h.innerHTML=d.items.length?d.items.map(i=>'<div onclick="openHit(\''+i.resource+'\',\''+esc(i.id)+'\')"><b>'+esc(i.name)+'</b> <span class="muted">'+esc(i.resource_label)+'</span> '+badge(i.status)+'</div>').join(""):'<div class="muted">No matches</div>';h.style.display="block"}catch(e){}},220)}
+  const ql=q.trim().toLowerCase();const pages=Object.values(ITEMS).filter(x=>itemOk(x.i)&&(x.i.en+" "+x.i.te+" "+x.i.what_en+" "+x.i.what_te+" "+x.c.en+" "+x.s.en).toLowerCase().includes(ql)).slice(0,6);
+  const ph=pages.map(x=>'<div onclick="document.querySelector(\'#hits\').style.display=\'none\';go(\''+x.i.id+'\')">📄 <b>'+esc(x.i.en)+'</b> · '+esc(x.i.te)+' <span class="muted">'+x.s.icon+' '+esc(x.s.en)+'</span></div>').join("");if(ph){h.innerHTML=ph;h.style.display="block"}
+  st=setTimeout(async()=>{try{const d=await call("platform/search?q="+encodeURIComponent(q));h.innerHTML=ph+(d.items.length?d.items.map(i=>'<div onclick="openHit(\''+i.resource+'\',\''+esc(i.id)+'\')"><b>'+esc(i.name)+'</b> <span class="muted">'+esc(i.resource_label)+'</span> '+badge(i.status)+'</div>').join(""):(ph?'':'<div class="muted">No matches · ఏమీ దొరకలేదు</div>'));h.style.display="block"}catch(e){}},220)}
 function openHit(res,id){document.querySelector("#hits").style.display="none";if(res==="payments"){go("payments");return}VIEW="r:"+res;renderNav();resourcePage(res).then(()=>openRecord(res,id))}
 document.addEventListener("click",e=>{if(!e.target.closest(".search"))document.querySelector("#hits").style.display="none"});
 
@@ -163,7 +239,7 @@ async function resourcePage(name){const res=R(name);const s=STATE[name]||(STATE[
   const qs=new URLSearchParams({q:s.q,status:s.status,archived:s.archived,sort:s.sort,...Object.fromEntries(Object.entries(s.f).filter(([k,v])=>v).map(([k,v])=>["f_"+k,v]))});
   const d=await call("platform/r/"+name+"?"+qs);const cols=res.fields.filter(f=>f.list_column&&f.name!==res.name_field).slice(0,4);const manage=can(res.permission+":manage");
   const filt=res.fields.filter(f=>f.filter);
-  document.querySelector("#page").innerHTML='<h1>'+esc(res.label)+'</h1><div class="sub">'+esc(res.description||"")+(res.flag?' · feature flag <span class="mono">'+esc(res.flag)+'</span>':'')+'</div>'+
+  document.querySelector("#page").innerHTML='<h1>'+esc(res.label)+(teOf("r:"+name)?' <span class="te">· '+esc(teOf("r:"+name))+'</span>':'')+'</h1><div class="sub">'+esc(res.description||"")+(res.flag?' · feature flag <span class="mono">'+esc(res.flag)+'</span>':'')+'</div>'+
    '<div class="bar"><input placeholder="Search…" value="'+esc(s.q)+'" onchange="STATE[\''+name+'\'].q=this.value;resourcePage(\''+name+'\')">'+
    '<select onchange="STATE[\''+name+'\'].status=this.value;resourcePage(\''+name+'\')"><option value="">All statuses</option>'+res.statuses.map(x=>'<option '+(s.status===x?"selected":"")+'>'+x+'</option>').join("")+'</select>'+
    filt.map(f=>f.options.length?'<select onchange="STATE[\''+name+'\'].f.'+f.name+'=this.value;resourcePage(\''+name+'\')"><option value="">'+esc(f.label)+': any</option>'+f.options.map(o=>'<option '+(s.f[f.name]===o?"selected":"")+'>'+esc(o)+'</option>').join("")+'</select>':'<input placeholder="'+esc(f.label)+'" value="'+esc(s.f[f.name]||"")+'" onchange="STATE[\''+name+'\'].f.'+f.name+'=this.value;resourcePage(\''+name+'\')">').join("")+
@@ -210,7 +286,7 @@ function closeDrawer(){document.querySelector("#drawer").classList.remove("show"
 /* ------------------------------------------------------ table helper -- */
 function grid(items,cols,onclick){if(!items||!items.length)return '<div class="tbl"><div class="empty">Nothing here yet.</div></div>';
   return '<div class="tbl"><table><thead><tr>'+cols.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+items.map((it,i)=>'<tr class="'+(onclick?"r":"")+'" '+(onclick?'onclick="'+onclick+'('+i+')"':'')+'>'+cols.map(c=>'<td>'+(c[2]?c[2](it[c[0]],it):cell(it[c[0]]))+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>'}
-const head=(t,s,extra)=>'<h1>'+t+'</h1><div class="sub">'+s+'</div>'+(extra?'<div class="bar">'+extra+'</div>':'');
+const head=(t,s,extra)=>'<h1>'+t+(teOf(VIEW)?' <span class="te">· '+esc(teOf(VIEW))+'</span>':'')+'</h1><div class="sub">'+s+'</div>'+(extra?'<div class="bar">'+extra+'</div>':'');
 
 /* ------------------------------------------------------------ sponsored -- */
 async function sponsored(){const d=await call("sponsored");STATE.sp=d.campaigns;const m=can("sponsored:manage");
@@ -241,7 +317,7 @@ async function radioadmin(){const d=await call("radio");const m=can("growth:mana
   (m?'<h3>Add tester</h3><div class="row"><input id="rtUser" placeholder="phone (98XXXXXXXX) or app-phone-91XXXXXXXXXX" style="min-width:280px"> <input id="rtNote" placeholder="Note (e.g. QA phone)"> <button class="p" onclick="radioAddTester()">Add tester</button></div>':'')+
   '<h3>Testers</h3>'+grid(d.testers,[["user_id","User"],["note","Note"],["added_by","Added by"],["created_at","Added",when]].concat(m?[["user_id","",v=>'<button onclick="radioRemoveTester(\''+esc(v)+'\')">Remove</button>']]:[]))+
   '<h3>Cost model (ESTIMATE)</h3>'+grid(d.cost_model.profiles,[["profile","Listener"],["km_per_day","km / day"],["minutes_per_day","Minutes / day"],["total_inr_per_day","Rs / day"]])}
-async function radioAddTester(){const u=document.querySelector("#rtUser").value.trim();if(!u)return;try{await call("radio/testers","POST",{user_id:u,note:document.querySelector("#rtNote").value.trim()})}catch(e){alert("Not added: "+(e.message||e));return}radioadmin()}
+async function radioAddTester(){const u=document.querySelector("#rtUser").value.trim();if(!u)return;try{await call("radio/testers","POST",{user_id:u,note:document.querySelector("#rtNote").value.trim()})}catch(e){alert("Not added: "+errText(e));return}radioadmin()}
 async function radioRemoveTester(u){if(!confirm("Remove tester "+u+"?"))return;await call("radio/testers/"+encodeURIComponent(u),"DELETE");radioadmin()}
 async function plansadmin(){const [p,r]=await Promise.all([call("growth/plans"),call("growth/billing-readiness")]);const m=can("growth:manage");STATE.plans=p.items;
   document.querySelector("#page").innerHTML=head("Plans & pricing","Prices, trials and usage limits are configured here. A paid plan goes on sale only after the Owner turns on billing.live_pricing; money is collected only when every readiness check passes.")+
@@ -262,10 +338,10 @@ async function billingadmin(){const d=await call("billing/status");const m=can("
   (m?'<h3>Billing testers (TEST mode only)</h3><div class="row"><input id="btUser" placeholder="phone (98XXXXXXXX) or app-phone-91XXXXXXXXXX" style="min-width:280px"> <button class="p" onclick="billingAddTester()">Add tester</button></div>':'<h3>Billing testers</h3>')+
   grid(d.testers,[["user_id","User"],["added_by","Added by"],["created_at","Added",when]].concat(m?[["user_id","",v=>'<button onclick="billingRemoveTester(\''+esc(v)+'\')">Remove</button>']]:[]))+
   '<h3>Recent purchases</h3>'+grid(d.purchases,[["id","Purchase"],["plan_code","Plan"],["kind","Kind"],["amount","Rs"],["provider","Gateway"],["mode","Mode",badge],["status","Status",badge],["created_at","Created",when]].concat(pm?[["id","",(v,r)=>'<button onclick="billingReconcile(\''+esc(v)+'\')">Check with gateway</button>'+(r.status==="ACTIVE"||r.status==="TEST_PAID"?' <button onclick="billingRefund(\''+esc(v)+'\')">Refund</button>':"")]]:[]))+'<div id="bpEvents"></div>'}
-async function billingReconcile(id){try{const r=await call("billing/purchases/"+encodeURIComponent(id)+"/reconcile","POST",{});await billingadmin();document.querySelector("#bpEvents").innerHTML='<h3>Purchase '+esc(id)+': '+esc(r.purchase.status)+(r.gateway&&r.gateway.gateway_state?' · gateway: '+esc(r.gateway.gateway_state):'')+'</h3>'+grid(r.events,[["at","When",when],["event","Event"],["actor","By"],["detail","Detail",v=>esc(JSON.stringify(v))]])}catch(e){alert("Not checked: "+(e.message||e))}}
-async function billingAddTester(){const u=document.querySelector("#btUser").value.trim();if(!u)return;try{await call("billing/testers","POST",{user_id:u})}catch(e){alert("Not added: "+(e.message||e));return}billingadmin()}
+async function billingReconcile(id){try{const r=await call("billing/purchases/"+encodeURIComponent(id)+"/reconcile","POST",{});await billingadmin();document.querySelector("#bpEvents").innerHTML='<h3>Purchase '+esc(id)+': '+esc(r.purchase.status)+(r.gateway&&r.gateway.gateway_state?' · gateway: '+esc(r.gateway.gateway_state):'')+'</h3>'+grid(r.events,[["at","When",when],["event","Event"],["actor","By"],["detail","Detail",v=>esc(JSON.stringify(v))]])}catch(e){alert("Not checked: "+errText(e))}}
+async function billingAddTester(){const u=document.querySelector("#btUser").value.trim();if(!u)return;try{await call("billing/testers","POST",{user_id:u})}catch(e){alert("Not added: "+errText(e));return}billingadmin()}
 async function billingRemoveTester(u){if(!confirm("Remove billing tester "+u+"?"))return;await call("billing/testers/"+encodeURIComponent(u),"DELETE");billingadmin()}
-async function billingRefund(id){if(!confirm("Ask the gateway to refund purchase "+id+"? The plan ends when the gateway confirms."))return;try{await call("billing/purchases/"+encodeURIComponent(id)+"/refund","POST",{confirm:true})}catch(e){alert("Refund not requested: "+(e.message||e))}billingadmin()}
+async function billingRefund(id){if(!confirm("Ask the gateway to refund purchase "+id+"? The plan ends when the gateway confirms."))return;try{await call("billing/purchases/"+encodeURIComponent(id)+"/refund","POST",{confirm:true})}catch(e){alert("Refund not requested: "+errText(e))}billingadmin()}
 
 /* ------------------------------------------------------------- money -- */
 async function payments(){const d=await call("platform/payments");STATE.pay=d.items;const rc=d.reconciliation;const m=can("payments:manage");
@@ -334,9 +410,9 @@ function igForm(p){const x=STATE.ig.find(i=>i.provider===p);const env=x.env_vars
 async function igSave(p){const config={},secrets={};document.querySelectorAll("[id^=ig_][data-kind]").forEach(e=>{if(!e.value)return;(e.dataset.kind==="secret"?secrets:config)[e.id.slice(3)]=e.value});
   try{await call("platform/integrations/"+p,"PUT",{enabled:document.querySelector("#ig_en").value==="true",mode:document.querySelector("#ig_mode").value,config,secrets});closeDrawer();integrations()}catch(e){document.querySelector("#ferr").textContent=e.message}}
 async function igTest(p){const to=prompt(p==="email"?"Send a test e-mail to (your own address)":p==="fcm_push"?"Send a test push to user id (app-phone-…)":"Send a test message to (your own mobile, e.g. 98XXXXXXXX)");if(!to)return;
-  try{const r=await call("platform/integrations/"+p+"/test-send","POST",{to});alert(r.status+(r.error?" — "+r.error:"")+" · to "+r.to_masked)}catch(e){alert(e.message)}}
-async function igCheck(p){try{const r=await call("platform/integrations/"+p+"/check","POST");alert(r.note||("Status: "+r.status));integrations()}catch(e){alert(e.message)}}
-async function runtimeCheck(name){const map={"Web search (Brave)":"brave_search","Google Maps":"google_maps","Mobility (rides / delivery matching)":"mobility","Gemini (conversation brain)":"gemini","OpenAI (AI fallback)":"openai","YouTube Data API":"youtube_data_api","Sarvam speech-to-text (voice input)":"sarvam","Sarvam text-to-speech (reply voice)":"sarvam"};const p=map[name];if(!p)return;try{const r=await call("integrations/"+p+"/check","POST");const x=r.result||{};const lbl={LIVE:"LIVE",QUOTA_EXHAUSTED:"QUOTA EXHAUSTED",NEEDS_CONFIGURATION:"NEEDS CONFIGURATION",DISABLED:"DISABLED",DEGRADED:"DEGRADED",ERROR:"ERROR",UNAVAILABLE:"NOT CHECKABLE"};alert((r.checked?"Check finished":"Check unavailable")+" · "+(lbl[x.state]||x.state||"unknown")+(x.detail?" · "+x.detail:""));readiness()}catch(e){alert("Check could not run · "+e.message)}}
+  try{const r=await call("platform/integrations/"+p+"/test-send","POST",{to});alert(r.status+(r.error?" — "+r.error:"")+" · to "+r.to_masked)}catch(e){alert(errText(e))}}
+async function igCheck(p){try{const r=await call("platform/integrations/"+p+"/check","POST");alert(r.note||("Status: "+r.status));integrations()}catch(e){alert(errText(e))}}
+async function runtimeCheck(name){const map={"Web search (Brave)":"brave_search","Google Maps":"google_maps","Mobility (rides / delivery matching)":"mobility","Gemini (conversation brain)":"gemini","OpenAI (AI fallback)":"openai","YouTube Data API":"youtube_data_api","Sarvam speech-to-text (voice input)":"sarvam","Sarvam text-to-speech (reply voice)":"sarvam"};const p=map[name];if(!p)return;try{const r=await call("integrations/"+p+"/check","POST");const x=r.result||{};const lbl={LIVE:"LIVE",QUOTA_EXHAUSTED:"QUOTA EXHAUSTED",NEEDS_CONFIGURATION:"NEEDS CONFIGURATION",DISABLED:"DISABLED",DEGRADED:"DEGRADED",ERROR:"ERROR",UNAVAILABLE:"NOT CHECKABLE"};alert((r.checked?"Check finished":"Check unavailable")+" · "+(lbl[x.state]||x.state||"unknown")+(x.detail?" · "+x.detail:""));readiness()}catch(e){alert("Check could not run · "+errText(e))}}
 async function readiness(){const d=await call("platform/readiness");let fr=null;try{fr=await call("feature-registry")}catch(e){fr=null}let rg=null;try{rg=await call("release-gate")}catch(e){rg=null}let axe=null;try{axe=await call("axe/brief")}catch(e){axe=null}const yn=v=>v===true?badge("YES"):v===false?badge("NO"):'<span class="muted">tests</span>';
   const checkable=new Set(["Web search (Brave)","Google Maps","Mobility (rides / delivery matching)","Gemini (conversation brain)","OpenAI (AI fallback)","YouTube Data API","Sarvam speech-to-text (voice input)","Sarvam text-to-speech (reply voice)"]);
   document.querySelector("#page").innerHTML=head("Integration readiness","Computed from live state ("+esc(d.environment)+"). LIVE needs real credentials and a passed live check; a mock delivery proves the wiring only.")+
@@ -352,15 +428,15 @@ async function outbox(){const d=await call("platform/outbox");document.querySele
 async function discovered(){const d=await call("platform/web-videos");STATE.wv=d.items;const m=can("content:manage");
   document.querySelector("#page").innerHTML=head("Discovered videos","Real videos found through search. Send one to Pending Review to link it to products, sellers, creators or an affiliate link -- nothing changes for customers until it is approved.")+
   grid(d.items,[["title","Title"],["platform","Platform"],["creator","Channel"],["products","Products",v=>esc((v||[]).join(", "))],["embeddable","Plays in app",v=>v===false?"no":v?"yes":"?"],["last_seen","Last seen",when],["ref","",(r,v)=>v.in_review_queue?badge("IN_REVIEW_QUEUE"):(m?'<button onclick="promote(\''+r+'\')">Send to review</button>':'')]])}
-async function promote(ref){try{await call("platform/web-videos/"+ref+"/promote","POST",{});discovered()}catch(e){alert(e.message)}}
+async function promote(ref){try{await call("platform/web-videos/"+ref+"/promote","POST",{});discovered()}catch(e){alert(errText(e))}}
 async function flags(){const d=await call("config");document.querySelector("#page").innerHTML=head("Feature flags","Every module can be switched off without a release. Switching off needs confirmation and is audited.")+
   grid(d.flags,[["key","Flag",v=>'<span class="mono">'+esc(v)+'</span>'],["description","What it controls"],["enabled","State",v=>v?badge("ENABLED"):badge("DISABLED")],["updated_by","Changed by"],["key","",(k,f)=>can("config:manage")?'<button onclick="flagSet(\''+k+'\','+(!f.enabled)+')">'+(f.enabled?"Switch off":"Switch on")+'</button>':""]])+
   '<div class="card" style="margin-top:14px"><h3>Test targeting</h3><div class="muted">Global flag = master switch; "Feature flag targeting" rules narrow it by category / role / platform / location / %.</div>'+
   '<input id="ft_c" placeholder="category (e.g. footwear)"><input id="ft_r" placeholder="role (buyer, seller…)"><input id="ft_p" placeholder="platform (android, web)"><input id="ft_l" placeholder="location"><input id="ft_s" placeholder="person id (for %)"><button class="p" onclick="flagTest()">Evaluate</button><div id="ft_out"></div></div>'}
 async function flagTest(){const v=id=>document.querySelector(id).value.trim();const out=document.querySelector("#ft_out");
   try{const r=await call("flags/evaluate","POST",{category:v("#ft_c"),role:v("#ft_r"),platform:v("#ft_p"),location:v("#ft_l"),subject:v("#ft_s")});
-   out.innerHTML='<div class="muted">'+r.rules+' active targeting rule(s)</div>'+grid(Object.entries(r.flags).map(([k,x])=>({key:k,enabled:x.enabled,reason:x.reason})),[["key","Flag",v=>'<span class="mono">'+esc(v)+'</span>'],["enabled","Here",v=>v?badge("ENABLED"):badge("DISABLED")],["reason","Why"]])}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
-async function flagSet(k,v){if(!v&&!confirm("Switch off "+k+"?"))return;try{await call("config/"+k,"PUT",{enabled:v,confirm:true});flags()}catch(e){alert(e.message)}}
+   out.innerHTML='<div class="muted">'+r.rules+' active targeting rule(s)</div>'+grid(Object.entries(r.flags).map(([k,x])=>({key:k,enabled:x.enabled,reason:x.reason})),[["key","Flag",v=>'<span class="mono">'+esc(v)+'</span>'],["enabled","Here",v=>v?badge("ENABLED"):badge("DISABLED")],["reason","Why"]])}catch(e){out.innerHTML=explainError(e)}}
+async function flagSet(k,v){if(!v&&!confirm("Switch off "+k+"?"))return;try{await call("config/"+k,"PUT",{enabled:v,confirm:true});flags()}catch(e){alert(errText(e))}}
 async function staff(){const d=await call("staff");document.querySelector("#page").innerHTML=head("Staff & roles","Staff get a one-time token. A manager can only grant permissions they hold.",'<input id="s_n" placeholder="Name"><select id="s_r">'+Object.keys(d.roles).map(r=>'<option>'+r+'</option>').join("")+'</select><button class="p" onclick="staffAdd()">+ Add staff</button><span id="s_out" class="okm"></span>')+
   grid(d.items,[["name","Name"],["role","Role"],["active","Active",v=>v?badge("ACTIVE"):badge("DISABLED")],["permissions","Permissions",v=>'<span class="muted">'+esc((v||[]).length)+'</span>'],["created_at","Added",when]],"stOpen")+'<h3 style="margin-top:18px">Role presets</h3>'+grid(Object.entries(d.roles).map(([r,p])=>({role:r,permissions:p.join(", ")})),[["role","Role"],["permissions","Permissions"]])}
 function stOpen(i){STATE.stSel=i;call("staff").then(d=>{const st=d.items[i];STATE.stData=d;drawer(st.name,'<div>'+badge(st.role)+' '+(st.active?badge("ACTIVE"):badge("DISABLED"))+'</div><label class="f">Grant (comma-separated)<input id="st_g"></label><label class="f">Revoke (comma-separated)<input id="st_r"></label><label class="f">Reason<input id="st_why"></label><label class="f">Staff member\'s own mobile (signs in to the Staff Workspace with WhatsApp OTP; blank = keep, "-" = unlink)<input id="st_ph" placeholder="91 98xxxxxxxx" value="'+esc(st.app_user_id?"linked":"")+'"></label><div id="st_adv"></div><div id="ferr" class="err"></div><h3>Permissions</h3><div class="mono muted">'+esc(st.permissions.join(", "))+'</div>',
@@ -368,7 +444,7 @@ function stOpen(i){STATE.stSel=i;call("staff").then(d=>{const st=d.items[i];STAT
 const stList=id=>document.querySelector(id).value.split(",").map(x=>x.trim()).filter(Boolean);
 async function stAdvise(id){try{const a=await call("staff/advise","POST",{staff_id:id,grant:stList("#st_g"),revoke:stList("#st_r")});document.querySelector("#st_adv").innerHTML='<div class="card">'+badge(a.risk)+' Permission Safety Advisor'+a.warnings.map(w=>'<div>'+badge(w.level)+' '+esc(w.message)+'</div>').join("")+(a.needs_approval.length?'<div class="muted">Needs Owner approval: '+esc(a.needs_approval.join(", "))+'</div>':'')+(a.cannot_grant.length?'<div class="err">You cannot grant: '+esc(a.cannot_grant.join(", "))+'</div>':'')+'</div>'}catch(e){document.querySelector("#ferr").textContent=e.message}}
 async function stSave(id){try{const ph=document.querySelector("#st_ph").value.trim();const body={grant:stList("#st_g"),revoke:stList("#st_r"),reason:document.querySelector("#st_why").value};if(ph&&ph!=="linked")body.phone=ph==="-"?"":ph;const r=await call("staff/"+id,"PATCH",body);closeDrawer();await staff();if(r.approval)alert(r.approval.message)}catch(e){document.querySelector("#ferr").textContent=e.message}}
-async function staffAdd(){try{const r=await call("staff","POST",{name:document.querySelector("#s_n").value,role:document.querySelector("#s_r").value});await staff();document.querySelector("#s_out").textContent="Token (shown once): "+r.token}catch(e){alert(e.message)}}
+async function staffAdd(){try{const r=await call("staff","POST",{name:document.querySelector("#s_n").value,role:document.querySelector("#s_r").value});await staff();document.querySelector("#s_out").textContent="Token (shown once): "+r.token}catch(e){alert(errText(e))}}
 async function audit(){const f=STATE.au||(STATE.au={risk:"",q:"",days:"0"});const d=await call("audit?limit=300&"+new URLSearchParams(f));document.querySelector("#page").innerHTML=head("Audit log","Append-only: who, role, what, target, when, result and risk. Secret values are never stored; nobody can edit this log.",'<select onchange="STATE.au.risk=this.value;audit()"><option value="">risk: any</option>'+["GREEN","ORANGE","RED"].map(x=>'<option '+(f.risk===x?"selected":"")+'>'+x+'</option>').join("")+'</select><input placeholder="Search" value="'+esc(f.q)+'" onchange="STATE.au.q=this.value;audit()">'+(can("audit:export")?'<button onclick="auExport()">Export CSV</button>':''))+grid(d.items,[["created_at","When",when],["actor","Who"],["actor_role","Role"],["action","Action"],["entity_type","Entity"],["entity_id","Target"],["risk","Risk",badge],["result","Result",badge],["before","Old",v=>'<span class="mono muted">'+esc(JSON.stringify(v)).slice(0,120)+'</span>'],["after","New",v=>'<span class="mono muted">'+esc(JSON.stringify(v)).slice(0,120)+'</span>'],["reason","Note"]])}
 async function auExport(){const r=await fetch("/admin/cc/audit/export.csv",{headers:hdr()});if(!r.ok){alert("Export failed: "+r.status);return}const b=await r.blob();const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="askodox-audit.csv";a.click()}
 async function events(){const f=STATE.ev||(STATE.ev={event:"",category:"",q:"",days:"7"});const d=await call("platform/events?limit=300&"+new URLSearchParams(f));document.querySelector("#page").innerHTML=head("Event stream","The whole journey with the specific category ASKODOX detected (domain kept separately).",'<select onchange="STATE.ev.event=this.value;events()"><option value="">event: any</option>'+(d.events||[]).map(x=>'<option '+(f.event===x?"selected":"")+'>'+x+'</option>').join("")+'</select><input placeholder="Category" value="'+esc(f.category)+'" onchange="STATE.ev.category=this.value;events()"><input placeholder="Search" value="'+esc(f.q)+'" onchange="STATE.ev.q=this.value;events()"><select onchange="STATE.ev.days=this.value;events()">'+[["1","24 h"],["7","7 days"],["30","30 days"],["0","All"]].map(([v,l])=>'<option value="'+v+'" '+(f.days===v?"selected":"")+'>'+l+'</option>').join("")+'</select>')+grid(d.items,[["at","When",when],["event","Event"],["category","Category"],["subcategory","Subcategory"],["domain","Domain"],["intent","Intent"],["location","Location"],["campaign_id","Campaign"],["click_id","Click"],["value","Value",money],["source","Source"]])}
@@ -396,7 +472,7 @@ function abOpen(i){const x=STATE.ab.providers[i],m=can("integrations:manage");dr
   (m?'<label>Monthly budget ₹ (for an estimate)<input id="abBudget" type="number" min="0"></label><label>Reset day (1-28)<input id="abReset" type="number" min="1" max="28"></label><label>Dashboard URL (https://)<input id="abUrl"></label>':'')+'<div id="ferr" class="err"></div>',
   (x.gateway?'<h3>Gateway</h3><p>Mode <b>'+esc(x.gateway.mode)+'</b> · key '+esc(x.gateway.key_kind)+' · key check '+badge(x.gateway.key_check)+' · webhook signing '+esc(x.gateway.webhook_signing)+' · checkout '+(x.gateway.checkout_ready?'ready':'not ready')+'</p><p class="muted">'+esc(x.gateway.reason)+'</p><p>Verified webhook events: '+esc(x.gateway.webhooks.verified_events)+(x.gateway.webhooks.last_verified_at?' · last '+when(x.gateway.webhooks.last_verified_at):'')+' · rejected signatures since deploy: '+esc(x.gateway.webhooks.rejected_signatures_since_deploy)+'</p>'+(m?'<button onclick="abGatewayCheck()">Check with gateway</button> <span class="muted">read-only: nothing is charged or refunded</span>':''):''),
   m?'<button class="p" onclick="abSave(\''+x.provider+'\')">Save</button>':'')}
-async function abGatewayCheck(){try{const r=await call("api-billing/razorpay/check","POST");closeDrawer();await apibilling();alert("Razorpay: "+r.state+" · key check "+r.key_check+(r.checked_at?" · "+r.checked_at:"")+"\n"+r.reason)}catch(e){alert("Not checked: "+(e.message||e))}}
+async function abGatewayCheck(){try{const r=await call("api-billing/razorpay/check","POST");closeDrawer();await apibilling();alert("Razorpay: "+r.state+" · key check "+r.key_check+(r.checked_at?" · "+r.checked_at:"")+"\n"+r.reason)}catch(e){alert("Not checked: "+errText(e))}}
 async function abSave(p){const n=v=>v===""?null:Number(v);try{await call("api-billing/"+p,"PUT",{monthly_budget_inr:n(document.querySelector("#abBudget").value),reset_day:n(document.querySelector("#abReset").value),dashboard_url:document.querySelector("#abUrl").value||null});closeDrawer();apibilling()}catch(e){document.querySelector("#ferr").textContent=e.message}}
 function abAlert(i){const a=STATE.ab.alerts[i];drawer("Alert",'<p>'+esc(a.message)+'</p><p class="muted">Evidence: '+esc(a.evidence||"")+'</p><div id="ferr" class="err"></div>',
   '<button onclick="abAct('+a.id+',\'acknowledge\')">Acknowledge</button> <button class="p" onclick="abAct('+a.id+',\'resolve\')">Resolve</button>')}
@@ -410,11 +486,11 @@ async function incidents(){const lang=STATE.incLang||"en";const d=await call("in
     [["impact",x.impact],["reason",x.reason],["evidence",(x.evidence||[]).join("; ")],["solution",x.solution],["action_status",x.action_status],["retest",x.retest],["ai_explanation",x.ai_explanation]].map(([k,v])=>'<tr><td class="muted">'+esc(L[k])+'</td><td>'+esc(v||"—")+'</td></tr>').join("")+'</table>'+
     (x.proposed_action?'<button onclick="incPropose('+i+')">Propose: '+esc(x.proposed_action)+'</button>':'')+'</div>').join(""):'<div class="card">No open incident in recorded telemetry.</div>')+
   '<h3>Actions (audit)</h3>'+grid(a.runs,[["id","#"],["action","Action"],["target","Target"],["risk","Risk",badge],["status","Status",badge],["verification","Verified",v=>v?badge(v):'<span class="muted">—</span>'],["result","Result"],["approved_by","Approved by"]],"incAct")}
-async function incPropose(i){const x=STATE.inc.incidents[i];const [kind,action,target]=x.proposed_action.split(":");try{await call("actions","POST",{action,target:target||"",incident_key:x.key});incidents()}catch(e){alert(e.message)}}
+async function incPropose(i){const x=STATE.inc.incidents[i];const [kind,action,target]=x.proposed_action.split(":");try{await call("actions","POST",{action,target:target||"",incident_key:x.key});incidents()}catch(e){alert(errText(e))}}
 function incAct(i){const r=STATE.acts[i];drawer("Action #"+r.id,'<div>'+badge(r.risk)+' '+badge(r.status)+'</div><table>'+(r.timeline||[]).map(t=>'<tr><td class="muted">'+when(t.at*1000)+'</td><td>'+esc(t.step)+' — '+esc(t.by)+'</td></tr>').join("")+'</table><p class="muted">Rollback: '+esc(r.rollback||"—")+'</p><div id="ferr" class="err"></div>',
   (r.status==="PROPOSED"&&r.risk==="change"?'<button class="p" onclick="incStep('+r.id+',\'approve\')">Approve</button> ':'')+((r.status==="APPROVED")||(r.status==="PROPOSED"&&r.risk==="read_only")?'<button class="p" onclick="incStep('+r.id+',\'execute\')">Run + verify</button> ':'')+(r.status==="PROPOSED"||r.status==="APPROVED"?'<button onclick="incStep('+r.id+',\'reject\')">Reject</button>':''))}
 async function incStep(id,step){try{await call("actions/"+id+"/"+step,"POST");closeDrawer();incidents()}catch(e){document.querySelector("#ferr").textContent=e.message}}
-async function abScan(){try{await call("api-billing/scan","POST");apibilling()}catch(e){alert(e.message)}}
+async function abScan(){try{await call("api-billing/scan","POST");apibilling()}catch(e){alert(errText(e))}}
 
 async function selfheal(){const d=await call("selfheal");STATE.sh=d.items;const m=can("selfheal:manage"),st=d.settings;
   document.querySelector("#page").innerHTML=head("Self-healing","GREEN: safe, temporary and reversible (auto only when switched on). ORANGE: proposed, a person approves. RED (payments, refunds, credentials, security, permissions, deploys, privacy, ledgers, deletions): never automated — Owner alert only.",(m?'<button class="p" onclick="shScan()">Scan now</button>':'')+' Self-healing '+badge(st.enabled?"ON":"OFF")+' · GREEN auto '+badge(st.green_auto?"ON":"OFF")+' · ORANGE '+badge("APPROVAL")+' · RED '+badge("OWNER ONLY")+' <span class="muted">(switch in Feature flags: selfheal.enabled, selfheal.green_auto)</span>')+
@@ -423,7 +499,7 @@ async function selfheal(){const d=await call("selfheal");STATE.sh=d.items;const 
 function shOpen(i){const x=STATE.sh[i],m=can("selfheal:manage");drawer("Issue #"+x.id,'<div>'+badge(x.risk)+' '+badge(x.status)+'</div><table>'+[["Issue",x.issue],["Action",x.action+" "+(x.target||"")],["Reason",x.reason],["Result",x.result],["Rollback",x.rollback],["Evidence",JSON.stringify(x.evidence)],["Approval",x.approval_id]].map(([k,v])=>'<tr><td class="muted">'+k+'</td><td>'+esc(v??"—")+'</td></tr>').join("")+'</table><div id="ferr" class="err"></div>',
   m?(x.risk==="GREEN"&&x.status==="PROPOSED"?'<button class="p" onclick="shDo('+x.id+',\'apply\')">Apply</button>':'')+(x.status==="APPLIED"?'<button onclick="shDo('+x.id+',\'rollback\')">Rollback</button>':''):'')}
 async function shDo(id,what){try{await call("selfheal/"+id+"/"+what,"POST");closeDrawer();selfheal()}catch(e){document.querySelector("#ferr").textContent=e.message}}
-async function shScan(){try{const r=await call("selfheal/scan","POST");await selfheal();if(r.ran===false)alert(r.reason)}catch(e){alert(e.message)}}
+async function shScan(){try{const r=await call("selfheal/scan","POST");await selfheal();if(r.ran===false)alert(r.reason)}catch(e){alert(errText(e))}}
 
 /* ---------------------------------------------------- revenue command -- */
 async function revcmd(){const f=STATE.rc||(STATE.rc={period:"30d",start:"",end:""});const d=await call("platform/revenue-command?"+new URLSearchParams(f));const t=d.totals;
@@ -461,7 +537,7 @@ async function kycqueue(){const d=await call("kyc/queue");STATE.kq=d.items;const
   document.querySelector("#page").innerHTML=head("KYC review queue","AI-extracted details are NEVER a verification. Staff may verify only business registration and professional licence documents; identity (PAN / DigiLocker), GST and bank checks need an authorised provider. Values are masked; full ID numbers are never stored.")+
   '<div class="card">Providers: '+Object.entries(d.providers).map(([k,v])=>esc(k)+' '+badge(v)).join(" · ")+'</div>'+
   grid(d.items,[["created_at","Received",when],["label","Document"],["status","Status",badge],["fields","Details (masked)",v=>esc(Object.entries(v||{}).map(([a,b])=>a+": "+b).join(", "))],["issues","Issues",v=>esc((v||[]).join(" | "))],["missing","Missing",v=>esc((v||[]).join(", "))]].concat(m?[["id","",(v,r)=>r.staff_reviewable?'<button onclick="kycReview(\''+esc(v)+'\',\'approve\')">Verify</button> <button onclick="kycReview(\''+esc(v)+'\',\'reject\')">Reject</button>':'<button onclick="kycReview(\''+esc(v)+'\',\'reject\')">Reject</button> <span class="muted">provider needed</span>']]:[]))}
-async function kycReview(id,decision){const note=prompt((decision==="approve"?"Verify":"Reject")+" this document? Note for the audit log:","");if(note===null)return;try{await call("kyc/checks/"+encodeURIComponent(id)+"/review","POST",{decision:decision,note:note,confirm:true})}catch(e){alert("Not saved: "+(e.message||e))}kycqueue()}
+async function kycReview(id,decision){const note=prompt((decision==="approve"?"Verify":"Reject")+" this document? Note for the audit log:","");if(note===null)return;try{await call("kyc/checks/"+encodeURIComponent(id)+"/review","POST",{decision:decision,note:note,confirm:true})}catch(e){alert("Not saved: "+errText(e))}kycqueue()}
 async function commissions(){const d=await call("commissions/summary");STATE.cm=d;const m=can("commissions:approve");
   const rows=Object.entries(d.by_state).map(([k,v])=>({state:k,count:v.count,commission:v.commission,expected_only:v.expected_only}));
   document.querySelector("#page").innerHTML=head("Commission dashboard","Only partner-confirmed conversions count (signed postbacks / report imports). A click is never an install or a sale. 'Expected' amounts come from the commission rule until the partner reports the amount. Lifecycle: PENDING → CONFIRMED → PAYABLE → PAID; REJECTED and REVERSED are final.",m?'<button class="p" onclick="cmPromote()">Move confirmed past hold → PAYABLE</button>':'')+
@@ -471,7 +547,7 @@ async function commissions(){const d=await call("commissions/summary");STATE.cm=
   '<h3>CPC (expected from clicks only)</h3>'+grid(d.cpc_expected,[["partner","Partner"],["clicks","Clicks"],["expected_cpc_amount","Expected ₹",money],["label","Note"]])+
   '<h3>Move one conversion</h3>'+(m?'<div class="row"><input id="cmId" placeholder="conversion id" style="width:140px"> <select id="cmTo"><option>CONFIRMED</option><option>PAYABLE</option><option>PAID</option><option>REJECTED</option><option>REVERSED</option></select> <button onclick="cmMove(Number(document.querySelector(\'#cmId\').value),document.querySelector(\'#cmTo\').value)">Move</button></div>':'<span class="muted">commissions:approve needed</span>')+
   '<h3>Reconcile a partner statement (read-only)</h3><div class="row"><input id="cmPartner" placeholder="partner id" style="width:120px"></div><textarea id="cmCsv" rows="4" style="width:100%" placeholder="order_id,status,commission"></textarea><button onclick="cmReconcile()">Compare</button><pre id="cmRec"></pre>'}
-async function cmMove(id,to){if(!id||!confirm("Move conversion "+id+" to "+to+"?"))return;try{await call("commissions/conversions/"+id+"/transition","POST",{to:to,confirm:true})}catch(e){alert("Not moved: "+(e.message||e))}commissions()}
+async function cmMove(id,to){if(!id||!confirm("Move conversion "+id+" to "+to+"?"))return;try{await call("commissions/conversions/"+id+"/transition","POST",{to:to,confirm:true})}catch(e){alert("Not moved: "+errText(e))}commissions()}
 async function cmPromote(){if(!confirm("Move every CONFIRMED conversion whose hold period ended (and has no fraud flag) to PAYABLE?"))return;const r=await call("commissions/promote-payable","POST",{confirm:true});alert("Moved: "+r.moved_to_payable.length);commissions()}
 async function cmReconcile(){try{const r=await call("commissions/reconcile/"+encodeURIComponent(document.querySelector("#cmPartner").value),"POST",{csv:document.querySelector("#cmCsv").value});document.querySelector("#cmRec").textContent=JSON.stringify(r,null,2)}catch(e){document.querySelector("#cmRec").textContent="Error: "+(e.message||e)}}
 async function setup(){const d=await call("owner/setup");const kv=o=>Object.entries(o||{}).map(([k,v])=>esc(k)+': <b>'+esc(String(v))+'</b>').join("<br>")||"—";
@@ -499,7 +575,7 @@ async function affproducts(){const s=STATE.af||(STATE.af={q:"",platform:"",stock
     '<td>'+badge(i.eligibility.state)+'<div class="muted">'+esc(afWhy(i.eligibility))+'</div></td><td class="muted">'+when(i.eligibility.last_checked)+'<div>'+esc(i.stock_check_source||i.commission_check_source||"")+'</div></td></tr>').join("")+'</tbody></table>'
    :'<div class="empty">No products yet.'+(d.can.create?' Use <b>+ Add product</b> or <b>Bulk / feed import</b>.':'')+'</div>')+'</div>'}
 async function affApi(id){try{const r=await call("affiliate-products/"+id+"/api-refresh","POST");
-  alert(r.applied?"Updated from the marketplace API":(r.mock?"MOCK answer (preview only, nothing saved): "+(r.fields||{}).title:(r.error||r.reason||"Not available")));if(r.applied)affOpen(id)}catch(e){alert(e.message)}}
+  alert(r.applied?"Updated from the marketplace API":(r.mock?"MOCK answer (preview only, nothing saved): "+(r.fields||{}).title:(r.error||r.reason||"Not available")));if(r.applied)affOpen(id)}catch(e){alert(errText(e))}}
 async function affOpen(id){const d=await call("affiliate-products/"+id),i=d.item,c=STATE.afcan||{},ev=i.eligibility;
   const row=(l,v)=>'<tr><td class="muted" style="width:38%">'+l+'</td><td>'+v+'</td></tr>';
   const link=u=>u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(String(u).slice(0,48))+'</a>':'<span class="muted">—</span>';
@@ -729,7 +805,7 @@ function ahManage(c){const s=STATE.ah;const items=(s.list&&s.list.items)||[];s.m
 async function ahBulk(action){const s=STATE.ah;const ids=Object.keys(s.msel).filter(k=>s.msel[k]).map(Number);if(!ids.length){alert("Select items first");return}
   if(action==="archive"&&!confirm("Archive "+ids.length+" item(s)? They stop showing; history is kept and they can be restored."))return;
   try{const r=await call("affiliate-hub/bulk-action","POST",{ids,action});s.list=null;s.msel={};await affhub();
-   document.querySelector("#ah_bulk").innerHTML='<div class="card"><b>'+esc(action)+': '+r.ok+' ok, '+r.failed+' failed</b>'+r.results.filter(x=>!x.ok).map(x=>'<div class="err">#'+x.id+': '+esc(x.error)+'</div>').join("")+'</div>'}catch(e){alert(e.message)}}
+   document.querySelector("#ah_bulk").innerHTML='<div class="card"><b>'+esc(action)+': '+r.ok+' ok, '+r.failed+' failed</b>'+r.results.filter(x=>!x.ok).map(x=>'<div class="err">#'+x.id+': '+esc(x.error)+'</div>').join("")+'</div>'}catch(e){alert(errText(e))}}
 async function affsources(){const d=await call("affiliate-sources");const manage=can("affiliate:manage")||can("integrations:manage");
   const yn=(p,k,v)=>manage?'<select onchange="affSrc(\''+p+'\',\''+k+'\',this.value===\'true\')"><option value="true" '+(v?"selected":"")+'>On</option><option value="false" '+(!v?"selected":"")+'>Off</option></select>':badge(v?"ON":"OFF");
   const pick=(p,k,v,opts)=>manage?'<select onchange="affSrc(\''+p+'\',\''+k+'\',this.value)">'+opts.map(o=>'<option '+(v===o?"selected":"")+'>'+o+'</option>').join("")+'</select>':badge(v);
@@ -742,7 +818,7 @@ async function affsources(){const d=await call("affiliate-sources");const manage
     '<td>'+s.catalog.products+' products<div class="muted">'+s.catalog.eligible+' shown · '+s.catalog.out_of_stock+' out of stock · '+s.catalog.affiliate_routed+' affiliate</div></td>'+
     '<td class="muted">'+[s.tracking_template_set?"tracking template":"",s.deep_link_set?"deep link":"",s.api_enabled?"API on":"",s.callback_enabled?"callbacks on":"",s.has_credentials?"credentials stored":""].filter(Boolean).join(", ")+'</td></tr>').join("")+'</tbody></table></div>'+
    '<div class="muted" style="margin-top:10px">Staff permissions: '+esc(d.items[0].staff_permissions.join(", "))+'. Grant them in Staff &amp; roles (preset <b>affiliate_catalog_staff</b>).</div>'}
-async function affSrc(p,k,v){try{await call("affiliate-sources/"+p,"PUT",{[k]:v});affsources()}catch(e){alert(e.message);affsources()}}
+async function affSrc(p,k,v){try{await call("affiliate-sources/"+p,"PUT",{[k]:v});affsources()}catch(e){alert(errText(e));affsources()}}
 
 /* ------------------------------------------- demand intelligence / ops -- */
 async function demand(){const s=STATE.dm||(STATE.dm={days:7,category:"",area:""});
@@ -770,7 +846,7 @@ async function demandPreview(i){const x=STATE.dmo[i];const p=await call("demand/
    (can("demand:notify")&&p.eligible.length?'<button class="p" onclick="demandNotify('+i+')">Alert '+p.eligible.length+' seller(s)</button>':'')+'<button onclick="closeDrawer()">Close</button>')}
 async function demandNotify(i){const x=STATE.dmo[i];if(!confirm("Send an in-app opportunity to the eligible sellers? Customers' identities are never shared."))return;
   try{const r=await call("demand/opportunities/notify","POST",{rule_id:x.rule_id,opportunity_key:x.key,confirm:true});alert("Sent to "+r.sent+" seller(s)"+(r.note?"\n"+r.note:""));closeDrawer();demand()}catch(e){document.querySelector("#ferr").textContent=e.message}}
-async function demandRun(){if(!confirm("Evaluate every ACTIVE demand rule now and alert matching sellers?"))return;try{const r=await call("demand/run","POST",{confirm:true});alert(r.rules+" rule(s), "+r.opportunities+" opportunit(ies), "+r.sent+" alert(s) sent");demand()}catch(e){alert(e.message)}}
+async function demandRun(){if(!confirm("Evaluate every ACTIVE demand rule now and alert matching sellers?"))return;try{const r=await call("demand/run","POST",{confirm:true});alert(r.rules+" rule(s), "+r.opportunities+" opportunit(ies), "+r.sent+" alert(s) sent");demand()}catch(e){alert(errText(e))}}
 async function cfgbundle(){const d=await call("config-bundle/resources");const snaps=await call("config-bundle/snapshots");STATE.cfg=null;
   document.querySelector("#page").innerHTML=head("Config import / export","Move Command Center configuration between environments. Preview validates every record and shows what changes; applying stores a snapshot you can roll back. Secrets are never exported.")+
    '<div class="card"><h3>Export</h3>'+d.resources.map(r=>'<label style="display:inline-block;margin:4px 10px 4px 0"><input type="checkbox" class="cb_r" value="'+r.name+'" '+(r.can_export?"checked":"disabled")+'> '+esc(r.label)+'</label>').join("")+
@@ -780,16 +856,16 @@ async function cfgbundle(){const d=await call("config-bundle/resources");const s
    '<h3 style="margin-top:14px">Applied imports</h3>'+grid(snaps.items,[["created_at","When",when],["actor","Who"],["kind","Kind"],["reason","Reason"],["applied","Changes",a=>esc(JSON.stringify(a.summary||{}))+' · flags '+((a.flags||[]).length)],["rolled_back_at","Rolled back",v=>v?when(v):"—"],["id","",(id,x)=>!x.rolled_back_at&&can("config:manage")?'<button onclick="cfgRollback(\''+id+'\')">Roll back</button>':""]]);
   document.querySelector("#cb_file").addEventListener("change",async e=>{const f=e.target.files[0];if(f)document.querySelector("#cb_txt").value=await f.text()})}
 async function cfgExport(){const names=[...document.querySelectorAll(".cb_r:checked")].map(x=>x.value);try{const b=await call("config-bundle/export","POST",{resources:names,include_flags:document.querySelector("#cb_f").checked});
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(b,null,2)],{type:"application/json"}));a.download="askodox-config-"+b.exported_at.slice(0,10)+".json";a.click()}catch(e){alert(e.message)}}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(b,null,2)],{type:"application/json"}));a.download="askodox-config-"+b.exported_at.slice(0,10)+".json";a.click()}catch(e){alert(errText(e))}}
 async function cfgPreview(){const out=document.querySelector("#cb_out");let bundle;try{bundle=JSON.parse(document.querySelector("#cb_txt").value)}catch(e){out.innerHTML='<div class="err">Not valid JSON</div>';return}
   try{const p=await call("config-bundle/preview","POST",{bundle});STATE.cfg=bundle;
    out.innerHTML='<div>'+(p.valid?badge("VALID"):badge("INVALID"))+' create '+p.summary.create+' · update '+p.summary.update+' · unchanged '+p.summary.unchanged+' · invalid '+p.summary.invalid+'</div>'+
     (p.errors.length?'<div class="err">'+p.errors.map(esc).join("<br>")+'</div>':'')+(p.conflicts.length?'<div class="err"><b>Conflicts</b> (changed here after export):<br>'+p.conflicts.map(esc).join("<br>")+'</div>':'')+
     Object.entries(p.resources).map(([n,rows])=>'<div><b>'+esc(n)+'</b> '+rows.filter(r=>r.op!=="unchanged").map(r=>badge(r.op)+' '+esc(r.name||r.id||"")+(r.changed_fields?' <span class="muted">('+esc(r.changed_fields.join(", "))+')</span>':'')+(r.error?' <span class="err">'+esc(r.error)+'</span>':'')).join(" · ")+'</div>').join("")+
     (p.flags.length?'<div><b>Flags</b> '+p.flags.map(f=>esc(f.key)+': '+f.from+' → '+f.to).join(" · ")+'</div>':'')+(p.needs_owner.length?'<div class="muted">Owner only: '+esc(p.needs_owner.join(", "))+'</div>':'')+
-    (p.valid&&can("config:manage")?'<input id="cb_reason" placeholder="Reason"><label><input type="checkbox" id="cb_conf"> apply despite conflicts</label><button class="p" onclick="cfgApply()">Apply</button>':'')}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
-async function cfgApply(){if(!confirm("Apply this configuration? A snapshot is stored so it can be rolled back."))return;try{const r=await call("config-bundle/apply","POST",{bundle:STATE.cfg,confirm:true,allow_conflicts:document.querySelector("#cb_conf").checked,reason:document.querySelector("#cb_reason").value});alert("Applied. Snapshot "+r.snapshot_id);cfgbundle()}catch(e){alert(e.message)}}
-async function cfgRollback(id){if(!confirm("Roll back this import? Changed records are restored, records it created are archived."))return;try{const r=await call("config-bundle/rollback/"+id,"POST",{confirm:true});alert("Restored "+r.restored+", archived "+r.archived+", flags "+r.flags);cfgbundle()}catch(e){alert(e.message)}}
+    (p.valid&&can("config:manage")?'<input id="cb_reason" placeholder="Reason"><label><input type="checkbox" id="cb_conf"> apply despite conflicts</label><button class="p" onclick="cfgApply()">Apply</button>':'')}catch(e){out.innerHTML=explainError(e)}}
+async function cfgApply(){if(!confirm("Apply this configuration? A snapshot is stored so it can be rolled back."))return;try{const r=await call("config-bundle/apply","POST",{bundle:STATE.cfg,confirm:true,allow_conflicts:document.querySelector("#cb_conf").checked,reason:document.querySelector("#cb_reason").value});alert("Applied. Snapshot "+r.snapshot_id);cfgbundle()}catch(e){alert(errText(e))}}
+async function cfgRollback(id){if(!confirm("Roll back this import? Changed records are restored, records it created are archived."))return;try{const r=await call("config-bundle/rollback/"+id,"POST",{confirm:true});alert("Restored "+r.restored+", archived "+r.archived+", flags "+r.flags);cfgbundle()}catch(e){alert(errText(e))}}
 async function workspace(){window.open("/staff","_blank");document.querySelector("#page").innerHTML=head("Staff Workspace","Opened in a new tab: /staff -- phone, tablet or laptop. Staff sign in with their own linked mobile (WhatsApp OTP) or their staff token.")}
 async function sourcehealth(){const d=await call("workspace/analytics");document.querySelector("#page").innerHTML=head("Source health","Every configured source with its last success, last error and failures in a row. A failing source is skipped -- it never breaks results.")+
   '<div class="tbl"><table><thead><tr><th>Source</th><th>Connector</th><th>Status</th><th>Health</th><th>Last success</th><th>Last error</th></tr></thead><tbody>'+(d.sources.map(x=>'<tr><td><b>'+esc(x.name)+'</b><div class="muted">'+esc(x.domains.join(", "))+'</div></td><td>'+esc(x.connector)+'</td><td>'+badge(x.status)+'</td><td>'+badge(x.health.status)+(x.health.failures_in_row?' <span class="muted">'+x.health.failures_in_row+' fails</span>':'')+'</td><td class="muted">'+when(x.health.last_success_at)+'</td><td class="muted">'+esc(x.health.last_error||"")+'</td></tr>').join("")||'<tr><td colspan="6" class="empty">No sources yet -- add one in Sources.</td></tr>')+'</tbody></table></div>'}
@@ -821,8 +897,8 @@ async function mobility(){const d=await call("mobility/overview?limit=50");const
   '<h3>Safety reports</h3><div class="tbl"><table><thead><tr><th>Report</th><th>About</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>'+(d.reports.map(r=>'<tr><td>'+esc(r.id)+'<div class="muted">'+when(r.created_at)+'</div></td><td>'+esc(r.subject_type)+' '+esc(r.subject_id)+'</td><td>'+esc(r.reason)+'</td><td>'+badge(r.status)+'</td><td>'+(can("delivery:manage")?['REVIEWING','RESOLVED','DISMISSED'].map(s=>'<button onclick="mobReport(\''+r.id+'\',\''+s+'\')">'+s.toLowerCase()+'</button>').join(" ")+(r.subject_type==="carpool_ride"?' <button onclick="mobRide(\''+r.subject_id+'\',\'HIDDEN\')">hide ride</button>':''):'')+'</td></tr>').join("")||'<tr><td colspan="5" class="empty">No reports.</td></tr>')+'</tbody></table></div>'}
 async function videoreports(){const d=await call("videos/reports");document.querySelector("#page").innerHTML=head("Video reports","Customer reports on ASKODOX videos. Three different reporters pause a published video automatically; open it in Videos to approve again, reject or disable.")+
   grid(d.items,[["video_id","Video"],["reports","Reports"],["reasons","Reasons"],["last_at","Last report",when]])}
-async function mobReport(id,s){try{await call("mobility/reports/"+id,"POST",{status:s});mobility()}catch(e){alert(e.message)}}
-async function mobRide(id,s){if(!confirm("Hide this carpool ride from search?"))return;try{await call("mobility/carpool/"+id,"POST",{status:s});mobility()}catch(e){alert(e.message)}}
+async function mobReport(id,s){try{await call("mobility/reports/"+id,"POST",{status:s});mobility()}catch(e){alert(errText(e))}}
+async function mobRide(id,s){if(!confirm("Hide this carpool ride from search?"))return;try{await call("mobility/carpool/"+id,"POST",{status:s});mobility()}catch(e){alert(errText(e))}}
 async function eadash(){const d=await call("early-access/dashboard");const kv=o=>Object.entries(o||{}).map(([k,v])=>'<div>'+esc(k)+' <b>'+esc(v)+'</b></div>').join("")||'<div class="muted">none</div>';
   document.querySelector("#page").innerHTML=head("Early Access dashboard",d.programme?("Programme: "+esc(d.programme.name)+" ("+esc(d.programme.label||"Early Access")+")"):"No ACTIVE Early Access programme -- create one in Early Access programme.")+
   '<div class="kpis"><div class="kpi"><div class="l">Early Access users ('+d.days+' d)</div><div class="v">'+d.early_access_users+'</div></div><div class="kpi"><div class="l">Feedback</div><div class="v">'+d.feedback.total+'</div></div><div class="kpi"><div class="l">Open reports</div><div class="v">'+d.feedback.open+'</div></div><div class="kpi"><div class="l">No-result searches</div><div class="v">'+esc((d.poor_results||{}).no_result_searches??"-")+'</div></div></div>'+
@@ -836,9 +912,9 @@ async function socialdm(){const d=await call("social-dm");const m=can("autorespo
    (d.accounts.length?d.accounts.map(a=>'<tr><td><b>'+esc(a.name)+'</b><div class="muted">'+esc(a.account_id)+'</div></td><td>'+esc(a.channel)+'</td><td>'+esc(a.business_ref)+'</td><td>'+badge(a.status)+'</td><td>'+badge(a.token_set?"SET":"NOT SET")+(m?' <button onclick="dmToken(\''+esc(a.channel)+'\',\''+esc(a.account_id)+'\')">Set token</button>':'')+'</td></tr>').join(""):'<tr><td colspan="5" class="empty">No linked accounts. Add one under Social auto-DM accounts.</td></tr>')+'</tbody></table></div>'+
    (m?'<div class="card"><h3>Simulate a DM (mock delivery, never contacts Meta)</h3><select id="dm_ch"><option>facebook</option><option>instagram</option></select> <input id="dm_acc" placeholder="Page / account id"> <input id="dm_text" placeholder="Customer message" style="width:40%"> <button class="p" onclick="dmSim()">Run</button><pre id="dm_out" class="muted" style="white-space:pre-wrap"></pre></div>':'')}
 async function dmToken(ch,acc){const t=prompt("Page access token for "+ch+" "+acc+" (stored encrypted, never shown again)");if(!t)return;
-  try{await call("social-dm/token","PUT",{channel:ch,account_id:acc,token:t});alert("Token saved");socialdm()}catch(e){alert(e.message)}}
+  try{await call("social-dm/token","PUT",{channel:ch,account_id:acc,token:t});alert("Token saved");socialdm()}catch(e){alert(errText(e))}}
 async function dmSim(){try{const r=await call("social-dm/simulate","POST",{channel:document.querySelector("#dm_ch").value,account_id:document.querySelector("#dm_acc").value,text:document.querySelector("#dm_text").value});
-  document.querySelector("#dm_out").textContent=JSON.stringify(r.results,null,1)}catch(e){alert(e.message)}}
+  document.querySelector("#dm_out").textContent=JSON.stringify(r.results,null,1)}catch(e){alert(errText(e))}}
 async function outcomes(){const f=STATE.oc||(STATE.oc={days:"30",category:"",location:"",source:"",role:""});const d=await call("platform/analytics/outcomes?"+new URLSearchParams(f));
   const inp=(k,ph)=>'<input placeholder="'+ph+'" value="'+esc(f[k])+'" onchange="STATE.oc.'+k+'=this.value;outcomes()">';
   const kv=o=>Object.entries(o||{}).map(([k,v])=>'<div><span class="muted">'+esc(k.replace(/_/g," "))+'</span> <b>'+esc(typeof v==="object"&&v!==null?JSON.stringify(v):v??"—")+'</b></div>').join("");
@@ -871,7 +947,7 @@ async function assistantAsk(){const q=document.querySelector("#as_q").value.trim
   try{const r=await call("assistant/ask","POST",{question:q,language:document.querySelector("#as_l").value});STATE.asOps=r.answers.map(a=>a.operation);const te=r.language==="te";
    const sec=(t,rows)=>rows&&rows.length?'<div><b>'+t+'</b><ul>'+rows.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>':'';
    out.innerHTML=r.answers.map((a,i)=>'<div class="card" style="margin-bottom:10px"><h3>'+esc(a.title||a.topic.replace(/_/g," "))+'</h3>'+sec(te?"గమనించినది":"Observed",a.observed)+sec(te?"కారణం కావచ్చు (నిర్ధారించలేదు)":"Might explain it (unverified)",a.likely)+sec(te?"సూచన":"Recommended",a.actions)+
-     (a.operation?'<button class="p" id="as_op_'+i+'" onclick="assistantOp('+i+')">'+esc(a.operation.label)+'</button>':'')+'</div>').join("")+'<div class="muted">'+esc(r.basis)+'</div>'}catch(e){out.innerHTML='<div class="err">'+esc(e.message)+'</div>'}}
+     (a.operation?'<button class="p" id="as_op_'+i+'" onclick="assistantOp('+i+')">'+esc(a.operation.label)+'</button>':'')+'</div>').join("")+'<div class="muted">'+esc(r.basis)+'</div>'}catch(e){out.innerHTML=explainError(e)}}
 function assistantOp(i){const op=(STATE.asOps||[])[i];if(!op)return;
   if(op.kind==="open_smart_entry"){const v=Object.entries(op.preview||{}).filter(([k,n])=>n).map(([k,n])=>k+" "+n).join(", ");
     if(!confirm("Open "+op.inputs.length+" link(s) in Smart Entry ("+(v||"not checked")+")? Nothing is saved until you import them there and confirm."))return;
@@ -882,6 +958,10 @@ window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h
 if(CRED)signIn();else document.querySelector("#login").style.display="block";
 document.querySelector("#cred").addEventListener("keydown",e=>{if(e.key==="Enter")signIn()});
 </script></body></html>'''
+
+
+# The ONE console map (heading -> category -> page) goes in as data.
+PAGE = PAGE.replace("__NAV_JSON__", json.dumps(NAV, ensure_ascii=False).replace("</", "<\\/"))
 
 
 @router.get("/admin/console", response_class=HTMLResponse, include_in_schema=False)

@@ -1,3 +1,4 @@
+import 'askodox_logo.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -157,6 +158,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         titleSpacing: 0,
         title: Row(children: [
           AskodoxHeaderMenuButton(te: isTe),
+          const Padding(
+            padding: EdgeInsets.only(right: 6),
+            child: AskodoxLogo(size: 26),
+          ),
           const Expanded(
             child: Text('ASKODOX',
                 maxLines: 1,
