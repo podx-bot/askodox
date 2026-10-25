@@ -260,8 +260,9 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
     return out;
   }
 
-  void _toggle(String id) {
-    setState(() => _open = _open == id ? null : id);
+  /// Header: open / close. Mini box ([show]): always open it and scroll there.
+  void _toggle(String id, {bool show = false}) {
+    setState(() => _open = show || _open != id ? id : null);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _keys[id]?.currentContext;
       if (ctx != null && ctx.mounted) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 250));
@@ -809,7 +810,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
           child: InkWell(
             key: ValueKey('askodoxEditMini-${s.id}'),
             borderRadius: BorderRadius.circular(14),
-            onTap: () => _toggle(s.id),
+            onTap: () => _toggle(s.id, show: true),
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Row(children: [
