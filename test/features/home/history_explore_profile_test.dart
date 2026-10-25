@@ -339,6 +339,36 @@ void main() {
     container.read(askodoxGuideProvider.notifier).stop();
     expect(find.byType(AskodoxNavTile), findsWidgets, reason: 'grid tiles, not long rows');
   });
+
+  testWidgets('Profile search finds any row in any tab (en / te) and remembers recent ones', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Widget page(String name) => Scaffold(body: Text('PAGE $name'));
+    await _pumpRouted(tester, initial: '/profile', screens: {
+      '/profile': const ProfileScreen(),
+      '/': page('HOME'),
+      '/settings/notifications': page('/settings/notifications'),
+    });
+    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), 'నోటిఫికేషన్');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxProfileSearchResult-profile-notifications')), findsOneWidget,
+        reason: 'a Settings row found from the Me tab, in Telugu');
+    await tester.tap(find.byKey(const ValueKey('askodoxProfileSearchResult-profile-notifications')));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('PAGE /settings/notifications'), findsOneWidget);
+    GoRouter.of(tester.element(find.text('PAGE /settings/notifications'))).pop();
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), '');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxProfileRecent-profile-notifications')), findsOneWidget,
+        reason: 'recently opened rows come first');
+    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), 'zzqx');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileSearchNone')), findsOneWidget, reason: 'nothing found -> ask ASKODOX');
+  });
 }
 
 
@@ -394,34 +424,4 @@ class _RejectedProfiles extends _Profiles {
 
   @override
   Future<AskodoxUserProfile?> load() async => throw const AskodoxSessionInvalid();
-
-  testWidgets('Profile search finds any row in any tab (en / te) and remembers recent ones', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    Widget page(String name) => Scaffold(body: Text('PAGE $name'));
-    await _pumpRouted(tester, initial: '/profile', screens: {
-      '/profile': const ProfileScreen(),
-      '/': page('HOME'),
-      '/settings/notifications': page('/settings/notifications'),
-    });
-    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), 'నోటిఫికేషన్');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('askodoxProfileSearchResult-profile-notifications')), findsOneWidget,
-        reason: 'a Settings row found from the Me tab, in Telugu');
-    await tester.tap(find.byKey(const ValueKey('askodoxProfileSearchResult-profile-notifications')));
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(find.text('PAGE /settings/notifications'), findsOneWidget);
-    GoRouter.of(tester.element(find.text('PAGE /settings/notifications'))).pop();
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), '');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('askodoxProfileRecent-profile-notifications')), findsOneWidget,
-        reason: 'recently opened rows come first');
-    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), 'zzqx');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('askodoxProfileSearchNone')), findsOneWidget, reason: 'nothing found -> ask ASKODOX');
-  });
 }
