@@ -66,11 +66,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'అప్‌డేట్ నొక్కితే దానికి సంబంధించిన రిక్వెస్ట్ / ఆర్డర్ తెరుచుకుంటుంది.',
   ]),
   '/profile': _H('Profile', 'ప్రొఫైల్', [
-    'Your details, roles, business tools and settings are grouped here.',
-    'Tap a tile to open it; the small mascot on a tile shows you around that page.',
+    'Say or type what you need in the box at the top (for example "notifications" or "my shop") — it finds it.',
+    'Three tabs: Me (shopping, rides, tools, roles), Business (bills, items, enquiries, videos), Settings.',
+    'Things you opened recently show first, under "Recent".',
   ], [
-    'మీ వివరాలు, పాత్రలు, బిజినెస్ టూల్స్, సెట్టింగ్స్ ఇక్కడ గుంపులుగా ఉన్నాయి.',
-    'టైల్ నొక్కి తెరవండి; టైల్‌పై చిన్న మస్కట్ ఆ పేజీని చూపిస్తుంది.',
+    'పైన బాక్స్‌లో మీకు ఏం కావాలో చెప్పండి లేదా టైప్ చేయండి (ఉదా: "నోటిఫికేషన్లు", "నా షాప్") — అదే వెతికి చూపిస్తుంది.',
+    'మూడు ట్యాబ్‌లు: నేను (కొనుగోళ్లు, రైడ్స్, టూల్స్, పాత్రలు), వ్యాపారం (బిల్లులు, సరుకులు, ఎంక్వైరీలు, వీడియోలు), సెట్టింగ్స్.',
+    'ఇటీవల తెరిచినవి "ఇటీవల" కింద ముందే కనిపిస్తాయి.',
   ]),
   '/location': _H('Your location', 'మీ లొకేషన్', [
     'Allow location, or search and pick a place by hand.',

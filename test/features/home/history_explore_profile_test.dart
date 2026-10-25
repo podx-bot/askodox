@@ -159,18 +159,33 @@ void main() {
           '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools'])
         r: page(r),
     });
-    for (final section in ['business', 'studio', 'roles', 'settings', 'help']) {
-      expect(find.byKey(Key('askodoxProfileSection-$section')), findsOneWidget, reason: section);
+    // Three tabs instead of one long list: each tab shows its own sections.
+    expect(find.byKey(const Key('askodoxProfileSection-roles')), findsOneWidget, reason: 'Me tab first');
+    expect(find.byKey(const Key('askodoxProfileSection-business')), findsNothing, reason: 'not all at once');
+    for (final (tab, sections) in [
+      ('business', ['business', 'studio']),
+      ('settings', ['settings', 'help']),
+      ('me', ['shopping', 'roles']),
+    ]) {
+      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
+      await tester.pumpAndSettle();
+      for (final section in sections) {
+        expect(find.byKey(Key('askodoxProfileSection-$section')), findsOneWidget, reason: '$tab: $section');
+      }
     }
+    await tester.tap(find.byKey(const Key('askodoxProfileTab-business')));
+    await tester.pumpAndSettle();
     expect(find.descendant(of: find.byKey(const Key('askodoxProfileSection-business')), matching: find.byType(Card)),
         findsNothing, reason: 'one grouped card per section, not a card per row');
-    for (final (key, route) in [
-      ('profile-my-listings', '/listings/mine'),
-      ('profile-enquiries', '/orders/incoming'),
-      ('profile-native-video', '/videos/native'),
-      ('profile-mobility', '/mobility'),
-      ('profile-smart-tools', '/tools'),
+    for (final (tab, key, route) in [
+      ('business', 'profile-my-listings', '/listings/mine'),
+      ('business', 'profile-enquiries', '/orders/incoming'),
+      ('business', 'profile-native-video', '/videos/native'),
+      ('me', 'profile-mobility', '/mobility'),
+      ('me', 'profile-smart-tools', '/tools'),
     ]) {
+      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
+      await tester.pumpAndSettle();
       final row = find.byKey(ValueKey(key));
       await tester.ensureVisible(row);
       await tester.tap(row);
@@ -306,8 +321,11 @@ void main() {
   testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
-    for (final id in ['screen_business', 'screen_listings', 'screen_enquiries', 'screen_videos', 'screen_mobility',
-        'screen_notifications', 'screen_feedback']) {
+    for (final (tab, id) in [('business', 'screen_business'), ('business', 'screen_listings'),
+        ('business', 'screen_enquiries'), ('business', 'screen_videos'), ('me', 'screen_mobility'),
+        ('settings', 'screen_notifications'), ('settings', 'screen_feedback')]) {
+      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
+      await tester.pumpAndSettle();
       final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
       await tester.ensureVisible(button);
       await tester.pump();
@@ -323,6 +341,36 @@ void main() {
     expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
     container.read(askodoxGuideProvider.notifier).stop();
     expect(find.byType(AskodoxNavTile), findsWidgets, reason: 'grid tiles, not long rows');
+  });
+
+  testWidgets('Profile search finds any row in any tab (en / te) and remembers recent ones', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Widget page(String name) => Scaffold(body: Text('PAGE $name'));
+    await _pumpRouted(tester, initial: '/profile', screens: {
+      '/profile': const ProfileScreen(),
+      '/': page('HOME'),
+      '/settings/notifications': page('/settings/notifications'),
+    });
+    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), 'నోటిఫికేషన్');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxProfileSearchResult-profile-notifications')), findsOneWidget,
+        reason: 'a Settings row found from the Me tab, in Telugu');
+    await tester.tap(find.byKey(const ValueKey('askodoxProfileSearchResult-profile-notifications')));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('PAGE /settings/notifications'), findsOneWidget);
+    GoRouter.of(tester.element(find.text('PAGE /settings/notifications'))).pop();
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), '');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxProfileRecent-profile-notifications')), findsOneWidget,
+        reason: 'recently opened rows come first');
+    await tester.enterText(find.byKey(const Key('askodoxProfileSearch')), 'zzqx');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileSearchNone')), findsOneWidget, reason: 'nothing found -> ask ASKODOX');
   });
 }
 
