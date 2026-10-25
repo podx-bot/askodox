@@ -61,3 +61,35 @@ def test_schema_lists_roles_and_fields(api):
                  "survey_taker"):
         assert role in schema["roles"]
     assert "vehicle_type" in schema["roles"]["delivery_partner"]
+
+
+def test_numbers_with_hours_addresses_and_business_extras(api):
+    client, auth = api
+    client.put("/api/me/profile", headers=auth, json={"address": "Vuyyuru", "business_address": "Main Road"})
+    first = client.get("/api/me/profile", headers=auth).json()
+    assert first["addresses"] == [{"kind": "home", "text": "Vuyyuru"}, {"kind": "business", "text": "Main Road"}], \
+        "older single addresses show as entries"
+    r = client.put("/api/me/profile", headers=auth, json={
+        "last_name": "Rao", "business_email": "shop@example.com", "business_subcategory": "Pulses & oils",
+        "phones": [
+            {"kind": "business", "number": "+91 98480 22338", "from": "08:00", "to": "22:00"},
+            {"kind": "whatsapp", "same_as_personal": True, "from": "", "to": ""},
+            {"kind": "home", "number": ""},
+        ],
+        "addresses": [{"kind": "home", "text": "  Gandhi Nagar,   Vuyyuru "}, {"kind": "business", "text": "Bus stand road"},
+                      {"kind": "warehouse", "text": "Godown"}],
+    })
+    assert r.status_code == 200, r.text
+    me = client.get("/api/me/profile", headers=auth).json()
+    assert me["last_name"] == "Rao" and me["business_subcategory"] == "Pulses & oils"
+    assert [(p["kind"], p["number"], p["from"], p["to"]) for p in me["phones"]] == [
+        ("business", "9848022338", "08:00", "22:00"), ("whatsapp", "", "", "")]
+    assert me["phones"][1]["same_as_personal"] is True
+    assert [(a["kind"], a["text"]) for a in me["addresses"]] == [
+        ("home", "Gandhi Nagar, Vuyyuru"), ("business", "Bus stand road"), ("other", "Godown")]
+    assert me["address"] == "Gandhi Nagar, Vuyyuru" and me["business_address"] == "Bus stand road", \
+        "the old single fields follow the entries"
+    for bad in ({"phones": [{"kind": "business", "number": "12345"}]},
+                {"phones": [{"kind": "business", "number": "9848022338", "from": "8am"}]},
+                {"business_email": "not-an-email"}):
+        assert client.put("/api/me/profile", headers=auth, json=bad).status_code == 422, bad

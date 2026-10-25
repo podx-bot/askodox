@@ -141,6 +141,9 @@ void main() {
 
     await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxEditGrid')), findsOneWidget, reason: 'mini boxes first');
+    await tester.tap(find.byKey(const ValueKey('askodoxEditMini-personal')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('askodoxEditName')), 'Lakshmi Devi');
     await tester.tap(find.byKey(const Key('askodoxEditSave')));
     await tester.pumpAndSettle();
@@ -238,14 +241,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('askodoxEditRole-seller')), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxEditRole-delivery_partner')), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxEditRole-service_provider')), findsNothing,
+    // Each held role has its own mini box; only roles the person holds.
+    expect(find.byKey(const ValueKey('askodoxEditMini-role-seller')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxEditMini-role-delivery_partner')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxEditMini-role-service_provider')), findsNothing,
         reason: 'only roles the person holds');
+    Future<void> open(String id) async {
+      final mini = find.byKey(ValueKey('askodoxEditMini-$id'));
+      await tester.ensureVisible(mini);
+      await tester.pumpAndSettle();
+      await tester.tap(mini);
+      await tester.pumpAndSettle();
+    }
+
+    await open('role-seller');
     expect(tester.widget<TextField>(find.byKey(const ValueKey('askodoxEditRole-seller-business_type'))).controller!.text,
         'grocery', reason: 'existing role details are loaded');
 
     final savesBefore = profiles.saves.length; // the screen syncs held roles + language on open
+    await open('personal');
     await tester.enterText(find.byKey(const Key('askodoxEditEmail')), 'bad-email');
     tester.widget<FilledButton>(find.byKey(const Key('askodoxEditSave'))).onPressed!();
     await tester.pumpAndSettle();
@@ -253,7 +267,9 @@ void main() {
     expect(profiles.saves.length, savesBefore, reason: 'invalid e-mail is not sent');
 
     await tester.enterText(find.byKey(const Key('askodoxEditEmail')), 'lakshmi@example.com');
+    await open('links');
     await tester.enterText(find.byKey(const ValueKey('askodoxEditLink-website')), 'https://lakshmi.example');
+    await open('role-delivery_partner');
     final vehicle = find.byKey(const ValueKey('askodoxEditRole-delivery_partner-vehicle_type'));
     await tester.ensureVisible(vehicle);
     await tester.enterText(vehicle, 'two_wheeler');
@@ -266,15 +282,78 @@ void main() {
     expect((details['seller'] as Map)['business_type'], 'grocery');
     expect((details['delivery_partner'] as Map)['vehicle_type'], 'two_wheeler');
 
-    // Explicit switch of the ACTIVE role, announced, saved.
+    // Explicit switch of the ACTIVE role (in the editor's one roles card), announced, saved.
+    await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
+    await tester.pumpAndSettle();
     final picker = find.byKey(const Key('askodoxActiveRolePicker'));
     await tester.ensureVisible(picker);
+    await tester.pumpAndSettle();
     await tester.tap(picker);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Seller').last);
     await tester.pumpAndSettle();
     expect(profiles.saves.where((m) => m['active_role'] == 'seller'), hasLength(1));
     expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
+  });
+
+  testWidgets('Profile editor: numbers with hours, addresses add / delete, "say or paste" fills the right boxes',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({
+      'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'seller'], 'active': 'seller'}),
+    });
+    final profiles = _Profiles(const AskodoxUserProfile(
+      userId: 'app-phone-919876543210',
+      name: 'Lakshmi',
+      mobile: '+919876543210',
+      addresses: [{'kind': 'home', 'text': 'Vuyyuru'}],
+    ));
+    await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()}, overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      askodoxUserProfileRepositoryProvider.overrideWithValue(profiles),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxEditPaste')),
+        'shop@lakshmi.in https://facebook.com/lakshmikirana 98480 22338 GST 36ABCDE1234F1Z5 ఉదయం 8 నుండి రాత్రి 10');
+    await tester.tap(find.byKey(const Key('askodoxEditPasteGo')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxEditNotice')), findsOneWidget);
+    final mini = find.byKey(const ValueKey('askodoxEditMini-phones'));
+    await tester.tap(mini);
+    await tester.pumpAndSettle();
+    expect(find.text('+91 9876543210'), findsOneWidget, reason: 'the verified number is filled in and locked');
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('askodoxEditPhoneNumber-1'))).controller!.text, '9848022338');
+    expect(find.text('08:00'), findsOneWidget);
+    expect(find.text('22:00'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxEditPhoneAdd')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxEditPhone-2')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('askodoxEditPhoneDelete-2')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxEditPhone-2')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('askodoxEditMini-addresses')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxEditAddressAdd')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxEditShopAddress')), 'Bus stand road');
+    tester.widget<FilledButton>(find.byKey(const Key('askodoxEditSave'))).onPressed!();
+    await tester.pumpAndSettle();
+    final saved = profiles.saves.lastWhere((m) => m.containsKey('phones'));
+    expect(saved['email'], 'shop@lakshmi.in');
+    expect(saved['links'], [{'kind': 'facebook', 'url': 'https://facebook.com/lakshmikirana'}]);
+    expect(saved['gstin'], '36ABCDE1234F1Z5');
+    expect(saved['phones'], [
+      {'kind': 'personal', 'number': '9876543210', 'same_as_personal': false, 'from': '', 'to': ''},
+      {'kind': 'business', 'number': '9848022338', 'same_as_personal': false, 'from': '08:00', 'to': '22:00'},
+    ]);
+    expect(saved['addresses'], [
+      {'kind': 'home', 'text': 'Vuyyuru'},
+      {'kind': 'business', 'text': 'Bus stand road'},
+    ]);
   });
 
   testWidgets('APK 1275: a sign-in the server rejects (401) asks to sign in again, not "could not be loaded"',

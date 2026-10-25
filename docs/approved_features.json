@@ -1553,6 +1553,76 @@
           "change": "Owner request 2026-10-25 (branch claude/profile-redesign); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "profile_editor_boxes",
+      "name": "Profile editor: grid of mini boxes, numbers with reachable hours, many addresses, social pages, roles chosen once, say-or-paste filling",
+      "purpose": "The owner's paper design: one profile with add / edit / delete boxes and drop-downs, pre-filled from what ASKODOX already knows (OTP number, place), roles chosen in ONE place.",
+      "expected_behavior": "The edit button opens the editor: progress (boxes done), 'number verified by OTP — filled in', a say-or-paste box (+ mic) that puts e-mails, website / Facebook / YouTube / Instagram / WhatsApp links, 10-digit numbers, a GSTIN and shop hours ('8 to 10', 'ఉదయం 8 నుండి రాత్రి 10') into the right boxes (deterministic, nothing guessed), then a 2-column grid of mini boxes with their status; one box opens at a time (the first incomplete one first). Boxes: Name & e-mail (first name, surname, e-mail); Numbers & hours (verified personal number locked with its hours, add business / WhatsApp (same as personal) / home / other numbers with from-to hours, delete); Addresses (home / shop / other, add, delete, 'use where I am now'; home pre-filled from the known place); Website & social pages; then the ONE roles card (role chips + acting-as picker) and a box per held role (shop / business: name, category, sub-category, GSTIN, business e-mail; role fields with required ones starred). Saving sends phones / addresses / last_name / business_email / business_subcategory; the server validates (10-digit numbers starting 6-9, HH:MM hours, e-mails) and keeps the old single address fields in sync. Signed-in Profile no longer repeats the role chips (a row opens the editor at the roles).",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "PUT",
+          "path": "/api/me/profile",
+          "response_keys": [
+            "phones",
+            "addresses",
+            "last_name",
+            "business_email",
+            "business_subcategory"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/profile",
+          "response_keys": [
+            "phones",
+            "addresses"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxEditGrid",
+          "askodoxEditPaste",
+          "askodoxEditPasteGo",
+          "askodoxEditPhoneAdd",
+          "askodoxEditAddressAdd",
+          "askodoxEditProgress",
+          "askodoxEditRoles",
+          "askodoxProfileEditRoles",
+          "askodoxEditSave",
+          "askodoxEditName"
+        ],
+        "symbols": [
+          "AskodoxProfileEditor",
+          "askodoxOpenProfileEditor"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_master_profile.py"
+        ],
+        "flutter": [
+          "test/features/home/history_explore_profile_test.dart"
+        ]
+      },
+      "dependencies": [
+        "profile_tabs_search"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-25 (paper design; branch claude/profile-editor); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

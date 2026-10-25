@@ -9,8 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
-import '../../../shared/widgets/askodox_guided_field.dart';
 import '../data/user_profile_repository.dart';
+import 'profile_editor.dart';
 
 /// The top of Profile: the signed-in user's OWN stored data (photo, name,
 /// mobile, address, language, roles, business details and verification) --
@@ -81,15 +81,7 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
   }
 
   Future<void> _edit(AskodoxUserProfile profile) async {
-    final sells = ref.read(askodoxRoleProvider).owned.any(askodoxSupplyRoles.contains) ||
-        profile.businessName != null;
-    final place = ref.read(locationControllerProvider).displayLocation;
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _ProfileEditSheet(profile: profile, telugu: widget.telugu, business: sells, currentPlace: place),
-    );
+    final saved = await askodoxOpenProfileEditor(context, ref, profile, telugu: widget.telugu);
     if (saved == false && mounted) {
       setState(() => _message = _t('Your profile could not be saved. Try again.', 'ప్రొఫైల్ సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి.'));
     }
@@ -247,144 +239,4 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
       ),
     );
   }
-}
-
-class _ProfileEditSheet extends ConsumerStatefulWidget {
-  const _ProfileEditSheet({required this.profile, required this.telugu, required this.business, this.currentPlace});
-
-  final AskodoxUserProfile profile;
-  final bool telugu;
-  final bool business;
-  final String? currentPlace;
-
-  @override
-  ConsumerState<_ProfileEditSheet> createState() => _ProfileEditSheetState();
-}
-
-class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
-  late final _name = TextEditingController(text: widget.profile.name ?? '');
-  late final _address = TextEditingController(text: widget.profile.address ?? widget.currentPlace ?? '');
-  late final _shop = TextEditingController(text: widget.profile.businessName ?? '');
-  late final _shopAddress = TextEditingController(text: widget.profile.businessAddress ?? '');
-  late final _category = TextEditingController(text: widget.profile.businessCategory ?? '');
-  late final _gstin = TextEditingController(text: widget.profile.gstin ?? '');
-  late final _email = TextEditingController(text: widget.profile.email ?? '');
-  late final Map<String, TextEditingController> _links = {
-    for (final kind in const ['website', 'whatsapp', 'instagram'])
-      kind: TextEditingController(
-          text: widget.profile.links.where((l) => l['kind'] == kind).map((l) => l['url']).firstOrNull ?? ''),
-  };
-
-  /// Role-specific fields for every role this person holds (one profile).
-  late final Map<String, Map<String, TextEditingController>> _roleFields = {
-    for (final role in ref.read(askodoxRoleProvider).owned.map((r) => askodoxRoleKey(r.name)))
-      if (askodoxRoleProfileFields[role] case final fields?)
-        role: {
-          for (final f in fields)
-            f: TextEditingController(text: _text(widget.profile.roleDetails[role]?[f])),
-        },
-  };
-  bool _saving = false;
-  String? _error;
-
-  static String _text(Object? v) => v is List ? v.join(', ') : (v == null ? '' : '$v');
-
-  String _t(String en, String te) => widget.telugu ? te : en;
-
-  Future<void> _save() async {
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final email = _email.text.trim();
-    if (email.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
-      setState(() {
-        _saving = false;
-        _error = _t('Enter a valid e-mail address.', 'సరైన ఈ-మెయిల్ ఇవ్వండి.');
-      });
-      return;
-    }
-    final ok = await ref.read(askodoxUserProfileProvider.notifier).save({
-      'name': _name.text.trim(),
-      'address': _address.text.trim(),
-      'email': email,
-      'links': [
-        for (final e in _links.entries)
-          if (e.value.text.trim().isNotEmpty) {'kind': e.key, 'url': e.value.text.trim()},
-      ],
-      if (_roleFields.isNotEmpty)
-        'role_details': {
-          for (final r in _roleFields.entries)
-            r.key: {for (final f in r.value.entries) f.key: f.value.text.trim()},
-        },
-      if (widget.business) ...{
-        'business_name': _shop.text.trim(),
-        'business_address': _shopAddress.text.trim(),
-        'business_category': _category.text.trim(),
-        if (_gstin.text.trim().isNotEmpty) 'gstin': _gstin.text.trim(),
-      },
-    });
-    if (mounted) Navigator.pop(context, ok);
-  }
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_t('Edit profile', 'ప్రొఫైల్ మార్చండి'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              AskodoxGuidedField(fieldKey: const Key('askodoxEditName'), controller: _name,
-                  label: _t('Name', 'పేరు'), guide: AskodoxFieldGuides.name),
-              AskodoxGuidedField(fieldKey: const Key('askodoxEditAddress'), controller: _address,
-                  label: _t('Address (town, area)', 'చిరునామా (ఊరు, ప్రాంతం)'), guide: AskodoxFieldGuides.town),
-              AskodoxGuidedField(fieldKey: const Key('askodoxEditEmail'), controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  label: _t('E-mail (optional)', 'ఈ-మెయిల్ (ఐచ్ఛికం)'), guide: AskodoxFieldGuides.email),
-              for (final e in _links.entries)
-                TextField(key: ValueKey('askodoxEditLink-${e.key}'), controller: e.value,
-                    decoration: InputDecoration(
-                        labelText: switch (e.key) {
-                          'website' => _t('Website (https://…)', 'వెబ్‌సైట్ (https://…)'),
-                          'whatsapp' => 'WhatsApp',
-                          _ => 'Instagram (https://…)',
-                        })),
-              if (widget.business) ...[
-                AskodoxGuidedField(fieldKey: const Key('askodoxEditShop'), controller: _shop,
-                    label: _t('Business / shop name', 'వ్యాపారం / షాప్ పేరు'), guide: AskodoxFieldGuides.shopName),
-                AskodoxGuidedField(fieldKey: const Key('askodoxEditShopAddress'), controller: _shopAddress,
-                    label: _t('Shop address', 'షాప్ చిరునామా'), guide: AskodoxFieldGuides.shopAddress),
-                AskodoxGuidedField(fieldKey: const Key('askodoxEditCategory'), controller: _category,
-                    label: _t('Category / service', 'విభాగం / సర్వీస్'), guide: AskodoxFieldGuides.category),
-                AskodoxGuidedField(fieldKey: const Key('askodoxEditGstin'), controller: _gstin,
-                    label: 'GSTIN (optional)', guide: AskodoxFieldGuides.gstin),
-              ],
-              for (final r in _roleFields.entries) ...[
-                const SizedBox(height: 14),
-                Text(askodoxFieldLabel(r.key),
-                    key: ValueKey('askodoxEditRole-${r.key}'),
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-                for (final f in r.value.entries)
-                  TextField(key: ValueKey('askodoxEditRole-${r.key}-${f.key}'), controller: f.value,
-                      decoration: InputDecoration(labelText: askodoxFieldLabel(f.key))),
-              ],
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!, key: const Key('askodoxEditError'),
-                      style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w700)),
-                ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  key: const Key('askodoxEditSave'),
-                  onPressed: _saving ? null : _save,
-                  child: Text(_t('Save', 'సేవ్ చేయండి')),
-                ),
-              ),
-            ]),
-          ),
-        ),
-      );
 }

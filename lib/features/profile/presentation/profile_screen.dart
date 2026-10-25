@@ -17,6 +17,7 @@ import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
 import '../../staff/askodox_staff_access.dart';
 import '../data/user_profile_repository.dart';
+import 'profile_editor.dart';
 import 'profile_header.dart';
 import '../../../shared/widgets/askodox_mascot.dart';
 import '../../settings/developer_diagnostics_screen.dart';
@@ -300,6 +301,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: t('Roles & Opportunities', 'పాత్రలు & అవకాశాలు'),
           icon: Icons.badge_outlined,
           children: [
+            if (!signedIn)
             (Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                   child: Column(
@@ -382,6 +384,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ]);
                         }),
                       ]))),
+            if (signedIn)
+              AskodoxNavRow(
+                  key: const Key('askodoxProfileEditRoles'),
+                  icon: Icons.manage_accounts_outlined,
+                  title: t('My roles & their details', 'నా పాత్రలు & వాటి వివరాలు'),
+                  subtitle: t('Choose roles once; each adds its own box.', 'పాత్రలు ఒక్కసారే ఎంచుకోండి; ప్రతి దానికి బాక్స్ వస్తుంది.'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    final profile = ref.read(askodoxUserProfileProvider).valueOrNull;
+                    if (profile != null) askodoxOpenProfileEditor(context, ref, profile, telugu: te, section: 'roles');
+                  }),
             row('askodoxMyRolesEntry', 'me', Icons.badge_outlined, 'My roles', 'నా పాత్రలు', 'What each role adds.',
                 'ప్రతి పాత్ర విభాగాలు.', () => context.push('/profile/roles'),
                 guide: 'screen_roles', key: const Key('askodoxMyRolesEntry'), words: ['role', 'పాత్ర']),
