@@ -1,0 +1,25 @@
+name: Probe production after merge (throwaway)
+on:
+  push:
+    branches: [claude/probe-pos-analyze]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: wait for deploy of b4cdc83
+        run: |
+          B=https://podx-ai-connect-production-3279.up.railway.app
+          for i in $(seq 1 50); do
+            c=$(curl -s --max-time 15 $B/health | python3 -c "import sys,json;print(json.load(sys.stdin).get('commit',''))" 2>/dev/null || true)
+            echo "try $i commit=$c"
+            case "$c" in b4cdc83*) break;; esac
+            sleep 30
+          done
+          echo "::warning title=deployed::commit=$c"
+          for p in /health /api/pos/meta /api/vision/profiles /api/intel/tax /api/devices/compatibility /api/pos/businesses /admin/console; do
+            code=$(curl -s -o body.txt -w '%{http_code}' --max-time 20 "$B$p")
+            echo "::warning title=GET $p::$code $(head -c 160 body.txt | tr '\n' ' ')"
+          done
