@@ -501,6 +501,8 @@ class _Profiles implements AskodoxUserProfileRepository {
       email: (fields['email'] ?? stored.email) as String?,
       activeRole: (fields['active_role'] ?? stored.activeRole) as String?,
       roleDetails: stored.roleDetails,
+      phones: stored.phones,
+      addresses: stored.addresses,
     );
     return stored;
   }
