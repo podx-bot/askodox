@@ -17,9 +17,11 @@ EDITABLE = (
     "name", "address", "latitude", "longitude", "language", "roles",
     "business_name", "business_address", "business_category", "gstin", "upi_id",
     "email", "active_role", "links", "role_details",
+    "last_name", "business_email", "business_subcategory", "phones", "addresses",
 )
 # Stored as JSON text (column name -> python type).
-JSON_FIELDS = {"roles": ("roles_json", list), "links": ("links_json", list), "role_details": ("role_details_json", dict)}
+JSON_FIELDS = {"roles": ("roles_json", list), "links": ("links_json", list), "role_details": ("role_details_json", dict),
+               "phones": ("phones_json", list), "addresses": ("addresses_json", list)}
 
 # Universal Master Profile: the fields each role adds to the SAME profile.
 # New roles are new keys here (stored in role_details_json) -- no schema change.
@@ -87,7 +89,8 @@ class UserProfileRepository:
             columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profiles)")}
             if "upi_id" not in columns:  # the seller's own UPI ID (VPA) for direct payments
                 conn.execute("ALTER TABLE user_profiles ADD COLUMN upi_id TEXT")
-            for column in ("email", "active_role", "links_json", "role_details_json"):
+            for column in ("email", "active_role", "links_json", "role_details_json", "last_name", "business_email",
+                           "business_subcategory", "phones_json", "addresses_json"):
                 if column not in columns:
                     conn.execute(f"ALTER TABLE user_profiles ADD COLUMN {column} TEXT")
             conn.commit()
@@ -110,6 +113,8 @@ class UserProfileRepository:
         data["roles"] = []
         data["links"] = []
         data["role_details"] = {}
+        data["phones"] = []
+        data["addresses"] = []
         data["has_photo"] = False
         data["photo_updated_at"] = None
         if row:
@@ -129,6 +134,12 @@ class UserProfileRepository:
             data["photo_updated_at"] = row["photo_updated_at"]
         data["user_id"] = user_id
         data["mobile"] = self.mobile_for(user_id)
+        # Older profiles kept one home + one shop address: show them as address entries.
+        if not data["addresses"]:
+            data["addresses"] = [a for a in (
+                {"kind": "home", "text": data.get("address")} if data.get("address") else None,
+                {"kind": "business", "text": data.get("business_address")} if data.get("business_address") else None,
+            ) if a]
         return data
 
     def update(self, user_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:

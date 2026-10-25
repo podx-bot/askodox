@@ -32,7 +32,22 @@ class AskodoxUserProfile {
     this.activeRole,
     this.links = const [],
     this.roleDetails = const {},
+    this.lastName,
+    this.businessEmail,
+    this.businessSubcategory,
+    this.phones = const [],
+    this.addresses = const [],
   });
+
+  final String? lastName;
+  final String? businessEmail;
+  final String? businessSubcategory;
+
+  /// Extra numbers with reachable hours: {kind, number, same_as_personal, from, to}.
+  final List<Map<String, Object?>> phones;
+
+  /// Addresses: {kind: home | business | other, text}.
+  final List<Map<String, Object?>> addresses;
 
   final String? email;
 
@@ -97,6 +112,11 @@ class AskodoxUserProfile {
         for (final l in (json['links'] as List? ?? const []))
           if (l is Map) {'kind': '${l['kind'] ?? 'other'}', 'url': '${l['url'] ?? ''}'},
       ],
+      lastName: _s(json['last_name']),
+      businessEmail: _s(json['business_email']),
+      businessSubcategory: _s(json['business_subcategory']),
+      phones: [for (final p in (json['phones'] as List? ?? const [])) if (p is Map) Map<String, Object?>.from(p)],
+      addresses: [for (final a in (json['addresses'] as List? ?? const [])) if (a is Map) Map<String, Object?>.from(a)],
       roleDetails: {
         if (json['role_details'] is Map)
           for (final e in (json['role_details'] as Map).entries)

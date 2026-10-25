@@ -15,7 +15,7 @@ this file, don't trust it blindly.
   printers via `AskodoxHardware.kt` on channel `com.askodox.app/hardware`, Telugu PDF text as images, Smart Tools
   protractor / magnifier / light / sound meters / vehicle walk-around report), then #228 shop advance, #229 guide on every screen + POS online channel, #230 ready catalogue + item
   details, #231 guide offers help by itself + picture tiles + rates by quantity + spoken multi-item bill, #232 self-shopping,
-  #233 guide speaks + answers, examples / pre-fill, History backup. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  #233 guide speaks + answers, examples / pre-fill, History backup, #234 Profile tabs + search. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -571,6 +571,10 @@ this file, don't trust it blindly.
 - Profile = search / talk bar (`askodoxProfileSearch` + mic; one spoken match opens it) + three tabs `askodoxProfileTab-me|
   business|settings` + recent chips (`askodox.profile.recent.v1`). Rows go through the local `row(...)` helper so they are
   indexed for search; a running walkthrough switches to the tab holding its target key. Keep every row key when moving rows.
+- Profile editor = `profile_editor.dart` (`askodoxOpenProfileEditor`): mini-box grid, one box open at a time, phones
+  (`phones` JSON: kind / number / same_as_personal / from / to; the verified number is shown locked) + addresses
+  (`addresses` JSON; old `address` / `business_address` follow the first home / business entry server-side), roles chosen
+  ONLY in its roles card (signed-in Profile shows no role chips). Guide targets open their box (`_guideTargets`).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

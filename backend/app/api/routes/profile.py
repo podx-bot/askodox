@@ -73,6 +73,11 @@ class ProfileUpdate(BaseModel):
     active_role: str | None = Field(default=None, max_length=30)
     links: list[dict] | None = Field(default=None, max_length=10)
     role_details: dict | None = None
+    last_name: str | None = Field(default=None, max_length=80)
+    business_email: str | None = Field(default=None, max_length=160)
+    business_subcategory: str | None = Field(default=None, max_length=80)
+    phones: list[dict] | None = Field(default=None, max_length=8)
+    addresses: list[dict] | None = Field(default=None, max_length=8)
 
 
 @router.get("")
@@ -101,6 +106,17 @@ def update_my_profile(payload: ProfileUpdate, request: Request) -> dict:
     if fields.get("email"):
         if not _EMAIL.match(fields["email"]):
             raise HTTPException(status_code=422, detail="Enter a valid e-mail address")
+    if fields.get("business_email") and not _EMAIL.match(fields["business_email"]):
+        raise HTTPException(status_code=422, detail="Enter a valid business e-mail address")
+    if "phones" in fields:
+        fields["phones"] = _clean_phones(fields["phones"] or [], user_id)
+    if "addresses" in fields:
+        fields["addresses"] = _clean_addresses(fields["addresses"] or [])
+        # The older single fields follow the first home / business address (old screens and search read them).
+        homes = [a["text"] for a in fields["addresses"] if a["kind"] == "home"]
+        shops = [a["text"] for a in fields["addresses"] if a["kind"] == "business"]
+        fields.setdefault("address", homes[0] if homes else None)
+        fields.setdefault("business_address", shops[0] if shops else None)
     if "links" in fields:
         fields["links"] = _clean_links(fields["links"] or [])
     if "role_details" in fields:
@@ -130,6 +146,56 @@ def _clean_links(links: list) -> list:
         if not (url.startswith("https://") or url.startswith("http://") or kind == "whatsapp"):
             raise HTTPException(status_code=422, detail="Links must start with https://")
         out.append({"kind": kind if kind in _LINK_KINDS else "other", "url": url[:300]})
+    return out
+
+
+_PHONE_KINDS = {"personal", "business", "whatsapp", "home", "other"}
+_ADDRESS_KINDS = {"home", "business", "other"}
+_TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def _clean_phones(phones: list, user_id: str) -> list:
+    """Extra numbers with their own 'reachable' hours. The verified sign-in number is never stored here
+    (it comes from the session); a WhatsApp entry may say same_as_personal instead of repeating it."""
+    out = []
+    for item in phones[:8]:
+        item = item or {}
+        kind = str(item.get("kind") or "other").strip().lower()
+        kind = kind if kind in _PHONE_KINDS else "other"
+        same = bool(item.get("same_as_personal")) and kind == "whatsapp"
+        digits = "".join(ch for ch in str(item.get("number") or "") if ch.isdigit())
+        if digits.startswith("91") and len(digits) == 12:
+            digits = digits[2:]
+        if not same:
+            if not digits:
+                continue
+            if len(digits) != 10 or digits[0] not in "6789":
+                raise HTTPException(status_code=422, detail="A phone number must be 10 digits starting with 6-9")
+        start, end = str(item.get("from") or "").strip(), str(item.get("to") or "").strip()
+        for t in (start, end):
+            if t and not _TIME.match(t):
+                raise HTTPException(status_code=422, detail="Times must look like 09:00 or 21:30")
+        out.append({"kind": kind, "number": "" if same else digits, "same_as_personal": same,
+                    "from": start, "to": end, "label": str(item.get("label") or "")[:40]})
+    return out
+
+
+def _clean_addresses(addresses: list) -> list:
+    out = []
+    for item in addresses[:8]:
+        item = item or {}
+        text = re.sub(r"\s+", " ", str(item.get("text") or "")).strip()[:240]
+        if not text:
+            continue
+        kind = str(item.get("kind") or "other").strip().lower()
+        entry = {"kind": kind if kind in _ADDRESS_KINDS else "other", "text": text, "label": str(item.get("label") or "")[:40]}
+        for key in ("latitude", "longitude"):
+            try:
+                if item.get(key) is not None:
+                    entry[key] = float(item[key])
+            except (TypeError, ValueError):
+                pass
+        out.append(entry)
     return out
 
 
