@@ -3,7 +3,7 @@ set -euo pipefail
 RES="android/app/src/main/res"
 MANIFEST="android/app/src/main/AndroidManifest.xml"
 KOTLIN_DIR="android/app/src/main/kotlin/com/askodox/askodox"
-mkdir -p "$RES/drawable" "$RES/drawable-v21" "$RES/mipmap-anydpi" "$RES/mipmap-anydpi-v26" "$RES/values" "$RES/xml" "$KOTLIN_DIR"
+mkdir -p "$RES/values" "$RES/xml" "$KOTLIN_DIR"
 
 cat > "$RES/values/askodox_colors.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
@@ -20,43 +20,15 @@ cat > "$RES/values/strings.xml" <<'EOF'
 <resources><string name="app_name">ASKODOX</string></resources>
 EOF
 
-cat > "$RES/drawable/askodox_launcher_foreground.xml" <<'EOF'
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-  <path android:fillColor="@android:color/transparent" android:strokeColor="#FFF9FF" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M47,19 C39,16 34,20 32,25 C25,24 21,29 22,35 C16,37 14,43 17,48 C12,53 14,61 20,64 C18,71 23,77 30,77 C33,84 41,86 47,81 C50,79 52,76 52,72 L52,27 C52,23 50,21 47,19 Z" />
-  <path android:fillColor="@android:color/transparent" android:strokeColor="#D9B9FF" android:strokeWidth="2.35" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M25,35 L34,35 L39,30 M25,47 L36,47 L43,53 M23,59 L32,59 L38,54 M30,71 L38,71 L43,65 M39,39 L47,39 M40,59 L48,59 M45,27 L45,34 M45,65 L45,75" />
-  <path android:fillColor="#FFF9FF" android:pathData="M22.5,35 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M32,35 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M39,30 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M23,47 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M35,47 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M43,53 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M21,59 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M31,59 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M29,71 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M38,71 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M45,39 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0 M46,59 a2.5,2.5 0,1 0,5 0 a2.5,2.5 0,1 0,-5 0" />
-  <path android:fillColor="#FFB48CFF" android:pathData="M58,20 L86,48 L74,48 L74,57 L90,57 L64,84 L64,68 L54,68 L68,54 L68,47 L58,47 Z" />
-  <path android:fillColor="#FF8A5CF6" android:pathData="M64,27 L80,43 L71,43 L71,52 L63,52 Z" />
-  <path android:fillColor="#FF603EFF" android:pathData="M66,64 L81,64 L69,76 L66,76 Z" />
-</vector>
-EOF
-
-cat > "$RES/drawable/askodox_launcher_legacy.xml" <<'EOF'
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-  <item><shape android:shape="rectangle"><corners android:radius="24dp"/><gradient android:angle="315" android:startColor="#05060A" android:centerColor="#100A20" android:endColor="#24104E"/></shape></item>
-  <item android:drawable="@drawable/askodox_launcher_foreground" android:gravity="center"/>
-</layer-list>
-EOF
-
-cat > "$RES/mipmap-anydpi/ic_launcher.xml" <<'EOF'
-<inset xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/askodox_launcher_legacy" android:inset="0dp" />
-EOF
-cp "$RES/mipmap-anydpi/ic_launcher.xml" "$RES/mipmap-anydpi/ic_launcher_round.xml"
-
-cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/askodox_ink"/><foreground android:drawable="@drawable/askodox_launcher_foreground"/></adaptive-icon>
-EOF
-cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
-
-cat > "$RES/drawable/launch_background.xml" <<'EOF'
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-  <item><shape android:shape="rectangle"><gradient android:angle="315" android:startColor="#05060A" android:centerColor="#100A20" android:endColor="#24104E"/></shape></item>
-  <item android:drawable="@drawable/askodox_launcher_foreground" android:gravity="center" android:width="156dp" android:height="156dp"/>
-</layer-list>
-EOF
-cp "$RES/drawable/launch_background.xml" "$RES/drawable-v21/launch_background.xml"
+# The launcher icon (adaptive mipmaps + PNGs) and the splash are COMMITTED in
+# android/app/src/main/res and are the ONE source of the ASKODOX logo. This
+# script must never write them again (it used to overwrite them with an older
+# vector copy, so the phone showed the old logo).
+for f in mipmap-anydpi-v26/ic_launcher.xml mipmap-anydpi-v26/ic_launcher_round.xml \
+         mipmap-xxxhdpi/ic_launcher.png mipmap-xxxhdpi/ic_launcher_foreground.png \
+         drawable-nodpi/askodox_splash_mark.png drawable/launch_background.xml; do
+  test -f "$RES/$f" || { echo "Committed launcher/splash file missing: $RES/$f" >&2; exit 1; }
+done
 
 cat > "$RES/xml/askodox_update_paths.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>

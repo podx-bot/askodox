@@ -1,3 +1,4 @@
+import 'shared/widgets/askodox_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,7 +128,7 @@ class _StartupGateState extends ConsumerState<_StartupGate> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.auto_awesome_rounded, color: AskodoxDesignTokens.violet100, size: 44),
+              AskodoxLogo(size: 88, boxed: false),
               SizedBox(height: 14),
               Text(
                 BrandConfig.displayName,

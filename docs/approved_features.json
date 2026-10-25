@@ -1623,6 +1623,48 @@
           "change": "Owner request 2026-10-25 (paper design; branch claude/profile-editor); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "console_map_and_logo",
+      "name": "Command Center console as ONE heading -> category -> page grid (English + Telugu, guide on every page, 'why / what to do' errors) + the new ASKODOX logo as the app icon",
+      "purpose": "Owner request: the huge admin page arranged neatly like the app's grid view, every page in one place, English-Telugu mixed, a guide per page, insights on home and plain explanations for errors; the brain-circuit + arrow logo recreated cleanly and used as the launcher icon.",
+      "expected_behavior": "/admin/console opens on Home: 'Today' cards (work queue red/orange items, live incidents with why / what to do in en + te, connections needing setup, dashboard alerts) and a grid of 10 main headings. A heading opens its categories with page tiles (en name, te name, what it is in en + te, pending count). Every page has breadcrumbs and a 'Guide · గైడ్' panel (what is this / what to do, en + te). Errors show WHY + WHAT TO DO in en + te from the HTTP answer (0/400/401/403/404/409/422/429/5xx). Page search finds pages by en / te words before records. Each page is listed exactly once (test). Four schema resources that had no menu entry (category hierarchy, catalogue templates, entry templates, role verifications) are now reachable. Launcher icon / round icon / adaptive foreground+background / splash are committed PNGs; tool/apply_android_askodox_branding.sh no longer writes them.",
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/console",
+          "response_keys": []
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxLogo"
+        ],
+        "symbols": [
+          "AskodoxLogo"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_admin_console_nav.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-25 (logo + admin grid; branch claude/logo-admin-grid); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

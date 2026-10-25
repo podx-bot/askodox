@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="brain" x1="22" y1="24" x2="54" y2="84" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#E4D6FF"/>
+      <stop offset="1" stop-color="#A98BFF"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="58" y1="26" x2="88" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D4BCFF"/>
+      <stop offset="0.45" stop-color="#9B6BFF"/>
+      <stop offset="1" stop-color="#5B2EE6"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke="url(#brain)" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <!-- hemisphere outline -->
+    <path stroke-width="3" d="M52,26.5 C48.5,23.5 42.5,23 39,26.5 C33.5,24.5 27.5,28 27,33.5 C21.5,35 19,40.5 21,45.5 C17,49.5 17,56.5 21,60 C18.5,65.5 21.5,71.5 27.5,72.5 C29,78.5 35,82 41,80 C44.5,82.5 49.5,82.5 52,80"/>
+    <path stroke-width="3" d="M52,26.5 L52,80"/>
+    <!-- circuit traces -->
+    <g stroke-width="2.1">
+      <path d="M52,34 L44,34 L40,30.5"/>
+      <path d="M52,42 L38,42 L33,37"/>
+      <path d="M52,50 L42,50"/>
+      <path d="M52,57 L36,57 L31,52"/>
+      <path d="M52,65 L45,65 L40,70"/>
+      <path d="M52,73.5 L47,73.5"/>
+    </g>
+    <!-- nodes -->
+    <g stroke-width="1.8" fill="#0B0716">
+      <circle cx="38.6" cy="29.2" r="2.3"/>
+      <circle cx="31.4" cy="35.4" r="2.3"/>
+      <circle cx="39.6" cy="50" r="2.3"/>
+      <circle cx="29.4" cy="50.4" r="2.3"/>
+      <circle cx="38.4" cy="71.6" r="2.3"/>
+      <circle cx="44.7" cy="73.5" r="2.3"/>
+    </g>
+  </g>
+  <!-- arrow D -->
+  <path fill="url(#arrow)" fill-rule="evenodd" filter="url(#glow)"
+        d="M57.5,26.5 L66,26.5 Q69,26.5 70.8,29 L86,51 Q88,54 86,57 L70.8,79 Q69,81.5 66,81.5 L57.5,81.5 Z
+           M64,36.5 L64,71.5 L76.5,54 Z"/>
+</svg>
