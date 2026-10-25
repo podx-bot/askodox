@@ -321,8 +321,11 @@ void main() {
   testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
-    for (final id in ['screen_business', 'screen_listings', 'screen_enquiries', 'screen_videos', 'screen_mobility',
-        'screen_notifications', 'screen_feedback']) {
+    for (final (tab, id) in [('business', 'screen_business'), ('business', 'screen_listings'),
+        ('business', 'screen_enquiries'), ('business', 'screen_videos'), ('me', 'screen_mobility'),
+        ('settings', 'screen_notifications'), ('settings', 'screen_feedback')]) {
+      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
+      await tester.pumpAndSettle();
       final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
       await tester.ensureVisible(button);
       await tester.pump();
