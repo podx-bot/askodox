@@ -674,10 +674,12 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
   Widget _rolesCard() {
     final roles = ref.watch(askodoxRoleProvider);
     final held = [for (final r in AskodoxUserRole.values) if (roles.owned.contains(r)) r];
-    return Container(
+    return Material(
       key: _keys.putIfAbsent('roles', GlobalKey.new),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(_t('What do I do? (all roles, one place)', 'నేను ఏం చేస్తాను? (అన్ని పాత్రలు ఒక్కచోటే)'),
             key: const Key('askodoxEditRoles'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
@@ -729,19 +731,23 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             ),
           ]),
       ]),
+      ),
     );
   }
 
   Widget _section(({String id, IconData icon, String title, String status, bool done}) s, Widget body) {
     final open = _open == s.id;
-    return Container(
+    return Padding(
       key: _keys.putIfAbsent(s.id, GlobalKey.new),
-      margin: const EdgeInsets.only(top: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      padding: const EdgeInsets.only(top: 10),
+      // A Material (not a coloured box) so list tiles inside show their ink.
+      child: Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: open ? const Color(0xFF1769FF) : const Color(0xFFE4E9F2)),
+        side: BorderSide(color: open ? const Color(0xFF1769FF) : const Color(0xFFE4E9F2)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         InkWell(
           key: ValueKey('askodoxEditSectionHead-${s.id}'),
@@ -766,6 +772,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
         ),
         if (open) Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), child: body),
       ]),
+      ),
     );
   }
 
