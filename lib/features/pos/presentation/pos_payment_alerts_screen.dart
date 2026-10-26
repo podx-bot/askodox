@@ -820,7 +820,6 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
   }
 
   Future<void> _run(Future<AskodoxJson> Function(AskodoxPosRepository repo) call) async {
-    final te = askodoxPosTe(context);
     final repo = ref.read(askodoxPosRepositoryProvider);
     setState(() {
       _busy = true;
@@ -830,7 +829,7 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
       final out = await call(repo);
       if (mounted) setState(() => _p = out);
     } on AskodoxPosException catch (e) {
-      if (mounted) setState(() => _error = e.message(te));
+      if (mounted) setState(() => _error = e.message(askodoxPosTe(context)));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
