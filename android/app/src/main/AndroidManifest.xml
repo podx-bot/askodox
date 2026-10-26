@@ -89,17 +89,19 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Optional floating assistant bubble the user turns on; tapping it returns to the app. No audio or screen access." />
         </service>
-        <!-- POS payment voice alerts: speaks a high-priority FCM payment alert even when ASKODOX is closed.
-             Same FCM broadcast the Firebase plugin receives (only Google Play services can send it);
-             non-payment messages are ignored here and still handled by Firebase. -->
-        <receiver
-            android:name=".AskodoxPaymentAlertPushReceiver"
-            android:exported="true"
-            android:permission="com.google.android.c2dm.permission.SEND">
-            <intent-filter android:priority="100">
-                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+        <!-- POS payment voice alerts: the app's FCM service (extends the Flutter plugin's service; higher
+             priority so FCM delivers here). Speaks payment alerts with the app closed; everything else is passed
+             to the plugin unchanged. -->
+        <service
+            android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService"
+            tools:node="remove" />
+        <service
+            android:name=".AskodoxMessagingService"
+            android:exported="false">
+            <intent-filter android:priority="10">
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
-        </receiver>
+        </service>
         <!-- POS payment voice alerts listener (BIND_NOTIFICATION_LISTENER_SERVICE): NOT declared in the
              default build. Play Protect's enhanced fraud protection blocks internet-sideloaded apps that
              declare it (seen on APK 1366). Added only to Play-distributed builds
