@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/providers/backend_providers.dart';
@@ -148,6 +149,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   String? _error;
   bool _loading = true;
   bool _busy = false;
+  bool _phoneOnly = false;
   Timer? _timer;
   final _announced = <String>{};
   final _search = TextEditingController();
@@ -212,11 +214,12 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'business_id': _id,
       'device_id': _deviceId ?? '',
       'base_url': base,
-      'token': session.user == null ? '' : session.tokenPlaceholder,
+      'token': _phoneOnly || session.user == null ? '' : session.tokenPlaceholder,
     });
   }
 
   Future<void> _refresh({bool first = false}) async {
+    if (_phoneOnly && !first) return _enterPhoneOnly();
     try {
       _status = await _bridge.status();
       _settings = await _repo.paymentAlertSettings(_id);
@@ -234,6 +237,11 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       });
       if (first) _announced.addAll(_events.map((e) => '${e['id']}'));
     } on AskodoxPosException catch (e) {
+      // Server not reachable / not updated yet: the phone still listens and speaks on its own.
+      if (_settings.isEmpty && (e.kind == 'not_found' || e.kind == 'network' || e.kind == 'failed')) {
+        await _enterPhoneOnly();
+        return;
+      }
       if (mounted) {
         setState(() {
           _error = e.message(askodoxPosTe(context));
@@ -243,9 +251,46 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     }
   }
 
+  String get _phoneOnlyKey => 'askodox.pos.payalert.phoneonly.$_id';
+
+  Future<void> _enterPhoneOnly({bool? enable}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (enable != null) await prefs.setBool(_phoneOnlyKey, enable);
+    _phoneOnly = true;
+    _settings = {
+      'enabled': prefs.getBool(_phoneOnlyKey) ?? false,
+      'feature_on': true,
+      'can_edit': false,
+      'language': 'te',
+      'voice': 'female',
+      'rate_pct': 100,
+      'volume_pct': 100,
+      'quiet_start': '',
+      'quiet_end': '',
+      'apps': askodoxDefaultPaymentApps,
+    };
+    await _configureNative();
+    _local = await _bridge.localEvents();
+    if (!mounted) return;
+    setState(() {
+      _events = [
+        for (final e in _local.reversed)
+          {
+            ...e,
+            'id': e['local_id'],
+            'reported_by_me': true,
+            'delivery_pending': 0,
+          },
+      ];
+      _summary = const {};
+      _error = null;
+      _loading = false;
+    });
+  }
+
   /// Staff / second phones: speak alerts another device of this shop detected (only while this screen is open).
   Future<void> _poll() async {
-    if (_busy) return;
+    if (_busy || _phoneOnly) return;
     try {
       final data = await _repo.paymentEvents(_id, status: _filter, q: _query);
       final events = askodoxPosList(data['events']);
@@ -396,6 +441,18 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                           title: Text(te ? 'ASKODOX ఈ ఫీచర్‌ను ప్రస్తుతం ఆపింది.' : 'ASKODOX has switched this feature off for now.'),
                         ),
                       ),
+                    if (_phoneOnly)
+                      Card(
+                        key: const Key('askodoxPayAlertPhoneOnly'),
+                        color: const Color(0xFFFFF7ED),
+                        child: ListTile(
+                          leading: const Icon(Icons.phone_android),
+                          title: Text(te ? 'ఫోన్-మాత్రమే మోడ్' : 'Phone-only mode'),
+                          subtitle: Text(te
+                              ? 'సర్వర్ అందుబాటులో లేదు / ఇంకా అప్‌డేట్ కాలేదు. వాయిస్ ఈ ఫోన్‌లో పనిచేస్తుంది; చరిత్ర ఈ ఫోన్‌లోనే; సిబ్బందికి వెళ్లదు.'
+                              : 'Server not reachable / not updated yet. Voice works on this phone; history stays on this phone; staff phones are not alerted.'),
+                        ),
+                      ),
                     _statusCard(te),
                     const SizedBox(height: 8),
                     _historyCard(te),
@@ -444,8 +501,11 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(te ? 'స్థితి' : 'Status', style: const TextStyle(fontWeight: FontWeight.w800)),
           row(const Key('askodoxPayAlertShopOn'), on, on ? (te ? 'ఈ షాపుకు అలర్ట్స్ ఆన్' : 'Alerts on for this shop') : (te ? 'ఈ షాపుకు అలర్ట్స్ ఆఫ్' : 'Alerts off for this shop'),
-              action: _settings['can_edit'] == true
-                  ? Switch(key: const Key('askodoxPayAlertEnable'), value: on, onChanged: _busy ? null : (v) => _save({'enabled': v}))
+              action: _settings['can_edit'] == true || _phoneOnly
+                  ? Switch(
+                      key: const Key('askodoxPayAlertEnable'),
+                      value: on,
+                      onChanged: _busy ? null : (v) => _phoneOnly ? _enterPhoneOnly(enable: v) : _save({'enabled': v}))
                   : null),
           if (!unavailable)
             row(const Key('askodoxPayAlertListener'), listener,
@@ -469,7 +529,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           Wrap(spacing: 8, runSpacing: 6, children: [
             FilledButton.tonalIcon(key: const Key('askodoxPayAlertSpeakerTest'), onPressed: _speakerTest, icon: const Icon(Icons.campaign_outlined), label: Text(te ? 'స్పీకర్ టెస్ట్' : 'Speaker test')),
             OutlinedButton.icon(key: const Key('askodoxPayAlertDetectTest'), onPressed: _detectionTest, icon: const Icon(Icons.science_outlined), label: Text(te ? 'గుర్తింపు టెస్ట్' : 'Detection test')),
-            OutlinedButton.icon(key: const Key('askodoxPayAlertStaffTest'), onPressed: _staffTest, icon: const Icon(Icons.groups_outlined), label: Text(te ? 'సిబ్బందికి టెస్ట్' : 'Test to staff')),
+            if (!_phoneOnly)
+              OutlinedButton.icon(key: const Key('askodoxPayAlertStaffTest'), onPressed: _staffTest, icon: const Icon(Icons.groups_outlined), label: Text(te ? 'సిబ్బందికి టెస్ట్' : 'Test to staff')),
             TextButton.icon(onPressed: _bridge.openBluetoothSettings, icon: const Icon(Icons.bluetooth), label: Text(te ? 'బ్లూటూత్' : 'Bluetooth')),
             TextButton.icon(onPressed: _bridge.openBatterySettings, icon: const Icon(Icons.battery_saver_outlined), label: Text(te ? 'బ్యాటరీ అనుమతి' : 'Battery: allow')),
           ]),

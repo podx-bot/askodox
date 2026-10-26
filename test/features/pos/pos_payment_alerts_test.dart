@@ -20,7 +20,9 @@ class _Api implements ApiClient {
   Future<ApiResult<T>> _go<T>(String method, String path, Object? body) async {
     calls.add('$method $path');
     bodies['$method $path'] = body;
-    return ApiSuccess(reply(method, path, body) as T);
+    final out = reply(method, path, body);
+    if (out is ApiFailure) return ApiError<T>(out);
+    return ApiSuccess(out as T);
   }
 
   @override
@@ -226,5 +228,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(native.where((c) => c.method == 'speakText'), hasLength(1), reason: 'never announced twice');
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('server not updated yet: phone-only mode still listens and speaks on this phone', (tester) async {
+    tester.view.physicalSize = const Size(900, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    localEvents = [
+      {'local_id': 'l1', 'source_label': 'PhonePe Business', 'amount_paise': 20000, 'status': 'notification_unverified',
+        'detected_at': '2026-10-26T04:51:00Z', 'spoken': 'announced'},
+    ];
+    final api = _Api((m, p, b) => const ApiFailure(ApiFailureType.notFound, statusCode: 404, message: 'Not Found'));
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPayAlertPhoneOnly')), findsOneWidget);
+    expect(find.text('₹200 · PhonePe Business'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertStaffTest')), findsNothing);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertEnable')));
+    await tester.pumpAndSettle();
+    final cfg = jsonDecode('${(native.lastWhere((c) => c.method == 'configure').arguments as Map)['config']}') as Map;
+    expect(cfg['enabled'], isTrue);
+    expect(cfg['token'], '', reason: 'phone-only never uploads');
+    expect((cfg['apps'] as Map).keys, contains('com.phonepe.app.business'));
   });
 }

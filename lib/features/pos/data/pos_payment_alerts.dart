@@ -74,6 +74,17 @@ class AskodoxPaymentAlertsBridge {
 
 final askodoxPaymentAlertsBridgeProvider = Provider<AskodoxPaymentAlertsBridge>((ref) => AskodoxPaymentAlertsBridge());
 
+/// Same default list as the server (`pos_payment_alerts.DEFAULT_APPS`), used only in phone-only mode.
+const askodoxDefaultPaymentApps = <String, Object?>{
+  'com.phonepe.app.business': 'PhonePe Business',
+  'com.phonepe.app': 'PhonePe',
+  'com.google.android.apps.nbu.paisa.merchant': 'Google Pay for Business',
+  'com.google.android.apps.nbu.paisa.user': 'Google Pay',
+  'com.paytm.business': 'Paytm for Business',
+  'net.one97.paytm': 'Paytm',
+  'in.org.npci.upiapp': 'BHIM',
+};
+
 const askodoxPaymentAlertDeviceKey = 'askodox.pos.payalert.device.v1';
 
 /// Stable random id for THIS install (never a hardware id).
