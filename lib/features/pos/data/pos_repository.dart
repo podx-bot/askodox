@@ -282,6 +282,10 @@ class AskodoxPosRepository {
         if (since.isNotEmpty) 'since': since,
         'limit': '$limit',
       });
+  Future<AskodoxJson> paymentProvider(String id) => _send('GET', '${_pa(id)}/provider');
+  Future<AskodoxJson> connectPaymentProvider(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/provider', body: body);
+  Future<AskodoxJson> disconnectPaymentProvider(String id) => _send('DELETE', '${_pa(id)}/provider');
+  Future<AskodoxJson> createProviderQr(String id) => _send('POST', '${_pa(id)}/provider/qr');
   Future<AskodoxJson> ackPaymentEvent(String id, String eventId, String deviceId, String state) =>
       _send('POST', '${_pa(id)}/events/$eventId/ack', body: {'device_id': deviceId, 'state': state});
 }

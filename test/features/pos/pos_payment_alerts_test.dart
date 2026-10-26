@@ -276,4 +276,30 @@ void main() {
     expect(find.byKey(const Key('askodoxPayAlertGrant')), findsNothing);
     expect(find.byKey(const Key('askodoxPayAlertSpeakerTest')), findsOneWidget);
   });
+
+  testWidgets('owner connects their own Razorpay; the webhook URL is shown, secrets are never shown back', (tester) async {
+    tester.view.physicalSize = const Size(900, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final api = _Api((m, p, b) {
+      if (p.endsWith('/payment-alerts/provider') && m == 'PUT') {
+        return {'connected': true, 'mode': 'test', 'key_id_tail': 'F123', 'webhook_url': 'https://x/api/pos/payment-webhooks/razorpay/b1'};
+      }
+      if (p.endsWith('/payment-alerts/provider')) return {'connected': false, 'secrets_ready': true};
+      return <String, Object?>{};
+    });
+    await tester.pumpWidget(_app(api, const Scaffold(body: SingleChildScrollView(child: AskodoxPosProviderCard(businessId: 'b1')))));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'rzp_test_ABCDEF123');
+    await tester.enterText(fields.at(1), 'secret-good-123');
+    await tester.enterText(fields.at(2), 'whsec-test-12345');
+    await tester.tap(find.byKey(const Key('askodoxPayAlertConnect')));
+    await tester.pumpAndSettle();
+    expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/provider'],
+        {'key_id': 'rzp_test_ABCDEF123', 'key_secret': 'secret-good-123', 'webhook_secret': 'whsec-test-12345'});
+    expect(find.byKey(const Key('askodoxPayAlertProviderOn')), findsOneWidget);
+    expect(find.text('https://x/api/pos/payment-webhooks/razorpay/b1'), findsOneWidget);
+    expect(find.textContaining('secret-good-123'), findsNothing);
+  });
 }

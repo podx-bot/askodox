@@ -23,6 +23,11 @@ on:
         required: false
         default: ''
         type: string
+      build_play_bundle:
+        description: Also build a signed Play Store bundle (.aab) for Play Console internal testing (no GitHub self-update in it; upload it in Play Console yourself)
+        required: false
+        default: false
+        type: boolean
       include_payment_alerts:
         description: Declare the POS payment alerts notification listener (ONLY for Play-distributed builds; Play Protect blocks sideloaded APKs that declare it)
         required: false
@@ -260,6 +265,31 @@ jobs:
             --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \
             --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
             --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
+
+      - name: Build Play Store bundle (.aab, internal testing)
+        if: steps.signing.outputs.configured == 'true' && inputs.build_play_bundle
+        env:
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          # Play-installed apps update through Play only: the GitHub in-app updater is OFF here.
+          flutter build appbundle --release \
+            --build-number="${BUILD_NUMBER}" \
+            --dart-define=APP_ENV=production \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=false \
+            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}" \
+            --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY}" \
+            --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \
+            --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
+            --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
+          mkdir -p dist
+          cp build/app/outputs/bundle/release/app-release.aab "dist/askodox-play-${BUILD_NUMBER}.aab"
+          sha256sum "dist/askodox-play-${BUILD_NUMBER}.aab" | tee -a dist/PLAY_BUNDLE.txt
 
       - name: Guard release APK (key, package, versionCode, backend)
         if: steps.signing.outputs.configured == 'true'

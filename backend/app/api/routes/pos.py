@@ -1239,3 +1239,64 @@ def payment_alerts_admin_summary(request: Request) -> dict:
 
     _require(request, "overview:view")
     return _payment_alerts(request).admin_summary()
+
+
+# ------------------------------------------------------------ bank / provider-confirmed alerts (shop's own Razorpay)
+def _payment_providers(request: Request):
+    from app.services.pos_payment_providers import PosPaymentProviders
+    from app.services.secret_box import box_from_settings
+
+    container: Any = request.app.state.container
+    alerts = _payment_alerts(request)
+    existing = getattr(container, "pos_payment_providers", None)
+    if existing is None or existing.store is not alerts.store:
+        http = getattr(container, "pos_provider_http", None)
+        existing = PosPaymentProviders(alerts.store, alerts, box_from_settings(container.settings), http=http)
+        try:
+            container.pos_payment_providers = existing
+        except Exception:
+            pass
+    return existing
+
+
+def _public_base(request: Request) -> str:
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}"
+
+
+class ProviderConnectIn(BaseModel):
+    key_id: str = Field(min_length=10, max_length=60)
+    key_secret: str = Field(min_length=10, max_length=120)
+    webhook_secret: str = Field(min_length=8, max_length=120)
+
+
+@router.get("/businesses/{business_id}/payment-alerts/provider")
+def payment_provider_status(business_id: str, request: Request) -> dict:
+    return _call(_payment_providers(request).status, business_id, _user(request), _public_base(request))
+
+
+@router.put("/businesses/{business_id}/payment-alerts/provider")
+def connect_payment_provider(business_id: str, body: ProviderConnectIn, request: Request) -> dict:
+    """The shop's OWN Razorpay keys (stored encrypted, never returned). Live keys need owner approval on the server."""
+    return _call(_payment_providers(request).connect, business_id, _user(request), body.model_dump(),
+                 _public_base(request))
+
+
+@router.delete("/businesses/{business_id}/payment-alerts/provider")
+def disconnect_payment_provider(business_id: str, request: Request) -> dict:
+    return _call(_payment_providers(request).disconnect, business_id, _user(request))
+
+
+@router.post("/businesses/{business_id}/payment-alerts/provider/qr")
+def create_provider_qr(business_id: str, request: Request) -> dict:
+    return _call(_payment_providers(request).create_qr, business_id, _user(request), _public_base(request))
+
+
+@router.post("/payment-webhooks/{provider}/{business_id}")
+async def payment_provider_webhook(provider: str, business_id: str, request: Request) -> dict:
+    """Razorpay -> ASKODOX. Public, but counts only with a valid signature AND Razorpay's own API confirming capture."""
+    rate_limit.check(request, f"pos_webhook:{business_id}", limit=300)
+    body = await request.body()
+    return _call(_payment_providers(request).webhook, provider, business_id, body,
+                 request.headers.get("x-razorpay-signature", ""), request.headers.get("x-razorpay-event-id", ""))

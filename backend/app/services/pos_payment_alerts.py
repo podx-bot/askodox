@@ -12,8 +12,9 @@ What this is NOT
 * ASKODOX never takes, initiates, collects, redirects or settles a payment.
 * A notification is NOT a bank confirmation. Every event reported by a phone
   is stored as ``notification_unverified`` -- the client cannot set any other
-  verification. ``provider_verified`` is reserved for a future, legitimate
-  payment-provider adapter (``VERIFIED_PROVIDERS`` is empty: disabled).
+  verification. ``provider_verified`` comes only from the shop's OWN connected
+  payment provider (``pos_payment_providers``: signed webhook + the provider's
+  API re-check), never from a phone.
 * Unverified events are never revenue, never a payment against a bill and
   never touch ``pos_payments`` / the customer ledger.
 
@@ -52,8 +53,9 @@ DEFAULT_APPS: Dict[str, str] = {
     "in.org.npci.upiapp": "BHIM",
 }
 DEFAULT_ROLES = ("owner", "manager", "cashier")
-# Future bank / payment-provider adapters. Empty on purpose: nothing can mark an event verified.
-VERIFIED_PROVIDERS: Dict[str, Callable[..., bool]] = {}
+# Bank / provider confirmation comes ONLY through pos_payment_providers (signed webhook + API re-check),
+# which calls record_verified(). A phone can never mark an event verified.
+VERIFIED_PROVIDERS: Dict[str, str] = {"razorpay": "Razorpay"}
 EVENT_STATUSES = ("notification_unverified", "provider_verified", "ambiguous", "failed")
 ACK_STATES = ("announced", "delivered", "quiet_hours", "muted", "tts_failed", "seen")
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -168,7 +170,8 @@ class PosPaymentAlerts:
             role = self._member(conn, business_id, user)
             out = self._settings_row(conn, business_id)
         out.update({"my_role": role, "feature_on": self.feature_on(), "can_edit": role == "owner",
-                    "all_roles": [r for r in ROLES if r != "owner"], "verified_provider": bool(VERIFIED_PROVIDERS)})
+                    "all_roles": [r for r in ROLES if r != "owner"],
+                    "verified_provider": self._provider_connected(business_id)})
         return out
 
     def update_settings(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -228,6 +231,56 @@ class PosPaymentAlerts:
             self.store._audit(conn, business_id, user, "payment_alerts.settings", business_id,
                               {k: cur[k] for k in ("enabled", "language", "roles")}, now)
         return self.settings(business_id, user)
+
+    def _provider_connected(self, business_id: str) -> bool:
+        try:
+            with self.store._connect() as conn:
+                return conn.execute("SELECT 1 FROM pos_provider_accounts WHERE business_id = ? AND active = 1",
+                                    (business_id,)).fetchone() is not None
+        except sqlite3.OperationalError:
+            return False
+
+    def record_verified(self, business_id: str, *, provider: str, label: str, amount_paise: int, payment_id: str,
+                        reference: str, detected_at: Optional[datetime] = None, test: bool = False) -> Dict[str, Any]:
+        """Called ONLY by pos_payment_providers after a signed webhook + the provider's own API confirmed it."""
+        if provider not in VERIFIED_PROVIDERS:
+            raise PosError(400, "provider", "Unknown provider.")
+        now = self._now()
+        detected = detected_at or now
+        with self.store._tx() as conn:
+            settings = self._settings_row(conn, business_id)
+            self._purge(conn)
+            fingerprint = _hash(business_id, "provider", provider, payment_id)
+            existing = conn.execute("SELECT * FROM pos_payment_events WHERE business_id = ? AND fingerprint = ?",
+                                    (business_id, fingerprint)).fetchone()
+            if existing is not None:
+                conn.execute("UPDATE pos_payment_events SET duplicates = duplicates + 1 WHERE id = ?", (existing["id"],))
+                event = self._event_out(conn, existing, "")
+                event["duplicate"] = True
+                return event
+            event_id = f"ppe_{uuid.uuid4().hex[:20]}"
+            ref = re.sub(r"[^A-Za-z0-9]", "", reference or "")
+            conn.execute(
+                "INSERT INTO pos_payment_events (id, business_id, fingerprint, amount_paise, source_app, source_label,"
+                " ref_tail, status, verification, reason, detected_at, received_at, device_id, reported_by, test,"
+                " expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (event_id, business_id, fingerprint, int(amount_paise), f"provider.{provider}", label, ref[-4:],
+                 "provider_verified", f"provider:{provider}", "", detected.isoformat(), now.isoformat(), None,
+                 f"provider:{provider}", int(test), (now + timedelta(days=RETENTION_DAYS)).isoformat()))
+            row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
+            event = self._event_out(conn, row, "")
+            receivers = self._receivers(conn, business_id, settings, exclude="")
+            shop = self.store._business_row(conn, business_id)["name"]
+        event["duplicate"] = False
+        if self.feature_on() and (settings["enabled"] or test):
+            title = f"{shop}: payment received ({label})" + (" (test)" if test else "")
+            body = announcement(int(amount_paise), settings["language"], verified=True, test=test)
+            for receiver in receivers:
+                try:
+                    self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}")
+                except Exception:
+                    pass
+        return event
 
     # ------------------------------------------------------------- devices
     def register_device(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -449,13 +502,19 @@ class PosPaymentAlerts:
             rows = conn.execute(sql, args).fetchall()
             items = [self._event_out(conn, r, user) for r in rows]
             today = self.store._local(self._now())
+            verified = conn.execute(
+                "SELECT COUNT(*) AS n, COALESCE(SUM(amount_paise), 0) AS total FROM pos_payment_events"
+                " WHERE business_id = ? AND test = 0 AND status = 'provider_verified' AND received_at >= ?",
+                (business_id, (self._now() - timedelta(hours=24)).isoformat())).fetchone()
             counts = conn.execute(
                 "SELECT COUNT(*) AS n, COALESCE(SUM(amount_paise), 0) AS total FROM pos_payment_events"
                 " WHERE business_id = ? AND test = 0 AND status = 'notification_unverified' AND received_at >= ?",
                 (business_id, (self._now() - timedelta(hours=24)).isoformat())).fetchone()
         return {"events": items, "today": today,
                 "last_24h": {"count": counts["n"], "notified_total_paise": counts["total"],
-                             "note": "Notifications only -- not bank-verified, not revenue."}}
+                             "verified_count": verified["n"], "verified_total_paise": verified["total"],
+                             "note": "Notification totals are not bank-verified and not revenue; verified totals come "
+                                     "from the shop's connected payment provider."}}
 
     def ack(self, business_id: str, user: str, event_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         state = str(data.get("state") or "")
@@ -503,6 +562,6 @@ class PosPaymentAlerts:
                 "duplicates_24h": one("SELECT COALESCE(SUM(duplicates), 0) FROM pos_payment_events WHERE received_at >= ?",
                                       since),
                 "acks_24h": one("SELECT COUNT(*) FROM pos_payment_acks WHERE at >= ?", since),
-                "verified_provider_connected": bool(VERIFIED_PROVIDERS),
+                "verified_providers": list(VERIFIED_PROVIDERS),
                 "supported_apps": DEFAULT_APPS,
             }

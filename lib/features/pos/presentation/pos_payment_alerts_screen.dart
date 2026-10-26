@@ -464,6 +464,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                     _historyCard(te),
                     const SizedBox(height: 8),
                     if (_settings['can_edit'] == true) _settingsCard(te),
+                    if (_settings['can_edit'] == true && !_phoneOnly) AskodoxPosProviderCard(businessId: _id),
                     _devicesCard(te),
                     const SizedBox(height: 8),
                     Text(
@@ -780,6 +781,134 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                       },
                       child: Text(te ? 'తీసివేయి' : 'Remove')),
             ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Owner: connect the shop's OWN Razorpay account so payments to its Razorpay QR are announced as
+/// bank / provider confirmed ("మీకు ... రూపాయలు అందాయి"). Keys go to the server encrypted and never come back.
+class AskodoxPosProviderCard extends ConsumerStatefulWidget {
+  const AskodoxPosProviderCard({super.key, required this.businessId});
+  final String businessId;
+
+  @override
+  ConsumerState<AskodoxPosProviderCard> createState() => _AskodoxPosProviderCardState();
+}
+
+class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard> {
+  AskodoxJson _p = const {};
+  bool _busy = false;
+  String? _error;
+  final _keyId = TextEditingController();
+  final _keySecret = TextEditingController();
+  final _hook = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_keyId, _keySecret, _hook]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _run(Future<AskodoxJson> Function(AskodoxPosRepository repo) call) async {
+    final te = askodoxPosTe(context);
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final out = await call(repo);
+      if (mounted) setState(() => _p = out);
+    } on AskodoxPosException catch (e) {
+      if (mounted) setState(() => _error = e.message(te));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _load() => _run((repo) => repo.paymentProvider(widget.businessId));
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    final connected = _p['connected'] == true;
+    final qr = '${_p['qr_image_url'] ?? ''}';
+    final hookUrl = '${_p['webhook_url'] ?? ''}';
+    return Card(
+      key: const Key('askodoxPayAlertProvider'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'బ్యాంక్-నిర్ధారణ అలర్ట్స్ (మీ Razorpay)' : 'Bank-confirmed alerts (your Razorpay)',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(
+              te
+                  ? 'మీ స్వంత Razorpay ఖాతా QR కి కస్టమర్ కడితే, Razorpay నిర్ధారించిన తర్వాతే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
+                  : 'When a customer pays your OWN Razorpay QR, phones say "you received ..." only after Razorpay confirms it. Money goes straight to your account; ASKODOX never holds it.',
+              style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 6),
+          if (connected) ...[
+            Text(
+                '${te ? 'కనెక్ట్ అయింది' : 'Connected'} · ${_p['mode'] == 'live' ? 'LIVE' : (te ? 'టెస్ట్ మోడ్' : 'TEST mode')} · key ••${_p['key_id_tail']}',
+                key: const Key('askodoxPayAlertProviderOn'),
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
+            if (_p['mode'] != 'live')
+              Text(te ? 'టెస్ట్ మోడ్: అసలు డబ్బు కాదు, లెక్కలో చేరదు.' : 'Test mode: not real money, never counted.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+            const SizedBox(height: 6),
+            Text(te ? 'Razorpay Dashboard → Webhooks లో ఈ URL పెట్టండి (events: qr_code.credited, payment.captured):' : 'In Razorpay Dashboard → Webhooks add this URL (events: qr_code.credited, payment.captured):',
+                style: const TextStyle(fontSize: 12)),
+            SelectableText(hookUrl, key: const Key('askodoxPayAlertWebhookUrl'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            TextButton.icon(
+                onPressed: () => Clipboard.setData(ClipboardData(text: hookUrl)),
+                icon: const Icon(Icons.copy, size: 16),
+                label: Text(te ? 'URL కాపీ' : 'Copy URL')),
+            if (qr.isNotEmpty)
+              Center(child: Image.network(qr, key: const Key('askodoxPayAlertQr'), height: 220, errorBuilder: (context, error, stack) => SelectableText(qr))),
+            Wrap(spacing: 8, children: [
+              FilledButton.tonal(
+                  key: const Key('askodoxPayAlertMakeQr'),
+                  onPressed: _busy ? null : () => _run((repo) => repo.createProviderQr(widget.businessId)),
+                  child: Text(qr.isEmpty ? (te ? 'షాపు QR తయారు చేయి' : 'Create shop QR') : (te ? 'కొత్త QR' : 'New QR'))),
+              TextButton(
+                  onPressed: _busy ? null : () => _run((repo) => repo.disconnectPaymentProvider(widget.businessId)),
+                  child: Text(te ? 'డిస్‌కనెక్ట్' : 'Disconnect')),
+            ]),
+          ] else ...[
+            if (_p['secrets_ready'] == false)
+              Text(te ? 'సర్వర్‌లో రహస్య కీ ఇంకా సెట్ కాలేదు — ASKODOX సపోర్ట్ చేయాలి.' : 'The server secret key is not set yet — ASKODOX support must do this.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+            AskodoxPosField(controller: _keyId, label: 'Razorpay Key ID (rzp_test_…)', maxLength: 60),
+            AskodoxPosField(controller: _keySecret, label: 'Razorpay Key Secret', maxLength: 120),
+            AskodoxPosField(controller: _hook, label: te ? 'Webhook secret (మీరు Razorpay లో పెట్టేది)' : 'Webhook secret (you set it in Razorpay)', maxLength: 120),
+            FilledButton(
+                key: const Key('askodoxPayAlertConnect'),
+                onPressed: _busy
+                    ? null
+                    : () => _run((repo) => repo.connectPaymentProvider(widget.businessId, {
+                          'key_id': _keyId.text.trim(),
+                          'key_secret': _keySecret.text.trim(),
+                          'webhook_secret': _hook.text.trim(),
+                        })),
+                child: Text(te ? 'కనెక్ట్ చేయి' : 'Connect')),
+            Text(
+                te
+                    ? 'LIVE కీలు (rzp_live_) ASKODOX అనుమతి తర్వాతే. ఇప్పుడు టెస్ట్ కీలు వాడండి.'
+                    : 'LIVE keys (rzp_live_) only after ASKODOX approval. Use test keys for now.',
+                style: const TextStyle(fontSize: 11.5)),
+          ],
+          if (_error != null)
+            Text(_error!, key: const Key('askodoxPayAlertProviderError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ]),
       ),
     );
