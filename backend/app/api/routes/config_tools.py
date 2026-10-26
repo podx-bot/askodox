@@ -33,7 +33,7 @@ router = APIRouter(tags=["config-tools"])
 _CLIENT_FLAGS = ("advisor.enabled", "results.videos", "results.online", "results.used", "results.deals",
                  "results.sponsored", "results.affiliate", "ai.assistant", "voice.sarvam_tts", "companion.enabled",
                  "companion.floating_bubble", "companion.screen_guide", "referrals", "coupons", "rewards",
-                 "support.escalation", "links.smart", "offers.merchant")
+                 "support.escalation", "links.smart", "offers.merchant", "pos.payment_alerts")
 
 
 def _pf(container):

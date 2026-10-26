@@ -62,6 +62,7 @@ FLAG_RISK: Dict[str, str] = {
     "results.affiliate": ORANGE,
     "demand.alerts": ORANGE,
     "autoresponse.enabled": ORANGE,
+    "pos.payment_alerts": ORANGE,
     "advisor.enabled": ORANGE,
     "support.whatsapp": ORANGE,
     "notifications.push": ORANGE,

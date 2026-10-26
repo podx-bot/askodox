@@ -1117,3 +1117,125 @@ def selfshop_reopen(session_id: str, request: Request) -> dict:
 @router.post("/selfshop/{session_id}/cancel")
 def selfshop_cancel(session_id: str, request: Request) -> dict:
     return _call(_selfshop(request).cancel, _user(request), session_id)
+
+
+# ------------------------------------------------------------ payment voice alerts (soundbox on the phone)
+def _payment_alerts(request: Request):
+    from app.api.routes.command_center import feature_enabled
+    from app.services.pos_payment_alerts import PosPaymentAlerts
+    from app.services.push_service import push_service
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_payment_alerts", None)
+    if existing is None or existing.store is not store:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+
+        existing = PosPaymentAlerts(store, notify=notify,
+                                    feature_on=lambda: feature_enabled(container, "pos.payment_alerts"))
+        try:
+            container.pos_payment_alerts = existing
+        except Exception:
+            pass
+    return existing
+
+
+class AlertSettingsIn(BaseModel):
+    enabled: Optional[bool] = None
+    language: Optional[str] = Field(default=None, pattern="^(te|hi|en)$")
+    voice: Optional[str] = Field(default=None, pattern="^(female|male)$")
+    rate_pct: Optional[int] = Field(default=None, ge=50, le=200)
+    volume_pct: Optional[int] = Field(default=None, ge=10, le=100)
+    quiet_start: Optional[str] = Field(default=None, max_length=5)
+    quiet_end: Optional[str] = Field(default=None, max_length=5)
+    roles: Optional[List[str]] = Field(default=None, max_length=10)
+    apps: Optional[Dict[str, str]] = None
+
+
+class AlertDeviceIn(BaseModel):
+    device_key: str = Field(min_length=8, max_length=80)
+    label: str = Field(default="", max_length=60)
+    listener_on: bool = False
+    speaks_remote: bool = True
+    alerts_on: bool = True
+
+
+class PaymentEventIn(BaseModel):
+    client_event_id: str = Field(min_length=8, max_length=120)
+    source_app: str = Field(default="", max_length=120)
+    amount_paise: Optional[int] = None
+    reference: Optional[str] = Field(default=None, max_length=60)
+    detected_at: Optional[str] = Field(default=None, max_length=40)
+    device_id: Optional[str] = Field(default=None, max_length=40)
+    spoken: Optional[str] = Field(default=None, max_length=20)
+    reason: Optional[str] = Field(default=None, max_length=40)
+    test: bool = False
+    # Present only so a client claiming more than a notification is REFUSED (never trusted).
+    verification: Optional[str] = Field(default=None, max_length=40)
+    status: Optional[str] = Field(default=None, max_length=40)
+
+
+class PaymentAckIn(BaseModel):
+    device_id: str = Field(max_length=40)
+    state: str = Field(max_length=20)
+
+
+@router.get("/businesses/{business_id}/payment-alerts/settings")
+def payment_alert_settings(business_id: str, request: Request) -> dict:
+    return _call(_payment_alerts(request).settings, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/payment-alerts/settings")
+def update_payment_alert_settings(business_id: str, body: AlertSettingsIn, request: Request) -> dict:
+    return _call(_payment_alerts(request).update_settings, business_id, _user(request), _dump(body))
+
+
+@router.post("/businesses/{business_id}/payment-alerts/devices")
+def register_payment_alert_device(business_id: str, body: AlertDeviceIn, request: Request) -> dict:
+    return _call(_payment_alerts(request).register_device, business_id, _user(request), body.model_dump())
+
+
+@router.get("/businesses/{business_id}/payment-alerts/devices")
+def payment_alert_devices(business_id: str, request: Request) -> dict:
+    return {"devices": _call(_payment_alerts(request).devices, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/payment-alerts/devices/{device_id}/revoke")
+def revoke_payment_alert_device(business_id: str, device_id: str, request: Request) -> dict:
+    return {"devices": _call(_payment_alerts(request).revoke_device, business_id, _user(request), device_id)}
+
+
+@router.post("/businesses/{business_id}/payment-alerts/events")
+def report_payment_event(business_id: str, body: PaymentEventIn, request: Request) -> dict:
+    """A phone reports one detected payment NOTIFICATION (never bank-verified)."""
+    user = _user(request, "pos_payalert", 120)
+    return _call(_payment_alerts(request).report, business_id, user, body.model_dump())
+
+
+@router.get("/businesses/{business_id}/payment-alerts/events")
+def payment_events(business_id: str, request: Request, status: str = "", q: str = "", since: str = "",
+                   include_test: bool = True, limit: int = 100) -> dict:
+    return _call(_payment_alerts(request).events, business_id, _user(request), status=status, q=q, since=since,
+                 include_test=include_test, limit=limit)
+
+
+@router.post("/businesses/{business_id}/payment-alerts/events/{event_id}/ack")
+def ack_payment_event(business_id: str, event_id: str, body: PaymentAckIn, request: Request) -> dict:
+    return _call(_payment_alerts(request).ack, business_id, _user(request), event_id, body.model_dump())
+
+
+@router.get("/businesses/{business_id}/payment-alerts/export.csv")
+def export_payment_events(business_id: str, request: Request) -> Response:
+    text = _call(_payment_alerts(request).export_csv, business_id, _user(request))
+    return Response(content=text, media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=payment-alerts.csv"})
+
+
+@router.get("/admin/payment-alerts/summary")
+def payment_alerts_admin_summary(request: Request) -> dict:
+    """Command Center monitoring (staff permission overview:view): counts only, no shop / person data."""
+    from app.api.routes.command_center import _require
+
+    _require(request, "overview:view")
+    return _payment_alerts(request).admin_summary()

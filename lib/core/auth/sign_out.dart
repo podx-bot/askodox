@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -190,6 +191,10 @@ Future<AskodoxSignOutServer> askodoxSignOut(WidgetRef ref, {BuildContext? restar
   } catch (_) {}
   try {
     await ref.read(askodoxPhoneAuthProvider).signOut();
+  } catch (_) {}
+  try {
+    // Payment voice alerts: the phone stops reading / reporting for this account's shop.
+    await const MethodChannel('com.askodox.app/payment_alerts').invokeMethod<Object?>('clear');
   } catch (_) {}
   final prefs = await SharedPreferences.getInstance();
   await askodoxStashAccountData(prefs, account);
