@@ -1,0 +1,11 @@
+        <!-- POS payment voice alerts: reads ONLY the shop's allowed payment apps' notifications, and only
+             after the owner turns on notification access in Android settings themselves. -->
+        <service
+            android:name=".AskodoxPaymentAlertListener"
+            android:exported="true"
+            android:label="ASKODOX payment voice alerts"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>

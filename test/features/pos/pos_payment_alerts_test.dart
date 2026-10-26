@@ -251,4 +251,29 @@ void main() {
     expect(cfg['token'], '', reason: 'phone-only never uploads');
     expect((cfg['apps'] as Map).keys, contains('com.phonepe.app.business'));
   });
+
+  testWidgets('a downloaded APK without the listener says so instead of offering access', (tester) async {
+    tester.view.physicalSize = const Size(900, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, (call) async {
+      native.add(call);
+      return switch (call.method) {
+        'status' || 'configure' => {'listenerDeclared': false, 'listenerAllowed': false, 'audio': {'output': 'phone', 'mediaVolumePct': 60}},
+        'events' => '[]',
+        _ => true,
+      };
+    });
+    final api = _Api((m, p, b) {
+      if (p.endsWith('/payment-alerts/settings')) return _settings();
+      if (p.endsWith('/payment-alerts/devices')) return {'device_id': 'pad_1', 'devices': <Object?>[]};
+      if (p.endsWith('/payment-alerts/events')) return {'events': <Object?>[], 'last_24h': {'count': 0, 'notified_total_paise': 0}};
+      return <String, Object?>{};
+    });
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPayAlertNeedsPlayBuild')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertGrant')), findsNothing);
+    expect(find.byKey(const Key('askodoxPayAlertSpeakerTest')), findsOneWidget);
+  });
 }

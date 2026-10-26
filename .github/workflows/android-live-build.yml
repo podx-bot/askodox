@@ -23,6 +23,11 @@ on:
         required: false
         default: ''
         type: string
+      include_payment_alerts:
+        description: Declare the POS payment alerts notification listener (ONLY for Play-distributed builds; Play Protect blocks sideloaded APKs that declare it)
+        required: false
+        default: false
+        type: boolean
       include_screen_guide:
         description: Declare the Screen Guide accessibility service (ONLY for Play-distributed builds after the Play accessibility declaration; sideloaded builds must leave this off)
         required: false
@@ -154,6 +159,9 @@ jobs:
           bash tool/apply_android_live_device_bridge.sh
           if [ "${{ inputs.include_screen_guide || false }}" = "true" ]; then
             bash tool/apply_android_screen_guide.sh
+          fi
+          if [ "${{ inputs.include_payment_alerts || false }}" = "true" ]; then
+            bash tool/apply_android_payment_alerts.sh
           fi
 
       - name: Install dependencies and verify
@@ -316,6 +324,11 @@ jobs:
             echo "$(basename "$apk"): accessibility service declarations x$a" | tee -a dist/BACKEND.txt
             if [ "${{ inputs.include_screen_guide || false }}" != "true" ] && [ "$a" -gt 0 ]; then
               echo "FAIL: $apk declares an accessibility service but include_screen_guide is off"; exit 1
+            fi
+            nl=$("$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -c 'BIND_NOTIFICATION_LISTENER_SERVICE' || true)
+            echo "$(basename "$apk"): notification listener declarations x$nl" | tee -a dist/BACKEND.txt
+            if [ "${{ inputs.include_payment_alerts || false }}" != "true" ] && [ "$nl" -gt 0 ]; then
+              echo "FAIL: $apk declares a notification listener but include_payment_alerts is off (Play Protect blocks sideloaded installs)"; exit 1
             fi
             echo "$(basename "$apk"): $HOST x$n; production host x$p" | tee -a dist/BACKEND.txt
             [ "$n" -gt 0 ] || { echo "FAIL: $apk does not contain $HOST"; exit 1; }

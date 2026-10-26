@@ -127,9 +127,18 @@ object AskodoxPaymentAlerts {
         }
     }
 
+    /** False in sideloaded builds: the listener is declared only in Play-distributed builds. */
+    fun listenerDeclared(context: Context): Boolean = try {
+        context.packageManager.getServiceInfo(ComponentName(context, AskodoxPaymentAlertListener::class.java), 0)
+        true
+    } catch (_: Exception) {
+        false
+    }
+
     private fun status(context: Context): Map<String, Any?> {
         val cfg = config(context)
         return mapOf(
+            "listenerDeclared" to listenerDeclared(context),
             "listenerAllowed" to listenerAllowed(context),
             "enabled" to cfg.optBoolean("enabled", false),
             "connectedAt" to prefs(context).getLong("listener_connected_at", 0L),

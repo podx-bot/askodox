@@ -53,6 +53,7 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
   AskodoxJson? _last;
   bool _hidden = false;
   bool _listener = false;
+  bool _playOnly = false;
 
   @override
   void initState() {
@@ -71,6 +72,7 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
         _settings = s;
         _last = ev.isEmpty ? null : ev.first;
         _listener = st['listenerAllowed'] == true;
+        _playOnly = st['listenerDeclared'] == false;
       });
     } on AskodoxPosException {
       if (mounted) setState(() => _hidden = true); // role not allowed / feature off: no strip
@@ -114,8 +116,10 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
         title: Text(last == null
             ? (te ? 'ఇంకా పేమెంట్ అలర్ట్ రాలేదు' : 'No payment alert yet')
             : '${askodoxRupees(last['amount_paise'])} · ${askodoxPayAlertTime(last['detected_at'])} · ${last['source_label']}'),
-        subtitle: Text(!_listener
+        subtitle: Text(!_listener && !_playOnly
             ? (te ? 'ఈ ఫోన్‌లో నోటిఫికేషన్ యాక్సెస్ ఆఫ్‌లో ఉంది — తాకండి' : 'Notification access is off on this phone — tap to fix')
+            : !_listener
+                ? (te ? 'ఈ ఫోన్ వినదు (Play Store బిల్డ్ కావాలి) — సిబ్బంది అలర్ట్స్ మాత్రమే' : 'This phone does not listen (needs the Play Store build) — staff alerts only')
             : last == null
                 ? (te ? 'వింటోంది. పేమెంట్ వస్తే చెబుతుంది.' : 'Listening. It will speak when a payment notification comes.')
                 : '${te ? stTe : stEn}${spoken.isEmpty ? '' : ' · ${te ? spokenTe : spokenEn}'}'),
@@ -507,7 +511,12 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                       value: on,
                       onChanged: _busy ? null : (v) => _phoneOnly ? _enterPhoneOnly(enable: v) : _save({'enabled': v}))
                   : null),
-          if (!unavailable)
+          if (!unavailable && _status['listenerDeclared'] == false)
+            row(const Key('askodoxPayAlertNeedsPlayBuild'), false,
+                te
+                    ? 'ఈ APK నోటిఫికేషన్‌లు చదవలేదు: Google Play Protect డౌన్‌లోడ్ చేసిన APK లకు ఈ అనుమతి ఇవ్వనివ్వదు. Play Store బిల్డ్‌లో మాత్రమే పనిచేస్తుంది. స్పీకర్ టెస్ట్, సిబ్బంది అలర్ట్స్ ఇక్కడ కూడా పనిచేస్తాయి.'
+                    : 'This APK cannot read notifications: Google Play Protect does not allow it for downloaded APKs. It works in the Play Store build only. Speaker test and staff alerts still work here.'),
+          if (!unavailable && _status['listenerDeclared'] != false)
             row(const Key('askodoxPayAlertListener'), listener,
                 listener ? (te ? 'ఈ ఫోన్‌లో నోటిఫికేషన్ యాక్సెస్ ఆన్' : 'Notification access on (this phone)') : (te ? 'ఈ ఫోన్‌లో నోటిఫికేషన్ యాక్సెస్ ఆఫ్' : 'Notification access off (this phone)'),
                 action: listener
