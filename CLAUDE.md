@@ -16,7 +16,8 @@ this file, don't trust it blindly.
   protractor / magnifier / light / sound meters / vehicle walk-around report), then #228 shop advance, #229 guide on every screen + POS online channel, #230 ready catalogue + item
   details, #231 guide offers help by itself + picture tiles + rates by quantity + spoken multi-item bill, #232 self-shopping,
   #233 guide speaks + answers, examples / pre-fill, History backup, #234 Profile tabs + search, #235 profile editor
-  (mini boxes), then the new logo / app icon + Command Center heading -> category -> page grid. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  (mini boxes), then the new logo / app icon + Command Center heading -> category -> page grid, then #237 POS payment voice
+  alerts (2026-10-26; NOT phone verified). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -582,6 +583,15 @@ this file, don't trust it blindly.
 - Command Center console map = `admin_console_nav.py` (heading -> category -> page, en + te, guide what / do). A new console
   view or schema resource needs exactly one entry there or `tests/test_admin_console_nav.py` fails. Errors in the console go
   through `explainError` / `errText` (why / what to do by HTTP status, en + te).
+- POS payment voice alerts = `pos_payment_alerts.py` (events, dedupe, devices, acks, fan-out; phone events are ALWAYS
+  `notification_unverified`) + `pos_payment_providers.py` (the shop's OWN Razorpay: encrypted keys, UPI QR, signed webhook
+  `/api/pos/payment-webhooks/razorpay/{id}` + Razorpay API re-check -> `record_verified`; live keys only with
+  `ASKODOX_POS_PROVIDER_LIVE_APPROVED=yes`). Native = `AskodoxPaymentAlerts.kt` (channel `com.askodox.app/payment_alerts`,
+  chime + max media volume + LoudnessEnhancer player, `speakRemote` once per event) + `AskodoxPaymentAlertPushReceiver`
+  (high-priority FCM data `type=payalert` via `PushService.send_data`, speaks with the app closed). The notification
+  LISTENER is NEVER in the default manifest: Play Protect blocked sideloaded APK 1366 for it -- Play builds only
+  (`tool/apply_android_payment_alerts.sh`, Live Build `include_payment_alerts` + `build_play_bundle`); CI fails a
+  sideloaded APK that declares it. Flag `pos.payment_alerts` = emergency off. Flutter: `/pos/:id/payment-alerts`.
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 

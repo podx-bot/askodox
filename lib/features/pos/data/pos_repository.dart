@@ -265,6 +265,29 @@ class AskodoxPosRepository {
   Future<AskodoxJson> selfShopCheckout(String sessionId) => _send('POST', '/api/pos/selfshop/$sessionId/checkout');
   Future<AskodoxJson> selfShopReopen(String sessionId) => _send('POST', '/api/pos/selfshop/$sessionId/reopen');
   Future<AskodoxJson> selfShopCancel(String sessionId) => _send('POST', '/api/pos/selfshop/$sessionId/cancel');
+
+  // Payment voice alerts: notification events only (never bank-verified, never revenue).
+  String _pa(String id) => '${_b(id)}/payment-alerts';
+  Future<AskodoxJson> paymentAlertSettings(String id) => _send('GET', '${_pa(id)}/settings');
+  Future<AskodoxJson> updatePaymentAlertSettings(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/settings', body: body);
+  Future<AskodoxJson> registerAlertDevice(String id, AskodoxJson body) => _send('POST', '${_pa(id)}/devices', body: body);
+  Future<List<AskodoxJson>> alertDevices(String id) async => askodoxPosList((await _send('GET', '${_pa(id)}/devices'))['devices']);
+  Future<List<AskodoxJson>> revokeAlertDevice(String id, String deviceId) async =>
+      askodoxPosList((await _send('POST', '${_pa(id)}/devices/$deviceId/revoke'))['devices']);
+  Future<AskodoxJson> reportPaymentEvent(String id, AskodoxJson body) => _send('POST', '${_pa(id)}/events', body: body);
+  Future<AskodoxJson> paymentEvents(String id, {String status = '', String q = '', String since = '', int limit = 100}) =>
+      _send('GET', '${_pa(id)}/events', query: {
+        if (status.isNotEmpty) 'status': status,
+        if (q.isNotEmpty) 'q': q,
+        if (since.isNotEmpty) 'since': since,
+        'limit': '$limit',
+      });
+  Future<AskodoxJson> paymentProvider(String id) => _send('GET', '${_pa(id)}/provider');
+  Future<AskodoxJson> connectPaymentProvider(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/provider', body: body);
+  Future<AskodoxJson> disconnectPaymentProvider(String id) => _send('DELETE', '${_pa(id)}/provider');
+  Future<AskodoxJson> createProviderQr(String id) => _send('POST', '${_pa(id)}/provider/qr');
+  Future<AskodoxJson> ackPaymentEvent(String id, String eventId, String deviceId, String state) =>
+      _send('POST', '${_pa(id)}/events/$eventId/ack', body: {'device_id': deviceId, 'state': state});
 }
 
 final askodoxPosRepositoryProvider = Provider<AskodoxPosRepository>((ref) {

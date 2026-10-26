@@ -1665,6 +1665,65 @@
           "change": "Owner request 2026-10-25 (logo + admin grid; branch claude/logo-admin-grid); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_payment_voice_alerts",
+      "name": "POS payment voice alerts (soundbox on the phone)",
+      "purpose": "Speak incoming UPI payment NOTIFICATIONS of the shop's own payment apps (Telugu default) on the phone / Bluetooth speaker, share them with authorised staff devices and keep a history.",
+      "expected_behavior": "Only allowed payment apps are read after the owner grants Android notification access; every event is notification_unverified (clients can never claim verified); duplicates never alert twice; never revenue, never a POS payment; flag pos.payment_alerts is the emergency off switch.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/settings"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/settings"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/devices"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events/{event_id}/ack"
+        }
+      ],
+      "flags": {
+        "pos.payment_alerts": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alerts.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_payment_alerts_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner command 2026-10-26 (branch claude/pos-payment-voice-alerts); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

@@ -184,6 +184,48 @@ class PushService:
                 self.unregister(user_id, token)  # app uninstalled / token rotated
         return sent
 
+    def send_data(self, user_id: str, *, data: dict[str, str], event_key: str, ttl_seconds: int = 120) -> int:
+        """One HIGH-priority, data-only message per device (no tray notification), e.g. a payment alert the
+        phone must SPEAK even when ASKODOX is closed. Short TTL: a stale alert is dropped, never spoken late.
+        Sent at most once per user + event; obeys the user's notification switches."""
+        if not self.configured or not user_id:
+            return 0
+        if not self.allows(user_id, event_key):
+            return 0
+        with closing(sqlite3.connect(self.database_path)) as conn:
+            fresh = conn.execute("INSERT OR IGNORE INTO push_sent(user_id, event_key, sent_at) VALUES(?,?,?)",
+                                 (user_id, ("data:" + event_key)[:120], int(time.time()))).rowcount
+            conn.commit()
+        if not fresh:
+            return 0
+        tokens = self.tokens(user_id)
+        access = self._access_token() if tokens else None
+        if not access:
+            return 0
+        url = f"https://fcm.googleapis.com/v1/projects/{self._account['project_id']}/messages:send"
+        sent = 0
+        for token in tokens:
+            message = {"message": {"token": token, "data": {k: str(v)[:500] for k, v in data.items()},
+                                   "android": {"priority": "high", "ttl": f"{int(ttl_seconds)}s"}}}
+            response = self.client.post(url, json=message, headers={"Authorization": f"Bearer {access}"})
+            if response.status_code == 200:
+                sent += 1
+            elif response.status_code in (400, 404) and "UNREGISTERED" in response.text:
+                self.unregister(user_id, token)
+        return sent
+
+    def send_data_async(self, user_id: str, **kwargs: Any) -> None:
+        if not self.configured:
+            return
+
+        def run() -> None:
+            try:
+                self.send_data(user_id, **kwargs)
+            except Exception:
+                pass
+
+        threading.Thread(target=run, daemon=True).start()
+
     def notify_async(self, user_id: str, **kwargs: Any) -> None:
         """Fire and forget: a push never slows down or breaks the request."""
         if not self.configured:

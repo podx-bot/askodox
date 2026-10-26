@@ -225,6 +225,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఏం తప్పు జరిగిందో రాయండి; కావాలంటే స్క్రీన్‌షాట్ చేర్చండి.',
     'మీరు అనుమతిస్తేనే డయాగ్నస్టిక్స్ పంపుతాం.',
   ]),
+  '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
+    'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',
+    'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',
+    'Every payment notification is listed with its time, app, voice status and "unverified" — check big amounts in your bank.',
+  ], [
+    'షాపుకు అలర్ట్స్ ఆన్ చేసి, నోటిఫికేషన్ యాక్సెస్ "ఆన్ చేయండి" నొక్కి Android సెట్టింగ్స్‌లో ASKODOX ఆన్ చేయండి.',
+    '"స్పీకర్ టెస్ట్" నొక్కండి — బ్లూటూత్ స్పీకర్‌లో కావాలంటే ముందు దాన్ని కనెక్ట్ చేయండి.',
+    'ప్రతి పేమెంట్ నోటిఫికేషన్ సమయం, యాప్, వాయిస్ స్థితితో "నిర్ధారించలేదు" అని కనిపిస్తుంది — పెద్ద మొత్తాలు బ్యాంకులో చూసుకోండి.',
+  ]),
   '/pos/:id/selfshop': _H('Self-shopping', 'సెల్ఫ్ షాపింగ్', [
     'Turn it on to let customers scan items with their own phone.',
     "Show today's code / QR at the entrance — it changes every day.",

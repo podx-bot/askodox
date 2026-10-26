@@ -216,6 +216,7 @@ FEATURE_FLAGS: Dict[str, str] = {
     "results.sources": "Command Center Sources (approved JSON search endpoints / site search) in results",
     "demand.alerts": "Demand opportunity alerts to registered sellers (rules still need to be ACTIVE)",
     "autoresponse.enabled": "Business auto-responses in deal chats (owner-approved FAQ only)",
+    "pos.payment_alerts": "POS payment voice alerts (phone reads the shop's own UPI app notifications; emergency off switch)",
     "results.videos": "Related videos / reviews",
     "support.escalation": "In-app customer-support escalation",
     "notifications.admin": "Admin notifications (no-match, critical escalations)",

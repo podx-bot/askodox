@@ -89,6 +89,21 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Optional floating assistant bubble the user turns on; tapping it returns to the app. No audio or screen access." />
         </service>
+        <!-- POS payment voice alerts: speaks a high-priority FCM payment alert even when ASKODOX is closed.
+             Same FCM broadcast the Firebase plugin receives (only Google Play services can send it);
+             non-payment messages are ignored here and still handled by Firebase. -->
+        <receiver
+            android:name=".AskodoxPaymentAlertPushReceiver"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter android:priority="100">
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+            </intent-filter>
+        </receiver>
+        <!-- POS payment voice alerts listener (BIND_NOTIFICATION_LISTENER_SERVICE): NOT declared in the
+             default build. Play Protect's enhanced fraud protection blocks internet-sideloaded apps that
+             declare it (seen on APK 1366). Added only to Play-distributed builds
+             (tool/apply_android_payment_alerts.sh, CI input include_payment_alerts). -->
         <!-- Screen Guide accessibility service: NOT declared in the default build.
              Google Play Protect's enhanced fraud protection blocks apps that declare
              BIND_ACCESSIBILITY_SERVICE when they are installed from internet
