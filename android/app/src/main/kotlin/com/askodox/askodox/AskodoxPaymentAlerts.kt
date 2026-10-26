@@ -232,7 +232,7 @@ object AskodoxPaymentAlerts {
             .put("local_id", localId)
             .put("client_event_id", key.take(110).replace(Regex("[^A-Za-z0-9_.:|-]"), "_"))
             .put("source_app", pkg)
-            .put("source_label", labels?.optString(pkg, pkg) ?: pkg)
+            .put("source_label", if (pkg == "askodox.test") "ASKODOX test" else labels?.optString(pkg, pkg) ?: pkg)
             .put("detected_at", isoUtc(now))
             .put("status", if (amount != null) "notification_unverified" else "ambiguous")
             .put("test", test)
@@ -255,7 +255,10 @@ object AskodoxPaymentAlerts {
         val cfg = config(context)
         val language = cfg.optString("language", "te").ifEmpty { "te" }
         Speaker.say(context, PaymentAlertParser.announcement(amount, language, test), language, cfg) { ok ->
-            if (eventId != null) update(context, eventId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
+            if (eventId != null) {
+                update(context, eventId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
+                main.post { channel?.invokeMethod("paymentEvent", "{}") } // the open screen refreshes "Voice: Spoken"
+            }
         }
     }
 
@@ -314,10 +317,12 @@ object AskodoxPaymentAlerts {
         @Volatile var languageOk = true
         private val waiting = mutableListOf<() -> Unit>()
         private val callbacks = mutableMapOf<String, (Boolean) -> Unit>()
+        private var appContext: Context? = null
 
         @Synchronized
         fun say(context: Context, text: String, language: String, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
             if (text.isBlank()) return
+            appContext = context.applicationContext
             val action = { speakNow(text, language, cfg, done) }
             if (ready) { action(); return }
             waiting.add(action)
@@ -376,12 +381,97 @@ object AskodoxPaymentAlerts {
             engine.setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-            val params = Bundle()
-            params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, cfg.optInt("volume_pct", 100).coerceIn(10, 100) / 100f)
-            params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
             val id = "pa-${System.nanoTime()}"
-            if (done != null) synchronized(this) { callbacks[id] = done }
-            if (engine.speak(spoken, TextToSpeech.QUEUE_ADD, params, id) == TextToSpeech.ERROR) finish(id, false)
+            val ctx = appContext ?: run { done?.invoke(false); return }
+            val dir = java.io.File(ctx.cacheDir, "payalert").apply { mkdirs() }
+            val file = java.io.File(dir, "$id.wav")
+            synchronized(this) {
+                callbacks[id] = { ok -> if (ok && file.length() > 0) Player.enqueue(ctx, file, cfg, done) else done?.invoke(false) }
+            }
+            if (engine.synthesizeToFile(spoken, Bundle(), file, id) == TextToSpeech.ERROR) finish(id, false)
+        }
+    }
+
+    /**
+     * Plays announcements one after another, LOUD: a short chime first, media volume raised to the
+     * maximum while it speaks (restored afterwards) and a loudness boost on the voice. Uses media
+     * audio, so a connected Bluetooth speaker plays it.
+     */
+    object Player {
+        private data class Item(val file: java.io.File, val cfg: JSONObject, val done: ((Boolean) -> Unit)?)
+        private val queue = ArrayDeque<Item>()
+        private var busy = false
+        private var savedVolume: Int? = null
+
+        fun enqueue(context: Context, file: java.io.File, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
+            AskodoxPaymentAlerts.main.post {
+                queue.addLast(Item(file, cfg, done))
+                if (!busy) next(context.applicationContext)
+            }
+        }
+
+        private fun next(context: Context) {
+            val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val item = queue.removeFirstOrNull()
+            if (item == null) {
+                busy = false
+                savedVolume?.let { v -> try { audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } catch (_: Exception) {} }
+                savedVolume = null
+                return
+            }
+            busy = true
+            if (item.cfg.optBoolean("loud", true) && savedVolume == null) {
+                try {
+                    savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    audio.setStreamVolume(AudioManager.STREAM_MUSIC, audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0)
+                } catch (_: Exception) {
+                    savedVolume = null // Do Not Disturb / policy: keep the user's volume
+                }
+            }
+            val chime = item.cfg.optBoolean("chime", true)
+            if (chime) {
+                try {
+                    val tone = android.media.ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+                    tone.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 400)
+                    AskodoxPaymentAlerts.main.postDelayed({ tone.release() }, 900)
+                } catch (_: Exception) {
+                }
+            }
+            AskodoxPaymentAlerts.main.postDelayed({ play(context, item) }, if (chime) 650L else 0L)
+        }
+
+        private fun play(context: Context, item: Item) {
+            var enhancer: android.media.audiofx.LoudnessEnhancer? = null
+            val finishItem = { ok: Boolean, mp: android.media.MediaPlayer? ->
+                try { enhancer?.release() } catch (_: Exception) {}
+                try { mp?.release() } catch (_: Exception) {}
+                item.file.delete()
+                item.done?.invoke(ok)
+                next(context)
+            }
+            try {
+                val mp = android.media.MediaPlayer()
+                mp.setAudioAttributes(AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                mp.setDataSource(item.file.path)
+                mp.prepare()
+                val v = item.cfg.optInt("volume_pct", 100).coerceIn(10, 100) / 100f
+                mp.setVolume(v, v)
+                try {
+                    enhancer = android.media.audiofx.LoudnessEnhancer(mp.audioSessionId).apply {
+                        setTargetGain(item.cfg.optInt("boost_mb", 900).coerceIn(0, 1500))
+                        enabled = true
+                    }
+                } catch (_: Exception) {
+                    enhancer = null // effect not available on this phone: plain playback
+                }
+                mp.setOnCompletionListener { finishItem(true, it) }
+                mp.setOnErrorListener { p, _, _ -> finishItem(false, p); true }
+                mp.start()
+            } catch (_: Exception) {
+                finishItem(false, null)
+            }
         }
     }
 }

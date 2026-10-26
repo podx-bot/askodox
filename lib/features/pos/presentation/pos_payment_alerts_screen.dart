@@ -212,6 +212,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'voice': _settings['voice'] ?? 'female',
       'rate_pct': _settings['rate_pct'] ?? 100,
       'volume_pct': _settings['volume_pct'] ?? 100,
+      'loud': _settings['loud'] ?? true, // chime + max media volume + voice boost while speaking
+      'chime': _settings['chime'] ?? true,
       'quiet_start': _settings['quiet_start'] ?? '',
       'quiet_end': _settings['quiet_end'] ?? '',
       'apps': askodoxPosMap(_settings['apps']),
