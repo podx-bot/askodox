@@ -153,8 +153,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   final _search = TextEditingController();
 
   String get _id => widget.businessId;
-  AskodoxPosRepository get _repo => ref.read(askodoxPosRepositoryProvider);
-  AskodoxPaymentAlertsBridge get _bridge => ref.read(askodoxPaymentAlertsBridgeProvider);
+  late final AskodoxPosRepository _repo = ref.read(askodoxPosRepositoryProvider);
+  late final AskodoxPaymentAlertsBridge _bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
 
   @override
   void initState() {
