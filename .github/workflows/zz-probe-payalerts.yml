@@ -10,7 +10,7 @@ jobs:
       - shell: bash
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for i in $(seq 1 50); do
+          for i in 1; do
             c=$(curl -fsS --max-time 20 $B/health | python3 -c 'import json,sys;print(json.load(sys.stdin).get("commit",""))' || true)
             echo "commit=$c"; case "$c" in 3765a97*) break;; esac; sleep 30
           done
@@ -18,13 +18,14 @@ jobs:
           echo "::warning::flags=$(curl -sS --max-time 20 $B/api/flags | python3 -c 'import json,sys;print(json.load(sys.stdin)["flags"].get("pos.payment_alerts"))')"
           echo "::warning::settings_noauth=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 $B/api/pos/businesses/x/payment-alerts/settings)"
           echo "::warning::webhook=$(curl -s --max-time 20 -X POST $B/api/pos/payment-webhooks/razorpay/nobiz -d '{}' | head -c 200)"
-          echo "::warning::integrations=$(curl -s --max-time 20 $B/health/integrations | python3 -c '
-          import json,sys
-          d=json.load(sys.stdin)
-          rows=d.get("integrations") or d.get("rows") or d
+          curl -s --max-time 20 $B/health/integrations > i.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('i.json'))
           out=[]
-          for r in (rows if isinstance(rows,list) else []):
-              k=str(r.get("key") or r.get("name") or r.get("id") or "")
-              if any(w in k.lower() for w in ("push","firebase","fcm","secret","razorpay")):
-                  out.append(k+"="+str(r.get("state") or r.get("status")))
-          print(";".join(out) or str(list(d)[:10]))' 2>&1 | head -c 600)"
+          for r in d.get('items',[]):
+              txt=json.dumps(r).lower()
+              if any(w in txt for w in ('push','firebase','fcm','secrets','razorpay')):
+                  out.append(str({k:r.get(k) for k in ('key','name','id','state','status','configured')}))
+          print('::warning::'+' | '.join(out)[:3000])
+          PY
