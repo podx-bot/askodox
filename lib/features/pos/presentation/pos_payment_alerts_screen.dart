@@ -218,6 +218,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'quiet_end': _settings['quiet_end'] ?? '',
       'apps': askodoxPosMap(_settings['apps']),
       'business_id': _id,
+      'speaks_remote': _devices.where((d) => d['id'] == _deviceId).firstOrNull?['speaks_remote'] != false,
       'device_id': _deviceId ?? '',
       'base_url': base,
       'token': _phoneOnly || session.user == null ? '' : session.tokenPlaceholder,
@@ -311,8 +312,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         final text = '${askodoxPosMap(e['announcement'])[lang] ?? ''}';
         var state = 'seen';
         if (speaks && text.isNotEmpty) {
-          await _bridge.speakText(text, lang);
-          state = 'announced';
+          final out = await _bridge.speakRemote(id, text, lang);
+          if (out == 'duplicate') continue; // already spoken (and acknowledged) from the push while closed
+          if (out == 'unavailable' || out == 'not_set_up') await _bridge.speakText(text, lang);
+          state = switch (out) { 'quiet_hours' => 'quiet_hours', 'muted' => 'muted', _ => 'announced' };
         }
         try {
           await _repo.ackPaymentEvent(_id, id, _deviceId!, state);

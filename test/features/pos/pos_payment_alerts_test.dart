@@ -106,6 +106,7 @@ void main() {
           },
         'events' => jsonEncode(localEvents),
         'speakTest' || 'audioRoute' => {'output': 'bluetooth', 'bluetoothName': 'JBL Go', 'mediaVolumePct': 80},
+        'speakRemote' => 'spoken',
         _ => true,
       };
     });
@@ -220,13 +221,13 @@ void main() {
     expect(find.byKey(const Key('askodoxPayAlertSettings')), findsNothing, reason: 'staff cannot change settings');
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    final spoke = native.where((c) => c.method == 'speakText').toList();
+    final spoke = native.where((c) => c.method == 'speakRemote').toList();
     expect(spoke, hasLength(1));
     expect((spoke.first.arguments as Map)['text'], contains('బ్యాంకులో నిర్ధారించుకోండి'));
     expect(api.bodies['POST /api/pos/businesses/b1/payment-alerts/events/e9/ack'], {'device_id': 'pad_2', 'state': 'announced'});
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    expect(native.where((c) => c.method == 'speakText'), hasLength(1), reason: 'never announced twice');
+    expect(native.where((c) => c.method == 'speakRemote'), hasLength(1), reason: 'never announced twice');
     await tester.pumpWidget(const SizedBox());
   });
 

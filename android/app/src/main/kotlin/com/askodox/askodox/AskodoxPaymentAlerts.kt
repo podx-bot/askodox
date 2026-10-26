@@ -1,6 +1,7 @@
 package com.askodox.askodox
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -88,6 +89,8 @@ object AskodoxPaymentAlerts {
                             config(app), null)
                         result.success(true)
                     }
+                    "speakRemote" -> result.success(speakRemote(app, call.argument<String>("eventId") ?: "",
+                        call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, null))
                     "events" -> result.success(events(app).toString())
                     "markUploaded" -> {
                         markUploaded(app, call.argument<String>("localId") ?: "", call.argument<String>("serverId"),
@@ -211,6 +214,67 @@ object AskodoxPaymentAlerts {
         fresh.put(key, now)
         prefs(context).edit().putString("seen", fresh.toString()).apply()
         return true
+    }
+
+    /**
+     * Speak an alert another device (or the bank / provider) reported -- from the open screen's poll or
+     * from a high-priority push while ASKODOX is closed. Each event is spoken once on this phone, whichever
+     * path comes first. Returns spoken | duplicate | quiet_hours | muted | not_set_up.
+     */
+    fun speakRemote(context: Context, eventId: String, text: String, language: String, businessId: String?,
+                    pending: BroadcastReceiver.PendingResult?): String {
+        val cfg = config(context)
+        fun done(state: String): String { pending?.finish(); return state }
+        if (eventId.isEmpty() || text.isBlank()) return done("not_set_up")
+        if (cfg.optString("business_id").isEmpty()) return done("not_set_up") // this phone never opened payment alerts
+        if (!cfg.optBoolean("speaks_remote", true)) return done("muted")
+        val cal = Calendar.getInstance()
+        if (PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
+                cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))) {
+            if (pending != null && businessId != null) ack(context, businessId, eventId, "quiet_hours")
+            return done("quiet_hours")
+        }
+        if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
+        var finished = false
+        val finish = {
+            synchronized(this) {
+                if (!finished) { finished = true; pending?.finish() }
+            }
+        }
+        if (pending != null) main.postDelayed({ finish() }, 9500) // a receiver must finish within ~10 s
+        Speaker.say(context, text, language, cfg) { ok ->
+            if (pending != null && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
+            main.post { channel?.invokeMethod("paymentEvent", "{}") }
+            finish()
+        }
+        return "spoken"
+    }
+
+    /** Best-effort acknowledgement from the phone itself (push path, app closed). */
+    private fun ack(context: Context, businessId: String, eventId: String, state: String) {
+        io.execute {
+            try {
+                val cfg = config(context)
+                val base = cfg.optString("base_url").trimEnd('/')
+                val token = cfg.optString("token")
+                val device = cfg.optString("device_id")
+                if (base.isEmpty() || token.isEmpty() || device.isEmpty()) return@execute
+                val conn = URL("$base/api/pos/businesses/$businessId/payment-alerts/events/$eventId/ack")
+                    .openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.outputStream.use {
+                    it.write(JSONObject().put("device_id", device).put("state", state).toString().toByteArray(Charsets.UTF_8))
+                }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     // -------------------------------------------------------------- pipeline
@@ -506,6 +570,23 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
             AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis)
         } catch (_: Exception) {
             // a malformed notification never crashes the listener
+        }
+    }
+}
+
+/**
+ * High-priority FCM data message {type=payalert, event_id, business_id, text, language}: speak it now, even
+ * when ASKODOX is closed or the phone is locked. Receives the same FCM broadcast the Firebase plugin does
+ * (data keys arrive as intent extras); anything that is not a payment alert is ignored and left to Firebase.
+ */
+class AskodoxPaymentAlertPushReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.getStringExtra("type") != "payalert") return
+        try {
+            AskodoxPaymentAlerts.speakRemote(context.applicationContext, intent.getStringExtra("event_id") ?: "",
+                intent.getStringExtra("text") ?: "", intent.getStringExtra("language") ?: "te",
+                intent.getStringExtra("business_id"), goAsync())
+        } catch (_: Exception) {
         }
     }
 }

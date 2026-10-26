@@ -235,3 +235,37 @@ def test_http_flow(monkeypatch):
     csv = client.get(f"{base}/export.csv", headers=auth(owner))
     assert csv.status_code == 200 and "Not bank-verified" in csv.text and "250.00" in csv.text
     assert "pos.payment_alerts" in client.get("/api/flags").json()["flags"]
+
+
+def test_alert_carries_speak_data_for_closed_app(env):
+    _, alerts, biz, owner_dev, _, pushes, _, _ = env
+    alerts.report(biz, OWNER, _event(owner_dev, "77"))
+    speak = pushes[-1][5]
+    assert speak["type"] == "payalert" and speak["verified"] == "0" and speak["language"] == "te"
+    assert "బ్యాంకులో నిర్ధారించుకోండి" in speak["text"]
+
+
+def test_push_service_data_message_is_high_priority_once(tmp_path):
+    from app.services.push_service import PushService
+
+    class Client:
+        def __init__(self):
+            self.sent = []
+
+        def post(self, url, json=None, headers=None, data=None):
+            self.sent.append(json)
+
+            class R:
+                status_code = 200
+                text = ""
+            return R()
+
+    client = Client()
+    push = PushService(str(tmp_path / "p.db"), service_account_json='{"project_id":"p","client_email":"e","private_key":"k"}',
+                       client=client)
+    push._access = ("tok", 9e12)
+    push.register("u1", "fcm-token-1")
+    n = push.send_data("u1", data={"type": "payalert", "text": "hi"}, event_key="payalert:e1")
+    assert n == 1 and push.send_data("u1", data={"type": "payalert"}, event_key="payalert:e1") == 0
+    msg = client.sent[0]["message"]
+    assert msg["android"]["priority"] == "high" and "notification" not in msg and msg["data"]["type"] == "payalert"

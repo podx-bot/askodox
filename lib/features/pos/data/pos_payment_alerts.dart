@@ -41,6 +41,16 @@ class AskodoxPaymentAlertsBridge {
   }
 
   Future<void> speakText(String text, String language) => _call('speakText', {'text': text, 'language': language});
+
+  /// Speak an alert another device / the bank reported; each event once per phone (push or screen, whichever first).
+  Future<String> speakRemote(String eventId, String text, String language) async {
+    try {
+      return await _ch.invokeMethod<String>('speakRemote', {'eventId': eventId, 'text': text, 'language': language}) ??
+          'unavailable';
+    } catch (_) {
+      return 'unavailable'; // not on a phone / older native side
+    }
+  }
   Future<void> openListenerSettings() => _call('openListenerSettings');
   Future<void> openBatterySettings() => _call('openBatterySettings');
   Future<void> openBluetoothSettings() => _call('openBluetoothSettings');

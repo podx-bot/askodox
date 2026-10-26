@@ -1129,8 +1129,11 @@ def _payment_alerts(request: Request):
     store = _store(request)
     existing = getattr(container, "pos_payment_alerts", None)
     if existing is None or existing.store is not store:
-        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
-            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str, speak=None) -> None:
+            push = push_service(container)
+            push.notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+            if speak:
+                push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=120)
 
         existing = PosPaymentAlerts(store, notify=notify,
                                     feature_on=lambda: feature_enabled(container, "pos.payment_alerts"))

@@ -119,10 +119,11 @@ def announcement(amount_paise: Optional[int], language: str, verified: bool = Fa
 
 class PosPaymentAlerts:
     def __init__(self, store: PosStore,
-                 notify: Optional[Callable[[str, str, str, str, str], None]] = None,
+                 notify: Optional[Callable[..., None]] = None,
                  feature_on: Optional[Callable[[], bool]] = None) -> None:
         self.store = store
-        # notify(user_id, title, body, route, event_key) -- best effort, never raises into the caller.
+        # notify(user_id, title, body, route, event_key, speak_data) -- best effort, never raises into the caller.
+        # speak_data goes to the phone as a high-priority data push so it can SPEAK even when ASKODOX is closed.
         self.notify = notify or (lambda *args: None)
         self.feature_on = feature_on or (lambda: True)
         with store._connect() as conn:
@@ -275,9 +276,11 @@ class PosPaymentAlerts:
         if self.feature_on() and (settings["enabled"] or test):
             title = f"{shop}: payment received ({label})" + (" (test)" if test else "")
             body = announcement(int(amount_paise), settings["language"], verified=True, test=test)
+            speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body,
+                     "language": settings["language"], "verified": "1", "test": "1" if test else "0"}
             for receiver in receivers:
                 try:
-                    self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}")
+                    self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}", speak)
                 except Exception:
                     pass
         return event
@@ -422,9 +425,11 @@ class PosPaymentAlerts:
         event["duplicate"] = False
         title = f"{shop}: payment notification" + (" (test)" if test else "")
         body = announcement(amount, settings["language"], test=test)
+        speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body,
+                 "language": settings["language"], "verified": "0", "test": "1" if test else "0"}
         for receiver in receivers:
             try:
-                self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}")
+                self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}", speak)
             except Exception:
                 pass  # a push failure never fails the report; the feed still has it
         return event
