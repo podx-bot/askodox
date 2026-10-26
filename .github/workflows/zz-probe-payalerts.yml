@@ -26,6 +26,6 @@ jobs:
           for r in d.get('items',[]):
               txt=json.dumps(r).lower()
               if any(w in txt for w in ('push','firebase','fcm','secrets','razorpay')):
-                  out.append(str({k:r.get(k) for k in ('key','name','id','state','status','configured')}))
+                  out.append(json.dumps(r)[:400])
           print('::warning::'+' | '.join(out)[:3000])
           PY
