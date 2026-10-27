@@ -500,6 +500,25 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ shop CRM తెరుస్తుంది (ఒకటి కంటే ఎక్కువ shops ఉంటే shop ఎంచుకోండి).',
     'Shop ఇంకా లేదా? ముందు Shop billing లో చేర్చండి: CRM మీ shop customers, bills, staff మీదే పని చేస్తుంది.',
   ]),
+  '/pos/:id/agents': _H('AI agents', 'AI Agents', [
+    'Only the agents your role allows: owner, sales, support, finance, inventory, HR, tax.',
+    'Answers come from your shop records. Money, stock, complaint closing and staff changes are only proposed; an owner / manager approves them here.',
+  ], [
+    'మీ role కి అనుమతి ఉన్న agents మాత్రమే: owner, sales, support, finance, inventory, HR, tax.',
+    'జవాబులు shop records నుండే. డబ్బు, stock, complaint close, staff మార్పులు propose మాత్రమే; owner / manager ఇక్కడ approve చేయాలి.',
+  ]),
+  '/pos/:id/agents/:agent': _H('Agent', 'Agent', [
+    'Ask a question or read today\'s summary; "Facts used" shows exactly what the AI read.',
+    'Tap a suggestion to do it; sensitive ones go for approval first.',
+  ], [
+    'ప్రశ్న అడగండి లేదా ఈరోజు summary చదవండి; "వాడిన facts" లో AI ఏం చదివిందో కనిపిస్తుంది.',
+    'Suggestion నొక్కితే చేస్తుంది; sensitive వాటికి ముందు approval కావాలి.',
+  ]),
+  '/me/agent': _H('Buyer agent', 'Buyer agent', [
+    'Your own records only: shop advances waiting for you and your saved ways to be paid. It never pays or approves for you.',
+  ], [
+    'మీ records మాత్రమే: మీ కోసం ఆగిన shop advances, మీ payment methods. మీ తరఫున pay / approve చేయదు.',
+  ]),
   '/pos/:id/crm': _H('Business CRM', 'Business CRM', [
     'Today: follow-ups due, pipeline by stage, and ASKODOX requests you can save as enquiries.',
     'Tap + Add lead for a new lead or enquiry; set a follow-up and you get a reminder.',
