@@ -139,6 +139,11 @@ NAV: List[Dict[str, Any]] = [
                 "Razorpay / Cashfree సెటప్, TEST లేదా LIVE మోడ్, push సెట్టింగ్స్.",
                 "Run the gateway check after any key change. LIVE needs the owner's server approval.",
                 "Key మార్చిన ప్రతిసారీ gateway check చేయండి. LIVE కి owner server approval కావాలి."),
+             _v("aicredits", "growth:view", "AI Credits", "AI క్రెడిట్స్",
+                "Pay-as-you-go AI: charging switch, rate per AI use (paise), free uses a day, and ledger totals.",
+                "Pay-as-you-go AI: charging switch, ఒక్కో AI వాడకానికి రేటు (paise), రోజుకు ఉచిత వాడకాలు, ledger totals.",
+                "Set rates only after checking real AI + GST + gateway costs. Packs go on sale in Plans (audience ai_credits).",
+                "నిజమైన AI + GST + gateway ఖర్చు చూశాకే రేట్లు పెట్టండి. Packs ని Plans లో (audience ai_credits) sale లో పెట్టండి."),
          ]),
          _cat("Commissions & rewards", "కమీషన్లు & రివార్డులు", [
              _v("commissions", "commissions:view", "Commission dashboard", "కమీషన్ డాష్‌బోర్డ్",

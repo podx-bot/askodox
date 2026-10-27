@@ -87,6 +87,8 @@ class AssistantDecision(BaseModel):
     # tricks attach here (intelligence_gate.py) -- deterministic, sourced,
     # only when the user's own words ask; never a separate bot.
     intelligence: dict[str, Any] | None = None
+    # AI Credits (pay-as-you-go, OFF until staff set rates): what this answer cost, or why it was not answered.
+    credits: dict[str, Any] | None = None
 
 
 @router.post("/assistant", response_model=AssistantDecision)
@@ -97,7 +99,12 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     # Command Center switch (Phase 20): with the AI assistant disabled the
     # app keeps working through its deterministic flow (same as model-down).
     decision = None
+    metered = None
     if _feature_enabled(container, "ai.assistant"):
+        metered = _reserve_credits(request, payload.locale)
+        if metered and metered.get("blocked"):
+            return AssistantDecision(reply=metered["reply"], domain="UNKNOWN", transactional=False, action="",
+                                     confidence=0.0, source="credits", credits=metered["credits"])
         # searched_for only when the app sent it: other decide() implementations
         # (fallbacks, fakes) keep their older signature.
         extra = {"searched_for": payload.searched_for} if payload.searched_for else {}
@@ -120,6 +127,8 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         assistant_health.observe("conversation_intelligence", decision is not None,
                                  "" if decision is not None else "brain_unavailable_fallback")
 
+    if decision is None and metered:
+        _release_credits(request, metered)  # no answer -> nothing spent
     if decision is None:
         # Safe degradation: do not invent an AI action when the model is unavailable.
         # The app can fall back to its existing deterministic flow.
@@ -154,7 +163,59 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         override = override_reply(intelligence, payload.locale)
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
-    return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence)
+    return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
+                             credits=(metered or {}).get("credits"))
+
+
+def _reserve_credits(request: Request, locale: str | None) -> dict[str, Any] | None:
+    """AI Credits: reserve one 'chat' use for a signed-in caller BEFORE the model runs (atomic, never below zero).
+    Charging off / not signed in / any credits problem -> None (the assistant behaves exactly as before)."""
+    import uuid
+
+    from app.api.routes.ai_credits import ai_credits
+    from app.services.ai_credits import CreditsError
+
+    container = request.app.state.container
+    try:
+        service = ai_credits(container)
+        if not service.settings()["charging"]:
+            return None
+        from app.api.routes.in_app_deal import _authenticated_app_user
+
+        user = _authenticated_app_user(request)
+    except Exception:
+        return None
+    ref = (request.headers.get("x-askodox-request-id") or "").strip()[:60] or uuid.uuid4().hex
+    ref = f"{user}:{ref}"
+    try:
+        result = service.reserve(user, "chat", ref)
+    except CreditsError as error:
+        if error.code != "insufficient":
+            return None
+        te = str(locale or "").lower().startswith("te")
+        reply = ("మీ AI Credits అయిపోయాయి. Profile → AI Credits లో recharge చేసుకోండి. "
+                 "(Search, orders, POS, payments యథావిధిగా పనిచేస్తాయి.)" if te else
+                 "Your AI Credits are used up. Recharge in Profile → AI Credits. "
+                 "(Search, orders, POS and payments keep working.)")
+        return {"blocked": True, "reply": reply,
+                "credits": {"status": "insufficient", "needed_paise": error.detail.get("needed_paise"),
+                            "balance_paise": error.detail.get("balance")}}
+    except Exception:
+        return None
+    return {"user": user, "ref": ref,
+            "credits": {"status": "charged" if result.get("charged") else ("free" if result.get("free") else "none"),
+                        "paise": result.get("paise", 0), "mode": result.get("mode"),
+                        "balance_paise": service.balance(user)}}
+
+
+def _release_credits(request: Request, metered: dict[str, Any]) -> None:
+    try:
+        from app.api.routes.ai_credits import ai_credits
+
+        if metered.get("user") and metered.get("ref"):
+            ai_credits(request.app.state.container).release(metered["user"], metered["ref"])
+    except Exception:
+        pass
 
 
 def _accepts(fn: Any, name: str) -> bool:

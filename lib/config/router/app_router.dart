@@ -9,6 +9,7 @@ import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/kyc/presentation/kyc_screen.dart';
+import '../../features/plans/presentation/ai_credits_screen.dart';
 import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
 import '../../features/pos/presentation/pos_routes.dart';
@@ -233,6 +234,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ...askodoxSmartToolRoutes,
       ...askodoxPosRoutes,
       GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
+      GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
       GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
       GoRoute(
           path: '/mobility',

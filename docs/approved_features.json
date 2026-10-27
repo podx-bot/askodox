@@ -1780,6 +1780,55 @@
           "change": "Owner command 2026-10-27 (branch claude/own-payment-methods); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "ai_credits_pay_as_you_go",
+      "name": "AI Credits (optional pay-as-you-go for the AI assistant)",
+      "purpose": "Owner decision 2026-10-27: free app; optional AI Credits recharge (₹100-₹1000 packs) through the ONE billing flow (Razorpay first). Not a wallet: ASKODOX AI only, not transferable, not cash, never used for buyer-seller payments.",
+      "expected_behavior": "Credits are added only by billing.on_payment after a gateway-confirmed PAID (TEST money -> separate TEST balance); every ledger row has a unique ref (idempotent); each AI chat use is reserved atomically before the model runs and released if no answer; charging is OFF until staff set rates; refunds remove the pack's credits; no manual or app-side top-up route exists.",
+      "roles": [
+        "buyer",
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/ai-credits"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/ai-credits/settings"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/cc/ai-credits/settings"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/ai-credits/summary"
+        }
+      ],
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_ai_credits.py"
+        ],
+        "flutter": [
+          "test/features/plans/ai_credits_screen_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner command 2026-10-27 (branch claude/ai-credits); TEST mode only; Play Billing / user-choice billing needed before a Play Store release; NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }
