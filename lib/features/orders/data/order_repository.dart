@@ -363,9 +363,12 @@ class OrderDetail {
     this.awaiting = 'none',
     this.sellerUnresponsive = false,
     this.supportCaseId,
+    this.payTo = const [],
   });
 
   final Order order;
+  /// The seller's OWN ways to be paid (UPI links with the amount, bank details), only after they accepted.
+  final List<Map<String, Object?>> payTo;
   final List<OrderMessage> messages;
   /// What this viewer may do next, decided by the server's lifecycle rules.
   final List<String> actions;
@@ -393,6 +396,10 @@ class OrderDetail {
         awaiting: json['awaiting']?.toString() ?? 'none',
         sellerUnresponsive: json['seller_unresponsive'] == true,
         supportCaseId: json['support_case_id']?.toString(),
+        payTo: [
+          for (final m in (json['pay_to'] as List? ?? const []))
+            if (m is Map) Map<String, Object?>.from(m),
+        ],
       );
 }
 
