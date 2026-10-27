@@ -27,25 +27,30 @@ _LABELS = {
     "en": {"problem": "Problem", "impact": "Impact", "reason": "Reason", "evidence": "Evidence",
            "solution": "Solution", "action_status": "Action Status", "retest": "Retest",
            "ai_explanation": "AI Explanation", "not_confirmed": "Root cause not confirmed"},
-    "te": {"problem": "సమస్య", "impact": "ప్రభావం", "reason": "కారణం", "evidence": "ఆధారం",
-           "solution": "పరిష్కారం", "action_status": "చర్య స్థితి", "retest": "మళ్లీ పరీక్ష",
-           "ai_explanation": "AI వివరణ", "not_confirmed": "మూల కారణం నిర్ధారించబడలేదు"},
+    # "te" = the ONE mixed Telugu-English text the Command Center shows (owner rule 2026-10-27).
+    "te": {"problem": "సమస్య", "impact": "Impact", "reason": "కారణం", "evidence": "Evidence",
+           "solution": "పరిష్కారం", "action_status": "Action స్థితి", "retest": "మళ్ళీ Test",
+           "ai_explanation": "AI వివరణ", "not_confirmed": "అసలు కారణం ఇంకా confirm కాలేదు"},
 }
 
 _FAILURE_TEXT = {
-    "billing_quota": ("the provider refused for credit / quota", "ప్రొవైడర్ క్రెడిట్ / కోటా అయిపోయిందని తిరస్కరించింది",
+    "billing_quota": ("the provider refused for credit / quota", "Provider credit / quota అయిపోయిందని reject చేసింది",
                       "Recharge or raise the quota on the provider's dashboard (a person does this; ASKODOX never pays).",
-                      "ప్రొవైడర్ డాష్‌బోర్డ్‌లో రీఛార్జ్ / కోటా పెంచండి (వ్యక్తి చేయాలి; ASKODOX ఎప్పుడూ చెల్లించదు)."),
-    "credential": ("the provider rejected the credentials", "ప్రొవైడర్ క్రెడెన్షియల్స్‌ని తిరస్కరించింది",
+                      "Provider dashboard లో recharge చేయండి / quota పెంచండి (మనిషే చేయాలి; ASKODOX ఎప్పుడూ pay చేయదు)."),
+    "credential": ("the provider rejected the credentials", "Provider మన key (credentials) ని reject చేసింది",
                    "Replace the key in the deployment settings (owner only), then run Check now.",
-                   "డిప్లాయ్‌మెంట్ సెట్టింగ్‌లలో కీ మార్చండి (ఓనర్ మాత్రమే), తర్వాత Check now."),
-    "rate_limit": ("the provider is rate limiting requests", "ప్రొవైడర్ అభ్యర్థనలను పరిమితం చేస్తోంది",
+                   "Deployment settings లో key మార్చండి (owner మాత్రమే), తర్వాత Check now నొక్కండి."),
+    "rate_limit": ("the provider is rate limiting requests", "Provider మన requests ని limit చేస్తోంది",
                    "Wait for the window to reset; reduce repeated calls (cache) or raise the plan limit.",
-                   "విండో రీసెట్ అయ్యే వరకు వేచి ఉండండి; పునరావృత కాల్స్ తగ్గించండి లేదా ప్లాన్ పరిమితి పెంచండి."),
-    "downtime": ("the last real call failed", "చివరి నిజమైన కాల్ విఫలమైంది",
+                   "Window reset అయ్యే వరకు ఆగండి; repeat calls తగ్గించండి (cache) లేదా plan limit పెంచండి."),
+    "downtime": ("the last real call failed", "చివరి real call fail అయింది",
                  "Re-check the provider; if it stays down, keep the fallback on and watch the provider's status page.",
-                 "ప్రొవైడర్‌ని మళ్లీ చెక్ చేయండి; డౌన్‌లోనే ఉంటే ఫాల్‌బ్యాక్ ఉంచి స్టేటస్ పేజీ చూడండి."),
+                 "Provider ని మళ్ళీ check చేయండి; down లోనే ఉంటే fallback on గా ఉంచి provider status page చూడండి."),
 }
+
+
+_STATUS = {"en": ("proposed -- needs approval", "ready -- read-only check", "no automatic action"),
+           "te": ("Propose చేశాం — approval కావాలి", "Ready — read-only check మాత్రమే", "Automatic action ఏమీ లేదు")}
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -66,8 +71,8 @@ def _incident(lang: str, key: str, severity: str, problem: str, impact: str, rea
         "problem": problem, "impact": impact,
         "reason": reason if confirmed else labels["not_confirmed"], "reason_confirmed": confirmed,
         "evidence": evidence, "solution": solution,
-        "action_status": "proposed -- needs approval" if action and action.startswith("change:") else
-                         ("ready -- read-only check" if action else "no automatic action"),
+        "action_status": _STATUS[lang][0] if action and action.startswith("change:") else
+                         (_STATUS[lang][1] if action else _STATUS[lang][2]),
         "proposed_action": action, "retest": retest,
         "labels": labels,
     }
@@ -92,7 +97,7 @@ def build(*, components: list[dict[str, Any]], billing_rows: list[dict[str, Any]
             lang, f"provider:{row['provider']}:{kind}", "red" if kind in ("billing_quota", "credential") else "orange",
             (f"{row['label']}: {row['state']}" if not te else f"{row['label']}: {row['state']}"),
             ("Features using it fall back" + (f" to {row['fallback']}" if row.get("fallback") else " or fail")
-             if not te else "దీన్ని వాడే ఫీచర్లు " + (f"{row['fallback']}కి మారతాయి" if row.get("fallback") else "విఫలమవుతాయి")),
+             if not te else "దీన్ని వాడే features " + (f"{row['fallback']} కి మారతాయి" if row.get("fallback") else "fail అవుతాయి")),
             (cause_te if te else cause_en) if confirmed else None,
             evidence, fix_te if te else fix_en,
             "API Health & Billing -> Check alerts now; Integrations -> Check now" if not te else
@@ -104,10 +109,10 @@ def build(*, components: list[dict[str, Any]], billing_rows: list[dict[str, Any]
             continue
         out.append(_incident(
             lang, f"component:{comp['name']}:{status}", "red" if status == "error" else "orange",
-            f"{comp['name']}: {status}", ("User-facing feature affected" if not te else "వినియోగదారు ఫీచర్ ప్రభావితం"),
+            f"{comp['name']}: {status}", ("User-facing feature affected" if not te else "Customers వాడే feature మీద ప్రభావం ఉంది"),
             None, [str(comp.get("detail") or "")], (
                 "Open the component's view, compare with provider incidents above, then retest."
-                if not te else "ఆ కాంపోనెంట్ వ్యూ తెరవండి, పై ప్రొవైడర్ సమస్యలతో పోల్చి మళ్లీ పరీక్షించండి."),
+                if not te else "ఆ component view open చేసి, పైన ఉన్న provider సమస్యలతో పోల్చి, మళ్ళీ test చేయండి."),
             "Command Center -> Health", None))
     for item in selfheal:
         verification = (item.get("verification") or {}).get("state") if isinstance(item.get("verification"), dict) \
@@ -115,7 +120,7 @@ def build(*, components: list[dict[str, Any]], billing_rows: list[dict[str, Any]
         if item.get("status") == "PROPOSED" or verification == "NOT_RECOVERED":
             out.append(_incident(
                 lang, f"selfheal:{item['id']}", "orange", str(item.get("issue") or "self-heal issue"),
-                ("Waiting on a person" if not te else "వ్యక్తి కోసం వేచి ఉంది"), None,
+                ("Waiting on a person" if not te else "మనిషి approval కోసం ఆగింది"), None,
                 [f"status={item.get('status')}", f"recovery={verification or 'UNVERIFIED'}"],
                 str(item.get("action") or ""), "Self-healing -> verification",
                 f"change:selfheal_apply:{item['id']}" if item.get("status") == "PROPOSED" and
@@ -126,7 +131,7 @@ def build(*, components: list[dict[str, Any]], billing_rows: list[dict[str, Any]
                 lang, f"feature:{feat['id']}:{feat['state']}", "red" if feat["state"] == "FAILED" else "orange",
                 f"{feat['name']}: {feat['state']}", str(feat.get("expected_behavior") or "")[:160], None,
                 [str(feat.get("why") or "")], ("Fix the failing health signal, then retest the feature."
-                                              if not te else "విఫల సిగ్నల్ సరిచేసి ఫీచర్ మళ్లీ పరీక్షించండి."),
+                                              if not te else "Fail అవుతున్న health signal సరిచేసి, feature ని మళ్ళీ test చేయండి."),
                 "Feature registry -> state", None))
     # Correlation: a degraded user-facing component next to a failing
     # provider is a POSSIBLE correlation, never a proven cause.
@@ -143,8 +148,8 @@ def build(*, components: list[dict[str, Any]], billing_rows: list[dict[str, Any]
 
 def _explain(inc: dict[str, Any], te: bool) -> str:
     if te:
-        why = inc["reason"] if inc["reason_confirmed"] else "కారణం ఇంకా నిర్ధారించబడలేదు"
-        return f"{inc['problem']}. {why}. ఆధారం: {'; '.join(e for e in inc['evidence'] if e)}. తదుపరి: {inc['solution']}"
+        why = inc["reason"] if inc["reason_confirmed"] else "కారణం ఇంకా confirm కాలేదు"
+        return f"{inc['problem']}. {why}. Evidence: {'; '.join(e for e in inc['evidence'] if e)}. తర్వాత: {inc['solution']}"
     why = f"Confirmed: {inc['reason']}" if inc["reason_confirmed"] else "The root cause is not confirmed yet"
     return f"{inc['problem']}. {why}. Evidence: {'; '.join(e for e in inc['evidence'] if e)}. Next: {inc['solution']}"
 

@@ -35,7 +35,7 @@ def test_incident_format_confirmed_reason_and_correlation():
 def test_telugu_and_never_ready_without_device_proof():
     out = inc.build(components=[], billing_rows=_billing(), selfheal=[], registry=[], lang="te")
     assert out[0]["labels"]["problem"] == "సమస్య"
-    assert "ఎప్పుడూ చెల్లించదు" in out[0]["solution"]
+    assert "ఎప్పుడూ pay చేయదు" in out[0]["solution"]  # one mixed Telugu-English text
     clean = inc.build(components=[{"name": "database", "status": "ok"}], billing_rows=[], selfheal=[], registry=[])
     assert clean == []
     assert inc.release_readiness(clean)["state"] == "NEEDS_DEVICE_VERIFICATION"

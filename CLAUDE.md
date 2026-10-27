@@ -584,9 +584,12 @@ this file, don't trust it blindly.
 - App icon / splash = COMMITTED PNGs in android/app/src/main/res (adaptive mipmaps, drawable-nodpi/askodox_splash_mark.png);
   source art `assets/brand/askodox_logo_source.svg`; in-app `AskodoxLogo`. `tool/apply_android_askodox_branding.sh` must never
   write launcher / splash files again (it only checks they exist).
-- Command Center console map = `admin_console_nav.py` (heading -> category -> page, en + te, guide what / do). A new console
-  view or schema resource needs exactly one entry there or `tests/test_admin_console_nav.py` fails. Errors in the console go
-  through `explainError` / `errText` (why / what to do by HTTP status, en + te).
+- Command Center console map = `admin_console_nav.py` (heading -> category -> page; ONE mixed Telugu-English `label` /
+  `what` / `do` per item -- "Payment స్థితి", never "English · తెలుగు" or a stacked Telugu line). A new console view or
+  schema resource needs exactly one entry there or `tests/test_admin_console_nav.py` fails. View titles come from the
+  nav label (`head()` -> `labelOf(VIEW)`). Errors go through `explainError` / `errText` (ONE mixed why / what-to-do per
+  HTTP status). Work queue `admin_actions.enrich` -> `explain` = one mixed {what, why, impact, action, button};
+  incidents: the console reads `?language=te` (= the mixed text).
 - POS payment voice alerts = `pos_payment_alerts.py` (events, dedupe, devices, acks, fan-out; phone events are ALWAYS
   `notification_unverified`) + `pos_payment_providers.py` (the shop's OWN Razorpay: encrypted keys, UPI QR, signed webhook
   `/api/pos/payment-webhooks/razorpay/{id}` + Razorpay API re-check -> `record_verified`; live keys only with
