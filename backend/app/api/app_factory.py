@@ -65,6 +65,12 @@ def create_app() -> FastAPI:
     app = FastAPI(title="ASKODOX", version="2.0.0")
 
     container = UniversalCommerceAppContainer()
+    try:  # AI usage metering (counts only) -> AI Credit rates from evidence; never blocks start-up
+        from app.services import ai_usage_meter
+
+        ai_usage_meter.install(container.settings.database_path)
+    except Exception:
+        pass
     container.universal_document_service = UniversalDocumentService()
     container.scheduled_task_service = ScheduledTaskService(container.settings.database_path)
     meet_repository = PodxMeetRepository(container.settings.database_path)

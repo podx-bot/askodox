@@ -96,3 +96,32 @@ def put_settings(body: SettingsBody, request: Request) -> Dict[str, Any]:
 def summary(request: Request) -> Dict[str, Any]:
     _require(request, "growth:view")
     return ai_credits(request.app.state.container).summary()
+
+
+@admin_router.get("/costs")
+def costs(request: Request, days: int = 7) -> Dict[str, Any]:
+    """What each AI feature really used (provider-reported counts) and its ESTIMATED cost; suggested rate per use."""
+    from app.services import ai_usage_meter
+
+    _require(request, "growth:view")
+    return ai_usage_meter.report(request.app.state.container.settings.database_path, days=max(1, min(int(days), 90)))
+
+
+@admin_router.put("/prices")
+def put_prices(body: Dict[str, Any], request: Request) -> Dict[str, Any]:
+    from app.services import ai_usage_meter
+
+    principal = _require(request, "growth:manage")
+    db = request.app.state.container.settings.database_path
+    try:
+        out = ai_usage_meter.save_prices(db, body, actor=str(principal["id"]))
+    except (ValueError, TypeError, IndexError) as error:
+        raise HTTPException(status_code=400, detail={"code": "bad_price", "message": str(error)}) from None
+    try:
+        from app.api.routes.command_center import command_center
+
+        command_center(request.app.state.container).audit(principal["id"], "ai_credits.prices", "ai_credits", "prices",
+                                                          after=out)
+    except Exception:
+        pass
+    return out
