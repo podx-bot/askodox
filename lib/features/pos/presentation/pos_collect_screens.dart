@@ -37,6 +37,15 @@ class PhotoQrReader implements AskodoxQrReader {
 
 final askodoxQrReaderProvider = Provider<AskodoxQrReader>((ref) => PhotoQrReader(ref.watch(askodoxMediaPickerProvider)));
 
+Widget _dialogField(TextEditingController c, String label, {String? hint, bool digits = false}) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: TextField(
+        controller: c,
+        keyboardType: digits ? TextInputType.number : TextInputType.text,
+        decoration: InputDecoration(labelText: label, hintText: hint, isDense: true, border: const OutlineInputBorder()),
+      ),
+    );
+
 /// Profile -> Payment methods: the person's OWN UPI IDs (from ANY app's / bank's QR) and bank accounts.
 class AskodoxMyPaymentMethodsScreen extends ConsumerStatefulWidget {
   const AskodoxMyPaymentMethodsScreen({super.key});
@@ -110,12 +119,13 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
       builder: (ctx) => AlertDialog(
         key: const Key('askodoxPayMethodConfirm'),
         title: Text(te ? 'ఈ UPI ID సేవ్ చేయాలా?' : 'Save this UPI ID?'),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           SelectableText(upiId, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           const SizedBox(height: 8),
-          AskodoxPosField(controller: name, label: te ? 'పేరు (కస్టమర్‌కి కనిపించేది)' : 'Name customers see', maxLength: 60),
-          AskodoxPosField(controller: app, label: te ? 'ఏ యాప్ / బ్యాంక్ (ఉదా. PhonePe, HDFC)' : 'Which app / bank (e.g. PhonePe, HDFC)', maxLength: 30),
-        ]),
+          _dialogField(name, te ? 'పేరు (కస్టమర్‌కి కనిపించేది)' : 'Name customers see'),
+          _dialogField(app, te ? 'ఏ యాప్ / బ్యాంక్ (ఉదా. PhonePe, HDFC)' : 'Which app / bank (e.g. PhonePe, HDFC)'),
+        ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'వద్దు' : 'Cancel')),
           FilledButton(
@@ -125,9 +135,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         ],
       ),
     );
-    app.dispose();
-    name.dispose();
-    return out;
+    return out; // dialog fields are not disposed: the closing animation still draws them
   }
 
   Future<void> _addUpiTyped() async {
@@ -137,7 +145,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(te ? 'UPI ID టైప్ చేయండి' : 'Type your UPI ID'),
-        content: AskodoxPosField(controller: id, label: 'UPI ID', hint: 'name@okhdfcbank', maxLength: 120),
+        content: _dialogField(id, 'UPI ID', hint: 'name@okhdfcbank'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'వద్దు' : 'Cancel')),
           FilledButton(
@@ -147,7 +155,6 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         ],
       ),
     );
-    id.dispose();
     if (typed == null || typed.isEmpty || !mounted) return;
     final saved = await _confirmUpi(typed, '');
     if (saved == null) return;
@@ -166,10 +173,10 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         title: Text(te ? 'బ్యాంక్ ఖాతా' : 'Bank account'),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            AskodoxPosField(controller: holder, label: te ? 'ఖాతాదారు పేరు' : 'Account holder name', maxLength: 60),
-            AskodoxPosField(controller: number, label: te ? 'ఖాతా నంబర్' : 'Account number', number: true, decimal: false, maxLength: 18),
-            AskodoxPosField(controller: ifsc, label: 'IFSC', hint: 'HDFC0001234', maxLength: 11),
-            AskodoxPosField(controller: bank, label: te ? 'బ్యాంక్ పేరు' : 'Bank name', maxLength: 40),
+            _dialogField(holder, te ? 'ఖాతాదారు పేరు' : 'Account holder name'),
+            _dialogField(number, te ? 'ఖాతా నంబర్' : 'Account number', digits: true),
+            _dialogField(ifsc, 'IFSC', hint: 'HDFC0001234'),
+            _dialogField(bank, te ? 'బ్యాంక్ పేరు' : 'Bank name'),
           ]),
         ),
         actions: [
@@ -186,9 +193,6 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         ],
       ),
     );
-    for (final c in [holder, number, ifsc, bank]) {
-      c.dispose();
-    }
     if (body == null) return;
     await _run((repo) => repo.addPaymentMethod(body));
   }
