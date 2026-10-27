@@ -1,0 +1,24 @@
+name: diag prod probe (throwaway)
+on:
+  push:
+    branches: ['diag/prod-probe']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: probe
+        run: |
+          B=https://podx-ai-connect-production-3279.up.railway.app
+          for i in $(seq 1 60); do
+            c=$(curl -fsS --max-time 20 "$B/readiness" | jq -r '.commit // ""' || true)
+            [[ "$c" == 21d306c* ]] && break; sleep 20
+          done
+          echo "::warning::COMMIT readiness=$c"
+          for p in /api/pos/businesses/x/crm/pipeline /api/pos/businesses/x/agents /api/me/memory /admin/console; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$B$p"); echo "::warning::ROUTE $p -> $code"
+          done
+          curl -s --max-time 20 "$B/admin/console" | grep -o 'Payment స్థితి' | head -1 | sed 's/^/::warning::CONSOLE has label /'
+          curl -s --max-time 20 "$B/health/integrations" > hi.json
+          jq -c '[.. | objects | select((tostring|test("razorpay";"i")) and has("state"))] | .[0:3]' hi.json | cut -c1-900 | sed 's/^/::warning::RAZORPAY /'
+          jq -c 'keys' hi.json | cut -c1-300 | sed 's/^/::warning::HIKEYS /'
