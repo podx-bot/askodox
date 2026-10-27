@@ -368,6 +368,9 @@ def create_app() -> FastAPI:
     from app.api.routes.pos import router as pos_router
 
     app.include_router(pos_router)
+    from app.api.routes.pos import pay_page_router as pos_pay_page_router
+
+    app.include_router(pos_pay_page_router)
     from app.api.routes.payment_methods import router as payment_methods_router
 
     app.include_router(payment_methods_router)

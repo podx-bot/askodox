@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/media_picker.dart';
 import '../data/pos_hardware.dart';
@@ -359,9 +360,32 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
     }
   }
 
-  Future<void> _decide(String requestId, String action) async {
+  Future<void> _decide(String requestId, String action, {String? status}) async {
+    final te = askodoxPosTe(context);
+    var checkedBank = false;
+    if (action == 'confirm' && status != 'matched') {
+      // No payment notification matched this amount: a tap alone must never confirm (pressed by mistake / too early).
+      final ok = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+                key: const Key('askodoxPosCollectCheckBank'),
+                title: Text(te ? 'డబ్బు నిజంగా వచ్చిందా?' : 'Did the money really arrive?'),
+                content: Text(te
+                    ? 'ఈ మొత్తానికి ఇంకా పేమెంట్ నోటిఫికేషన్ రాలేదు. మీ UPI / బ్యాంక్ యాప్ తెరిచి ఈ మొత్తం వచ్చినట్టు చూశాకే నిర్ధారించండి.'
+                    : 'No payment notification for this amount yet. Open your UPI / bank app and confirm only after you SEE this amount received.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(c).pop(false), child: Text(te ? 'ఇంకా లేదు' : 'Not yet')),
+                  FilledButton(
+                      key: const Key('askodoxPosCollectCheckBankYes'),
+                      onPressed: () => Navigator.of(c).pop(true),
+                      child: Text(te ? 'అవును, బ్యాంక్ యాప్‌లో చూశాను' : 'Yes, I saw it in my bank app')),
+                ],
+              ));
+      if (ok != true) return;
+      checkedBank = true;
+    }
     try {
-      final out = await _repo.decideCollectRequest(_id, requestId, action);
+      final out = await _repo.decideCollectRequest(_id, requestId, action, checkedBank: checkedBank);
       if (!mounted) return;
       setState(() => _current = _current?['id'] == requestId ? out : _current);
       await _load();
@@ -373,10 +397,63 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
   (String, String) _statusText(String status) => switch (status) {
         'matched' => ('Payment notification with this amount arrived — check your bank app, then confirm',
             'ఈ మొత్తం పేమెంట్ నోటిఫికేషన్ వచ్చింది — బ్యాంక్ యాప్‌లో చూసి నిర్ధారించండి'),
-        'confirmed' => ('Confirmed by the shop', 'షాపు నిర్ధారించింది'),
+        'confirmed_checked' => ('Confirmed by the shop (checked bank app — no notification matched)',
+            'షాపు నిర్ధారించింది (బ్యాంక్ యాప్‌లో చూసి — నోటిఫికేషన్ రాలేదు)'),
+        'confirmed' => ('Confirmed by the shop (payment notification matched)', 'షాపు నిర్ధారించింది (పేమెంట్ నోటిఫికేషన్ వచ్చింది)'),
         'cancelled' => ('Cancelled', 'రద్దు'),
         _ => ('Waiting for the customer to pay…', 'కస్టమర్ కట్టే వరకు వేచి ఉంది…'),
       };
+
+  static String _statusKey(AskodoxJson r) =>
+      r['status'] == 'confirmed' && r['confirm_basis'] == 'shop_checked' ? 'confirmed_checked' : '${r['status']}';
+
+  Future<void> _sendToCustomer(String url, int? amountPaise) async {
+    final te = askodoxPosTe(context);
+    final phone = TextEditingController();
+    final channel = await showDialog<String>(
+        context: context,
+        builder: (c) => AlertDialog(
+              title: Text(te ? 'కస్టమర్‌కి పేమెంట్ లింక్ పంపండి' : 'Send the payment link to the customer'),
+              content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                TextField(
+                    key: const Key('askodoxPosCollectPhone'),
+                    controller: phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                        labelText: te ? 'కస్టమర్ మొబైల్ నంబర్' : 'Customer mobile number', border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                Text(
+                    te
+                        ? 'కస్టమర్ లింక్ నొక్కితే వాళ్ళ UPI యాప్ ఈ మొత్తంతో తెరుచుకుంటుంది. డబ్బు నేరుగా మీ UPI కి వస్తుంది.'
+                        : 'When the customer taps the link, their UPI app opens with this amount. Money comes straight to your UPI.',
+                    style: const TextStyle(fontSize: 12.5)),
+              ]),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(c).pop('sms'), child: const Text('SMS')),
+                FilledButton(
+                    key: const Key('askodoxPosCollectWhatsApp'),
+                    onPressed: () => Navigator.of(c).pop('wa'),
+                    child: const Text('WhatsApp')),
+              ],
+            ));
+    final digits = phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (channel == null || !mounted) return;
+    if (digits.length < 10) {
+      askodoxPosSnack(context, te ? '10 అంకెల నంబర్ టైప్ చేయండి.' : 'Type a 10-digit number.');
+      return;
+    }
+    final number = digits.length == 10 ? '91$digits' : digits;
+    final amount = amountPaise == null ? '' : '${askodoxRupees(amountPaise)} ';
+    final text = te ? '$amount కట్టడానికి ఈ లింక్ నొక్కండి: $url' : 'Tap to pay $amount by UPI: $url';
+    final uri = channel == 'wa'
+        ? Uri.parse('https://wa.me/$number?text=${Uri.encodeComponent(text)}')
+        : Uri.parse('sms:+$number?body=${Uri.encodeComponent(text)}');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+    if (!ok && mounted) {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) askodoxPosSnack(context, te ? 'యాప్ తెరవలేదు — లింక్ కాపీ చేశాను.' : 'Could not open the app — link copied.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -454,7 +531,7 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                         ),
                       Text(te ? 'ఏ UPI యాప్‌తో అయినా స్కాన్ చేయండి' : 'Scan with any UPI app', style: const TextStyle(fontSize: 12)),
                       const SizedBox(height: 8),
-                      Text(te ? _statusText('${current['status']}').$2 : _statusText('${current['status']}').$1,
+                      Text(te ? _statusText(_statusKey(current)).$2 : _statusText(_statusKey(current)).$1,
                           key: const Key('askodoxPosCollectStatus'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -468,13 +545,26 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                         Wrap(spacing: 8, children: [
                           FilledButton(
                               key: const Key('askodoxPosCollectConfirm'),
-                              onPressed: () => _decide('${current['id']}', 'confirm'),
+                              onPressed: () => _decide('${current['id']}', 'confirm', status: '${current['status']}'),
                               child: Text(te ? 'డబ్బు అందింది' : 'Money received')),
                           TextButton(
                               onPressed: () => _decide('${current['id']}', 'cancel'), child: Text(te ? 'రద్దు' : 'Cancel')),
                         ]),
+                      if (current['can_reopen'] == true)
+                        TextButton.icon(
+                            key: const Key('askodoxPosCollectUndo'),
+                            onPressed: () => _decide('${current['id']}', 'reopen'),
+                            icon: const Icon(Icons.undo, size: 16),
+                            label: Text(te ? 'పొరపాటున నొక్కాను — వెనక్కి (15 నిమిషాల్లో)' : 'Pressed by mistake — undo (within 15 min)')),
+                      if ('${current['share_url'] ?? ''}'.isNotEmpty)
+                        OutlinedButton.icon(
+                            key: const Key('askodoxPosCollectSend'),
+                            onPressed: () => _sendToCustomer('${current['share_url']}', (current['amount_paise'] as num?)?.toInt()),
+                            icon: const Icon(Icons.send_to_mobile_outlined, size: 18),
+                            label: Text(te ? 'కస్టమర్ ఫోన్‌కి పంపండి' : 'Send to customer\'s phone')),
                       TextButton.icon(
-                          onPressed: () => Clipboard.setData(ClipboardData(text: '${current['upi_link']}')),
+                          onPressed: () => Clipboard.setData(
+                              ClipboardData(text: '${current['share_url'] ?? current['upi_link']}')),
                           icon: const Icon(Icons.copy, size: 16),
                           label: Text(te ? 'పేమెంట్ లింక్ కాపీ' : 'Copy payment link')),
                     ]),
@@ -489,7 +579,7 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text('${askodoxRupees(r['amount_paise'])}${'${r['label'] ?? ''}'.isEmpty ? '' : ' · ${r['label']}'}'),
-                  subtitle: Text(te ? _statusText('${r['status']}').$2 : _statusText('${r['status']}').$1),
+                  subtitle: Text(te ? _statusText(_statusKey(r)).$2 : _statusText(_statusKey(r)).$1),
                   onTap: () => setState(() => _current = r),
                 ),
             ]),

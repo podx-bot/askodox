@@ -1319,7 +1319,8 @@ class CollectRequestIn(BaseModel):
 
 
 class CollectDecisionIn(BaseModel):
-    action: str = Field(pattern="^(confirm|cancel)$")
+    action: str = Field(pattern="^(confirm|cancel|reopen)$")
+    checked_bank: bool = False
 
 
 @router.get("/businesses/{business_id}/collect")
@@ -1335,14 +1336,71 @@ def set_collect_method(business_id: str, body: CollectMethodIn, request: Request
 @router.post("/businesses/{business_id}/collect/requests")
 def create_collect_request(business_id: str, body: CollectRequestIn, request: Request) -> dict:
     """A UPI QR / link with the amount, to the shop's OWN UPI ID. Money goes straight to the shop."""
-    return _call(_payment_alerts(request).create_request, business_id, _user(request), body.model_dump())
+    return _with_share(request, _call(_payment_alerts(request).create_request, business_id, _user(request),
+                                      body.model_dump()))
 
 
 @router.get("/businesses/{business_id}/collect/requests")
 def collect_requests(business_id: str, request: Request, status: str = "") -> dict:
-    return {"requests": _call(_payment_alerts(request).requests, business_id, _user(request), status)}
+    return {"requests": [_with_share(request, r) for r in
+                         _call(_payment_alerts(request).requests, business_id, _user(request), status)]}
 
 
 @router.post("/businesses/{business_id}/collect/requests/{request_id}")
 def decide_collect_request(business_id: str, request_id: str, body: CollectDecisionIn, request: Request) -> dict:
-    return _call(_payment_alerts(request).decide_request, business_id, _user(request), request_id, body.action)
+    return _with_share(request, _call(_payment_alerts(request).decide_request, business_id, _user(request), request_id,
+                                      body.action, checked_bank=body.checked_bank))
+
+
+def _pay_token(request: Request, request_id: str) -> str:
+    import hashlib
+    import hmac
+
+    secret = str(request.app.state.container.settings.session_token_secret).encode()
+    return hmac.new(secret, f"upi-pay:{request_id}".encode(), hashlib.sha256).hexdigest()[:20]
+
+
+def _with_share(request: Request, out: dict) -> dict:
+    """Adds ``share_url``: an https page the CUSTOMER opens on their phone; it opens their own UPI app with the
+    amount filled in (money goes straight to the shop's UPI; ASKODOX never holds it)."""
+    from app.api.routes.partners import _public_base
+
+    if isinstance(out, dict) and out.get("id") and out.get("status") in ("pending", "matched"):
+        out["share_url"] = f"{_public_base(request)}/pay/upi/{out['id']}?t={_pay_token(request, out['id'])}"
+    return out
+
+
+pay_page_router = APIRouter(tags=["POS"])
+
+
+@pay_page_router.get("/pay/upi/{request_id}")
+def upi_pay_page(request_id: str, request: Request, t: str = ""):
+    """Public, token-bound page for one collect request: shows the shop name + amount and a button that opens the
+    customer's UPI app (upi://pay ...). Read-only; reveals nothing but what the shop's QR already shows."""
+    import hmac
+    import html as _html
+
+    from fastapi.responses import HTMLResponse
+
+    if not hmac.compare_digest(t or "", _pay_token(request, request_id)):
+        return HTMLResponse("<h3>This payment link is not valid.</h3>", status_code=404)
+    row = _payment_alerts(request).request_public(request_id)
+    if row is None:
+        return HTMLResponse("<h3>This payment link is not valid.</h3>", status_code=404)
+    amount = f"₹{row['amount_paise'] / 100:,.2f}".replace(".00", "")
+    payee = _html.escape(row["payee"] or row["upi_id"])
+    open_ = row["status"] in ("pending", "matched")
+    link = _html.escape(row["upi_link"] or "", quote=True)
+    body = (f'<a class="b" href="{link}">Pay {amount} with any UPI app · UPI app తో కట్టండి</a>'
+            f'<p class="m">Opens PhonePe / Google Pay / Paytm / BHIM with the amount filled in. Money goes straight to'
+            f' {payee}. ASKODOX never holds it.</p>' if open_ else
+            '<p class="m">This payment request is closed · ఈ request ముగిసింది.</p>')
+    page = ('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,'
+            'initial-scale=1"><title>Pay ' + payee + '</title><style>body{font-family:system-ui,sans-serif;'
+            'background:#f6f7fb;margin:0;padding:24px;color:#1d1b20;text-align:center}.c{background:#fff;'
+            'border-radius:18px;padding:24px;max-width:420px;margin:24px auto;box-shadow:0 2px 12px #0001}'
+            'h1{font-size:40px;margin:8px 0}.b{display:block;background:#5b4fa0;color:#fff;padding:16px;'
+            'border-radius:14px;text-decoration:none;font-weight:700;margin-top:16px}.m{color:#555;font-size:14px}'
+            '</style></head><body><div class="c"><div>' + payee + '</div><h1>' + amount + '</h1><div class="m">'
+            + _html.escape(row["label"] or "") + '</div>' + body + '</div></body></html>')
+    return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
