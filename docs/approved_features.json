@@ -1810,12 +1810,17 @@
         {
           "method": "GET",
           "path": "/admin/cc/ai-credits/summary"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/ai-credits/costs"
         }
       ],
       "flags": {},
       "tests": {
         "backend": [
-          "tests/test_ai_credits.py"
+          "tests/test_ai_credits.py",
+          "tests/test_ai_usage_meter.py"
         ],
         "flutter": [
           "test/features/plans/ai_credits_screen_test.dart"
