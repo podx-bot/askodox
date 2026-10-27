@@ -587,11 +587,16 @@ this file, don't trust it blindly.
   `notification_unverified`) + `pos_payment_providers.py` (the shop's OWN Razorpay: encrypted keys, UPI QR, signed webhook
   `/api/pos/payment-webhooks/razorpay/{id}` + Razorpay API re-check -> `record_verified`; live keys only with
   `ASKODOX_POS_PROVIDER_LIVE_APPROVED=yes`). Native = `AskodoxPaymentAlerts.kt` (channel `com.askodox.app/payment_alerts`,
-  chime + max media volume + LoudnessEnhancer player, `speakRemote` once per event) + `AskodoxPaymentAlertPushReceiver`
+  chime + max media volume + LoudnessEnhancer player, `speakRemote` once per event) + `AskodoxMessagingService` (subclass of the FlutterFire messaging service; the plugin service is removed in the manifest)
   (high-priority FCM data `type=payalert` via `PushService.send_data`, speaks with the app closed). The notification
   LISTENER is NEVER in the default manifest: Play Protect blocked sideloaded APK 1366 for it -- Play builds only
   (`tool/apply_android_payment_alerts.sh`, Live Build `include_payment_alerts` + `build_play_bundle`); CI fails a
   sideloaded APK that declares it. Flag `pos.payment_alerts` = emergency off. Flutter: `/pos/:id/payment-alerts`.
+- ASKODOX NEVER holds buyer / seller money (owner rule 2026-10-27). Own ways to be paid = `payment_methods.py`
+  (`user_payment_methods`, any app's UPI QR via `parse_upi_qr`, bank number encrypted) + `/api/me/payment-methods`; POS
+  collect to the owner's own UPI = `pos_payment_alerts` collect requests (a notification only MATCHES, the shop confirms);
+  orders show `pay_to` to the buyer; a LIVE platform checkout for orders is refused (409). Escrow only via a licensed
+  partner after owner + legal decision. Command Center = ONE Telugu-English mixed view (no separate en / te toggles).
 - Backend tests use a per-run temp DB (`backend/tests/conftest.py`); don't
   reintroduce a shared `podx_v2.db` -- data leaked across re-runs.
 
