@@ -300,8 +300,8 @@ class AskodoxPosRepository {
       _send('POST', '${_b(id)}/collect/requests', body: {'amount_paise': amountPaise, 'label': label});
   Future<List<AskodoxJson>> collectRequests(String id) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/collect/requests'))['requests']);
-  Future<AskodoxJson> decideCollectRequest(String id, String requestId, String action) =>
-      _send('POST', '${_b(id)}/collect/requests/$requestId', body: {'action': action});
+  Future<AskodoxJson> decideCollectRequest(String id, String requestId, String action, {bool checkedBank = false}) =>
+      _send('POST', '${_b(id)}/collect/requests/$requestId', body: {'action': action, 'checked_bank': checkedBank});
   Future<AskodoxJson> paymentProvider(String id) => _send('GET', '${_pa(id)}/provider');
   Future<AskodoxJson> connectPaymentProvider(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/provider', body: body);
   Future<AskodoxJson> disconnectPaymentProvider(String id) => _send('DELETE', '${_pa(id)}/provider');

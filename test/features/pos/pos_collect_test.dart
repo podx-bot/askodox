@@ -94,6 +94,7 @@ void main() {
     Map<String, Object?> req() => {
           'id': 'ppr_1', 'amount_paise': 25000, 'label': 'INV-12', 'upi_id': 'lk@ybl', 'payee': 'Lakshmi Kirana',
           'upi_link': 'upi://pay?pa=lk@ybl&pn=Lakshmi&am=250.00&cu=INR', 'status': status,
+          'share_url': 'https://askodox.example/pay/upi/ppr_1?t=abc',
         };
     final api = _Api((m, p, b) {
       if (p.endsWith('/collect')) {
@@ -103,7 +104,7 @@ void main() {
       if (p.endsWith('/collect/requests')) return {'requests': [req()]};
       if (p.endsWith('/collect/requests/ppr_1')) {
         status = 'confirmed';
-        return req();
+        return {...req(), 'confirm_basis': 'shop_checked', 'can_reopen': true, 'share_url': null};
       }
       return <String, Object?>{};
     });
@@ -115,13 +116,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.bodies['POST /api/pos/businesses/b1/collect/requests'], {'amount_paise': 25000, 'label': ''});
     expect(find.byKey(const Key('askodoxPosCollectQr')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPosCollectSend')), findsOneWidget);
     expect(find.text('₹250'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('askodoxPosCollectStatus')), matching: find.textContaining('Waiting')),
         findsNothing);
     expect(tester.widget<Text>(find.byKey(const Key('askodoxPosCollectStatus'))).data, contains('Waiting for the customer'));
+    // Pressed before any payment notification: a dialog asks; "Not yet" sends nothing.
     await tester.tap(find.byKey(const Key('askodoxPosCollectConfirm')));
     await tester.pumpAndSettle();
-    expect(api.bodies['POST /api/pos/businesses/b1/collect/requests/ppr_1'], {'action': 'confirm'});
-    expect(find.text('Confirmed by the shop'), findsWidgets);
+    expect(find.byKey(const Key('askodoxPosCollectCheckBank')), findsOneWidget);
+    await tester.tap(find.text('Not yet'));
+    await tester.pumpAndSettle();
+    expect(api.bodies.containsKey('POST /api/pos/businesses/b1/collect/requests/ppr_1'), isFalse);
+    await tester.tap(find.byKey(const Key('askodoxPosCollectConfirm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxPosCollectCheckBankYes')));
+    await tester.pumpAndSettle();
+    expect(api.bodies['POST /api/pos/businesses/b1/collect/requests/ppr_1'], {'action': 'confirm', 'checked_bank': true});
+    expect(find.textContaining('checked bank app'), findsWidgets);
+    expect(find.byKey(const Key('askodoxPosCollectUndo')), findsOneWidget);
   });
 }
