@@ -248,7 +248,8 @@ def _user_memory(request: Request) -> list[str]:
         for item in profile_memory.items(db, user_id)[:8]:
             details = ", ".join(f"{k}: {v}" for k, v in list((item.get("details") or {}).items())[:4])
             lines.append(f"{item['role']} -- {item['subject']}" + (f" ({details})" if details else "") + f" [{item['status']}]")
-        lines += conversation_backup.recent_requests(db, user_id, 6)
+        # After "clear my personalization", only chats saved later may personalize answers.
+        lines += conversation_backup.recent_requests(db, user_id, 6, since=profile_memory.cleared_at(db, user_id))
         return lines[:12]
     except Exception:
         logger.exception("in_app_assistant: user memory unavailable")

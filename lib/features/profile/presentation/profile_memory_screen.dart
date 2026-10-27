@@ -65,6 +65,33 @@ class ProfileMemoryScreen extends ConsumerWidget {
                 return ListView(
                   padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom),
                   children: [
+                    // Consent: until the person decides, say plainly that it is on by default and ask.
+                    if (data != null && !data.chosen)
+                      Card(
+                        key: const Key('askodoxMemoryConsent'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(t('Personalized answers are ON by default. Do you want to keep them?',
+                                'Personalized జవాబులు default గా ON లో ఉన్నాయి. ఉంచాలా?')),
+                            const SizedBox(height: 4),
+                            Text(
+                                t('ASKODOX uses your earlier requests (only yours, private) to suggest better. You can clear or turn this off anytime.',
+                                    'మంచి suggestions కోసం మీ పాత requests (మీవి మాత్రమే, private) వాడతాం. ఎప్పుడైనా clear / off చేయవచ్చు.'),
+                                style: Theme.of(context).textTheme.bodySmall),
+                            Wrap(spacing: 8, children: [
+                              FilledButton(
+                                  key: const Key('askodoxMemoryConsentKeep'),
+                                  onPressed: () => act(() => repo.setEnabled(true)),
+                                  child: Text(t('Keep on', 'ON లో ఉంచండి'))),
+                              OutlinedButton(
+                                  key: const Key('askodoxMemoryConsentOff'),
+                                  onPressed: () => act(() => repo.setEnabled(false)),
+                                  child: Text(t('Turn off', 'OFF చేయండి'))),
+                            ]),
+                          ]),
+                        ),
+                      ),
                     SwitchListTile(
                       key: const Key('askodoxMemoryEnabled'),
                       contentPadding: EdgeInsets.zero,

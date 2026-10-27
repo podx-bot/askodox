@@ -23,6 +23,7 @@ class _SignedIn extends AuthController {
 /// A fake /api/me/memory server that records every call.
 class _MemoryApi implements ApiClient {
   bool enabled = true;
+  bool? chosen;
   final calls = <String>[];
   List<Map<String, Object?>> items = [
     {'id': 1, 'role': 'buyer', 'kind': 'need', 'category': 'electronics', 'subject': '43 inch TV',
@@ -34,13 +35,14 @@ class _MemoryApi implements ApiClient {
   @override
   Future<ApiResult<T>> get<T>(String path, {ApiRequestOptions options = const ApiRequestOptions()}) async {
     calls.add('GET $path');
-    return ApiSuccess(<String, Object?>{'enabled': enabled, 'items': items} as T);
+    return ApiSuccess(<String, Object?>{'enabled': enabled, if (chosen != null) 'chosen': chosen, 'items': items} as T);
   }
 
   @override
   Future<ApiResult<T>> put<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) async {
     calls.add('PUT $path $body');
     enabled = (body as Map)['enabled'] == true;
+    if (chosen != null) chosen = true;
     return ApiSuccess(<String, Object?>{'enabled': enabled} as T);
   }
 
@@ -70,9 +72,9 @@ class _MemoryApi implements ApiClient {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
-Future<_MemoryApi> _pump(WidgetTester tester) async {
+Future<_MemoryApi> _pump(WidgetTester tester, {bool? chosen}) async {
   SharedPreferences.setMockInitialValues({});
-  final api = _MemoryApi();
+  final api = _MemoryApi()..chosen = chosen;
   await tester.pumpWidget(ProviderScope(
     overrides: [
       authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
@@ -85,6 +87,15 @@ Future<_MemoryApi> _pump(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('consent: on by default is said plainly and the choice is recorded', (tester) async {
+    final api = await _pump(tester, chosen: false);
+    expect(find.byKey(const Key('askodoxMemoryConsent')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxMemoryConsentOff')));
+    await tester.pumpAndSettle();
+    expect(api.calls, contains('PUT /api/me/memory/settings {enabled: false}'));
+    expect(find.byKey(const Key('askodoxMemoryConsent')), findsNothing, reason: 'asked once: the choice is recorded');
+  });
+
   testWidgets('memory grouped by role (Service taker = services / jobs), with statuses', (tester) async {
     await _pump(tester);
     expect(find.byKey(const ValueKey('askodoxMemoryRole-buyer')), findsOneWidget);
