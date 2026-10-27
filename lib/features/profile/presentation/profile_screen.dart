@@ -251,9 +251,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             row('profile-shop-scan', 'me', Icons.qr_code_scanner, 'Scan & shop in a store', 'షాప్‌లో స్కాన్ చేసి కొనండి',
                 'Scan items; show the exit code at the counter.', 'సరుకులు స్కాన్ చేసి కౌంటర్‌లో కోడ్ చూపించండి.',
                 () => context.push('/shop-scan'), words: ['scan', 'supermarket', 'స్కాన్']),
-            row('profile-shop-advances', 'me', Icons.savings_outlined, 'Shop advances', 'షాప్ అడ్వాన్సులు',
-                'Approve what a shop recorded for you.', 'షాప్ నమోదు చేసినవి ఆమోదించండి.',
-                () => context.push('/me/shop-advances'), words: ['advance', 'approve', 'money', 'డబ్బు', 'ఆమోదం']),
             row('profile-mobility', 'me', Icons.local_taxi_outlined, 'Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్',
                 'Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.', () => context.push('/mobility'),
                 guide: 'screen_mobility', words: ['ride', 'parcel', 'auto', 'taxi', 'రైడ్', 'పార్సెల్']),
@@ -293,6 +290,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             );
                           }),
                         ))),
+          ]),
+      // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
+      AskodoxNavSection(
+          key: const Key('askodoxProfileSection-finance'),
+          grid: true,
+          title: t('Personal Finance', 'Personal Finance (నా డబ్బు)'),
+          icon: Icons.account_balance_outlined,
+          children: [
+            row('profile-tax-assistant', 'me', Icons.account_balance_outlined, 'Personal Tax Assistant',
+                'Personal Tax Assistant', 'Income tax (new vs old) and GST estimates.',
+                'Income tax (new vs old), GST అంచనాలు.', () => context.push('/intel/tax'),
+                words: ['tax', 'income tax', 'itr', 'gst', 'పన్ను', 'ట్యాక్స్']),
+            row('profile-personal-finance', 'me', Icons.wallet_outlined, 'All money tools', 'డబ్బు tools అన్నీ',
+                'Tax, GST, smart tricks, scam checks, payment methods.', 'Tax, GST, smart tricks, మోసాల checks, payment methods.',
+                () => context.push('/me/finance'), words: ['finance', 'money', 'fraud', 'scam', 'డబ్బు', 'మోసం']),
+            row('profile-shop-advances', 'me', Icons.savings_outlined, 'Shop advances', 'షాప్ అడ్వాన్సులు',
+                'Approve what a shop recorded for you.', 'షాప్ నమోదు చేసినవి ఆమోదించండి.',
+                () => context.push('/me/shop-advances'), words: ['advance', 'approve', 'money', 'డబ్బు', 'ఆమోదం']),
           ]),
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-roles'),
