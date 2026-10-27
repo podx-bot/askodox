@@ -37,10 +37,11 @@ ROLES = ("owner", "manager", "cashier", "accountant", "waiter", "kitchen")
 PERMISSIONS: Dict[str, frozenset] = {
     "owner": frozenset({"view", "sell", "price_override", "return", "cancel", "products", "stock", "customers",
                         "collect", "reports", "day_close", "drafts", "members", "settings", "tables", "kitchen",
-                        "purchases"}),
+                        "purchases", "crm"}),
     "manager": frozenset({"view", "sell", "price_override", "return", "cancel", "products", "stock", "customers",
-                          "collect", "reports", "day_close", "drafts", "tables", "kitchen", "purchases"}),
-    "cashier": frozenset({"view", "sell", "customers", "collect", "drafts", "tables", "kitchen"}),
+                          "collect", "reports", "day_close", "drafts", "tables", "kitchen", "purchases", "crm"}),
+    # crm = Business CRM (pos_crm.py): leads, enquiries, follow-ups, complaints, customer history.
+    "cashier": frozenset({"view", "sell", "customers", "collect", "drafts", "tables", "kitchen", "crm"}),
     "accountant": frozenset({"view", "reports"}),
     # Restaurant floor staff: take orders / send KOTs (waiter), or work the kitchen screen. Neither can bill.
     "waiter": frozenset({"view", "tables"}),

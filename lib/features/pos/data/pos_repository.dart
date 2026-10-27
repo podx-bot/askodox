@@ -159,6 +159,50 @@ class AskodoxPosRepository {
   Future<AskodoxJson> saveDraft(String id, AskodoxJson body) => _send('POST', '${_b(id)}/drafts', body: body);
   Future<AskodoxJson> deleteDraft(String id, String draftId) => _send('DELETE', '${_b(id)}/drafts/$draftId');
 
+  // Business CRM (pos_crm.py): leads, enquiries, quotations, follow-ups, complaints, customer history, reports.
+  String _c(String id) => '${_b(id)}/crm';
+  Future<AskodoxJson> crmPipeline(String id, {bool mine = false}) =>
+      _send('GET', '${_c(id)}/pipeline', query: {if (mine) 'mine': 'true'});
+  Future<List<AskodoxJson>> crmStaff(String id) async => askodoxPosList((await _send('GET', '${_c(id)}/staff'))['staff']);
+  Future<List<AskodoxJson>> crmLeads(String id,
+          {String stage = '', String kind = '', String q = '', bool mine = false, String customerId = ''}) async =>
+      askodoxPosList((await _send('GET', '${_c(id)}/leads', query: {
+        if (stage.isNotEmpty) 'stage': stage,
+        if (kind.isNotEmpty) 'kind': kind,
+        if (q.isNotEmpty) 'q': q,
+        if (mine) 'mine': 'true',
+        if (customerId.isNotEmpty) 'customer_id': customerId,
+      }))['leads']);
+  Future<AskodoxJson> crmAddLead(String id, AskodoxJson body) => _send('POST', '${_c(id)}/leads', body: body);
+  Future<AskodoxJson> crmLead(String id, String leadId) => _send('GET', '${_c(id)}/leads/$leadId');
+  Future<AskodoxJson> crmUpdateLead(String id, String leadId, AskodoxJson body) =>
+      _send('PATCH', '${_c(id)}/leads/$leadId', body: body);
+  Future<AskodoxJson> crmLeadToCustomer(String id, String leadId, AskodoxJson body) =>
+      _send('POST', '${_c(id)}/leads/$leadId/customer', body: body);
+  Future<AskodoxJson> crmActivity(String id, AskodoxJson body) => _send('POST', '${_c(id)}/activity', body: body);
+  Future<List<AskodoxJson>> crmFollowups(String id, {String when = 'due', bool mine = false}) async =>
+      askodoxPosList((await _send('GET', '${_c(id)}/followups', query: {'when': when, if (mine) 'mine': 'true'}))['followups']);
+  Future<AskodoxJson> crmAddFollowup(String id, AskodoxJson body) => _send('POST', '${_c(id)}/followups', body: body);
+  Future<AskodoxJson> crmCloseFollowup(String id, String followupId, AskodoxJson body) =>
+      _send('POST', '${_c(id)}/followups/$followupId/close', body: body);
+  Future<List<AskodoxJson>> crmQuotations(String id) async =>
+      askodoxPosList((await _send('GET', '${_c(id)}/quotations'))['quotations']);
+  Future<AskodoxJson> crmSetQuote(String id, String draftId, AskodoxJson body) =>
+      _send('PUT', '${_c(id)}/quotations/$draftId', body: body);
+  Future<List<AskodoxJson>> crmComplaints(String id, {String status = '', String customerId = ''}) async =>
+      askodoxPosList((await _send('GET', '${_c(id)}/complaints', query: {
+        if (status.isNotEmpty) 'status': status,
+        if (customerId.isNotEmpty) 'customer_id': customerId,
+      }))['complaints']);
+  Future<AskodoxJson> crmAddComplaint(String id, AskodoxJson body) => _send('POST', '${_c(id)}/complaints', body: body);
+  Future<AskodoxJson> crmComplaint(String id, String complaintId) => _send('GET', '${_c(id)}/complaints/$complaintId');
+  Future<AskodoxJson> crmUpdateComplaint(String id, String complaintId, AskodoxJson body) =>
+      _send('PATCH', '${_c(id)}/complaints/$complaintId', body: body);
+  Future<AskodoxJson> crmCustomerHistory(String id, String customerId) =>
+      _send('GET', '${_c(id)}/customers/$customerId/history');
+  Future<AskodoxJson> crmReport(String id, String from, String to) =>
+      _send('GET', '${_c(id)}/report', query: {'date_from': from, 'date_to': to});
+
   // suppliers / purchases / batches
   Future<List<AskodoxJson>> suppliers(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/suppliers'))['suppliers']);
   Future<AskodoxJson> addSupplier(String id, AskodoxJson body) => _send('POST', '${_b(id)}/suppliers', body: body);

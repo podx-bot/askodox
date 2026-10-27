@@ -1834,6 +1834,111 @@
           "change": "Owner command 2026-10-27 (branch claude/ai-credits); TEST mode only; Play Billing / user-choice billing needed before a Play Store release; NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "business_crm",
+      "name": "Business CRM inside My Business (on the POS core)",
+      "purpose": "Owner command 2026-10-27: CRM A-Z for sellers / shops -- leads, enquiries, quotations, follow-ups, reminders, customer history, complaints, sales pipeline and reports -- reusing POS customers, staff, bills, payments, ledger and quotation drafts (no duplicate modules).",
+      "expected_behavior": "Every route is token-proven and checks the caller's POS role ('crm' permission: owner / manager / cashier; reports need 'reports'); other shops answer 404. Leads link to pos_customers (save-as-customer uses PosStore.add_customer); quotations are pos_drafts kind 'quotation' (CRM only links + tracks status; 'billed' needs a real invoice); lost needs a reason; won / lost reopen only by owner / manager; follow-ups remind the assignee once by push (crm_reminders job); complaints close only with a resolution; customer history and reports read real bills / payments / ledger. The timeline (pos_crm_activity) is append-only and every change is in pos_audit. No money is taken or held.",
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/crm/pipeline",
+          "response_keys": [
+            "stages",
+            "open_value_paise",
+            "followups_overdue"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/crm/leads",
+          "response_keys": [
+            "leads"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/crm/leads",
+          "response_keys": []
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/pos/businesses/{business_id}/crm/leads/{lead_id}",
+          "response_keys": []
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/crm/followups",
+          "response_keys": [
+            "followups"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/crm/quotations/{draft_id}",
+          "response_keys": []
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/crm/complaints",
+          "response_keys": []
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/crm/customers/{customer_id}/history",
+          "response_keys": [
+            "summary",
+            "invoices",
+            "timeline"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/crm/report",
+          "response_keys": [
+            "by_source",
+            "top_customers",
+            "dues"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxCrmAddLead",
+          "askodoxCrmQuote",
+          "askodoxPosCustomerCrm"
+        ],
+        "symbols": [
+          "AskodoxPosCrmScreen",
+          "AskodoxPosCrmLeadScreen",
+          "AskodoxCrmEntryScreen"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_crm.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_crm_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner command 2026-10-27 (branch claude/business-crm); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

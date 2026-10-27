@@ -26,6 +26,8 @@ List<({String id, String label, IconData icon, String route})> askodoxBusinessSe
         icon: Icons.smart_toy_outlined, route: '/business/automation'),
     (id: 'orders', label: t('Business orders', 'వ్యాపార ఆర్డర్లు'), icon: Icons.receipt_long_outlined,
         route: '/orders/incoming'),
+    // Business CRM on the shop's own POS records (leads, enquiries, quotations, follow-ups, complaints).
+    (id: 'crm', label: t('Business CRM', 'Business CRM'), icon: Icons.groups_2_outlined, route: '/crm'),
     (id: 'pos', label: t('Shop billing (POS)', 'షాప్ బిల్లింగ్ (POS)'), icon: Icons.point_of_sale_outlined,
         route: '/pos'),
     (id: 'settings', label: t('Business settings', 'వ్యాపార సెట్టింగ్‌లు'), icon: Icons.tune_rounded,

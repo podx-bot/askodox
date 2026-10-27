@@ -602,6 +602,12 @@ this file, don't trust it blindly.
 - AI Credits = `ai_credits.py` + `routes/ai_credits.py` (append-only `ai_credit_ledger`, UNIQUE ref, live + TEST balance;
   added ONLY in `billing.on_payment`; assistant reserves one 'chat' use before the model, releases on no answer; charging
   OFF until staff rates). Packs = growth plans audience `ai_credits` (seeded INACTIVE). Play Store sale needs Play Billing.
+- Business CRM = `pos_crm.py` + `/api/pos/businesses/{id}/crm/*` (app `pos_crm_screens.dart`, My Business -> `/crm`,
+  shop tile `/pos/:id/crm`). ON the POS core, never a copy: customers = `pos_customers` (save-as-customer via
+  `PosStore.add_customer`), quotations = `pos_drafts` kind quotation (`pos_crm_quotes` only links + status; the sale screen
+  takes `?lead=&customer=` and the drafts route auto-links), staff = `pos_members` (masked refs), bills / dues read from
+  `pos_invoices` / `pos_payments` / `pos_ledger`. Permission `crm` (owner / manager / cashier), reports need `reports`.
+  Timeline `pos_crm_activity` is append-only; follow-up pushes = periodic job `crm_reminders` (once per follow-up).
 - ASKODOX NEVER holds buyer / seller money (owner rule 2026-10-27). Own ways to be paid = `payment_methods.py`
   (`user_payment_methods`, any app's UPI QR via `parse_upi_qr`, bank number encrypted) + `/api/me/payment-methods`; POS
   collect to the owner's own UPI = `pos_payment_alerts` collect requests (a notification only MATCHES, the shop confirms);

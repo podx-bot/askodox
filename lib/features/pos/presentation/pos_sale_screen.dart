@@ -78,8 +78,14 @@ const _weighed = {'kg', 'g', 'l', 'ml'};
 /// from the server; without internet the sale is kept on this phone with this
 /// device's own bill number and sent later.
 class AskodoxPosSaleScreen extends ConsumerStatefulWidget {
-  const AskodoxPosSaleScreen({super.key, required this.businessId});
+  const AskodoxPosSaleScreen({super.key, required this.businessId, this.leadId, this.customerId});
   final String businessId;
+
+  /// Opened from a Business CRM lead: a quotation made here is linked to that lead.
+  final String? leadId;
+
+  /// Opened for a known customer (CRM): the bill / quotation starts with them picked.
+  final String? customerId;
 
   @override
   ConsumerState<AskodoxPosSaleScreen> createState() => _AskodoxPosSaleScreenState();
@@ -120,6 +126,16 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       // "Online only" items are offered in ASKODOX, not at the counter.
       final counter = [for (final p in list) if (askodoxPosChannel(p, shopDefault) != 'online') p];
       if (mounted) setState(() => _products = counter);
+      final customerId = widget.customerId;
+      if (customerId != null && customerId.isNotEmpty) {
+        final full = await ref.read(askodoxPosRepositoryProvider).customer(widget.businessId, customerId);
+        if (mounted) {
+          setState(() {
+            _customer = full;
+            _customerPrices = {for (final e in askodoxPosMap(full['prices']).entries) e.key: askodoxPosInt(e.value)};
+          });
+        }
+      }
     } on AskodoxPosException catch (e) {
       if (mounted) setState(() => _error = e.message(askodoxPosTe(context)));
     } finally {
@@ -594,6 +610,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
 
   AskodoxJson _cartPayload() => {
         'customer_id': _customer?['id'],
+        if (widget.leadId != null) 'lead_id': widget.leadId,
         'lines': [
           for (final l in _cart)
             {
@@ -620,7 +637,12 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     final title = '${_customer?['name'] ?? (te ? 'వాక్-ఇన్' : 'Walk-in')} · ${_cart.length} ${te ? 'ఐటమ్స్' : 'items'}'
         '${preview == null ? '' : ' · ${askodoxPaise(preview.totalPaise)}'}';
     try {
-      await ref.read(askodoxPosRepositoryProvider).saveDraft(widget.businessId, {'kind': kind, 'title': title, 'payload': _cartPayload()});
+      await ref.read(askodoxPosRepositoryProvider).saveDraft(widget.businessId, {
+        'kind': kind,
+        'title': title,
+        // The estimate only feeds the CRM pipeline; the bill at purchase is final.
+        'payload': {..._cartPayload(), if (kind == 'quotation' && preview != null) 'estimate_paise': preview.totalPaise},
+      });
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
       return;
@@ -634,6 +656,9 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       });
       askodoxPosSnack(context, te ? 'బిల్లు ఆపాం.' : 'Bill held.');
       return;
+    }
+    if (widget.leadId != null && mounted) {
+      askodoxPosSnack(context, te ? 'Quotation lead కి link అయింది.' : 'Quotation linked to the lead.');
     }
     if (preview == null || business == null) return;
     final text = [

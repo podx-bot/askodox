@@ -722,7 +722,14 @@ class _AskodoxPosCustomerScreenState extends ConsumerState<AskodoxPosCustomerScr
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'ఖాతా స్టేట్‌మెంట్' : 'Account statement')),
+      appBar: AppBar(title: Text(te ? 'ఖాతా స్టేట్‌మెంట్' : 'Account statement'), actions: [
+        // Business CRM: everything about this customer (bills, leads, quotations, complaints, notes).
+        IconButton(
+            key: const Key('askodoxPosCustomerCrm'),
+            tooltip: te ? 'Customer history (CRM)' : 'Customer history (CRM)',
+            onPressed: () => context.push('/pos/${widget.businessId}/crm/customer/${widget.customerId}'),
+            icon: const Icon(Icons.history)),
+      ]),
       floatingActionButton: FloatingActionButton.extended(
           key: const Key('askodoxPosCollect'), onPressed: _collect, icon: const Icon(Icons.currency_rupee), label: Text(te ? 'జమ' : 'Received')),
       body: FutureBuilder<AskodoxJson>(

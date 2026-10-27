@@ -46,5 +46,24 @@ def _feeds(container: Any) -> Any:
     return _universal_sources(container).sync_due_feeds(actor="system:scheduler", limit=3)
 
 
+def _crm_reminders(container: Any) -> Any:
+    """Business CRM follow-ups whose time has come: one push to the assigned staff member (once each)."""
+    from app.services.pos_crm import PosCrm
+    from app.services.pos_store import PosStore
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    due = PosCrm(store).due_reminders()
+    sent = 0
+    push = push_service(container)
+    for item in due:
+        if item.get("app_user_id"):
+            sent += push.notify(item["app_user_id"], title="Follow-up time", body=str(item["note"])[:160],
+                                route=f"/pos/{item['business_id']}/crm?tab=followups",
+                                event_key=f"crm_followup:{item['id']}")
+    return {"due": len(due), "pushed": sent}
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
-    return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds)]
+    return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
+            ("crm_reminders", 300.0, _crm_reminders)]
