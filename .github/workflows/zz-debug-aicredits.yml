@@ -1,0 +1,28 @@
+name: zz debug aicredits
+on:
+  push:
+    branches: [zz-debug-aicredits]
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - shell: bash
+        run: |
+          flutter analyze --no-fatal-warnings --no-fatal-infos > an.txt 2>&1 || true
+          grep -E "error|warning|info" an.txt | head -20 > fails.txt || true
+          flutter test test/features/plans test/features/profile test/features/guide --reporter expanded > out.txt 2>&1 || true
+          grep -E "\[E\]|Some tests failed|tests passed" out.txt | head -20 >> fails.txt || true
+          grep -n -A12 "EXCEPTION CAUGHT\|TestFailure was thrown\|assertion was thrown" out.txt | grep -v "^--$" | head -150 >> fails.txt
+          python3 - <<'PY'
+          t=open('fails.txt').read()
+          for i in range(0,min(len(t),35000),3500):
+              print('::warning::'+t[i:i+3500].replace('%','%25').replace('\r','').replace('\n','%0A'))
+          PY
