@@ -7,9 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          B=https://podx-ai-connect-production-3279.up.railway.app
-          for i in $(seq 1 40); do c=$(curl -s $B/health | jq -r .commit); [ "${c:0:7}" = "84b608b" ] && break; sleep 30; done
-          echo "::warning::health commit=$c"
-          echo "::warning::ai-credits no-token=$(curl -s -o /dev/null -w '%{http_code}' $B/api/me/ai-credits)"
-          echo "::warning::pay page bad token=$(curl -s -o /dev/null -w '%{http_code}' $B/pay/upi/x?t=y)"
-          echo "::warning::admin ai-credits no-auth=$(curl -s -o /dev/null -w '%{http_code}' $B/admin/cc/ai-credits/settings)"
+          for u in https://admin.askodox.com/health https://admin.askodox.com/admin/console https://askodox.com/admin/console https://podx-ai-connect-production-3279.up.railway.app/health; do
+            echo "::warning::$u -> $(curl -s -o /tmp/b -w '%{http_code}' -L --max-time 20 $u) $(head -c 160 /tmp/b | tr '\n' ' ')"
+          done
