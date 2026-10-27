@@ -758,6 +758,104 @@ def crm_report(business_id: str, request: Request, date_from: str, date_to: str)
     return _call(_crm(request).report, business_id, _user(request), date_from, date_to)
 
 
+# ------------------------------------------------------------ Role-based AI agents (pos_agents.py)
+def _agents(request: Request):
+    from app.services.pos_agents import PosAgents
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_agents", None)
+    if existing is None or existing.store is not store:
+        existing = PosAgents(store, _crm(request))
+        try:
+            container.pos_agents = existing
+        except Exception:
+            pass
+    return existing
+
+
+class AgentAskIn(BaseModel):
+    question: str = Field(default="", max_length=600)
+    locale: str = Field(default="en", max_length=10)
+    use_ai: bool = True
+
+
+class AgentActionIn(BaseModel):
+    action: str = Field(min_length=1, max_length=40)
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentDecisionIn(BaseModel):
+    approve: bool
+    note: str = Field(default="", max_length=200)
+
+
+def _phraser(request: Request, locale: str):
+    """The model may only re-word the facts. AI Credits are reserved first (only when charging is ON) and
+    given back when the model gives nothing; no model / no credits -> the rule-based answer stays."""
+    from app.api.routes.in_app_assistant import _release_credits, _reserve_credits
+
+    service = getattr(request.app.state.container, "universal_ai_assistant_service", None)
+    if service is None or not hasattr(service, "write_text"):
+        return None, None
+    metered = _reserve_credits(request, locale)
+    if metered and metered.get("blocked"):
+        return None, metered
+
+    def phrase(prompt: str) -> str:
+        text = service.write_text(prompt, max_tokens=350) or ""
+        if not text.strip() and metered:
+            _release_credits(request, metered)
+        return text
+
+    return phrase, metered
+
+
+@router.get("/businesses/{business_id}/agents")
+def agents(business_id: str, request: Request) -> dict:
+    return {"agents": _call(_agents(request).agents, business_id, _user(request))}
+
+
+@router.post("/businesses/{business_id}/agents/{agent}/ask")
+def agent_ask(business_id: str, agent: str, body: AgentAskIn, request: Request) -> dict:
+    user = _user(request, "pos_agent", 60)
+    te = body.locale.lower().startswith("te")
+    service = _agents(request)
+    _call(service._agent, business_id, user, agent)  # role check BEFORE any AI credit is reserved
+    phrase, metered = _phraser(request, body.locale) if body.use_ai and body.question.strip() else (None, None)
+    out = _call(service.ask, business_id, user, agent, body.question, te=te, phrase=phrase)
+    if metered:
+        out["credits"] = metered.get("credits")
+    return out
+
+
+@router.post("/businesses/{business_id}/agents/{agent}/actions")
+def agent_propose(business_id: str, agent: str, body: AgentActionIn, request: Request) -> dict:
+    return _call(_agents(request).propose, business_id, _user(request), agent, body.action, body.params)
+
+
+@router.get("/businesses/{business_id}/agent-actions")
+def agent_actions(business_id: str, request: Request, status: str = "") -> dict:
+    return {"actions": _call(_agents(request).actions, business_id, _user(request), status=status)}
+
+
+@router.post("/businesses/{business_id}/agent-actions/{action_id}/decision")
+def agent_decide(business_id: str, action_id: str, body: AgentDecisionIn, request: Request) -> dict:
+    return _call(_agents(request).decide, business_id, _user(request), action_id, body.approve, body.note)
+
+
+@router.post("/me/agents/buyer/ask")
+def buyer_agent_ask(body: AgentAskIn, request: Request) -> dict:
+    """The personal buyer agent: the caller's own records only; it never pays or approves for them."""
+    from app.services.pos_agents import buyer_answer, buyer_facts
+
+    user = _user(request, "pos_agent", 60)
+    facts = buyer_facts(_store(request), user)
+    lines = buyer_answer(facts, body.locale.lower().startswith("te"))
+    return {"agent": "buyer", "answer": "\n".join(lines), "answer_source": "rules", "facts": facts,
+            "basis": "Only your own records in ASKODOX."}
+
+
 # ------------------------------------------------------------ suppliers / purchases
 def _purchases(request: Request):
     from app.services.pos_purchases import PosPurchases

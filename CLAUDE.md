@@ -608,6 +608,11 @@ this file, don't trust it blindly.
   takes `?lead=&customer=` and the drafts route auto-links), staff = `pos_members` (masked refs), bills / dues read from
   `pos_invoices` / `pos_payments` / `pos_ledger`. Permission `crm` (owner / manager / cashier), reports need `reports`.
   Timeline `pos_crm_activity` is append-only; follow-up pushes = periodic job `crm_reminders` (once per follow-up).
+- Role AI agents = `pos_agents.py` + `/api/pos/businesses/{id}/agents|agent-actions` (app `pos_agent_screens.dart`,
+  `/pos/:id/agents`, buyer agent `/me/agent` via `/api/pos/me/agents/buyer/ask`). An agent = a role VIEW (its POS
+  permission), facts via the same store methods, the model only re-words (`_phraser`, AI Credits reserve when charging ON).
+  SAFE actions run as the caller; SENSITIVE ones PENDING_APPROVAL -> owner / manager approves -> run AS THE APPROVER (four
+  eyes for managers, staff roles owner-only). Never add an agent action that moves money, messages customers or deletes.
 - ASKODOX NEVER holds buyer / seller money (owner rule 2026-10-27). Own ways to be paid = `payment_methods.py`
   (`user_payment_methods`, any app's UPI QR via `parse_upi_qr`, bank number encrypted) + `/api/me/payment-methods`; POS
   collect to the owner's own UPI = `pos_payment_alerts` collect requests (a notification only MATCHES, the shop confirms);

@@ -203,6 +203,19 @@ class AskodoxPosRepository {
   Future<AskodoxJson> crmReport(String id, String from, String to) =>
       _send('GET', '${_c(id)}/report', query: {'date_from': from, 'date_to': to});
 
+  // Role-based AI agents (pos_agents.py): facts from the shop's records; sensitive actions wait for approval.
+  Future<List<AskodoxJson>> agents(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/agents'))['agents']);
+  Future<AskodoxJson> agentAsk(String id, String agent, String question, String locale) =>
+      _send('POST', '${_b(id)}/agents/$agent/ask', body: {'question': question, 'locale': locale});
+  Future<AskodoxJson> agentPropose(String id, String agent, String action, AskodoxJson params) =>
+      _send('POST', '${_b(id)}/agents/$agent/actions', body: {'action': action, 'params': params});
+  Future<List<AskodoxJson>> agentActions(String id, {String status = ''}) async => askodoxPosList(
+      (await _send('GET', '${_b(id)}/agent-actions', query: {if (status.isNotEmpty) 'status': status}))['actions']);
+  Future<AskodoxJson> agentDecide(String id, String actionId, bool approve, {String note = ''}) =>
+      _send('POST', '${_b(id)}/agent-actions/$actionId/decision', body: {'approve': approve, 'note': note});
+  Future<AskodoxJson> buyerAgentAsk(String question, String locale) =>
+      _send('POST', '/api/pos/me/agents/buyer/ask', body: {'question': question, 'locale': locale});
+
   // suppliers / purchases / batches
   Future<List<AskodoxJson>> suppliers(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/suppliers'))['suppliers']);
   Future<AskodoxJson> addSupplier(String id, AskodoxJson body) => _send('POST', '${_b(id)}/suppliers', body: body);

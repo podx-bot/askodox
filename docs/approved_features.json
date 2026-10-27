@@ -1939,6 +1939,91 @@
           "change": "Owner command 2026-10-27 (branch claude/business-crm); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "pos_role_agents",
+      "name": "Role-based AI agents for a shop + personal buyer agent",
+      "purpose": "Owner command 2026-10-27: owner, sales, support, finance, inventory, HR and tax agents on the existing POS permissions + audit, with human approval for sensitive actions; a buyer agent over the person's own records.",
+      "expected_behavior": "An agent is offered only when the caller's POS role has its permission; facts are read through the same store methods (and role checks) the app uses; the model only re-words the facts (rule-based text without a model; AI Credits reserved only when charging is ON). Safe actions (follow-up, note, lead stage) run as the caller; sensitive ones (money received, stock change, closing a complaint, staff role) are PENDING_APPROVAL until an owner / manager approves and then run as the approver; managers cannot approve their own proposal; staff roles need the owner. Every step is in pos_audit + pos_agent_actions. Agents never move money, message customers or delete.",
+      "roles": [
+        "seller",
+        "service_provider",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/agents",
+          "response_keys": [
+            "agents"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/agents/{agent}/ask",
+          "response_keys": [
+            "answer",
+            "answer_source",
+            "facts"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/agents/{agent}/actions",
+          "response_keys": [
+            "status",
+            "risk"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/agent-actions/{action_id}/decision",
+          "response_keys": [
+            "status"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/me/agents/buyer/ask",
+          "response_keys": [
+            "answer",
+            "facts"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxAgentQuestion",
+          "askodoxAgentAnswer"
+        ],
+        "symbols": [
+          "AskodoxPosAgentsScreen",
+          "AskodoxPosAgentScreen",
+          "AskodoxBuyerAgentScreen"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_agents.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_agents_test.dart"
+        ]
+      },
+      "dependencies": [
+        "business_crm"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner command 2026-10-27 (branch claude/role-agents, stacked on claude/business-crm); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

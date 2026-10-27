@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import 'pos_advance_screens.dart';
+import 'pos_agent_screens.dart';
 import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
@@ -22,6 +23,13 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(
       path: '/pos/:id/payment-alerts',
       builder: (context, state) => AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!)),
+  // Role-based AI agents (shop dashboard tile) + the personal buyer agent (Profile -> Personal Finance).
+  GoRoute(path: '/pos/:id/agents', builder: (context, state) => AskodoxPosAgentsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/agents/:agent',
+      builder: (context, state) =>
+          AskodoxPosAgentScreen(businessId: state.pathParameters['id']!, agent: state.pathParameters['agent']!)),
+  GoRoute(path: '/me/agent', builder: (context, state) => const AskodoxBuyerAgentScreen()),
   // Business CRM (My Business -> Business CRM; also a tile on the shop dashboard).
   GoRoute(path: '/crm', builder: (context, state) => const AskodoxCrmEntryScreen()),
   GoRoute(
