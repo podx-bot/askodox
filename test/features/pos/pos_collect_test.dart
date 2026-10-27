@@ -114,7 +114,9 @@ void main() {
     expect(api.bodies['POST /api/pos/businesses/b1/collect/requests'], {'amount_paise': 25000, 'label': ''});
     expect(find.byKey(const Key('askodoxPosCollectQr')), findsOneWidget);
     expect(find.text('₹250'), findsOneWidget);
-    expect(find.textContaining('Waiting for the customer'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('askodoxPosCollectStatus')), matching: find.textContaining('Waiting')),
+        findsNothing);
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxPosCollectStatus'))).data, contains('Waiting for the customer'));
     await tester.tap(find.byKey(const Key('askodoxPosCollectConfirm')));
     await tester.pumpAndSettle();
     expect(api.bodies['POST /api/pos/businesses/b1/collect/requests/ppr_1'], {'action': 'confirm'});
