@@ -28,9 +28,15 @@ final askodoxAiCreditsProvider = FutureProvider.autoDispose<AskodoxAiCreditsStat
       options: ApiRequestOptions(authToken: session.user == null ? null : session.tokenPlaceholder));
   return switch (result) {
     ApiSuccess<Map<String, Object?>>(:final data) => AskodoxAiCreditsState(data),
-    ApiError<Map<String, Object?>>(:final failure) => throw Exception(failure.message ?? 'failed'),
+    ApiError<Map<String, Object?>>(:final failure) => throw AskodoxAiCreditsLoadError(failure.statusCode),
   };
 });
+
+/// Why the balance could not load: 401 = not signed in; anything else = not available on this server yet / offline.
+class AskodoxAiCreditsLoadError implements Exception {
+  const AskodoxAiCreditsLoadError(this.statusCode);
+  final int? statusCode;
+}
 
 String askodoxRupees(int paise) {
   final sign = paise < 0 ? '-' : '';
@@ -58,10 +64,14 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(t('AI Credits', 'AI క్రెడిట్స్'))),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => Center(
+        error: (e, __) => Center(
             child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(t('Sign in to see your AI Credits.', 'AI Credits చూడటానికి సైన్ ఇన్ అవ్వండి.'),
+          child: Text(
+              e is AskodoxAiCreditsLoadError && e.statusCode == 401
+                  ? t('Sign in to see your AI Credits.', 'AI Credits చూడటానికి సైన్ ఇన్ అవ్వండి.')
+                  : t('AI Credits are not available right now. Pull down later or check your connection.',
+                      'AI Credits ఇప్పుడు అందుబాటులో లేవు. కాసేపాగి మళ్లీ చూడండి లేదా connection చూడండి.'),
               key: const Key('askodoxAiCreditsError'), textAlign: TextAlign.center),
         )),
         data: (s) => RefreshIndicator(

@@ -15,6 +15,16 @@ void main() {
     expect(askodoxRupees(-50), '-₹0.50');
   });
 
+  testWidgets('a server without AI Credits does not say "sign in"', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [askodoxAiCreditsProvider.overrideWith((ref) async => throw const AskodoxAiCreditsLoadError(404))],
+      child: const MaterialApp(home: AskodoxAiCreditsScreen()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('not available right now'), findsOneWidget);
+    expect(find.textContaining('Sign in'), findsNothing);
+  });
+
   testWidgets('free AI: balance, honest note, packs not on sale have no Pay button', (tester) async {
     await tester.pumpWidget(_app({
       'balance_paise': {'live': 0, 'test': 0},
