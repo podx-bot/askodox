@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zxing_lib/common.dart';
 import 'package:zxing_lib/multi.dart';
+import 'package:zxing_lib/qrcode.dart';
 import 'package:zxing_lib/zxing.dart';
 
 import '../../../services/chat_attachment_service.dart';
@@ -174,6 +175,79 @@ String? askodoxDecodeBarcodePixels(AskodoxScanImage image) {
     }
   }
   return attempt(h, w, turned);
+}
+
+/// Reads a payment QR (UPI) from a photo or a SCREENSHOT. Screenshots of PhonePe / Google Pay / Paytm / bank QR
+/// cards are large, carry text around the code and a logo in the middle; photos of standees are often small or
+/// dark. Tries, in order: the plain decoder, then QR-only decoding over smaller copies, centre crops, a second
+/// binarizer and the inverted image (dark-mode QR). Top-level so it can run in a background isolate.
+String? askodoxDecodeQrPixels(AskodoxScanImage image) {
+  final plain = askodoxDecodeBarcodePixels(image);
+  if (plain != null) return plain;
+  const hint = DecodeHint(tryHarder: true, possibleFormats: [BarcodeFormat.qrCode], alsoInverted: true);
+  String? read(AskodoxScanImage im) {
+    final source = RGBLuminanceSource(im.width, im.height, im.argb);
+    for (final LuminanceSource lum in [source, InvertedLuminanceSource(source)]) {
+      for (final bin in [HybridBinarizer(lum), GlobalHistogramBinarizer(lum)]) {
+        try {
+          final text = QRCodeReader().decode(BinaryBitmap(bin), hint).text.trim();
+          if (text.isNotEmpty) return text;
+        } catch (_) {
+          // not readable in this variant
+        }
+      }
+    }
+    return null;
+  }
+
+  final variants = <AskodoxScanImage>[image];
+  for (final f in [0.8, 0.6, 0.45]) {
+    variants.add(askodoxCropCentre(image, f));
+  }
+  final longSide = math.max(image.width, image.height);
+  for (final target in [1000, 700, 480]) {
+    if (longSide > target) variants.add(askodoxShrink(image, target / longSide));
+  }
+  for (final v in variants) {
+    final text = read(v);
+    if (text != null) return text;
+  }
+  return null;
+}
+
+/// The middle [fraction] of the picture (QR cards put the code in the centre).
+AskodoxScanImage askodoxCropCentre(AskodoxScanImage image, double fraction) {
+  final w = math.max(1, (image.width * fraction).round()), h = math.max(1, (image.height * fraction).round());
+  final x0 = (image.width - w) ~/ 2, y0 = (image.height - h) ~/ 2;
+  final out = Int32List(w * h);
+  for (var y = 0; y < h; y++) {
+    out.setRange(y * w, y * w + w, image.argb, (y0 + y) * image.width + x0);
+  }
+  return AskodoxScanImage(w, h, out);
+}
+
+/// A smaller copy (box average, so thin QR modules do not vanish).
+AskodoxScanImage askodoxShrink(AskodoxScanImage image, double scale) {
+  final w = math.max(1, (image.width * scale).floor()), h = math.max(1, (image.height * scale).floor());
+  final out = Int32List(w * h);
+  for (var y = 0; y < h; y++) {
+    final sy0 = (y * image.height) ~/ h, sy1 = math.max(sy0 + 1, ((y + 1) * image.height) ~/ h);
+    for (var x = 0; x < w; x++) {
+      final sx0 = (x * image.width) ~/ w, sx1 = math.max(sx0 + 1, ((x + 1) * image.width) ~/ w);
+      var r = 0, g = 0, b = 0, n = 0;
+      for (var sy = sy0; sy < sy1; sy++) {
+        for (var sx = sx0; sx < sx1; sx++) {
+          final p = image.argb[sy * image.width + sx];
+          r += (p >> 16) & 0xFF;
+          g += (p >> 8) & 0xFF;
+          b += p & 0xFF;
+          n++;
+        }
+      }
+      out[y * w + x] = (0xFF << 24) | ((r ~/ n) << 16) | ((g ~/ n) << 8) | (b ~/ n);
+    }
+  }
+  return AskodoxScanImage(w, h, out);
 }
 
 class AskodoxScaleException implements Exception {
