@@ -80,7 +80,7 @@ def test_new_seller_gets_one_honest_recommendation_and_cause_is_worded_as_may():
     assert green[0]["severity"] == "green"
 
 
-def test_admin_queue_explains_in_english_and_telugu(api):
+def test_admin_queue_explains_in_one_mixed_text(api):
     client, container, owner = api
     data = client.get("/admin/cc/staff/work-queue", headers=owner).json()
     assert set(data["status"]) == {"red", "orange", "green"}
@@ -88,8 +88,8 @@ def test_admin_queue_explains_in_english_and_telugu(api):
     assert {"supply_gaps", "listing_reviews", "integrations"} <= keys
     for item in data["items"]:
         assert item["icon"] in ("🔴", "🟠", "🟢")
-        assert set(item["explain"]) == {"en", "te"}
-        assert {"what", "why", "impact", "action", "button"} <= set(item["explain"]["te"])
+        # ONE mixed Telugu-English explanation (owner rule 2026-10-27), no en / te pair
+        assert set(item["explain"]) == {"what", "why", "impact", "action", "button"}
         assert "check_error" not in item, item
     ranks = [{"red": 0, "orange": 1, "green": 2}[i["severity"]] for i in data["items"]]
     assert ranks == sorted(ranks)
@@ -99,9 +99,10 @@ def test_enrich_uses_real_counts_only():
     items = admin_actions.enrich([{"key": "support", "count": 2}, {"key": "demand", "count": 5},
                                   {"key": "content", "count": 0}])
     assert [i["severity"] for i in items] == ["red", "orange", "green"]
-    assert items[0]["explain"]["en"]["what"] == "2 support cases are open."
-    assert items[0]["explain"]["te"]["what"].startswith("2 ")
-    assert items[2]["explain"]["en"]["action"] == "No action needed."
+    assert items[0]["explain"]["what"] == "2 support cases open గా ఉన్నాయి."
+    assert items[0]["explain"]["button"] == "Open చేయండి"
+    assert items[2]["explain"]["action"] == "ఏమీ చేయక్కర్లేదు."
+    assert items[2]["explain"]["why"] == "" and "videos" in items[2]["explain"]["what"]
 
 
 def test_staff_see_missing_listing_details_with_sellers_masked(api):
