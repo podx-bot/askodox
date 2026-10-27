@@ -138,6 +138,11 @@ class PosPaymentAlerts:
         with store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            for column in ("confirm_basis TEXT", "confirmed_at TEXT"):  # added 2026-10-27 (ALTER, never recreate)
+                try:
+                    conn.execute(f"ALTER TABLE pos_payment_requests ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass
 
     # ------------------------------------------------------------- helpers
     def _now(self) -> datetime:
@@ -610,7 +615,19 @@ class PosPaymentAlerts:
                 "payee": row["payee"], "upi_link": link, "status": row["status"],
                 "matched_event_id": row["matched_event_id"], "created_at": row["created_at"],
                 "confirmed": row["status"] == "confirmed",
+                # notification_matched = a payment notification with this amount arrived before the shop confirmed;
+                # shop_checked = the shop confirmed WITHOUT a matching notification (said it checked its UPI / bank app).
+                "confirm_basis": row["confirm_basis"] if "confirm_basis" in row.keys() else None,
+                "confirmed_at": row["confirmed_at"] if "confirmed_at" in row.keys() else None,
+                "can_reopen": self._can_reopen(row),
                 "note": "Matched means a payment NOTIFICATION with this amount arrived -- confirm it in your bank app."}
+
+    REOPEN_WINDOW = timedelta(minutes=15)
+
+    def _can_reopen(self, row: sqlite3.Row) -> bool:
+        if row["status"] != "confirmed" or "confirmed_at" not in row.keys() or not row["confirmed_at"]:
+            return False
+        return self._now() - datetime.fromisoformat(row["confirmed_at"]) <= self.REOPEN_WINDOW
 
     def create_request(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
         amount = int(data.get("amount_paise") or 0)
@@ -631,6 +648,12 @@ class PosPaymentAlerts:
             row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?", (rid,)).fetchone()
             return self._request_out(row)
 
+    def request_public(self, request_id: str) -> Optional[Dict[str, Any]]:
+        """For the customer's token-bound pay page only (no membership: the token proves the shop shared it)."""
+        with self.store._connect() as conn:
+            row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?", (request_id,)).fetchone()
+        return self._request_out(row) if row else None
+
     def requests(self, business_id: str, user: str, status: str = "") -> List[Dict[str, Any]]:
         with self.store._connect() as conn:
             self._member(conn, business_id, user)
@@ -641,22 +664,47 @@ class PosPaymentAlerts:
             rows = conn.execute(sql + " ORDER BY created_at DESC LIMIT 50", args).fetchall()
         return [self._request_out(r) for r in rows]
 
-    def decide_request(self, business_id: str, user: str, request_id: str, action: str) -> Dict[str, Any]:
-        if action not in ("confirm", "cancel"):
-            raise PosError(400, "action", "action must be confirm or cancel.")
+    def decide_request(self, business_id: str, user: str, request_id: str, action: str, *,
+                       checked_bank: bool = False) -> Dict[str, Any]:
+        """confirm / cancel / reopen. Confirming a request NO payment notification matched needs ``checked_bank``
+        (the cashier says they saw the money in the UPI / bank app) and is recorded as such. A confirmation pressed
+        by mistake can be reopened within 15 minutes (audited)."""
+        if action not in ("confirm", "cancel", "reopen"):
+            raise PosError(400, "action", "action must be confirm, cancel or reopen.")
         with self.store._tx() as conn:
             self._member(conn, business_id, user)
             row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ? AND business_id = ?",
                                (request_id, business_id)).fetchone()
             if row is None:
                 raise PosError(404, "request", "Payment request not found.")
+            now = self._now().isoformat()
+            if action == "reopen":
+                if not self._can_reopen(row):
+                    raise PosError(409, "reopen_window", "Only a confirmation from the last 15 minutes can be undone.")
+                status = "matched" if row["matched_event_id"] else "pending"
+                conn.execute("UPDATE pos_payment_requests SET status = ?, confirm_basis = NULL, confirmed_at = NULL,"
+                             " confirmed_by = NULL, updated_at = ? WHERE id = ?", (status, now, request_id))
+                self.store._audit(conn, business_id, user, "payment_request.reopen", request_id,
+                                  {"amount_paise": row["amount_paise"], "was_confirmed_by": row["confirmed_by"]}, now)
+                return self._request_out(conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?",
+                                                      (request_id,)).fetchone())
             if row["status"] in ("confirmed", "cancelled"):
                 return self._request_out(row)
-            now = self._now().isoformat()
-            conn.execute("UPDATE pos_payment_requests SET status = ?, confirmed_by = ?, updated_at = ? WHERE id = ?",
-                         ("confirmed" if action == "confirm" else "cancelled", user, now, request_id))
+            basis = None
+            if action == "confirm":
+                if row["status"] == "matched":
+                    basis = "notification_matched"
+                elif checked_bank:
+                    basis = "shop_checked"
+                else:
+                    raise PosError(409, "not_matched", "No payment notification for this amount yet. Check your UPI /"
+                                                       " bank app first, then confirm that you saw the money.")
+            conn.execute("UPDATE pos_payment_requests SET status = ?, confirmed_by = ?, confirm_basis = ?,"
+                         " confirmed_at = ?, updated_at = ? WHERE id = ?",
+                         ("confirmed" if action == "confirm" else "cancelled", user, basis,
+                          now if action == "confirm" else None, now, request_id))
             self.store._audit(conn, business_id, user, f"payment_request.{action}", request_id,
-                              {"amount_paise": row["amount_paise"]}, now)
+                              {"amount_paise": row["amount_paise"], "basis": basis}, now)
             return self._request_out(conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?",
                                                   (request_id,)).fetchone())
 

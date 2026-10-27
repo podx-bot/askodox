@@ -152,3 +152,69 @@ def test_live_platform_checkout_never_collects_order_money(monkeypatch):
     with _pytest.raises(HTTPException) as err:
         orders._online_payment(SimpleNamespace(), None, order, "start_online", None)
     assert err.value.status_code == 409 and "does not collect" in err.value.detail
+
+
+def test_confirm_without_notification_needs_bank_check_and_can_be_undone(shop):
+    store, pm, alerts, biz, clock = shop
+    pm.add(OWNER, {"kind": "upi", "upi_id": "lk@ybl", "payee_name": "Lakshmi Kirana"})
+    req = alerts.create_request(biz, CASHIER, {"amount_paise": 1000})
+    with pytest.raises(PosError) as err:
+        alerts.decide_request(biz, CASHIER, req["id"], "confirm")
+    assert err.value.code == "not_matched", "a tap before any payment notification never confirms by itself"
+    done = alerts.decide_request(biz, CASHIER, req["id"], "confirm", checked_bank=True)
+    assert done["status"] == "confirmed" and done["confirm_basis"] == "shop_checked" and done["can_reopen"]
+    back = alerts.decide_request(biz, CASHIER, req["id"], "reopen")
+    assert back["status"] == "pending" and back["confirm_basis"] is None
+    alerts.report(biz, OWNER, {"client_event_id": f"{PHONEPE}|k9|9", "source_app": PHONEPE, "amount_paise": 1000})
+    done = alerts.decide_request(biz, CASHIER, req["id"], "confirm")
+    assert done["confirm_basis"] == "notification_matched"
+    clock["now"] += timedelta(minutes=16)
+    with pytest.raises(PosError) as err:
+        alerts.decide_request(biz, CASHIER, req["id"], "reopen")
+    assert err.value.code == "reopen_window"
+    assert alerts.request_public(req["id"])["amount_paise"] == 1000
+
+
+def test_customer_pay_page_is_token_bound():
+    from fastapi.testclient import TestClient
+
+    from app.api.routes.pos import _pay_token
+    from server import app
+
+    client = TestClient(app)
+    assert client.get("/pay/upi/nope?t=bad").status_code == 404
+
+    class R:  # minimal request stand-in for the token helper
+        class app:
+            class state:
+                from server import container
+    token = _pay_token(R, "nope")
+    assert len(token) == 20 and client.get(f"/pay/upi/nope?t={token}").status_code == 404, "unknown id"
+
+
+def test_share_link_opens_customer_upi_app_page(monkeypatch):
+    from dataclasses import replace
+
+    from fastapi.testclient import TestClient
+
+    from app.services import rate_limit
+    from app.services.session_tokens import issue_token
+    from server import app, container
+
+    rate_limit.reset_for_tests()
+    monkeypatch.setattr(container, "settings", replace(container.settings, secrets_key="k" * 40))
+    monkeypatch.setattr(container, "payment_methods", None, raising=False)
+    owner = "app-phone-9411100777"
+    auth = {"Authorization": f"Bearer {issue_token(owner, container.settings.session_token_secret)}"}
+    client = TestClient(app)
+    biz = client.post("/api/pos/businesses", headers=auth, json={"name": "Ravi Stores", "state_code": "37"}).json()
+    biz_id = biz.get("id") or biz["business"]["id"]
+    method = client.post("/api/me/payment-methods", headers=auth,
+                         json={"kind": "upi", "upi_id": "ravi@ybl", "payee_name": "Ravi Stores"}).json()["methods"][0]
+    assert client.put(f"/api/pos/businesses/{biz_id}/collect", headers=auth, json={"method_id": method["id"]}).status_code == 200
+    req = client.post(f"/api/pos/businesses/{biz_id}/collect/requests", headers=auth, json={"amount_paise": 25000}).json()
+    assert "/pay/upi/" in req["share_url"]
+    page = client.get("/" + req["share_url"].split("/", 3)[3])
+    assert page.status_code == 200 and "₹250" in page.text and "upi://pay?pa=ravi@ybl" in page.text
+    bad = client.post(f"/api/pos/businesses/{biz_id}/collect/requests/{req['id']}", headers=auth, json={"action": "confirm"})
+    assert bad.status_code == 409
