@@ -140,24 +140,28 @@ class AskodoxPlansScreen extends ConsumerWidget {
     if (!context.mounted) return;
     await showDialog<void>(
         context: context,
-        builder: (_) => _PaymentStatusDialog(purchaseId: started.purchaseId!, repo: repo, t: t));
+        builder: (_) => AskodoxPaymentStatusDialog(purchaseId: started.purchaseId!, repo: repo, t: t));
     ref.invalidate(plansProvider);
   }
 }
 
 /// Shows the server's status for one purchase; "Check status" asks again
 /// (the server reads it back from Razorpay). Nothing here marks a payment paid.
-class _PaymentStatusDialog extends StatefulWidget {
-  const _PaymentStatusDialog({required this.purchaseId, required this.repo, required this.t});
+class AskodoxPaymentStatusDialog extends StatefulWidget {
+  const AskodoxPaymentStatusDialog(
+      {super.key, required this.purchaseId, required this.repo, required this.t, this.credits = false});
   final String purchaseId;
+
+  /// AI Credits pack instead of a plan (different words for ACTIVE / TEST_PAID).
+  final bool credits;
   final PlansRepository repo;
   final String Function(String, String) t;
 
   @override
-  State<_PaymentStatusDialog> createState() => _PaymentStatusDialogState();
+  State<AskodoxPaymentStatusDialog> createState() => AskodoxPaymentStatusDialogState();
 }
 
-class _PaymentStatusDialogState extends State<_PaymentStatusDialog> {
+class AskodoxPaymentStatusDialogState extends State<AskodoxPaymentStatusDialog> {
   String? _status;
   bool _busy = false;
 
@@ -177,6 +181,10 @@ class _PaymentStatusDialogState extends State<_PaymentStatusDialog> {
     final text = switch (_status) {
       null => t('Finish the payment on the Razorpay page, then tap Check status.',
           'Razorpay పేజీలో చెల్లింపు పూర్తి చేసి, Check status నొక్కండి.'),
+      'ACTIVE' when widget.credits =>
+        t('Paid. AI Credits were added to your balance.', 'చెల్లింపు అయింది. AI Credits మీ బ్యాలెన్స్‌లో చేరాయి.'),
+      'TEST_PAID' when widget.credits => t('Test payment confirmed: TEST credits added (sandbox money, not real).',
+          'టెస్ట్ చెల్లింపు నిర్ధారణ: TEST credits చేరాయి (sandbox, నిజమైన డబ్బు కాదు).'),
       'ACTIVE' => t('Paid. Your plan is active.', 'చెల్లింపు అయింది. మీ ప్లాన్ యాక్టివ్.'),
       'TEST_PAID' => t('Test payment confirmed. TEST mode: no plan was activated.',
           'టెస్ట్ చెల్లింపు నిర్ధారణ అయింది. టెస్ట్ మోడ్: ఏ ప్లాన్ యాక్టివ్ కాలేదు.'),

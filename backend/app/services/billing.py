@@ -39,6 +39,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services import tester_identity
+from app.services.ai_credits import AUDIENCE as CREDITS_AUDIENCE
 from app.services.travel_radio import ADDON_AUDIENCE
 
 import logging
@@ -195,7 +196,7 @@ def checkout(container: Any, user_id: str, plan_code: str) -> Dict[str, Any]:
     if not feature_enabled(container, "payments.online"):
         raise BillingError("PAYMENTS_OFF")
     plan = growth(container).plan(plan_code)
-    if not plan or str(plan.get("audience") or "") not in ("base", ADDON_AUDIENCE):
+    if not plan or str(plan.get("audience") or "") not in ("base", ADDON_AUDIENCE, CREDITS_AUDIENCE):
         raise BillingError("UNKNOWN_PLAN", 404)
     provider = pf.checkout_provider()
     if not provider:
@@ -204,7 +205,7 @@ def checkout(container: Any, user_id: str, plan_code: str) -> Dict[str, Any]:
     reason = eligibility(container, user_id, plan, mode)
     if reason:
         raise BillingError(reason)
-    kind = "radio" if plan["audience"] == ADDON_AUDIENCE else "base"
+    kind = {ADDON_AUDIENCE: "radio", CREDITS_AUDIENCE: "credits"}.get(plan["audience"], "base")
     if kind == "radio" and not feature_enabled(container, RADIO_FLAG):
         raise BillingError("RADIO_BILLING_OFF")
     purchase = store(container).create(user_id=user_id, plan_code=plan["code"], kind=kind,
@@ -240,13 +241,14 @@ def options(container: Any, user_id: str) -> Dict[str, Any]:
     mode = (pf.registry.status(provider).get("mode") or "test") if provider else None
     items = []
     for plan in growth(container).plans():
-        if str(plan.get("audience") or "") not in ("base", ADDON_AUDIENCE):
+        if str(plan.get("audience") or "") not in ("base", ADDON_AUDIENCE, CREDITS_AUDIENCE):
             continue
         reason = "NO_PAYMENT_GATEWAY" if not provider else eligibility(container, user_id, plan, mode or "test")
         if not reason and plan["audience"] == ADDON_AUDIENCE and not feature_enabled(container, RADIO_FLAG):
             reason = "RADIO_BILLING_OFF"
         items.append({"plan_code": plan["code"], "price": plan["price"], "payable": reason is None,
-                      "reason": reason})
+                      "reason": reason, "kind": {ADDON_AUDIENCE: "radio", CREDITS_AUDIENCE: "credits"}.get(
+                          plan["audience"], "base")})
     key = phone_key(user_id)
     account = {"phone_last4": key[-4:] if key else "", "billing_tester": store(container).is_tester(user_id),
                "demo_account": tester_identity.is_demo_account(user_id)}
@@ -348,11 +350,22 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
     plan = growth(container).plan(purchase["plan_code"]) or {"code": purchase["plan_code"]}
     if status == "PAID" and purchase["status"] in OPEN_STATES and purchase.get("mode") != "live":
         # TEST (sandbox) money: the flow is proven, but no real entitlement is created.
+        if purchase["kind"] == "credits":  # separate, labelled TEST balance (billing testers rehearse spending)
+            from app.api.routes.ai_credits import ai_credits
+
+            ai_credits(container).topup(purchase["user_id"], paise=_credits_paise(plan, purchase), mode="test",
+                                        purchase_id=purchase["id"])
         purchase = store(container).update(purchase["id"], status="TEST_PAID")
         store(container).log(purchase["id"], "test_paid_no_entitlement", "gateway", {"payment_id": payment["id"]})
         _notify(container, purchase, "test_paid")
     elif status == "PAID" and purchase["status"] in OPEN_STATES:
-        if purchase["kind"] == "radio":
+        if purchase["kind"] == "credits":
+            from app.api.routes.ai_credits import ai_credits
+
+            ai_credits(container).topup(purchase["user_id"], paise=_credits_paise(plan, purchase), mode="live",
+                                        purchase_id=purchase["id"])
+            target = {"id": purchase["id"]}
+        elif purchase["kind"] == "radio":
             target = radio(container).activate_paid(purchase["user_id"], plan, payment_id=payment["id"])
         else:
             target = growth(container).activate_paid(purchase["user_id"], plan, payment_id=payment["id"])
@@ -363,7 +376,11 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
         purchase = store(container).update(purchase["id"], status="FAILED")
         store(container).log(purchase["id"], "payment_failed", "gateway")
     elif status == "REFUNDED" and purchase["status"] in PAID_STATES:
-        if purchase.get("target_id") and purchase["status"] == "ACTIVE":
+        if purchase["kind"] == "credits":
+            from app.api.routes.ai_credits import ai_credits
+
+            ai_credits(container).reverse_topup(purchase["user_id"], purchase_id=purchase["id"])
+        elif purchase.get("target_id") and purchase["status"] == "ACTIVE":
             if purchase["kind"] == "radio":
                 radio(container).cancel_pass(int(purchase["target_id"]))
             else:
@@ -374,16 +391,30 @@ def on_payment(container: Any, payment: Dict[str, Any]) -> Optional[Dict[str, An
     return purchase
 
 
+def _credits_paise(plan: Dict[str, Any], purchase: Dict[str, Any]) -> int:
+    """Credits a pack gives (staff-set; never less than the price paid when no credits value is stored)."""
+    from app.services.ai_credits import pack_credits_paise
+
+    paise = pack_credits_paise(plan)
+    return paise if paise > 0 else int(round(float(purchase.get("amount") or 0) * 100))
+
+
 def _notify(container: Any, purchase: Dict[str, Any], what: str) -> None:
     try:
         from app.api.routes.platform import platform
 
-        name = "Travel Radio pass" if purchase["kind"] == "radio" else "plan"
-        body = (f"Your {name} is active." if what == "activated"
-                else f"Test payment for the {name} confirmed (TEST mode: nothing was activated)."
-                if what == "test_paid" else f"Your {name} payment was refunded.")
+        kind = purchase["kind"]
+        name = {"radio": "Travel Radio pass", "credits": "AI Credits"}.get(kind, "plan")
+        if kind == "credits":
+            body = ("AI Credits added to your balance." if what == "activated"
+                    else "Test payment confirmed: TEST credits added (sandbox money, not real credits)."
+                    if what == "test_paid" else "AI Credits payment refunded: those credits were removed.")
+        else:
+            body = (f"Your {name} is active." if what == "activated"
+                    else f"Test payment for the {name} confirmed (TEST mode: nothing was activated)."
+                    if what == "test_paid" else f"Your {name} payment was refunded.")
         platform(container).push().notify_async(purchase["user_id"], title="ASKODOX", body=body,
-                                                route="/radio" if purchase["kind"] == "radio" else "/plans",
+                                                route={"radio": "/radio", "credits": "/me/ai-credits"}.get(kind, "/plans"),
                                                 event_key=f"billing:{purchase['id']}:{what}")
     except Exception:
         pass

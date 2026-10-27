@@ -371,6 +371,11 @@ def create_app() -> FastAPI:
     from app.api.routes.payment_methods import router as payment_methods_router
 
     app.include_router(payment_methods_router)
+    from app.api.routes.ai_credits import admin_router as ai_credits_admin_router
+    from app.api.routes.ai_credits import router as ai_credits_router
+
+    app.include_router(ai_credits_router)
+    app.include_router(ai_credits_admin_router)
     from app.api.routes.screen_guide import admin_router as screen_guide_admin_router, router as screen_guide_router
 
     app.include_router(screen_guide_router)

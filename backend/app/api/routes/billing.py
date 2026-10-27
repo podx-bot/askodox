@@ -320,7 +320,7 @@ def billing_status(request: Request) -> dict:
         "firebase": readiness_for(pf.push()),
         "plans": [{"code": p["code"], "audience": p["audience"], "price": p["price"], "period_days": p["period_days"],
                    "trial_days": p["trial_days"], "on_sale": p["active"]} for p in plans
-                  if p.get("audience") in ("base", "addon_radio")],
+                  if p.get("audience") in ("base", "addon_radio", "ai_credits")],
         "testers": billing.store(container).testers(),
         "purchases": billing.store(container).list(limit=50),
     }
