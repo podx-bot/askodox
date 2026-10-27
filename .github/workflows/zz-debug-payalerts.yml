@@ -18,7 +18,7 @@ jobs:
         run: |
           flutter analyze --no-fatal-warnings --no-fatal-infos > an.txt 2>&1 || true
           grep -E "error|warning|info" an.txt | head -20 > fails.txt || true
-          flutter test --reporter expanded > out.txt 2>&1 || true
+          flutter test test/features/pos test/features/home/history_explore_profile_test.dart test/features/guide --reporter expanded > out.txt 2>&1 || true
           grep -E "\[E\]|Some tests failed|tests passed" out.txt | head -20 >> fails.txt || true
           grep -n -A12 "EXCEPTION CAUGHT\|TestFailure was thrown\|assertion was thrown" out.txt | grep -v "^--$" | head -150 >> fails.txt
           python3 - <<'PY'
