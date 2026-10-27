@@ -50,8 +50,14 @@ def save(db_path: str, user_id: str, conversation_id: str, snapshot: Dict[str, A
                                 (user_id, cid)).fetchone()
         if existing is not None and existing["updated_at"] > updated:
             return {"saved": False, "reason": "newer_copy_kept", "id": cid}  # an older phone copy never wins
-        conn.execute("INSERT OR REPLACE INTO conversation_backups (user_id, conversation_id, title, status, updated_at,"
-                     " snapshot, saved_at) VALUES (?,?,?,?,?,?,?)", (user_id, cid, title, status, updated, raw, time.time()))
+        # saved_at moves only when the chat really changed (a re-sync of the same copy keeps it), so a cleared
+        # personalization is not brought back by a phone re-sending old chats.
+        conn.execute("INSERT INTO conversation_backups (user_id, conversation_id, title, status, updated_at, snapshot,"
+                     " saved_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(user_id, conversation_id) DO UPDATE SET title ="
+                     " excluded.title, status = excluded.status, snapshot = excluded.snapshot, saved_at = CASE WHEN"
+                     " excluded.updated_at > conversation_backups.updated_at THEN excluded.saved_at ELSE"
+                     " conversation_backups.saved_at END, updated_at = excluded.updated_at",
+                     (user_id, cid, title, status, updated, raw, time.time()))
         conn.execute("DELETE FROM conversation_backups WHERE user_id=? AND conversation_id NOT IN (SELECT conversation_id"
                      " FROM conversation_backups WHERE user_id=? ORDER BY updated_at DESC LIMIT ?)",
                      (user_id, user_id, MAX_CONVERSATIONS))
@@ -83,12 +89,14 @@ def delete(db_path: str, user_id: str, conversation_id: str | None = None) -> in
     return n
 
 
-def recent_requests(db_path: str, user_id: str, limit: int = 8) -> List[str]:
-    """Short lines of what this user asked before (their own words, newest first) for the brain."""
+def recent_requests(db_path: str, user_id: str, limit: int = 8, *, since: float | None = None) -> List[str]:
+    """Short lines of what this user asked before (their own words, newest first) for the brain.
+    ``since`` (server epoch): only chats saved after it -- the person cleared their personalization then."""
     lines: List[str] = []
     with closing(_connect(db_path)) as conn:
         rows = conn.execute("SELECT title, status, updated_at FROM conversation_backups WHERE user_id=? AND title != ''"
-                            " ORDER BY updated_at DESC LIMIT ?", (user_id, limit)).fetchall()
+                            " AND (? IS NULL OR saved_at > ?) ORDER BY updated_at DESC LIMIT ?",
+                            (user_id, since, since, limit)).fetchall()
     for r in rows:
         lines.append(f"{r['updated_at'][:10]}: asked about \"{r['title'][:120]}\" ({r['status']})")
     return lines

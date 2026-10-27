@@ -6815,7 +6815,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               child: Text(
                   match.disclosure?.trim().isNotEmpty == true
                       ? askodoxVideoDisclosure(match.disclosure, telugu: _te)
-                      : 'Affiliate link',
+                      : (_te ? 'Affiliate link — ASKODOX కి commission రావచ్చు' : 'Affiliate link'),
                   maxLines: compact ? 1 : null,
                   overflow: compact ? TextOverflow.ellipsis : null,
                   style: const TextStyle(color: _muted, fontSize: 11)),
@@ -6848,7 +6848,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       if (m.ratingAverage != null) (te ? 'రేటింగ్' : 'Rating', '★ ${m.ratingAverage!.toStringAsFixed(1)} (${m.reviewCount})'),
       if (m.destinationUrl?.trim().isNotEmpty == true) (te ? 'లింక్' : 'Link', m.destinationUrl!.trim()),
       if (m.affiliate || m.disclosure?.trim().isNotEmpty == true)
-        (te ? 'గమనిక' : 'Note', m.disclosure?.trim().isNotEmpty == true ? m.disclosure!.trim() : 'Affiliate link'),
+        (te ? 'గమనిక' : 'Note', m.disclosure?.trim().isNotEmpty == true
+            ? askodoxVideoDisclosure(m.disclosure, telugu: te)
+            : (te ? 'Affiliate link — ASKODOX కి commission రావచ్చు' : 'Affiliate link')),
     ];
     showModalBottomSheet<void>(
       context: context,

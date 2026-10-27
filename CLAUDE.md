@@ -469,6 +469,9 @@ this file, don't trust it blindly.
   `_remember`): role buyer / seller / service_provider / service_taker (= seeking services
   or jobs), same need UPDATES (history), secrets dropped / masked, private unless consent,
   deleted with the account. Separate from the live demand records.
+- Personalization consent: `/api/me/memory` returns `chosen` (False = ON by default, never decided -> the memory screen
+  asks once) and `cleared_at`; "delete all memory" also stops EARLIER chats (`conversation_backup.recent_requests(since=
+  cleared_at)` on server `saved_at`, which an unchanged re-sync never bumps) from personalizing answers.
 - My Business sections = `askodoxBusinessSections` (insights / Analytics first, then
   sections). New sections need a real route; Home must never link My Business.
 - API Health & Billing (`api_billing.py`): a balance is REAL only from the provider
@@ -584,9 +587,12 @@ this file, don't trust it blindly.
 - App icon / splash = COMMITTED PNGs in android/app/src/main/res (adaptive mipmaps, drawable-nodpi/askodox_splash_mark.png);
   source art `assets/brand/askodox_logo_source.svg`; in-app `AskodoxLogo`. `tool/apply_android_askodox_branding.sh` must never
   write launcher / splash files again (it only checks they exist).
-- Command Center console map = `admin_console_nav.py` (heading -> category -> page, en + te, guide what / do). A new console
-  view or schema resource needs exactly one entry there or `tests/test_admin_console_nav.py` fails. Errors in the console go
-  through `explainError` / `errText` (why / what to do by HTTP status, en + te).
+- Command Center console map = `admin_console_nav.py` (heading -> category -> page; ONE mixed Telugu-English `label` /
+  `what` / `do` per item -- "Payment స్థితి", never "English · తెలుగు" or a stacked Telugu line). A new console view or
+  schema resource needs exactly one entry there or `tests/test_admin_console_nav.py` fails. View titles come from the
+  nav label (`head()` -> `labelOf(VIEW)`). Errors go through `explainError` / `errText` (ONE mixed why / what-to-do per
+  HTTP status). Work queue `admin_actions.enrich` -> `explain` = one mixed {what, why, impact, action, button};
+  incidents: the console reads `?language=te` (= the mixed text).
 - POS payment voice alerts = `pos_payment_alerts.py` (events, dedupe, devices, acks, fan-out; phone events are ALWAYS
   `notification_unverified`) + `pos_payment_providers.py` (the shop's OWN Razorpay: encrypted keys, UPI QR, signed webhook
   `/api/pos/payment-webhooks/razorpay/{id}` + Razorpay API re-check -> `record_verified`; live keys only with

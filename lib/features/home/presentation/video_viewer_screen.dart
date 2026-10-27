@@ -134,6 +134,8 @@ String askodoxVideoDisclosure(String? disclosure, {bool telugu = false}) {
     "Creator's opinion" => 'క్రియేటర్ అభిప్రాయం',
     'Sponsored' => 'స్పాన్సర్డ్',
     'Affiliate -- ASKODOX may earn a commission' => 'అఫిలియేట్ -- ASKODOXకి కమీషన్ రావచ్చు',
+    'Affiliate link' => 'Affiliate link — ASKODOX కి commission రావచ్చు',
+    'Promoted' => 'ప్రమోట్ చేయబడింది',
     _ => text,
   };
 }

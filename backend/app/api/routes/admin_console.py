@@ -74,18 +74,18 @@ td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}tr.r:hove
 .hist{font-size:12.5px;border-left:2px solid var(--line);padding-left:12px}.hist div{margin-bottom:10px}
 .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}.muted{color:var(--muted)}.right{margin-left:auto}
 .menu{display:none}
-.logo svg{flex:none}.te{color:var(--muted);font-weight:500;font-size:.86em}h1 .te{font-size:.7em}
+.logo svg{flex:none}
 aside a small{color:#8f9ab8;font-size:12.5px}aside a.on small{color:#e9e4ff}aside a.sec{font-weight:600;margin-top:2px}aside a.sec.open{background:var(--side2)}
 .sub-nav{margin:2px 0 8px 10px;border-left:1px solid #2a3558;padding-left:6px}.sub-nav .grp{padding:10px 8px 4px;font-size:10.5px}.sub-nav a{font-size:13px;padding:6px 8px}
 .crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-bottom:10px}.crumbs a{cursor:pointer;color:var(--brand)}.crumbs .gbtn{margin-left:auto;font-size:12px;padding:5px 10px;background:var(--infobg);color:var(--info);border-color:transparent}
 .guide{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px}.guide .muted{grid-column:1/-1;font-size:12px}
-.errx{border-left:4px solid var(--bad);font-size:13px}.errx .te{margin-top:2px}
+.errx{border-left:4px solid var(--bad);font-size:13px}
 .stiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:24px}
 .stile{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:16px;padding:16px;cursor:pointer;transition:transform .12s,box-shadow .12s}
 .stile:hover,.tile:hover{transform:translateY(-2px);box-shadow:0 10px 28px #10182818}.stile .si{font-size:28px}.stile .st b{font-size:16px}.stile .sm{margin-top:auto;font-size:12px;color:var(--muted)}
 .tw{font-size:12.5px;margin-top:4px;line-height:1.35}
 .sechead{display:flex;gap:14px;align-items:flex-start;margin-bottom:8px}.sechead .si{font-size:34px;background:color-mix(in srgb,var(--c) 14%,transparent);border-radius:14px;padding:8px 10px;line-height:1}
-.cath{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:22px 0 10px}.cath .te{text-transform:none;letter-spacing:0}
+.cath{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:22px 0 10px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;transition:transform .12s,box-shadow .12s}.tile .tt{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
 .todo{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:8px}.tcard{border-left:4px solid var(--warn);font-size:13px}.tcard.lvl-red{border-left-color:var(--bad)}.okcard{border-left:4px solid var(--ok)}
@@ -93,17 +93,17 @@ aside a small{color:#8f9ab8;font-size:12.5px}aside a.on small{color:#e9e4ff}asid
 @media(max-width:900px){#env,.who{display:none}.hits{width:92vw}.app{grid-template-columns:1fr}aside{position:fixed;left:-260px;width:248px;z-index:30;transition:left .2s}aside.open{left:0}.menu{display:inline-block}.page{padding:14px}}
 </style></head><body>
 <div id="login" class="login" style="display:none">
-  <h2>ASKODOX Console</h2><div class="muted">Sign in with the owner admin key or your staff token.<br>Owner admin key లేదా మీ staff token తో sign in చేయండి.</div>
+  <h2>ASKODOX Console</h2><div class="muted">Owner admin key లేదా మీ staff token తో sign in చేయండి.</div>
   <input id="cred" type="password" placeholder="Admin key or staff token (stf_...)" autocomplete="off">
-  <button class="p" onclick="signIn()">Sign in · లోపలికి</button> <span id="lerr" class="err"></span>
+  <button class="p" onclick="signIn()">Sign in చేయండి</button> <span id="lerr" class="err"></span>
 </div>
 <div id="app" class="app" style="display:none">
   <aside id="side"></aside>
   <main>
     <div class="top">
       <button class="menu" onclick="document.querySelector('#side').classList.toggle('open')">☰</button>
-      <div class="search"><input class="q" id="q" placeholder="Search pages & records · పేజీలు, రికార్డులు వెతకండి…" oninput="globalSearch(this.value)"><div class="hits" id="hits"></div></div>
-      <span id="env"></span><span class="who" id="who"></span><button onclick="signOut()">Sign out · బయటకు</button>
+      <div class="search"><input class="q" id="q" placeholder="Pages, records వెతకండి…" oninput="globalSearch(this.value)"><div class="hits" id="hits"></div></div>
+      <span id="env"></span><span class="who" id="who"></span><button onclick="signOut()">Sign out</button>
     </div>
     <div class="page"><div id="crumbs"></div><div id="page"></div></div>
   </main>
@@ -137,68 +137,68 @@ const visSecs=()=>NAV.filter(s=>visCats(s).length);
 const pend=id=>(STATE.pending||{})[id]||0;
 const secPend=s=>s.cats.reduce((a,c)=>a+visItems(c).reduce((b,i)=>b+pend(i.id),0),0);
 const secOf=v=>v.startsWith("sec:")?NAV.find(s=>s.id===v.slice(4)):(ITEMS[v]||{}).s;
-const teOf=v=>(ITEMS[v]||{}).i?ITEMS[v].i.te:"";
+const labelOf=v=>(ITEMS[v]||{}).i?ITEMS[v].i.label:"";
 const LOGO='<svg viewBox="0 0 108 108" width="30" height="30" aria-hidden="true"><defs><linearGradient id="lgb" x1="22" y1="24" x2="54" y2="84" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#A98BFF"/></linearGradient><linearGradient id="lga" x1="58" y1="26" x2="88" y2="82" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#D4BCFF"/><stop offset=".45" stop-color="#9B6BFF"/><stop offset="1" stop-color="#5B2EE6"/></linearGradient></defs><rect width="108" height="108" rx="24" fill="#120A24"/><g fill="none" stroke="url(#lgb)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M52,26.5 C48.5,23.5 42.5,23 39,26.5 C33.5,24.5 27.5,28 27,33.5 C21.5,35 19,40.5 21,45.5 C17,49.5 17,56.5 21,60 C18.5,65.5 21.5,71.5 27.5,72.5 C29,78.5 35,82 41,80 C44.5,82.5 49.5,82.5 52,80 L52,26.5"/><path stroke-width="3" d="M52,42 L38,42 L33,37 M52,57 L36,57 L31,52 M52,34 L44,34 M52,65 L45,65 L40,70"/></g><path fill="url(#lga)" fill-rule="evenodd" d="M57.5,26.5 L66,26.5 Q69,26.5 70.8,29 L86,51 Q88,54 86,57 L70.8,79 Q69,81.5 66,81.5 L57.5,81.5 Z M64,36.5 L64,71.5 L76.5,54 Z"/></svg>';
 function renderNav(){const cur=secOf(VIEW);
   document.querySelector("#side").innerHTML='<div class="logo">'+LOGO+'<span>ASKO<b style="color:#b794ff">DOX</b></span></div>'+
-   '<a class="'+(VIEW==="home"?"on":"")+'" onclick="go(\'home\')"><span>🏠 Home <small>· హోమ్</small></span></a>'+
+   '<a class="'+(VIEW==="home"?"on":"")+'" onclick="go(\'home\')"><span>🏠 Home</span></a>'+
    visSecs().map(s=>{const open=cur&&cur.id===s.id,n=secPend(s);
-     return '<a class="sec'+(VIEW==="sec:"+s.id?" on":"")+(open?" open":"")+'" onclick="go(\'sec:'+s.id+'\')"><span>'+s.icon+' '+esc(s.en)+' <small>· '+esc(s.te)+'</small></span>'+(n?'<span class="n">'+n+'</span>':'')+'</a>'+
-      (open?'<div class="sub-nav">'+visCats(s).map(c=>'<div class="grp">'+esc(c.en)+' · '+esc(c.te)+'</div>'+visItems(c).map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')"><span>'+esc(i.en)+'</span>'+(pend(i.id)?'<span class="n">'+pend(i.id)+'</span>':'')+'</a>').join("")).join("")+'</div>':'')}).join("")+
-   '<div class="grp">Old screens · పాతవి</div><a href="/admin"><span>Classic admin <small>· being retired</small></span></a>'}
+     return '<a class="sec'+(VIEW==="sec:"+s.id?" on":"")+(open?" open":"")+'" onclick="go(\'sec:'+s.id+'\')"><span>'+s.icon+' '+esc(s.label)+'</span>'+(n?'<span class="n">'+n+'</span>':'')+'</a>'+
+      (open?'<div class="sub-nav">'+visCats(s).map(c=>'<div class="grp">'+esc(c.label)+'</div>'+visItems(c).map(i=>'<a class="'+(VIEW===i.id?"on":"")+'" onclick="go(\''+i.id+'\')"><span>'+esc(i.label)+'</span>'+(pend(i.id)?'<span class="n">'+pend(i.id)+'</span>':'')+'</a>').join("")).join("")+'</div>':'')}).join("")+
+   '<div class="grp">పాత screens</div><a href="/admin"><span>Classic admin <small>(త్వరలో తీసేస్తాం)</small></span></a>'}
 function go(id){VIEW=id;location.hash=id;closeDrawer();document.querySelector("#side").classList.remove("open");renderNav();render()}
 let GUIDE_OPEN=true;try{GUIDE_OPEN=localStorage.getItem("askodox_console_guide")!=="0"}catch(e){}
 function toggleGuide(){GUIDE_OPEN=!GUIDE_OPEN;try{localStorage.setItem("askodox_console_guide",GUIDE_OPEN?"1":"0")}catch(e){}renderCrumbs()}
 function renderCrumbs(){const el=document.querySelector("#crumbs");if(!el)return;if(VIEW==="home"){el.innerHTML="";return}
   const s=secOf(VIEW),x=ITEMS[VIEW];let h='<div class="crumbs"><a onclick="go(\'home\')">🏠 Home</a>';
-  if(s)h+=' › <a onclick="go(\'sec:'+s.id+'\')">'+s.icon+' '+esc(s.en)+' · '+esc(s.te)+'</a>';
-  if(x)h+=' › <span>'+esc(x.c.en)+' · '+esc(x.c.te)+'</span>';
-  h+=(x?'<button class="gbtn" id="guide_btn" onclick="toggleGuide()">📘 Guide · గైడ్ '+(GUIDE_OPEN?"▲":"▼")+'</button>':'')+'</div>';
-  if(x&&GUIDE_OPEN){const i=x.i;h+='<div class="guide" id="page_guide"><div><b>What is this?</b> '+esc(i.what_en)+'<div class="te">ఇది ఏమిటి? '+esc(i.what_te)+'</div></div>'+
-    '<div><b>What to do</b> '+esc(i.do_en)+'<div class="te">ఏం చేయాలి? '+esc(i.do_te)+'</div></div>'+
-    '<div class="muted">If something fails, a red box below says why and what to do · ఏదైనా fail అయితే, కింద ఎరుపు బాక్స్ ఎందుకో, ఏం చేయాలో చెబుతుంది.</div></div>'}
+  if(s)h+=' › <a onclick="go(\'sec:'+s.id+'\')">'+s.icon+' '+esc(s.label)+'</a>';
+  if(x)h+=' › <span>'+esc(x.c.label)+'</span>';
+  h+=(x?'<button class="gbtn" id="guide_btn" onclick="toggleGuide()">📘 Guide '+(GUIDE_OPEN?"▲":"▼")+'</button>':'')+'</div>';
+  if(x&&GUIDE_OPEN){const i=x.i;h+='<div class="guide" id="page_guide"><div><b>ఇది ఏమిటి?</b> '+esc(i.what)+'</div>'+
+    '<div><b>ఏం చేయాలి?</b> '+esc(i.do)+'</div>'+
+    '<div class="muted">ఏదైనా fail అయితే, కింద red box ఎందుకో, ఏం చేయాలో చెబుతుంది.</div></div>'}
   el.innerHTML=h}
-/* Why did this error come / what to do -- from the HTTP answer, en + te. */
-const ERR_T={0:["The server could not be reached (internet or server down).","సర్వర్ అందలేదు (ఇంటర్నెట్ లేదా సర్వర్ ఆగిపోయింది).","Check your internet and reload. If it continues, open System › Incidents.","ఇంటర్నెట్ చూసి reload చేయండి. ఇంకా వస్తే System › Incidents చూడండి."],
-   400:["Some entered value is not accepted.","నమోదు చేసిన ఒక విలువ సరిగ్గా లేదు.","Read the message, correct that field and try again.","మెసేజ్ చదివి, ఆ field సరిచేసి మళ్ళీ ప్రయత్నించండి."],
-   401:["Your sign-in expired or the key is wrong.","మీ sign-in గడువు అయిపోయింది లేదా key తప్పు.","Sign out and sign in again with your key / staff token.","Sign out చేసి మీ key / staff token తో మళ్ళీ sign in చేయండి."],
-   403:["Your role is not allowed to do this.","మీ role కి ఈ పని చేసే అనుమతి లేదు.","Ask the owner to give this permission in People › Staff & roles.","People › Staff & roles లో ఈ అనుమతి ఇవ్వమని owner ని అడగండి."],
-   404:["This item or feature is not on this server (deleted, or not deployed yet).","ఈ item / feature ఈ సర్వర్‌లో లేదు (delete అయింది లేదా ఇంకా deploy కాలేదు).","Reload the list. If a whole page says this, the server is on an older version.","లిస్ట్ reload చేయండి. పూర్తి పేజీ ఇలా చెప్తే, సర్వర్ పాత version లో ఉంది."],
-   409:["It conflicts with the current state (already done or changed by someone else).","ఇప్పటి స్థితికి సరిపోలడం లేదు (ఇప్పటికే అయింది లేదా వేరెవరో మార్చారు).","Reload, check the latest state, then try again.","Reload చేసి, తాజా స్థితి చూసి మళ్ళీ ప్రయత్నించండి."],
-   422:["A required field is missing or in the wrong format.","అవసరమైన field లేదు లేదా format తప్పు.","Fill the fields marked * in the right format.","* ఉన్న fields సరైన format లో నింపండి."],
-   429:["Too many tries in a short time; the server is protecting itself.","తక్కువ సమయంలో ఎక్కువ ప్రయత్నాలు; సర్వర్ తనను కాపాడుకుంటోంది.","Wait a minute, then try again.","ఒక నిమిషం ఆగి మళ్ళీ ప్రయత్నించండి."],
-   500:["The server hit an error while doing this.","ఈ పని చేస్తుండగా సర్వర్‌లో error వచ్చింది.","Try once more. If it repeats, open System › Incidents - it is recorded there.","ఒకసారి మళ్ళీ ప్రయత్నించండి. మళ్ళీ వస్తే System › Incidents చూడండి - అక్కడ నమోదవుతుంది."],
-   503:["An outside service (or this feature) is not set up or is down.","ఒక బయటి సర్వీస్ (లేదా ఈ feature) సెటప్ కాలేదు లేదా ఆగిపోయింది.","Open System › Integration readiness and run its check.","System › Integration readiness ఓపెన్ చేసి check చేయండి."]};
+/* Why did this error come / what to do -- from the HTTP answer, ONE mixed Telugu-English text. */
+const ERR_T={0:["Server అందలేదు (internet లేదా server down).","Internet చూసి reload చేయండి. ఇంకా వస్తే System › Incidents చూడండి."],
+   400:["మీరు ఇచ్చిన ఒక value సరిగ్గా లేదు.","Message చదివి, ఆ field సరిచేసి మళ్ళీ try చేయండి."],
+   401:["Sign-in గడువు అయిపోయింది, లేదా Key తప్పు.","Sign out చేసి, మీ key / staff token తో మళ్ళీ sign in చేయండి."],
+   403:["మీ role కి ఈ పని చేసే permission లేదు.","People › Staff & Roles లో ఈ permission ఇవ్వమని owner ని అడగండి."],
+   404:["ఈ item / feature ఈ server లో లేదు (delete అయింది, లేదా ఇంకా deploy కాలేదు).","List reload చేయండి. పూర్తి page ఇలా చెప్తే, server పాత version లో ఉంది."],
+   409:["ఇప్పటి స్థితికి సరిపోలడం లేదు (ఇప్పటికే అయిపోయింది, లేదా వేరెవరో మార్చారు).","Reload చేసి, తాజా స్థితి చూసి మళ్ళీ try చేయండి."],
+   422:["అవసరమైన field లేదు, లేదా format తప్పు.","* ఉన్న fields సరైన format లో నింపండి."],
+   429:["తక్కువ time లో చాలా ప్రయత్నాలు — server తనను కాపాడుకుంటోంది.","ఒక నిమిషం ఆగి మళ్ళీ try చేయండి."],
+   500:["ఈ పని చేస్తుండగా server లో error వచ్చింది.","ఒకసారి మళ్ళీ try చేయండి. మళ్ళీ వస్తే System › Incidents చూడండి — అక్కడ record అవుతుంది."],
+   503:["ఒక బయటి service (లేదా ఈ feature) setup కాలేదు, లేదా down లో ఉంది.","System › Integration సిద్ధత open చేసి Check నొక్కండి."]};
 function errWhy(e){const st=e&&e.status||0;return ERR_T[st]||ERR_T[st>=500?500:st>=400?400:0]}
-function errText(e){const t=errWhy(e);return String(e&&e.message||e)+"\n\nWhy: "+t[0]+"\nఎందుకు: "+t[1]+"\n\nWhat to do: "+t[2]+"\nఏం చేయాలి: "+t[3]}
+function errText(e){const t=errWhy(e);return String(e&&e.message||e)+"\n\nఎందుకు? "+t[0]+"\nఏం చేయాలి? "+t[1]}
 function explainError(e){const st=e&&e.status||0,m=String(e&&e.message||""),t=errWhy(e);
-  return '<div class="card errx"><b>⚠️ Could not complete · పూర్తి కాలేదు</b>'+(m?'<div class="mono muted" style="margin:6px 0">'+esc(m)+(st?' (HTTP '+st+')':'')+'</div>':'')+
-   '<div><b>Why?</b> '+t[0]+'<div class="te">ఎందుకు? '+t[1]+'</div></div><div style="margin-top:6px"><b>What to do</b> '+t[2]+'<div class="te">ఏం చేయాలి? '+t[3]+'</div></div></div>'}
-async function render(){const p=document.querySelector("#page");renderCrumbs();p.innerHTML='<div class="muted">Loading… · లోడ్ అవుతోంది…</div>';
+  return '<div class="card errx"><b>⚠️ పని పూర్తి కాలేదు</b>'+(m?'<div class="mono muted" style="margin:6px 0">'+esc(m)+(st?' (HTTP '+st+')':'')+'</div>':'')+
+   '<div><b>ఎందుకు?</b> '+t[0]+'</div><div style="margin-top:6px"><b>ఏం చేయాలి?</b> '+t[1]+'</div></div>'}
+async function render(){const p=document.querySelector("#page");renderCrumbs();p.innerHTML='<div class="muted">Load అవుతోంది…</div>';
   try{if(VIEW==="home")return await home();if(VIEW.startsWith("sec:"))return sectionPage(VIEW.slice(4));
     if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={commissions,wizard,kycqueue,dashboard,analytics,insights,sponsored,benefits,referrals,radioadmin,plansadmin,billingadmin,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,affhub,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports,apibilling,incidents,aicredits}[VIEW];await (f||home)()}
   catch(e){p.innerHTML=explainError(e)}}
-function tile(i){return '<div class="tile" data-id="'+esc(i.id)+'" onclick="go(\''+i.id+'\')"><div class="tt"><b>'+esc(i.en)+'</b>'+(pend(i.id)?'<span class="badge b-warn">'+pend(i.id)+' to review</span>':'')+'</div><div class="te">'+esc(i.te)+'</div><div class="muted tw">'+esc(i.what_en)+'</div><div class="muted tw te2">'+esc(i.what_te)+'</div></div>'}
+function tile(i){return '<div class="tile" data-id="'+esc(i.id)+'" onclick="go(\''+i.id+'\')"><div class="tt"><b>'+esc(i.label)+'</b>'+(pend(i.id)?'<span class="badge b-warn">'+pend(i.id)+' review కావాలి</span>':'')+'</div><div class="muted tw">'+esc(i.what)+'</div></div>'}
 function sectionPage(id){const s=NAV.find(x=>x.id===id);if(!s)return home();
-  document.querySelector("#page").innerHTML='<div class="sechead" style="--c:'+s.color+'"><span class="si">'+s.icon+'</span><div><h1>'+esc(s.en)+' <span class="te">· '+esc(s.te)+'</span></h1><div class="sub">'+esc(s.what_en)+'<br>'+esc(s.what_te)+'</div></div></div>'+
-   visCats(s).map(c=>'<h3 class="cath">'+esc(c.en)+' <span class="te">· '+esc(c.te)+'</span></h3><div class="tiles">'+visItems(c).map(tile).join("")+'</div>').join("")}
+  document.querySelector("#page").innerHTML='<div class="sechead" style="--c:'+s.color+'"><span class="si">'+s.icon+'</span><div><h1>'+esc(s.label)+'</h1><div class="sub">'+esc(s.what)+'</div></div></div>'+
+   visCats(s).map(c=>'<h3 class="cath">'+esc(c.label)+'</h3><div class="tiles">'+visItems(c).map(tile).join("")+'</div>').join("")}
 async function home(){const pg=document.querySelector("#page");
   const secs=visSecs().map(s=>{const n=secPend(s),cnt=visCats(s).reduce((a,c)=>a+visItems(c).length,0);
-    return '<div class="stile" data-sec="'+s.id+'" style="--c:'+s.color+'" onclick="go(\'sec:'+s.id+'\')"><div class="si">'+s.icon+'</div><div class="st"><b>'+esc(s.en)+'</b><div class="te">'+esc(s.te)+'</div><div class="muted tw">'+esc(s.what_en)+'</div><div class="muted tw">'+esc(s.what_te)+'</div></div><div class="sm">'+cnt+' pages'+(n?' · <span class="badge b-warn">'+n+' to review</span>':'')+'</div></div>'}).join("");
-  pg.innerHTML='<h1>Command Center <span class="te">· కమాండ్ సెంటర్</span></h1><div class="sub">Namaste '+esc(ME.name||"")+' 👋 Pick a heading below, or read what needs you today. · కింద ఒక heading ఎంచుకోండి, లేదా ఈరోజు చూడాల్సినవి చదవండి.</div>'+
-   '<h3 class="cath">Today · ఈరోజు ఏమి చూడాలి</h3><div id="home_today"><div class="muted">Checking… · చెక్ చేస్తున్నాం…</div></div>'+
-   '<h3 class="cath">Everything · అన్నీ ఒకే చోట</h3><div class="stiles">'+secs+'</div>';
-  const out=[];const add=(lvl,en,te,why_en,why_te,view,btn)=>out.push({lvl,en,te,why_en,why_te,view,btn});
-  try{if(can("overview:view")){const w=await call("staff/work-queue");(w.items||[]).filter(i=>i.count).slice(0,6).forEach(i=>{const en=(i.explain||{}).en||{},te=(i.explain||{}).te||{};
-      const v=String(i.where||"").includes("#")?String(i.where).split("#")[1]:"workqueue";add(i.severity||"orange",(i.icon||"")+" "+(en.what||i.title)+" · "+i.count,te.what||"",en.action||i.what_to_do||"",te.action||"",v,en.button||"Open")})}}catch(e){}
-  try{if(can("health:view")){const [en,te]=await Promise.all([call("incidents?language=en"),call("incidents?language=te")]);const tk={};(te.incidents||[]).forEach(x=>tk[x.key]=x);
-      (en.incidents||[]).filter(x=>x.severity!=="green").slice(0,4).forEach(x=>{const t=tk[x.key]||{};add(x.severity==="red"?"red":"orange","🚨 "+x.problem,t.problem||"","Why: "+x.reason+" — Do: "+x.solution,t.reason?"ఎందుకు: "+t.reason+" — ఏం చేయాలి: "+t.solution:"","incidents","Open incidents")})}}catch(e){}
+    return '<div class="stile" data-sec="'+s.id+'" style="--c:'+s.color+'" onclick="go(\'sec:'+s.id+'\')"><div class="si">'+s.icon+'</div><div class="st"><b>'+esc(s.label)+'</b><div class="muted tw">'+esc(s.what)+'</div></div><div class="sm">'+cnt+' pages'+(n?' · <span class="badge b-warn">'+n+' review కావాలి</span>':'')+'</div></div>'}).join("");
+  pg.innerHTML='<h1>Command Center</h1><div class="sub">Namaste '+esc(ME.name||"")+' 👋 కింద ఒక heading ఎంచుకోండి, లేదా ఈరోజు చూడాల్సినవి చదవండి.</div>'+
+   '<h3 class="cath">ఈరోజు ఏమి చూడాలి</h3><div id="home_today"><div class="muted">Check చేస్తున్నాం…</div></div>'+
+   '<h3 class="cath">అన్నీ ఒకే చోట</h3><div class="stiles">'+secs+'</div>';
+  const out=[];const add=(lvl,title,todo,view,btn)=>out.push({lvl,title,todo,view,btn});
+  try{if(can("overview:view")){const w=await call("staff/work-queue");(w.items||[]).filter(i=>i.count).slice(0,6).forEach(i=>{const x=i.explain||{};
+      const v=String(i.where||"").includes("#")?String(i.where).split("#")[1]:"workqueue";add(i.severity||"orange",(i.icon||"")+" "+(x.what||i.title)+" · "+i.count,x.action||i.what_to_do||"",v,x.button||"Open చేయండి")})}}catch(e){}
+  try{if(can("health:view")){const d=await call("incidents?language=te");
+      (d.incidents||[]).filter(x=>x.severity!=="green").slice(0,4).forEach(x=>add(x.severity==="red"?"red":"orange","🚨 "+x.problem,x.solution+" (కారణం: "+x.reason+")","incidents","Incidents open చేయండి"))}}catch(e){}
   try{const d=STATE.dash||await call("platform/dashboard");const ig=d.integrations||{};
-    if(ig.NEEDS_CONFIGURATION)add("orange","🔌 "+ig.NEEDS_CONFIGURATION+" connection(s) need setup",ig.NEEDS_CONFIGURATION+" కనెక్షన్(లు) సెటప్ కావాలి","Those features stay off until a key is added.","Key చేర్చేవరకు ఆ features పని చేయవు.","readiness","Open readiness");
-    (d.alerts||[]).slice(0,3).forEach(a=>add(a.severity==="HIGH"||a.severity==="CRITICAL"?"red":"orange","⚠️ "+a.title,"",a.suggestion||"","","dashboard","Open dashboard"))}catch(e){}
+    if(ig.NEEDS_CONFIGURATION)add("orange","🔌 "+ig.NEEDS_CONFIGURATION+" connection(s) కి setup కావాలి","Key చేర్చే వరకు ఆ features పని చేయవు.","readiness","Integration సిద్ధత open చేయండి");
+    (d.alerts||[]).slice(0,3).forEach(a=>add(a.severity==="HIGH"||a.severity==="CRITICAL"?"red":"orange","⚠️ "+a.title,a.suggestion||"","dashboard","Dashboard open చేయండి"))}catch(e){}
   const el=document.querySelector("#home_today");if(!el)return;
-  el.innerHTML=out.length?'<div class="todo">'+out.map(t=>'<div class="card tcard lvl-'+esc(t.lvl)+'"><b>'+esc(t.en)+'</b>'+(t.te?'<div class="te">'+esc(t.te)+'</div>':'')+(t.why_en?'<div style="margin-top:6px"><b>Do:</b> '+esc(t.why_en)+'</div>':'')+(t.why_te?'<div class="te">చేయండి: '+esc(t.why_te)+'</div>':'')+'<button style="margin-top:8px" onclick="go(\''+esc(t.view)+'\')">'+esc(t.btn)+' →</button></div>').join("")+'</div>'
-   :'<div class="card okcard">✅ Nothing urgent right now. · ఇప్పుడు అత్యవసరం ఏమీ లేదు.</div>'}
+  el.innerHTML=out.length?'<div class="todo">'+out.map(t=>'<div class="card tcard lvl-'+esc(t.lvl)+'"><b>'+esc(t.title)+'</b>'+(t.todo?'<div style="margin-top:6px"><b>చేయండి:</b> '+esc(t.todo)+'</div>':'')+'<button style="margin-top:8px" onclick="go(\''+esc(t.view)+'\')">'+esc(t.btn)+' →</button></div>').join("")+'</div>'
+   :'<div class="card okcard">✅ ఇప్పుడు అత్యవసరం ఏమీ లేదు.</div>'}
 
 /* ---------------------------------------------------------------- auth -- */
 async function signIn(){CRED=document.querySelector("#cred").value.trim()||CRED;try{await boot();sessionStorage.setItem("askodox_console",CRED)}catch(e){document.querySelector("#lerr").textContent="Sign-in failed: "+e.message;document.querySelector("#login").style.display="block";document.querySelector("#app").style.display="none"}}
@@ -214,9 +214,9 @@ async function boot(){ME=await call("me");SCHEMA=(await call("platform/schema"))
 
 /* ------------------------------------------------------------ search -- */
 let st;function globalSearch(q){clearTimeout(st);const h=document.querySelector("#hits");if(q.trim().length<2){h.style.display="none";return}
-  const ql=q.trim().toLowerCase();const pages=Object.values(ITEMS).filter(x=>itemOk(x.i)&&(x.i.en+" "+x.i.te+" "+x.i.what_en+" "+x.i.what_te+" "+x.c.en+" "+x.s.en).toLowerCase().includes(ql)).slice(0,6);
-  const ph=pages.map(x=>'<div onclick="document.querySelector(\'#hits\').style.display=\'none\';go(\''+x.i.id+'\')">📄 <b>'+esc(x.i.en)+'</b> · '+esc(x.i.te)+' <span class="muted">'+x.s.icon+' '+esc(x.s.en)+'</span></div>').join("");if(ph){h.innerHTML=ph;h.style.display="block"}
-  st=setTimeout(async()=>{try{const d=await call("platform/search?q="+encodeURIComponent(q));h.innerHTML=ph+(d.items.length?d.items.map(i=>'<div onclick="openHit(\''+i.resource+'\',\''+esc(i.id)+'\')"><b>'+esc(i.name)+'</b> <span class="muted">'+esc(i.resource_label)+'</span> '+badge(i.status)+'</div>').join(""):(ph?'':'<div class="muted">No matches · ఏమీ దొరకలేదు</div>'));h.style.display="block"}catch(e){}},220)}
+  const ql=q.trim().toLowerCase();const pages=Object.values(ITEMS).filter(x=>itemOk(x.i)&&(x.i.id+" "+x.i.label+" "+x.i.what+" "+x.i.do+" "+x.c.label+" "+x.s.label).toLowerCase().includes(ql)).slice(0,6);
+  const ph=pages.map(x=>'<div onclick="document.querySelector(\'#hits\').style.display=\'none\';go(\''+x.i.id+'\')">📄 <b>'+esc(x.i.label)+'</b> <span class="muted">'+x.s.icon+' '+esc(x.s.label)+'</span></div>').join("");if(ph){h.innerHTML=ph;h.style.display="block"}
+  st=setTimeout(async()=>{try{const d=await call("platform/search?q="+encodeURIComponent(q));h.innerHTML=ph+(d.items.length?d.items.map(i=>'<div onclick="openHit(\''+i.resource+'\',\''+esc(i.id)+'\')"><b>'+esc(i.name)+'</b> <span class="muted">'+esc(i.resource_label)+'</span> '+badge(i.status)+'</div>').join(""):(ph?'':'<div class="muted">ఏమీ దొరకలేదు</div>'));h.style.display="block"}catch(e){}},220)}
 function openHit(res,id){document.querySelector("#hits").style.display="none";if(res==="payments"){go("payments");return}VIEW="r:"+res;renderNav();resourcePage(res).then(()=>openRecord(res,id))}
 document.addEventListener("click",e=>{if(!e.target.closest(".search"))document.querySelector("#hits").style.display="none"});
 
@@ -239,7 +239,7 @@ async function resourcePage(name){const res=R(name);const s=STATE[name]||(STATE[
   const qs=new URLSearchParams({q:s.q,status:s.status,archived:s.archived,sort:s.sort,...Object.fromEntries(Object.entries(s.f).filter(([k,v])=>v).map(([k,v])=>["f_"+k,v]))});
   const d=await call("platform/r/"+name+"?"+qs);const cols=res.fields.filter(f=>f.list_column&&f.name!==res.name_field).slice(0,4);const manage=can(res.permission+":manage");
   const filt=res.fields.filter(f=>f.filter);
-  document.querySelector("#page").innerHTML='<h1>'+esc(res.label)+(teOf("r:"+name)?' <span class="te">· '+esc(teOf("r:"+name))+'</span>':'')+'</h1><div class="sub">'+esc(res.description||"")+(res.flag?' · feature flag <span class="mono">'+esc(res.flag)+'</span>':'')+'</div>'+
+  document.querySelector("#page").innerHTML='<h1>'+esc(labelOf("r:"+name)||res.label)+'</h1><div class="sub">'+esc(res.description||"")+(res.flag?' · feature flag <span class="mono">'+esc(res.flag)+'</span>':'')+'</div>'+
    '<div class="bar"><input placeholder="Search…" value="'+esc(s.q)+'" onchange="STATE[\''+name+'\'].q=this.value;resourcePage(\''+name+'\')">'+
    '<select onchange="STATE[\''+name+'\'].status=this.value;resourcePage(\''+name+'\')"><option value="">All statuses</option>'+res.statuses.map(x=>'<option '+(s.status===x?"selected":"")+'>'+x+'</option>').join("")+'</select>'+
    filt.map(f=>f.options.length?'<select onchange="STATE[\''+name+'\'].f.'+f.name+'=this.value;resourcePage(\''+name+'\')"><option value="">'+esc(f.label)+': any</option>'+f.options.map(o=>'<option '+(s.f[f.name]===o?"selected":"")+'>'+esc(o)+'</option>').join("")+'</select>':'<input placeholder="'+esc(f.label)+'" value="'+esc(s.f[f.name]||"")+'" onchange="STATE[\''+name+'\'].f.'+f.name+'=this.value;resourcePage(\''+name+'\')">').join("")+
@@ -286,7 +286,7 @@ function closeDrawer(){document.querySelector("#drawer").classList.remove("show"
 /* ------------------------------------------------------ table helper -- */
 function grid(items,cols,onclick){if(!items||!items.length)return '<div class="tbl"><div class="empty">Nothing here yet.</div></div>';
   return '<div class="tbl"><table><thead><tr>'+cols.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+items.map((it,i)=>'<tr class="'+(onclick?"r":"")+'" '+(onclick?'onclick="'+onclick+'('+i+')"':'')+'>'+cols.map(c=>'<td>'+(c[2]?c[2](it[c[0]],it):cell(it[c[0]]))+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>'}
-const head=(t,s,extra)=>'<h1>'+t+(teOf(VIEW)?' <span class="te">· '+esc(teOf(VIEW))+'</span>':'')+'</h1><div class="sub">'+s+'</div>'+(extra?'<div class="bar">'+extra+'</div>':'');
+const head=(t,s,extra)=>'<h1>'+(labelOf(VIEW)?esc(labelOf(VIEW)):t)+'</h1><div class="sub">'+s+'</div>'+(extra?'<div class="bar">'+extra+'</div>':'');
 
 /* ------------------------------------------------------------ sponsored -- */
 async function sponsored(){const d=await call("sponsored");STATE.sp=d.campaigns;const m=can("sponsored:manage");
@@ -465,19 +465,19 @@ async function apDecide(id,ok,risk){if(ok&&risk==="RED"&&!confirm("Approve a RED
 /* ---------------------------------------------------------- self-heal -- */
 async function aicredits(){const [st,sum,co]=await Promise.all([call("ai-credits/settings"),call("ai-credits/summary"),call("ai-credits/costs?days="+(STATE.acDays||7)).catch(()=>null)]);const m=can("growth:manage");const F=["chat","reasoning","voice","web_search","image"];
   const rs=p=>'₹'+(Number(p||0)/100).toFixed(2);
-  document.querySelector("#page").innerHTML=head("AI Credits","Pay-as-you-go AI. Nothing is deducted while charging is OFF. Credits are added only by a gateway-confirmed payment (no manual top-up exists) · charging OFF ఉన్నంతవరకు ఏమీ కట్ అవ్వదు.",'')+
-  '<div class="card"><b>Charging · చార్జింగ్:</b> '+badge(st.charging?"ON":"OFF")+' <span class="muted">'+esc(st.updated_by?("by "+st.updated_by+" · "+st.updated_at):"never changed")+'</span>'+
-  '<table><tr><th>Feature</th><th>Rate per use (paise) · రేటు</th><th>Free a day · రోజుకు ఉచితం</th></tr>'+F.map(f=>'<tr><td>'+f+'</td><td><input id="acr_'+f+'" type="number" min="0" value="'+(st.rates_paise[f]||0)+'" '+(m?'':'disabled')+'></td><td><input id="acf_'+f+'" type="number" min="0" value="'+(st.free_per_day[f]||0)+'" '+(m?'':'disabled')+'></td></tr>').join("")+'</table>'+
-  (m?'<label><input type="checkbox" id="ac_on" '+(st.charging?'checked':'')+'> Charging ON · చార్జింగ్ ఆన్</label> <button class="p" onclick="acSave()">Save · సేవ్</button>':'')+'<div id="ferr" class="err"></div></div>'+
-  '<div class="card"><h3>Ledger totals · ledger మొత్తాలు</h3>'+["live","test"].map(md=>'<div><b>'+md.toUpperCase()+'</b> outstanding '+rs(sum.outstanding_paise[md])+' · '+Object.entries(sum.by_mode[md]||{}).map(([k,v])=>esc(k)+': '+v.count+' / '+rs(v.paise)).join(" · ")+'</div>').join("")+
+  document.querySelector("#page").innerHTML=head("AI Credits","Pay-as-you-go AI. Charging OFF ఉన్నంతవరకు ఏమీ కట్ అవ్వదు. Gateway confirm చేసిన payment తోనే credits add అవుతాయి (manual top-up లేదు).",'')+
+  '<div class="card"><b>Charging:</b> '+badge(st.charging?"ON":"OFF")+' <span class="muted">'+esc(st.updated_by?("by "+st.updated_by+" · "+st.updated_at):"ఇంకా మార్చలేదు")+'</span>'+
+  '<table><tr><th>Feature</th><th>ఒక్కో use కి Rate (paise)</th><th>రోజుకు Free</th></tr>'+F.map(f=>'<tr><td>'+f+'</td><td><input id="acr_'+f+'" type="number" min="0" value="'+(st.rates_paise[f]||0)+'" '+(m?'':'disabled')+'></td><td><input id="acf_'+f+'" type="number" min="0" value="'+(st.free_per_day[f]||0)+'" '+(m?'':'disabled')+'></td></tr>').join("")+'</table>'+
+  (m?'<label><input type="checkbox" id="ac_on" '+(st.charging?'checked':'')+'> Charging ON చేయండి</label> <button class="p" onclick="acSave()">Save చేయండి</button>':'')+'<div id="ferr" class="err"></div></div>'+
+  '<div class="card"><h3>Ledger మొత్తాలు</h3>'+["live","test"].map(md=>'<div><b>'+md.toUpperCase()+'</b> outstanding '+rs(sum.outstanding_paise[md])+' · '+Object.entries(sum.by_mode[md]||{}).map(([k,v])=>esc(k)+': '+v.count+' / '+rs(v.paise)).join(" · ")+'</div>').join("")+
   '<div class="muted">Buyers: '+sum.buyers+' · negative balances (after refunds): '+sum.negative_balances+'</div></div>'+
-  (co?'<div class="card"><h3>Real AI usage & cost · నిజమైన AI వాడకం & ఖర్చు (last '+co.days+' days)</h3><div class="muted">'+esc(co.basis)+' Markup for '+co.prices.target_margin_pct+'% net margin · '+co.prices.target_margin_pct+'% లాభానికి గుణకం: ×'+co.markup+'</div>'+
+  (co?'<div class="card"><h3>Real AI usage & cost (చివరి '+co.days+' రోజులు)</h3><div class="muted">'+esc(co.basis)+' '+co.prices.target_margin_pct+'% net margin కి Markup: ×'+co.markup+'</div>'+
    '<div class="bar">'+[1,7,30].map(d=>'<button onclick="STATE.acDays='+d+';aicredits()">'+d+' days</button>').join(" ")+'</div>'+
-   grid(co.features,[["feature","Feature"],["calls","Uses · వాడకాలు"],["cost_inr","Est. cost ₹",v=>money(v)],["cost_per_use_paise","Cost / use (paise)"],["suggested_rate_paise","Suggested rate (paise) · సూచించిన రేటు"]])+
+   grid(co.features,[["feature","Feature"],["calls","Uses"],["cost_inr","Est. cost ₹",v=>money(v)],["cost_per_use_paise","Cost / use (paise)"],["suggested_rate_paise","సూచించిన Rate (paise)"]])+
    '<h3>By provider & model</h3>'+grid(co.rows,[["feature","Feature"],["provider","Provider"],["model","Model"],["calls","Calls"],["input_tokens","In tokens"],["output_tokens","Out tokens"],["chars","TTS chars"],["seconds","STT sec"],["cost_inr","Est. ₹",v=>money(v)]])+
-   '<div class="muted">Prices used · వాడిన ధరలు: $1 = ₹'+co.prices.usd_inr+' · STT ₹'+co.prices.stt_inr_per_minute+'/min · TTS ₹'+co.prices.tts_inr_per_1000_chars+'/1000 chars · search $'+co.prices.search_usd_per_1000+'/1000 · '+(co.prices.updated_by?'edited by '+esc(co.prices.updated_by):'defaults (2026-10-27)')+'</div></div>':'')}
+   '<div class="muted">వాడిన ధరలు: $1 = ₹'+co.prices.usd_inr+' · STT ₹'+co.prices.stt_inr_per_minute+'/min · TTS ₹'+co.prices.tts_inr_per_1000_chars+'/1000 chars · search $'+co.prices.search_usd_per_1000+'/1000 · '+(co.prices.updated_by?'edited by '+esc(co.prices.updated_by):'defaults (2026-10-27)')+'</div></div>':'')}
 async function acSave(){const F=["chat","reasoning","voice","web_search","image"];const rates={},free={};F.forEach(f=>{rates[f]=Number(document.querySelector("#acr_"+f).value||0);free[f]=Number(document.querySelector("#acf_"+f).value||0)});
-  const on=document.querySelector("#ac_on").checked;if(on&&!confirm("Turn charging ON? Signed-in users will pay credits for AI answers · Charging ON చేయాలా?"))return;
+  const on=document.querySelector("#ac_on").checked;if(on&&!confirm("Charging ON చేయాలా? Sign-in అయిన users AI జవాబులకు credits pay చేస్తారు."))return;
   try{await call("ai-credits/settings","PUT",{charging:on,rates_paise:rates,free_per_day:free});aicredits()}catch(e){document.querySelector("#ferr").textContent=errText(e)}}
 async function apibilling(){const d=await call("api-billing");STATE.ab=d;const m=can("integrations:manage");
   const pct=c=>c.remaining_pct==null?'<span class="muted">UNKNOWN</span>':(c.remaining_pct+"% left")+(c.source==="estimate"?' <span class="muted">(estimate)</span>':'');
@@ -493,15 +493,14 @@ async function abSave(p){const n=v=>v===""?null:Number(v);try{await call("api-bi
 function abAlert(i){const a=STATE.ab.alerts[i];drawer("Alert",'<p>'+esc(a.message)+'</p><p class="muted">Evidence: '+esc(a.evidence||"")+'</p><div id="ferr" class="err"></div>',
   '<button onclick="abAct('+a.id+',\'acknowledge\')">Acknowledge</button> <button class="p" onclick="abAct('+a.id+',\'resolve\')">Resolve</button>')}
 async function abAct(id,a){try{await call("api-billing/alerts/"+id+"/"+a,"POST");closeDrawer();apibilling()}catch(e){document.querySelector("#ferr").textContent=e.message}}
-async function incidents(){const [d,dt,a]=await Promise.all([call("incidents?language=en"),call("incidents?language=te").catch(()=>({incidents:[]})),call("actions")]);STATE.inc=d;STATE.acts=a.runs;
-  const L={problem:"Problem · సమస్య",impact:"Impact · ప్రభావం",reason:"Reason · కారణం",evidence:"Evidence · ఆధారం",solution:"Solution · పరిష్కారం",action_status:"Action Status · చర్య స్థితి",retest:"Retest · మళ్ళీ test",ai_explanation:"AI Explanation · AI వివరణ"};
-  const teBy={};(dt.incidents||[]).forEach(x=>{teBy[x.key]=x});const two=(en,te)=>esc(en||"—")+(te&&te!==en?'<div class="te">'+esc(te)+'</div>':'');
-  document.querySelector("#page").innerHTML=head("Incidents & actions · సమస్యలు & చర్యలు","Grounded in recorded telemetry only. Reasons are confirmed only when the provider's own answer states them; correlations are POSSIBLE, never proven. Read-only checks may run now; changes need approval · మార్పులకు approval అవసరం. "+esc(d.basis),'')+
-  '<div class="card">Release readiness: '+badge(d.release_readiness.state)+' <span class="muted">'+esc(d.release_readiness.why)+'</span></div>'+
-  (d.incidents.length?d.incidents.map((x,i)=>{const t=teBy[x.key]||{};return '<div class="card">'+badge(x.severity)+' <b>'+two(x.problem,t.problem)+'</b>'+(x.correlation?' '+badge(x.correlation.label):'')+'<table>'+
-    [["impact",x.impact,t.impact],["reason",x.reason,t.reason],["evidence",(x.evidence||[]).join("; "),""],["solution",x.solution,t.solution],["action_status",x.action_status,t.action_status],["retest",x.retest,t.retest],["ai_explanation",x.ai_explanation,t.ai_explanation]].map(([k,v,tv])=>'<tr><td class="muted">'+esc(L[k])+'</td><td>'+two(v,tv)+'</td></tr>').join("")+'</table>'+
-    (x.proposed_action?'<button onclick="incPropose('+i+')">Propose · ప్రతిపాదించు: '+esc(x.proposed_action)+'</button>':'')+'</div>'}).join(""):'<div class="card">No open incident in recorded telemetry · నమోదైన telemetry లో open సమస్య లేదు.</div>')+
-  '<h3>Actions (audit)</h3>'+grid(a.runs,[["id","#"],["action","Action"],["target","Target"],["risk","Risk",badge],["status","Status",badge],["verification","Verified",v=>v?badge(v):'<span class="muted">—</span>'],["result","Result"],["approved_by","Approved by"]],"incAct")}
+async function incidents(){const [d,a]=await Promise.all([call("incidents?language=te"),call("actions")]);STATE.inc=d;STATE.acts=a.runs;
+  const L={problem:"సమస్య",impact:"Impact",reason:"కారణం",evidence:"Evidence",solution:"పరిష్కారం",action_status:"Action స్థితి",retest:"మళ్ళీ Test",ai_explanation:"AI వివరణ"};
+  document.querySelector("#page").innerHTML=head("Incidents","Record అయిన telemetry నుండే. Provider తన జవాబులో చెప్తేనే కారణం confirm; correlations POSSIBLE మాత్రమే, proof కాదు. Read-only checks ఇప్పుడే run చేయవచ్చు; మార్పులకు approval కావాలి. "+esc(d.basis),'')+
+  '<div class="card">Release సిద్ధత: '+badge(d.release_readiness.state)+' <span class="muted">'+esc(d.release_readiness.why)+'</span></div>'+
+  (d.incidents.length?d.incidents.map((x,i)=>'<div class="card">'+badge(x.severity)+' <b>'+esc(x.problem)+'</b>'+(x.correlation?' '+badge(x.correlation.label):'')+'<table>'+
+    [["impact",x.impact],["reason",x.reason],["evidence",(x.evidence||[]).join("; ")],["solution",x.solution],["action_status",x.action_status],["retest",x.retest],["ai_explanation",x.ai_explanation]].map(([k,v])=>'<tr><td class="muted">'+esc(L[k])+'</td><td>'+esc(v||"—")+'</td></tr>').join("")+'</table>'+
+    (x.proposed_action?'<button onclick="incPropose('+i+')">Propose చేయండి: '+esc(x.proposed_action)+'</button>':'')+'</div>').join(""):'<div class="card">Record అయిన telemetry లో open సమస్య ఏమీ లేదు.</div>')+
+  '<h3>Actions (audit)</h3>'+grid(a.runs,[["id","#"],["action","Action"],["target","Target"],["risk","Risk",badge],["status","స్థితి",badge],["verification","Verify అయిందా",v=>v?badge(v):'<span class="muted">—</span>'],["result","Result"],["approved_by","Approve చేసినవారు"]],"incAct")}
 async function incPropose(i){const x=STATE.inc.incidents[i];const [kind,action,target]=x.proposed_action.split(":");try{await call("actions","POST",{action,target:target||"",incident_key:x.key});incidents()}catch(e){alert(errText(e))}}
 function incAct(i){const r=STATE.acts[i];drawer("Action #"+r.id,'<div>'+badge(r.risk)+' '+badge(r.status)+'</div><table>'+(r.timeline||[]).map(t=>'<tr><td class="muted">'+when(t.at*1000)+'</td><td>'+esc(t.step)+' — '+esc(t.by)+'</td></tr>').join("")+'</table><p class="muted">Rollback: '+esc(r.rollback||"—")+'</p><div id="ferr" class="err"></div>',
   (r.status==="PROPOSED"&&r.risk==="change"?'<button class="p" onclick="incStep('+r.id+',\'approve\')">Approve</button> ':'')+((r.status==="APPROVED")||(r.status==="PROPOSED"&&r.risk==="read_only")?'<button class="p" onclick="incStep('+r.id+',\'execute\')">Run + verify</button> ':'')+(r.status==="PROPOSED"||r.status==="APPROVED"?'<button onclick="incStep('+r.id+',\'reject\')">Reject</button>':''))}
@@ -949,15 +948,14 @@ async function outcomes(){const f=STATE.oc||(STATE.oc={days:"30",category:"",loc
    '<div class="card"><h3>Operations</h3>'+kv({escalations:d.escalations,stock_changes:d.stock_changes,commission_changes:d.commission_changes})+kv(d.auto_responses)+'</div>'+
    '<div class="card"><h3>Integration health</h3>'+Object.entries(d.integration_health||{}).map(([k,v])=>badge(k)+' '+v).join("<br>")+'</div></div>'}
 async function workqueue(){const d=await call("staff/work-queue");STATE.wq=d.items;const st=d.status||{};
-  const two=(en,te)=>esc(en||"")+(te&&te!==en?'<div class="te">'+esc(te)+'</div>':'');
-  document.querySelector("#page").innerHTML=head("My work queue · నా పని జాబితా","Only the work your role permits, counted from real records · మీ పాత్రకు అనుమతించిన పని మాత్రమే, నిజమైన లెక్కలతో. "+'🔴 '+(st.red||0)+' · 🟠 '+(st.orange||0)+' · 🟢 '+(st.green||0),'')+
-   (d.items.length?d.items.map((i,n)=>{const e=(i.explain||{}).en||{},t=(i.explain||{}).te||{};return '<div class="card wq" data-key="'+esc(i.key)+'" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+(i.icon||"")+' '+two(e.what||i.title,t.what)+'</b><b>'+i.count+'</b></div>'+
-    '<div><b>Do · చేయండి:</b> '+two(e.action||i.what_to_do,t.action)+'</div>'+
-    '<div id="wq_x'+n+'" class="muted" style="display:none;margin-top:6px">'+(e.why||t.why?'<div><b>Why · ఎందుకు:</b> '+two(e.why,t.why)+'</div>':'')+(e.impact||t.impact?'<div><b>Impact · ప్రభావం:</b> '+two(e.impact,t.impact)+'</div>':'')+'<div><b>Done when · ఎప్పుడు పూర్తి:</b> '+esc(i.done_when||"")+'</div>'+(i.check_error?'<div class="err">Check could not run · check నడవలేదు: '+esc(i.check_error)+'</div>':'')+'</div>'+
-    '<div style="margin-top:6px"><button onclick="const e=document.querySelector(\'#wq_x'+n+'\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">Explain · వివరించు</button>'+(i.count?' <a class="btn" href="'+esc(i.where)+'" onclick="if(this.getAttribute(\'href\').startsWith(\'/admin/console#\')){go(this.getAttribute(\'href\').split(\'#\')[1]);return false}">'+esc(e.button||"Open")+(t.button&&t.button!==e.button?' · '+esc(t.button):'')+'</a>':'')+'</div></div>'}).join(""):'<div class="empty">Nothing in your queue · మీ జాబితాలో పని లేదు.</div>')}
+  document.querySelector("#page").innerHTML=head("My work queue","మీ role కి అనుమతించిన పని మాత్రమే, నిజమైన records నుండి లెక్కించాం. "+'🔴 '+(st.red||0)+' · 🟠 '+(st.orange||0)+' · 🟢 '+(st.green||0),'')+
+   (d.items.length?d.items.map((i,n)=>{const x=i.explain||{};return '<div class="card wq" data-key="'+esc(i.key)+'" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+(i.icon||"")+' '+esc(x.what||i.title)+'</b><b>'+i.count+'</b></div>'+
+    '<div><b>చేయండి:</b> '+esc(x.action||i.what_to_do||"")+'</div>'+
+    '<div id="wq_x'+n+'" class="muted" style="display:none;margin-top:6px">'+(x.why?'<div><b>ఎందుకు:</b> '+esc(x.why)+'</div>':'')+(x.impact?'<div><b>Impact:</b> '+esc(x.impact)+'</div>':'')+'<div><b>ఎప్పుడు పూర్తి:</b> '+esc(i.done_when||"")+'</div>'+(i.check_error?'<div class="err">Check run కాలేదు: '+esc(i.check_error)+'</div>':'')+'</div>'+
+    '<div style="margin-top:6px"><button onclick="const e=document.querySelector(\'#wq_x'+n+'\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">వివరించు</button>'+(i.count?' <a class="btn" href="'+esc(i.where)+'" onclick="if(this.getAttribute(\'href\').startsWith(\'/admin/console#\')){go(this.getAttribute(\'href\').split(\'#\')[1]);return false}">'+esc(x.button||"Open చేయండి")+'</a>':'')+'</div></div>'}).join(""):'<div class="empty">మీ list లో పని ఏమీ లేదు.</div>')}
 async function assistant(){document.querySelector("#page").innerHTML=head("Admin assistant","Answers from recorded ASKODOX data only: what was observed, what might explain it (unverified), and what to do. Commands never change data by themselves: each one opens the right screen with a preview, and saving there asks you to confirm.",
    '<input id="as_q" style="min-width:360px" placeholder="e.g. add these links https://… · show products with missing prices"><select id="as_l"><option value="">Auto language</option><option value="en">English</option><option value="te">తెలుగు</option></select><button class="p" onclick="assistantAsk()">Ask</button>')+
-   '<div class="muted" style="margin-bottom:10px">Questions: what increased today? · which sellers are not responding? · which integrations are failing?<br>Commands: add these links https://… · draft an offer from https://… · show products with missing prices · find duplicates · which sources are failing? · what needs review? · why didn\'t "product name" appear? · assign opportunities · ధర లేని ఉత్పత్తులు చూపించు</div><div id="as_out"></div>';
+   '<div class="muted" style="margin-bottom:10px">Questions: what increased today? · which sellers are not responding? · which integrations are failing?<br>Commands: add these links https://… · draft an offer from https://… · show products with missing prices · find duplicates · which sources are failing? · what needs review? · why didn\'t "product name" appear? · assign opportunities · Price లేని products చూపించు</div><div id="as_out"></div>';
   document.querySelector("#as_q").addEventListener("keydown",e=>{if(e.key==="Enter")assistantAsk()})}
 async function assistantAsk(){const q=document.querySelector("#as_q").value.trim();if(!q)return;const out=document.querySelector("#as_out");out.innerHTML='<div class="muted">Checking the data…</div>';
   try{const r=await call("assistant/ask","POST",{question:q,language:document.querySelector("#as_l").value});STATE.asOps=r.answers.map(a=>a.operation);const te=r.language==="te";

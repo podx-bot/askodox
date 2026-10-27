@@ -44,9 +44,12 @@ class AskodoxMemoryItem {
 }
 
 class AskodoxMemory {
-  const AskodoxMemory({required this.enabled, required this.items});
+  const AskodoxMemory({required this.enabled, required this.items, this.chosen = true});
   final bool enabled;
   final List<AskodoxMemoryItem> items;
+
+  /// False = personalization is ON BY DEFAULT and the person never decided (the screen asks them).
+  final bool chosen;
 }
 
 class ProfileMemoryRepository {
@@ -64,6 +67,7 @@ class ProfileMemoryRepository {
     final data = result.data;
     return AskodoxMemory(
       enabled: data['enabled'] != false,
+      chosen: data['chosen'] != false,
       items: [
         for (final row in (data['items'] as List?) ?? const [])
           if (row is Map) AskodoxMemoryItem.fromJson(Map<String, Object?>.from(row)),

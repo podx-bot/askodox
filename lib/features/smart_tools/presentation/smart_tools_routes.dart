@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../devices/presentation/device_screens.dart';
 import '../../devices/presentation/ptt_screens.dart';
 import '../../intelligence/presentation/intelligence_screens.dart';
+import '../../intelligence/presentation/personal_finance_screen.dart';
 
 import 'calculator_screens.dart';
 import 'extra_tools_screens.dart';
@@ -34,6 +35,8 @@ final askodoxSmartToolRoutes = <GoRoute>[
         return id == 'load' ? const AskodoxLoadPlannerScreen() : askodoxCalculatorFor(id);
       }),
   // Round 2: money & safety (backend /api/intel/*).
+  // Profile -> Personal Finance (Personal Tax Assistant home; opens the /intel/* screens below).
+  GoRoute(path: '/me/finance', builder: (context, state) => const AskodoxPersonalFinanceScreen()),
   GoRoute(path: '/intel/tax', builder: (context, state) => const AskodoxIncomeTaxScreen()),
   GoRoute(path: '/intel/gst', builder: (context, state) => const AskodoxGstScreen()),
   GoRoute(path: '/intel/fraud', builder: (context, state) => const AskodoxFraudListScreen()),
