@@ -1,0 +1,14 @@
+name: zz probe 239
+on:
+  push:
+    branches: [zz-probe-239]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B=https://podx-ai-connect-production-3279.up.railway.app
+          for i in $(seq 1 40); do c=$(curl -s $B/health | jq -r .commit); [ "${c:0:7}" = "56d7b28" ] && break; sleep 30; done
+          echo "::warning::health commit=$c"
+          echo "::warning::payment-methods no-token=$(curl -s -o /dev/null -w '%{http_code}' $B/api/me/payment-methods)"
+          echo "::warning::admin console=$(curl -s -o /dev/null -w '%{http_code}' $B/admin/console)"
