@@ -303,4 +303,21 @@ void main() {
     expect(find.text('https://x/api/pos/payment-webhooks/razorpay/b1'), findsOneWidget);
     expect(find.textContaining('secret-good-123'), findsNothing);
   });
+
+  test('timeline shows where the seconds went (paid -> server -> phone -> voice)', () {
+    final e = {
+      'status': 'provider_verified',
+      'detected_at': '2026-10-27T01:31:05Z',
+      'received_at': '2026-10-27T01:31:48Z',
+      'acks': [
+        {'mine': true, 'state': 'delivered', 'at': '2026-10-27T01:31:49Z'},
+      ],
+    };
+    final line = askodoxPayAlertTimeline(e, false);
+    expect(line, startsWith('Paid '));
+    expect(line, contains(' → Server '));
+    expect(line, contains(' → Phone got '));
+    expect(askodoxPayAlertClock('2026-10-27T01:31:05Z'), matches(RegExp(r'^\d{1,2}:\d{2}:05 (AM|PM)$')));
+    expect(askodoxPayAlertTimeline({'detected_at': '2026-10-27T01:31:05Z'}, false), isEmpty);
+  });
 }

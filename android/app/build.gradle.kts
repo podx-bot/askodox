@@ -88,6 +88,11 @@ flutter {
 dependencies {
     // OTP autofill: SMS User Consent API (no READ_SMS permission).
     implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
+    // Payment alerts: AskodoxMessagingService overrides onMessageReceived(RemoteMessage) of the Flutter plugin's
+    // FCM service; the plugin keeps firebase-messaging as `implementation`, so the class is declared here too
+    // (Gradle resolves one version: the higher of this BoM and the plugin's).
+    implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 // Fail closed: a release APK/bundle without the ASKODOX release key is never built.

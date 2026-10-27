@@ -22,6 +22,41 @@ String askodoxPayAlertTime(Object? iso) {
   return '$day$h:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'AM' : 'PM'}';
 }
 
+/// "7:01:05 AM" (local, with seconds) from an ISO timestamp.
+String askodoxPayAlertClock(Object? iso) {
+  final at = DateTime.tryParse('${iso ?? ''}')?.toLocal();
+  if (at == null) return '';
+  final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '$h:${two(at.minute)}:${two(at.second)} ${at.hour < 12 ? 'AM' : 'PM'}';
+}
+
+/// Where the time went: paid / detected -> reached ASKODOX -> this phone got it -> spoke (each with seconds).
+String askodoxPayAlertTimeline(AskodoxJson e, bool te) {
+  final provider = e['status'] == 'provider_verified';
+  String? at(String state) {
+    for (final a in askodoxPosList(e['acks'])) {
+      if (a['mine'] == true && a['state'] == state) return '${a['at']}';
+    }
+    return null;
+  }
+
+  final mine = askodoxPosList(e['acks']).where((a) => a['mine'] == true).toList();
+  final spoke = at('announced');
+  final got = at('delivered');
+  final parts = <String>[
+    if (askodoxPayAlertClock(e['detected_at']).isNotEmpty)
+      '${provider ? (te ? 'చెల్లింపు' : 'Paid') : (te ? 'గుర్తించింది' : 'Detected')} ${askodoxPayAlertClock(e['detected_at'])}',
+    if (askodoxPayAlertClock(e['received_at']).isNotEmpty) '${te ? 'సర్వర్' : 'Server'} ${askodoxPayAlertClock(e['received_at'])}',
+    if (askodoxPayAlertClock(got).isNotEmpty) '${te ? 'ఫోన్‌కి' : 'Phone got'} ${askodoxPayAlertClock(got)}',
+    if (askodoxPayAlertClock(spoke).isNotEmpty)
+      '${te ? 'వాయిస్' : 'Voice'} ${askodoxPayAlertClock(spoke)}'
+    else if (mine.isNotEmpty && got == null && askodoxPayAlertClock(mine.first['at']).isNotEmpty)
+      '${te ? 'వాయిస్' : 'Voice'} ${askodoxPayAlertClock(mine.first['at'])}',
+  ];
+  return parts.length < 2 ? '' : parts.join(' → ');
+}
+
 /// What this device did with an event: its own ack, else the native "spoken" state.
 String askodoxMySpokenState(AskodoxJson e) {
   for (final a in askodoxPosList(e['acks'])) {
@@ -116,10 +151,10 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
         title: Text(last == null
             ? (te ? 'ఇంకా పేమెంట్ అలర్ట్ రాలేదు' : 'No payment alert yet')
             : '${askodoxRupees(last['amount_paise'])} · ${askodoxPayAlertTime(last['detected_at'])} · ${last['source_label']}'),
-        subtitle: Text(!_listener && !_playOnly
+        subtitle: Text(last == null && !_listener && !_playOnly
             ? (te ? 'ఈ ఫోన్‌లో నోటిఫికేషన్ యాక్సెస్ ఆఫ్‌లో ఉంది — తాకండి' : 'Notification access is off on this phone — tap to fix')
-            : !_listener
-                ? (te ? 'ఈ ఫోన్ వినదు (Play Store బిల్డ్ కావాలి) — సిబ్బంది అలర్ట్స్ మాత్రమే' : 'This phone does not listen (needs the Play Store build) — staff alerts only')
+            : last == null && !_listener
+                ? (te ? 'బ్యాంక్-నిర్ధారణ / సిబ్బంది అలర్ట్స్ ఈ ఫోన్ చెబుతుంది' : 'This phone speaks bank-confirmed and staff alerts')
             : last == null
                 ? (te ? 'వింటోంది. పేమెంట్ వస్తే చెబుతుంది.' : 'Listening. It will speak when a payment notification comes.')
                 : '${te ? stTe : stEn}${spoken.isEmpty ? '' : ' · ${te ? spokenTe : spokenEn}'}'),
@@ -651,6 +686,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           '${te ? 'వాయిస్' : 'Voice'}: ${te ? spTe : spEn}',
           if (askodoxPosInt(e['duplicates']) > 0) '${te ? 'డూప్లికేట్' : 'duplicate'} ×${e['duplicates']}',
         ].join(' · '), style: const TextStyle(fontSize: 12)),
+        if (askodoxPayAlertTimeline(e, te).isNotEmpty)
+          Text(askodoxPayAlertTimeline(e, te),
+              key: ValueKey('askodoxPayAlertTimeline-${e['id']}'),
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF374151))),
         if (acks.isNotEmpty || pending > 0)
           Text([
             for (final a in acks) '${a['device']}: ${te ? askodoxSpokenLabel('${a['state']}').$2 : askodoxSpokenLabel('${a['state']}').$1}',

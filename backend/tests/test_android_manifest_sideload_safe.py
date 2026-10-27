@@ -32,9 +32,12 @@ def test_play_build_script_adds_the_payment_alerts_listener(tmp_path):
     assert 'android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"' in text
 
 
-def test_payment_alert_push_receiver_only_accepts_google_play_services():
-    text = _declared(MANIFEST.read_text(encoding="utf-8"))
-    block = re.search(r"<receiver[^>]*AskodoxPaymentAlertPushReceiver.*?</receiver>", text, flags=re.S)
-    assert block, "push receiver missing"
-    assert 'android:permission="com.google.android.c2dm.permission.SEND"' in block.group(0), \
-        "without the SEND permission any app could make the phone announce a fake payment"
+def test_payment_alert_fcm_service_is_the_only_messaging_service():
+    raw = MANIFEST.read_text(encoding="utf-8")
+    text = _declared(raw)
+    block = re.search(r"<service[^>]*AskodoxMessagingService.*?</service>", text, flags=re.S)
+    assert block and 'android:exported="false"' in block.group(0), "never let other apps start it"
+    assert "com.google.firebase.MESSAGING_EVENT" in block.group(0)
+    assert re.search(r'FlutterFirebaseMessagingService"\s*tools:node="remove"', text), \
+        "the plugin's own service is replaced (AskodoxMessagingService extends it and forwards other messages)"
+    assert "AskodoxPaymentAlertPushReceiver" not in text

@@ -1,7 +1,6 @@
 package com.askodox.askodox
 
 import android.app.Activity
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -90,7 +89,7 @@ object AskodoxPaymentAlerts {
                         result.success(true)
                     }
                     "speakRemote" -> result.success(speakRemote(app, call.argument<String>("eventId") ?: "",
-                        call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, null))
+                        call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, false, null))
                     "events" -> result.success(events(app).toString())
                     "markUploaded" -> {
                         markUploaded(app, call.argument<String>("localId") ?: "", call.argument<String>("serverId"),
@@ -222,36 +221,29 @@ object AskodoxPaymentAlerts {
      * path comes first. Returns spoken | duplicate | quiet_hours | muted | not_set_up.
      */
     fun speakRemote(context: Context, eventId: String, text: String, language: String, businessId: String?,
-                    pending: BroadcastReceiver.PendingResult?): String {
+                    fromPush: Boolean, onFinished: (() -> Unit)?): String {
         val cfg = config(context)
-        fun done(state: String): String { pending?.finish(); return state }
+        fun done(state: String): String { onFinished?.invoke(); return state }
         if (eventId.isEmpty() || text.isBlank()) return done("not_set_up")
         if (cfg.optString("business_id").isEmpty()) return done("not_set_up") // this phone never opened payment alerts
         if (!cfg.optBoolean("speaks_remote", true)) return done("muted")
         val cal = Calendar.getInstance()
         if (PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
                 cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))) {
-            if (pending != null && businessId != null) ack(context, businessId, eventId, "quiet_hours")
+            if (fromPush && businessId != null) ack(context, businessId, eventId, "quiet_hours")
             return done("quiet_hours")
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
-        var finished = false
-        val finish = {
-            synchronized(this) {
-                if (!finished) { finished = true; pending?.finish() }
-            }
-        }
-        if (pending != null) main.postDelayed({ finish() }, 9500) // a receiver must finish within ~10 s
         Speaker.say(context, text, language, cfg) { ok ->
-            if (pending != null && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
+            if (fromPush && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
             main.post { channel?.invokeMethod("paymentEvent", "{}") }
-            finish()
+            onFinished?.invoke()
         }
         return "spoken"
     }
 
     /** Best-effort acknowledgement from the phone itself (push path, app closed). */
-    private fun ack(context: Context, businessId: String, eventId: String, state: String) {
+    fun ack(context: Context, businessId: String, eventId: String, state: String) {
         io.execute {
             try {
                 val cfg = config(context)
@@ -575,18 +567,72 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
 }
 
 /**
- * High-priority FCM data message {type=payalert, event_id, business_id, text, language}: speak it now, even
- * when ASKODOX is closed or the phone is locked. Receives the same FCM broadcast the Firebase plugin does
- * (data keys arrive as intent extras); anything that is not a payment alert is ignored and left to Firebase.
+ * High-priority FCM data message {type=payalert, event_id, business_id, text, language}: speak it now, even when
+ * ASKODOX is closed or the phone is locked. This is the app's ONE FCM service (it extends the Flutter plugin's
+ * service and is declared with a higher priority): payment alerts are spoken here, on FCM's worker thread, which
+ * waits (max 18 s) until the voice has finished so Android does not stop the process mid-sentence. Every other
+ * message goes to the Flutter plugin exactly as before.
  */
-class AskodoxPaymentAlertPushReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.getStringExtra("type") != "payalert") return
+class AskodoxMessagingService : io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService() {
+    override fun onMessageReceived(remoteMessage: com.google.firebase.messaging.RemoteMessage) {
+        val data = remoteMessage.data
+        if (data["type"] != "payalert") {
+            super.onMessageReceived(remoteMessage)
+            return
+        }
+        val ctx = applicationContext
+        val eventId = data["event_id"] ?: ""
+        val businessId = data["business_id"]
+        // Proof the push reached THIS phone (history shows "Delivered" even if the voice later fails).
+        if (businessId != null && eventId.isNotEmpty()) AskodoxPaymentAlerts.ack(ctx, businessId, eventId, "delivered")
+        // A visible, high-importance notification: Android keeps high-priority delivery (and wakes a locked
+        // phone) only for messages that show something to the user. Silent: the voice is the sound.
         try {
-            AskodoxPaymentAlerts.speakRemote(context.applicationContext, intent.getStringExtra("event_id") ?: "",
-                intent.getStringExtra("text") ?: "", intent.getStringExtra("language") ?: "te",
-                intent.getStringExtra("business_id"), goAsync())
+            showPaymentNotification(ctx, eventId, data["title"] ?: "ASKODOX", data["text"] ?: "")
         } catch (_: Exception) {
         }
+        try {
+            val latch = java.util.concurrent.CountDownLatch(1)
+            val state = AskodoxPaymentAlerts.speakRemote(ctx, eventId, data["text"] ?: "",
+                data["language"] ?: "te", businessId, true) { latch.countDown() }
+            if (state == "spoken") latch.await(18, java.util.concurrent.TimeUnit.SECONDS)
+        } catch (_: Exception) {
+        }
+    }
+}
+
+private const val PAYMENT_CHANNEL = "askodox_payments"
+
+private fun showPaymentNotification(context: Context, eventId: String, title: String, text: String) {
+    if (text.isBlank()) return
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(PAYMENT_CHANNEL) == null) {
+        manager.createNotificationChannel(android.app.NotificationChannel(PAYMENT_CHANNEL, "Payment alerts",
+            android.app.NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Shop payment alerts (the voice is played by ASKODOX itself)"
+            setSound(null, null)
+            enableVibration(true)
+        })
+    }
+    val open = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    val pending = open?.let {
+        android.app.PendingIntent.getActivity(context, eventId.hashCode(), it,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+    val notification = androidx.core.app.NotificationCompat.Builder(context, PAYMENT_CHANNEL)
+        .setSmallIcon(context.applicationInfo.icon)
+        .setContentTitle(title)
+        .setContentText(text)
+        .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
+        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+        .setCategory(androidx.core.app.NotificationCompat.CATEGORY_STATUS)
+        .setSilent(true)
+        .setAutoCancel(true)
+        .apply { if (pending != null) setContentIntent(pending) }
+        .build()
+    try {
+        NotificationManagerCompat.from(context).notify("payalert", eventId.hashCode(), notification)
+    } catch (_: SecurityException) {
+        // notifications not allowed: the voice still plays
     }
 }
