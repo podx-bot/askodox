@@ -277,7 +277,7 @@ class PosPaymentAlerts:
             title = f"{shop}: payment received ({label})" + (" (test)" if test else "")
             body = announcement(int(amount_paise), settings["language"], verified=True, test=test)
             speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body,
-                     "language": settings["language"], "verified": "1", "test": "1" if test else "0"}
+                     "title": title, "language": settings["language"], "verified": "1", "test": "1" if test else "0"}
             for receiver in receivers:
                 try:
                     self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}", speak)
@@ -425,7 +425,7 @@ class PosPaymentAlerts:
         event["duplicate"] = False
         title = f"{shop}: payment notification" + (" (test)" if test else "")
         body = announcement(amount, settings["language"], test=test)
-        speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body,
+        speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body, "title": title,
                  "language": settings["language"], "verified": "0", "test": "1" if test else "0"}
         for receiver in receivers:
             try:

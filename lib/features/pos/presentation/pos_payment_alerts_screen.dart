@@ -116,10 +116,10 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
         title: Text(last == null
             ? (te ? 'ఇంకా పేమెంట్ అలర్ట్ రాలేదు' : 'No payment alert yet')
             : '${askodoxRupees(last['amount_paise'])} · ${askodoxPayAlertTime(last['detected_at'])} · ${last['source_label']}'),
-        subtitle: Text(!_listener && !_playOnly
+        subtitle: Text(last == null && !_listener && !_playOnly
             ? (te ? 'ఈ ఫోన్‌లో నోటిఫికేషన్ యాక్సెస్ ఆఫ్‌లో ఉంది — తాకండి' : 'Notification access is off on this phone — tap to fix')
-            : !_listener
-                ? (te ? 'ఈ ఫోన్ వినదు (Play Store బిల్డ్ కావాలి) — సిబ్బంది అలర్ట్స్ మాత్రమే' : 'This phone does not listen (needs the Play Store build) — staff alerts only')
+            : last == null && !_listener
+                ? (te ? 'బ్యాంక్-నిర్ధారణ / సిబ్బంది అలర్ట్స్ ఈ ఫోన్ చెబుతుంది' : 'This phone speaks bank-confirmed and staff alerts')
             : last == null
                 ? (te ? 'వింటోంది. పేమెంట్ వస్తే చెబుతుంది.' : 'Listening. It will speak when a payment notification comes.')
                 : '${te ? stTe : stEn}${spoken.isEmpty ? '' : ' · ${te ? spokenTe : spokenEn}'}'),

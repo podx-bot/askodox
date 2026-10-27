@@ -243,7 +243,7 @@ object AskodoxPaymentAlerts {
     }
 
     /** Best-effort acknowledgement from the phone itself (push path, app closed). */
-    private fun ack(context: Context, businessId: String, eventId: String, state: String) {
+    fun ack(context: Context, businessId: String, eventId: String, state: String) {
         io.execute {
             try {
                 val cfg = config(context)
@@ -580,12 +580,59 @@ class AskodoxMessagingService : io.flutter.plugins.firebase.messaging.FlutterFir
             super.onMessageReceived(remoteMessage)
             return
         }
+        val ctx = applicationContext
+        val eventId = data["event_id"] ?: ""
+        val businessId = data["business_id"]
+        // Proof the push reached THIS phone (history shows "Delivered" even if the voice later fails).
+        if (businessId != null && eventId.isNotEmpty()) AskodoxPaymentAlerts.ack(ctx, businessId, eventId, "delivered")
+        // A visible, high-importance notification: Android keeps high-priority delivery (and wakes a locked
+        // phone) only for messages that show something to the user. Silent: the voice is the sound.
+        try {
+            showPaymentNotification(ctx, eventId, data["title"] ?: "ASKODOX", data["text"] ?: "")
+        } catch (_: Exception) {
+        }
         try {
             val latch = java.util.concurrent.CountDownLatch(1)
-            val state = AskodoxPaymentAlerts.speakRemote(applicationContext, data["event_id"] ?: "", data["text"] ?: "",
-                data["language"] ?: "te", data["business_id"], true) { latch.countDown() }
+            val state = AskodoxPaymentAlerts.speakRemote(ctx, eventId, data["text"] ?: "",
+                data["language"] ?: "te", businessId, true) { latch.countDown() }
             if (state == "spoken") latch.await(18, java.util.concurrent.TimeUnit.SECONDS)
         } catch (_: Exception) {
         }
+    }
+}
+
+private const val PAYMENT_CHANNEL = "askodox_payments"
+
+private fun showPaymentNotification(context: Context, eventId: String, title: String, text: String) {
+    if (text.isBlank()) return
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(PAYMENT_CHANNEL) == null) {
+        manager.createNotificationChannel(android.app.NotificationChannel(PAYMENT_CHANNEL, "Payment alerts",
+            android.app.NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Shop payment alerts (the voice is played by ASKODOX itself)"
+            setSound(null, null)
+            enableVibration(true)
+        })
+    }
+    val open = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    val pending = open?.let {
+        android.app.PendingIntent.getActivity(context, eventId.hashCode(), it,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+    val notification = androidx.core.app.NotificationCompat.Builder(context, PAYMENT_CHANNEL)
+        .setSmallIcon(context.applicationInfo.icon)
+        .setContentTitle(title)
+        .setContentText(text)
+        .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
+        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+        .setCategory(androidx.core.app.NotificationCompat.CATEGORY_STATUS)
+        .setSilent(true)
+        .setAutoCancel(true)
+        .apply { if (pending != null) setContentIntent(pending) }
+        .build()
+    try {
+        NotificationManagerCompat.from(context).notify("payalert", eventId.hashCode(), notification)
+    } catch (_: SecurityException) {
+        // notifications not allowed: the voice still plays
     }
 }
