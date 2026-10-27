@@ -375,6 +375,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కొలతలు నింపండి; టైప్ చేస్తుండగానే అంచనా వస్తుంది.',
     'ఫలితం కింద ఉన్న అంచనాల ఆధారాలు చదవండి.',
   ]),
+  '/me/finance': _H('Personal Finance', 'Personal Finance (నా డబ్బు)', [
+    'Personal Tax Assistant: income tax (new vs old regime) and GST estimates from the published rules.',
+    'Smart Tricks and scam checklists help with money decisions; your shop advances, payment methods and AI Credits are here too.',
+    'Estimates only: confirm with a chartered accountant or the official portal before filing.',
+  ], [
+    'Personal Tax Assistant: published rules నుండి income tax (new vs old regime), GST అంచనాలు.',
+    'Smart Tricks, మోసాల checklists డబ్బు నిర్ణయాలకు సహాయం; మీ shop advances, payment methods, AI Credits కూడా ఇక్కడే.',
+    'అంచనాలు మాత్రమే: file చేసే ముందు CA తో లేదా official portal లో confirm చేసుకోండి.',
+  ]),
   '/intel/tax': _H('Income tax estimate', 'ఆదాయపు పన్ను అంచనా', [
     'Enter your income and deductions; compare new vs old regime.',
     'Confirm with a chartered accountant before filing.',

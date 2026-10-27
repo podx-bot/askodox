@@ -159,7 +159,7 @@ void main() {
       '/profile': const ProfileScreen(),
       '/': page('HOME'),
       for (final r in ['/business', '/listings/mine', '/orders/incoming', '/business/promotions', '/business/automation',
-          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools'])
+          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools', '/me/finance', '/intel/tax'])
         r: page(r),
     });
     // Three tabs instead of one long list: each tab shows its own sections.
@@ -168,7 +168,7 @@ void main() {
     for (final (tab, sections) in [
       ('business', ['business', 'studio']),
       ('settings', ['settings', 'help']),
-      ('me', ['shopping', 'roles']),
+      ('me', ['shopping', 'finance', 'roles']),
     ]) {
       await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
       await tester.pumpAndSettle();
@@ -186,6 +186,8 @@ void main() {
       ('business', 'profile-native-video', '/videos/native'),
       ('me', 'profile-mobility', '/mobility'),
       ('me', 'profile-smart-tools', '/tools'),
+      ('me', 'profile-tax-assistant', '/intel/tax'),
+      ('me', 'profile-personal-finance', '/me/finance'),
     ]) {
       await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
       await tester.pumpAndSettle();
