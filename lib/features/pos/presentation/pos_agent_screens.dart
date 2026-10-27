@@ -51,7 +51,9 @@ class _AskodoxPosAgentsScreenState extends ConsumerState<AskodoxPosAgentsScreen>
     return (list, pending);
   }
 
-  void _refresh() => setState(() => _data = _load());
+  void _refresh() => setState(() {
+        _data = _load();
+      });
 
   Future<void> _decide(AskodoxJson action, bool approve) async {
     final te = askodoxPosTe(context);
