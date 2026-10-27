@@ -8,12 +8,8 @@ jobs:
     steps:
       - run: |
           B=https://admin.askodox.com
-          curl -s $B/health/integrations > i.json
-          python3 -c "
-          import json
-          for r in json.load(open('i.json'))['items']:
-              t=json.dumps(r)
-              if 'razorpay' in t.lower(): print('::warning::'+t[:3000])
-          "
-          echo "::warning::fake signature -> $(curl -s -w ' %{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-Razorpay-Signature: deadbeef' -d '{"event":"payment.captured"}' $B/api/payments/webhook/razorpay)"
-          echo "::warning::health $(curl -s $B/health)"
+          for i in $(seq 1 40); do c=$(curl -s $B/health | jq -r .commit); [ "${c:0:7}" = "d3d4df4" ] && break; sleep 30; done
+          echo "::warning::health commit=$c"
+          echo "::warning::costs no-auth=$(curl -s -o /dev/null -w '%{http_code}' $B/admin/cc/ai-credits/costs)"
+          echo "::warning::console=$(curl -s -o /dev/null -w '%{http_code}' $B/admin/console)"
+          echo "::warning::razorpay $(curl -s $B/health/integrations | python3 -c "import json,sys;print([r.get('state')+' '+r.get('key_check','') for r in json.load(sys.stdin)['items'] if 'azorpay' in json.dumps(r)])")"
