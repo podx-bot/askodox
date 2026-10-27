@@ -469,6 +469,9 @@ this file, don't trust it blindly.
   `_remember`): role buyer / seller / service_provider / service_taker (= seeking services
   or jobs), same need UPDATES (history), secrets dropped / masked, private unless consent,
   deleted with the account. Separate from the live demand records.
+- Personalization consent: `/api/me/memory` returns `chosen` (False = ON by default, never decided -> the memory screen
+  asks once) and `cleared_at`; "delete all memory" also stops EARLIER chats (`conversation_backup.recent_requests(since=
+  cleared_at)` on server `saved_at`, which an unchanged re-sync never bumps) from personalizing answers.
 - My Business sections = `askodoxBusinessSections` (insights / Analytics first, then
   sections). New sections need a real route; Home must never link My Business.
 - API Health & Billing (`api_billing.py`): a balance is REAL only from the provider

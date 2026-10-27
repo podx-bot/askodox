@@ -21,7 +21,10 @@ def _db(request: Request) -> str:
 def my_memory(request: Request) -> dict:
     user_id = _authenticated_app_user(request)
     db = _db(request)
-    return {"enabled": memory.enabled(db, user_id), "roles": list(memory.ROLES), "items": memory.items(db, user_id)}
+    state = memory.settings(db, user_id)
+    # "chosen": False means it is ON BY DEFAULT and the person never decided (the app asks them).
+    return {"enabled": state["enabled"], "chosen": state["chosen"], "cleared_at": state["cleared_at"],
+            "roles": list(memory.ROLES), "items": memory.items(db, user_id)}
 
 
 class MemorySettings(BaseModel):

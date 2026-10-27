@@ -50,6 +50,9 @@ def _connect(db_path: str) -> sqlite3.Connection:
         action TEXT NOT NULL, change_json TEXT NOT NULL, source_json TEXT)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS profile_memory_settings (
         user_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, updated_at REAL NOT NULL)""")
+    # "Clear my personalization": from this moment nothing older (memory or earlier chats) personalizes answers.
+    if "cleared_at" not in {r["name"] for r in conn.execute("PRAGMA table_info(profile_memory_settings)")}:
+        conn.execute("ALTER TABLE profile_memory_settings ADD COLUMN cleared_at REAL")
     return conn
 
 
@@ -88,9 +91,25 @@ def enabled(db_path: str, user_id: str) -> bool:
     return True if row is None else bool(row["enabled"])
 
 
+def settings(db_path: str, user_id: str) -> dict[str, Any]:
+    """On / off, whether the person ever chose (else it is the default), and the last "clear"."""
+    with closing(_connect(db_path)) as conn:
+        row = conn.execute("SELECT enabled, updated_at, cleared_at FROM profile_memory_settings WHERE user_id=?",
+                           (user_id,)).fetchone()
+    if row is None:
+        return {"enabled": True, "chosen": False, "chosen_at": None, "cleared_at": None}
+    return {"enabled": bool(row["enabled"]), "chosen": True, "chosen_at": row["updated_at"],
+            "cleared_at": row["cleared_at"]}
+
+
+def cleared_at(db_path: str, user_id: str) -> float | None:
+    return settings(db_path, user_id)["cleared_at"]
+
+
 def set_enabled(db_path: str, user_id: str, on: bool) -> dict[str, Any]:
     with closing(_connect(db_path)) as conn:
-        conn.execute("INSERT OR REPLACE INTO profile_memory_settings(user_id, enabled, updated_at) VALUES(?,?,?)",
+        conn.execute("INSERT INTO profile_memory_settings(user_id, enabled, updated_at) VALUES(?,?,?) ON CONFLICT(user_id)"
+                     " DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at",
                      (user_id, 1 if on else 0, time.time()))
         conn.commit()
     return {"enabled": on}
@@ -242,6 +261,12 @@ def delete(db_path: str, user_id: str, item_id: int | None = None) -> int:
         if item_id is None:
             conn.execute("DELETE FROM profile_memory_history WHERE user_id=?", (user_id,))
             n = conn.execute("DELETE FROM profile_memory_items WHERE user_id=?", (user_id,)).rowcount
+            # Clearing everything also stops earlier chats from personalizing answers (the chats themselves stay in
+            # History; the switch keeps its current position).
+            now = time.time()
+            conn.execute("INSERT INTO profile_memory_settings(user_id, enabled, updated_at, cleared_at) VALUES(?,?,?,?)"
+                         " ON CONFLICT(user_id) DO UPDATE SET cleared_at = excluded.cleared_at",
+                         (user_id, 1, now, now))
         else:
             conn.execute("DELETE FROM profile_memory_history WHERE user_id=? AND item_id=?", (user_id, item_id))
             n = conn.execute("DELETE FROM profile_memory_items WHERE user_id=? AND id=?", (user_id, item_id)).rowcount
