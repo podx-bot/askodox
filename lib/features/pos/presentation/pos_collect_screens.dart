@@ -211,6 +211,8 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
                       ? 'కొనేవారు / కస్టమర్లు మీకు నేరుగా ఇక్కడే కడతారు — PhonePe, Google Pay, Paytm, BHIM లేదా ఏ బ్యాంక్ QR అయినా. ASKODOX డబ్బు పట్టుకోదు.'
                       : 'Buyers and customers pay you directly here — PhonePe, Google Pay, Paytm, BHIM or any bank QR. ASKODOX never holds money.',
                   style: const TextStyle(fontSize: 12.5)),
+              const SizedBox(height: 6),
+              const AskodoxPaymentOptionsNotice(),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 6, children: [
                 FilledButton.tonalIcon(
@@ -491,6 +493,51 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                   onTap: () => setState(() => _current = r),
                 ),
             ]),
+    );
+  }
+}
+
+/// Said BEFORE anyone relies on a payment: what each way of being paid can and cannot confirm.
+class AskodoxPaymentOptionsNotice extends StatelessWidget {
+  const AskodoxPaymentOptionsNotice({super.key, this.forBuyer = false});
+
+  /// true = the payer's view (online order), false = the receiver's view (seller / shop / provider).
+  final bool forBuyer;
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    final rows = forBuyer
+        ? <(IconData, String, String)>[
+            (Icons.qr_code_2, 'Direct UPI / bank: you pay the seller or provider directly. ASKODOX does not hold, refund or guarantee this money — pay only after you trust the deal, and keep the UTR.',
+                'నేరుగా UPI / బ్యాంక్: మీరు విక్రేత / సర్వీస్ ప్రొవైడర్‌కి నేరుగా కడతారు. ఈ డబ్బుని ASKODOX పట్టుకోదు, తిరిగి ఇవ్వదు, హామీ ఇవ్వదు — నమ్మకం ఉన్నప్పుడే కట్టండి, UTR దాచుకోండి.'),
+            (Icons.shield_outlined, 'Extra safety (coming): pay through a licensed third-party escrow partner — the money is released to the seller only on the terms you both accept (e.g. after delivery). Not available yet.',
+                'అదనపు భద్రత (త్వరలో): లైసెన్స్ ఉన్న third-party escrow ద్వారా కట్టవచ్చు — మీరు ఇద్దరూ ఒప్పుకున్న షరతుల ప్రకారమే (ఉదా. డెలివరీ తర్వాత) డబ్బు విక్రేతకు విడుదల అవుతుంది. ఇంకా అందుబాటులో లేదు.'),
+          ]
+        : <(IconData, String, String)>[
+            (Icons.notifications_none, 'Your own QR (PhonePe, Google Pay, Paytm, any bank): ASKODOX can only read the payment NOTIFICATION on your phone and say "notification received". That is not a bank confirmation — check your bank app before handing over goods.',
+                'మీ సొంత QR (PhonePe, Google Pay, Paytm, ఏ బ్యాంక్ అయినా): మీ ఫోన్‌లో వచ్చే పేమెంట్ నోటిఫికేషన్‌ని మాత్రమే ASKODOX చదివి "నోటిఫికేషన్ వచ్చింది" అని చెబుతుంది. అది బ్యాంక్ నిర్ధారణ కాదు — సరుకు ఇచ్చే ముందు బ్యాంక్ యాప్‌లో చూసుకోండి.'),
+            (Icons.verified_outlined, 'Your own Razorpay account (optional): payments to its QR are confirmed by Razorpay itself, so phones say "you received ₹…". Money still goes straight to your account.',
+                'మీ సొంత Razorpay ఖాతా (ఐచ్ఛికం): దాని QR కి వచ్చే పేమెంట్‌ని Razorpay నే నిర్ధారిస్తుంది, అందుకే ఫోన్ "మీకు ₹… అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే.'),
+            (Icons.shield_outlined, 'Escrow (coming, optional): for online deals where the buyer wants extra safety — a licensed third-party partner holds the money and releases it to you on the agreed terms. ASKODOX never holds it.',
+                'Escrow (త్వరలో, ఐచ్ఛికం): online డీల్స్‌లో కొనేవారికి అదనపు భద్రత కావాలంటే — లైసెన్స్ ఉన్న third-party భాగస్వామి డబ్బు పట్టుకుని, ఒప్పుకున్న షరతుల ప్రకారం మీకు విడుదల చేస్తుంది. ASKODOX ఎప్పుడూ పట్టుకోదు.'),
+          ];
+    return Container(
+      key: Key(forBuyer ? 'askodoxPayOptionsNoticeBuyer' : 'askodoxPayOptionsNotice'),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(te ? 'ముందుగా తెలుసుకోండి' : 'Know this first', style: const TextStyle(fontWeight: FontWeight.w800)),
+        for (final (icon, en, tel) in rows)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(icon, size: 18, color: const Color(0xFF92400E)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(te ? tel : en, style: const TextStyle(fontSize: 12))),
+            ]),
+          ),
+      ]),
     );
   }
 }

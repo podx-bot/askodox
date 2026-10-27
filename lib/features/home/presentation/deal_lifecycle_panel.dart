@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../growth/data/benefits.dart';
 import '../../growth/presentation/benefits_widgets.dart';
 import '../../orders/data/order_repository.dart';
+import '../../pos/presentation/pos_collect_screens.dart';
 import '../domain/conversation_language.dart';
 
 /// The live deal inside the conversation: request → seller/provider reply →
@@ -309,6 +310,8 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
               ),
           Text(te ? 'కట్టాక "చెల్లింపు రిఫరెన్స్" లో UTR పంపండి.' : 'After paying, send the UTR under "Payment reference".',
               style: const TextStyle(fontSize: 11.5)),
+          const SizedBox(height: 6),
+          const AskodoxPaymentOptionsNotice(forBuyer: true),
         ]),
       );
 

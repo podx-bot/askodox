@@ -71,6 +71,8 @@ void main() {
         reader: _Reader('upi://pay?pa=lk@ybl&pn=Lakshmi%20Kirana')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayMethodsEmpty')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayOptionsNotice')), findsOneWidget);
+    expect(find.textContaining('not a bank confirmation'), findsOneWidget);
     await tester.tap(find.byKey(const Key('askodoxPayMethodQrPhoto')));
     await tester.pumpAndSettle();
     expect(find.text('lk@ybl'), findsOneWidget);
