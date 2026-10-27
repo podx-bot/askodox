@@ -20,7 +20,7 @@ jobs:
           grep -E "error|warning|info" an.txt | head -20 > fails.txt || true
           flutter test test/features/plans test/features/profile test/features/guide --reporter expanded > out.txt 2>&1 || true
           grep -E "\[E\]|Some tests failed|tests passed" out.txt | head -20 >> fails.txt || true
-          grep -n -A12 "EXCEPTION CAUGHT\|TestFailure was thrown\|assertion was thrown" out.txt | grep -v "^--$" | head -150 >> fails.txt
+          grep -n -A12 "EXCEPTION CAUGHT\|TestFailure was thrown\|assertion was thrown" out.txt | grep -v "^--$" | head -150 >> fails.txt || true
           python3 - <<'PY'
           t=open('fails.txt').read()
           for i in range(0,min(len(t),35000),3500):
