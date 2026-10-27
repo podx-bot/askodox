@@ -241,7 +241,9 @@ class _CrmTodayState extends ConsumerState<_CrmToday> {
     return (pipe, due, requests);
   }
 
-  void _refresh() => setState(() => _data = _load());
+  void _refresh() => setState(() {
+        _data = _load();
+      });
 
   Future<void> _close(AskodoxJson f, String status) async {
     final te = askodoxPosTe(context);
@@ -419,7 +421,9 @@ class _CrmLeadsState extends ConsumerState<_CrmLeads> {
       .read(askodoxPosRepositoryProvider)
       .crmLeads(widget.businessId, stage: _stage == 'all' ? '' : _stage, mine: _mine, q: _q.text.trim());
 
-  void _refresh() => setState(() => _list = _load());
+  void _refresh() => setState(() {
+        _list = _load();
+      });
 
   @override
   void dispose() {
@@ -647,7 +651,9 @@ class _AskodoxPosCrmLeadScreenState extends ConsumerState<AskodoxPosCrmLeadScree
 
   Future<AskodoxJson> _load() => ref.read(askodoxPosRepositoryProvider).crmLead(widget.businessId, widget.leadId);
 
-  void _refresh() => setState(() => _lead = _load());
+  void _refresh() => setState(() {
+        _lead = _load();
+      });
 
   Future<void> _patch(AskodoxJson body) async {
     if (!mounted) return;
@@ -913,7 +919,9 @@ class _CrmQuotationsState extends ConsumerState<_CrmQuotations> {
 
   Future<List<AskodoxJson>> _load() => ref.read(askodoxPosRepositoryProvider).crmQuotations(widget.businessId);
 
-  void _refresh() => setState(() => _list = _load());
+  void _refresh() => setState(() {
+        _list = _load();
+      });
 
   Future<void> _status(AskodoxJson q) async {
     final te = askodoxPosTe(context);
@@ -990,7 +998,9 @@ class _CrmComplaintsState extends ConsumerState<_CrmComplaints> {
   Future<List<AskodoxJson>> _load() =>
       ref.read(askodoxPosRepositoryProvider).crmComplaints(widget.businessId, status: _all ? '' : 'active');
 
-  void _refresh() => setState(() => _list = _load());
+  void _refresh() => setState(() {
+        _list = _load();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -1128,7 +1138,9 @@ class _AskodoxPosCrmComplaintScreenState extends ConsumerState<AskodoxPosCrmComp
 
   Future<AskodoxJson> _load() => ref.read(askodoxPosRepositoryProvider).crmComplaint(widget.businessId, widget.complaintId);
 
-  void _refresh() => setState(() => _item = _load());
+  void _refresh() => setState(() {
+        _item = _load();
+      });
 
   Future<void> _setStatus(String status) async {
     final te = askodoxPosTe(context);
@@ -1244,7 +1256,9 @@ class _AskodoxPosCrmCustomerScreenState extends ConsumerState<AskodoxPosCrmCusto
 
   Future<AskodoxJson> _load() => ref.read(askodoxPosRepositoryProvider).crmCustomerHistory(widget.businessId, widget.customerId);
 
-  void _refresh() => setState(() => _data = _load());
+  void _refresh() => setState(() {
+        _data = _load();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -1364,7 +1378,9 @@ class _CrmReportsState extends ConsumerState<_CrmReports> {
     return FutureBuilder<AskodoxJson>(
       future: _data,
       builder: (context, snap) {
-        if (snap.hasError) return AskodoxPosError(error: snap.error!, onRetry: () => setState(() => _data = _load()));
+        if (snap.hasError) return AskodoxPosError(error: snap.error!, onRetry: () => setState(() {
+        _data = _load();
+      }));
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
         final r = snap.data!;
         final fu = askodoxPosMap(r['followups']);
