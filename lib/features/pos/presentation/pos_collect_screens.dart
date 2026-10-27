@@ -28,8 +28,8 @@ class PhotoQrReader implements AskodoxQrReader {
     final picked = await _picker.pick(source);
     final photo = picked.where((p) => p.isImage).firstOrNull;
     if (photo == null) return null;
-    final image = await askodoxDecodeForScan(photo.bytes);
-    final code = await compute(askodoxDecodeBarcodePixels, image);
+    final image = await askodoxDecodeForScan(photo.bytes, maxSide: 2000);
+    final code = await compute(askodoxDecodeQrPixels, image);
     if (code == null) throw const AskodoxScanException('not_found');
     return code;
   }
@@ -89,7 +89,15 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
     try {
       text = await ref.read(askodoxQrReaderProvider).read(source);
     } on AskodoxScanException catch (e) {
-      if (mounted) askodoxPosSnack(context, e.message(te));
+      if (mounted) {
+        askodoxPosSnack(
+            context,
+            e.code == 'not_found'
+                ? (te
+                    ? 'ఫోటోలో QR చదవలేకపోయాను. UPI app లో "Share QR" / "Download QR" image వాడండి, లేదా "Type UPI ID" నొక్కండి.'
+                    : 'Could not read a QR in this photo. Use the QR image from your UPI app ("Share QR" / "Download QR"), or tap "Type UPI ID".')
+                : e.message(te));
+      }
       return;
     } catch (_) {
       if (mounted) askodoxPosSnack(context, te ? 'ఫోటో తెరవలేకపోయాను.' : 'Could not open the photo.');
