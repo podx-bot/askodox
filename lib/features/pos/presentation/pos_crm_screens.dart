@@ -1360,6 +1360,10 @@ class _CrmReportsState extends ConsumerState<_CrmReports> {
 
   Future<AskodoxJson> _load() => ref.read(askodoxPosRepositoryProvider).crmReport(widget.businessId, _from, _to);
 
+  void _retry() => setState(() {
+        _data = _load();
+      });
+
   Future<void> _range() async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
@@ -1378,9 +1382,9 @@ class _CrmReportsState extends ConsumerState<_CrmReports> {
     return FutureBuilder<AskodoxJson>(
       future: _data,
       builder: (context, snap) {
-        if (snap.hasError) return AskodoxPosError(error: snap.error!, onRetry: () => setState(() {
-        _data = _load();
-      }));
+        if (snap.hasError) {
+          return AskodoxPosError(error: snap.error!, onRetry: _retry);
+        }
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
         final r = snap.data!;
         final fu = askodoxPosMap(r['followups']);
