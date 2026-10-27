@@ -595,6 +595,12 @@ def order_payment(order_id: int, payload: PaymentAction, request: Request) -> di
     return _detail(container, container.order_repository.get(order_id), role)
 
 
+def fin_status_live() -> str:
+    from app.services import commerce_finance as fin
+
+    return fin.STATUS_LIVE
+
+
 def _online_payment(container: Any, request: Request, order: dict[str, Any], action: str,
                     payload: "PaymentAction") -> dict[str, Any]:
     """Online payment through a configured gateway (Razorpay). Refused -- never
@@ -608,6 +614,12 @@ def _online_payment(container: Any, request: Request, order: dict[str, Any], act
     provider = pf.checkout_provider()
     if provider is None:
         raise HTTPException(status_code=409, detail="Online payment is not available yet; pay by UPI or cash")
+    if pf.registry.status(provider)["status"] == fin_status_live():
+        # Owner rule (2026-10-27): ASKODOX never holds buyer / seller money. A LIVE platform checkout would
+        # collect an order's money into ASKODOX's own gateway account, so it is refused; buyers pay the seller
+        # directly (their own UPI / bank / Razorpay) until a licensed escrow partner is integrated.
+        raise HTTPException(status_code=409, detail="ASKODOX does not collect order payments. Pay the seller "
+                                                    "directly (UPI / bank shown in the order).")
     if order["status"] not in lifecycle.OPEN_EXECUTION | lifecycle.COMPLETION_STATES:
         raise HTTPException(status_code=409, detail="Payment is made after the seller/provider accepts")
     if (order.get("payment_state") or "") == "VERIFIED":

@@ -128,3 +128,27 @@ def test_http_methods_and_order_pay_to(monkeypatch):
     assert shown and "am=400.00" in shown[0]["upi_link"]
     assert _pay_to(container, order, "seller") == []
     assert _pay_to(container, {**order, "status": "REQUESTED"}, "buyer") == [], "only after the seller accepts"
+
+
+def test_live_platform_checkout_never_collects_order_money(monkeypatch):
+    from types import SimpleNamespace
+
+    import pytest as _pytest
+    from fastapi import HTTPException
+
+    from app.api.routes import orders
+    from app.services import commerce_finance as fin
+    from app.services import deal_lifecycle as lifecycle
+
+    class Registry:
+        def status(self, provider):
+            return {"status": fin.STATUS_LIVE}
+
+    pf = SimpleNamespace(checkout_provider=lambda: "razorpay", registry=Registry())
+    cc = SimpleNamespace(flags=lambda: {})
+    monkeypatch.setattr("app.api.routes.platform.platform", lambda container: pf)
+    monkeypatch.setattr("app.api.routes.command_center.command_center", lambda container: cc)
+    order = {"id": 5, "status": lifecycle.ACCEPTED, "payment_state": "AWAITING_PAYMENT", "total_amount": 100}
+    with _pytest.raises(HTTPException) as err:
+        orders._online_payment(SimpleNamespace(), None, order, "start_online", None)
+    assert err.value.status_code == 409 and "does not collect" in err.value.detail
