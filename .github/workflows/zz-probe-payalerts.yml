@@ -5,22 +5,13 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - shell: bash
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for i in $(seq 1 24); do
-            curl -s --max-time 20 $B/health/integrations > i.json || true
-            s=$(python3 -c "import json;d=json.load(open('i.json'));print(next((r.get('state') for r in d.get('items',[]) if r.get('integration')=='Firebase push'),'?'))" 2>/dev/null || echo err)
-            echo "try $i firebase=$s"
-            [ "$s" != "NOT_CONFIGURED" ] && [ "$s" != "err" ] && [ "$s" != "?" ] && break
-            sleep 30
+          for i in $(seq 1 50); do
+            c=$(curl -fsS --max-time 20 $B/health | python3 -c 'import json,sys;print(json.load(sys.stdin).get("commit",""))' || true)
+            echo "commit=$c"; case "$c" in 938e6f8*) break;; esac; sleep 30
           done
-          python3 -c "
-          import json
-          d=json.load(open('i.json'))
-          for r in d.get('items',[]):
-              if r.get('integration') in ('Firebase push','Razorpay'):
-                  print('::warning::'+json.dumps({k:r.get(k) for k in ('integration','state','reason')}))"
-          echo "::warning::commit=$(curl -s --max-time 20 $B/health | python3 -c 'import json,sys;print(json.load(sys.stdin).get("commit",""))')"
+          echo "::warning::deployed commit=$c"
