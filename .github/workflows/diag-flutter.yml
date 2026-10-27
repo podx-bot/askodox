@@ -16,19 +16,10 @@ jobs:
       - run: flutter pub get
       - name: analyze
         run: |
-          flutter analyze --no-fatal-warnings --no-fatal-infos > an.txt 2>&1 || true
-          grep -E "(info|warning|error) •" an.txt | head -40 | while IFS= read -r l; do echo "::warning::AN $l"; done
-      - name: tests
-        run: |
-          flutter test test/features/pos test/features/business test/features/guide test/features/home/history_explore_profile_test.dart test/features/profile > t.txt 2>&1 || true
+          flutter analyze > an.txt 2>&1 || true
           python3 - <<'PY'
-          import re
-          t = open("t.txt").read().split("\n")
-          blocks = []
-          for i, l in enumerate(t):
-              if "EXCEPTION CAUGHT" in l or "[E]" in l:
-                  blocks.append(" | ".join(x.strip() for x in t[i:i+28] if x.strip())[:1800])
-          for b in blocks[:9]:
-              print("::warning::" + b.replace("%", "%25"))
-          print("::warning::TAIL " + " | ".join(t[-4:]))
+          lines = [l.strip() for l in open("an.txt") if " • " in l]
+          for k in range(0, min(len(lines), 80), 8):
+              print("::warning::AN " + " || ".join(lines[k:k+8]).replace("%", "%25"))
+          print("::warning::ANCOUNT %d" % len(lines))
           PY
