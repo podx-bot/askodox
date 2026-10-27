@@ -17,7 +17,11 @@ this file, don't trust it blindly.
   details, #231 guide offers help by itself + picture tiles + rates by quantity + spoken multi-item bill, #232 self-shopping,
   #233 guide speaks + answers, examples / pre-fill, History backup, #234 Profile tabs + search, #235 profile editor
   (mini boxes), then the new logo / app icon + Command Center heading -> category -> page grid, then #237 POS payment voice
-  alerts (2026-10-26; NOT phone verified). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  alerts (2026-10-26; Razorpay bank-confirmed voice with the app closed PHONE VERIFIED on APK 1374), #238 FCM speak service,
+  #239 own payment methods + POS collect + "Know this first" + LIVE order checkout refused + one mixed-language console,
+  #240 UPI QR photo reader (PHONE VERIFIED on 1379, PhonePe dark QR), #241 AI Credits (TEST, charging OFF), #242 collect
+  safety (bank-check confirm, undo 15 min, customer pay link `/pay/upi/{id}`), #244 AI usage metering
+  (`ai_usage_meter.py`, one httpx hook, counts only) -- production `d3d4df4` (2026-10-27). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -38,8 +42,8 @@ this file, don't trust it blindly.
   sections (promotions, automation, creations); API Health & Billing; Admin AI
   incidents + action framework; strict release gate. Every new flow is CODE
   READY only -- no real-phone verification yet.
-- Railway: production env → podx-ai-connect from `main` (no custom domain,
-  `podx-ai-connect-production-3279.up.railway.app`); staging env →
+- Railway: production env → podx-ai-connect from `main` (`podx-ai-connect-production-3279.up.railway.app`, also
+  served at `admin.askodox.com` -- same service, verified 2026-10-27; console at `/admin/console`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
   variables + volume; askodox.com → askodox-website (root `/website`), deploying from `main`
   since 2026-10-04 (the old `claude/askodox-website` branch is retired).
@@ -592,6 +596,9 @@ this file, don't trust it blindly.
   LISTENER is NEVER in the default manifest: Play Protect blocked sideloaded APK 1366 for it -- Play builds only
   (`tool/apply_android_payment_alerts.sh`, Live Build `include_payment_alerts` + `build_play_bundle`); CI fails a
   sideloaded APK that declares it. Flag `pos.payment_alerts` = emergency off. Flutter: `/pos/:id/payment-alerts`.
+- AI Credits = `ai_credits.py` + `routes/ai_credits.py` (append-only `ai_credit_ledger`, UNIQUE ref, live + TEST balance;
+  added ONLY in `billing.on_payment`; assistant reserves one 'chat' use before the model, releases on no answer; charging
+  OFF until staff rates). Packs = growth plans audience `ai_credits` (seeded INACTIVE). Play Store sale needs Play Billing.
 - ASKODOX NEVER holds buyer / seller money (owner rule 2026-10-27). Own ways to be paid = `payment_methods.py`
   (`user_payment_methods`, any app's UPI QR via `parse_upi_qr`, bank number encrypted) + `/api/me/payment-methods`; POS
   collect to the owner's own UPI = `pos_payment_alerts` collect requests (a notification only MATCHES, the shop confirms);
