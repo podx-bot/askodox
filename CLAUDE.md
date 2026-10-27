@@ -20,7 +20,8 @@ this file, don't trust it blindly.
   alerts (2026-10-26; Razorpay bank-confirmed voice with the app closed PHONE VERIFIED on APK 1374), #238 FCM speak service,
   #239 own payment methods + POS collect + "Know this first" + LIVE order checkout refused + one mixed-language console,
   #240 UPI QR photo reader (PHONE VERIFIED on 1379, PhonePe dark QR), #241 AI Credits (TEST, charging OFF), #242 collect
-  safety (bank-check confirm, undo 15 min, customer pay link `/pay/upi/{id}`) -- production `84b608b` (2026-10-27). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  safety (bank-check confirm, undo 15 min, customer pay link `/pay/upi/{id}`), #244 AI usage metering
+  (`ai_usage_meter.py`, one httpx hook, counts only) -- production `d3d4df4` (2026-10-27). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -41,8 +42,8 @@ this file, don't trust it blindly.
   sections (promotions, automation, creations); API Health & Billing; Admin AI
   incidents + action framework; strict release gate. Every new flow is CODE
   READY only -- no real-phone verification yet.
-- Railway: production env → podx-ai-connect from `main` (no custom domain,
-  `podx-ai-connect-production-3279.up.railway.app`); staging env →
+- Railway: production env → podx-ai-connect from `main` (`podx-ai-connect-production-3279.up.railway.app`, also
+  served at `admin.askodox.com` -- same service, verified 2026-10-27; console at `/admin/console`); staging env →
   `staging.askodox.com` from `claude/friendly-ramanujan-538sbj` with its OWN
   variables + volume; askodox.com → askodox-website (root `/website`), deploying from `main`
   since 2026-10-04 (the old `claude/askodox-website` branch is retired).
