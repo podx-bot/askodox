@@ -40,3 +40,13 @@ def test_console_page_carries_the_map_guide_and_error_explanations():
                    "function renderCrumbs", "Guide · గైడ్"):
         assert marker in page
     assert "</script" not in page.split("const NAV=", 1)[1].split(";\n", 1)[0]
+
+
+def test_console_is_one_mixed_language_view_without_separate_toggles():
+    """Owner rule (2026-10-27): ONE Telugu-English mixed Command Center, no separate English / Telugu screens."""
+    from app.api.routes import admin_console
+
+    html = next(v for v in vars(admin_console).values() if isinstance(v, str) and "<script>" in v)
+    for toggle in ("STATE.wqLang", "STATE.incLang", 'id="wq_lang"'):
+        assert toggle not in html, toggle
+    assert "My work queue · నా పని జాబితా" in html and "Problem · సమస్య" in html
