@@ -8,7 +8,8 @@ jobs:
     steps:
       - run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for i in $(seq 1 40); do c=$(curl -s $B/health | jq -r .commit); [ "${c:0:7}" = "56d7b28" ] && break; sleep 30; done
+          for i in $(seq 1 40); do c=$(curl -s $B/health | jq -r .commit); [ "${c:0:7}" = "84b608b" ] && break; sleep 30; done
           echo "::warning::health commit=$c"
-          echo "::warning::payment-methods no-token=$(curl -s -o /dev/null -w '%{http_code}' $B/api/me/payment-methods)"
-          echo "::warning::admin console=$(curl -s -o /dev/null -w '%{http_code}' $B/admin/console)"
+          echo "::warning::ai-credits no-token=$(curl -s -o /dev/null -w '%{http_code}' $B/api/me/ai-credits)"
+          echo "::warning::pay page bad token=$(curl -s -o /dev/null -w '%{http_code}' $B/pay/upi/x?t=y)"
+          echo "::warning::admin ai-credits no-auth=$(curl -s -o /dev/null -w '%{http_code}' $B/admin/cc/ai-credits/settings)"
