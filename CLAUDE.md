@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` (2026-10-24): master command rounds 1-4 + Universal POS merged in order #220 (Smart Tools, vision inspection),
+- `main` (2026-10-27, `21d306c`): master command rounds 1-4 + Universal POS merged in order #220 (Smart Tools, vision inspection),
   #221 (income tax / GST / fraud / smart tricks), #222 (BLE devices, push-to-talk), #223 (photo measurement), #224 (POS
   core), #225 (restaurant tables / KOT / kitchen, held bills), POS round 3 PR (barcode from a camera photo, BLE scale reading,
   invoice PDF + native `shareFile`, suppliers / purchase bills / supplier ledger, batch + expiry FEFO, valuation, input
@@ -21,7 +21,11 @@ this file, don't trust it blindly.
   #239 own payment methods + POS collect + "Know this first" + LIVE order checkout refused + one mixed-language console,
   #240 UPI QR photo reader (PHONE VERIFIED on 1379, PhonePe dark QR), #241 AI Credits (TEST, charging OFF), #242 collect
   safety (bank-check confirm, undo 15 min, customer pay link `/pay/upi/{id}`), #244 AI usage metering
-  (`ai_usage_meter.py`, one httpx hook, counts only) -- production `d3d4df4` (2026-10-27). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  (`ai_usage_meter.py`, one httpx hook, counts only) -- production `d3d4df4` (2026-10-27); then (owner "1", 2026-10-27
+  22:46) #245 one mixed Telugu-English Command Center, #246 Business CRM, #248 role AI agents + buyer agent, #247
+  Personal Finance (Personal Tax Assistant), #249 personalization consent / clear + Telugu affiliate labels -> main
+  `21d306c` = phone-test APK 1384 code (Live Build run 40543475171). Personalization stays default ON + ask-once card
+  (owner decision). NOT phone verified. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
