@@ -46,7 +46,15 @@ class AskodoxSmartToolsHubScreen extends StatelessWidget {
             AskodoxTileGrid(
               keyPrefix: 'askodoxTool',
               tiles: [
-                for (final tool in askodoxSmartTools.where((t) => t.group == group))
+                // Money, tax & scam tools moved to Profile -> Personal Finance (one place per function).
+                if (group == AskodoxToolGroup.money)
+                  AskodoxTile(
+                    id: 'personal_finance',
+                    icon: Icons.account_balance_outlined,
+                    title: te ? 'Personal Finance లో ఉన్నాయి (Tax, GST, మోసాల checks)' : 'Now in Personal Finance (tax, GST, scam checks)',
+                    onTap: () => context.push('/me/finance'),
+                  ),
+                for (final tool in askodoxSmartTools.where((t) => t.group == group && t.group != AskodoxToolGroup.money))
                   AskodoxTile(
                     id: tool.id,
                     icon: askodoxToolIcon(tool),
