@@ -1724,6 +1724,62 @@
           "change": "Owner command 2026-10-26 (branch claude/pos-payment-voice-alerts); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "own_payment_methods_collect",
+      "name": "Own payment methods (any app / bank UPI QR, bank) + POS collect to own UPI + order pay-to",
+      "purpose": "Party A / Party B are paid DIRECTLY to their own UPI (PhonePe, Google Pay, Paytm, BHIM, any bank QR) or bank account; ASKODOX never holds money.",
+      "expected_behavior": "QR photo -> upi:// parsed -> saved UPI ID; bank numbers encrypted; buyers see the seller's methods only after acceptance; POS shows an amount QR to the shop's own UPI; a same-amount payment notification within 30 min marks it 'matched' but only the shop confirms.",
+      "roles": [
+        "owner",
+        "cashier",
+        "seller",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/payment-methods"
+        },
+        {
+          "method": "POST",
+          "path": "/api/me/payment-methods"
+        },
+        {
+          "method": "POST",
+          "path": "/api/me/payment-methods/read-qr"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/collect"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/collect/requests"
+        }
+      ],
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_payment_methods.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_collect_test.dart"
+        ]
+      },
+      "dependencies": [
+        "pos_payment_voice_alerts"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner command 2026-10-27 (branch claude/own-payment-methods); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

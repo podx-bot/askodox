@@ -225,6 +225,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఏం తప్పు జరిగిందో రాయండి; కావాలంటే స్క్రీన్‌షాట్ చేర్చండి.',
     'మీరు అనుమతిస్తేనే డయాగ్నస్టిక్స్ పంపుతాం.',
   ]),
+  '/pos/:id/collect': _H('Collect by UPI', 'UPI తో కట్టించుకోండి', [
+    'Type the amount and press "Show QR" — the customer scans it with any UPI app and pays the shop directly.',
+    'When a payment notification with the same amount arrives, it is marked — check your bank app.',
+    'Press "Money received" only after you have checked. ASKODOX never holds the money.',
+  ], [
+    'మొత్తం టైప్ చేసి "QR చూపించు" నొక్కండి — కస్టమర్ ఏ UPI యాప్‌తో అయినా స్కాన్ చేసి నేరుగా షాపుకి కడతారు.',
+    'అదే మొత్తం పేమెంట్ నోటిఫికేషన్ వస్తే గుర్తు పెడుతుంది — బ్యాంక్ యాప్‌లో చూసుకోండి.',
+    'చూసుకున్నాకే "డబ్బు అందింది" నొక్కండి. ASKODOX డబ్బు పట్టుకోదు.',
+  ]),
+  '/me/payment-methods': _H('My payment methods', 'నా పేమెంట్ పద్ధతులు', [
+    'Add your UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID.',
+    'Buyers see these only after you accept their request; they pay you directly.',
+    'Bank account numbers are stored encrypted. Make one method the default.',
+  ], [
+    'ఏ యాప్ / బ్యాంక్ UPI QR అయినా జోడించండి — ఫోటో ఎంచుకోండి లేదా తీయండి — లేదా UPI ID టైప్ చేయండి.',
+    'మీరు అభ్యర్థనను అంగీకరించాకే కొనేవారికి ఇవి కనిపిస్తాయి; వాళ్ళు నేరుగా మీకే కడతారు.',
+    'బ్యాంక్ ఖాతా నంబర్లు ఎన్‌క్రిప్ట్ చేసి దాస్తాం. ఒకదాన్ని డిఫాల్ట్ చేయండి.',
+  ]),
   '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
     'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',
     'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',

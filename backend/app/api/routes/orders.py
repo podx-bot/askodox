@@ -417,12 +417,39 @@ def _upi_pay(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]
         seller = UserProfileRepository(container.settings.database_path).get(str(order.get("seller_user_id") or ""))
     except Exception:
         return {}
+    try:  # the seller's own saved default UPI (Profile -> Payment methods) wins over the old profile field
+        from app.api.routes.payment_methods import payment_methods
+
+        default = payment_methods(container).default_upi(str(order.get("seller_user_id") or ""))
+        if default:
+            seller = {**seller, "upi_id": default["upi_id"],
+                      "business_name": default.get("payee_name") or seller.get("business_name")}
+    except Exception:
+        pass
     amount = order.get("total_amount") or order.get("price")
     link = payment_gateway.upi_intent(seller.get("upi_id") or "", seller.get("business_name") or seller.get("name") or "",
                                       float(amount) if amount else None, f"ASKODOX order {order['id']}",
                                       f"ASKODOX{order['id']}")
     return {"upi_link": link, "upi_payee": seller.get("business_name") or seller.get("name")} if link else \
         {"upi_link": None, "upi_missing": "The seller has not added a UPI ID yet -- ask them for it in chat."}
+
+
+def _pay_to(container: Any, order: dict[str, Any], role: str) -> list[dict[str, Any]]:
+    """The seller's OWN ways to be paid (UPI from any app's QR, bank), shown ONLY to the buyer and only after the
+    seller accepted (same rule as contact details) and while not yet paid. Money goes directly to the seller."""
+    if role != "buyer" or order.get("status") not in lifecycle.OPEN_EXECUTION | lifecycle.COMPLETION_STATES:
+        return []
+    if order.get("payment_state") == "VERIFIED" or order.get("settlement_method") in lifecycle.CASH_METHODS:
+        return []
+    try:
+        from app.api.routes.payment_methods import payment_methods
+
+        amount = order.get("total_amount") or order.get("price")
+        return payment_methods(container).pay_to(str(order.get("seller_user_id") or ""),
+                                                  amount=float(amount) if amount else None,
+                                                  note=f"ASKODOX order {order['id']}", reference=f"ASKODOX{order['id']}")
+    except Exception:
+        return []
 
 
 def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
@@ -436,6 +463,7 @@ def _detail(container: Any, order: dict[str, Any], role: str) -> dict[str, Any]:
         "viewer": role,
         "payment_note": "ASKODOX does not process payments; payment is made directly to the seller/provider.",
         "settlement": _settlement(order) | _upi_pay(container, order, role),
+        "pay_to": _pay_to(container, order, role),
         "participants": [{"role": p["role"], "user": mask_user_id(p["user_id"])}
                          for p in _participants(container, order["id"])],
     })

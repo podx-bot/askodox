@@ -282,6 +282,26 @@ class AskodoxPosRepository {
         if (since.isNotEmpty) 'since': since,
         'limit': '$limit',
       });
+  // The person's OWN ways to be paid (UPI from any app's QR, bank). ASKODOX never holds money.
+  Future<List<AskodoxJson>> myPaymentMethods() async =>
+      askodoxPosList((await _send('GET', '/api/me/payment-methods'))['methods']);
+  Future<List<AskodoxJson>> addPaymentMethod(AskodoxJson body) async =>
+      askodoxPosList((await _send('POST', '/api/me/payment-methods', body: body))['methods']);
+  Future<AskodoxJson> readUpiQr(String text) => _send('POST', '/api/me/payment-methods/read-qr', body: {'qr_text': text});
+  Future<List<AskodoxJson>> defaultPaymentMethod(String methodId) async =>
+      askodoxPosList((await _send('POST', '/api/me/payment-methods/$methodId/default'))['methods']);
+  Future<List<AskodoxJson>> removePaymentMethod(String methodId) async =>
+      askodoxPosList((await _send('DELETE', '/api/me/payment-methods/$methodId'))['methods']);
+  // Collect to the shop's OWN UPI (amount QR) + notification matching.
+  Future<AskodoxJson> collectSettings(String id) => _send('GET', '${_b(id)}/collect');
+  Future<AskodoxJson> setCollectMethod(String id, String methodId) =>
+      _send('PUT', '${_b(id)}/collect', body: {'method_id': methodId});
+  Future<AskodoxJson> createCollectRequest(String id, int amountPaise, String label) =>
+      _send('POST', '${_b(id)}/collect/requests', body: {'amount_paise': amountPaise, 'label': label});
+  Future<List<AskodoxJson>> collectRequests(String id) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/collect/requests'))['requests']);
+  Future<AskodoxJson> decideCollectRequest(String id, String requestId, String action) =>
+      _send('POST', '${_b(id)}/collect/requests/$requestId', body: {'action': action});
   Future<AskodoxJson> paymentProvider(String id) => _send('GET', '${_pa(id)}/provider');
   Future<AskodoxJson> connectPaymentProvider(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/provider', body: body);
   Future<AskodoxJson> disconnectPaymentProvider(String id) => _send('DELETE', '${_pa(id)}/provider');

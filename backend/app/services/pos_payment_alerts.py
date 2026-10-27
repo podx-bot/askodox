@@ -77,6 +77,13 @@ SCHEMA = [
     " test INTEGER NOT NULL DEFAULT 0, duplicates INTEGER NOT NULL DEFAULT 0, expires_at TEXT NOT NULL,"
     " UNIQUE (business_id, fingerprint))",
     "CREATE INDEX IF NOT EXISTS idx_pos_payment_events_biz ON pos_payment_events(business_id, received_at)",
+    "CREATE TABLE IF NOT EXISTS pos_collect_settings (business_id TEXT PRIMARY KEY, method_id TEXT NOT NULL,"
+    " updated_by TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS pos_payment_requests (id TEXT PRIMARY KEY, business_id TEXT NOT NULL,"
+    " amount_paise INTEGER NOT NULL, label TEXT NOT NULL DEFAULT '', upi_id TEXT NOT NULL, payee TEXT NOT NULL,"
+    " status TEXT NOT NULL, matched_event_id TEXT, created_by TEXT NOT NULL, confirmed_by TEXT,"
+    " created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS idx_pos_payment_requests_biz ON pos_payment_requests(business_id, status, created_at)",
     "CREATE TABLE IF NOT EXISTS pos_payment_acks (event_id TEXT NOT NULL, device_id TEXT NOT NULL, user_id TEXT NOT NULL,"
     " state TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (event_id, device_id))",
 ]
@@ -120,8 +127,10 @@ def announcement(amount_paise: Optional[int], language: str, verified: bool = Fa
 class PosPaymentAlerts:
     def __init__(self, store: PosStore,
                  notify: Optional[Callable[..., None]] = None,
-                 feature_on: Optional[Callable[[], bool]] = None) -> None:
+                 feature_on: Optional[Callable[[], bool]] = None, methods: Any = None) -> None:
         self.store = store
+        # The shop owner's OWN payment methods (payment_methods.PaymentMethods) for "collect to this UPI".
+        self.methods = methods
         # notify(user_id, title, body, route, event_key, speak_data) -- best effort, never raises into the caller.
         # speak_data goes to the phone as a high-priority data push so it can SPEAK even when ASKODOX is closed.
         self.notify = notify or (lambda *args: None)
@@ -268,6 +277,7 @@ class PosPaymentAlerts:
                 (event_id, business_id, fingerprint, int(amount_paise), f"provider.{provider}", label, ref[-4:],
                  "provider_verified", f"provider:{provider}", "", detected.isoformat(), now.isoformat(), None,
                  f"provider:{provider}", int(test), (now + timedelta(days=RETENTION_DAYS)).isoformat()))
+            self._match_request(conn, business_id, event_id, int(amount_paise))
             row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
             event = self._event_out(conn, row, "")
             receivers = self._receivers(conn, business_id, settings, exclude="")
@@ -418,6 +428,7 @@ class PosPaymentAlerts:
                 if spoken in ACK_STATES:
                     conn.execute("INSERT OR REPLACE INTO pos_payment_acks (event_id, device_id, user_id, state, at)"
                                  " VALUES (?,?,?,?,?)", (event_id, device_id, user, spoken, now.isoformat()))
+            self._match_request(conn, business_id, event_id, None if test else amount)
             row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
             event = self._event_out(conn, row, user)
             receivers = self._receivers(conn, business_id, settings, exclude=user)
@@ -464,6 +475,7 @@ class PosPaymentAlerts:
             "reason": row["reason"], "detected_at": row["detected_at"], "received_at": row["received_at"],
             "receiving_device": reporter["label"] if reporter else "", "reported_by_me": row["reported_by"] == user,
             "test": bool(row["test"]), "duplicates": row["duplicates"], "expired": expired,
+            "matched_request": self._request_for_event(conn, row["id"]),
             "acks": [{"device": a["label"] or "", "mine": a["user_id"] == user, "state": a["state"], "at": a["at"]}
                      for a in acks],
             "delivery_pending": len(active - acked),
@@ -547,6 +559,125 @@ class PosPaymentAlerts:
                                    e["status"], e["verification"], str(int(e["test"])), str(e["duplicates"])]))
         lines.append("# Notifications only. Not bank-verified. Not revenue or settled collections.")
         return "\n".join(lines) + "\n"
+
+    # ------------------------------------------------------- collect to the shop's OWN UPI
+    MATCH_WINDOW = timedelta(minutes=30)
+
+    def _collect_method(self, conn: sqlite3.Connection, business_id: str) -> Optional[Dict[str, Any]]:
+        if self.methods is None:
+            return None
+        owner = self.store._business_row(conn, business_id)["owner_user_id"]
+        row = conn.execute("SELECT method_id FROM pos_collect_settings WHERE business_id = ?", (business_id,)).fetchone()
+        chosen = self.methods.get(owner, row["method_id"]) if row else None
+        if chosen is None or chosen.get("kind") != "upi":
+            chosen = self.methods.default_upi(owner)
+        return chosen
+
+    def collect_settings(self, business_id: str, user: str) -> Dict[str, Any]:
+        with self.store._connect() as conn:
+            role = self._member(conn, business_id, user)
+            method = self._collect_method(conn, business_id)
+            owner = self.store._business_row(conn, business_id)["owner_user_id"]
+        options = [m for m in (self.methods.list(owner) if self.methods and role == "owner" else []) if m["kind"] == "upi"]
+        return {"method": {k: method.get(k) for k in ("id", "upi_id", "payee_name", "app", "label")} if method else None,
+                "options": [{k: m.get(k) for k in ("id", "upi_id", "payee_name", "app", "label", "is_default")}
+                            for m in options],
+                "can_edit": role == "owner",
+                "note": "Customers pay the shop's own UPI directly. ASKODOX never holds money."}
+
+    def set_collect_method(self, business_id: str, user: str, method_id: str) -> Dict[str, Any]:
+        with self.store._tx() as conn:
+            self.store._business_row(conn, business_id)
+            if self.store.role_of(conn, business_id, user) != "owner":
+                raise PosError(403, "owner_only", "Only the shop owner chooses where payments go.")
+            chosen = self.methods.get(user, method_id) if self.methods else None
+            if chosen is None or chosen.get("kind") != "upi":
+                raise PosError(404, "method", "Choose one of your own UPI IDs (Profile -> Payment methods).")
+            now = self._now().isoformat()
+            conn.execute("INSERT INTO pos_collect_settings (business_id, method_id, updated_by, updated_at) VALUES"
+                         " (?,?,?,?) ON CONFLICT(business_id) DO UPDATE SET method_id=excluded.method_id,"
+                         " updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+                         (business_id, method_id, user, now))
+            self.store._audit(conn, business_id, user, "payment_alerts.collect_method", method_id, {}, now)
+        return self.collect_settings(business_id, user)
+
+    def _request_out(self, row: sqlite3.Row) -> Dict[str, Any]:
+        from app.services.payment_gateway import upi_intent
+
+        link = upi_intent(row["upi_id"], row["payee"], row["amount_paise"] / 100, row["label"] or "ASKODOX bill",
+                          row["id"].replace("_", "")[:35])
+        return {"id": row["id"], "amount_paise": row["amount_paise"], "label": row["label"], "upi_id": row["upi_id"],
+                "payee": row["payee"], "upi_link": link, "status": row["status"],
+                "matched_event_id": row["matched_event_id"], "created_at": row["created_at"],
+                "confirmed": row["status"] == "confirmed",
+                "note": "Matched means a payment NOTIFICATION with this amount arrived -- confirm it in your bank app."}
+
+    def create_request(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        amount = int(data.get("amount_paise") or 0)
+        if amount <= 0 or amount > MAX_AMOUNT_PAISE:
+            raise PosError(400, "amount", "Enter the amount to collect.")
+        with self.store._tx() as conn:
+            self._member(conn, business_id, user)
+            method = self._collect_method(conn, business_id)
+            if not method:
+                raise PosError(409, "no_upi", "The shop owner has not added a UPI ID yet (Profile -> Payment methods).")
+            shop = self.store._business_row(conn, business_id)["name"]
+            now = self._now().isoformat()
+            rid = f"ppr_{uuid.uuid4().hex[:16]}"
+            conn.execute("INSERT INTO pos_payment_requests (id, business_id, amount_paise, label, upi_id, payee, status,"
+                         " created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                         (rid, business_id, amount, str(data.get("label") or "")[:60], method["upi_id"],
+                          method.get("payee_name") or shop, "pending", user, now, now))
+            row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?", (rid,)).fetchone()
+            return self._request_out(row)
+
+    def requests(self, business_id: str, user: str, status: str = "") -> List[Dict[str, Any]]:
+        with self.store._connect() as conn:
+            self._member(conn, business_id, user)
+            sql, args = "SELECT * FROM pos_payment_requests WHERE business_id = ?", [business_id]
+            if status:
+                sql += " AND status = ?"
+                args.append(status)
+            rows = conn.execute(sql + " ORDER BY created_at DESC LIMIT 50", args).fetchall()
+        return [self._request_out(r) for r in rows]
+
+    def decide_request(self, business_id: str, user: str, request_id: str, action: str) -> Dict[str, Any]:
+        if action not in ("confirm", "cancel"):
+            raise PosError(400, "action", "action must be confirm or cancel.")
+        with self.store._tx() as conn:
+            self._member(conn, business_id, user)
+            row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ? AND business_id = ?",
+                               (request_id, business_id)).fetchone()
+            if row is None:
+                raise PosError(404, "request", "Payment request not found.")
+            if row["status"] in ("confirmed", "cancelled"):
+                return self._request_out(row)
+            now = self._now().isoformat()
+            conn.execute("UPDATE pos_payment_requests SET status = ?, confirmed_by = ?, updated_at = ? WHERE id = ?",
+                         ("confirmed" if action == "confirm" else "cancelled", user, now, request_id))
+            self.store._audit(conn, business_id, user, f"payment_request.{action}", request_id,
+                              {"amount_paise": row["amount_paise"]}, now)
+            return self._request_out(conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?",
+                                                  (request_id,)).fetchone())
+
+    def _match_request(self, conn: sqlite3.Connection, business_id: str, event_id: str,
+                       amount: Optional[int]) -> None:
+        """The oldest pending request with the same amount in the last 30 minutes -> 'matched' (never 'confirmed')."""
+        if not amount:
+            return
+        since = (self._now() - self.MATCH_WINDOW).isoformat()
+        row = conn.execute("SELECT id FROM pos_payment_requests WHERE business_id = ? AND status = 'pending'"
+                           " AND amount_paise = ? AND created_at >= ? ORDER BY created_at LIMIT 1",
+                           (business_id, int(amount), since)).fetchone()
+        if row:
+            conn.execute("UPDATE pos_payment_requests SET status = 'matched', matched_event_id = ?, updated_at = ?"
+                         " WHERE id = ?", (event_id, self._now().isoformat(), row["id"]))
+
+    @staticmethod
+    def _request_for_event(conn: sqlite3.Connection, event_id: str) -> Optional[Dict[str, Any]]:
+        row = conn.execute("SELECT id, label, status FROM pos_payment_requests WHERE matched_event_id = ?",
+                           (event_id,)).fetchone()
+        return {"id": row["id"], "label": row["label"], "status": row["status"]} if row else None
 
     # --------------------------------------------------------------- admin
     def admin_summary(self) -> Dict[str, Any]:

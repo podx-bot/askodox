@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../growth/data/benefits.dart';
 import '../../growth/presentation/benefits_widgets.dart';
@@ -275,6 +277,41 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
     };
   }
 
+  /// Pay the seller DIRECTLY: open any UPI app with the amount filled, or copy their bank details.
+  Widget _payToBlock(List<Map<String, Object?>> methods, bool te) => Container(
+        key: const Key('askodoxDealPayTo'),
+        margin: const EdgeInsets.only(top: 6, bottom: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(10)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'విక్రేతకు నేరుగా కట్టండి (ASKODOX డబ్బు పట్టుకోదు)' : 'Pay the seller directly (ASKODOX never holds money)',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+          for (final m in methods)
+            if (m['kind'] == 'upi')
+              TextButton.icon(
+                key: ValueKey('askodoxDealPayUpi-${m['id']}'),
+                onPressed: () => launchUrl(Uri.parse('${m['upi_link']}'), mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.payments_outlined, size: 18),
+                label: Text('${te ? 'UPI యాప్‌లో కట్టు' : 'Pay in a UPI app'} · ${m['upi_id']}'),
+              )
+            else
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.account_balance, size: 18),
+                title: Text('${m['account_holder']} · ${m['bank_name'] ?? ''}'),
+                subtitle: SelectableText('A/c ${m['account_number'] ?? '••${m['account_last4']}'} · IFSC ${m['ifsc']}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  onPressed: () => Clipboard.setData(
+                      ClipboardData(text: '${m['account_holder']}\nA/c ${m['account_number'] ?? ''}\nIFSC ${m['ifsc']}')),
+                ),
+              ),
+          Text(te ? 'కట్టాక "చెల్లింపు రిఫరెన్స్" లో UTR పంపండి.' : 'After paying, send the UTR under "Payment reference".',
+              style: const TextStyle(fontSize: 11.5)),
+        ]),
+      );
+
   String? _paymentLabel(String state) => switch (state) {
         'AWAITING_PAYMENT' => _te ? 'చెల్లింపు: నేరుగా విక్రేతకు; ఇంకా జరగలేదు' : 'Payment: direct to the seller — not made yet',
         'PROOF_SUBMITTED' => _te ? 'చెల్లింపు రిఫరెన్స్ పంపారు — నిర్ధారణ కోసం వేచి ఉంది' : 'Payment reference sent — awaiting confirmation',
@@ -392,6 +429,7 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
           Text(_paymentLabel(d.order.paymentState)!,
               key: const Key('askodoxDealPayment'),
               style: const TextStyle(fontSize: 12, color: Color(0xFF5E6472))),
+        if (d != null && d.payTo.isNotEmpty) _payToBlock(d.payTo, te),
         if (d != null && d.order.price != null)
           Text('${te ? 'ధర' : 'Price'}: ₹${d.order.price!.toStringAsFixed(0)}',
               style: const TextStyle(fontSize: 12, color: Color(0xFF5E6472))),

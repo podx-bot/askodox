@@ -1135,8 +1135,11 @@ def _payment_alerts(request: Request):
             if speak:
                 push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=120)
 
+        from app.api.routes.payment_methods import payment_methods
+
         existing = PosPaymentAlerts(store, notify=notify,
-                                    feature_on=lambda: feature_enabled(container, "pos.payment_alerts"))
+                                    feature_on=lambda: feature_enabled(container, "pos.payment_alerts"),
+                                    methods=payment_methods(container))
         try:
             container.pos_payment_alerts = existing
         except Exception:
@@ -1303,3 +1306,43 @@ async def payment_provider_webhook(provider: str, business_id: str, request: Req
     body = await request.body()
     return _call(_payment_providers(request).webhook, provider, business_id, body,
                  request.headers.get("x-razorpay-signature", ""), request.headers.get("x-razorpay-event-id", ""))
+
+
+# ------------------------------------------------------------ collect to the shop's OWN UPI (any app / bank QR)
+class CollectMethodIn(BaseModel):
+    method_id: str = Field(min_length=3, max_length=40)
+
+
+class CollectRequestIn(BaseModel):
+    amount_paise: int = Field(gt=0)
+    label: str = Field(default="", max_length=60)
+
+
+class CollectDecisionIn(BaseModel):
+    action: str = Field(pattern="^(confirm|cancel)$")
+
+
+@router.get("/businesses/{business_id}/collect")
+def collect_settings(business_id: str, request: Request) -> dict:
+    return _call(_payment_alerts(request).collect_settings, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/collect")
+def set_collect_method(business_id: str, body: CollectMethodIn, request: Request) -> dict:
+    return _call(_payment_alerts(request).set_collect_method, business_id, _user(request), body.method_id)
+
+
+@router.post("/businesses/{business_id}/collect/requests")
+def create_collect_request(business_id: str, body: CollectRequestIn, request: Request) -> dict:
+    """A UPI QR / link with the amount, to the shop's OWN UPI ID. Money goes straight to the shop."""
+    return _call(_payment_alerts(request).create_request, business_id, _user(request), body.model_dump())
+
+
+@router.get("/businesses/{business_id}/collect/requests")
+def collect_requests(business_id: str, request: Request, status: str = "") -> dict:
+    return {"requests": _call(_payment_alerts(request).requests, business_id, _user(request), status)}
+
+
+@router.post("/businesses/{business_id}/collect/requests/{request_id}")
+def decide_collect_request(business_id: str, request_id: str, body: CollectDecisionIn, request: Request) -> dict:
+    return _call(_payment_alerts(request).decide_request, business_id, _user(request), request_id, body.action)

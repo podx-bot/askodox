@@ -276,6 +276,7 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
           final tiles = <(String, IconData, String, String, String)>[
             if (askodoxPosCan(b, 'sell')) ('sale', Icons.point_of_sale, 'New bill', 'కొత్త బిల్లు', '/pos/$id/sale'),
             ('payalerts', Icons.volume_up_outlined, 'Payment alerts', 'పేమెంట్ అలర్ట్స్', '/pos/$id/payment-alerts'),
+            ('collect', Icons.qr_code_2, 'Collect by UPI', 'UPI తో కట్టించుకోండి', '/pos/$id/collect'),
             if (askodoxPosCan(b, 'tables') && askodoxPosTableTemplates.contains(b['template']))
               ('tables', Icons.table_restaurant_outlined, 'Tables & KOT', 'టేబుల్స్ & KOT', '/pos/$id/tables'),
             if (askodoxPosCan(b, 'kitchen') && askodoxPosTableTemplates.contains(b['template']))

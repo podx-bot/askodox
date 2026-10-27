@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import 'pos_advance_screens.dart';
 import 'pos_catalogue_screens.dart';
+import 'pos_collect_screens.dart';
 import 'pos_home_screen.dart';
 import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
@@ -14,6 +15,9 @@ import 'pos_selfshop_screens.dart';
 final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/collect', builder: (context, state) => AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)),
+  // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).
+  GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
   GoRoute(
       path: '/pos/:id/payment-alerts',
       builder: (context, state) => AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!)),
