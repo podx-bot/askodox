@@ -493,6 +493,52 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'డబ్బు వచ్చిందా? "జమ" నొక్కండి.',
     'షాప్ అడ్వాన్స్: ప్రతి మార్పుకీ కస్టమర్ తమ యాప్‌లో ఆమోదించాలి.',
   ]),
+  '/crm': _H('Business CRM', 'Business CRM', [
+    'Opens the CRM of your shop (pick the shop if you have more than one).',
+    'No shop yet? Add it in Shop billing first: the CRM works on your shop customers, bills and staff.',
+  ], [
+    'మీ shop CRM తెరుస్తుంది (ఒకటి కంటే ఎక్కువ shops ఉంటే shop ఎంచుకోండి).',
+    'Shop ఇంకా లేదా? ముందు Shop billing లో చేర్చండి: CRM మీ shop customers, bills, staff మీదే పని చేస్తుంది.',
+  ]),
+  '/pos/:id/crm': _H('Business CRM', 'Business CRM', [
+    'Today: follow-ups due, pipeline by stage, and ASKODOX requests you can save as enquiries.',
+    'Tap + Add lead for a new lead or enquiry; set a follow-up and you get a reminder.',
+    'Quotations are made on the bill screen ("Quotation"); here you mark them sent / accepted / rejected.',
+    'Complaints: write the problem, then solve it with a note. Reports show conversion, sources and dues.',
+  ], [
+    'ఈరోజు: చేయాల్సిన follow-ups, stage వారీగా pipeline, ASKODOX requests ని enquiry గా save చేయవచ్చు.',
+    '+ Lead చేర్చండి నొక్కి కొత్త lead / enquiry చేర్చండి; follow-up పెడితే reminder వస్తుంది.',
+    'Quotation bill screen లో ("Quotation") తయారవుతుంది; ఇక్కడ పంపాం / ఒప్పుకున్నారు / వద్దన్నారు అని పెట్టండి.',
+    'Complaints: సమస్య రాసి, పరిష్కారం note తో close చేయండి. Reports లో conversion, sources, బాకీలు కనిపిస్తాయి.',
+  ]),
+  '/pos/:id/crm/leads': _H('Leads & enquiries', 'Leads & Enquiries', [
+    'Filter by stage or "Mine"; tap a lead to work on it.',
+  ], [
+    'Stage లేదా "నావి" తో filter చేయండి; lead నొక్కి పని చేయండి.',
+  ]),
+  '/pos/:id/crm/lead/:lid': _H('Lead', 'Lead వివరాలు', [
+    'Move the stage as the talk goes on; Lost needs a reason, Won can point to the real bill.',
+    'Call note / Note keep the history; Follow-up sets a reminder; Make quotation opens the bill screen for this lead.',
+    'Save as customer adds the person to your shop customers (one customer list).',
+  ], [
+    'మాట్లాడినట్టు stage మార్చండి; Lost కి కారణం కావాలి, Won కి అసలు bill ఎంచుకోవచ్చు.',
+    'Call note / Note history లో ఉంటాయి; Follow-up reminder పెడుతుంది; Quotation తయారు చేయండి ఈ lead కోసం bill screen తెరుస్తుంది.',
+    'Customer గా save చేస్తే మీ shop customers list లో చేరతారు (ఒకే customer list).',
+  ]),
+  '/pos/:id/crm/complaint/:cid': _H('Complaint', 'Complaint', [
+    'Change the status as you work on it; Resolved / Closed need how it was solved.',
+    'Reminder sets a follow-up; the bill and the customer history open from here.',
+  ], [
+    'పని జరుగుతున్నట్టు status మార్చండి; Resolved / Closed కి ఎలా పరిష్కరించారో రాయాలి.',
+    'Reminder follow-up పెడుతుంది; bill, customer history ఇక్కడి నుండే తెరవచ్చు.',
+  ]),
+  '/pos/:id/crm/customer/:cid': _H('Customer history', 'Customer history', [
+    'Everything about this customer: bills, dues, leads, quotations, complaints and notes.',
+    'Add a new lead or complaint for them, or open their account to record money received.',
+  ], [
+    'ఈ customer గురించి అన్నీ: bills, బాకీ, leads, quotations, complaints, notes.',
+    'వారి కోసం కొత్త lead / complaint చేర్చండి, లేదా డబ్బు జమ కోసం account తెరవండి.',
+  ]),
   '/pos/:id/invoices': _H('Bills', 'బిల్లులు', [
     'All issued bills; tap one to print, share, or make a credit note.',
   ], [

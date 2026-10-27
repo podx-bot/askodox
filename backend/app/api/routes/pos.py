@@ -392,7 +392,17 @@ def drafts(business_id: str, request: Request, kind: str = "") -> dict:
 
 @router.post("/businesses/{business_id}/drafts")
 def save_draft(business_id: str, body: DraftIn, request: Request) -> dict:
-    return _call(_store(request).save_draft, business_id, _user(request), _dump(body))
+    user = _user(request)
+    out = _call(_store(request).save_draft, business_id, user, _dump(body))
+    payload = body.payload or {}
+    if body.kind == "quotation" and (payload.get("lead_id") or payload.get("customer_id")):
+        # The quotation joins its lead / customer in the Business CRM (best effort; the draft is already saved).
+        try:
+            _crm(request).link_quote(business_id, user, out["id"], {"lead_id": payload.get("lead_id")})
+            out["crm_linked"] = True
+        except PosError:
+            out["crm_linked"] = False
+    return out
 
 
 @router.delete("/businesses/{business_id}/drafts/{draft_id}")
@@ -541,6 +551,211 @@ def batches(business_id: str, product_id: str, request: Request) -> dict:
 @router.get("/businesses/{business_id}/reports/expiry")
 def expiry_report(business_id: str, request: Request, days: int = 30) -> dict:
     return _call(_store(request).expiry_report, business_id, _user(request), days)
+
+
+# ------------------------------------------------------------ Business CRM (pos_crm.py)
+def _crm(request: Request):
+    from app.services.pos_crm import PosCrm
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_crm", None)
+    if existing is None or existing.store is not store:
+        existing = PosCrm(store)
+        try:
+            container.pos_crm = existing
+        except Exception:
+            pass
+    return existing
+
+
+class LeadIn(BaseModel):
+    kind: str = Field(default="lead", pattern="^(lead|enquiry)$")
+    name: str = Field(default="", max_length=80)
+    phone: str = Field(default="", max_length=20)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    source: str = Field(default="walk_in", max_length=20)
+    source_ref: str = Field(default="", max_length=80)
+    need: str = Field(default="", max_length=500)
+    value_paise: int = Field(default=0, ge=0)
+    assigned_to: Optional[str] = Field(default=None, max_length=20)
+    followup_at: Optional[str] = Field(default=None, max_length=25)
+    followup_note: Optional[str] = Field(default=None, max_length=240)
+
+
+class LeadPatch(BaseModel):
+    version: Optional[int] = None
+    name: Optional[str] = Field(default=None, max_length=80)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    need: Optional[str] = Field(default=None, max_length=500)
+    value_paise: Optional[int] = Field(default=None, ge=0)
+    stage: Optional[str] = Field(default=None, max_length=20)
+    lost_reason: Optional[str] = Field(default=None, max_length=200)
+    won_invoice_id: Optional[str] = Field(default=None, max_length=40)
+    assigned_to: Optional[str] = Field(default=None, max_length=20)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+
+
+class LeadCustomerIn(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=80)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    address: str = Field(default="", max_length=240)
+    gstin: Optional[str] = Field(default=None, max_length=15)
+    state_code: Optional[str] = Field(default=None, max_length=2)
+
+
+class ActivityIn(BaseModel):
+    kind: str = Field(default="note", max_length=20)
+    text: str = Field(min_length=1, max_length=500)
+    lead_id: Optional[str] = Field(default=None, max_length=40)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    complaint_id: Optional[str] = Field(default=None, max_length=40)
+
+
+class FollowupIn(BaseModel):
+    due_at: str = Field(min_length=10, max_length=25)
+    note: str = Field(min_length=1, max_length=240)
+    lead_id: Optional[str] = Field(default=None, max_length=40)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    complaint_id: Optional[str] = Field(default=None, max_length=40)
+    assigned_to: Optional[str] = Field(default=None, max_length=20)
+
+
+class FollowupCloseIn(BaseModel):
+    status: str = Field(default="done", pattern="^(done|skipped)$")
+    outcome: str = Field(default="", max_length=240)
+    next_at: Optional[str] = Field(default=None, max_length=25)
+    next_note: Optional[str] = Field(default=None, max_length=240)
+
+
+class QuoteIn(BaseModel):
+    lead_id: Optional[str] = Field(default=None, max_length=40)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    status: Optional[str] = Field(default=None, max_length=20)
+    estimate_paise: Optional[int] = Field(default=None, ge=0)
+    valid_until: Optional[str] = Field(default=None, max_length=10)
+    invoice_id: Optional[str] = Field(default=None, max_length=40)
+
+
+class ComplaintIn(BaseModel):
+    subject: str = Field(min_length=1, max_length=120)
+    detail: str = Field(default="", max_length=1000)
+    customer_id: Optional[str] = Field(default=None, max_length=40)
+    name: str = Field(default="", max_length=80)
+    phone: str = Field(default="", max_length=20)
+    invoice_id: Optional[str] = Field(default=None, max_length=40)
+    priority: str = Field(default="normal", pattern="^(low|normal|high|urgent)$")
+    assigned_to: Optional[str] = Field(default=None, max_length=20)
+
+
+class ComplaintPatch(BaseModel):
+    status: Optional[str] = Field(default=None, max_length=20)
+    resolution: Optional[str] = Field(default=None, max_length=500)
+    priority: Optional[str] = Field(default=None, max_length=10)
+    assigned_to: Optional[str] = Field(default=None, max_length=20)
+
+
+def _set(model: BaseModel) -> Dict[str, Any]:
+    """Only the fields the caller actually sent (a PATCH never blanks the rest)."""
+    return model.model_dump(exclude_unset=True)
+
+
+@router.get("/businesses/{business_id}/crm/pipeline")
+def crm_pipeline(business_id: str, request: Request, mine: bool = False) -> dict:
+    return _call(_crm(request).pipeline, business_id, _user(request), mine=mine)
+
+
+@router.get("/businesses/{business_id}/crm/staff")
+def crm_staff(business_id: str, request: Request) -> dict:
+    return {"staff": _call(_crm(request).staff, business_id, _user(request))}
+
+
+@router.get("/businesses/{business_id}/crm/leads")
+def crm_leads(business_id: str, request: Request, stage: str = "", kind: str = "", q: str = "", mine: bool = False,
+              customer_id: str = "") -> dict:
+    return {"leads": _call(_crm(request).leads, business_id, _user(request), stage=stage, kind=kind, q=q, mine=mine,
+                           customer_id=customer_id)}
+
+
+@router.post("/businesses/{business_id}/crm/leads")
+def crm_add_lead(business_id: str, body: LeadIn, request: Request) -> dict:
+    return _call(_crm(request).add_lead, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/crm/leads/{lead_id}")
+def crm_lead(business_id: str, lead_id: str, request: Request) -> dict:
+    return _call(_crm(request).lead, business_id, _user(request), lead_id)
+
+
+@router.patch("/businesses/{business_id}/crm/leads/{lead_id}")
+def crm_update_lead(business_id: str, lead_id: str, body: LeadPatch, request: Request) -> dict:
+    return _call(_crm(request).update_lead, business_id, _user(request), lead_id, _set(body))
+
+
+@router.post("/businesses/{business_id}/crm/leads/{lead_id}/customer")
+def crm_lead_to_customer(business_id: str, lead_id: str, body: LeadCustomerIn, request: Request) -> dict:
+    return _call(_crm(request).lead_to_customer, business_id, _user(request), lead_id, _dump(body))
+
+
+@router.post("/businesses/{business_id}/crm/activity")
+def crm_activity(business_id: str, body: ActivityIn, request: Request) -> dict:
+    return _call(_crm(request).add_activity, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/crm/followups")
+def crm_followups(business_id: str, request: Request, when: str = "due", mine: bool = False) -> dict:
+    return {"followups": _call(_crm(request).followups, business_id, _user(request), when=when, mine=mine)}
+
+
+@router.post("/businesses/{business_id}/crm/followups")
+def crm_add_followup(business_id: str, body: FollowupIn, request: Request) -> dict:
+    return _call(_crm(request).add_followup, business_id, _user(request), _dump(body))
+
+
+@router.post("/businesses/{business_id}/crm/followups/{followup_id}/close")
+def crm_close_followup(business_id: str, followup_id: str, body: FollowupCloseIn, request: Request) -> dict:
+    return _call(_crm(request).close_followup, business_id, _user(request), followup_id, _dump(body))
+
+
+@router.get("/businesses/{business_id}/crm/quotations")
+def crm_quotations(business_id: str, request: Request) -> dict:
+    return {"quotations": _call(_crm(request).quotations, business_id, _user(request))}
+
+
+@router.put("/businesses/{business_id}/crm/quotations/{draft_id}")
+def crm_quote(business_id: str, draft_id: str, body: QuoteIn, request: Request) -> dict:
+    return _call(_crm(request).link_quote, business_id, _user(request), draft_id, _set(body))
+
+
+@router.get("/businesses/{business_id}/crm/complaints")
+def crm_complaints(business_id: str, request: Request, status: str = "", customer_id: str = "") -> dict:
+    return {"complaints": _call(_crm(request).complaints, business_id, _user(request), status=status,
+                                customer_id=customer_id)}
+
+
+@router.post("/businesses/{business_id}/crm/complaints")
+def crm_add_complaint(business_id: str, body: ComplaintIn, request: Request) -> dict:
+    return _call(_crm(request).add_complaint, business_id, _user(request), _dump(body))
+
+
+@router.get("/businesses/{business_id}/crm/complaints/{complaint_id}")
+def crm_complaint(business_id: str, complaint_id: str, request: Request) -> dict:
+    return _call(_crm(request).complaint, business_id, _user(request), complaint_id)
+
+
+@router.patch("/businesses/{business_id}/crm/complaints/{complaint_id}")
+def crm_update_complaint(business_id: str, complaint_id: str, body: ComplaintPatch, request: Request) -> dict:
+    return _call(_crm(request).update_complaint, business_id, _user(request), complaint_id, _set(body))
+
+
+@router.get("/businesses/{business_id}/crm/customers/{customer_id}/history")
+def crm_customer_history(business_id: str, customer_id: str, request: Request) -> dict:
+    return _call(_crm(request).customer_history, business_id, _user(request), customer_id)
+
+
+@router.get("/businesses/{business_id}/crm/report")
+def crm_report(business_id: str, request: Request, date_from: str, date_to: str) -> dict:
+    return _call(_crm(request).report, business_id, _user(request), date_from, date_to)
 
 
 # ------------------------------------------------------------ suppliers / purchases
