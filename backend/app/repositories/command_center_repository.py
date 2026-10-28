@@ -223,6 +223,7 @@ FEATURE_FLAGS: Dict[str, str] = {
     "payments.subscriptions": "Optional payment / subscription flows",
     "ai.assistant": "Universal AI assistant replies in Main Chat",
     "voice.sarvam_tts": "Sarvam Bulbul reply voice (device TTS fallback when off)",
+    "voice.elevenlabs_tts": "ElevenLabs human reply voice first (Sarvam, then device TTS, when off or failing)",
     "links.smart": "Smart / deep links (/l/{slug}) with app -> web fallback",
     "offers.merchant": "Merchant-created offers (reviewed) on results and claims",
     "payments.online": "Online payment gateways (only once a gateway is configured)",

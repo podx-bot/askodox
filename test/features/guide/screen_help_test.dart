@@ -167,6 +167,23 @@ void main() {
       expect(find.byKey(const Key('askodoxGuideNudge')), findsNothing);
     });
 
+    testWidgets('Yes answers IN PLACE (no popup over the page) and never repeats an example the box shows',
+        (tester) async {
+      expect(askodoxExampleAlreadyShown('1006', 'e.g. 1006'), isTrue);
+      expect(askodoxExampleAlreadyShown('Lakshmi Devi', 'ఉదా: Lakshmi Devi'), isTrue);
+      expect(askodoxExampleAlreadyShown('1006', ''), isFalse);
+      expect(askodoxExampleAlreadyShown('1006', 'e.g. 2203'), isFalse);
+      await pumpForm(tester);
+      await tester.tap(find.byKey(const Key('hsn')));
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('askodoxGuideNudgeYes')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing, reason: 'the answer grows in the guide bubble, not a popup');
+      expect(find.byKey(const Key('askodoxGuideNudgeSheet')), findsOneWidget);
+      expect(find.byKey(const Key('hsn')).hitTestable(), findsOneWidget, reason: 'the page stays usable');
+    });
+
     testWidgets('typing in time means no question; No is remembered for that box', (tester) async {
       await pumpForm(tester);
       await tester.enterText(find.byKey(const Key('hsn')), '1006');

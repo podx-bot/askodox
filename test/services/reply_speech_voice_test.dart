@@ -32,4 +32,21 @@ void main() {
         reason: 'a server that ignores the voice never plays the wrong gender');
     expect(await old.sarvamAudio('hello', locale: 'en-IN'), isNotNull);
   });
+
+  test('ElevenLabs human voice audio is accepted; an unknown engine is not', () async {
+    final eleven = ReplySpeechService(client: MockClient((_) async => http.Response.bytes([1, 2], 200,
+        headers: {'x-askodox-tts-model': 'eleven_v3', 'x-askodox-tts-voice': 'male', 'x-askodox-tts-path': 'elevenlabs'})));
+    expect(await eleven.sarvamAudio('నమస్కారం', locale: 'te', voice: 'male'), isNotNull);
+    final unknown = ReplySpeechService(client: MockClient((_) async =>
+        http.Response.bytes([1], 200, headers: {'x-askodox-tts-model': 'gemini-tts'})));
+    expect(await unknown.sarvamAudio('hello', locale: 'en'), isNull);
+  });
+
+  test('a slow server voice gives up after the caller timeout (guides speak at once)', () async {
+    final slow = ReplySpeechService(client: MockClient((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return audio('automatic');
+    }));
+    expect(await slow.sarvamAudio('hello', locale: 'en', timeout: const Duration(milliseconds: 50)), isNull);
+  });
 }

@@ -49,6 +49,7 @@ DEFAULT_PRICES: Dict[str, Any] = {
     },
     "stt_inr_per_minute": 0.49,
     "tts_inr_per_1000_chars": 3.0,
+    "elevenlabs_usd_per_1000_chars": 0.15,  # ESTIMATE -- set from the ElevenLabs plan actually bought
     "search_usd_per_1000": 5.0,
     "gst_on_imports_pct": 18.0,      # foreign AI services (reverse charge) -- input credit if GST-registered
     "sale_gst_pct": 18.0,            # credits sold to users, price includes GST
@@ -63,6 +64,7 @@ _HOSTS = {
     "api.anthropic.com": "anthropic",
     "api.sarvam.ai": "sarvam",
     "api.search.brave.com": "brave",
+    "api.elevenlabs.io": "elevenlabs",
 }
 
 _state: Dict[str, Any] = {"db": None, "lock": threading.Lock(), "installed": False}
@@ -166,6 +168,12 @@ def observe(provider: str, request: Any, response: Any, *, streamed: bool = Fals
             usage = reply.get("usage") or {}
             row["input_tokens"] = int(usage.get("prompt_tokens") or 0)
             row["output_tokens"] = int(usage.get("completion_tokens") or 0)
+    elif provider == "elevenlabs":
+        if "text-to-speech" not in path:
+            return None
+        sent = _json(body)
+        row["feature"], row["model"] = "voice_out", str(sent.get("model_id") or "tts")
+        row["chars"] = len(str(sent.get("text") or ""))
     elif provider == "brave":
         row["feature"], row["model"] = "web_search", path.rsplit("/", 2)[-2] if path.count("/") >= 2 else "search"
     record(**row)
@@ -248,12 +256,14 @@ def cost_inr(p: Dict[str, Any], row: Dict[str, Any]) -> float:
         base = row["seconds"] / 60.0 * float(p["stt_inr_per_minute"])
     elif row["provider"] == "sarvam" and row["feature"] == "voice_out":
         base = row["chars"] / 1000.0 * float(p["tts_inr_per_1000_chars"])
+    elif row["provider"] == "elevenlabs":
+        base = row["chars"] / 1000.0 * float(p.get("elevenlabs_usd_per_1000_chars", 0.15)) * fx
     elif row["provider"] == "brave":
         base = row["calls"] / 1000.0 * float(p["search_usd_per_1000"]) * fx
     else:
         price_in, price_out = _token_price(p["tokens_usd_per_million"], row["model"])
         base = (row["input_tokens"] * price_in + row["output_tokens"] * price_out) / 1e6 * fx
-    imported = row["provider"] in ("gemini", "openai", "anthropic", "brave")
+    imported = row["provider"] in ("gemini", "openai", "anthropic", "brave", "elevenlabs")
     return base * (1 + float(p["gst_on_imports_pct"]) / 100.0 if imported else 1)
 
 

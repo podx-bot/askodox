@@ -320,6 +320,24 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
     container: Any = request.app.state.container
     if not _feature_enabled(container, "voice.sarvam_tts"):
         raise HTTPException(status_code=503, detail="TTS_DISABLED")
+    # Human-sounding ElevenLabs voice first (owner 2026-10-28); Sarvam below is
+    # the fallback, then device TTS in the app.
+    if _feature_enabled(container, "voice.elevenlabs_tts"):
+        eleven = _elevenlabs(container)
+        if eleven.configured:
+            spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale)
+            _observe_elevenlabs(spoken)
+            if spoken.get("success") and spoken.get("content"):
+                return Response(
+                    content=bytes(spoken["content"]),
+                    media_type="audio/mpeg",
+                    headers={
+                        "X-ASKODOX-TTS-Path": "elevenlabs",
+                        "X-ASKODOX-TTS-Model": str(spoken.get("model") or ""),
+                        "X-ASKODOX-TTS-Language": str(spoken.get("language_code") or ""),
+                        "X-ASKODOX-TTS-Voice": payload.voice,
+                    },
+                )
     synthesize = getattr(container.voice_assistant_service, "synthesize", None)
     if not callable(synthesize):
         raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
@@ -343,6 +361,33 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
             "X-ASKODOX-TTS-Voice": payload.voice,
         },
     )
+
+
+def _elevenlabs(container: Any) -> Any:
+    """One ElevenLabs client per process (its cache keeps repeated guide lines instant)."""
+    service = getattr(container, "elevenlabs_tts", None)
+    if service is None:
+        from app.services.elevenlabs_tts import ElevenLabsTTS
+
+        service = ElevenLabsTTS()
+        try:
+            container.elevenlabs_tts = service
+        except Exception:
+            pass
+    return service
+
+
+def _observe_elevenlabs(result: dict[str, Any]) -> None:
+    """Provider health from the real answer (quota / auth / errors), never key presence."""
+    try:
+        from app.services import provider_health
+
+        if result.get("cache_hit") or result.get("status") in ("ELEVENLABS_UNSUPPORTED_LANGUAGE", "EMPTY_TTS_TEXT"):
+            return  # no call was made
+        provider_health.record("elevenlabs_tts", ok=bool(result.get("success")),
+                               status_code=result.get("status_code"), reason=str(result.get("status") or ""))
+    except Exception:
+        pass
 
 
 _AUDIO_MIME_BY_SUFFIX = {
