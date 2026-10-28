@@ -284,6 +284,36 @@ void main() {
     expect(container.read(askodoxChatRequestProvider)?.hubAction, AskodoxHubAction.voice);
   });
 
+  testWidgets('header: the full ASKODOX name is visible on a narrow phone (never faded / cut)', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    final container = ProviderContainer(overrides: _overrides(signedIn: false));
+    addTearDown(container.dispose);
+    final router = GoRouter(routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => AppShell(shell: shell),
+        branches: [
+          for (final path in ['/', '/search', '/watchlist', '/updates', '/profile'])
+            StatefulShellBranch(routes: [GoRoute(path: path, builder: (context, state) => const SizedBox())]),
+        ],
+      ),
+    ]);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await tester.pumpAndSettle();
+    final word = find.descendant(of: find.byKey(const Key('askodoxHeaderWordmark')), matching: find.text('ASKODOX'));
+    expect(word, findsOneWidget);
+    final box = tester.getRect(find.byKey(const Key('askodoxHeaderWordmark')));
+    final text = tester.getRect(word);
+    // The drawn word fits inside its slot (scaled down if needed), so no letter is hidden.
+    expect(text.right, lessThanOrEqualTo(box.right + 0.5));
+    expect(text.left, greaterThanOrEqualTo(box.left - 0.5));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('APK 1274: Orders is readable in the real app theme (dark mode) -- empty and with orders',
       (tester) async {
     double contrast(Color a, Color b) {
