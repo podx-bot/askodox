@@ -1,0 +1,31 @@
+name: Play bundle download link (throwaway)
+# Republishes an already signed .aab from an Android Live Build run as a test-only prerelease
+# (tag play-bundle-<build>) so the owner can download it on a computer and upload it in Play Console.
+on:
+  push:
+    branches: ['diag/play-bundle-link']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN_ID=$(jq -r .run_id .github/play-bundle-link.json)
+          ART=$(jq -r .artifact .github/play-bundle-link.json)
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n "$ART" -D bundle
+          ls -la bundle
+          AAB=$(ls bundle/askodox-play-*.aab | head -n 1)
+          BUILD=$(basename "$AAB" .aab | sed 's/askodox-play-//')
+          sha256sum "$AAB" | tee bundle/SHA256.txt
+          echo "::warning::AAB $(basename "$AAB") $(cut -d' ' -f1 bundle/SHA256.txt)"
+          gh release create "play-bundle-${BUILD}" "$AAB" bundle/SHA256.txt -R "$GITHUB_REPOSITORY" \
+            --prerelease --target "${GITHUB_SHA}" --title "Play Console internal testing bundle ${BUILD}" \
+            --notes "Signed .aab for Play Console internal testing only (upload it in Play Console). Not an in-app update; never installs on a phone directly."
+          echo "::warning::URL https://github.com/${GITHUB_REPOSITORY}/releases/download/play-bundle-${BUILD}/$(basename "$AAB")"
