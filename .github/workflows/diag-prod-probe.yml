@@ -5,20 +5,23 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - name: probe
         run: |
           B=https://podx-ai-connect-production-3279.up.railway.app
-          for i in $(seq 1 60); do
-            c=$(curl -fsS --max-time 20 "$B/readiness" | jq -r '.commit // ""' || true)
-            [[ "$c" == 21d306c* ]] && break; sleep 20
+          w(){ echo "::warning::$*"; }
+          w "READINESS $(curl -s --max-time 20 $B/readiness | jq -c '{commit,status}' 2>/dev/null)"
+          w "HEALTH $(curl -s --max-time 20 $B/health | cut -c1-400)"
+          curl -s --max-time 20 $B/health/integrations > hi.json
+          w "INTEG $(jq -c '[.. | objects | select(has("state") and (has("key") or has("name") or has("id"))) | ((.key // .name // .id)|tostring)+"="+(.state|tostring)] | unique' hi.json | cut -c1-3000)"
+          w "SEARCH $(curl -s --max-time 30 $B/health/search | cut -c1-900)"
+          w "MAPS $(curl -s --max-time 30 $B/health/maps | cut -c1-900)"
+          for q in "Samsung 43 inch smart TV under 30000" "electrician near Vijayawada" "rice 25 kg bag price"; do
+            r=$(curl -s --max-time 60 -X POST $B/deals/discover -H 'content-type: application/json' \
+              -d "{\"raw_text\":\"$q\",\"latitude\":16.5062,\"longitude\":80.6480,\"location_label\":\"Vijayawada\"}")
+            w "DISCOVER [$q] $(echo "$r" | jq -c '{n:(.matches|length), sections:((.sections//{})|to_entries|map(.key+":"+((.value.items//.value.rows//.value|if type=="array" then length else (.|tostring|.[0:40]) end)|tostring))), err:.detail}' 2>/dev/null | cut -c1-900)"
           done
-          echo "::warning::COMMIT readiness=$c"
-          for p in /api/pos/businesses/x/crm/pipeline /api/pos/businesses/x/agents /api/me/memory /admin/console; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$B$p"); echo "::warning::ROUTE $p -> $code"
+          for p in /api/flags /api/content /chat /pay/upi/x /api/pos/businesses/x/crm/pipeline /api/me/memory /admin/console; do
+            w "ROUTE $p -> $(curl -s -o /dev/null -w '%{http_code}' --max-time 20 $B$p)"
           done
-          curl -s --max-time 20 "$B/admin/console" | grep -o 'Payment స్థితి' | head -1 | sed 's/^/::warning::CONSOLE has label /'
-          curl -s --max-time 20 "$B/health/integrations" > hi.json
-          jq -c '[.. | objects | select((tostring|test("razorpay";"i")) and has("state"))] | .[0:3]' hi.json | cut -c1-900 | sed 's/^/::warning::RAZORPAY /'
-          jq -c 'keys' hi.json | cut -c1-300 | sed 's/^/::warning::HIKEYS /'
