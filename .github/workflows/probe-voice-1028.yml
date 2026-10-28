@@ -1,0 +1,15 @@
+name: probe voice 1028
+on: push
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B=https://podx-ai-connect-production-3279.up.railway.app
+          for i in $(seq 1 60); do c=$(curl -s $B/health | python3 -c 'import sys,json;print(json.load(sys.stdin).get("commit",""))' 2>/dev/null); [ "$c" = "99b61300688e" ] && break; sleep 15; done
+          echo "::warning::health commit=$c"
+          for t in 'నమస్కారం, నేను ASKODOX. మీకు ఏం కావాలి?' 'नमस्ते, मैं ASKODOX हूँ।'; do
+            H=$(curl -s -D - -o /tmp/a.bin -X POST $B/api/in-app/voice/speak -H 'Content-Type: application/json' -d "{\"text\":\"$t\",\"locale\":\"\",\"voice\":\"male\"}" | tr -d '\r' | grep -iE '^HTTP|x-askodox|content-type' | tr '\n' ' ')
+            echo "::warning::speak $H bytes=$(stat -c %s /tmp/a.bin) head=$(head -c 4 /tmp/a.bin | xxd -p)"
+          done
+          echo "::warning::integrations $(curl -s $B/health/integrations | python3 -c 'import sys,json;d=json.load(sys.stdin);rows=d if isinstance(d,list) else (d.get("items") or d.get("rows") or d.get("integrations") or []);print([(r.get("provider"),r.get("state"),r.get("reason"),r.get("last_status_code")) for r in rows if isinstance(r,dict) and "tts" in (str(r.get("provider",""))+str(r.get("integration",""))).lower()])' 2>&1 | head -c 600)"
