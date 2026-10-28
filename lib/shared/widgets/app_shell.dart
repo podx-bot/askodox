@@ -162,12 +162,18 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             padding: EdgeInsets.only(right: 6),
             child: AskodoxLogo(size: 26),
           ),
+          // The full word always shows: a compact size, and on a narrow phone it shrinks to fit
+          // (scaleDown) instead of fading out the last letters behind the header buttons.
           const Expanded(
-            child: Text('ASKODOX',
-                maxLines: 1,
-                overflow: TextOverflow.fade,
-                softWrap: false,
-                style: TextStyle(color: _navInk, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+            child: FittedBox(
+              key: Key('askodoxHeaderWordmark'),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text('ASKODOX',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+            ),
           ),
           AskodoxHeaderGuideButton(te: isTe),
           InkWell(
