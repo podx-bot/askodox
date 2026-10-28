@@ -115,6 +115,8 @@ ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
                    "cx": ("GOOGLE_CSE_ID", "GOOGLE_SEARCH_ENGINE_ID")},
     # Firebase project for verifying phone sign-in ID tokens (public id, not a secret).
     "firebase_auth": {"project_id": ("FIREBASE_PROJECT_ID",)},
+    # Reply voice (elevenlabs_tts.py).
+    "elevenlabs": {"api_key": ("ELEVENLABS_API_KEY", "XI_API_KEY")},
 }
 
 

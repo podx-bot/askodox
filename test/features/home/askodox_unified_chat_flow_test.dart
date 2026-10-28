@@ -368,7 +368,8 @@ class _FakeReplySpeech extends ReplySpeechService {
   final List<(String, String)> calls = [];
 
   @override
-  Future<Uint8List?> sarvamAudio(String text, {required String locale, String voice = 'automatic'}) async {
+  Future<Uint8List?> sarvamAudio(String text,
+      {required String locale, String voice = 'automatic', Duration timeout = const Duration(seconds: 15)}) async {
     calls.add((text, locale));
     if (hold != null) await hold!.future;
     return audio;

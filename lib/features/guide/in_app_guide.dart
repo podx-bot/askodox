@@ -301,20 +301,39 @@ final askodoxGuideProvider =
 /// user typed is ever sent. Off in tests / when unavailable.
 typedef AskodoxGuideSpeaker = Future<void> Function(String text, String language);
 
+///
+/// ONE guide voice at a time: every call takes a new turn and stops the line
+/// before it, and audio that arrives after a newer line started is dropped --
+/// so the voice never says an old step while the screen shows a new one.
+/// The server voice gets [askodoxGuideVoiceWait]; slower than that, the
+/// phone's own voice speaks at once, so the words and the voice come together.
 final askodoxGuideSpeakerProvider = Provider<AskodoxGuideSpeaker>((ref) => (text, language) async {
       const device = MethodChannel('com.askodox.app/device');
+      final turn = ++askodoxGuideSpeechTurn;
       final voice = ref.read(appSettingsProvider).voicePreference.storageValue;
       try {
+        await device.invokeMethod<bool>('stopSpeaking');
+      } catch (_) {}
+      try {
         if (ref.read(askodoxFlagProvider('voice.sarvam_tts'))) {
-          final audio = await const ReplySpeechService().sarvamAudio(text, locale: language, voice: voice);
+          final audio = await const ReplySpeechService()
+              .sarvamAudio(text, locale: language, voice: voice, timeout: askodoxGuideVoiceWait);
+          if (turn != askodoxGuideSpeechTurn) return; // a newer line is on screen now
           if (audio != null &&
               await device.invokeMethod<bool>('playReplyAudio', {'bytes': audio, 'languageCode': language}) == true) {
             return;
           }
         }
+        if (turn != askodoxGuideSpeechTurn) return;
         await device.invokeMethod<bool>('speakReply', {'text': text, 'languageCode': language, 'voicePreference': voice});
       } catch (_) {}
     });
+
+/// Bumped by every guide line; a line whose turn is old never plays.
+int askodoxGuideSpeechTurn = 0;
+
+/// How long a guide line waits for the server voice before the phone speaks it.
+const askodoxGuideVoiceWait = Duration(seconds: 4);
 
 /// Finds a widget by key value (or `prefix*`) in the live element tree.
 Element? askodoxFindKeyed(Element root, String target) {

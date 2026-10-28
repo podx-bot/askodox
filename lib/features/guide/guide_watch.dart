@@ -28,7 +28,8 @@ class AskodoxFieldGuideInfo extends StatelessWidget {
 
 /// One reason for the guide to offer help on its own.
 class AskodoxGuideNudge {
-  const AskodoxGuideNudge({required this.kind, this.messageEn = '', this.messageTe = '', this.field});
+  const AskodoxGuideNudge(
+      {required this.kind, this.messageEn = '', this.messageTe = '', this.field, this.fieldHint = ''});
 
   /// idle_field (stuck on an empty box) | error (something was refused)
   final String kind;
@@ -37,6 +38,22 @@ class AskodoxGuideNudge {
 
   /// The field the person is on (for idle_field), when it carries guide info.
   final AskodoxFieldGuideInfo? field;
+
+  /// What the box already shows inside it (its grey hint), so the guide never
+  /// repeats an example that is already on the screen.
+  final String fieldHint;
+}
+
+/// True when [example] is already visible in the box's own hint ("e.g. 1006").
+bool askodoxExampleAlreadyShown(String? example, String hint) {
+  String norm(String v) => v
+      .toLowerCase()
+      .replaceAll(RegExp(r'^\s*(e\.g\.|eg:|example:|ఉదా:|ఉదాహరణ:)\s*'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  final e = norm(example ?? '');
+  final h = norm(hint);
+  return e.isNotEmpty && h.isNotEmpty && (h.contains(e) || e.contains(h));
 }
 
 /// Anything in the app can report a problem; the guide on the left offers help.

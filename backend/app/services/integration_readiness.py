@@ -220,6 +220,16 @@ def runtime_rows(container: Any, *, maps_body: Dict[str, Any] | None, web: Dict[
                      else observed["state"],
                      "reason": observed["reason"], "checked_at": observed["last_checked_at"],
                      "last_success_at": observed["last_success_at"], "last_status_code": observed["last_status_code"]})
+    # ElevenLabs reply voice: key from the deployment env (ELEVENLABS_API_KEY), state from real calls.
+    from app.services import elevenlabs_tts
+
+    observed = provider_health.state("elevenlabs_tts", configured=bool(elevenlabs_tts.api_key()),
+                                     enabled=bool(flag("voice.elevenlabs_tts")))
+    rows.append({"integration": "ElevenLabs text-to-speech (human reply voice)", "provider": "elevenlabs_tts",
+                 "state": "NOT_CONFIGURED" if observed["state"] == provider_health.NEEDS_CONFIGURATION
+                 else observed["state"],
+                 "reason": observed["reason"], "checked_at": observed["last_checked_at"],
+                 "last_success_at": observed["last_success_at"], "last_status_code": observed["last_status_code"]})
     rows.append({"integration": "ASKODOX native video upload",
                  "state": "LIVE" if flag("videos.upload") else "DISABLED",
                  "reason": "stored on the ASKODOX volume; staff review before publishing"})

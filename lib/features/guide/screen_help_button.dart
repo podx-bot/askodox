@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -52,9 +53,11 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
       if (!mounted || FocusManager.instance.primaryFocus != node || editable.controller.text.trim().isNotEmpty) return;
       if (!node.context!.mounted) return;
       final info = node.context!.findAncestorWidgetOfExactType<AskodoxFieldGuideInfo>();
-      final label = node.context!.findAncestorWidgetOfExactType<TextField>()?.decoration?.labelText ?? '';
+      final decoration = node.context!.findAncestorWidgetOfExactType<TextField>()?.decoration;
+      final label = decoration?.labelText ?? '';
       _nudgeNode = node;
-      AskodoxGuideNudges.instance.offer(AskodoxGuideNudge(kind: 'idle_field', messageEn: label, messageTe: label, field: info));
+      AskodoxGuideNudges.instance.offer(AskodoxGuideNudge(
+          kind: 'idle_field', messageEn: label, messageTe: label, field: info, fieldHint: decoration?.hintText ?? ''));
     });
   }
 
@@ -65,10 +68,13 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     AskodoxGuideNudges.instance.clear();
   }
 
-  Future<void> _accept(AskodoxGuideNudge nudge, AskodoxScreenHelp? help, String path) async {
-    AskodoxGuideNudges.instance.clear();
-    final navContext = widget.router?.routerDelegate.navigatorKey.currentContext;
-    if (navContext == null) return;
+  /// "Yes" opens the answer IN PLACE (the same bubble grows): no popup on top
+  /// of the page, the page stays usable, and the voice says exactly the words
+  /// shown. An example the box already shows inside it is not repeated.
+  ({String title, String body, String? example, AskodoxScreenHelp? help, String path})? _panel;
+
+  void _accept(AskodoxGuideNudge nudge, AskodoxScreenHelp? help, String path) {
+    final navContext = widget.router?.routerDelegate.navigatorKey.currentContext ?? context;
     final te = Localizations.maybeLocaleOf(navContext)?.languageCode == 'te';
     final field = nudge.field;
     final String title;
@@ -76,63 +82,37 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     String? example;
     if (nudge.kind == 'error') {
       title = te ? 'అది జరగలేదు' : 'That did not go through';
-      body = '${te ? nudge.messageTe : nudge.messageEn}\n\n${te ? 'ఎరుపులో చూపిన బాక్స్ సరిచేసి మళ్ళీ ప్రయత్నించండి. ఈ పేజీ ఎలా వాడాలో కావాలంటే కింద నొక్కండి.' : 'Fix the box shown in red and try again. Tap below if you want this page explained.'}';
+      body = '${te ? nudge.messageTe : nudge.messageEn}\n\n${te ? 'ఎరుపులో చూపిన బాక్స్ సరిచేసి మళ్ళీ ప్రయత్నించండి.' : 'Fix the box shown in red and try again.'}';
     } else if (field != null) {
       title = te ? field.titleTe : field.titleEn;
       body = te ? field.te : field.en;
       example = te ? field.exampleTe : field.exampleEn;
+      if (askodoxExampleAlreadyShown(example, nudge.fieldHint)) example = null;
     } else {
       final label = te ? nudge.messageTe : nudge.messageEn;
       title = label.isEmpty ? (te ? 'ఇక్కడ ఏం రాయాలి' : 'What to write here') : label;
       body = te
-          ? 'ఈ బాక్స్‌లో ${label.isEmpty ? 'అడిగిన వివరం' : '"$label"'} రాయండి. అర్థం కాకపోతే కింద "ఈ పేజీ వివరించు" నొక్కండి.'
-          : 'Type ${label.isEmpty ? 'what is asked' : '"$label"'} in this box. Not sure what it means? Tap "Explain this page" below.';
+          ? 'ఈ బాక్స్‌లో ${label.isEmpty ? 'అడిగిన వివరం' : '"$label"'} రాయండి.'
+          : 'Type ${label.isEmpty ? 'what is asked' : '"$label"'} in this box.';
     }
+    if (example != null && example.isEmpty) example = null;
+    AskodoxGuideNudges.instance.clear();
+    setState(() => _panel = (title: title, body: body, example: example, help: help, path: path));
     if (askodoxGuideVoiceOn) {
-      final spoken = [title, body, if (example != null && example.isNotEmpty) '${te ? 'ఉదాహరణ' : 'Example'}: $example'].join('. ');
+      final spoken = [title, body, if (example != null) '${te ? 'ఉదాహరణ' : 'Example'}: $example'].join('. ');
       unawaited(ref.read(askodoxGuideSpeakerProvider)(spoken, te ? 'te' : 'en').catchError((_) {}));
     }
-    final explain = await showModalBottomSheet<bool>(
-      context: navContext,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          key: const Key('askodoxGuideNudgeSheet'),
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const AskodoxMascot(size: 34),
-              const SizedBox(width: 10),
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-            ]),
-            const SizedBox(height: 10),
-            Text(body, style: const TextStyle(fontSize: 14.5, height: 1.4)),
-            if (example != null && example.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
-                child: Text('${te ? 'ఉదాహరణ' : 'Example'}: $example', style: const TextStyle(fontSize: 13.5)),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Row(children: [
-              if (help != null)
-                TextButton.icon(
-                  key: const Key('askodoxGuideNudgeExplain'),
-                  onPressed: () => Navigator.pop(ctx, true),
-                  icon: const Icon(Icons.menu_book_outlined),
-                  label: Text(te ? 'ఈ పేజీ వివరించు' : 'Explain this page'),
-                ),
-              const Spacer(),
-              FilledButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'అర్థమైంది' : 'Got it')),
-            ]),
-          ]),
-        ),
-      ),
-    );
-    if (explain == true && help != null) await _open(help, path);
+  }
+
+  void _closePanel({bool explain = false}) {
+    final panel = _panel;
+    if (panel == null) return;
+    askodoxGuideSpeechTurn++; // a closed answer never keeps talking
+    unawaited(const MethodChannel('com.askodox.app/device')
+        .invokeMethod<bool>('stopSpeaking')
+        .then<void>((_) {}, onError: (Object _) {}));
+    setState(() => _panel = null);
+    if (explain && panel.help != null) unawaited(_open(panel.help!, panel.path));
   }
 
   @override
@@ -162,6 +142,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
       _lastPath = path;
       _idle?.cancel();
       _declined.clear();
+      _panel = null; // the answer belonged to the old page
       // A new page: an old "need help?" (idle box or refused action) no longer applies.
       if (AskodoxGuideNudges.instance.current != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) => AskodoxGuideNudges.instance.clear());
@@ -209,6 +190,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     final keyboard = MediaQuery.maybeOf(context)?.viewInsets.bottom ?? 0;
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
     final nudge = guiding || askodoxGuideIsPrivate(path) || pattern.isEmpty ? null : AskodoxGuideNudges.instance.current;
+    final panel = guiding ? null : _panel;
     final show = help != null && !guiding && keyboard == 0 && !askodoxGuideIsPrivate(path);
     if (show && AskodoxStartupHint.justOnboarded && pattern == '/') {
       // First time on Home after sign-up: open the welcome guide once.
@@ -219,7 +201,58 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
     }
     return Stack(children: [
       widget.child,
-      if (nudge != null)
+      if (panel != null)
+        Positioned(
+          left: 0,
+          right: 16,
+          bottom: keyboard > 0 ? keyboard + 12 : 168,
+          child: SafeArea(
+            top: false,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              const Material(
+                color: Colors.white,
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.horizontal(right: Radius.circular(22)),
+                  side: BorderSide(color: Color(0xFFD0DCF5)),
+                ),
+                child: Padding(padding: EdgeInsets.fromLTRB(4, 4, 6, 4), child: AskodoxMascot(size: 30)),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Material(
+                  key: const Key('askodoxGuideNudgeSheet'),
+                  color: Colors.white,
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+                    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(panel.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(panel.body, style: const TextStyle(fontSize: 14, height: 1.35)),
+                      if (panel.example != null) ...[
+                        const SizedBox(height: 6),
+                        Text('${te ? 'ఉదాహరణ' : 'Example'}: ${panel.example}',
+                            style: const TextStyle(fontSize: 13.5, color: Color(0xFF1749B8))),
+                      ],
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (panel.help != null)
+                          TextButton(
+                            key: const Key('askodoxGuideNudgeExplain'),
+                            onPressed: () => _closePanel(explain: true),
+                            child: Text(te ? 'ఈ పేజీ వివరించు' : 'Explain this page'),
+                          ),
+                        FilledButton(onPressed: _closePanel, child: Text(te ? 'అర్థమైంది' : 'Got it')),
+                      ]),
+                    ]),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      if (nudge != null && panel == null)
         Positioned(
           left: 0,
           right: 16,
@@ -267,7 +300,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
             ]),
           ),
         ),
-      if (show && nudge == null)
+      if (show && nudge == null && panel == null)
         Positioned(
           left: 0,
           bottom: 168,
