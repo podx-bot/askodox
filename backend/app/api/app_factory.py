@@ -218,6 +218,7 @@ def create_app() -> FastAPI:
         openai_api_key=container.settings.openai_api_key,
         openai_model=container.settings.openai_text_model,
         research_service=live_research,
+        deep_research_service=deep_research,
     )
     container.universal_ai_assistant_service = universal_ai
 
@@ -444,6 +445,12 @@ def create_app() -> FastAPI:
 
     app.include_router(staff_workspace_router)
     app.include_router(early_access_router)
+    from app.api.routes.test_mode import router as test_mode_router
+
+    app.include_router(test_mode_router)
+    from app.api.routes.availability import router as availability_router
+
+    app.include_router(availability_router)
     app.include_router(staff_workspace_page_router)
     from app.api.routes.admin_console import router as admin_console_router
 

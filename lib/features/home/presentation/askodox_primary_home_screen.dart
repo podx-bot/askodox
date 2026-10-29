@@ -76,6 +76,8 @@ import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
 import '../application/voice_mode.dart';
+import '../../../core/diagnostics/test_mode.dart';
+import '../data/availability_watch_repository.dart';
 
 const _ink = Color(0xFF10204A);
 const _muted = Color(0xFF667085);
@@ -582,8 +584,9 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     setState(() => _voicePhase = _VoicePhase.thinking);
-    // Speaking to ASKODOX turns Voice Mode on (Profile turns it off).
-    unawaited(ref.read(askodoxVoiceModeProvider.notifier).set(true));
+    // A voice turn is answered in voice too; it does NOT switch later typed
+    // turns to voice (owner rule 2026-10-29: the reply follows the input).
+    askodoxTestLog('send', detail: {'input': 'voice', 'text': draft});
     await _send(draft, true);
     if (mounted && _voicePhase == _VoicePhase.thinking) {
       setState(() => _voicePhase = _VoicePhase.idle);
@@ -1698,7 +1701,9 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     if (_voicePhase == _VoicePhase.transcribing) return;
-    // Voice Mode: typed turns are spoken too (Text Mode: only on Replay).
+    askodoxTestLog('send', detail: {'input': 'typed', 'text': _controller.text});
+    // Typed turn: text only, unless the user chose "Always speak replies"
+    // in Profile (Replay speaks any reply).
     await _send(null, ref.read(askodoxVoiceModeProvider));
   }
 
@@ -2104,6 +2109,15 @@ class _AskodoxPrimaryHomeScreenState
       authToken: ref.read(authSessionProvider).user == null ? null : ref.read(authSessionProvider).tokenPlaceholder,
     );
     final aiUsable = decision?.usable == true;
+    askodoxTestLog('reply', detail: {
+      'usable': aiUsable,
+      'mode': decision?.mode,
+      'action': decision?.action,
+      'grounding_verified': decision?.groundingVerified,
+      'grounding_mode': decision?.groundingMode,
+      'honesty': decision?.honesty ?? const <String>[],
+      'reply': decision?.reply,
+    });
     // One-time advice memory: keep the ledger the brain returned so a
     // concern already explained is not repeated (an older backend returns
     // none -- keep what we have).
@@ -3077,6 +3091,39 @@ class _AskodoxPrimaryHomeScreenState
     _scrollBottom();
   }
 
+  /// "Tell me when it is available": one watch for this need; one push when a
+  /// matching listing appears (backend availability_watch.py). A guest signs
+  /// in first (real OTP), then the same watch is saved.
+  Future<void> _notifyWhenAvailable(int turnIndex, AskodoxChatResults results, {bool afterSignIn = false}) async {
+    final deal = _dealByTurn[turnIndex] ?? ref.read(universalDealControllerProvider).deal;
+    final subject = (deal?.subject ?? deal?.category ?? '').trim();
+    if (subject.isEmpty) return;
+    final repo = ref.read(availabilityWatchRepositoryProvider);
+    if (!repo.signedIn && !afterSignIn && mounted && GoRouter.maybeOf(context) != null) {
+      await context.push<bool>('/onboarding?signin=1');
+      if (mounted && ref.read(authSessionProvider).user != null) {
+        return _notifyWhenAvailable(turnIndex, results, afterSignIn: true);
+      }
+      if (!mounted) return;
+    }
+    Map<String, Object?>? saved;
+    try {
+      saved = await ref.read(availabilityWatchRepositoryProvider)
+          .watch(subject, location: deal?.location.label ?? '', category: deal?.category ?? '');
+    } catch (_) {}
+    askodoxTestLog('tap', detail: {'action': 'notify_when_available', 'saved': saved != null});
+    final reply = saved == null
+        ? (_te ? 'సైన్ ఇన్ చేసిన తర్వాతే alert పెట్టగలను.' : 'Sign in first so I can set the alert.')
+        : (_te
+            ? '"$subject" దొరికినప్పుడు notification పంపుతాను (30 రోజుల వరకు).'
+            : 'I will send you a notification when "$subject" is available (for up to 30 days).');
+    if (!mounted) return;
+    setState(() => _turns.add(ConversationTurnRecord(text: reply, isUser: false)));
+    await _store.save(_turns);
+    await _saveSnapshot();
+    _scrollBottom();
+  }
+
   /// "Seller/provider? Join ASKODOX": continue IN THIS chat as the supply
   /// side of the same need -- category and place prefilled, the Buyer role
   /// kept (roles are additive), sign-in only when the listing is saved.
@@ -3477,6 +3524,7 @@ class _AskodoxPrimaryHomeScreenState
   Future<void> _speakReply(String reply,
       {required String userText, bool force = false, bool deviceOnly = false}) async {
     if (_speechMuted && !force) return; // muted: the text reply stays
+    reply = askodoxWithoutSources(reply); // source links are read, not spoken
     final markup = reply;
     final chunks = askodoxSpeechChunks(markup);
     if (chunks.length > 1) {
@@ -3517,6 +3565,7 @@ class _AskodoxPrimaryHomeScreenState
         );
         if (played == true) {
           lastReplyVoiceEngine = 'sarvam_bulbul_v3';
+          askodoxTestLog('voice', detail: {'engine': 'server_audio', 'chars': reply.length, 'language': language});
           return;
         }
       }
@@ -3524,6 +3573,12 @@ class _AskodoxPrimaryHomeScreenState
       // Cut off by Stop or a newer reply: never fall back to the device voice.
       if (!current()) return;
       lastReplyVoiceEngine = 'device';
+      askodoxTestLog('voice', detail: {
+        'engine': 'device_fallback',
+        'reason': audio == null ? 'no_server_audio' : 'server_audio_not_played',
+        'chars': reply.length,
+        'language': language,
+      });
       final preference = ref.read(appSettingsProvider).voicePreference;
       if (preference != VoicePreference.automatic && !_voiceFallbackNoticeShown && mounted) {
         // Android does not say which device voices are male / female: say
@@ -4638,6 +4693,7 @@ class _AskodoxPrimaryHomeScreenState
                 // about referring or offering -- otherwise Profile -> Refer.
                 onRefer: _sending || !_growthPromptAllowed(index) ? null : () => _referProvider(index, results),
                 onJoin: _sending || !_growthPromptAllowed(index) ? null : () => _joinAsProvider(index, results),
+                onNotifyMe: _sending ? null : () => _notifyWhenAvailable(index, results),
               ),
       ];
 
@@ -5591,6 +5647,7 @@ class _ChatResultsView extends StatelessWidget {
     required this.onRequestSent,
     this.onRefer,
     this.onJoin,
+    this.onNotifyMe,
     this.onAsk,
     this.onRetry,
     this.onCompare,
@@ -5641,6 +5698,10 @@ class _ChatResultsView extends StatelessWidget {
 
   /// "Know someone who does this? Refer them to ASKODOX."
   final VoidCallback? onRefer;
+
+  /// "Tell me when it is available": shown when nothing (or nothing local)
+  /// was found; one push later when a matching listing appears.
+  final VoidCallback? onNotifyMe;
 
   @override
   Widget build(BuildContext context) {
@@ -5792,6 +5853,18 @@ class _ChatResultsView extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2, bottom: 4),
             child: Text(note,
                 style: const TextStyle(color: _muted, fontSize: 12, height: 1.3)),
+          ),
+        // Below the cards: never takes the top space the cards move into.
+        if (results.searched && !results.hasLocal && onNotifyMe != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 6),
+            child: ActionChip(
+              key: const Key('askodoxNotifyWhenAvailable'),
+              onPressed: onNotifyMe,
+              visualDensity: VisualDensity.compact,
+              avatar: const Icon(Icons.notifications_active_outlined, size: 16),
+              label: Text(te ? 'దొరికినప్పుడు నాకు చెప్పు' : 'Tell me when it is available'),
+            ),
           ),
       ]),
     );

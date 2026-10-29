@@ -45,7 +45,7 @@ button.p{background:var(--acc);color:#fff}button.s{background:none;color:var(--a
 <header><b>ASKODOX Staff</b><span id="who" class="mut"></span><button class="s" id="out" style="display:none">Sign out</button></header>
 <main id="main"></main><nav id="nav" style="display:none"></nav><div id="toast"></div>
 <script>
-const $=s=>document.querySelector(s),M=$("#main");let ME=null,TAB="add",PREFILL={};
+const $=s=>document.querySelector(s),M=$("#main");let ME=null,TAB="add",PREFILL={},PREFILL_AFF="";
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",3500)}
 function cred(){try{return JSON.parse(sessionStorage.getItem("askodox_staff")||"null")}catch(e){return null}}
@@ -95,10 +95,17 @@ async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class
  ${dup.length?`<p class="warn">Already in ASKODOX: ${dup.map(x=>`#${x.id} ${esc(x.title)} (${esc(x.review_status)})`).join(", ")}</p>`:""}
  ${FIELDS.map(([k,l,ta])=>`<label>${l} ${st[k]==="fetched"?'<span class="ok">· from page</span>':st[k]?'<span class="mut">· '+esc(st[k])+"</span>":""}</label>${ta?`<textarea id="f_${k}" rows="3">${esc(f[k]||"")}</textarea>`:`<input id="f_${k}" value="${esc(f[k]??"")}">`}`).join("")}
  <label>Stock</label><select id="f_stock"><option>UNKNOWN</option><option ${d.suggested_stock==="IN_STOCK"?"selected":""}>IN_STOCK</option><option ${d.suggested_stock==="OUT_OF_STOCK"?"selected":""}>OUT_OF_STOCK</option></select>
- <label>Photos (camera / gallery)</label><input id="photo" type="file" accept="image/*" capture="environment" multiple><div class="thumbs" id="thumbs"></div>
+ <label>Photos</label><div class="row"><label class="s btn">📷 Camera<input id="photo" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery (many)<input id="photos" type="file" accept="image/*" multiple hidden></label></div><div class="thumbs" id="thumbs"></div>
+ <div class="row" style="margin-top:6px"><button class="s" id="aidesc">✨ AI తో description రాయి</button><span class="mut" id="aidescnote"></span></div>
  <div class="row" style="margin-top:10px"><button class="s" id="draft">Save draft</button><button class="p" id="submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>`;
- $("#photo").onchange=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
+ const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
   try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);$("#thumbs").innerHTML=photos.map(p=>`<img src="${esc(p)}">`).join("")}catch(err){toast(err.message)}}};
+ $("#photo").onchange=addPhotos;$("#photos").onchange=addPhotos;
+ if(PREFILL_AFF&&$("#f_affiliate_url")&&!$("#f_affiliate_url").value){$("#f_affiliate_url").value=PREFILL_AFF;PREFILL_AFF=""}
+ $("#aidesc").onclick=async()=>{const fields={};FIELDS.forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});$("#aidescnote").textContent="రాస్తోంది…";
+  try{const r=await api("/admin/cc/workspace/describe","POST",{fields,photos});if(!r.ok){$("#aidescnote").textContent=r.reason||"";return}
+   $("#f_description").value=[r.description_en,r.description_te].filter(Boolean).join("\n\n");
+   $("#aidescnote").textContent=(r.unsupported_claims||[]).length?"⚠️ check: "+r.unsupported_claims.join(", "):"✓ AI draft -- చదివి save చేయండి"}catch(e){$("#aidescnote").textContent=e.message}};
  const save=async action=>{const fields={original_product_url:d.url};FIELDS.forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});
   if(photos.length){fields.images=photos;if(!fields.image_url)fields.image_url=photos[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:type,fields,action,stock_status:$("#f_stock").value});
@@ -115,10 +122,20 @@ async function items(){const d=await api("/admin/cc/workspace/items?mine=true");
  const acts=i=>({DRAFT:[["submit",ME.can_publish?"Publish":"Submit"]],LIVE:[["pause","Pause"],["expire","Expire"]],PAUSED:ME.can_publish?[["resume","Resume"]]:[]}[i.review_status]||[]);
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">My items</h3>${d.items.map(i=>itemRow(i,acts(i))).join("")||'<p class="mut">Nothing yet -- add a link.</p>'}</div>`;bindReview()}
 async function tasks(){const d=await api("/admin/cc/workspace/tasks");
- M.innerHTML=`<div class="card"><h3 style="margin-top:0">My tasks</h3>${d.items.map(t=>{const x=t.data||{};return `<div class="item"><div class="grow"><b>${esc(x.title)}</b> <span class="badge">${esc((x.priority||"normal").toUpperCase())}</span> <span class="badge">${esc(t.status)}</span>
- <div class="mut">${esc(x.why||"")}</div><div>${esc(x.expected_action||"")}</div>${x.due_at?`<div class="mut">Due ${esc(x.due_at)}</div>`:""}
+ const links=x=>((x.evidence||{}).links||[]).map(l=>`<div class="item"><div class="grow mut">${esc(l.url.replace(/^https:\/\/(www\.)?/,"").slice(0,60))}${l.affiliate_url?' <span class="ok">· commission link</span>':""}</div><button class="s" data-add="${esc(l.url)}" data-aff="${esc(l.affiliate_url||"")}">Add</button></div>`).join("");
+ const batch=ME.can_assign?`<div class="card"><h3 style="margin-top:0">Links staff కి పంచండి</h3><p class="mut">ఒక line కి ఒక product link. Commission link ఉంటే అదే line లో space తర్వాత పెట్టండి.</p>
+ <textarea id="blinks" rows="5" placeholder="https://www.meesho.com/... https://commission-link..."></textarea>
+ <div class="row">${(ME.team||[]).map(m=>`<label><input type="checkbox" class="bstaff" value="${esc(m.id)}"> ${esc(m.name)}</label>`).join(" ")}</div>
+ <div class="row"><label>ఒక task లో <input id="bper" type="number" value="25" min="1" max="100" style="width:70px"> links</label><button class="p" id="bgo">పంచండి</button></div><div id="bres"></div></div>`:"";
+ M.innerHTML=batch+`<div class="card"><h3 style="margin-top:0">My tasks</h3>${d.items.map(t=>{const x=t.data||{};return `<div class="item"><div class="grow"><b>${esc(x.title)}</b> <span class="badge">${esc((x.priority||"normal").toUpperCase())}</span> <span class="badge">${esc(t.status)}</span>
+ <div class="mut">${esc(x.why||"")}</div><div>${esc(x.expected_action||"")}</div>${x.due_at?`<div class="mut">Due ${esc(x.due_at)}</div>`:""}${links(x)}
  <div class="row" style="margin-top:6px">${t.status!=="IN_PROGRESS"?`<button class="s" data-k="start" data-id="${t.id}">Start</button>`:""}<button class="p" data-k="done" data-id="${t.id}">Done</button></div></div></div>`}).join("")||'<p class="mut">No tasks for you right now.</p>'}</div>`;
- M.querySelectorAll("button[data-k]").forEach(b=>b.onclick=async()=>{try{await api(`/admin/cc/workspace/tasks/${b.dataset.id}/${b.dataset.k}`,"POST");start()}catch(e){toast(e.message)}})}
+ M.querySelectorAll("button[data-k]").forEach(b=>b.onclick=async()=>{try{await api(`/admin/cc/workspace/tasks/${b.dataset.id}/${b.dataset.k}`,"POST");start()}catch(e){toast(e.message)}});
+ M.querySelectorAll("button[data-add]").forEach(b=>b.onclick=()=>{PREFILL={url:b.dataset.add,type:"product"};PREFILL_AFF=b.dataset.aff||"";TAB="add";start()});
+ if($("#bgo"))$("#bgo").onclick=async()=>{const rows=$("#blinks").value.split("\n").map(l=>l.trim().split(/\s+/)).filter(r=>r[0]);
+  const assignees=[...M.querySelectorAll(".bstaff:checked")].map(c=>c.value);
+  try{const r=await api("/admin/cc/workspace/tasks/batch-links","POST",{links:rows.map(r=>r[0]),affiliate_links:rows.map(r=>r[1]||""),assignees,per_task:+$("#bper").value||25});
+   $("#bres").innerHTML=`<p class="ok">${r.links} links → ${r.tasks.length} tasks (batch ${esc(r.batch)})</p>`+r.tasks.map(t=>`<div class="mut">${esc(t.assignee)}: ${t.links} links</div>`).join("")}catch(e){toast(e.message)}}}
 async function support(){const d=await api("/admin/cc/escalations?status=");const open=d.items.filter(i=>!["RESOLVED","CLOSED"].includes(i.status));
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">Support queue (${open.length})</h3>${open.map(i=>`<div class="item"><div class="grow"><b>${esc(i.subject||i.category||"Request")}</b> <span class="badge">${esc(i.priority)}</span> <span class="badge">${esc(i.sla_state)}</span>
  <div class="mut">${esc(i.requester)} · ${esc(i.status)}</div><div>${esc((i.handoff||{}).summary||i.message||"")}</div>

@@ -110,6 +110,9 @@ EVENTS = (
     "advisor_question_asked", "advisor_answer_received", "intent_qualified", "results_shown", "review_opened",
     "deal_opened", "seller_notified", "seller_opportunity_response", "contact_released", "order_completed",
     "stock_changed", "commission_changed", "support_escalated", "auto_response", "listing_blocked", "social_dm", "early_access_seen", "client_error", "feedback",
+    # 2026-10-29 knowledge gaps (AI could not confirm / user corrected) and
+    # "tell me when it is available" alerts.
+    "knowledge_gap", "availability_watch", "availability_alert",
 )
 EVENT_IDS = ("user_ref", "session_id", "search_id", "result_id", "merchant_id", "partner_id", "campaign_id",
              "offer_id", "coupon_id", "click_id", "order_id", "transaction_id", "conversion_id", "video_id",

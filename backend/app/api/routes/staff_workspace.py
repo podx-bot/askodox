@@ -164,8 +164,12 @@ def workspace_me(request: Request) -> dict:
                                            "review_status='DRAFT' AND submitted_by=?", (principal["id"],)).fetchone()[0]
     if sections["tasks"]:
         counts["tasks"] = len(_my_tasks(request, principal))
+    can_assign = _can(principal, "tasks:create")
+    team = [{"id": str(m["id"]), "name": m["name"], "role": m["role"]}
+            for m in command_center(container).list_staff() if m.get("active")] if can_assign else []
     return {"id": principal["id"], "name": principal["name"], "role": principal["role"], "sections": sections,
-            "item_types": _types(principal), "can_publish": _can_publish(principal), "counts": counts}
+            "item_types": _types(principal), "can_publish": _can_publish(principal), "counts": counts,
+            "can_assign": can_assign, "team": team}
 
 
 # ---------------------------------------------------------------- import --
@@ -224,6 +228,53 @@ def import_link(body: ImportBody, request: Request) -> dict:
 
     rate_limit.check(request, "workspace_import", limit=60)
     return _import_one(request, body.url, details=True)
+
+
+class DescribeBody(BaseModel):
+    fields: dict[str, Any] = Field(default_factory=dict)
+    photos: list[str] = Field(default_factory=list, max_length=6)
+
+
+def _photo_facts(request: Request, photos: list[str]) -> list[str]:
+    """What our own uploaded staff photos show (same image brain as chat)."""
+    from app.services.attachment_facts import attachment_facts
+
+    service = getattr(request.app.state.container, "universal_image_service", None)
+    if service is None:
+        return []
+    out = []
+    for ref in photos[:2]:
+        name = ref.rsplit("/", 1)[-1]
+        if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", name):
+            continue  # only photos uploaded here, never an arbitrary URL
+        path = os.path.join(_upload_dir(request), name)
+        if not os.path.exists(path):
+            continue
+        mime = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[name.rsplit(".", 1)[1]]
+        try:
+            with open(path, "rb") as handle:
+                analysis = service.analyze(handle.read(), mime_type=mime)
+            facts = attachment_facts("image", analysis or {})
+        except Exception:
+            facts = ""
+        if facts:
+            out.append(str(facts)[:600])
+    return out
+
+
+@router.post("/admin/cc/workspace/describe")
+def describe_item(body: DescribeBody, request: Request) -> dict:
+    """AI draft description (English + Telugu-English) from page facts and the
+    item's photos only; staff review before saving (product_description.py)."""
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    from app.services import product_description, rate_limit
+
+    rate_limit.check(request, "workspace_describe", limit=60)
+    brain = request.app.state.container.universal_ai_assistant_service
+    return product_description.describe(body.fields, write=lambda text: brain.write_text(text, max_tokens=900),
+                                        photo_facts=_photo_facts(request, body.photos))
 
 
 class BulkImportBody(BaseModel):
@@ -459,6 +510,83 @@ def task_from_demand(body: DemandTaskBody, request: Request) -> dict:
     data["priority"] = data["priority"].lower()
     record, created = create_task_once(_pf(request), data, actor=principal["id"])
     return {"task": record, "created": created}
+
+
+class LinkBatchBody(BaseModel):
+    links: list[str] = Field(min_length=1, max_length=500)
+    # Optional commission / affiliate link per product link (same order).
+    affiliate_links: list[str] = Field(default_factory=list, max_length=500)
+    assignees: list[str] = Field(min_length=1, max_length=50)  # staff ids
+    per_task: int = Field(default=25, ge=1, le=100)
+    note: str = Field(default="", max_length=500)
+
+
+@router.post("/admin/cc/workspace/tasks/batch-links")
+def task_batch_links(body: LinkBatchBody, request: Request) -> dict:
+    """Owner / manager pastes many product links (+ commission links); they are
+    split into tasks and shared round-robin between the chosen staff. Each task
+    lists its links; staff open one, the page fills itself, AI writes the
+    description, staff check and save. Re-sending the same batch never
+    duplicates tasks."""
+    principal = _principal(request)
+    if not _can(principal, "tasks:create"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs tasks:create)")
+    pairs, seen = [], set()
+    for i, raw in enumerate(body.links):
+        url = raw.strip()
+        if not url.startswith("https://") or ac.canonical_key(url) in seen:
+            continue
+        seen.add(ac.canonical_key(url))
+        aff = body.affiliate_links[i].strip() if i < len(body.affiliate_links) else ""
+        pairs.append({"url": url, **({"affiliate_url": aff} if aff.startswith("https://") else {})})
+    if not pairs:
+        raise HTTPException(status_code=422, detail="No https product links found")
+    cc = command_center(request.app.state.container)
+    staff = {str(s["id"]): s for s in cc.list_staff() if s.get("active")}
+    assignees = [a.removeprefix("staff-") for a in body.assignees if a.removeprefix("staff-") in staff]
+    if not assignees:
+        raise HTTPException(status_code=422, detail="Choose at least one active staff member")
+    batch = hashlib.sha256("|".join(p["url"] for p in pairs).encode()).hexdigest()[:10]
+    chunks = [pairs[i:i + body.per_task] for i in range(0, len(pairs), body.per_task)]
+    pf = _pf(request)
+    tasks, created = [], 0
+    for n, chunk in enumerate(chunks):
+        who = assignees[n % len(assignees)]
+        record, fresh = create_task_once(pf, {
+            "title": f"Add {len(chunk)} products ({n + 1}/{len(chunks)})",
+            "why": body.note or "Product links to add to ASKODOX results",
+            "expected_action": "Open each link: details fill themselves, press AI description, check, then save.",
+            "priority": "normal", "assignee_staff": who, "dedupe_key": f"links:{batch}:{n}",
+            "kind": "add_products", "evidence": {"batch": batch, "links": chunk}}, actor=principal["id"])
+        created += int(fresh)
+        tasks.append({"id": record["id"], "assignee": staff[who]["name"], "links": len(chunk)})
+    return {"batch": batch, "links": len(pairs), "tasks": tasks, "created": created}
+
+
+@router.get("/admin/cc/workspace/tasks/batch-links/{batch}")
+def task_batch_progress(batch: str, request: Request) -> dict:
+    """How far each staff member got: a link counts as done once an item with
+    the same product (canonical key) exists in the item store."""
+    principal = _principal(request)
+    if not (_can(principal, "tasks:view") or _can(principal, "tasks:create")):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs tasks:view)")
+    store = catalog(request.app.state.container)
+    with store._connect() as conn:
+        added = {r[0] for r in conn.execute("SELECT canonical_key FROM affiliate_products WHERE deleted_at IS NULL "
+                                            "AND canonical_key IS NOT NULL")}
+    out = []
+    for record in _pf(request).repo.list("staff_tasks"):
+        data = record.get("data") or {}
+        evidence = data.get("evidence") or {}
+        if data.get("kind") != "add_products" or evidence.get("batch") != batch:
+            continue
+        links = evidence.get("links") or []
+        done = sum(1 for link in links if ac.canonical_key(link.get("url")) in added)
+        out.append({"task": record["id"], "status": record.get("status"), "assignee_staff": data.get("assignee_staff"),
+                    "links": len(links), "added": done})
+    if not out:
+        raise HTTPException(status_code=404, detail="No such batch")
+    return {"batch": batch, "tasks": out, "links": sum(t["links"] for t in out), "added": sum(t["added"] for t in out)}
 
 
 # ------------------------------------------------------------- analytics --

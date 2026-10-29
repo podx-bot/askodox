@@ -109,7 +109,7 @@ def test_no_live_provider_gives_an_honest_unverified_answer():
     assert "LIVE VERIFICATION REQUIRED BUT UNAVAILABLE" in models.prompts[0]
     assert "Do NOT claim the answer was checked" in models.prompts[0]
     assert decision["grounding"] == {"required": True, "verified": False,
-                                     "query": "When is Diwali this year? 2031", "sources": []}
+                                     "query": "When is Diwali this year? 2031", "mode": "quick", "sources": []}
     assert "couldn't verify this with live sources" in decision["reply"]
 
     empty = FakeResearch([])

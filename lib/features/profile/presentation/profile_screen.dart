@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/navigator_section.dart';
 import '../../home/application/voice_mode.dart';
+import '../../../core/diagnostics/test_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -509,12 +510,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               key: const Key('askodoxVoiceModeSwitch'),
               dense: true,
               secondary: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF1769FF)),
-              title: Text(t('Voice Mode', 'వాయిస్ మోడ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(t('On: every reply is spoken. Off: text only (replay any reply).',
-                  'ఆన్: ప్రతి జవాబు వినిపిస్తుంది. ఆఫ్: టెక్స్ట్ మాత్రమే (ఏ జవాబైనా మళ్లీ వినవచ్చు).')),
+              title: Text(t('Always speak replies', 'ప్రతి జవాబు వాయిస్‌లో'), style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(t('Off: replies follow how you ask -- typed gets text, mic gets voice. On: every reply is spoken.',
+                  'ఆఫ్: మీరు ఎలా అడిగితే అలా -- type చేస్తే text, mic లో అడిగితే voice. ఆన్: ప్రతి జవాబు వినిపిస్తుంది.')),
               value: ref.watch(askodoxVoiceModeProvider),
               onChanged: (on) => ref.read(askodoxVoiceModeProvider.notifier).set(on),
             ),
+            // Staff only: record what happens during a phone test (screens,
+            // replies, which voice played, guide speech, errors) so it can be
+            // read back without screenshots. Switches itself off after 7 days.
+            if (ref.watch(askodoxTestModeProvider).allowed)
+              SwitchListTile(
+                key: const Key('askodoxTestModeSwitch'),
+                dense: true,
+                secondary: const Icon(Icons.bug_report_outlined, color: Color(0xFF1769FF)),
+                title: Text(t('Test Mode (staff)', 'Test Mode (staff)'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(t('Records this phone\'s screens, replies, voice and errors for the team. Turns off by itself in 7 days.',
+                    'ఈ phone లో screens, జవాబులు, voice, errors team కోసం record అవుతాయి. 7 రోజుల్లో దానంతట అదే off అవుతుంది.')),
+                value: ref.watch(askodoxTestModeProvider).enabled,
+                onChanged: (on) => ref.read(askodoxTestModeProvider.notifier).setEnabled(on),
+              ),
             row('profile-voice', 'settings', Icons.record_voice_over_outlined, 'Voice preference', 'వాయిస్ ప్రాధాన్యత', '', '',
                 () => _pickVoicePreference(te), subtitle: _voiceLabel(voicePreference, te), words: ['voice', 'వాయిస్', 'గొంతు']),
             row('profile-notifications', 'settings', Icons.notifications_none_rounded, 'Notifications', 'నోటిఫికేషన్స్',

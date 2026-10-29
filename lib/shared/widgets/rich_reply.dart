@@ -70,6 +70,12 @@ bool askodoxNeedsTallLines(String text) => RegExp(r'[\u0C00-\u0C7F\u0900-\u097F\
 bool askodoxHasMarkup(String text) => _inlineMarkup.hasMatch(text) || _hasSeverity(text);
 
 /// The reply as plain words for speech / history / search (no markers).
+/// The reply without its trailing sources list (backend live_lookup.py
+/// appends "**Sources:**" / "**ఆధారాలు (Sources):**" with links): links are
+/// for the eye, never read aloud.
+String askodoxWithoutSources(String text) =>
+    text.replaceFirst(RegExp(r'\n\s*\*\*(?:Sources|ఆధారాలు)[^\n]*\*\*[\s\S]*$'), '').trimRight();
+
 String askodoxPlainReply(String text) => text
     .replaceAll(RegExp(r'^(\s*(?:[-*•]|\d{1,2}[.)])?\s*)(?:\[(?:ok|good|caution|warning|risk|danger)\]|✅|✔️|✔|⚠️|⚠|❌|🚫|⛔)\s*',
         multiLine: true, caseSensitive: false), r'$1')

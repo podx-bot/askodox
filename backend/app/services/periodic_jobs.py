@@ -64,6 +64,31 @@ def _crm_reminders(container: Any) -> Any:
     return {"due": len(due), "pushed": sent}
 
 
+def _availability(container: Any) -> Any:
+    """"Tell me when it is available": new listings matching a buyer's watch -> one push each."""
+    from app.api.routes.availability import store
+    from app.api.routes.platform import platform
+    from app.services import availability_watch
+    from app.services.push_service import push_service
+
+    push = push_service(container)
+    return availability_watch.run(container, store(container), notify=push.notify,
+                                  record=platform(container).repo.record_event)
+
+
+def _owner_alerts(container: Any) -> Any:
+    """Unmet demand / AI knowledge gaps over the threshold -> Command Center + push to demand staff."""
+    from app.api.routes.command_center import command_center
+    from app.api.routes.platform import platform
+    from app.services import governance as gov
+    from app.services import owner_alerts
+    from app.services.push_service import push_service
+
+    return owner_alerts.run(platform(container).repo, command_center(container), notify=push_service(container).notify,
+                            has_permission=gov.has_permission)
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
-            ("crm_reminders", 300.0, _crm_reminders)]
+            ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
+            ("owner_alerts", 900.0, _owner_alerts)]
