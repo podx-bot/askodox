@@ -102,3 +102,27 @@ def test_discovery_and_live_research_use_the_chain():
     assert _web_search(container) is chain
     container.brave_web_search_provider = Brave([])  # a test replaced Brave alone
     assert _web_search(container) is container.brave_web_search_provider
+
+
+def test_a_refused_site_query_is_retried_simply_then_per_site():
+    """Production 2026-10-29: Serper answered 400 to the marketplace query, so
+    marketplaces showed "could not be reached" while Brave was out of credit."""
+    seen = []
+
+    def post(url, json, headers, timeout):
+        seen.append(dict(json))
+        if " OR " in json["q"] or "num" in json:
+            return Resp(400, text='{"message":"Query not allowed"}')
+        site = json["q"].split("site:")[-1]
+        return Resp(200, {"organic": [{"title": f"Oppo on {site}", "link": f"https://{site}/oppo-x10",
+                                       "snippet": "Oppo Find X10"}]})
+
+    provider = SerperWebSearchProvider("k", http_post=post)
+    rows = provider("Oppo Find X10 unique-e site:www.amazon.in OR site:www.flipkart.com OR site:www.meesho.com", 20)
+    assert {r["url"] for r in rows} == {"https://www.amazon.in/oppo-x10", "https://www.flipkart.com/oppo-x10",
+                                       "https://www.meesho.com/oppo-x10"}
+    assert provider.last_error is False
+    assert seen[1].get("num") is None and all("OR" not in q["q"] for q in seen[2:])
+    refused = SerperWebSearchProvider("k", http_post=lambda *a, **k: Resp(400, text="Query not allowed"))
+    assert refused("plain query unique-f", 5) == [] and refused.last_error_kind == "bad_request"
+    assert "query not allowed" in refused.health_snapshot()["detail"]
