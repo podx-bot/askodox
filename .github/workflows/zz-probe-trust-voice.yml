@@ -1,0 +1,22 @@
+name: Probe trust-voice analyze (throwaway)
+on:
+  push:
+    branches: [claude/probe-trust-voice]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Analyze + tests -> annotations
+        run: |
+          flutter pub get > /dev/null
+          flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
+          grep -E "error|warning|info" analyze.txt | grep -v "^Analyzing" | head -40 | while read -r l; do echo "::warning title=analyze::$l"; done
+          flutter test --reporter expanded > tests.txt 2>&1 || true
+          grep -nE "\[E\]|Expected:|Actual:|Which:|══╡ EXCEPTION|The following|test/.*dart [0-9]+:[0-9]+" tests.txt | head -60 > fail.txt || true
+          i=0; while read -r l; do i=$((i+1)); echo "::warning title=test $i::$l"; done < fail.txt
+          tail -3 tests.txt | while read -r l; do echo "::notice title=summary::$l"; done
