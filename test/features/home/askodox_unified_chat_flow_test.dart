@@ -1252,6 +1252,23 @@ void main() {
       expect(h.matches.deals, hasLength(1), reason: 'APK 1304: the static schema had nothing missing -> search');
     });
 
+    testWidgets('owner 2026-10-29: other results came back -> a failing source is not mentioned at all',
+        (tester) async {
+      final h = _Harness(
+        matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'mk', matches: [almirah],
+            sourceStatus: {'online': 'ok', 'marketplaces': 'error'})]),
+        assistant: _Assistant((_) => {'reply': 'ok', 'domain': 'PRODUCT', 'transactional': true,
+            'action': 'search_products', 'confidence': 0.9, 'source': 'universal_ai', 'mode': 'commerce',
+            'search_ready': true, 'entities': {'subject': 'almirah'}}),
+      );
+      await h.pump(tester);
+      await h.send(tester, 'show me steel almirah');
+      expect(find.byKey(const Key('askodoxResultsProviderError')), findsNothing);
+      expect(find.textContaining('service problem'), findsNothing);
+      expect(find.textContaining('marketplaces'), findsNothing);
+      expect(find.textContaining('Godrej Slimline'), findsWidgets, reason: 'the results that came are shown');
+    });
+
     testWidgets('1-3, 5, 6, 14: broad request asks first; answers update state; ONE search once enough is known',
         (tester) async {
       final h = wardrobe();

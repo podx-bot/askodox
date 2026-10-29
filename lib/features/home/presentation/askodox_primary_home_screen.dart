@@ -5797,7 +5797,10 @@ class _ChatResultsView extends StatelessWidget {
           ),
         // A provider problem (quota / rate limit / key / outage) is said as
         // that -- never dressed up as "nothing found".
-        if (askodoxProviderProblemText(results, telugu: te) case final problem?)
+        // The service banner only when NOTHING came back (owner 2026-10-29):
+        // no source is required -- when others answered, a failing one is
+        // simply not mentioned (it stays in diagnostics / Command Center).
+        if (askodoxProviderProblemText(results, telugu: te) case final problem? when results.matches.isEmpty)
           _notice(
             key: const Key('askodoxResultsProviderError'),
             icon: Icons.cloud_off_rounded,

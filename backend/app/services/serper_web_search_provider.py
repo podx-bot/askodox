@@ -87,11 +87,13 @@ class SerperWebSearchProvider:
             snap["paused_for_seconds"] = int(self._open_until - time.monotonic())
         return snap
 
-    def _fail(self, state: str, http_status: Optional[int] = None, pause: float = 0.0) -> None:
+    def _fail(self, state: str, http_status: Optional[int] = None, pause: float = 0.0, detail: str = "") -> None:
         self.last_error = True
         self._local.error_kind = state
         self.health = {"state": state, "http_status": http_status, "at": datetime.now(timezone.utc).isoformat(),
-                       "last_ok_at": self.health.get("last_ok_at")}
+                       "last_ok_at": self.health.get("last_ok_at"),
+                       # Serper's own short reason (never the key or the query) -- for diagnosis.
+                       **({"detail": detail[:160]} if detail else {})}
         if pause:
             self._open_until = time.monotonic() + pause
 
@@ -124,16 +126,17 @@ class SerperWebSearchProvider:
                     text = str(response.text or "")[:200].lower()
                 except Exception:
                     pass
+                detail = re.sub(r"[^\w .,:;'()/-]", " ", text)
                 if status == 402 or "credit" in text or "quota" in text:
-                    self._fail("quota_exhausted", status, pause=3600)
+                    self._fail("quota_exhausted", status, pause=3600, detail=detail)
                 elif status in (401, 403):
-                    self._fail("auth_failed", status, pause=600)
+                    self._fail("auth_failed", status, pause=600, detail=detail)
                 elif status == 429:
-                    self._fail("rate_limited", status)
+                    self._fail("rate_limited", status, detail=detail)
                 elif status in (400, 422):
-                    self._fail("bad_request", status)
+                    self._fail("bad_request", status, detail=detail)
                 else:
-                    self._fail("error", status)
+                    self._fail("error", status, detail=detail)
                 raise RuntimeError(f"serper HTTP {status}")
             payload = response.json()
             self.health = {"state": "ok", "http_status": status, "at": datetime.now(timezone.utc).isoformat(),
@@ -166,6 +169,8 @@ class SerperWebSearchProvider:
             return []
         count = max(1, min(int(limit), 20))
         payload = self._post(self.API_URL, self._body(q, count))
+        if payload is None and self.last_error_kind == "bad_request":
+            payload = self._retry_simpler(q, count)
         if payload is None:
             return []
         rows: List[dict] = []
@@ -191,6 +196,34 @@ class SerperWebSearchProvider:
             if isinstance(item, dict):
                 add(item, "news")
         return rows[:count]
+
+    _SITE = re.compile(r"\bsite:(\S+)", re.IGNORECASE)
+
+    def _retry_simpler(self, query: str, count: int) -> Optional[dict[str, Any]]:
+        """Serper refused the request (HTTP 400, production 2026-10-29 on the
+        marketplace query "<subject> site:a OR site:b ..."): try once with the
+        default page size, then -- for an OR of sites -- one small query per
+        site (at most 4), merged. Never invents rows; a refusal stays a failure."""
+        payload = self._post(self.API_URL, {k: v for k, v in self._body(query, 10).items() if k != "num"})
+        if payload is not None:
+            return payload
+        sites = self._SITE.findall(query)
+        if len(sites) < 2:
+            return None
+        base = " ".join(self._SITE.sub(" ", query).replace(" OR ", " ").split())
+        merged: dict[str, Any] = {"organic": []}
+        ok = False
+        for site in sites[:4]:
+            part = self._post(self.API_URL, {k: v for k, v in self._body(f"{base} site:{site}", 10).items()
+                                             if k != "num"})
+            if part is not None:
+                ok = True
+                merged["organic"].extend((part.get("organic") or [])[:max(2, count // len(sites[:4]))])
+        if ok:
+            self.last_error = False
+            self._local.error_kind = None
+            return merged
+        return None
 
     def videos(self, query: str, limit: int) -> List[dict]:
         q = " ".join(str(query or "").split())
