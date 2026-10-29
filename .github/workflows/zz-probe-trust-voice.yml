@@ -16,10 +16,10 @@ jobs:
         run: |
           flutter pub get > pub.txt 2>&1; echo "::notice title=pub::exit $? $(tail -2 pub.txt | tr '\n' ' ')"
           flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
-          flutter test --reporter expanded > tests.txt 2>&1 || true
+          flutter test --reporter expanded test/features/home test/core test/shared > tests.txt 2>&1 || true
           python3 - <<'PY'
           import re
-          a=[l.strip() for l in open('analyze.txt') if re.search(r'(error|warning|info) -', l)]
+          a=[l.strip() for l in open('analyze.txt') if re.search(r'(error|warning|info) (-|•)', l)]
           t=open('tests.txt').read().splitlines()
           keep=[]
           for i,l in enumerate(t):
