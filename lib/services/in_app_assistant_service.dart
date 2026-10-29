@@ -67,7 +67,22 @@ class InAppAssistantDecision {
     this.advice,
     this.adviceLedger,
     this.intelligence,
+    this.groundingVerified,
+    this.groundingMode,
+    this.honesty = const <String>[],
   });
+
+  /// Live web check for this reply (backend live_lookup.py): true = answered
+  /// from live sources, false = a live check was needed but failed, null =
+  /// no live check was needed (or an older backend).
+  final bool? groundingVerified;
+
+  /// 'quick' (one search) or 'deep' (several angles); null when none ran.
+  final String? groundingMode;
+
+  /// Honesty guard reasons the backend applied to this reply (for example an
+  /// unbacked "fake / not released" verdict that was removed).
+  final List<String> honesty;
 
   /// One-time advice memory: the concern raised in THIS reply (key,
   /// summary, severity, repeated, allowed), or null.
@@ -194,6 +209,9 @@ class InAppAssistantDecision {
       intelligence: json['intelligence'] is Map
           ? Map<String, Object?>.unmodifiable(Map<String, Object?>.from(json['intelligence'] as Map))
           : null,
+      groundingVerified: json['grounding'] is Map ? (json['grounding'] as Map)['verified'] == true : null,
+      groundingMode: json['grounding'] is Map ? (json['grounding'] as Map)['mode']?.toString() : null,
+      honesty: names(json['honesty']),
     );
   }
 

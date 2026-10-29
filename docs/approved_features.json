@@ -2024,6 +2024,304 @@
           "change": "Owner command 2026-10-27 (branch claude/role-agents, stacked on claude/business-crm); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "live_lookup_honesty",
+      "name": "Live lookup for new products / leaks + honesty guard",
+      "purpose": "Owner report 2026-10-29: Oppo Find X10 (launched) was called fake / not released even after 'check the official website'. Any product / model name or explicit search ask gets live evidence; leaks / rumours / 'is it released' go deep; sources are labelled; an unbacked 'fake' or 'I searched' never reaches the user.",
+      "expected_behavior": "live_lookup.lookup_kind decides quick / deep / none from the user's own words (any category, en + te); deep uses OASATDeepResearchService with launch / price / leak / official angles. Sources are labelled official / news / rumor / web and listed under the reply (shown, never spoken). Without verified evidence guard_reply removes non-existence verdicts and search claims and adds an honest 'could not confirm yet' line; reasons are returned as honesty[] and recorded as knowledge_gap events.",
+      "roles": [
+        "buyer",
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_keys": [
+            "grounding",
+            "honesty"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "askodoxWithoutSources"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_live_lookup_honesty.py",
+          "tests/test_runtime_grounding.py"
+        ],
+        "flutter": [
+          "test/shared/rich_reply_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "reply_follows_input",
+      "name": "Reply mode follows the input (typed = text, voice = voice)",
+      "purpose": "Owner rule 2026-10-29 (replaces the 2026-10-12 sticky Voice Mode): speaking once must not make later typed replies speak.",
+      "expected_behavior": "A voice turn is answered in voice; a typed turn is text only unless Profile 'Always speak replies' (default OFF, key askodox.voice_mode.v2) is on; Replay always speaks; mute wins.",
+      "roles": [
+        "buyer",
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxVoiceModeSwitch"
+        ],
+        "symbols": [
+          "askodoxVoiceModeProvider"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/home/askodox_unified_chat_flow_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "test_mode_diagnostics",
+      "name": "Test Mode Diagnostics (staff phones)",
+      "purpose": "Owner request 2026-10-29: read what happened during a phone test (screens, replies, which voice played, guide speech, errors) without screenshots.",
+      "expected_behavior": "Only staff numbers can switch it on (Profile); it expires after 7 days; off = nothing collected. Events are allow-listed and masked, kept 14 days, read with qa:view (/admin/cc/test-mode/events) or by the 'Test Mode read' workflow with a read-only staff token (structured fields only, never chat text).",
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/test-mode",
+          "response_keys": [
+            "enabled",
+            "allowed"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/me/test-mode",
+          "response_keys": [
+            "enabled"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/diagnostics/test-events",
+          "response_keys": [
+            "stored"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/test-mode/events",
+          "response_keys": [
+            "summary",
+            "items"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxTestModeSwitch"
+        ],
+        "symbols": [
+          "AskodoxTestLog",
+          "askodoxTestModeProvider"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_test_mode_diagnostics.py"
+        ],
+        "flutter": [
+          "test/core/diagnostics/test_mode_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "availability_watch",
+      "name": "Tell me when it is available",
+      "purpose": "Owner request 2026-10-29: when we do not have an item, the buyer is told later when it arrives.",
+      "expected_behavior": "Chip 'Tell me when it is available' when nothing local was found; one watch per subject (30 days, max 20 active); the background job pushes ONCE when a NEWER seller listing or LIVE catalogue item carries every content word of the subject. In the buyer's data export and deleted with the account.",
+      "roles": [
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/me/availability-watches",
+          "response_keys": [
+            "watch"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/availability-watches",
+          "response_keys": [
+            "items"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxNotifyWhenAvailable"
+        ],
+        "symbols": [
+          "AvailabilityWatchRepository"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_availability_watch.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "knowledge_gaps_owner_alerts",
+      "name": "Knowledge gaps + owner demand alerts",
+      "purpose": "Owner request 2026-10-29: see what the AI could not confirm / users corrected, and be told right away about things we do not have.",
+      "expected_behavior": "knowledge_gap events (subject + reasons, no identity) feed Demand Intelligence; every 15 min a subject with >=3 no-local-supply searches or >=2 gaps in 24 h creates ONE Command Center notification + push to staff with demand:view, per subject per day.",
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/demand/insights",
+          "response_keys": [
+            "knowledge_gaps"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_owner_alerts.py",
+          "tests/test_live_lookup_honesty.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "staff_ai_description_link_batches",
+      "name": "Staff: AI description, camera + gallery photos, link batches",
+      "purpose": "Owner request 2026-10-29: staff add Meesho / marketplace products with commission links quickly, without writing descriptions.",
+      "expected_behavior": "AI description drafts English + Telugu-English text from page facts and our own uploaded photos only (unbacked warranty / delivery / rating / stock flagged); staff review. Owner pastes many links (+ commission link per line) -> tasks split round-robin to chosen staff (deduplicated) with progress by canonical product key.",
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/describe",
+          "response_keys": [
+            "description_en",
+            "description_te",
+            "unsupported_claims"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/tasks/batch-links",
+          "response_keys": [
+            "batch",
+            "tasks"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_staff_ai_description_batch.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

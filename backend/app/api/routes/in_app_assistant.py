@@ -78,6 +78,9 @@ class AssistantDecision(BaseModel):
     # Present only for time-sensitive questions: whether live web evidence
     # verified the answer, and which sources (never claimed when unverified).
     grounding: dict[str, Any] | None = None
+    # Honesty guard (live_lookup.guard_reply) reasons for THIS reply, e.g.
+    # unbacked_nonexistence -- recorded as a knowledge gap; [] when none.
+    honesty: list[str] = Field(default_factory=list)
     # The concern raised in THIS reply (key, summary, severity, repeated,
     # allowed) and the conversation's updated advice ledger for the app to
     # send back next turn. None / [] for turns that raise no concern.
@@ -163,8 +166,41 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         override = override_reply(intelligence, payload.locale)
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
+    _record_knowledge_gap(container, decision, payload)
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
                              credits=(metered or {}).get("credits"))
+
+
+def _record_knowledge_gap(container: Any, decision: dict[str, Any], payload: Any) -> None:
+    """A turn the AI could not confirm, or that the user corrected, becomes a
+    ``knowledge_gap`` event (subject + reasons + language only -- no identity,
+    no message text) for Command Center -> Demand Intelligence. Never raises."""
+    try:
+        from app.api.routes.platform import platform
+        from app.services import live_lookup
+
+        user_text = str(payload.message or "").split("\n\n")[0]
+        reasons = live_lookup.gap_reasons(decision, user_text)
+        if not reasons:
+            return
+        subject = live_lookup.model_phrase(user_text)
+        if not subject:
+            for turn in reversed(list(payload.history or [])[-6:]):
+                if turn.role == "user":
+                    subject = live_lookup.model_phrase(turn.text)
+                    if subject:
+                        break
+        if not subject:
+            subject = str((decision.get("entities") or {}).get("subject") or (decision.get("grounding") or {})
+                          .get("query") or "")[:80]
+        if not subject:
+            return
+        platform(container).repo.record_event(
+            "knowledge_gap", detail={"subject": subject[:80], "reasons": reasons[:6],
+                                     "mode": (decision.get("grounding") or {}).get("mode")},
+            language=str(payload.locale or "")[:12], source="assistant")
+    except Exception:
+        logger.debug("knowledge gap not recorded", exc_info=True)
 
 
 def _reserve_credits(request: Request, locale: str | None) -> dict[str, Any] | None:

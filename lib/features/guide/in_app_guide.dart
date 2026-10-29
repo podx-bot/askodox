@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/diagnostics/test_mode.dart';
 import '../../core/flags/askodox_remote_flags.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../services/reply_speech_service.dart';
@@ -321,10 +322,12 @@ final askodoxGuideSpeakerProvider = Provider<AskodoxGuideSpeaker>((ref) => (text
           if (turn != askodoxGuideSpeechTurn) return; // a newer line is on screen now
           if (audio != null &&
               await device.invokeMethod<bool>('playReplyAudio', {'bytes': audio, 'languageCode': language}) == true) {
+            askodoxTestLog('guide', detail: {'spoken': text, 'engine': 'server_audio'});
             return;
           }
         }
         if (turn != askodoxGuideSpeechTurn) return;
+        askodoxTestLog('guide', detail: {'spoken': text, 'engine': 'device_fallback'});
         await device.invokeMethod<bool>('speakReply', {'text': text, 'languageCode': language, 'voicePreference': voice});
       } catch (_) {}
     });

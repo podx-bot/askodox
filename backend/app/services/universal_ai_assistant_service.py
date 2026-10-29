@@ -17,6 +17,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
+from app.services import live_lookup
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
 from app.services import advice_memory
@@ -211,11 +212,15 @@ class UniversalAIAssistantService:
         http_client: Any | None = None,
         research_service: Any | None = None,
         clock: Any | None = None,
+        deep_research_service: Any | None = None,
     ) -> None:
         self.delegate = delegate
         # Live evidence for time-sensitive facts (OASATLiveResearchService) and
         # the runtime clock used for "today / this year / now" grounding.
         self.research_service = research_service
+        # Several-angle research (OASATDeepResearchService) for new products,
+        # leaks / rumours and explicit "deep search" asks (live_lookup.py).
+        self.deep_research_service = deep_research_service
         self.clock = clock
         self.api_key = str(api_key or "").strip()
         self.model = str(model or "gemini-3.6-flash").strip()
@@ -762,7 +767,7 @@ class UniversalAIAssistantService:
                 compact_history.append({"role": role, "text": text[:1200]})
 
         runtime_block = runtime_context_block(clean, self.clock)
-        grounding, grounding_block = self._live_grounding(clean)
+        grounding, grounding_block = self._live_grounding(clean, compact_history)
         prompt = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
@@ -780,6 +785,11 @@ class UniversalAIAssistantService:
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
             "Do not claim a booking, payment, message, search or match happened, and never say you are showing, finding "
             "or have found options -- the app says that only when real results exist. "
+            "Knowledge honesty: your memory stops at a training date and new products, models, launches and news "
+            "appear every day. Never call a product, model, event or claim fake, non-existent, not released or not real "
+            "from memory -- only live evidence below may say that; without it, say you could not confirm it yet and that "
+            "it may be new. Never say you searched, checked a website or verified anything unless LIVE WEB EVIDENCE is "
+            "given below. "
             "Explicit constraints are sacred: repeat a size, budget, quantity, brand, colour or date EXACTLY as the user "
             "gave it (size 9 stays 'size 9' -- never 'size 8 or 9', never rounded or widened). "
             "Decision brain: if the message asks for advice or a decision (should I, risks, pros/cons, which is safer, how much do I need, is it worth it), it is NOT a search: transactional false, action advise. "
@@ -969,9 +979,21 @@ class UniversalAIAssistantService:
                                advice_review["key"])
                 from app.services import assistant_health
                 assistant_health.record("advice_repeat_violation")
+            telugu = str(locale or "").lower().startswith("te") or bool(re.search(r"[\u0C00-\u0C7F]", user_text))
+            verified = bool(grounding and grounding.get("verified"))
+            # Deterministic honesty (2026-10-29): no "fake / not released"
+            # verdict and no "I searched the website" claim without live
+            # evidence behind it -- whatever the model wrote.
+            reply, honesty = live_lookup.guard_reply(reply, verified=verified, telugu=telugu)
+            if honesty:
+                from app.services import assistant_health
+                for reason in honesty:
+                    assistant_health.record(f"honesty_{reason}")
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
+            if verified:
+                reply = reply + live_lookup.sources_footer(grounding.get("sources") or [], locale, telugu)
             return {
                 **brain,
                 "conversation_relation": relation_name,
@@ -986,6 +1008,7 @@ class UniversalAIAssistantService:
                 "advice": advice_review,
                 "advice_ledger": advice_ledger,
                 **({"grounding": grounding} if grounding is not None else {}),
+                **({"honesty": honesty} if honesty else {}),
             }
         except Exception:
             # Previously silent -- this made every AI-call failure (bad API
@@ -1009,44 +1032,79 @@ class UniversalAIAssistantService:
         telugu = str(locale or "").lower().startswith("te") or bool(re.search(r"[\u0C00-\u0C7F]", message))
         return self._UNVERIFIED_NOTE["te" if telugu else "en"]
 
-    def _live_grounding(self, message: str) -> tuple[dict[str, Any] | None, str]:
-        """Live evidence for time-sensitive/changeable facts. Returns
-        (grounding summary or None when not needed, prompt block)."""
-        if message.startswith("OASAT ") or not needs_live_verification(message):
+    def _live_grounding(self, message: str,
+                        history: list[dict[str, str]] | None = None) -> tuple[dict[str, Any] | None, str]:
+        """Live evidence when the user's words need it (live_lookup.lookup_kind):
+        time-sensitive facts, a product / model name, an explicit "search /
+        official website" ask (quick: one search), or leaks / rumours / "is it
+        released" / "deep search" (deep: several angles). Returns (grounding
+        summary or None when not needed, prompt block)."""
+        if message.startswith("OASAT "):
             return None, ""
-        query = grounded_search_query(message, self.clock)
+        user_text, context, about_shown = self.split_app_context(message)
+        if about_shown:
+            # Questions about options already on screen are answered from them.
+            return None, ""
+        probe = user_text
+        if "The customer shared attachment" in context:
+            # A photo / document the user attached can carry the model name.
+            probe = f"{user_text} {context}"
+        kind = live_lookup.lookup_kind(probe)
+        if kind is None:
+            return None, ""
+        phrase = live_lookup.model_phrase(probe)
+        if not phrase:
+            # "check the official website" usually follows the turn that named
+            # the model: take the name from the user's own recent turns.
+            for turn in reversed((history or [])[-6:]):
+                if turn.get("role") == "user":
+                    phrase = live_lookup.model_phrase(self.split_app_context(turn.get("text") or "")[0])
+                    if phrase:
+                        break
+        official = live_lookup.wants_official(user_text)
+        if phrase:
+            query = f"{phrase} official" if official and kind == "quick" else phrase
+        else:
+            query = grounded_search_query(user_text, self.clock)
+        deep = kind == "deep" and self.deep_research_service is not None
         evidence: dict[str, Any] = {}
-        if self.research_service is not None:
-            try:
+        try:
+            if deep:
+                base = phrase or query
+                evidence = self.deep_research_service.research(
+                    base, limit_per_query=4, max_queries=4,
+                    queries=live_lookup.deep_queries(base, official=official)) or {}
+            elif self.research_service is not None:
                 evidence = self.research_service.research(query, limit=5) or {}
-            except Exception:
-                logger.exception("universal_ai_assistant: live research failed (query_len=%d)", len(query))
-                evidence = {}
-        sources = list(evidence.get("sources") or [])[:5]
+        except Exception:
+            logger.exception("universal_ai_assistant: live research failed (query_len=%d, deep=%s)", len(query), deep)
+            evidence = {}
+        sources = []
+        for src in list(evidence.get("sources") or [])[: (8 if deep else 5)]:
+            row = dict(src)
+            row["label"] = live_lookup.label_source(row, phrase)
+            sources.append(row)
+        mode = "deep" if deep else "quick"
         if not sources:
-            grounding = {"required": True, "verified": False, "query": query, "sources": []}
+            grounding = {"required": True, "verified": False, "query": query, "mode": mode, "sources": []}
             block = (
-                "LIVE VERIFICATION REQUIRED BUT UNAVAILABLE: this question depends on current or date-specific facts and no "
-                "live web evidence could be retrieved. Do NOT claim the answer was checked or is verified, do NOT present a "
-                "specific current date/price/policy as confirmed, and say plainly that it could not be verified right now.\n"
+                "LIVE VERIFICATION REQUIRED BUT UNAVAILABLE: this question depends on current, new-product or "
+                "date-specific facts and no live web evidence could be retrieved. Do NOT claim the answer was checked, "
+                "searched or verified, do NOT present a specific current date/price/policy as confirmed, never call "
+                "the thing fake or non-existent, and say plainly that it could not be verified right now.\n"
             )
             return grounding, block
-        lines = [
-            f"[S{i}] {src.get('title')} | {src.get('url')} | published={src.get('published_at')} | {src.get('snippet')}"
-            for i, src in enumerate(sources, start=1)
-        ]
         grounding = {
             "required": True,
             "verified": True,
             "query": query,
-            "sources": [{"id": f"S{i}", "title": src.get("title"), "url": src.get("url")} for i, src in enumerate(sources, start=1)],
+            "mode": mode,
+            "queries": list(evidence.get("planned_queries") or [query]),
+            "sources": [{"id": f"S{i}", "title": src.get("title"), "url": src.get("url"), "label": src.get("label"),
+                         "published_at": src.get("published_at")}
+                        for i, src in enumerate(sources, start=1)],
         }
-        block = (
-            "LIVE WEB EVIDENCE (retrieved now for this question). Answer current/date-specific facts ONLY from this evidence, "
-            "for the runtime year above; cite source ids like [S1]; if the evidence does not settle it, say so instead of guessing.\n"
-            + "\n".join(lines) + "\n"
-        )
-        return grounding, block
+        return grounding, live_lookup.evidence_block(sources, deep=deep)
 
     def process(self, sender_mobile: str, message: str) -> str:
         clean = str(message or "").strip()

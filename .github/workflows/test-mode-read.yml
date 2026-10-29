@@ -1,0 +1,69 @@
+name: Test Mode read
+
+# Reads the owner's Test Mode Diagnostics from production (Command Center
+# /admin/cc/test-mode/events, permission qa:view) so a phone test can be
+# checked without screenshots. Needs the repository secret
+# ASKODOX_TEST_READER_TOKEN = a read-only Command Center staff token (role with
+# qa:view only). Output = annotations with the summary and one compact line per
+# event: structured fields only (kind, screen, engine, live-check, honesty,
+# input type, error) -- never the chat text, because this repository's run
+# annotations are public.
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: How far back to read (minutes)
+        default: '180'
+  push:
+    branches: ['claude/read-test-mode**']
+    paths: ['.github/test-mode-read.json']
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read Test Mode events
+        env:
+          TOKEN: ${{ secrets.ASKODOX_TEST_READER_TOKEN }}
+          MINUTES: ${{ github.event.inputs.minutes }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          token = os.environ.get('TOKEN', '')
+          if not token:
+              print('::error::ASKODOX_TEST_READER_TOKEN is not set (Command Center staff token with qa:view)')
+              raise SystemExit(1)
+          minutes = os.environ.get('MINUTES') or ''
+          if not minutes:
+              try:
+                  minutes = str(json.load(open('.github/test-mode-read.json')).get('minutes', 180))
+              except Exception:
+                  minutes = '180'
+          base = 'https://admin.askodox.com'
+          req = urllib.request.Request(f'{base}/admin/cc/test-mode/events?minutes={int(minutes)}&limit=1000',
+                                       headers={'X-ASKODOX-Staff-Token': token, 'User-Agent': 'ASKODOX-test-mode-read'})
+          with urllib.request.urlopen(req, timeout=60) as r:
+              data = json.loads(r.read())
+          print('::notice title=summary::' + json.dumps(data.get('summary', {}), ensure_ascii=False)[:4000])
+          SAFE = ('input', 'mode', 'action', 'usable', 'grounding_verified', 'grounding_mode', 'honesty', 'engine',
+                  'reason', 'language', 'chars', 'error')
+          lines = []
+          for e in data.get('items', []):
+              d = e.get('detail') or {}
+              parts = [e.get('received_at', '')[11:19], e.get('kind', ''), e.get('screen', '')]
+              parts += [f'{k}={d[k]}' for k in SAFE if k in d and d[k] not in (None, '', [])]
+              if e.get('kind') == 'error':
+                  parts.append('error=' + str(d.get('error', ''))[:160])
+              lines.append(' | '.join(str(p) for p in parts))
+          chunk, chunks = [], []
+          for line in lines:
+              if sum(len(x) + 3 for x in chunk) + len(line) > 3500:
+                  chunks.append(chunk); chunk = []
+              chunk.append(line)
+          if chunk:
+              chunks.append(chunk)
+          for i, part in enumerate(chunks[:9]):
+              print(f'::warning title=events {i + 1}::' + ' %0A '.join(part))
+          print(f'TOTAL {len(lines)} events, {len(chunks)} chunks')
+          PY

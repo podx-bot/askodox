@@ -4892,21 +4892,21 @@ void main() {
       expect(failing.assistant.requests, isEmpty);
     });
 
-    testWidgets('Voice Mode (owner rule): after speaking once, typed turns are spoken too; Text Mode stays silent',
+    testWidgets('reply follows the input (owner rule 2026-10-29): a voice turn is spoken, later typed turns stay text',
         (tester) async {
       mockRecorder(levels: speech(const Duration(seconds: 60)));
       final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]), voiceTranscript: 'hello');
       await h.pump(tester);
       await h.send(tester, 'hi there');
-      expect(methods(), isNot(contains('speakReply')), reason: 'Text Mode: a typed turn is not spoken');
+      expect(methods(), isNot(contains('speakReply')), reason: 'a typed turn is not spoken');
       await _tapVoice(tester);
       await runFor(tester, const Duration(seconds: 2));
       await _stopVoice(tester);
       final spokenAfterVoice = methods().where((m) => m == 'speakReply').length;
-      expect(spokenAfterVoice, 1);
+      expect(spokenAfterVoice, 1, reason: 'the voice turn is answered in voice');
       await h.send(tester, 'and what about tomorrow');
-      expect(methods().where((m) => m == 'speakReply').length, spokenAfterVoice + 1,
-          reason: 'Voice Mode is on: the typed reply is spoken as well');
+      expect(methods().where((m) => m == 'speakReply').length, spokenAfterVoice,
+          reason: 'speaking once must not switch later typed turns to voice');
     });
 
     testWidgets('typing a new message interrupts a spoken reply', (tester) async {

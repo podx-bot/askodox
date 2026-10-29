@@ -19,12 +19,25 @@ class OASATDeepResearchService:
         self.conflict_analyzer = conflict_analyzer or EvidenceConflictAnalyzer()
 
     def research(self, query: str, *, limit_per_query: int = 5,
-                 max_queries: int = 4, max_age_days: int | None = None) -> dict[str, Any]:
+                 max_queries: int = 4, max_age_days: int | None = None,
+                 queries: list[str] | None = None) -> dict[str, Any]:
+        """``queries`` lets a caller supply its own angles (bounded by
+        ``max_queries``); otherwise they are planned from the query."""
         clean = " ".join(str(query or "").strip().split())
         if not clean:
             raise ValueError("query is required")
 
-        queries = self.plan_queries(clean, max_queries=max_queries)
+        if queries:
+            seen_q: set[str] = set()
+            planned: list[str] = []
+            for candidate in queries:
+                normalized = " ".join(str(candidate or "").split())
+                if normalized and normalized.casefold() not in seen_q:
+                    seen_q.add(normalized.casefold())
+                    planned.append(normalized)
+            queries = planned[:max(1, min(int(max_queries), 6))] or self.plan_queries(clean, max_queries=max_queries)
+        else:
+            queries = self.plan_queries(clean, max_queries=max_queries)
         merged: list[dict[str, Any]] = []
         seen_urls: set[str] = set()
         query_results: list[dict[str, Any]] = []

@@ -127,6 +127,7 @@ def insights(repo, *, days: int = 7, category: str = "", area: str = "", top: in
     funnel = {e: funnel_count(e) for e in ("search", "result_click", "click", "request", "seller_accept",
                                             "seller_decline", "order", "no_match")}
     searches = max(1, funnel["search"])
+    gaps = knowledge_gaps(repo, since=iso(start), until=iso(end), top=top)
     return {
         "period": {"from": iso(start), "to": iso(end), "days": days},
         "filters": {"category": category or None, "area": area or None},
@@ -145,11 +146,32 @@ def insights(repo, *, days: int = 7, category: str = "", area: str = "", top: in
         "brands": [{"brand": b, "count": n} for b, n in Counter(r["brand"] for r in cur if r["brand"]).most_common(top)],
         "by_hour": dict(sorted(by_hour.items())), "by_weekday": dict(by_weekday),
         "funnel": funnel,
+        "knowledge_gaps": gaps,
         "rates": {"request_per_search": round(funnel["request"] / searches, 3),
                   "accept_per_request": round(funnel["seller_accept"] / max(1, funnel["request"]), 3),
                   "order_per_search": round(funnel["order"] / searches, 3),
                   "no_result_rate": round(len([r for r in cur if r["results"] == 0]) / max(1, len(cur)), 3)},
     }
+
+
+def knowledge_gaps(repo, *, since: str, until: Optional[str] = None, top: int = 15) -> List[Dict[str, Any]]:
+    """What the AI could not confirm or the user corrected (``knowledge_gap``
+    events from the assistant: subject + reasons only, no identity)."""
+    counts: Counter = Counter()
+    reasons: Dict[str, Counter] = defaultdict(Counter)
+    last: Dict[str, str] = {}
+    for row in repo.events(event="knowledge_gap", since=since, until=until, limit=20000):
+        detail = row.get("detail") or {}
+        subject = str(detail.get("subject") or "").strip()
+        if not subject:
+            continue
+        key = subject.casefold()
+        counts[key] += 1
+        last.setdefault(key, subject)
+        for reason in detail.get("reasons") or []:
+            reasons[key][str(reason)] += 1
+    return [{"subject": last[k], "count": n, "reasons": dict(reasons[k].most_common(4))}
+            for k, n in counts.most_common(top)]
 
 
 # --------------------------------------------------------- opportunities --

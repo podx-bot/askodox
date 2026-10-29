@@ -135,4 +135,13 @@ void main() {
     final two = tester.getRect(find.textContaining('Two'));
     expect(two.top - one.bottom, greaterThanOrEqualTo(10));
   });
+
+  test('sources list is shown but never spoken (live_lookup footer)', () {
+    const reply = 'Oppo Find X10 launched on 22 October [S1].\n\n**ఆధారాలు (Sources):**\n'
+        '- ✅ Official · [oppo.com](https://www.oppo.com/in/)\n- 📰 News · [91mobiles.com](https://www.91mobiles.com/x) · 2026-10-20';
+    expect(askodoxWithoutSources(reply), 'Oppo Find X10 launched on 22 October [S1].');
+    expect(askodoxWithoutSources('Sources matter to us.'), 'Sources matter to us.');
+    const english = 'Done.\n\n**Sources:**\n- 🌐 Web · [a.com](https://a.com)';
+    expect(askodoxWithoutSources(english), 'Done.');
+  });
 }
