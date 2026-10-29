@@ -2111,6 +2111,8 @@ class _AskodoxPrimaryHomeScreenState
     final aiUsable = decision?.usable == true;
     askodoxTestLog('reply', detail: {
       'usable': aiUsable,
+      'search_ready': decision?.searchReady,
+      'asks_next': decision?.nextQuestion != null,
       'mode': decision?.mode,
       'action': decision?.action,
       'grounding_verified': decision?.groundingVerified,
@@ -2496,6 +2498,16 @@ class _AskodoxPrimaryHomeScreenState
       );
       _lastSearchGate = gate.toString();
       final searchNow = deal != null && gate.allowed;
+      askodoxTestLog('search', detail: {
+        'stage': 'gate',
+        'allowed': gate.allowed,
+        'gate': gate.toString(),
+        'has_deal': deal != null,
+        'has_subject': deal?.subject?.trim().isNotEmpty ?? false,
+        'brain_ready': brainGates ? decision.searchReady : null,
+        'schema_ready': deal?.readyToMatch ?? false,
+        'asks_question': detailQuestion != null,
+      });
       if (searchNow && !deal.readyToMatch) detailQuestion = repeating || videoAsk ? null : detailQuestion;
       // The deal's next question is written in English in the category
       // schema: ask it in the conversation language (APK 1275: Telugu chat
@@ -2519,6 +2531,12 @@ class _AskodoxPrimaryHomeScreenState
           matchedDeal = searchDeal;
           notifier.markSearched();
           results = await _findUniversalMatches(searchDeal);
+          askodoxTestLog('search', detail: {
+            'stage': 'results',
+            'matches': results.matches.length,
+            'local': results.local.length,
+            'advisor_hold': results.advisor != null,
+          });
           // Universal Advisor: a required, decision-changing detail (e.g.
           // budget for a TV) is asked BEFORE final recommendations, unless
           // the user asked to see options now.
@@ -3681,6 +3699,14 @@ class _AskodoxPrimaryHomeScreenState
         }
         _lipSyncTimer?.cancel();
         if (!current()) return;
+        if (i == 0) {
+          askodoxTestLog('voice', detail: {
+            'engine': played ? 'server_audio' : 'device_fallback',
+            'reason': played ? null : (audio == null ? 'no_server_audio' : 'server_audio_not_played'),
+            'chunks': chunks.length,
+            'language': language,
+          });
+        }
         if (!played) {
           lastReplyVoiceEngine = 'device';
           _speakingEngine = 'device';
