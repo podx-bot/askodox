@@ -5777,17 +5777,6 @@ class _ChatResultsView extends StatelessWidget {
             icon: Icons.cloud_off_rounded,
             text: problem,
           ),
-        if (results.searched && !results.hasLocal && onNotifyMe != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: ActionChip(
-              key: const Key('askodoxNotifyWhenAvailable'),
-              onPressed: onNotifyMe,
-              visualDensity: VisualDensity.compact,
-              avatar: const Icon(Icons.notifications_active_outlined, size: 16),
-              label: Text(te ? 'దొరికినప్పుడు నాకు చెప్పు' : 'Tell me when it is available'),
-            ),
-          ),
         if (results.searched && results.matches.isEmpty)
           _notice(
             key: const Key('askodoxResultsNone'),
@@ -5864,6 +5853,18 @@ class _ChatResultsView extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2, bottom: 4),
             child: Text(note,
                 style: const TextStyle(color: _muted, fontSize: 12, height: 1.3)),
+          ),
+        // Below the cards: never takes the top space the cards move into.
+        if (results.searched && !results.hasLocal && onNotifyMe != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 6),
+            child: ActionChip(
+              key: const Key('askodoxNotifyWhenAvailable'),
+              onPressed: onNotifyMe,
+              visualDensity: VisualDensity.compact,
+              avatar: const Icon(Icons.notifications_active_outlined, size: 16),
+              label: Text(te ? 'దొరికినప్పుడు నాకు చెప్పు' : 'Tell me when it is available'),
+            ),
           ),
       ]),
     );
