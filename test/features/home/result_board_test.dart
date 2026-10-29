@@ -68,6 +68,14 @@ void main() {
       expect(text, isNot(contains('ASKODOX')), reason: 'an honest empty source is not a failure');
       expect(askodoxProviderProblemText(failing, telugu: true), contains('సర్వీస్ సమస్య'));
     });
+    test('with other results the failure is a short grey line naming the shops', () {
+      const only = AskodoxChatResults(searched: true, sourceStatus: {'marketplaces': 'error', 'online': 'ok'});
+      expect(askodoxProviderProblemNote(only, telugu: true), 'Amazon / Flipkart / Meesho ధరలు ఇప్పుడు చూపలేకపోయాం.');
+      expect(askodoxProviderProblemNote(only, telugu: false), "Couldn't show Amazon / Flipkart / Meesho prices right now.");
+      expect(askodoxProviderProblemNote(failing, telugu: false), "Couldn't show online stores, job sites right now.");
+      const ok = AskodoxChatResults(searched: true, sourceStatus: {'online': 'no_results'});
+      expect(askodoxProviderProblemNote(ok, telugu: false), isNull);
+    });
     test('no failing source -> no provider notice', () {
       const ok = AskodoxChatResults(searched: true, sourceStatus: {'online': 'no_results', 'nearby': 'ok'});
       expect(askodoxProviderProblemText(ok, telugu: false), isNull);
