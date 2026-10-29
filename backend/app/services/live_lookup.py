@@ -231,7 +231,8 @@ _NONEXISTENT = re.compile(
     r"\bnot (?:been )?(?:yet )?(?:released|launched|announced)\b|\bhasn'?t (?:been )?(?:released|launched|announced)\b|"
     r"\bis not real\b|\bisn'?t real\b|\bnon-?existent\b|\bnot a real\b|"
     r"ఫేక్|నకిలీ|ఉనికిలో లేదు|విడుదల కాలేదు|రిలీజ్ కాలేదు|లాంచ్ కాలేదు|ఇంకా రాలేదు|అలాంటి (?:ఫోన్|మోడల్|ప్రొడక్ట్)[^.!?\n]{0,30}లేదు|"
-    r"తప్పు అయి ఉండొచ్చు|నిజం కాదు)",
+    r"తప్పు అయి ఉండొచ్చు|నిజం కాదు|(?:అలాంటి |ఆ |ఈ )?మోడల్ (?:ఏదీ )?లేదు|మార్కెట్‌?లో(?:కి)? (?:ఇంకా )?(?:లేదు|రాలేదు)|"
+    r"ఇంకా విడుదల|ఇంకా లాంచ్)",
     re.IGNORECASE)
 _CLAIMS_SEARCH = re.compile(
     r"(\bI (?:have )?(?:searched|checked|looked (?:it )?up|verified)\b|\b(?:on|in) (?:the|their) official "

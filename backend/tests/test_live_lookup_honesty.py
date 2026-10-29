@@ -200,3 +200,52 @@ def test_unconfirmed_or_corrected_answers_become_knowledge_gaps_in_demand_intell
                      "reasons": {"live_check_failed": 1, "guard_unbacked_nonexistence": 1, "user_correction": 1}}]
     events = platform(container).repo.events(event="knowledge_gap")
     assert all("message" not in e["detail"] and not e.get("user_ref") for e in events), "no text, no identity"
+
+
+class SeqModels:
+    """Answers in order; records every prompt."""
+
+    def __init__(self, replies, entities=None):
+        self.replies, self.entities, self.prompts = list(replies), entities or {}, []
+
+    def generate_content(self, *, model, contents, config):
+        self.prompts.append(contents)
+        reply = self.replies.pop(0) if self.replies else "ok"
+        if getattr(config, "response_mime_type", None) != "application/json":
+            return SimpleNamespace(text=reply)
+        return SimpleNamespace(text=json.dumps({
+            "reply": reply, "domain": "PRODUCT", "transactional": False, "action": "answer",
+            "confidence": 0.9, "entities": self.entities}))
+
+
+def test_telugu_script_voice_model_name_is_looked_up_from_the_entities_and_answered_again():
+    """Owner test 2026-10-29: the voice turn transcribed the phone name in Telugu
+    letters, so no lookup ran and the first answer said the model does not exist."""
+    research = FakeResearch(LAUNCH)
+    models = SeqModels(["ఆ మోడల్ లేదు.", "OPPO Find X10 అక్టోబర్ 22న launch అయింది [S1]."],
+                       entities={"brand": "Oppo", "model": "Find X10", "subject": "Oppo Find X10 phone"})
+    service = UniversalAIAssistantService(delegate=None, api_key="test", model="m",
+                                          client=SimpleNamespace(models=models), research_service=research, clock=clock)
+    decision = service.decide("ఒప్పో ఫైండ్ ఎక్స్ 10 గురించి చెప్పండి", locale="te")
+    assert research.queries and "Find X10" in research.queries[0]
+    assert len(models.prompts) == 2 and "LIVE WEB EVIDENCE" in models.prompts[1]
+    assert "launch అయింది" in decision["reply"] and "మోడల్ లేదు" not in decision["reply"]
+    assert decision["grounding"]["verified"] is True
+    assert "standard Latin spelling" in models.prompts[0]
+
+
+def test_advice_answers_get_the_evidence_and_the_honesty_rule():
+    research = FakeResearch(LAUNCH)
+    models = SeqModels(["first", "Should you buy it? It launched on 22 October [S1].\nADVICE_META: null"])
+    service = UniversalAIAssistantService(delegate=None, api_key="test", model="m",
+                                          client=SimpleNamespace(models=models), research_service=research, clock=clock)
+    decision = service.decide("is it worth buying the Oppo Reno 15 now?", locale="en")
+    advice_prompt = models.prompts[-1]
+    assert "LIVE WEB EVIDENCE" in advice_prompt and "never call a product, model or event fake" in advice_prompt
+    assert decision["mode"] == "advice"
+
+
+def test_telugu_non_existence_phrases_are_guarded():
+    text, reasons = live_lookup.guard_reply("ఆ మోడల్ లేదు. ఇది ఇంకా మార్కెట్‌లోకి రాలేదు. వేరేది చూడండి.",
+                                            verified=False, telugu=True)
+    assert "మోడల్ లేదు" not in text and "రాలేదు" not in text and reasons == ["unbacked_nonexistence"]

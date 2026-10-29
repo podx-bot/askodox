@@ -406,7 +406,8 @@ class UniversalAIAssistantService:
 
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
                 advice_ledger: list[dict[str, Any]] | None = None,
-                capabilities: list[str] | None = None, user_memory: list[str] | None = None) -> tuple[str, Any]:
+                capabilities: list[str] | None = None, user_memory: list[str] | None = None,
+                evidence: str = "") -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
@@ -438,6 +439,10 @@ class UniversalAIAssistantService:
             + (f"Known user location: {location}\n" if location else "")
             + _user_memory_block(user_memory)
             + f"Conversation so far JSON: {json.dumps(history, ensure_ascii=False)}\n"
+            + "Knowledge honesty: never call a product, model or event fake, non-existent or not released from "
+            "memory (your knowledge has a cutoff); only live evidence below may say that -- otherwise say it could not "
+            "be confirmed yet. Never claim you searched or checked a website unless LIVE WEB EVIDENCE is given.\n"
+            + (evidence or "")
             + f"User's question: {user_text}"
         )
         text = ""
@@ -782,6 +787,8 @@ class UniversalAIAssistantService:
             "(e.g. 'tablet' = a device or medicine), set action to clarify_need, put 2-4 short precise alternatives "
             "(each usable as a search subject, in the user's language) in entities.clarify_options, and make reply ONE short question. "
             "Never use clarify_need for brand, budget, size, quantity or anything a normal follow-up can ask. "
+            "Write brand / model / product names in entities in their standard Latin spelling (e.g. 'Oppo Find X10') "
+            "even when the user wrote or spoke them in Telugu or another script. "
             "Never invent a missing entity. Keep values concise. reply must answer naturally in the user's language or language mix. "
             "Do not claim a booking, payment, message, search or match happened, and never say you are showing, finding "
             "or have found options -- the app says that only when real results exist. "
@@ -833,41 +840,7 @@ class UniversalAIAssistantService:
             + grounding_block
             + f"Current user message: {clean}"
         )
-        data: dict[str, Any] | None = None
-        if self.configured:
-            try:
-                client = self.client or genai.Client(api_key=self.api_key)
-                config = types.GenerateContentConfig(
-                    temperature=0.15,
-                    max_output_tokens=2048,
-                    response_mime_type="application/json",
-                    # Structured extraction does not need deep reasoning. Keep
-                    # thinking from consuming the visible JSON response budget.
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                )
-                response = self._generate_with_retry(client, prompt, config)
-                _observe_ai("gemini", ok=True)
-                data = self._parse_json(str(getattr(response, "text", "") or "").strip())
-            except Exception as exc:
-                _observe_ai("gemini", error=exc)
-                logger.exception(
-                    "universal_ai_assistant.decide: gemini call failed%s (message_len=%d, has_known_location=%s)",
-                    "; trying openai fallback" if self.openai_api_key else "; no openai fallback configured",
-                    len(clean),
-                    bool(clean_location),
-                )
-        if data is None and self.openai_api_key:
-            try:
-                data = self._call_openai(prompt)
-                _observe_ai("openai", ok=True)
-            except Exception as exc:
-                _observe_ai("openai", error=exc)
-                logger.exception(
-                    "universal_ai_assistant.decide: openai fallback also failed "
-                    "(message_len=%d, has_known_location=%s)",
-                    len(clean),
-                    bool(clean_location),
-                )
+        data = self._decision_json(prompt, clean, clean_location)
         if not isinstance(data, dict):
             return None
         try:
@@ -895,6 +868,21 @@ class UniversalAIAssistantService:
             if not reply:
                 return None
             user_text, _app_context, about_shown = self.split_app_context(clean)
+            if grounding is None and not about_shown:
+                # The user's words named no model in Latin letters (Telugu-script
+                # voice "ఒప్పో ఫైండ్ ఎక్స్ 10"), but the model's own entities did:
+                # look it up now and answer again from the evidence (2026-10-29).
+                named = live_lookup.model_phrase(
+                    " ".join(str(entities.get(k) or "") for k in ("brand", "model", "subject")))
+                if named:
+                    grounding, grounding_block = self._live_grounding(f"{named} {user_text}", compact_history)
+                    if grounding is not None and not self.wants_advice(user_text):
+                        again = self._decision_json(
+                            prompt.replace("Current user message:", grounding_block + "Current user message:", 1),
+                            clean, clean_location)
+                        again_reply = str((again or {}).get("reply") or "").strip()
+                        if again_reply:
+                            reply = self._strip_location_question(again_reply, locale) if clean_location else again_reply
             mode = "commerce" if transactional else "chat"
             if about_shown:
                 # A follow-up about options already on screen: answer it from
@@ -907,7 +895,8 @@ class UniversalAIAssistantService:
                 transactional = False
                 action = "advise"
                 advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities,
-                                                   user_memory=user_memory)
+                                                   user_memory=user_memory,
+                                                   evidence=runtime_block + "\n" + (grounding_block or ""))
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta
@@ -1022,6 +1011,45 @@ class UniversalAIAssistantService:
                 bool(clean_location),
             )
             return None
+
+    def _decision_json(self, prompt: str, clean: str, clean_location: str) -> dict[str, Any] | None:
+        """One structured decision from Gemini, then OpenAI (None when no model answered)."""
+        data: dict[str, Any] | None = None
+        if self.configured:
+            try:
+                client = self.client or genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    temperature=0.15,
+                    max_output_tokens=2048,
+                    response_mime_type="application/json",
+                    # Structured extraction does not need deep reasoning. Keep
+                    # thinking from consuming the visible JSON response budget.
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                )
+                response = self._generate_with_retry(client, prompt, config)
+                _observe_ai("gemini", ok=True)
+                data = self._parse_json(str(getattr(response, "text", "") or "").strip())
+            except Exception as exc:
+                _observe_ai("gemini", error=exc)
+                logger.exception(
+                    "universal_ai_assistant.decide: gemini call failed%s (message_len=%d, has_known_location=%s)",
+                    "; trying openai fallback" if self.openai_api_key else "; no openai fallback configured",
+                    len(clean),
+                    bool(clean_location),
+                )
+        if data is None and self.openai_api_key:
+            try:
+                data = self._call_openai(prompt)
+                _observe_ai("openai", ok=True)
+            except Exception as exc:
+                _observe_ai("openai", error=exc)
+                logger.exception(
+                    "universal_ai_assistant.decide: openai fallback also failed "
+                    "(message_len=%d, has_known_location=%s)",
+                    len(clean),
+                    bool(clean_location),
+                )
+        return data
 
     _UNVERIFIED_NOTE = {
         "te": "(గమనిక: ప్రస్తుతం దీన్ని లైవ్ సోర్సులతో ధృవీకరించలేకపోయాను — దయచేసి అధికారిక క్యాలెండర్/సోర్స్‌తో సరిచూసుకోండి.)",
