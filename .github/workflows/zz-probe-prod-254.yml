@@ -28,15 +28,26 @@ jobs:
                   break
               time.sleep(30)
           print(f'::notice title=deployed::commit {live}')
-          for path in ('/health/search', '/health/integrations'):
+          for _ in range(40):  # Railway redeploys after a new variable: wait until Serper is configured
+              _, hs = get('/health/search')
+              if (hs.get('fallbacks') or {}).get('serper') != 'not_configured' or hs.get('primary') == 'serper':
+                  break
+              time.sleep(30)
+          for path in ('/health/search',):
               code, d = get(path)
               print(f'::notice title={path}::status {code} | ' + json.dumps(d, ensure_ascii=False)[:3000])
           for path in ('/api/me/test-mode', '/api/me/availability-watches'):
               print(f'::notice title=route {path}::status {get(path)[0]} (401 = route live, sign-in needed)')
           for text in ('Oppo Find X10 గురించి చెప్పండి', 'is Oppo Find X10 released'):
+              time.sleep(1)
               code, d = get('/api/in-app/assistant', {'message': text, 'locale': 'te', 'history': []})
               g = d.get('grounding') or {}
               srcs = [(s.get('label'), (s.get('url') or '')[:60]) for s in g.get('sources') or []]
               print(f'::notice title={text}::status {code} | mode {g.get("mode")} | verified {g.get("verified")} | '
                     f'honesty {d.get("honesty")} | sources {srcs[:5]} | reply: {(d.get("reply") or "")[:500]}'.replace('\n', ' '))
+          code, d = get('/health/search')
+          print(f'::notice title=after/health/search::status {code} | ' + json.dumps(d, ensure_ascii=False)[:2000])
+          code, d = get('/health/integrations')
+          rows = [r for r in d.get('items', []) if 'search' in str(r.get('integration', '')).lower()]
+          print('::notice title=after/integrations::' + json.dumps(rows, ensure_ascii=False)[:2000])
           PY
