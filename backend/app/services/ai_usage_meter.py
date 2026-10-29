@@ -51,6 +51,7 @@ DEFAULT_PRICES: Dict[str, Any] = {
     "tts_inr_per_1000_chars": 3.0,
     "elevenlabs_usd_per_1000_chars": 0.15,  # ESTIMATE -- set from the ElevenLabs plan actually bought
     "search_usd_per_1000": 5.0,
+    "serper_usd_per_1000": 1.0,      # ESTIMATE -- Serper prepaid credits (set from the pack actually bought)
     "gst_on_imports_pct": 18.0,      # foreign AI services (reverse charge) -- input credit if GST-registered
     "sale_gst_pct": 18.0,            # credits sold to users, price includes GST
     "gateway_fee_pct": 2.36,         # ~2% + GST on the fee (Razorpay, card / UPI mix -- check the contract)
@@ -64,6 +65,7 @@ _HOSTS = {
     "api.anthropic.com": "anthropic",
     "api.sarvam.ai": "sarvam",
     "api.search.brave.com": "brave",
+    "google.serper.dev": "serper",
     "api.elevenlabs.io": "elevenlabs",
 }
 
@@ -176,6 +178,8 @@ def observe(provider: str, request: Any, response: Any, *, streamed: bool = Fals
         row["chars"] = len(str(sent.get("text") or ""))
     elif provider == "brave":
         row["feature"], row["model"] = "web_search", path.rsplit("/", 2)[-2] if path.count("/") >= 2 else "search"
+    elif provider == "serper":
+        row["feature"], row["model"] = "web_search", path.strip("/") or "search"
     record(**row)
     return row
 
@@ -260,10 +264,12 @@ def cost_inr(p: Dict[str, Any], row: Dict[str, Any]) -> float:
         base = row["chars"] / 1000.0 * float(p.get("elevenlabs_usd_per_1000_chars", 0.15)) * fx
     elif row["provider"] == "brave":
         base = row["calls"] / 1000.0 * float(p["search_usd_per_1000"]) * fx
+    elif row["provider"] == "serper":
+        base = row["calls"] / 1000.0 * float(p.get("serper_usd_per_1000", 1.0)) * fx
     else:
         price_in, price_out = _token_price(p["tokens_usd_per_million"], row["model"])
         base = (row["input_tokens"] * price_in + row["output_tokens"] * price_out) / 1e6 * fx
-    imported = row["provider"] in ("gemini", "openai", "anthropic", "brave", "elevenlabs")
+    imported = row["provider"] in ("gemini", "openai", "anthropic", "brave", "serper", "elevenlabs")
     return base * (1 + float(p["gst_on_imports_pct"]) / 100.0 if imported else 1)
 
 

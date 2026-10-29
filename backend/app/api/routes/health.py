@@ -99,11 +99,22 @@ def _search_health(container) -> dict:
     out = {k: snap.get(k) for k in ("state", "http_status", "provider_code", "rate", "at", "last_ok_at",
                                     "paused_for_seconds") if snap.get(k) is not None}
     chain = getattr(container, "web_search_chain", None)
-    if chain is not None:  # fallback providers: configured / ok / error (never keys)
+    if chain is not None:  # the other providers: configured / ok / error (never keys)
+        providers = getattr(chain, "providers", [])
+        primary = providers[0] if providers else None
+        out["primary"] = getattr(primary, "name", "brave") if primary is not provider else "brave"
         out["fallbacks"] = {getattr(p, "name", type(p).__name__):
                             ((getattr(p, "health", {}) or {}).get("state") if getattr(p, "configured", False)
                              else "not_configured")
-                            for p in getattr(chain, "providers", [])[1:]}
+                            for p in providers if p is not provider}
+        try:  # Serper is optional: show its state even before it is configured
+            from app.services.commerce_finance import env_value
+            import os
+
+            if "serper" not in out["fallbacks"] and not env_value(dict(os.environ), "serper", "api_key"):
+                out["fallbacks"]["serper"] = "not_configured"
+        except Exception:
+            pass
     return out
 
 

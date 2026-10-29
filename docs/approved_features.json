@@ -2322,6 +2322,50 @@
           "change": "Owner request 2026-10-29 (branch claude/trust-voice-diagnostics); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "id": "serper_primary_search",
+      "name": "Serper (Google results) primary web search, Brave second",
+      "purpose": "Owner decision 2026-10-29: Brave ran out of credit (HTTP 402) and costs ~$5 / 1000; Serper ~$1 / 1000 with Google's index.",
+      "expected_behavior": "With SERPER_API_KEY set the chain is Serper -> Brave -> legacy CSE for discovery AND live research; the next provider is used only when one FAILS (credits / key / outage), never on an honest empty answer. Rows keep the Brave shape (topStories = news with dates). /health/search shows primary + each provider; Integrations and API Health & Billing list Serper. Without the key Brave stays primary.",
+      "roles": [
+        "buyer",
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/health/search",
+          "response_keys": [
+            "fallbacks"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_serper_primary.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "live_lookup_honesty"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner decision 2026-10-29 (branch claude/serper-primary); needs SERPER_API_KEY on Railway; NOT PRODUCTION VERIFIED"
+        }
+      ]
     }
   ]
 }

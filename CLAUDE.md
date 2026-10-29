@@ -21,7 +21,10 @@ this file, don't trust it blindly.
   #239 own payment methods + POS collect + "Know this first" + LIVE order checkout refused + one mixed-language console,
   #240 UPI QR photo reader (PHONE VERIFIED on 1379, PhonePe dark QR), #241 AI Credits (TEST, charging OFF), #242 collect
   safety (bank-check confirm, undo 15 min, customer pay link `/pay/upi/{id}`), #244 AI usage metering
-  (`ai_usage_meter.py`, one httpx hook, counts only) -- production `d3d4df4` (2026-10-27). Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
+  (`ai_usage_meter.py`, one httpx hook, counts only) -- production `d3d4df4` (2026-10-27). Then #253 (2026-10-29,
+  production `24cc48b`, probe-verified): live lookup + honesty guard (`live_lookup.py`), reply follows input (voice
+  only for voice turns), Test Mode Diagnostics, knowledge gaps + owner alerts, availability watches, staff AI
+  description + link batches. Brave was out of credit (402) on 2026-10-29 -> Serper primary PR. Status matrices: docs/MASTER_COMMAND_STATUS.md, docs/POS_STATUS.md. Production verified by a
   throwaway probe workflow (curl /health commit). Nothing phone / hardware verified.
   Before: `604d8ff` -- PR #213 (2026-10-17): Firebase OTP on APK 1336 failed ("network-request-failed" /
   "unknown [Software caused connection abort]"): MainActivity had `taskAffinity=""`, so Firebase's singleTask
@@ -301,7 +304,8 @@ this file, don't trust it blindly.
   (`/api/content`, page `/content`, section `content`). Nearest junction:
   `/api/discover/junction` (Places, honest `unavailable`). Feeds sync on
   the background runner (`periodic_jobs` "feeds"), never in a search.
-- Web search = `web_search_chain.py` (`container.web_search_chain`): Brave,
+- Web search = `web_search_chain.py` (`container.web_search_chain`): Serper (`serper_web_search_provider.py`,
+  `SERPER_API_KEY`, Google results, owner decision 2026-10-29) when configured, then Brave,
   then Google Programmable Search (`GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID`,
   backend-only) ONLY when Brave fails (never on an honest empty answer); a
   stale Brave copy yields to a live fallback answer. `_web_search(container)`
@@ -655,7 +659,7 @@ this file, don't trust it blindly.
   26+) or Sarvam audio position; otherwise text-paced. See
   `docs/COMPANION_AVATARS.md`.
 - Monetization/price-benchmark l10n strings still contain demo wording but
-  are not reachable from customer screens. No-match "Notify me" not built.
+  are not reachable from customer screens. "Notify me" = availability watches (#253).
 - Rate limits, the API cache and live counters are per process; daily API
   usage (and the ₹ estimate) is persisted in `growth_api_usage`.
 - Route distance needs the Routes API on the Maps key; map tiles use the
