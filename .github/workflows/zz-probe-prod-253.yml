@@ -28,6 +28,9 @@ jobs:
                   break
               time.sleep(30)
           print(f'::notice title=deployed::commit {live}')
+          for path in ('/health/search', '/health/integrations'):
+              code, d = get(path)
+              print(f'::notice title={path}::status {code} | ' + json.dumps(d, ensure_ascii=False)[:3000])
           for path in ('/api/me/test-mode', '/api/me/availability-watches'):
               print(f'::notice title=route {path}::status {get(path)[0]} (401 = route live, sign-in needed)')
           for text in ('Oppo Find X10 గురించి చెప్పండి', 'is Oppo Find X10 released'):
