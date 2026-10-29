@@ -12,8 +12,9 @@ jobs:
           channel: stable
           cache: true
       - name: Analyze + tests -> annotations
+        shell: bash {0}
         run: |
-          flutter pub get > /dev/null
+          flutter pub get > pub.txt 2>&1; echo "::notice title=pub::exit $? $(tail -2 pub.txt | tr '\n' ' ')"
           flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
           python3 - <<'PY'
           import re
